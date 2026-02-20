@@ -1,0 +1,456 @@
+{
+  "name": "01 - Alert Created Webhook (POST → Dedupe → Table → Telegram → Respond)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "alert-created",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -640,
+        120
+      ],
+      "id": "2f3bdb82-9300-4953-a68f-1f27dc1b6e8d",
+      "name": "Webhook",
+      "webhookId": "c6a16583-36ca-4ca6-b3aa-a6b1f3cd4d91"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "nkhXq74KYsn6UFMc",
+          "mode": "list",
+          "cachedResultName": "Alerts",
+          "cachedResultUrl": "/projects/jSrLzU2glHoPk3fZ/datatables/nkhXq74KYsn6UFMc"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "alertId",
+              "keyValue": "=={{ $node[\"Webhook\"].json.body.alertId }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -432,
+        120
+      ],
+      "id": "af9f66cd-55d8-4fce-a5ce-4c3367636b1a",
+      "name": "Get existing alert",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2c0f50d2-8f22-4e5b-9f6f-2856138ce347",
+              "leftValue": "={{ $json.id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        120
+      ],
+      "id": "28f457b9-5ef3-4ff0-a562-9aefc88bf0b8",
+      "name": "Already exists?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Webhook').first().json.body ?? {};\nconst existing = $input.first().json ?? {};\n\nreturn [{\n  json: {\n    ok: true,\n    saved: false,\n    duplicate: true,\n    rowId: existing.id ?? existing.rowId ?? existing._id ?? null,\n    alertId: webhook.alertId ?? null,\n    patientId: webhook.patientId ?? null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8,
+        -16
+      ],
+      "id": "84640879-1669-40b1-9f7e-0ade8a5f0e43",
+      "name": "Build Duplicate Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        216,
+        -16
+      ],
+      "id": "7ed1d432-46de-4124-ab24-5989678c6da5",
+      "name": "Respond (Duplicate)"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "nkhXq74KYsn6UFMc",
+          "mode": "list",
+          "cachedResultName": "Alerts",
+          "cachedResultUrl": "/projects/jSrLzU2glHoPk3fZ/datatables/nkhXq74KYsn6UFMc"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "alertId": "=={{ $node[\"Webhook\"].json.body.alertId }}",
+            "patientId": "=={{ $node[\"Webhook\"].json.body.patientId }}",
+            "risk": "=={{ $node[\"Webhook\"].json.body.risk }}",
+            "type": "=={{ $node[\"Webhook\"].json.body.type }}",
+            "timestamp": "=={{ $node[\"Webhook\"].json.body.timestamp }}",
+            "reason": "=={{ Array.isArray($node[\"Webhook\"].json.body.reason) ? $node[\"Webhook\"].json.body.reason.join(\", \") : $node[\"Webhook\"].json.body.reason }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "alertId",
+              "displayName": "alertId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "patientId",
+              "displayName": "patientId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk",
+              "displayName": "risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "type",
+              "displayName": "type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -8,
+        264
+      ],
+      "id": "e9721458-730e-4fd5-8f89-1e6da5e5e3f3",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook').first().json.body ?? {};\nconst reasons = Array.isArray(body.reason) ? body.reason.join(', ') : (body.reason ?? 'N/A');\n\nconst message = `🚨 Aura Alert\\npatientId: ${body.patientId ?? 'N/A'}\\nalertId: ${body.alertId ?? 'N/A'}\\nrisk: ${body.risk ?? 'high'}\\nreason: ${reasons}\\ntime: ${body.timestamp ?? new Date().toISOString()}`;\n\nreturn [{ json: { message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        216,
+        264
+      ],
+      "id": "44f687f5-4a16-453d-ac68-b7e58f115749",
+      "name": "Build Telegram Message"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = ($env.TELEGRAM_CLINICIAN_CHAT_ID ?? '').toString().trim();\nconst telegramEnabled = !!chatId && chatId !== 'CHANGE_ME';\n\nreturn [{\n  json: {\n    ...$json,\n    telegramEnabled\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        264
+      ],
+      "id": "0dcdb4e4-9ba9-4485-a267-434197ee493b",
+      "name": "Telegram Enabled?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fc4eb0a5-4187-4133-8dfe-c272271ea3cf",
+              "leftValue": "={{ $json.telegramEnabled ? 'true' : 'false' }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        664,
+        264
+      ],
+      "id": "5f5e627d-d638-40f7-b728-5048974fbe42",
+      "name": "Telegram configured?"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$env.TELEGRAM_CLINICIAN_CHAT_ID}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        888,
+        264
+      ],
+      "id": "9094b8f2-4abf-4224-a120-c890210f44f6",
+      "name": "Telegram Send Alert",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Webhook').first().json.body ?? {};\nconst inserted = $('Insert row').first().json ?? {};\n\nreturn [{\n  json: {\n    ok: true,\n    saved: true,\n    duplicate: false,\n    rowId: inserted.id ?? inserted._id ?? inserted.rowId ?? null,\n    alertId: webhook.alertId ?? null,\n    patientId: webhook.patientId ?? null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1112,
+        264
+      ],
+      "id": "6eb2f3e4-b0d6-4b3a-ab2d-c9432cc8cb2d",
+      "name": "Build Success Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1336,
+        264
+      ],
+      "id": "0959f198-2a34-46df-baad-d339d612eb88",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get existing alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get existing alert": {
+      "main": [
+        [
+          {
+            "node": "Already exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already exists?": {
+      "main": [
+        [
+          {
+            "node": "Build Duplicate Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Duplicate Response": {
+      "main": [
+        [
+          {
+            "node": "Respond (Duplicate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "Build Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Telegram configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram configured?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Send Alert": {
+      "main": [
+        [
+          {
+            "node": "Build Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Success Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "tags": []
+}

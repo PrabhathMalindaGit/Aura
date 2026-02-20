@@ -1,0 +1,146 @@
+import { useMemo, useState } from 'react';
+import type { AlertItem } from '../../types/models';
+import { formatExactTime } from '../../utils/time';
+import { truncateText } from '../../utils/text';
+import {
+  NOTIFICATION_RETRY_ENABLED,
+  notificationChannelLabel,
+  resolveNotificationStatus,
+  shouldShowNotificationRetry,
+  toSafeNotificationError,
+} from '../../utils/notification';
+import { Button } from '../ui/Button';
+import { NotificationStatusBadge } from './NotificationStatusBadge';
+
+interface NotificationPanelProps {
+  alert: AlertItem;
+  retryEnabled?: boolean;
+  busy?: boolean;
+  onRetry?: () => void;
+}
+
+function renderTimestamp(value: string | undefined): JSX.Element | string {
+  if (!value) {
+    return '—';
+  }
+
+  return (
+    <time dateTime={value} title={value}>
+      {formatExactTime(value)}
+    </time>
+  );
+}
+
+export function NotificationPanel({
+  alert,
+  retryEnabled = NOTIFICATION_RETRY_ENABLED,
+  busy = false,
+  onRetry,
+}: NotificationPanelProps): JSX.Element {
+  const [showFullError, setShowFullError] = useState(false);
+
+  const status = resolveNotificationStatus(alert.notificationStatus);
+  const retryVisible = shouldShowNotificationRetry(status);
+  const retryDisabled = !retryEnabled || busy;
+  const helpTextId = `notification-retry-help-${alert._id}`;
+
+  const safeError = useMemo(
+    () => toSafeNotificationError(alert.notificationError, 320),
+    [alert.notificationError],
+  );
+  const truncatedError = useMemo(
+    () => (safeError ? truncateText(safeError, 140) : undefined),
+    [safeError],
+  );
+
+  const trackingNotAvailable =
+    status === 'unknown' &&
+    !alert.notificationAttemptedAt &&
+    !alert.notificationSentAt &&
+    !alert.notificationFailedAt;
+
+  return (
+    <section className="drawer-section" aria-label="Notification status">
+      <h3>Notification</h3>
+
+      <dl className="notification-panel__grid">
+        <div>
+          <dt>Channel</dt>
+          <dd>{notificationChannelLabel(alert.notificationChannel)}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            <NotificationStatusBadge status={status} />
+          </dd>
+        </div>
+        <div>
+          <dt>Attempted</dt>
+          <dd>{renderTimestamp(alert.notificationAttemptedAt)}</dd>
+        </div>
+        <div>
+          <dt>Sent</dt>
+          <dd>{renderTimestamp(alert.notificationSentAt)}</dd>
+        </div>
+        <div>
+          <dt>Failed</dt>
+          <dd>{renderTimestamp(alert.notificationFailedAt)}</dd>
+        </div>
+        <div>
+          <dt>Target</dt>
+          <dd>{alert.notificationTarget ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Message ID</dt>
+          <dd>{alert.notificationMessageId ?? '—'}</dd>
+        </div>
+        <div>
+          <dt>Retry count</dt>
+          <dd>{typeof alert.notificationRetryCount === 'number' ? String(alert.notificationRetryCount) : '—'}</dd>
+        </div>
+      </dl>
+
+      {trackingNotAvailable ? (
+        <p className="muted-text">
+          Notification delivery not yet tracked. Add notificationStatus to backend alerts.
+        </p>
+      ) : null}
+
+      {safeError ? (
+        <div className="notification-panel__error">
+          <strong>Last error</strong>
+          <p>{showFullError || !truncatedError?.truncated ? safeError : truncatedError.text}</p>
+          {truncatedError?.truncated ? (
+            <Button
+              variant="ghost"
+              className="notification-panel__toggle"
+              onClick={() => setShowFullError((current) => !current)}
+              aria-expanded={showFullError}
+            >
+              {showFullError ? 'Show less' : 'Show more'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {retryVisible ? (
+        <div className="drawer-inline-actions">
+          <Button
+            variant="secondary"
+            onClick={() => onRetry?.()}
+            disabled={retryDisabled}
+            title={!retryEnabled ? 'Backend endpoint not implemented' : undefined}
+            aria-describedby={!retryEnabled ? helpTextId : undefined}
+          >
+            Retry notification
+          </Button>
+          {!retryEnabled ? (
+            <span id={helpTextId} className="muted-text">
+              Backend endpoint not implemented: POST /clinician/alerts/:id/retry-notification
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}

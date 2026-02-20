@@ -1,0 +1,570 @@
+{
+  "name": "11 - Telegram Commands (/open /ack /resolve)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1168,
+        240
+      ],
+      "id": "359d4f87-8df5-45fb-a5ee-0d438e47540c",
+      "name": "Telegram Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json ?? {};\nconst message = item.message ?? item.body?.message ?? {};\nconst rawText = String(message.text ?? '').trim();\nconst chatId = String(message.chat?.id ?? item.chatId ?? '');\n\nconst configuredChatRaw = ($env.TELEGRAM_CLINICIAN_CHAT_ID ?? '').toString().trim();\nconst isConfigured = configuredChatRaw !== '' && configuredChatRaw !== 'CHANGE_ME';\nconst configuredChatId = String(configuredChatRaw);\nconst allowed = isConfigured && chatId !== '' && chatId === configuredChatId;\n\nlet cmd = 'help';\nlet alertId = '';\n\nif (/^\\/open\\b/i.test(rawText)) {\n  cmd = 'open';\n} else if (/^\\/help\\b/i.test(rawText)) {\n  cmd = 'help';\n} else {\n  const ackMatch = rawText.match(/^\\/ack\\s+([^\\s]+)/i);\n  const resolveMatch = rawText.match(/^\\/resolve\\s+([^\\s]+)/i);\n\n  if (ackMatch) {\n    cmd = 'ack';\n    alertId = ackMatch[1];\n  } else if (resolveMatch) {\n    cmd = 'resolve';\n    alertId = resolveMatch[1];\n  }\n}\n\nreturn [{\n  json: {\n    cmd,\n    alertId,\n    chatId,\n    rawText,\n    allowed\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        240
+      ],
+      "id": "e0d8c6ff-d6e2-4eaf-a5e5-6546558fdd8f",
+      "name": "Parse Command"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "adfc0b07-c5f8-4b78-8a15-795e572f46f5",
+              "leftValue": "={{$json.allowed === true ? 'true' : 'false'}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -720,
+        240
+      ],
+      "id": "55f29148-d85a-4ef9-bb38-3ffb70945b9a",
+      "name": "Authorized Chat?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('Parse Command').first().json ?? {};\nreturn [{\n  json: {\n    chatId: parsed.chatId,\n    message: 'Unauthorized / not configured'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        432
+      ],
+      "id": "eebf48d5-c315-4d20-a629-4ff9e5a54ea5",
+      "name": "Build Unauthorized Message"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$json.chatId}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        432
+      ],
+      "id": "8f6faea7-8d78-4cf8-80c8-cf338df63dc1",
+      "name": "Telegram Send Unauthorized",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "46f8d98d-4212-4764-b786-4f8c2fe1f90f",
+              "leftValue": "={{$json.cmd}}",
+              "rightValue": "open",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -496,
+        192
+      ],
+      "id": "00e6ed1f-2ea4-4380-80a1-e2ecedb958c6",
+      "name": "Is Open?"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/clinician/alerts?status=open&limit=10' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -256,
+        64
+      ],
+      "id": "f7eb4cbf-b2cc-4300-ad0d-c1196fce87c8",
+      "name": "HTTP Open Alerts",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('Parse Command').first().json ?? {};\nconst data = $input.first().json ?? {};\n\nconst failed =\n  !!data.error ||\n  data?.ok === false ||\n  (typeof data.statusCode === 'number' && data.statusCode >= 400);\n\nif (failed) {\n  return [{\n    json: {\n      chatId: parsed.chatId,\n      message: 'Backend unreachable'\n    }\n  }];\n}\n\nlet alerts = [];\nif (Array.isArray(data.alerts)) {\n  alerts = data.alerts;\n} else if (Array.isArray(data.data?.alerts)) {\n  alerts = data.data.alerts;\n} else if (Array.isArray(data.data)) {\n  alerts = data.data;\n}\n\nif (alerts.length === 0) {\n  return [{\n    json: {\n      chatId: parsed.chatId,\n      message: '✅ No open alerts.'\n    }\n  }];\n}\n\nconst lines = alerts.slice(0, 10).map((a) => {\n  const id = a.alertId ?? a._id ?? 'N/A';\n  const patient = a.patientId ?? 'N/A';\n  const reason = Array.isArray(a.reason) ? a.reason.join(', ') : (a.reason ?? 'N/A');\n  return `- ${id} p=${patient} r=${String(reason).slice(0, 50)}`;\n});\n\nconst message = [`🚨 Open Alerts (${alerts.length})`, lines.join('\\n')].join('\\n');\nreturn [{ json: { chatId: parsed.chatId, message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        64
+      ],
+      "id": "8da027d2-1a6d-4ba9-970e-4ce05dce0db3",
+      "name": "Format Open Message"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$json.chatId}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        64
+      ],
+      "id": "30f16fc4-5c5f-4959-a0f3-bdb487ac8ef2",
+      "name": "Telegram Send Open",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "845ee895-2782-4567-b223-fd77d2b1376d",
+              "leftValue": "={{$json.cmd}}",
+              "rightValue": "ack",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        320
+      ],
+      "id": "11df37fd-ce98-48f6-9d9f-dbc29f55f7ee",
+      "name": "Is Ack?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/clinician/alerts/' + $json.alertId }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { status: 'acknowledged' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -16,
+        240
+      ],
+      "id": "00d8f6f2-84a5-4fca-ae84-fef293e66edb",
+      "name": "HTTP Ack Alert",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('Parse Command').first().json ?? {};\nconst result = $input.first().json ?? {};\n\nlet message = '';\nif (!parsed.alertId) {\n  message = 'Usage: /ack <alertId>';\n} else if (!!result.error || (typeof result.statusCode === 'number' && result.statusCode >= 400)) {\n  message = 'Backend unreachable';\n} else if (result.ok === true && (result.alert?.status === 'acknowledged' || result.status === 'acknowledged')) {\n  message = `✅ Acknowledged: ${parsed.alertId}`;\n} else {\n  const err = result.error ?? result.message ?? 'Request failed';\n  message = `⚠️ Ack failed: ${parsed.alertId} (${err})`;\n}\n\nreturn [{ json: { chatId: parsed.chatId, message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        240
+      ],
+      "id": "7fc0364f-dd30-4ae6-8d17-1afdca7e9264",
+      "name": "Build Ack Message"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$json.chatId}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        464,
+        240
+      ],
+      "id": "1b0a08b5-f7ba-4b3f-9f8d-0552522d651f",
+      "name": "Telegram Send Ack",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2d02064a-a22c-4a18-8118-845e10c244b4",
+              "leftValue": "={{$json.cmd}}",
+              "rightValue": "resolve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        480
+      ],
+      "id": "afa44f0b-1b72-4b6b-ba7f-e8b3f76cb419",
+      "name": "Is Resolve?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/clinician/alerts/' + $json.alertId }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { status: 'resolved' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        400
+      ],
+      "id": "95f8dd71-2cbb-4e0e-a017-f4ec12cf67bb",
+      "name": "HTTP Resolve Alert",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('Parse Command').first().json ?? {};\nconst result = $input.first().json ?? {};\n\nlet message = '';\nif (!parsed.alertId) {\n  message = 'Usage: /resolve <alertId>';\n} else if (!!result.error || (typeof result.statusCode === 'number' && result.statusCode >= 400)) {\n  message = 'Backend unreachable';\n} else if (result.ok === true && (result.alert?.status === 'resolved' || result.status === 'resolved')) {\n  message = `✅ Resolved: ${parsed.alertId}`;\n} else {\n  const err = result.error ?? result.message ?? 'Request failed';\n  message = `⚠️ Resolve failed: ${parsed.alertId} (${err})`;\n}\n\nreturn [{ json: { chatId: parsed.chatId, message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        400
+      ],
+      "id": "cf02e4bc-f5c4-4e21-8486-7f4af39c84d5",
+      "name": "Build Resolve Message"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$json.chatId}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        704,
+        400
+      ],
+      "id": "58cb2524-cd44-4a68-9565-068dbf40e8ec",
+      "name": "Telegram Send Resolve",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('Parse Command').first().json ?? {};\nconst message = 'Commands:\\n/open\\n/ack <alertId>\\n/resolve <alertId>\\n/help';\n\nreturn [{\n  json: {\n    chatId: parsed.chatId,\n    message\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        560
+      ],
+      "id": "475d3afa-607a-448f-8606-0f7c5c668306",
+      "name": "Build Help Message"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$json.chatId}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        464,
+        560
+      ],
+      "id": "b7719bc6-4e50-4a11-a377-c5ec418f6c3e",
+      "name": "Telegram Send Help",
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Command": {
+      "main": [
+        [
+          {
+            "node": "Authorized Chat?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized Chat?": {
+      "main": [
+        [
+          {
+            "node": "Is Open?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Unauthorized Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Unauthorized Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Open?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Open Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Ack?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Open Alerts": {
+      "main": [
+        [
+          {
+            "node": "Format Open Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Open Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Open",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Ack?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Ack Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Resolve?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Ack Alert": {
+      "main": [
+        [
+          {
+            "node": "Build Ack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ack Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Resolve?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Resolve Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Help Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Resolve Alert": {
+      "main": [
+        [
+          {
+            "node": "Build Resolve Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Resolve Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Resolve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Help Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Help",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "tags": []
+}

@@ -1,0 +1,18 @@
+{
+  "alertCreated": {
+    "type": "ALERT_CREATED",
+    "patientId": "p1",
+    "alertId": "65f0aa11bb22cc33dd44ee55",
+    "risk": "high",
+    "reason": ["PAIN_GE_THRESHOLD", "CRISIS_LANGUAGE"],
+    "timestamp": "2026-02-18T12:00:00.000Z"
+  },
+  "duplicateSameAlertId": {
+    "type": "ALERT_CREATED",
+    "patientId": "p1",
+    "alertId": "65f0aa11bb22cc33dd44ee55",
+    "risk": "high",
+    "reason": ["PAIN_GE_THRESHOLD", "CRISIS_LANGUAGE"],
+    "timestamp": "2026-02-18T12:01:30.000Z"
+  }
+}

@@ -1,0 +1,79 @@
+import type { AlertItem } from '../types/models';
+import { truncateText } from './text';
+
+export type NotificationStatus = NonNullable<AlertItem['notificationStatus']>;
+
+export const NOTIFICATION_RETRY_ENABLED = false;
+
+const KNOWN_NOTIFICATION_STATUSES: NotificationStatus[] = ['sent', 'failed', 'skipped', 'unknown'];
+
+export function resolveNotificationStatus(status: AlertItem['notificationStatus']): NotificationStatus {
+  if (status && KNOWN_NOTIFICATION_STATUSES.includes(status)) {
+    return status;
+  }
+
+  return 'unknown';
+}
+
+export function notificationStatusLabel(status: AlertItem['notificationStatus']): string {
+  const normalized = resolveNotificationStatus(status);
+
+  if (normalized === 'sent') {
+    return 'Notified';
+  }
+
+  if (normalized === 'failed') {
+    return 'Notif failed';
+  }
+
+  if (normalized === 'skipped') {
+    return 'Notif skipped';
+  }
+
+  return 'Notif unknown';
+}
+
+export function notificationStatusBadgeVariant(
+  status: AlertItem['notificationStatus'],
+): 'default' | 'success' | 'warning' | 'danger' {
+  const normalized = resolveNotificationStatus(status);
+
+  if (normalized === 'sent') {
+    return 'success';
+  }
+
+  if (normalized === 'failed') {
+    return 'danger';
+  }
+
+  if (normalized === 'skipped') {
+    return 'warning';
+  }
+
+  return 'default';
+}
+
+export function shouldShowNotificationRetry(status: AlertItem['notificationStatus']): boolean {
+  return resolveNotificationStatus(status) === 'failed';
+}
+
+export function notificationChannelLabel(channel: AlertItem['notificationChannel']): string {
+  if (!channel || channel === 'none') {
+    return '—';
+  }
+
+  if (channel === 'sms') {
+    return 'SMS';
+  }
+
+  return channel[0].toUpperCase() + channel.slice(1);
+}
+
+export function toSafeNotificationError(value: string | undefined, maxLength: number = 200): string | undefined {
+  const trimmed = value?.replace(/\s+/g, ' ').trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return truncateText(trimmed, maxLength).text;
+}

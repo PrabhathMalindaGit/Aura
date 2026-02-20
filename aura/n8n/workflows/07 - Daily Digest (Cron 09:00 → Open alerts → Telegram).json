@@ -1,0 +1,165 @@
+{
+  "name": "07 - Daily Digest (Cron 09:00 → Open alerts → Telegram)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 9,
+              "minute": 0
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        80
+      ],
+      "id": "a0107678-0c1f-48e5-ac8f-33f8f3ade2c8",
+      "name": "Cron"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/clinician/alerts?status=open' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -120,
+        80
+      ],
+      "id": "d7d7a09d-e338-4ea0-a4ec-e2c41098fbbd",
+      "name": "HTTP Request",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json ?? {};\n\nconst failed =\n  !!payload.error ||\n  payload?.ok === false ||\n  (typeof payload.statusCode === 'number' && payload.statusCode >= 400);\n\nif (failed) {\n  return [{\n    json: {\n      message: 'Digest failed: backend unreachable'\n    }\n  }];\n}\n\nlet alerts = [];\nif (Array.isArray(payload.alerts)) {\n  alerts = payload.alerts;\n} else if (Array.isArray(payload.data?.alerts)) {\n  alerts = payload.data.alerts;\n} else if (Array.isArray(payload.data)) {\n  alerts = payload.data;\n}\n\nif (alerts.length === 0) {\n  return [{\n    json: {\n      message: '✅ No open alerts today.\\n\\nReply /open to see again'\n    }\n  }];\n}\n\nconst reasonToShortText = (reasonValue) => {\n  let text = 'N/A';\n  if (Array.isArray(reasonValue)) {\n    text = reasonValue.join(', ');\n  } else if (typeof reasonValue === 'string') {\n    text = reasonValue;\n  }\n\n  text = text.replace(/\\s+/g, ' ').trim();\n  if (text.length > 60) {\n    text = `${text.slice(0, 57)}...`;\n  }\n\n  return text || 'N/A';\n};\n\nconst top = alerts.slice(0, 15);\nconst lines = top.map((alert) => {\n  const alertId = alert.alertId ?? alert._id ?? 'N/A';\n  const patientId = alert.patientId ?? 'N/A';\n  const reason = reasonToShortText(alert.reason);\n  const createdAt = alert.createdAt ?? alert.timestamp ?? 'N/A';\n  return `- ${alertId} | patient=${patientId} | reason=${reason} | createdAt=${createdAt}`;\n});\n\nconst remainder = alerts.length > 15 ? `\\n...and ${alerts.length - 15} more.` : '';\nconst message = [\n  `🚨 Aura: ${alerts.length} open alerts`,\n  lines.join('\\n') + remainder,\n  '/ack <alertId>',\n  '/resolve <alertId>'\n].join('\\n\\n');\n\nreturn [{ json: { message } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        80
+      ],
+      "id": "994f6e4e-5ecb-48e9-b0cd-f79fc5db87bb",
+      "name": "Build Digest"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "588e3e08-8190-4dde-a6ea-f6e6e3548640",
+              "leftValue": "={{ ($env.TELEGRAM_CLINICIAN_CHAT_ID || '').toString().trim() !== '' && ($env.TELEGRAM_CLINICIAN_CHAT_ID || '').toString().trim() !== 'CHANGE_ME' ? 'true' : 'false' }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        360,
+        80
+      ],
+      "id": "20cb7b49-6115-4ef1-8642-a15f8d13f58b",
+      "name": "Telegram configured?"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$env.TELEGRAM_CLINICIAN_CHAT_ID}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        600,
+        -16
+      ],
+      "id": "98ddb5ec-4f16-4ea6-8be5-ca43d4971556",
+      "name": "Telegram Send Message",
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Telegram configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram configured?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Asia/Colombo",
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "tags": []
+}

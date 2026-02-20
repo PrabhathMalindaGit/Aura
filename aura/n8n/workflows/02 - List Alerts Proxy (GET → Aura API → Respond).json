@@ -1,0 +1,298 @@
+{
+  "name": "02 - List Alerts Proxy (GET → Aura API → Respond)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "alerts",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -840,
+        208
+      ],
+      "id": "b85a7b4c-fd35-4826-9b6f-b2dbe30ab58d",
+      "name": "Webhook",
+      "webhookId": "f6b6de74-730e-4f25-9a70-403b0e5e9535"
+    },
+    {
+      "parameters": {
+        "jsCode": "const query = $node['Webhook'].json.query ?? {};\nconst headers = $node['Webhook'].json.headers ?? {};\n\nconst rawStatus = String(query.status ?? 'open').toLowerCase();\nconst allowedStatuses = ['open', 'acknowledged', 'resolved'];\nconst status = allowedStatuses.includes(rawStatus) ? rawStatus : 'open';\n\nconst rawLimit = Number.parseInt(String(query.limit ?? '50'), 10);\nconst limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50;\n\nconst expectedApiKey = ($env.AURA_N8N_API_KEY ?? '').toString();\nconst incomingApiKey = (headers['x-api-key'] ?? headers['X-API-KEY'] ?? '').toString();\nconst authRequired = expectedApiKey.length > 0;\nconst authOk = !authRequired || incomingApiKey === expectedApiKey;\n\nreturn [{\n  json: {\n    status,\n    limit,\n    authOk\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -616,
+        208
+      ],
+      "id": "aa4d64b2-5162-40ba-9d67-7174f25aadf3",
+      "name": "Normalize Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "576a43e0-02d6-41ea-b2dd-031f47744fba",
+              "leftValue": "={{$json.authOk === true ? 'true' : 'false'}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -392,
+        208
+      ],
+      "id": "7a86d87e-a526-4f6f-9f9d-4ce6a0cc4111",
+      "name": "Authorized?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, error: 'unauthorized' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -168,
+        384
+      ],
+      "id": "d57af6bb-527f-4eb4-b2cc-e5373b7a2273",
+      "name": "Build Unauthorized Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        56,
+        384
+      ],
+      "id": "bcd45e3f-e6f8-42a2-aacb-4fdf7f5a9ced",
+      "name": "Respond Unauthorized"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.AURA_API_BASE + '/clinician/alerts?status=' + $json.status + '&limit=' + $json.limit }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -168,
+        128
+      ],
+      "id": "c7afb146-adf8-4e67-b635-c7d8795d8338",
+      "name": "HTTP Request",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json ?? {};\n\nconst failed =\n  !!payload.error ||\n  payload?.ok === false ||\n  (typeof payload.statusCode === 'number' && payload.statusCode >= 400);\n\nif (failed) {\n  return [{\n    json: {\n      ok: false,\n      error: 'backend_unreachable'\n    }\n  }];\n}\n\nif (payload && typeof payload === 'object' && !Array.isArray(payload)) {\n  if (Object.prototype.hasOwnProperty.call(payload, 'ok')) {\n    return [{ json: payload }];\n  }\n\n  return [{ json: { ok: true, ...payload } }];\n}\n\nreturn [{ json: { ok: true, data: payload } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56,
+        128
+      ],
+      "id": "7252f106-2940-4f39-b79b-fdc10f14032c",
+      "name": "Normalize Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "88b36a01-316f-42a2-a85f-74dd004f6829",
+              "leftValue": "={{$json.ok === true ? 'true' : 'false'}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        128
+      ],
+      "id": "d84f758a-b10d-4b23-a7f2-20ca8f4d0a9c",
+      "name": "Backend OK?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        504,
+        48
+      ],
+      "id": "2bb57e7d-26ef-4b68-b886-c8e3a863c91d",
+      "name": "Respond Success"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        504,
+        208
+      ],
+      "id": "566c9b76-4cfe-43c1-89c8-0360cd4006d1",
+      "name": "Respond Backend Error"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Request": {
+      "main": [
+        [
+          {
+            "node": "Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Unauthorized Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Unauthorized Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Response": {
+      "main": [
+        [
+          {
+            "node": "Backend OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backend OK?": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Backend Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "tags": []
+}

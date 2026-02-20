@@ -1,0 +1,127 @@
+{
+  "name": "05 - Error Trigger → Telegram (throttled)",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        80
+      ],
+      "id": "8077938f-b30f-4f9b-ac67-e4b2d48ea93f",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json ?? {};\n\nconst workflowName = data.workflow?.name ?? data.execution?.workflowData?.name ?? 'Unknown workflow';\nconst workflowId = String(data.workflow?.id ?? data.execution?.workflowData?.id ?? data.execution?.workflowId ?? 'unknown-workflow');\nconst executionId = String(data.execution?.id ?? data.executionId ?? 'N/A');\nconst errorMessage = (data.error?.message ?? data.execution?.error?.message ?? data.message ?? 'Unknown error').toString();\nconst rawStack = (data.error?.stack ?? data.execution?.error?.stack ?? '').toString();\nconst firstStackLine = rawStack.split('\\n').map((line) => line.trim()).filter(Boolean)[0] ?? '';\nconst timestamp = new Date().toISOString();\n\nconst devChatId = ($env.TELEGRAM_DEV_CHAT_ID ?? '').toString().trim();\nconst telegramConfigured = devChatId !== '' && devChatId !== 'CHANGE_ME';\n\nfunction hashString(input) {\n  let hash = 0;\n  for (let i = 0; i < input.length; i++) {\n    hash = ((hash << 5) - hash) + input.charCodeAt(i);\n    hash |= 0;\n  }\n  return Math.abs(hash).toString(16);\n}\n\nconst cooldownMs = 2 * 60 * 1000;\nconst now = Date.now();\nconst throttleStore = $getWorkflowStaticData('global');\nif (!throttleStore.errorThrottle || typeof throttleStore.errorThrottle !== 'object') {\n  throttleStore.errorThrottle = {};\n}\n\nconst dedupeKey = `${workflowId}:${hashString(errorMessage)}`;\nconst lastSentAt = Number(throttleStore.errorThrottle[dedupeKey] ?? 0);\nconst throttled = lastSentAt > 0 && (now - lastSentAt) < cooldownMs;\n\nif (!throttled) {\n  throttleStore.errorThrottle[dedupeKey] = now;\n}\n\nconst cutoff = now - (24 * 60 * 60 * 1000);\nfor (const [key, value] of Object.entries(throttleStore.errorThrottle)) {\n  if (Number(value) < cutoff) {\n    delete throttleStore.errorThrottle[key];\n  }\n}\n\nconst messageLines = [\n  '⚠️ Aura n8n Error',\n  `workflow: ${workflowName}`,\n  `executionId: ${executionId}`,\n  `error: ${errorMessage}`\n];\n\nif (firstStackLine) {\n  messageLines.push(`stack: ${firstStackLine}`);\n}\n\nmessageLines.push(`time: ${timestamp}`);\n\nconst shouldSend = telegramConfigured && !throttled;\n\nreturn [{\n  json: {\n    message: messageLines.join('\\n'),\n    shouldSend,\n    telegramConfigured,\n    throttled,\n    workflowId,\n    executionId,\n    errorMessage,\n    firstStackLine,\n    timestamp\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        80
+      ],
+      "id": "96fcfc5c-e173-401c-9960-bf4bc22b3007",
+      "name": "Format Error Message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "23d05685-947d-4434-b272-2f4ce1aef301",
+              "leftValue": "={{$json.shouldSend === true ? 'true' : 'false'}}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        152,
+        80
+      ],
+      "id": "320b5720-a3f7-49a2-9f88-2f5d2f6c6845",
+      "name": "Should Send Telegram?"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$env.TELEGRAM_DEV_CHAT_ID}}",
+        "text": "={{$json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        392,
+        -16
+      ],
+      "id": "117299d4-5c27-4b07-8129-c3146ecf0453",
+      "name": "Telegram Send Message",
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Message": {
+      "main": [
+        [
+          {
+            "node": "Should Send Telegram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Send Telegram?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "tags": []
+}

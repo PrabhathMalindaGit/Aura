@@ -25,6 +25,7 @@ const careEventSchema = new Schema(
 );
 
 careEventSchema.index({ patientId: 1, createdAt: -1 });
+careEventSchema.index({ alertId: 1, createdAt: 1 });
 
 const CareEvent = model("CareEvent", careEventSchema);
 

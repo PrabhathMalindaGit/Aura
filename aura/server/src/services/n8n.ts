@@ -12,6 +12,16 @@ export type AlertCreatedPayload = {
   timestamp: string;
 };
 
+export type RetryNotificationRequestedPayload = {
+  type: "RETRY_NOTIFICATION_REQUESTED";
+  patientId: string;
+  alertId: string;
+  channel: "telegram";
+  requestedBy: string;
+  requestedByName?: string;
+  timestamp: string;
+};
+
 export async function emitAlertCreated(
   payload: AlertCreatedPayload
 ): Promise<boolean> {
@@ -25,6 +35,29 @@ export async function emitAlertCreated(
     return true;
   } catch (error) {
     logger.error("n8n webhook delivery failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
+export async function emitNotificationRetryRequested(
+  payload: RetryNotificationRequestedPayload
+): Promise<boolean> {
+  if (!env.N8N_RETRY_WEBHOOK_URL) {
+    return false;
+  }
+
+  try {
+    await axios.post(env.N8N_RETRY_WEBHOOK_URL, payload, {
+      timeout: 4000,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return true;
+  } catch (error) {
+    logger.error("n8n retry webhook delivery failed", {
       message: error instanceof Error ? error.message : String(error),
     });
     return false;

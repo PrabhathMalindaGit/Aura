@@ -7,6 +7,8 @@ import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
 import { validateBody } from "../middleware/validate";
+import { env } from "../env";
+import { emitNotificationRetryRequested } from "../services/n8n";
 import { isObjectId } from "../utils/ids";
 import { logger } from "../utils/logger";
 
@@ -34,6 +36,18 @@ const assignmentSchema = z.object({
   requestedByName: z.string().trim().min(1).optional(),
   force: z.boolean().optional().default(false),
 });
+const riskOverrideSchema = z.object({
+  riskFinal: z.enum(["low", "medium", "high"]),
+  overrideReason: z.string().trim().min(3),
+  overriddenBy: z.string().trim().min(1),
+  overriddenByName: z.string().trim().min(1).optional(),
+});
+const retryNotificationSchema = z.object({
+  channel: z.enum(["telegram"]).optional().default("telegram"),
+  requestedBy: z.string().trim().min(1),
+  requestedByName: z.string().trim().min(1).optional(),
+  reason: z.string().trim().max(200).optional(),
+});
 const listPatientsQuerySchema = z.object({
   status: patientStatusFilterSchema.optional().default("all"),
   clinicianId: z.string().trim().min(1).optional(),
@@ -42,13 +56,40 @@ const listPatientsQuerySchema = z.object({
 const trendsQuerySchema = z.object({
   days: z.enum(["14", "30"]).optional().default("14"),
 });
+const checkinsRangeQuerySchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  includeNotes: z.enum(["true", "false"]).optional().default("false"),
+});
+const patchPatientSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(80).optional(),
+    status: z.enum(["active", "on_hold", "discharged", "inactive"]).optional(),
+    clinicianId: z.string().trim().min(1).max(80).optional(),
+    requestedBy: z.string().trim().min(1).max(80).optional(),
+    requestedByName: z.string().trim().min(1).max(80).optional(),
+  })
+  .refine(
+    (value) =>
+      value.displayName !== undefined ||
+      value.status !== undefined ||
+      value.clinicianId !== undefined,
+    {
+      path: ["body"],
+      message: "At least one field must be provided",
+    }
+  );
 
 const DEFAULT_PATIENTS_LIMIT = 200;
 const MAX_PATIENTS_LIMIT = 500;
 const MISSED_CHECKINS_DAYS = 2;
 const MISSED_CHECKINS_MS = MISSED_CHECKINS_DAYS * 24 * 60 * 60 * 1000;
 const TRENDS_MAX_RECORDS = 2000;
+const CHECKINS_MAX_RECORDS = 2000;
+const CHECKINS_MAX_RANGE_DAYS = 366;
 const NOTES_PREVIEW_MAX_LENGTH = 120;
+const NOTIFICATION_RETRY_THROTTLE_MS = 15_000;
+const NOTIFICATION_RETRY_AFTER_SECONDS = 15;
 const CHAT_CONTEXT_WINDOW_SIDE_SIZE = 2;
 const TIMELINE_STRIP_KEYS = new Set(["text", "notes", "message", "content"]);
 const NOTIFICATION_CHANNELS = new Set([
@@ -82,6 +123,15 @@ type PatientSummary = {
   openAlertCount: number;
   lastAlertAt?: string;
   missedCheckins: boolean;
+};
+
+type PatientProfile = {
+  patientId: string;
+  displayName?: string;
+  status?: "active" | "on_hold" | "discharged" | "inactive";
+  clinicianId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 function toIsoDateString(value?: Date): string | undefined {
@@ -122,6 +172,33 @@ function toNotesPreview(notes: unknown): string | undefined {
   }
 
   return `${trimmed.slice(0, NOTES_PREVIEW_MAX_LENGTH)}…`;
+}
+
+function parseDateOnly(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getInclusiveDayCount(from: Date, to: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.floor((to.getTime() - from.getTime()) / msPerDay) + 1;
 }
 
 function toIsoDateStringOrNull(value: unknown): string | null {
@@ -271,6 +348,17 @@ function mapAssignmentCurrent(alert: Record<string, unknown>) {
     assignedTo: toStringOrNull(alert.assignedTo),
     assignedToName: toStringOrNull(alert.assignedToName),
     assignedAt: toIsoDateStringOrNull(alert.assignedAt),
+  };
+}
+
+function mapPatientProfile(patient: PatientProfile) {
+  return {
+    patientId: toStringOrNull(patient.patientId) ?? "",
+    displayName: toStringOrNull(patient.displayName),
+    status: patient.status ?? "active",
+    clinicianId: toStringOrNull(patient.clinicianId),
+    createdAt: toIsoDateStringRequired(patient.createdAt),
+    updatedAt: toIsoDateStringRequired(patient.updatedAt),
   };
 }
 
@@ -668,6 +756,304 @@ router.get("/clinician/patients", async (req, res) => {
   }
 });
 
+router.patch(
+  "/clinician/patients/:patientId",
+  validateBody(patchPatientSchema),
+  async (req, res) => {
+    try {
+      const patientId =
+        typeof req.params.patientId === "string"
+          ? req.params.patientId.trim()
+          : "";
+
+      if (!patientId || patientId.length > 64) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: [
+            {
+              path: "patientId",
+              message:
+                "patientId is required and must be at most 64 characters",
+            },
+          ],
+        });
+      }
+
+      const { displayName, status, clinicianId, requestedBy, requestedByName } =
+        req.body as z.infer<typeof patchPatientSchema>;
+
+      const existing = await Patient.findOne({ patientId });
+      const changed: Record<string, { from: string | null; to: string | null }> = {};
+
+      let patientDoc = existing;
+
+      if (!patientDoc) {
+        patientDoc = new Patient({
+          patientId,
+        });
+
+        if (displayName !== undefined) {
+          patientDoc.displayName = displayName;
+          changed.displayName = {
+            from: null,
+            to: displayName,
+          };
+        }
+
+        if (status !== undefined) {
+          patientDoc.status = status;
+          changed.status = {
+            from: null,
+            to: status,
+          };
+        }
+
+        if (clinicianId !== undefined) {
+          patientDoc.clinicianId = clinicianId;
+          changed.clinicianId = {
+            from: null,
+            to: clinicianId,
+          };
+        }
+
+        await patientDoc.save();
+      } else {
+        const previousDisplayName =
+          typeof patientDoc.displayName === "string"
+            ? patientDoc.displayName.trim()
+            : undefined;
+        const previousStatus =
+          typeof patientDoc.status === "string" ? patientDoc.status : undefined;
+        const previousClinicianId =
+          typeof patientDoc.clinicianId === "string"
+            ? patientDoc.clinicianId.trim()
+            : undefined;
+
+        if (
+          displayName !== undefined &&
+          (previousDisplayName ?? null) !== displayName
+        ) {
+          changed.displayName = {
+            from: previousDisplayName ?? null,
+            to: displayName,
+          };
+          patientDoc.displayName = displayName;
+        }
+
+        if (status !== undefined && (previousStatus ?? null) !== status) {
+          changed.status = {
+            from: previousStatus ?? null,
+            to: status,
+          };
+          patientDoc.status = status;
+        }
+
+        if (
+          clinicianId !== undefined &&
+          (previousClinicianId ?? null) !== clinicianId
+        ) {
+          changed.clinicianId = {
+            from: previousClinicianId ?? null,
+            to: clinicianId,
+          };
+          patientDoc.clinicianId = clinicianId;
+        }
+
+        if (Object.keys(changed).length > 0) {
+          await patientDoc.save();
+        }
+      }
+
+      if (Object.keys(changed).length > 0) {
+        await CareEvent.create({
+          type: "PATIENT_UPDATED",
+          patientId,
+          payload: {
+            changed,
+            requestedBy,
+            requestedByName,
+          },
+        });
+      }
+
+      return res.json({
+        ok: true,
+        patient: mapPatientProfile(
+          patientDoc.toObject() as unknown as PatientProfile
+        ),
+      });
+    } catch (error) {
+      logger.error("Patch patient route failed", {
+        route: "PATCH /clinician/patients/:patientId",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
+  try {
+    const patientId =
+      typeof req.params.patientId === "string" ? req.params.patientId.trim() : "";
+
+    if (!patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: [
+          {
+            path: "patientId",
+            message: "patientId is required",
+          },
+        ],
+      });
+    }
+
+    const parsedQuery = checkinsRangeQuerySchema.safeParse(req.query);
+
+    if (!parsedQuery.success) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedQuery.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const { from, to } = parsedQuery.data;
+    const includeNotes = parsedQuery.data.includeNotes === "true";
+    const fromDate = parseDateOnly(from);
+    const toDate = parseDateOnly(to);
+    const validationDetails: Array<{ path: string; message: string }> = [];
+
+    if (!fromDate) {
+      validationDetails.push({
+        path: "from",
+        message: "Invalid calendar date",
+      });
+    }
+    if (!toDate) {
+      validationDetails.push({
+        path: "to",
+        message: "Invalid calendar date",
+      });
+    }
+    if (from > to) {
+      validationDetails.push({
+        path: "from",
+        message: "'from' must be less than or equal to 'to'",
+      });
+    }
+    if (fromDate && toDate) {
+      const rangeDays = getInclusiveDayCount(fromDate, toDate);
+      if (rangeDays > CHECKINS_MAX_RANGE_DAYS) {
+        validationDetails.push({
+          path: "to",
+          message: `Date range must be ${CHECKINS_MAX_RANGE_DAYS} days or less`,
+        });
+      }
+    }
+
+    if (validationDetails.length > 0) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: validationDetails,
+      });
+    }
+
+    logger.info("GET /clinician/patients/:patientId/checkins", {
+      patientId,
+      from,
+      to,
+      includeNotes,
+    });
+
+    const selectedFields = includeNotes
+      ? "patientId date pain mood adherence risk createdAt notes"
+      : "patientId date pain mood adherence risk createdAt";
+
+    const rows = await CheckIn.find({
+      patientId,
+      date: { $gte: from, $lte: to },
+    })
+      .sort({ date: 1, createdAt: 1 })
+      .select(selectedFields)
+      .limit(CHECKINS_MAX_RECORDS)
+      .lean();
+
+    const checkins = rows.map((row) => {
+      const adherenceRecord =
+        row.adherence && typeof row.adherence === "object"
+          ? (row.adherence as Record<string, unknown>)
+          : {};
+      const riskRecord =
+        row.risk && typeof row.risk === "object"
+          ? (row.risk as Record<string, unknown>)
+          : undefined;
+
+      return {
+        id: String(row._id ?? ""),
+        patientId: toStringOrNull(row.patientId) ?? patientId,
+        date: toStringOrNull(row.date) ?? "",
+        pain: toNumberOrNull(row.pain),
+        mood: toNumberOrNull(row.mood),
+        adherence: {
+          exercises: toNumberOrNull(adherenceRecord.exercises),
+          medication:
+            typeof adherenceRecord.medication === "boolean"
+              ? adherenceRecord.medication
+              : null,
+        },
+        risk: riskRecord
+          ? {
+              level: riskRecord.level === "high" ? "high" : "low",
+              reasons: toStringArray(riskRecord.reasons),
+            }
+          : undefined,
+        createdAt: toIsoDateStringRequired(row.createdAt),
+        ...(includeNotes
+          ? {
+              notes:
+                typeof row.notes === "string" ? row.notes : undefined,
+            }
+          : {}),
+      };
+    });
+
+    return res.json({
+      ok: true,
+      patientId,
+      from,
+      to,
+      count: checkins.length,
+      checkins,
+    });
+  } catch (error) {
+    logger.error("Get patient checkins range route failed", {
+      route: "GET /clinician/patients/:patientId/checkins",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      from: typeof req.query.from === "string" ? req.query.from : undefined,
+      to: typeof req.query.to === "string" ? req.query.to : undefined,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
 router.get("/clinician/patients/:patientId/trends", async (req, res) => {
   try {
     const patientId =
@@ -956,6 +1342,240 @@ router.patch(
     } catch (error) {
       logger.error("Patch alert assignment route failed", {
         route: "PATCH /clinician/alerts/:id/assignment",
+        alertId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.post(
+  "/clinician/alerts/:id/retry-notification",
+  validateBody(retryNotificationSchema),
+  async (req, res) => {
+    const alertId = typeof req.params.id === "string" ? req.params.id : "";
+
+    if (!isObjectId(alertId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: [
+          {
+            path: "id",
+            message: "Invalid alert id",
+          },
+        ],
+      });
+    }
+
+    try {
+      const { channel, requestedBy, requestedByName, reason } =
+        req.body as z.infer<typeof retryNotificationSchema>;
+      const alert = await Alert.findById(alertId);
+
+      if (!alert) {
+        return res.status(404).json({
+          ok: false,
+          error: "NOT_FOUND",
+        });
+      }
+
+      const now = new Date();
+      const attemptedAt = toDate(alert.notification?.attemptedAt);
+
+      if (
+        attemptedAt &&
+        now.getTime() - attemptedAt.getTime() < NOTIFICATION_RETRY_THROTTLE_MS
+      ) {
+        return res.status(429).json({
+          ok: false,
+          error: "TOO_MANY_REQUESTS",
+          retryAfterSeconds: NOTIFICATION_RETRY_AFTER_SECONDS,
+        });
+      }
+
+      const nextRetryCount =
+        typeof alert.notification?.retryCount === "number" &&
+        alert.notification.retryCount >= 0
+          ? alert.notification.retryCount + 1
+          : 1;
+
+      alert.notification = {
+        ...(alert.notification ?? {}),
+        channel,
+        status: "unknown",
+        attemptedAt: now,
+        retryCount: nextRetryCount,
+      } as typeof alert.notification;
+
+      await alert.save();
+
+      await CareEvent.create({
+        type: "NOTIFICATION_RETRY_REQUESTED",
+        patientId: alert.patientId,
+        alertId: String(alert._id),
+        payload: {
+          channel,
+          requestedBy,
+          requestedByName,
+          reason,
+          retryCount: nextRetryCount,
+        },
+      });
+
+      if (env.N8N_RETRY_WEBHOOK_URL) {
+        const delivered = await emitNotificationRetryRequested({
+          type: "RETRY_NOTIFICATION_REQUESTED",
+          patientId: alert.patientId,
+          alertId: String(alert._id),
+          channel,
+          requestedBy,
+          requestedByName,
+          timestamp: now.toISOString(),
+        });
+
+        if (delivered) {
+          await CareEvent.create({
+            type: "NOTIFICATION_RETRY_WEBHOOK_DELIVERED",
+            patientId: alert.patientId,
+            alertId: String(alert._id),
+            payload: {
+              channel,
+              requestedBy,
+              retryCount: nextRetryCount,
+            },
+          });
+        } else {
+          alert.notification = {
+            ...(alert.notification ?? {}),
+            channel,
+            status: "failed",
+            failedAt: now,
+            error: "N8N_RETRY_WEBHOOK_FAILED",
+            retryCount: nextRetryCount,
+          } as typeof alert.notification;
+          await alert.save();
+
+          await CareEvent.create({
+            type: "NOTIFICATION_RETRY_WEBHOOK_FAILED",
+            patientId: alert.patientId,
+            alertId: String(alert._id),
+            payload: {
+              channel,
+              requestedBy,
+              retryCount: nextRetryCount,
+              error: "N8N_RETRY_WEBHOOK_FAILED",
+            },
+          });
+        }
+      }
+
+      return res.json({
+        ok: true,
+        status: "queued",
+        alert: mapAlertContextAlert(alert.toObject() as Record<string, unknown>),
+      });
+    } catch (error) {
+      logger.error("Post alert retry notification route failed", {
+        route: "POST /clinician/alerts/:id/retry-notification",
+        alertId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.patch(
+  "/clinician/alerts/:id/risk-override",
+  validateBody(riskOverrideSchema),
+  async (req, res) => {
+    const alertId = typeof req.params.id === "string" ? req.params.id : "";
+
+    if (!isObjectId(alertId)) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: [
+          {
+            path: "id",
+            message: "Invalid alert id",
+          },
+        ],
+      });
+    }
+
+    try {
+      const { riskFinal, overrideReason, overriddenBy, overriddenByName } =
+        req.body as z.infer<typeof riskOverrideSchema>;
+      const alert = await Alert.findById(alertId);
+
+      if (!alert) {
+        return res.status(404).json({
+          ok: false,
+          error: "NOT_FOUND",
+        });
+      }
+
+      const previousRiskFinal =
+        typeof alert.riskFinal === "string" && alert.riskFinal.trim()
+          ? alert.riskFinal.trim()
+          : null;
+      const previousOverrideReason =
+        typeof alert.overrideReason === "string" && alert.overrideReason.trim()
+          ? alert.overrideReason.trim()
+          : null;
+      const currentOverriddenBy =
+        typeof alert.overriddenBy === "string" ? alert.overriddenBy.trim() : "";
+
+      const isSameOverride =
+        previousRiskFinal === riskFinal &&
+        (previousOverrideReason ?? "") === overrideReason &&
+        currentOverriddenBy === overriddenBy;
+
+      if (isSameOverride) {
+        return res.json({
+          ok: true,
+          alert: mapAlertContextAlert(alert.toObject() as Record<string, unknown>),
+        });
+      }
+
+      alert.riskFinal = riskFinal;
+      alert.overrideReason = overrideReason;
+      alert.overriddenBy = overriddenBy;
+      alert.overriddenByName = overriddenByName?.trim();
+      alert.overriddenAt = new Date();
+
+      await alert.save();
+
+      await CareEvent.create({
+        type: "ALERT_RISK_OVERRIDDEN",
+        patientId: alert.patientId,
+        alertId: String(alert._id),
+        payload: {
+          riskFinal,
+          overrideReason,
+          overriddenBy,
+          overriddenByName: overriddenByName?.trim(),
+          previousRiskFinal,
+          previousOverrideReason,
+        },
+      });
+
+      return res.json({
+        ok: true,
+        alert: mapAlertContextAlert(alert.toObject() as Record<string, unknown>),
+      });
+    } catch (error) {
+      logger.error("Patch alert risk override route failed", {
+        route: "PATCH /clinician/alerts/:id/risk-override",
         alertId,
         message: error instanceof Error ? error.message : String(error),
       });

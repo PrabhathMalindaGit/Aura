@@ -9,5 +9,6 @@ export const env = {
   AI_BASE_URL: process.env.AI_BASE_URL || "http://localhost:8001",
   N8N_WEBHOOK_ALERT:
     process.env.N8N_WEBHOOK_ALERT || "http://localhost:5678/webhook/alert-created",
+  N8N_RETRY_WEBHOOK_URL: process.env.N8N_RETRY_WEBHOOK_URL || "",
   PAIN_HIGH_THRESHOLD: toInt(process.env.PAIN_HIGH_THRESHOLD, 7),
 } as const;

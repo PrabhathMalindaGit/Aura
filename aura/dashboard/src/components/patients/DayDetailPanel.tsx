@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import type { AlertItem, TrendPointNormalized } from '../../types/models';
 import { formatDateKey, formatMedication, formatMoodValue, formatPainValue, formatPercent } from '../../utils/format';
+import { trendPointHasAnyData } from '../../utils/trends';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Drawer } from '../ui/Drawer';
@@ -13,16 +14,18 @@ interface DayDetailPanelProps {
   onClose: () => void;
 }
 
-function statusBadgeVariant(status: AlertItem['status']): 'default' | 'warning' | 'success' {
+function statusBadgeVariant(
+  status: AlertItem['status'],
+): 'status-open' | 'status-ack' | 'status-resolved' {
   if (status === 'acknowledged') {
-    return 'warning';
+    return 'status-ack';
   }
 
   if (status === 'resolved') {
-    return 'success';
+    return 'status-resolved';
   }
 
-  return 'default';
+  return 'status-open';
 }
 
 function reasonText(value: string | string[]): string {
@@ -36,6 +39,8 @@ export function DayDetailPanel({
   returnFocusRef,
   onClose,
 }: DayDetailPanelProps): JSX.Element {
+  const hasCheckin = dayPoint ? trendPointHasAnyData(dayPoint) : false;
+
   return (
     <Drawer
       open={open}
@@ -77,7 +82,9 @@ export function DayDetailPanel({
                 <dd>{formatMedication(dayPoint.medication)}</dd>
               </div>
             </dl>
-            {dayPoint.notes ? (
+            {!hasCheckin ? (
+              <p className="muted-text">No check-in recorded for this day.</p>
+            ) : dayPoint.notes ? (
               <p className="day-detail-notes">
                 <strong>Notes:</strong> {dayPoint.notes}
               </p>

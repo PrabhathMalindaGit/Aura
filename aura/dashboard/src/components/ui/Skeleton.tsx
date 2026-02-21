@@ -8,7 +8,7 @@ interface SkeletonProps extends HTMLAttributes<HTMLDivElement> {
 
 export function Skeleton({
   className,
-  height = 16,
+  height = 20,
   width = '100%',
   style,
   ...props

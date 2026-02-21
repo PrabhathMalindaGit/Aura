@@ -16,7 +16,7 @@ interface SummaryCardProps {
 
 function SummaryCard({ label, value, tone = 'default', caption }: SummaryCardProps): JSX.Element {
   return (
-    <article className="patient-summary-card">
+    <article className="patient-summary-card glass-card">
       <p className="patient-summary-card__label">{label}</p>
       <div className="patient-summary-card__value-row">
         <strong className="patient-summary-card__value">{value}</strong>

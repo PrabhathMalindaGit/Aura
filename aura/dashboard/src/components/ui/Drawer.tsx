@@ -96,8 +96,13 @@ export function Drawer({
       aria-describedby={describedBy}
       aria-label={ariaLabel ?? title}
     >
-      <button type="button" className="drawer__overlay" onClick={onClose} aria-label="Close panel" />
-      <section ref={panelRef} className="drawer__panel">
+      <button
+        type="button"
+        className={cn('drawer__overlay', 'glass-overlay')}
+        onClick={onClose}
+        aria-label="Close panel"
+      />
+      <section ref={panelRef} className={cn('drawer__panel', 'glass-popover')}>
         <header className="drawer__header">
           <h2 id={labelledBy}>{title}</h2>
           <button

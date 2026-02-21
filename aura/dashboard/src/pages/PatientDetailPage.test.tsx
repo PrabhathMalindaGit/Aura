@@ -189,7 +189,10 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     await screen.findByText('alt-patient-1');
-    await user.click(await screen.findByRole('button', { name: /Open day detail/i }));
+    const detailButtons = await screen.findAllByRole('button', {
+      name: /View details|Open day detail/i,
+    });
+    await user.click(detailButtons[0]);
 
     expect(await screen.findByRole('dialog', { name: /Day detail/i })).toBeInTheDocument();
     expect(screen.getByText('Check-in snapshot')).toBeInTheDocument();
@@ -203,7 +206,10 @@ describe('PatientDetailPage', () => {
     renderPatientDetail(`/patients/${patientId}?days=14`);
 
     await screen.findByText('alt-patient-1');
-    await user.click(await screen.findByRole('button', { name: /Open day detail/i }));
+    const detailButtons = await screen.findAllByRole('button', {
+      name: /View details|Open day detail/i,
+    });
+    await user.click(detailButtons[0]);
     expect(await screen.findByRole('dialog', { name: /Day detail/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: '30 days' }));

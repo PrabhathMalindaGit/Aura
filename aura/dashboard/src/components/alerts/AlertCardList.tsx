@@ -34,16 +34,18 @@ function asReasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(', ') : reason;
 }
 
-function statusBadgeVariant(status: AlertItem['status']): 'default' | 'warning' | 'success' {
+function statusBadgeVariant(
+  status: AlertItem['status'],
+): 'status-open' | 'status-ack' | 'status-resolved' {
   if (status === 'acknowledged') {
-    return 'warning';
+    return 'status-ack';
   }
 
   if (status === 'resolved') {
-    return 'success';
+    return 'status-resolved';
   }
 
-  return 'default';
+  return 'status-open';
 }
 
 export function AlertCardList({
@@ -76,7 +78,9 @@ export function AlertCardList({
             <div className="alerts-card-list__body">
               <div className="alerts-card-list__top">
                 <div className="alerts-card-list__patient-group">
-                  <strong className="alerts-card-list__patient">Patient {alert.patientId}</strong>
+                  <strong className="alerts-card-list__patient patient-id-text">
+                    Patient {alert.patientId}
+                  </strong>
                   <span className="muted-text">Alert {alert._id}</span>
                 </div>
                 <div className="alerts-card-list__top-badges">

@@ -84,8 +84,8 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
               >
                 <td>
                   <div className="patients-table__patient">
-                    <strong>{displayName}</strong>
-                    {showIdSubline ? <span className="muted-text">ID: {patient.id}</span> : null}
+                    <strong className={showIdSubline ? undefined : 'patient-id-text'}>{displayName}</strong>
+                    {showIdSubline ? <span className="patient-id-text">ID: {patient.id}</span> : null}
                   </div>
                 </td>
                 <td>

@@ -391,6 +391,7 @@ export function PatientDetailPage(): JSX.Element {
               Back to patients
             </Link>
             <span className="patient-detail-title__text">Patient {patientDisplayName}</span>
+            {patientDisplayName !== patientId ? <span className="patient-id-text">ID: {patientId}</span> : null}
             {patientContext?.status ? (
               <Badge variant={statusBadgeVariant(patientContext.status)} icon>
                 {statusLabel(patientContext.status)}

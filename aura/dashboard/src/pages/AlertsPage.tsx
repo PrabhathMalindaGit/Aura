@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
 import { AlertDetailDrawer } from '../components/alerts/AlertDetailDrawer';
 import { AlertsTable } from '../components/alerts/AlertsTable';
+import { BentoCard } from '../components/overview/BentoCard';
+import { BentoGrid } from '../components/overview/BentoGrid';
+import { KpiRow } from '../components/overview/KpiRow';
 import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import {
   FiltersBar,
@@ -13,9 +17,9 @@ import {
 import { StatusTabs } from '../components/alerts/StatusTabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { Stack } from '../components/ui/Stack';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useAssignment } from '../hooks/useAssignment';
 import { useRiskOverride } from '../hooks/useRiskOverride';
@@ -31,7 +35,12 @@ import {
   pruneSeenMap,
   type SeenAlertMap,
 } from '../services/seenStore';
-import { listAlerts, useAlerts, useUpdateAlertStatus } from '../services/clinicianApi';
+import {
+  clinicianQueryKeys,
+  listAlerts,
+  useAlerts,
+  useUpdateAlertStatus,
+} from '../services/clinicianApi';
 import { useConnectionStatus } from '../services/connection';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { toCsv, downloadCsv } from '../utils/csv';
@@ -48,6 +57,7 @@ import {
   filterAlertsForExportByRange,
   formatExportDateRangeSummary,
 } from '../services/exportService';
+import { computeAlertKpis } from '../utils/kpi';
 import { hasRiskOverride } from '../utils/risk';
 import { isAlertSeenForUi, isAlertUnseenForUi } from '../utils/seen';
 import { isAfterWithinDays } from '../utils/time';
@@ -65,6 +75,17 @@ function createDefaultExportStatuses(activeStatus: AlertStatus): Record<AlertSta
 
 function reasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(' ') : reason;
+}
+
+function formatLastUpdated(lastSuccessAt: number | null): string {
+  if (!lastSuccessAt) {
+    return '--';
+  }
+
+  return new Date(lastSuccessAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function useDocumentHidden(): boolean {
@@ -206,6 +227,7 @@ export function AlertsPage(): JSX.Element {
 
   const drawerFocusReturnRef = useRef<HTMLElement | null>(null);
 
+  const queryClient = useQueryClient();
   const documentHidden = useDocumentHidden();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
@@ -349,6 +371,21 @@ export function AlertsPage(): JSX.Element {
     [alertsQuery.data, assignments.applyAlertAssignments, overrides.applyAlertOverrides],
   );
 
+  const openAlertsForOverview = useMemo(() => {
+    if (status === 'open') {
+      return sourceAlerts;
+    }
+
+    const cachedOpenAlerts = queryClient.getQueryData<AlertItem[]>(clinicianQueryKeys.alerts('open')) ?? [];
+    return overrides.applyAlertOverrides(assignments.applyAlertAssignments(cachedOpenAlerts));
+  }, [
+    assignments.applyAlertAssignments,
+    overrides.applyAlertOverrides,
+    queryClient,
+    sourceAlerts,
+    status,
+  ]);
+
   const visibleAlerts = useMemo(() => {
     const filtered = filterAlerts(sourceAlerts, {
       searchValue,
@@ -394,6 +431,12 @@ export function AlertsPage(): JSX.Element {
   }, [selectedAlert, sourceAlerts]);
 
   const showInitialLoading = alertsQuery.isLoading && sourceAlerts.length === 0;
+  const overviewLoading = status === 'open' && alertsQuery.isLoading && sourceAlerts.length === 0;
+  const alertKpis = useMemo(
+    () => computeAlertKpis(openAlertsForOverview, seenAlertMap, clinicianId),
+    [clinicianId, openAlertsForOverview, seenAlertMap],
+  );
+  const allClear = !overviewLoading && alertKpis.openCount === 0;
   const activeAlertSeen = activeAlert ? isAlertSeenForUi(activeAlert, seenAlertMap) : false;
 
   async function collectAlertsForExport(statusesToInclude: AlertStatus[]): Promise<AlertItem[]> {
@@ -585,7 +628,7 @@ export function AlertsPage(): JSX.Element {
     alertsExportPreviewCount === 0;
 
   return (
-    <div className="page-stack">
+    <Stack className="page-stack" gap="6">
       {/*
         Acceptance test plan summary:
         1) Open /alerts and verify queue renders.
@@ -625,91 +668,120 @@ export function AlertsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card
-        title="Alerts Queue"
-        action={
-          <Button variant="secondary" onClick={openAlertsExportModal}>
-            Export CSV
-          </Button>
-        }
-      >
-        <StatusTabs value={status} onChange={setStatus} />
+      <BentoGrid className="alerts-bento">
+        <BentoCard
+          className="alerts-overview-card"
+          title="Overview"
+          gradient={allClear ? 'success' : 'primary'}
+          colSpan={6}
+          rowSpan={1}
+          size="lg"
+        >
+          {allClear ? (
+            <div className="alerts-all-clear" role="status" aria-live="polite">
+              <p className="alerts-all-clear__title">All clear</p>
+              <p className="alerts-all-clear__summary">No open alerts need action right now.</p>
+              <p className="alerts-all-clear__meta">
+                Last updated {formatLastUpdated(connection.lastSuccessAt)}
+              </p>
+            </div>
+          ) : (
+            <KpiRow summary={alertKpis} loading={overviewLoading} />
+          )}
+        </BentoCard>
 
-        <FiltersBar
-          status={status}
-          searchValue={searchValue}
-          sourceFilter={sourceFilter}
-          timeRange={timeRange}
-          sortOrder={sortOrder}
-          unseenOnly={unseenOnly}
-          unseenCount={unseenCount}
-          assignedToMeOnly={assignedToMeOnly}
-          unassignedOnly={unassignedOnly}
-          overriddenOnly={overriddenOnly}
-          refreshing={alertsQuery.isFetching}
-          onSearchValueChange={setSearchValue}
-          onSourceFilterChange={setSourceFilter}
-          onTimeRangeChange={setTimeRange}
-          onSortOrderChange={setSortOrder}
-          onUnseenOnlyChange={setUnseenOnly}
-          onAssignedToMeOnlyChange={(value) => {
-            setAssignedToMeOnly(value);
-            if (value) {
-              setUnassignedOnly(false);
-            }
-          }}
-          onUnassignedOnlyChange={(value) => {
-            setUnassignedOnly(value);
-            if (value) {
-              setAssignedToMeOnly(false);
-            }
-          }}
-          onOverriddenOnlyChange={setOverriddenOnly}
-          onRefresh={() => {
-            void alertsQuery.refetch();
-          }}
-        />
+        <BentoCard
+          className="alerts-queue-card"
+          title="Alerts Queue"
+          action={
+            <Button variant="secondary" onClick={openAlertsExportModal}>
+              Export CSV
+            </Button>
+          }
+          colSpan={6}
+          rowSpan={3}
+          size="xl"
+        >
+          <Stack gap="4">
+            <StatusTabs value={status} onChange={setStatus} />
 
-        {showInitialLoading ? (
-          <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-          </div>
-        ) : visibleAlerts.length === 0 ? (
-          <EmptyState
-            title="No alerts match this view"
-            description="Try changing status, search text, or filters to broaden the queue."
-          />
-        ) : isMobileLayout ? (
-          <AlertCardList
-            alerts={visibleAlerts}
-            seenAlertMap={seenAlertMap}
-            clinicianId={clinicianId}
-            mutationPending={updateAlertMutation.isPending}
-            assignmentPending={assignments.assignmentBusy}
-            onOpen={openAlert}
-            onAssignToMe={handleAssignToMe}
-            onTakeOver={handleTakeOver}
-            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-          />
-        ) : (
-          <AlertsTable
-            alerts={visibleAlerts}
-            seenAlertMap={seenAlertMap}
-            clinicianId={clinicianId}
-            mutationPending={updateAlertMutation.isPending}
-            assignmentPending={assignments.assignmentBusy}
-            onOpen={openAlert}
-            onAssignToMe={handleAssignToMe}
-            onTakeOver={handleTakeOver}
-            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-          />
-        )}
-      </Card>
+            <FiltersBar
+              status={status}
+              searchValue={searchValue}
+              sourceFilter={sourceFilter}
+              timeRange={timeRange}
+              sortOrder={sortOrder}
+              unseenOnly={unseenOnly}
+              unseenCount={unseenCount}
+              assignedToMeOnly={assignedToMeOnly}
+              unassignedOnly={unassignedOnly}
+              overriddenOnly={overriddenOnly}
+              refreshing={alertsQuery.isFetching}
+              onSearchValueChange={setSearchValue}
+              onSourceFilterChange={setSourceFilter}
+              onTimeRangeChange={setTimeRange}
+              onSortOrderChange={setSortOrder}
+              onUnseenOnlyChange={setUnseenOnly}
+              onAssignedToMeOnlyChange={(value) => {
+                setAssignedToMeOnly(value);
+                if (value) {
+                  setUnassignedOnly(false);
+                }
+              }}
+              onUnassignedOnlyChange={(value) => {
+                setUnassignedOnly(value);
+                if (value) {
+                  setAssignedToMeOnly(false);
+                }
+              }}
+              onOverriddenOnlyChange={setOverriddenOnly}
+              onRefresh={() => {
+                void alertsQuery.refetch();
+              }}
+            />
+          </Stack>
+
+          {showInitialLoading ? (
+            <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
+              <Skeleton height={72} />
+              <Skeleton height={72} />
+              <Skeleton height={72} />
+              <Skeleton height={72} />
+            </div>
+          ) : visibleAlerts.length === 0 ? (
+            <EmptyState
+              title="No alerts match this view"
+              description="Try changing status, search text, or filters to broaden the queue."
+            />
+          ) : isMobileLayout ? (
+            <AlertCardList
+              alerts={visibleAlerts}
+              seenAlertMap={seenAlertMap}
+              clinicianId={clinicianId}
+              mutationPending={updateAlertMutation.isPending}
+              assignmentPending={assignments.assignmentBusy}
+              onOpen={openAlert}
+              onAssignToMe={handleAssignToMe}
+              onTakeOver={handleTakeOver}
+              onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+              onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+            />
+          ) : (
+            <AlertsTable
+              alerts={visibleAlerts}
+              seenAlertMap={seenAlertMap}
+              clinicianId={clinicianId}
+              mutationPending={updateAlertMutation.isPending}
+              assignmentPending={assignments.assignmentBusy}
+              onOpen={openAlert}
+              onAssignToMe={handleAssignToMe}
+              onTakeOver={handleTakeOver}
+              onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+              onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+            />
+          )}
+        </BentoCard>
+      </BentoGrid>
 
       <ExportCsvModal
         open={alertsExportOpen}
@@ -773,6 +845,6 @@ export function AlertsPage(): JSX.Element {
         onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
         onResolve={(alert) => handleStatusUpdate('resolved', alert)}
       />
-    </div>
+    </Stack>
   );
 }

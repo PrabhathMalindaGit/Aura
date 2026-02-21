@@ -17,16 +17,18 @@ interface RecentAlertsPanelProps {
   onViewAll?: () => void;
 }
 
-function statusBadgeVariant(status: AlertItem['status']): 'default' | 'warning' | 'success' {
+function statusBadgeVariant(
+  status: AlertItem['status'],
+): 'status-open' | 'status-ack' | 'status-resolved' {
   if (status === 'acknowledged') {
-    return 'warning';
+    return 'status-ack';
   }
 
   if (status === 'resolved') {
-    return 'success';
+    return 'status-resolved';
   }
 
-  return 'default';
+  return 'status-open';
 }
 
 function reasonText(value: string | string[]): string {

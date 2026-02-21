@@ -4,6 +4,7 @@ import { SessionTimeoutModal } from '../components/auth/SessionTimeoutModal';
 import { MobileNavDrawer } from '../components/nav/MobileNavDrawer';
 import { IconButton } from '../components/ui/IconButton';
 import { Badge } from '../components/ui/Badge';
+import { Inset } from '../components/ui/Inset';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useConnectionStatus } from '../services/connection';
 import {
@@ -133,7 +134,7 @@ export function AppShell(): JSX.Element {
       </aside>
 
       <div className="shell-main">
-        <header className="topbar">
+        <header className={cn('topbar', 'glass-card')}>
           <div className="topbar__left">
             {isTabletOrBelow ? (
               <IconButton
@@ -160,7 +161,9 @@ export function AppShell(): JSX.Element {
         </header>
 
         <main className="main-content" id="main-content" tabIndex={-1}>
-          <Outlet />
+          <Inset padding="page">
+            <Outlet />
+          </Inset>
         </main>
       </div>
 

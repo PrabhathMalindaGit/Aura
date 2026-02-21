@@ -32,16 +32,18 @@ function asReasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(', ') : reason;
 }
 
-function statusBadgeVariant(status: AlertItem['status']): 'default' | 'warning' | 'success' {
+function statusBadgeVariant(
+  status: AlertItem['status'],
+): 'status-open' | 'status-ack' | 'status-resolved' {
   if (status === 'acknowledged') {
-    return 'warning';
+    return 'status-ack';
   }
 
   if (status === 'resolved') {
-    return 'success';
+    return 'status-resolved';
   }
 
-  return 'default';
+  return 'status-open';
 }
 
 function moveFocusToRow(
@@ -144,7 +146,9 @@ export function AlertsTable({
                     {formatRelativeTime(alert.createdAt)}
                   </time>
                 </td>
-                <td>{alert.patientId}</td>
+                <td>
+                  <span className="patient-id-text">{alert.patientId}</span>
+                </td>
                 <td className="alerts-table__reason" title={reasonText}>
                   {reasonText}
                 </td>

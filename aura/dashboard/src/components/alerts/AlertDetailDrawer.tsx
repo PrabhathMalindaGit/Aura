@@ -49,16 +49,18 @@ function asReasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(', ') : reason;
 }
 
-function statusBadgeVariant(status: AlertItem['status']): 'default' | 'warning' | 'success' {
+function statusBadgeVariant(
+  status: AlertItem['status'],
+): 'status-open' | 'status-ack' | 'status-resolved' {
   if (status === 'acknowledged') {
-    return 'warning';
+    return 'status-ack';
   }
 
   if (status === 'resolved') {
-    return 'success';
+    return 'status-resolved';
   }
 
-  return 'default';
+  return 'status-open';
 }
 
 function mergeTimeline(primary: TimelineEvent[] | undefined, fallback: TimelineEvent[]): TimelineEvent[] {

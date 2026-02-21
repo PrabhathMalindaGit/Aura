@@ -30,7 +30,7 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
         return (
           <Card key={patient.id} title={getPatientDisplayName(patient)}>
             <div className="patients-card-list__body">
-              <p className="muted-text">ID: {patient.id}</p>
+              <p className="patient-id-text">ID: {patient.id}</p>
               <div className="patients-card-list__badges">
                 <PatientStatusBadge status={status} />
                 {missedCheckin ? (

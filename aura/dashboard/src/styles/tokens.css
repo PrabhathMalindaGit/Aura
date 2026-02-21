@@ -1,43 +1,178 @@
 :root {
-  --color-bg: #f4f7f9;
-  --color-surface: #ffffff;
-  --color-surface-soft: #f8fafb;
-  --color-text: #1f2b36;
-  --color-muted: #5f6e7b;
-  --color-border: #d6dfe6;
-  --color-primary: #0b6e91;
-  --color-primary-contrast: #ffffff;
-  --color-danger: #b13a3a;
-  --color-warning: #9d6a00;
-  --color-success: #1f7f4f;
-  --color-overlay: rgb(15 26 43 / 45%);
-
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 0.75rem;
-  --space-lg: 1rem;
-  --space-xl: 1.5rem;
-
-  --font-family-base: 'IBM Plex Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  --font-size-sm: 0.875rem;
-  --font-size-md: 1rem;
-  --font-size-lg: 1.25rem;
-  --font-size-xl: 1.5rem;
-  --font-weight-regular: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-
-  --shadow-sm: 0 1px 2px rgb(15 26 43 / 8%);
-  --shadow-md: 0 8px 24px rgb(15 26 43 / 12%);
-
-  --transition-fast: 150ms ease;
-  --transition-base: 220ms ease;
-
+  /* Breakpoints */
   --bp-sm: 600px;
   --bp-md: 900px;
   --bp-lg: 1200px;
+
+  /* Typography */
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --leading-tight: 1.3;
+  --leading-normal: 1.5;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --nums: 'tnum' 1, 'lnum' 1;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --page-padding: clamp(12px, 2vw, 24px);
+  --card-gap: clamp(10px, 1.5vw, 18px);
+  --section-gap: clamp(16px, 2vw, 28px);
+
+  /* Radius */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+
+  /* Elevation (exactly 3 levels: background, card, popover) */
+  --shadow-1: 0 1px 2px hsl(218 35% 18% / 0.08), 0 4px 10px hsl(218 35% 18% / 0.06);
+  --shadow-2: 0 8px 24px hsl(218 35% 18% / 0.14);
+
+  /* Semantic color tokens (HSL triplets only) */
+  --background: 210 23% 96%;
+  --foreground: 220 34% 14%;
+  --muted: 210 23% 92%;
+  --muted-foreground: 216 14% 34%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 34% 14%;
+  --popover: 210 29% 99%;
+  --popover-foreground: 220 34% 14%;
+  --border: 214 18% 72%;
+  --input: 214 18% 72%;
+  --ring: 206 84% 43%;
+  --ring-offset: 210 23% 96%;
+
+  --primary: 204 88% 36%;
+  --primary-foreground: 0 0% 100%;
+  --danger: 0 66% 43%;
+  --danger-foreground: 0 0% 100%;
+  --warning: 36 86% 42%;
+  --warning-foreground: 34 100% 11%;
+  --success: 153 58% 33%;
+  --success-foreground: 0 0% 100%;
+  --info: 214 72% 43%;
+  --info-foreground: 0 0% 100%;
+
+  --risk-high: 0 66% 43%;
+  --risk-medium: 36 86% 42%;
+  --risk-low: 153 58% 33%;
+
+  --status-open: 214 72% 43%;
+  --status-ack: 36 86% 42%;
+  --status-resolved: 153 58% 33%;
+
+  --chart-pain: 0 66% 43%;
+  --chart-mood: 214 72% 43%;
+  --chart-adherence: 153 58% 33%;
+  --chart-fill-alpha-start: 0.30;
+  --chart-fill-alpha-end: 0;
+  --chart-stroke-alpha: 1;
+  --chart-grid-alpha: 0.18;
+  --chart-height-mobile: 180px;
+  --chart-height-tablet: 240px;
+  --chart-height-desktop: 280px;
+  --chart-height: var(--chart-height-mobile);
+
+  --gradient-page: linear-gradient(
+    160deg,
+    hsl(var(--primary) / 0.08),
+    hsl(var(--background) / 0.96) 44%,
+    hsl(var(--info) / 0.05)
+  );
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.18),
+    hsl(var(--primary) / 0.04)
+  );
+  --gradient-risk-high: linear-gradient(
+    135deg,
+    hsl(var(--risk-high) / 0.2),
+    hsl(var(--risk-high) / 0.05)
+  );
+  --gradient-success: linear-gradient(
+    135deg,
+    hsl(var(--success) / 0.2),
+    hsl(var(--success) / 0.05)
+  );
+  --gradient-warning: linear-gradient(
+    135deg,
+    hsl(var(--warning) / 0.2),
+    hsl(var(--warning) / 0.06)
+  );
+  --gradient-chart-pain: linear-gradient(
+    180deg,
+    hsl(var(--chart-pain) / var(--chart-fill-alpha-start)),
+    hsl(var(--chart-pain) / var(--chart-fill-alpha-end))
+  );
+  --gradient-chart-mood: linear-gradient(
+    180deg,
+    hsl(var(--chart-mood) / var(--chart-fill-alpha-start)),
+    hsl(var(--chart-mood) / var(--chart-fill-alpha-end))
+  );
+  --gradient-chart-adherence: linear-gradient(
+    180deg,
+    hsl(var(--chart-adherence) / var(--chart-fill-alpha-start)),
+    hsl(var(--chart-adherence) / var(--chart-fill-alpha-end))
+  );
+
+  --focus-outline: 0 0 0 2px hsl(var(--ring-offset)), 0 0 0 4px hsl(var(--ring));
+
+  /* Glassmorphism surface tokens */
+  --glass-blur-desktop: 14px;
+  --glass-blur-mobile: 8px;
+  --glass-blur: var(--glass-blur-desktop);
+  --glass-alpha-card: 0.72;
+  --glass-alpha-popover: 0.78;
+  --glass-alpha-overlay: 0.48;
+  --glass-border-alpha: 0.35;
+  --glass-border-alpha-strong: 0.45;
+  --glass-highlight-alpha: 0.14;
+
+  /* Legacy aliases for existing class styles */
+  --color-bg: hsl(var(--background));
+  --color-surface: hsl(var(--card));
+  --color-surface-soft: hsl(var(--muted));
+  --color-text: hsl(var(--foreground));
+  --color-muted: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-contrast: hsl(var(--primary-foreground));
+  --color-danger: hsl(var(--danger));
+  --color-warning: hsl(var(--warning));
+  --color-success: hsl(var(--success));
+  --color-overlay: hsl(var(--foreground) / 0.48);
+
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-3);
+  --space-lg: var(--space-4);
+  --space-xl: var(--space-6);
+
+  --font-family-base: var(--font-sans);
+  --font-size-sm: var(--text-sm);
+  --font-size-md: var(--text-base);
+  --font-size-lg: var(--text-lg);
+  --font-size-xl: var(--text-lg);
+  --font-weight-regular: var(--font-normal);
+  --font-weight-medium: var(--font-medium);
+  --font-weight-semibold: var(--font-semibold);
+
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+
+  --transition-fast: 140ms ease;
+  --transition-base: 200ms ease;
 }

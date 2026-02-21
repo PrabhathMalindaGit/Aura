@@ -3,6 +3,7 @@ import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
 import { AlertDetailDrawer } from '../components/alerts/AlertDetailDrawer';
 import { AlertsTable } from '../components/alerts/AlertsTable';
+import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import {
   FiltersBar,
   type SortOrder,
@@ -11,6 +12,7 @@ import {
 } from '../components/alerts/FiltersBar';
 import { StatusTabs } from '../components/alerts/StatusTabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
+import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -28,15 +30,36 @@ import {
   pruneSeenMap,
   type SeenAlertMap,
 } from '../services/seenStore';
-import { useAlerts, useUpdateAlertStatus } from '../services/clinicianApi';
+import { listAlerts, useAlerts, useUpdateAlertStatus } from '../services/clinicianApi';
 import { useConnectionStatus } from '../services/connection';
+import { toCsv, downloadCsv } from '../utils/csv';
+import {
+  getPresetDateRange,
+  type DateRangeValue,
+  validateDateRange,
+} from '../utils/datesRange';
 import { asAppError, toUserMessage } from '../utils/errors';
+import {
+  buildAlertExportColumns,
+  buildAlertExportRows,
+  createAlertsCsvFilename,
+  filterAlertsForExportByRange,
+  formatExportDateRangeSummary,
+} from '../services/exportService';
 import { hasRiskOverride } from '../utils/risk';
 import { isAlertSeenForUi, isAlertUnseenForUi } from '../utils/seen';
 import { isAfterWithinDays } from '../utils/time';
 
 const POLLING_INTERVAL_MS = 12_000;
 const SEEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function createDefaultExportStatuses(activeStatus: AlertStatus): Record<AlertStatus, boolean> {
+  return {
+    open: activeStatus === 'open',
+    acknowledged: activeStatus === 'acknowledged',
+    resolved: activeStatus === 'resolved',
+  };
+}
 
 function reasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(' ') : reason;
@@ -132,6 +155,7 @@ function filterAlerts(
     clinicianId: string;
     seenAlertMap: SeenAlertMap;
     status: AlertStatus;
+    skipTimeRange?: boolean;
   },
 ): AlertItem[] {
   const normalizedSearch = options.searchValue.trim().toLowerCase();
@@ -157,7 +181,7 @@ function filterAlerts(
       return false;
     }
 
-    if (!isAfterWithinDays(alert.createdAt, toDays(options.timeRange))) {
+    if (!options.skipTimeRange && !isAfterWithinDays(alert.createdAt, toDays(options.timeRange))) {
       return false;
     }
 
@@ -185,6 +209,27 @@ export function AlertsPage(): JSX.Element {
   const [clinicianId, setClinicianId] = useState(() => getClinicianId());
   const [clinicianName, setClinicianName] = useState(() => getClinicianName());
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(clinicianId));
+  const [alertsExportOpen, setAlertsExportOpen] = useState(false);
+  const [alertsExportRange, setAlertsExportRange] = useState<DateRangeValue>(() =>
+    getPresetDateRange('last7'),
+  );
+  const [alertsExportStatuses, setAlertsExportStatuses] = useState<Record<AlertStatus, boolean>>(
+    () => createDefaultExportStatuses('open'),
+  );
+  const [alertsExportIncludeNotifications, setAlertsExportIncludeNotifications] = useState(true);
+  const [alertsExportIncludeAdvancedFields, setAlertsExportIncludeAdvancedFields] = useState(true);
+  const [alertsExportPreviewLoading, setAlertsExportPreviewLoading] = useState(false);
+  const [alertsExportDownloadLoading, setAlertsExportDownloadLoading] = useState(false);
+  const [alertsExportPreviewCount, setAlertsExportPreviewCount] = useState(0);
+  const [alertsExportError, setAlertsExportError] = useState<string | null>(null);
+  const alertsExportRangeError = validateDateRange(alertsExportRange);
+  const selectedAlertsExportStatuses = useMemo(
+    () =>
+      (Object.entries(alertsExportStatuses) as Array<[AlertStatus, boolean]>)
+        .filter((entry) => entry[1])
+        .map((entry) => entry[0]),
+    [alertsExportStatuses],
+  );
 
   const drawerFocusReturnRef = useRef<HTMLElement | null>(null);
 
@@ -263,6 +308,69 @@ export function AlertsPage(): JSX.Element {
     setOverriddenOnly(false);
   }, [status]);
 
+  useEffect(() => {
+    if (!alertsExportOpen) {
+      return;
+    }
+
+    setAlertsExportError(null);
+
+    if (alertsExportRangeError) {
+      setAlertsExportPreviewCount(0);
+      return;
+    }
+
+    if (selectedAlertsExportStatuses.length === 0) {
+      setAlertsExportPreviewCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    setAlertsExportPreviewLoading(true);
+
+    void (async () => {
+      try {
+        const rows = await collectAlertsForExport(selectedAlertsExportStatuses);
+        if (cancelled) {
+          return;
+        }
+
+        setAlertsExportPreviewCount(rows.length);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setAlertsExportPreviewCount(0);
+        setAlertsExportError(toUserMessage(asAppError(error)));
+      } finally {
+        if (!cancelled) {
+          setAlertsExportPreviewLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    alertsExportOpen,
+    alertsExportRange,
+    alertsExportRangeError,
+    assignedToMeOnly,
+    assignments.applyAlertAssignments,
+    clinicianId,
+    overriddenOnly,
+    overrides.applyAlertOverrides,
+    searchValue,
+    seenAlertMap,
+    selectedAlertsExportStatuses,
+    sourceFilter,
+    timeRange,
+    unassignedOnly,
+    unseenOnly,
+  ]);
+
   const sourceAlerts = useMemo(
     () => overrides.applyAlertOverrides(assignments.applyAlertAssignments(alertsQuery.data ?? [])),
     [alertsQuery.data, assignments.applyAlertAssignments, overrides.applyAlertOverrides],
@@ -314,6 +422,31 @@ export function AlertsPage(): JSX.Element {
 
   const showInitialLoading = alertsQuery.isLoading && sourceAlerts.length === 0;
   const activeAlertSeen = activeAlert ? isAlertSeenForUi(activeAlert, seenAlertMap) : false;
+
+  async function collectAlertsForExport(statusesToInclude: AlertStatus[]): Promise<AlertItem[]> {
+    const collections = await Promise.all(statusesToInclude.map((statusItem) => listAlerts(statusItem)));
+
+    return collections.flatMap((statusAlerts, index) => {
+      const statusItem = statusesToInclude[index];
+      const enhanced = overrides.applyAlertOverrides(assignments.applyAlertAssignments(statusAlerts));
+
+      const filtered = filterAlerts(enhanced, {
+        searchValue,
+        sourceFilter,
+        timeRange,
+        unseenOnly,
+        assignedToMeOnly,
+        unassignedOnly,
+        overriddenOnly,
+        clinicianId,
+        seenAlertMap,
+        status: statusItem,
+        skipTimeRange: true,
+      });
+
+      return filterAlertsForExportByRange(filtered, alertsExportRange);
+    });
+  }
 
   function markSeen(alert: AlertItem): void {
     if (alert.status !== 'open') {
@@ -418,6 +551,66 @@ export function AlertsPage(): JSX.Element {
     }
   }
 
+  function openAlertsExportModal(): void {
+    setAlertsExportOpen(true);
+    setAlertsExportRange(getPresetDateRange('last7'));
+    setAlertsExportStatuses(createDefaultExportStatuses(status));
+    setAlertsExportIncludeNotifications(true);
+    setAlertsExportIncludeAdvancedFields(true);
+    setAlertsExportPreviewCount(0);
+    setAlertsExportError(null);
+  }
+
+  async function handleAlertsExportDownload(): Promise<void> {
+    if (alertsExportRangeError) {
+      setAlertsExportError(alertsExportRangeError);
+      return;
+    }
+
+    if (selectedAlertsExportStatuses.length === 0) {
+      setAlertsExportError('Select at least one status to export.');
+      return;
+    }
+
+    setAlertsExportDownloadLoading(true);
+    setAlertsExportError(null);
+
+    try {
+      const filteredAlerts = await collectAlertsForExport(selectedAlertsExportStatuses);
+      if (filteredAlerts.length === 0) {
+        setAlertsExportError('No data in selected range.');
+        return;
+      }
+
+      const exportOptions = {
+        includeNotificationFields: alertsExportIncludeNotifications,
+        includeAdvancedFields: alertsExportIncludeAdvancedFields,
+      };
+
+      const rows = buildAlertExportRows(filteredAlerts, exportOptions);
+      const columns = buildAlertExportColumns(exportOptions);
+      const csv = toCsv(rows, columns);
+
+      downloadCsv(createAlertsCsvFilename(alertsExportRange), csv);
+      setAlertsExportOpen(false);
+    } catch (error) {
+      setAlertsExportError(toUserMessage(asAppError(error)));
+    } finally {
+      setAlertsExportDownloadLoading(false);
+    }
+  }
+
+  const alertsExportSummary = alertsExportPreviewLoading
+    ? `Calculating export preview for ${formatExportDateRangeSummary(alertsExportRange)}...`
+    : `Exporting ${alertsExportPreviewCount} alerts from ${formatExportDateRangeSummary(alertsExportRange)}.`;
+
+  const alertsExportDownloadDisabled =
+    alertsExportPreviewLoading ||
+    alertsExportDownloadLoading ||
+    Boolean(alertsExportRangeError) ||
+    selectedAlertsExportStatuses.length === 0 ||
+    alertsExportPreviewCount === 0;
+
   return (
     <div className="page-stack">
       {/*
@@ -459,7 +652,14 @@ export function AlertsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card title="Alerts Queue">
+      <Card
+        title="Alerts Queue"
+        action={
+          <Button variant="secondary" onClick={openAlertsExportModal}>
+            Export CSV
+          </Button>
+        }
+      >
         <StatusTabs value={status} onChange={setStatus} />
 
         <FiltersBar
@@ -537,6 +737,50 @@ export function AlertsPage(): JSX.Element {
           />
         )}
       </Card>
+
+      <ExportCsvModal
+        open={alertsExportOpen}
+        title="Export Alerts CSV"
+        description="Use the date range and status filters to export the alert review window."
+        range={alertsExportRange}
+        rangeError={alertsExportRangeError}
+        summary={alertsExportError ?? alertsExportSummary}
+        loading={alertsExportPreviewLoading || alertsExportDownloadLoading}
+        downloadDisabled={alertsExportDownloadDisabled}
+        disableReason={
+          alertsExportRangeError ??
+          (selectedAlertsExportStatuses.length === 0 ? 'Select at least one status.' : undefined) ??
+          (alertsExportPreviewCount === 0 ? 'No data in selected range.' : undefined)
+        }
+        statusOptions={{
+          selected: alertsExportStatuses,
+          onChange: (statusValue, checked) => {
+            setAlertsExportStatuses((current) => ({
+              ...current,
+              [statusValue]: checked,
+            }));
+          },
+        }}
+        toggles={[
+          {
+            id: 'export-alerts-notification-fields',
+            label: 'Include notification fields',
+            checked: alertsExportIncludeNotifications,
+            onChange: setAlertsExportIncludeNotifications,
+          },
+          {
+            id: 'export-alerts-advanced-fields',
+            label: 'Include advanced alert fields',
+            checked: alertsExportIncludeAdvancedFields,
+            onChange: setAlertsExportIncludeAdvancedFields,
+          },
+        ]}
+        onRangeChange={setAlertsExportRange}
+        onClose={() => setAlertsExportOpen(false)}
+        onDownload={() => {
+          void handleAlertsExportDownload();
+        }}
+      />
 
       <AlertDetailDrawer
         open={Boolean(activeAlert)}

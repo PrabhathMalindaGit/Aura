@@ -22,6 +22,7 @@ import {
   type AlertContextResult,
   type AlertItem,
   type AlertStatus,
+  type CheckinsRangeResponse,
   type CheckinEvent,
   type ChatEvent,
   type ListAlertsResponse,
@@ -493,6 +494,34 @@ export async function getPatientTrends(patientId: string, days: 14 | 30): Promis
     }
 
     trendsEndpointAvailability.set(key, false);
+    throw error;
+  }
+}
+
+export async function tryGetPatientCheckinsRange(
+  patientId: string,
+  from: string,
+  to: string,
+): Promise<TrendPointRaw[] | null> {
+  // TODO(server): add custom date-range check-ins endpoint:
+  // GET /clinician/patients/:patientId/checkins?from=YYYY-MM-DD&to=YYYY-MM-DD
+  // returning { ok: true, checkins: TrendPointRaw[] }
+  try {
+    const response = await fetchJson<CheckinsRangeResponse>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/checkins`,
+      {
+        method: 'GET',
+        query: { from, to },
+      },
+    );
+
+    return response.checkins;
+  } catch (error) {
+    const appError = asAppError(error);
+    if (appError.kind === 'HTTP' && appError.status === 404) {
+      return null;
+    }
+
     throw error;
   }
 }

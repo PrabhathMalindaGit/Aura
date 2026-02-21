@@ -8,6 +8,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Tabs } from '../components/ui/Tabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
+import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import { DayDetailPanel } from '../components/patients/DayDetailPanel';
 import { PatientSummaryCards } from '../components/patients/PatientSummaryCards';
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
@@ -16,6 +17,7 @@ import {
   getPatientTrendsEndpointHint,
   isPatientTrendsEndpointMissing,
   listAlerts,
+  tryGetPatientCheckinsRange,
   usePatients,
   usePatientTrends,
   useUpdateAlertStatus,
@@ -23,7 +25,25 @@ import {
 import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
 import type { AlertItem, AlertStatus, PatientSummary, TrendPointRaw } from '../types/models';
+import { toCsv, downloadCsv } from '../utils/csv';
+import {
+  getPresetDateRange,
+  type DateRangeValue,
+  validateDateRange,
+} from '../utils/datesRange';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
+import {
+  buildAlertExportColumns,
+  buildAlertExportRows,
+  buildPatientTrendExportColumns,
+  buildPatientTrendExportRows,
+  createPatientAlertsCsvFilename,
+  createPatientCheckinsCsvFilename,
+  filterAlertsForExportByRange,
+  filterTrendPointsForExportByRange,
+  formatExportDateRangeSummary,
+  normalizeTrendPointsForExport,
+} from '../services/exportService';
 import {
   alertsForDate,
   deriveTrendSummary,
@@ -34,6 +54,7 @@ import {
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 const CLINICIAN_BUCKET = 'anon';
+type PatientExportDataset = 'trends' | 'alerts';
 
 function parseDays(value: string | null): 14 | 30 {
   return value === '30' ? 30 : 14;
@@ -104,6 +125,18 @@ export function PatientDetailPage(): JSX.Element {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
+  const [patientExportOpen, setPatientExportOpen] = useState(false);
+  const [patientExportRange, setPatientExportRange] = useState<DateRangeValue>(() =>
+    getPresetDateRange('last30'),
+  );
+  const [patientExportDataset, setPatientExportDataset] = useState<PatientExportDataset>('trends');
+  const [patientExportIncludeNotes, setPatientExportIncludeNotes] = useState(false);
+  const [patientExportIncludeAdvancedAlertFields, setPatientExportIncludeAdvancedAlertFields] =
+    useState(false);
+  const [patientExportIncludeNotificationFields, setPatientExportIncludeNotificationFields] =
+    useState(false);
+  const [patientExportLoading, setPatientExportLoading] = useState(false);
+  const [patientExportMessage, setPatientExportMessage] = useState<string | null>(null);
   const dayDetailFocusRef = useRef<HTMLElement | null>(null);
 
   const connection = useConnectionStatus();
@@ -181,6 +214,7 @@ export function PatientDetailPage(): JSX.Element {
 
   const trendsEndpointMissing = isPatientTrendsEndpointMissing(patientId, selectedDays);
   const hasTrendData = normalizedTrends.some((point) => trendPointHasAnyData(point));
+  const patientExportRangeError = validateDateRange(patientExportRange);
 
   const showTrendsLoading = trendsQuery.isLoading && trendData.length === 0;
 
@@ -206,6 +240,133 @@ export function PatientDetailPage(): JSX.Element {
         },
       },
     );
+  }
+
+  const patientExportPreviewCount = useMemo(() => {
+    if (patientExportRangeError) {
+      return 0;
+    }
+
+    if (patientExportDataset === 'alerts') {
+      return filterAlertsForExportByRange(patientAlerts, patientExportRange).length;
+    }
+
+    const rangePoints = filterTrendPointsForExportByRange(normalizedTrends, patientExportRange);
+    return rangePoints.filter(
+      (point) => trendPointHasAnyData(point) || alertsForDate(patientAlerts, point.date).length > 0,
+    ).length;
+  }, [
+    normalizedTrends,
+    patientAlerts,
+    patientExportDataset,
+    patientExportRange,
+    patientExportRangeError,
+  ]);
+
+  const loadedTrendWindowStart = normalizedTrends[0]?.date ?? null;
+  const loadedTrendWindowEnd = normalizedTrends[normalizedTrends.length - 1]?.date ?? null;
+  const rangeOutsideLoadedTrendWindow = Boolean(
+    loadedTrendWindowStart &&
+      loadedTrendWindowEnd &&
+      (patientExportRange.from < loadedTrendWindowStart || patientExportRange.to > loadedTrendWindowEnd),
+  );
+
+  const patientExportSummary =
+    patientExportMessage ??
+    `Exporting ${patientExportPreviewCount} ${
+      patientExportDataset === 'alerts' ? 'alerts' : 'check-in rows'
+    } from ${formatExportDateRangeSummary(patientExportRange)}.`;
+
+  const patientExportDownloadDisabled =
+    patientExportLoading ||
+    Boolean(patientExportRangeError) ||
+    patientExportPreviewCount === 0;
+
+  function openPatientExportModal(): void {
+    setPatientExportOpen(true);
+    setPatientExportRange(getPresetDateRange('last30'));
+    setPatientExportDataset('trends');
+    setPatientExportIncludeNotes(false);
+    setPatientExportIncludeAdvancedAlertFields(false);
+    setPatientExportIncludeNotificationFields(false);
+    setPatientExportMessage(null);
+  }
+
+  async function handlePatientExportDownload(): Promise<void> {
+    if (patientExportRangeError) {
+      setPatientExportMessage(patientExportRangeError);
+      return;
+    }
+
+    setPatientExportLoading(true);
+    setPatientExportMessage(null);
+
+    try {
+      if (patientExportDataset === 'alerts') {
+        const exportOptions = {
+          includeNotificationFields: patientExportIncludeNotificationFields,
+          includeAdvancedFields: patientExportIncludeAdvancedAlertFields,
+        };
+        const alertsInRange = filterAlertsForExportByRange(patientAlerts, patientExportRange);
+
+        if (alertsInRange.length === 0) {
+          setPatientExportMessage('No data in selected range.');
+          return;
+        }
+
+        const rows = buildAlertExportRows(alertsInRange, exportOptions);
+        const columns = buildAlertExportColumns(exportOptions);
+        const csv = toCsv(rows, columns);
+
+        downloadCsv(createPatientAlertsCsvFilename(patientId, patientExportRange), csv);
+        setPatientExportOpen(false);
+        return;
+      }
+
+      const checkinsRangeData = await tryGetPatientCheckinsRange(
+        patientId,
+        patientExportRange.from,
+        patientExportRange.to,
+      );
+
+      let exportPoints = filterTrendPointsForExportByRange(normalizedTrends, patientExportRange);
+      if (checkinsRangeData) {
+        exportPoints = filterTrendPointsForExportByRange(
+          normalizeTrendPointsForExport(checkinsRangeData),
+          patientExportRange,
+        );
+      } else if (rangeOutsideLoadedTrendWindow) {
+        setPatientExportMessage(
+          'Range exceeds loaded window. Switch to 30 days or add GET /clinician/patients/:id/checkins?from&to.',
+        );
+      }
+
+      exportPoints = exportPoints.filter(
+        (point) => trendPointHasAnyData(point) || alertsForDate(patientAlerts, point.date).length > 0,
+      );
+
+      if (exportPoints.length === 0) {
+        setPatientExportMessage('No data in selected range.');
+        return;
+      }
+
+      const rows = buildPatientTrendExportRows(exportPoints, patientAlerts, {
+        includeNotes: patientExportIncludeNotes,
+        includeAdvancedAlertFields: patientExportIncludeAdvancedAlertFields,
+      });
+      const columns = buildPatientTrendExportColumns({
+        includeNotes: patientExportIncludeNotes,
+        includeAdvancedAlertFields: patientExportIncludeAdvancedAlertFields,
+      });
+      const csv = toCsv(rows, columns);
+
+      downloadCsv(createPatientCheckinsCsvFilename(patientId, patientExportRange), csv);
+      setPatientExportOpen(false);
+    } catch (error) {
+      setPatientExportMessage(toUserMessage(asAppError(error)));
+    } finally {
+      setPatientExportLoading(false);
+    }
   }
 
   if (!patientId) {
@@ -256,6 +417,9 @@ export function PatientDetailPage(): JSX.Element {
               }}
             >
               Refresh
+            </Button>
+            <Button variant="secondary" onClick={openPatientExportModal}>
+              Export CSV
             </Button>
           </div>
         }
@@ -340,6 +504,61 @@ export function PatientDetailPage(): JSX.Element {
         onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
         onResolve={(alert) => handleStatusUpdate('resolved', alert)}
         onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+      />
+
+      <ExportCsvModal
+        open={patientExportOpen}
+        title="Export Patient CSV"
+        description={
+          patientExportDataset === 'alerts'
+            ? 'Export alert history for the selected date range.'
+            : 'Export check-ins/trends for the selected date range.'
+        }
+        range={patientExportRange}
+        rangeError={patientExportRangeError}
+        summary={patientExportSummary}
+        loading={patientExportLoading}
+        downloadDisabled={patientExportDownloadDisabled}
+        disableReason={patientExportRangeError ?? (patientExportPreviewCount === 0 ? 'No data in selected range.' : undefined)}
+        datasetOptions={[
+          { value: 'trends', label: 'Check-ins/Trends' },
+          { value: 'alerts', label: 'Alerts' },
+        ]}
+        datasetValue={patientExportDataset}
+        onDatasetChange={(value) => {
+          setPatientExportDataset(value === 'alerts' ? 'alerts' : 'trends');
+          setPatientExportMessage(null);
+        }}
+        toggles={[
+          {
+            id: 'patient-export-include-notes',
+            label: 'Include notes (sensitive)',
+            checked: patientExportIncludeNotes,
+            onChange: setPatientExportIncludeNotes,
+            disabled: patientExportDataset !== 'trends',
+          },
+          {
+            id: 'patient-export-include-advanced-alert-fields',
+            label: 'Include advanced alert fields',
+            checked: patientExportIncludeAdvancedAlertFields,
+            onChange: setPatientExportIncludeAdvancedAlertFields,
+          },
+          {
+            id: 'patient-export-include-notification-fields',
+            label: 'Include notification fields',
+            checked: patientExportIncludeNotificationFields,
+            onChange: setPatientExportIncludeNotificationFields,
+            disabled: patientExportDataset !== 'alerts',
+          },
+        ]}
+        onRangeChange={(nextRange) => {
+          setPatientExportRange(nextRange);
+          setPatientExportMessage(null);
+        }}
+        onClose={() => setPatientExportOpen(false)}
+        onDownload={() => {
+          void handlePatientExportDownload();
+        }}
       />
 
       <DayDetailPanel

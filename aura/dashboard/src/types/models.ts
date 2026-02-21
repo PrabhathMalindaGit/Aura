@@ -117,6 +117,11 @@ export interface TrendsResponse {
   trends: TrendPointRaw[];
 }
 
+export interface CheckinsRangeResponse {
+  ok: true;
+  checkins: TrendPointRaw[];
+}
+
 export type PatientStatus = 'active' | 'on_hold' | 'discharged' | 'inactive';
 
 export interface PatientSummary {

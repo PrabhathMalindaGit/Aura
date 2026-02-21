@@ -764,6 +764,72 @@ small {
   font-size: var(--font-size-sm);
 }
 
+.export-modal {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.export-section {
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  padding: var(--space-md);
+}
+
+.export-section__title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.export-date-range {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.export-date-range__inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.export-date-range__presets {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.export-date-range__preset {
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0 var(--space-sm);
+  font: inherit;
+  cursor: pointer;
+}
+
+.export-date-range__preset--active {
+  border-color: color-mix(in srgb, var(--color-primary), var(--color-border) 40%);
+  background: color-mix(in srgb, var(--color-primary), var(--color-surface) 90%);
+}
+
+.export-status-grid,
+.export-toggle-grid {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.export-status-grid__item,
+.export-toggle-grid__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 40px;
+}
+
 .confirm-dialog {
   position: fixed;
   inset: 0;
@@ -1700,6 +1766,7 @@ small {
   .summary-grid,
   .notification-panel__grid,
   .override-grid,
+  .export-date-range__inputs,
   .triggering-event__stats {
     grid-template-columns: 1fr;
   }

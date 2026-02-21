@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { MEDIA_QUERIES } from '../../styles/breakpoints';
 import { cn } from '../../utils/cn';
 import { focusFirstElement, trapTabKey } from '../../utils/focus';
 
@@ -13,6 +15,7 @@ interface DrawerProps {
   labelledBy?: string;
   describedBy?: string;
   ariaLabel?: string;
+  mobileFullscreen?: boolean;
 }
 
 export function Drawer({
@@ -25,10 +28,13 @@ export function Drawer({
   labelledBy,
   describedBy,
   ariaLabel,
+  mobileFullscreen = false,
 }: DrawerProps): JSX.Element | null {
   const panelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const fallbackFocusRef = useRef<HTMLElement | null>(null);
+  const isPhone = useMediaQuery(MEDIA_QUERIES.smDown);
+  const fullscreenOnPhone = mobileFullscreen && isPhone;
 
   useEffect(() => {
     if (!open) {
@@ -83,7 +89,7 @@ export function Drawer({
 
   return (
     <div
-      className={cn('drawer', open && 'drawer--open')}
+      className={cn('drawer', open && 'drawer--open', fullscreenOnPhone && 'drawer--mobile-fullscreen')}
       role="dialog"
       aria-modal="true"
       aria-labelledby={labelledBy}

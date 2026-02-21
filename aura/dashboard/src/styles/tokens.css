@@ -36,4 +36,8 @@
 
   --transition-fast: 150ms ease;
   --transition-base: 220ms ease;
+
+  --bp-sm: 600px;
+  --bp-md: 900px;
+  --bp-lg: 1200px;
 }

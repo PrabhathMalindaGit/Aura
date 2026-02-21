@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SessionTimeoutModal } from '../components/auth/SessionTimeoutModal';
+import { MobileNavDrawer } from '../components/nav/MobileNavDrawer';
 import { IconButton } from '../components/ui/IconButton';
 import { Badge } from '../components/ui/Badge';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useConnectionStatus } from '../services/connection';
 import {
   createSessionTimeoutManager,
@@ -15,6 +17,7 @@ import {
   subscribeSessionSettings,
   type SessionSettings,
 } from '../services/sessionSettings';
+import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { clearDashboardSessionData } from '../utils/storageKeys';
 import { cn } from '../utils/cn';
 
@@ -48,6 +51,8 @@ export function AppShell(): JSX.Element {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const sessionManagerRef = useRef<SessionTimeoutManager | null>(null);
+  const isTabletOrBelow = useMediaQuery(MEDIA_QUERIES.mdDown);
+  const isPhone = useMediaQuery(MEDIA_QUERIES.smDown);
   const connection = useConnectionStatus();
 
   const handleSessionLogout = useCallback(
@@ -90,6 +95,10 @@ export function AppShell(): JSX.Element {
     });
   }, []);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   const pageTitle = useMemo(() => {
     if (pathname.startsWith('/patients/')) {
       return 'Patient Detail';
@@ -126,13 +135,15 @@ export function AppShell(): JSX.Element {
       <div className="shell-main">
         <header className="topbar">
           <div className="topbar__left">
-            <IconButton
-              aria-label="Open navigation menu"
-              className="mobile-only"
-              onClick={() => setMobileNavOpen(true)}
-            >
-              ☰
-            </IconButton>
+            {isTabletOrBelow ? (
+              <IconButton
+                aria-label="Open navigation menu"
+                className="mobile-only"
+                onClick={() => setMobileNavOpen(true)}
+              >
+                ☰
+              </IconButton>
+            ) : null}
             <div>
               <h1 className="topbar__title">Aura Clinician Dashboard</h1>
               <p className="topbar__subtitle">{pageTitle}</p>
@@ -153,34 +164,18 @@ export function AppShell(): JSX.Element {
         </main>
       </div>
 
-      <div className={cn('mobile-nav', mobileNavOpen && 'mobile-nav--open')}>
-        <button
-          type="button"
-          className="mobile-nav__overlay"
-          aria-label="Close menu"
-          onClick={() => setMobileNavOpen(false)}
-        />
-        <aside className="mobile-nav__panel" aria-label="Mobile navigation menu">
-          <div className="mobile-nav__header">
-            <span>Menu</span>
-            <IconButton aria-label="Close navigation menu" onClick={() => setMobileNavOpen(false)}>
-              ✕
-            </IconButton>
-          </div>
-          <nav className="mobile-nav__list">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) => cn('sidebar__link', isActive && 'sidebar__link--active')}
-                onClick={() => setMobileNavOpen(false)}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
-      </div>
+      <MobileNavDrawer open={mobileNavOpen} fullScreen={isPhone} onClose={() => setMobileNavOpen(false)}>
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) => cn('sidebar__link', isActive && 'sidebar__link--active')}
+            onClick={() => setMobileNavOpen(false)}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </MobileNavDrawer>
 
       <SessionTimeoutModal
         open={Boolean(sessionWarning)}

@@ -88,12 +88,30 @@ function renderDrawer(props?: Partial<ComponentProps<typeof AlertDetailDrawer>>)
   );
 }
 
+function installMatchMediaMock(resolveMatches: (query: string) => boolean = () => false): void {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: resolveMatches(query),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
 beforeEach(() => {
+  installMatchMediaMock();
   installAlertContextFallbackFetch();
 });
 
@@ -178,5 +196,13 @@ describe('AlertDetailDrawer accessibility and actions', () => {
 
     await user.type(screen.getByLabelText('Override reason'), 'Clinical review completed.');
     expect(saveButton).toBeEnabled();
+  });
+
+  it('uses full-screen drawer mode on phone widths', async () => {
+    installMatchMediaMock((query) => query.includes('(max-width: 600px)'));
+    renderDrawer();
+
+    const dialog = await screen.findByRole('dialog', { name: 'Alert' });
+    expect(dialog).toHaveClass('drawer--mobile-fullscreen');
   });
 });

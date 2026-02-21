@@ -18,6 +18,7 @@ import { TriggeringEventPanel } from './TriggeringEventPanel';
 import { asAppError, toUserMessage } from '../../utils/errors';
 import { formatRiskLabel } from '../../utils/risk';
 import { NOTIFICATION_RETRY_ENABLED } from '../../utils/notification';
+import { truncateText } from '../../utils/text';
 
 interface AlertDetailDrawerProps {
   open: boolean;
@@ -98,6 +99,7 @@ export function AlertDetailDrawer({
 }: AlertDetailDrawerProps): JSX.Element {
   const [uiNotice, setUiNotice] = useState<string | null>(null);
   const [showResolveConfirm, setShowResolveConfirm] = useState(false);
+  const [showFullReason, setShowFullReason] = useState(false);
 
   const resolveActionRef = useRef<HTMLButtonElement | null>(null);
 
@@ -106,6 +108,7 @@ export function AlertDetailDrawer({
   useEffect(() => {
     setUiNotice(null);
     setShowResolveConfirm(false);
+    setShowFullReason(false);
   }, [alert?._id]);
 
   const baseAlert = useMemo(() => {
@@ -148,6 +151,17 @@ export function AlertDetailDrawer({
     () => mergeTimeline(alertContextQuery.data?.timeline, derivedTimeline),
     [alertContextQuery.data?.timeline, derivedTimeline],
   );
+  const reasonSummary = useMemo(() => {
+    const text = effectiveAlert ? asReasonText(effectiveAlert.reason) : '';
+    if (showFullReason) {
+      return {
+        text,
+        truncated: false,
+      };
+    }
+
+    return truncateText(text, 180);
+  }, [effectiveAlert, showFullReason]);
 
   const assignmentBlocked = Boolean(
     effectiveAlert?.assignedTo && effectiveAlert.assignedTo !== clinicianId,
@@ -202,6 +216,7 @@ export function AlertDetailDrawer({
         title="Alert"
         labelledBy={DRAWER_TITLE_ID}
         describedBy={DRAWER_DESCRIPTION_ID}
+        mobileFullscreen
         onClose={onClose}
         returnFocusRef={returnFocusRef}
         footer={
@@ -305,7 +320,35 @@ export function AlertDetailDrawer({
                 </div>
                 <div>
                   <dt>Reason</dt>
-                  <dd>{asReasonText(effectiveAlert.reason)}</dd>
+                  <dd>
+                    {reasonSummary.text}
+                    {!showFullReason && reasonSummary.truncated ? (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="timeline__toggle"
+                          onClick={() => setShowFullReason(true)}
+                          aria-label="Show full alert reason"
+                        >
+                          Show more
+                        </button>
+                      </>
+                    ) : null}
+                    {showFullReason && reasonSummary.text.length > 180 ? (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="timeline__toggle"
+                          onClick={() => setShowFullReason(false)}
+                          aria-label="Show shorter alert reason"
+                        >
+                          Show less
+                        </button>
+                      </>
+                    ) : null}
+                  </dd>
                 </div>
                 <div>
                   <dt>Created</dt>

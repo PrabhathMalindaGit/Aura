@@ -293,6 +293,11 @@ export function PatientDetailPage(): JSX.Element {
   }
 
   async function handlePatientExportDownload(): Promise<void> {
+    if (!patientId) {
+      setPatientExportMessage('Patient not found.');
+      return;
+    }
+
     if (patientExportRangeError) {
       setPatientExportMessage(patientExportRangeError);
       return;

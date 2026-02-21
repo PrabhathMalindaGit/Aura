@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PatientCardList } from '../components/patients/PatientCardList';
 import { PatientsFiltersBar } from '../components/patients/PatientsFiltersBar';
@@ -7,41 +7,14 @@ import { AlertBanner } from '../components/ui/AlertBanner';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePatients } from '../services/clinicianApi';
+import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { asAppError, toUserMessage } from '../utils/errors';
 import { applyPatientFilters, defaultPatientFilters, type PatientFilters } from '../utils/patientFilters';
 
 const PATIENTS_ENDPOINT_HINT =
   'Add GET /clinician/patients returning { ok: true, patients: [...] }';
-
-function useMobileLayout(query: string = '(max-width: 960px)'): boolean {
-  const [matches, setMatches] = useState(() =>
-    typeof window === 'undefined' || !window.matchMedia ? false : window.matchMedia(query).matches,
-  );
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) {
-      return;
-    }
-
-    const media = window.matchMedia(query);
-    const listener = (event: MediaQueryListEvent): void => {
-      setMatches(event.matches);
-    };
-
-    setMatches(media.matches);
-
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', listener);
-      return () => media.removeEventListener('change', listener);
-    }
-
-    media.addListener(listener);
-    return () => media.removeListener(listener);
-  }, [query]);
-
-  return matches;
-}
 
 function isEndpointMissing(error: unknown): boolean {
   const appError = asAppError(error);
@@ -51,7 +24,7 @@ function isEndpointMissing(error: unknown): boolean {
 export function PatientsPage(): JSX.Element {
   const navigate = useNavigate();
   const patientsQuery = usePatients();
-  const isMobileLayout = useMobileLayout();
+  const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
 
   const [filters, setFilters] = useState<PatientFilters>(defaultPatientFilters());
 

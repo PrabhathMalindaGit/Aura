@@ -36,8 +36,9 @@ describe('sessionTimeout manager', () => {
     manager.start();
 
     vi.advanceTimersByTime(50_000);
-    expect(latestWarning?.kind).toBe('idle');
-    expect(Math.ceil((latestWarning?.remainingMs ?? 0) / 1000)).toBeLessThanOrEqual(10);
+    const idleWarning = latestWarning as SessionTimeoutWarning | null;
+    expect(idleWarning?.kind).toBe('idle');
+    expect(Math.ceil((idleWarning?.remainingMs ?? 0) / 1000)).toBeLessThanOrEqual(10);
 
     vi.advanceTimersByTime(10_000);
     expect(logoutReason).toBe('idle');
@@ -61,7 +62,7 @@ describe('sessionTimeout manager', () => {
     manager.start();
 
     vi.advanceTimersByTime(50_000);
-    expect(latestWarning?.kind).toBe('idle');
+    expect((latestWarning as SessionTimeoutWarning | null)?.kind).toBe('idle');
 
     manager.continueSession();
     expect(latestWarning).toBeNull();
@@ -70,7 +71,7 @@ describe('sessionTimeout manager', () => {
     expect(latestWarning).toBeNull();
 
     vi.advanceTimersByTime(1_000);
-    expect(latestWarning?.kind).toBe('idle');
+    expect((latestWarning as SessionTimeoutWarning | null)?.kind).toBe('idle');
   });
 
   it('absolute timeout warning appears regardless of activity', () => {
@@ -98,6 +99,6 @@ describe('sessionTimeout manager', () => {
     vi.advanceTimersByTime(650);
     document.dispatchEvent(new Event('mousemove'));
 
-    expect(latestWarning?.kind).toBe('absolute');
+    expect((latestWarning as SessionTimeoutWarning | null)?.kind).toBe('absolute');
   });
 });

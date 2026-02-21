@@ -1,0 +1,30 @@
+# Requirements Checklist
+
+This checklist maps core dashboard requirements to implementation locations and verification methods.
+
+## Proposal/PID Requirements
+
+| Requirement | Where Implemented | Manual Verification | Automated Verification |
+|---|---|---|---|
+| Clinician can view and acknowledge alerts quickly (2-click acknowledge) | `src/pages/AlertsPage.tsx`, `src/components/alerts/AlertsTable.tsx`, `src/components/alerts/AlertCardList.tsx`, `src/components/alerts/AlertDetailDrawer.tsx` | 1) Open `/alerts` 2) Click alert row/card (`Open`) 3) Click `Acknowledge` in detail drawer footer. Confirm status change. | `src/pages/AlertsPage.test.tsx` (`2-click acknowledge path works`) |
+| Alerts appear quickly with freshness cues | `src/pages/AlertsPage.tsx`, `src/services/clinicianApi.ts`, `src/services/connection.ts`, `src/app/AppShell.tsx` | 1) Stay on `/alerts` Open tab 2) Observe refresh every ~12s 3) Confirm `Last updated` and Online/Offline indicators in top bar. | `src/pages/AlertsPage.test.tsx` (`polling is paused when document.hidden is true`) |
+| Clinician can view triggering event behind alerts | `src/components/alerts/AlertDetailDrawer.tsx`, `src/components/alerts/TriggeringEventPanel.tsx`, `src/services/clinicianApi.ts` (`getAlertContext`) | 1) Open an alert 2) Check Triggering Event section. If backend context is missing, verify fallback placeholder and `Fetch details`. | `src/components/alerts/AlertDetailDrawer.test.tsx` (drawer renders + focus/accessibility); triggering-event content details are currently **manual only** due backend availability variance. |
+| Clinician can review 14–30 day trends (pain/mood/adherence) | `src/pages/PatientDetailPage.tsx`, `src/components/patients/TrendCharts.tsx`, `src/utils/trends.ts`, `src/services/clinicianApi.ts` | 1) Open `/patients/:id` 2) Toggle `14 days` / `30 days` 3) Confirm charts and metrics refresh. | `src/pages/PatientDetailPage.test.tsx` (`switching 14/30 refetches trends and closes day detail panel`) |
+| Auditability visible in UI (timeline + notification status) | `src/components/alerts/AlertTimeline.tsx`, `src/components/alerts/NotificationStatusBadge.tsx`, `src/components/alerts/NotificationPanel.tsx`, `src/components/alerts/AlertDetailDrawer.tsx` | 1) Open alert detail 2) Verify timeline entries and notification section (`sent/failed/skipped/unknown`) 3) In queue, confirm row-level notification label is visible. | `src/components/alerts/NotificationPanel.test.tsx`, `src/pages/AlertsPage.test.tsx` (notification row behavior) |
+
+## Clinical-Grade Improvements
+
+| Requirement | Where Implemented | Manual Verification | Automated Verification |
+|---|---|---|---|
+| Unseen vs Acknowledged semantics | `src/services/seenStore.ts`, `src/utils/seen.ts`, `src/pages/AlertsPage.tsx`, `src/components/alerts/AlertsTable.tsx`, `src/components/alerts/AlertDetailDrawer.tsx`, `src/components/patients/RecentAlertsPanel.tsx` | 1) Open `/alerts` with unseen open item 2) Confirm `Unseen` badge 3) Open drawer 4) Confirm it changes to `Seen` while status can still be `open`. | `src/pages/AlertsPage.test.tsx` (`unseen becomes seen...`, `unseen-only filter...`, `acknowledged alerts do not show unseen indicator`) |
+| Assignment and takeover gating | `src/services/assignmentStore.ts`, `src/hooks/useAssignment.ts`, `src/components/alerts/AssignmentChip.tsx`, `src/components/alerts/AssignmentActions.tsx`, `src/components/alerts/AlertDetailDrawer.tsx` | 1) Assign alert to self 2) Confirm chip changes to `Assigned to you` 3) Simulate assigned-to-other 4) Confirm Ack/Resolve disabled until takeover. | `src/pages/AlertsPage.test.tsx` assignment/takeover tests |
+| Risk override with required reason + timeline entry | `src/services/overrideStore.ts`, `src/hooks/useRiskOverride.ts`, `src/components/alerts/RiskOverrideForm.tsx`, `src/components/alerts/OverrideChip.tsx`, `src/components/alerts/AlertTimeline.tsx` | 1) Open alert detail 2) Change final risk 3) Verify Save disabled until reason provided 4) Save and check `Overridden` chip + timeline entry. | `src/pages/AlertsPage.test.tsx` override tests, `src/components/alerts/AlertDetailDrawer.test.tsx` (reason validation), `src/services/overrideStore.test.ts` |
+| Session timeout / idle auto-lock | `src/services/sessionTimeout.ts`, `src/services/sessionSettings.ts`, `src/components/auth/SessionTimeoutModal.tsx`, `src/app/AppShell.tsx`, `src/pages/SessionEndedPage.tsx` | 1) Set idle timeout to 1 minute in Settings 2) Wait for warning modal 3) Continue and verify reset 4) Wait again and confirm redirect to `/session-ended`. | `src/app/AppShell.sessionTimeout.test.tsx`, `src/services/sessionTimeout.test.ts`, `src/services/sessionSettings.test.ts` |
+| CSV export with date range | `src/components/export/ExportCsvModal.tsx`, `src/components/export/DateRangePicker.tsx`, `src/services/exportService.ts`, `src/utils/csv.ts`, `src/pages/AlertsPage.tsx`, `src/pages/PatientDetailPage.tsx` | Alerts: open export modal, choose range/statuses, download CSV. Patient: open export modal, choose dataset/range, download CSV. | `src/components/export/DateRangePicker.test.tsx`, `src/components/export/ExportCsvModal.test.tsx`, `src/services/exportService.test.ts`, `src/utils/csv.test.ts` |
+| Mobile responsiveness (phone/tablet behavior) | `src/app/AppShell.tsx`, `src/components/nav/MobileNavDrawer.tsx`, `src/hooks/useMediaQuery.ts`, `src/components/alerts/AlertCardList.tsx`, `src/components/patients/PatientsFiltersBar.tsx`, `src/components/ui/Drawer.tsx`, `src/styles/globals.css`, `src/styles/tokens.css` | Follow `/RESPONSIVE_QA_CHECKLIST.md` at 390/768/1024/1440 widths. | `src/hooks/useMediaQuery.test.tsx`, `src/pages/AlertsPage.test.tsx` (`renders alert cards...`), `src/components/alerts/AlertDetailDrawer.test.tsx` (`full-screen drawer mode...`) |
+
+## Notes
+
+- Triggering-event data richness depends on backend context endpoint support (`GET /clinician/alerts/:id/context`), so deep content validation is partially manual today.
+- Notification retry is intentionally disabled until backend endpoint support is available.
+- Pre-commit recommendation: run `npm run verify` before opening a PR.

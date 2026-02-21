@@ -62,12 +62,14 @@ function setDocumentHidden(hidden: boolean): void {
   document.dispatchEvent(new Event('visibilitychange'));
 }
 
-function installMatchMediaMock(): void {
+function installMatchMediaMock(
+  resolveMatches: (query: string) => boolean = () => false,
+): void {
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+      matches: resolveMatches(query),
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -671,5 +673,24 @@ describe('AlertsPage queue flow', () => {
         name: `Retry notification for alert ${unknownNotificationAlert._id}`,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders alert cards instead of table on small widths', async () => {
+    installMatchMediaMock((query) => query.includes('(max-width: 900px)'));
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [baseAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage();
+
+    expect(await screen.findByLabelText('Alerts card list')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Alerts queue table' })).not.toBeInTheDocument();
   });
 });

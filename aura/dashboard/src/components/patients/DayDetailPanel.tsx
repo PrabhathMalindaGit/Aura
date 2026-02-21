@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import type { AlertItem, TrendPointNormalized } from '../../types/models';
 import { formatDateKey, formatMedication, formatMoodValue, formatPainValue, formatPercent } from '../../utils/format';
 import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
 import { Drawer } from '../ui/Drawer';
 
 interface DayDetailPanelProps {
@@ -39,8 +40,16 @@ export function DayDetailPanel({
     <Drawer
       open={open}
       title={dayPoint ? `Day detail ${formatDateKey(dayPoint.date)}` : 'Day detail'}
+      mobileFullscreen
       onClose={onClose}
       returnFocusRef={returnFocusRef}
+      footer={
+        <div className="drawer-footer-actions">
+          <Button variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      }
     >
       {dayPoint ? (
         <div className="day-detail-stack">

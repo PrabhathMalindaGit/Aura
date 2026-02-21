@@ -96,9 +96,10 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
   return (
     <section className="trend-charts-stack" aria-label="Patient trend charts">
       <Card title="Pain trend (0-10)">
-        <div className="trend-chart__canvas">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartRows}>
+        <div className="trend-chart__scroll">
+          <div className="trend-chart__canvas">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="label" stroke="var(--color-muted)" />
               <YAxis domain={[0, 10]} stroke="var(--color-muted)" />
@@ -124,15 +125,17 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
                   />
                 )}
               />
-            </LineChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </Card>
 
       <Card title="Mood trend">
-        <div className="trend-chart__canvas">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartRows}>
+        <div className="trend-chart__scroll">
+          <div className="trend-chart__canvas">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="label" stroke="var(--color-muted)" />
               <YAxis domain={[0, 10]} stroke="var(--color-muted)" />
@@ -158,15 +161,17 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
                   />
                 )}
               />
-            </LineChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </Card>
 
       <Card title="Adherence trend">
-        <div className="trend-chart__canvas">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartRows}>
+        <div className="trend-chart__scroll">
+          <div className="trend-chart__canvas">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="label" stroke="var(--color-muted)" />
               <YAxis
@@ -219,8 +224,9 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
                   />
                 )}
               />
-            </LineChart>
-          </ResponsiveContainer>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </Card>
 

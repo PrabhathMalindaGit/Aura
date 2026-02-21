@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { AlertItem } from '../../types/models';
 import type { SeenAlertMap } from '../../services/seenStore';
 import { isAlertUnseenForUi } from '../../utils/seen';
@@ -14,6 +15,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
+import { cn } from '../../utils/cn';
 
 interface AlertCardListProps {
   alerts: AlertItem[];
@@ -56,6 +58,8 @@ export function AlertCardList({
   onAcknowledge,
   onResolve,
 }: AlertCardListProps): JSX.Element {
+  const [expandedReasonByAlertId, setExpandedReasonByAlertId] = useState<Record<string, boolean>>({});
+
   return (
     <div className="alerts-card-list" aria-label="Alerts card list">
       {alerts.map((alert) => {
@@ -64,59 +68,85 @@ export function AlertCardList({
         const assignedToOther = Boolean(alert.assignedTo && alert.assignedTo !== clinicianId);
         const effectiveRisk = getEffectiveRisk(alert);
         const showRetry = shouldShowNotificationRetry(alert.notificationStatus);
+        const isReasonExpanded = Boolean(expandedReasonByAlertId[alert._id]);
+        const showReasonToggle = reasonText.length > 120;
 
         return (
-          <Card key={alert._id} title={alert._id}>
+          <Card key={alert._id} title={null} className="alerts-card-list__card" aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}>
             <div className="alerts-card-list__body">
-              <p>
-                <strong>Patient:</strong> {alert.patientId}
-              </p>
-              <p>
-                <strong>Reason:</strong> {reasonText}
-              </p>
-              <p>
-                <strong>Source:</strong> {alert.source.type} ({alert.source.sourceId})
-              </p>
-              <p>
-                <strong>Risk:</strong>{' '}
-                <Badge variant={riskBadgeVariant(effectiveRisk)}>
-                  {formatRiskLabel(effectiveRisk)}
-                </Badge>
-              </p>
-              <p>
-                <strong>Created:</strong>{' '}
-                <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
-                  {formatRelativeTime(alert.createdAt)}
-                </time>
-              </p>
-              <div className="alerts-card-list__notification">
-                <strong>Notification:</strong>
-                <NotificationStatusBadge status={alert.notificationStatus} />
-                {showRetry ? (
+              <div className="alerts-card-list__top">
+                <div className="alerts-card-list__patient-group">
+                  <strong className="alerts-card-list__patient">Patient {alert.patientId}</strong>
+                  <span className="muted-text">Alert {alert._id}</span>
+                </div>
+                <div className="alerts-card-list__top-badges">
+                  {unseen ? (
+                    <Badge variant="new" icon aria-label="Unseen alert">
+                      Unseen
+                    </Badge>
+                  ) : (
+                    <span className="alerts-seen">Seen</span>
+                  )}
+                  <Badge variant={statusBadgeVariant(alert.status)} icon>
+                    {alert.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="alerts-card-list__middle">
+                <p
+                  className={cn(
+                    'alerts-card-list__reason',
+                    !isReasonExpanded && 'alerts-card-list__reason--clamped',
+                  )}
+                >
+                  {reasonText}
+                </p>
+                {showReasonToggle ? (
                   <Button
                     variant="ghost"
-                    disabled={!NOTIFICATION_RETRY_ENABLED}
-                    title={!NOTIFICATION_RETRY_ENABLED ? 'Retry requires backend endpoint' : undefined}
+                    className="alerts-card-list__reason-toggle"
+                    onClick={() =>
+                      setExpandedReasonByAlertId((current) => ({
+                        ...current,
+                        [alert._id]: !isReasonExpanded,
+                      }))
+                    }
                   >
-                    Retry
+                    {isReasonExpanded ? 'Show less' : 'Show more'}
                   </Button>
                 ) : null}
+
+                <div className="alerts-card-list__meta">
+                  <span className="alerts-source-pill">
+                    {alert.source.type} • {alert.source.sourceId}
+                  </span>
+                  <Badge variant={riskBadgeVariant(effectiveRisk)}>{formatRiskLabel(effectiveRisk)}</Badge>
+                  <OverrideChip alert={alert} />
+                  <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                </div>
+
+                <div className="alerts-card-list__notification">
+                  <NotificationStatusBadge status={alert.notificationStatus} />
+                  {showRetry ? (
+                    <Button
+                      variant="ghost"
+                      disabled={!NOTIFICATION_RETRY_ENABLED}
+                      title={!NOTIFICATION_RETRY_ENABLED ? 'Retry requires backend endpoint' : undefined}
+                    >
+                      Retry
+                    </Button>
+                  ) : null}
+                  <span className="muted-text">
+                    Created{' '}
+                    <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
+                      {formatRelativeTime(alert.createdAt)}
+                    </time>
+                  </span>
+                </div>
               </div>
-              <div className="alerts-card-list__meta">
-                {unseen ? (
-                  <Badge variant="new" icon aria-label="Unseen alert">
-                    Unseen
-                  </Badge>
-                ) : (
-                  <span className="alerts-seen">Seen</span>
-                )}
-                <Badge variant={statusBadgeVariant(alert.status)} icon>
-                  {alert.status}
-                </Badge>
-                <OverrideChip alert={alert} />
-                <AssignmentChip alert={alert} clinicianId={clinicianId} />
-              </div>
-              <div className="alerts-actions alerts-actions--stack">
+
+              <div className="alerts-actions alerts-actions--stack alerts-card-list__actions">
                 <Button
                   variant="ghost"
                   onClick={(event) => onOpen(alert, event.currentTarget)}

@@ -16,6 +16,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useAssignment } from '../hooks/useAssignment';
 import { useRiskOverride } from '../hooks/useRiskOverride';
 import {
@@ -32,6 +33,7 @@ import {
 } from '../services/seenStore';
 import { listAlerts, useAlerts, useUpdateAlertStatus } from '../services/clinicianApi';
 import { useConnectionStatus } from '../services/connection';
+import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { toCsv, downloadCsv } from '../utils/csv';
 import {
   getPresetDateRange,
@@ -82,35 +84,6 @@ function useDocumentHidden(): boolean {
   }, []);
 
   return hidden;
-}
-
-function useMobileLayout(query: string = '(max-width: 960px)'): boolean {
-  const [matches, setMatches] = useState(() =>
-    typeof window === 'undefined' || !window.matchMedia ? false : window.matchMedia(query).matches,
-  );
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) {
-      return;
-    }
-
-    const media = window.matchMedia(query);
-    const listener = (event: MediaQueryListEvent): void => {
-      setMatches(event.matches);
-    };
-
-    setMatches(media.matches);
-
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', listener);
-      return () => media.removeEventListener('change', listener);
-    }
-
-    media.addListener(listener);
-    return () => media.removeListener(listener);
-  }, [query]);
-
-  return matches;
 }
 
 function toDays(range: TimeRangeFilter): number {
@@ -234,7 +207,7 @@ export function AlertsPage(): JSX.Element {
   const drawerFocusReturnRef = useRef<HTMLElement | null>(null);
 
   const documentHidden = useDocumentHidden();
-  const isMobileLayout = useMobileLayout();
+  const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
 
   const shouldPollOpenAlerts = status === 'open' && connection.online && !documentHidden;

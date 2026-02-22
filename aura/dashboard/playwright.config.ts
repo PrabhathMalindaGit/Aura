@@ -16,6 +16,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  projects: [
+    {
+      name: 'mocked',
+      testIgnore: /.*live\.smoke\.spec\.ts/,
+    },
+    {
+      name: 'live',
+      testMatch: /.*live\.smoke\.spec\.ts/,
+    },
+  ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort',
     url: 'http://127.0.0.1:5173',

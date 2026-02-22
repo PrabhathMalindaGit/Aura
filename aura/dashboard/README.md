@@ -15,16 +15,30 @@ npm run dev
 - `/alerts`
 - `/patients`
 - `/patients/:patientId`
+- `/smoke`
 - `/settings`
 - unknown paths redirect to `/alerts`
 
 ## Environment
 
-Copy `.env.example` to `.env` and adjust if needed:
+Copy `.env.local.example` to `.env.local` and adjust if needed:
 
 ```bash
 VITE_API_BASE_URL=http://localhost:3000
 ```
+
+## Live Smoke (real backend)
+
+1. Start backend at `http://localhost:3000`.
+2. Start dashboard with `npm run dev`.
+3. Open `/smoke` to run endpoint checks against the configured API base URL.
+4. Optional live E2E smoke:
+
+```bash
+npm run e2e:live
+```
+
+Live E2E runs only when `LIVE_E2E=1` is set by the script and skips early if backend health is unreachable.
 
 ## Notes
 

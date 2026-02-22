@@ -5,6 +5,7 @@ import { PatientsPage } from '../pages/PatientsPage';
 import { PatientDetailPage } from '../pages/PatientDetailPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SessionEndedPage } from '../pages/SessionEndedPage';
+import { SmokePage } from '../pages/SmokePage';
 
 export const router = createBrowserRouter([
   {
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
       { path: 'alerts', element: <AlertsPage /> },
       { path: 'patients', element: <PatientsPage /> },
       { path: 'patients/:patientId', element: <PatientDetailPage /> },
+      { path: 'smoke', element: <SmokePage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/alerts" replace /> },
     ],

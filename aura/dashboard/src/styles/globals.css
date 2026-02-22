@@ -2110,6 +2110,70 @@ time,
   gap: var(--space-sm);
 }
 
+.smoke-page {
+  min-width: 0;
+}
+
+.smoke-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.smoke-meta {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.smoke-meta p {
+  margin: 0;
+}
+
+.smoke-inline-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-xs);
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--foreground));
+}
+
+.smoke-curl {
+  margin-top: var(--space-xs);
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+.smoke-table {
+  min-width: 1080px;
+}
+
+.smoke-table .table__cell p {
+  margin: 0;
+}
+
+.smoke-table .table__cell {
+  vertical-align: top;
+}
+
+.smoke-skeleton-grid {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.smoke-fix-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: var(--space-sm);
+}
+
 .patient-detail-skeleton-grid {
   display: grid;
   gap: var(--space-md);

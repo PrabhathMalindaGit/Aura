@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -79,7 +79,9 @@ describe('PatientsPage endpoint handling', () => {
 
     renderPatientsPage();
 
-    expect(await screen.findByText('Patients endpoint not ready')).toBeInTheDocument();
+    expect(await screen.findByText('Patients list not available yet')).toBeInTheDocument();
+    expect(screen.getByText('The backend endpoint /clinician/patients is not implemented.')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Show developer hint'));
     expect(screen.getByText('Add GET /clinician/patients returning { ok: true, patients: [...] }')).toBeInTheDocument();
     expect(screen.getByLabelText('Search patients')).toBeInTheDocument();
   });

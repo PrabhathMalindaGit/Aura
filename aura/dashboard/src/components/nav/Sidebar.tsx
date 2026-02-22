@@ -1,0 +1,58 @@
+import { IconButton } from '../ui/IconButton';
+import { DASHBOARD_NAV_ITEMS, NAV_SECTIONS } from './NavConfig';
+import { SidebarItem } from './SidebarItem';
+import { SidebarSeparator } from './SidebarSeparator';
+import type { SidebarMode } from '../../hooks/useSidebarMode';
+import { cn } from '../../utils/cn';
+
+interface SidebarProps {
+  mode: SidebarMode;
+  onToggleMode: () => void;
+}
+
+export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
+  const iconOnly = mode === 'icon';
+  const sectionItems = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: DASHBOARD_NAV_ITEMS.filter((item) => item.section === section.key),
+  })).filter((section) => section.items.length > 0);
+
+  return (
+    <aside className={cn('sidebar', iconOnly ? 'sidebar--icon' : 'sidebar--expanded')} aria-label="Primary navigation">
+      <header className="sidebar__header">
+        <div className="sidebar__brand">
+          <span className="sidebar__brand-mark" aria-hidden="true">
+            A
+          </span>
+          {iconOnly ? null : <span className="sidebar__brand-text">Aura Clinician</span>}
+        </div>
+        <IconButton
+          className="sidebar__toggle"
+          onClick={onToggleMode}
+          aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {iconOnly ? '»' : '«'}
+        </IconButton>
+      </header>
+
+      <nav className="sidebar__sections" aria-label="Dashboard navigation">
+        {sectionItems.map((section, index) => (
+          <div key={section.key} className="sidebar__section">
+            {iconOnly ? (
+              <span className="visually-hidden">{section.label}</span>
+            ) : (
+              <p className="sidebar__section-label">{section.label}</p>
+            )}
+            <div className="sidebar__list">
+              {section.items.map((item) => (
+                <SidebarItem key={item.key} item={item} iconOnly={iconOnly} />
+              ))}
+            </div>
+            {index < sectionItems.length - 1 ? <SidebarSeparator /> : null}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}

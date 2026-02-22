@@ -1,79 +1,24 @@
-import { useSyncExternalStore } from 'react';
+import { createAppError } from '../utils/errors';
+import {
+  getSnapshot,
+  markError,
+  markSuccess,
+  useConnectionStatus,
+  type ConnectionSnapshot,
+} from './connectionStore';
 
-export interface ConnectionSnapshot {
-  online: boolean;
-  lastSuccessAt: number | null;
-  lastErrorAt: number | null;
-}
-
-type Listener = () => void;
-
-const listeners = new Set<Listener>();
-
-const state: ConnectionSnapshot = {
-  online: typeof navigator === 'undefined' ? true : navigator.onLine,
-  lastSuccessAt: null,
-  lastErrorAt: null,
-};
-
-let hasWindowListeners = false;
-
-function emitIfChanged(prev: ConnectionSnapshot): void {
-  if (
-    prev.online !== state.online ||
-    prev.lastSuccessAt !== state.lastSuccessAt ||
-    prev.lastErrorAt !== state.lastErrorAt
-  ) {
-    listeners.forEach((listener) => listener());
-  }
-}
-
-function registerBrowserListeners(): void {
-  if (hasWindowListeners || typeof window === 'undefined') {
-    return;
-  }
-
-  hasWindowListeners = true;
-
-  window.addEventListener('online', () => {
-    const previous = { ...state };
-    state.online = true;
-    emitIfChanged(previous);
-  });
-
-  window.addEventListener('offline', () => {
-    const previous = { ...state };
-    state.online = false;
-    emitIfChanged(previous);
-  });
-}
+export type { ConnectionSnapshot };
 
 export function getConnectionSnapshot(): ConnectionSnapshot {
-  registerBrowserListeners();
-  return state;
+  return getSnapshot();
 }
 
 export function markRequestSuccess(timestamp: number = Date.now()): void {
-  const previous = { ...state };
-  state.lastSuccessAt = timestamp;
-  emitIfChanged(previous);
+  markSuccess(undefined, timestamp);
 }
 
 export function markRequestError(timestamp: number = Date.now()): void {
-  const previous = { ...state };
-  state.lastErrorAt = timestamp;
-  emitIfChanged(previous);
+  markError(undefined, createAppError('Unknown', 'Unexpected error.'), timestamp);
 }
 
-function subscribe(listener: Listener): () => void {
-  registerBrowserListeners();
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-export function useConnectionStatus(): ConnectionSnapshot {
-  registerBrowserListeners();
-  return useSyncExternalStore(subscribe, getConnectionSnapshot, getConnectionSnapshot);
-}
+export { useConnectionStatus };

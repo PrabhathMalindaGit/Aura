@@ -161,6 +161,12 @@
   --space-lg: var(--space-4);
   --space-xl: var(--space-6);
 
+  --sidebar-expanded-width: 260px;
+  --sidebar-icon-width: 76px;
+  --nav-item-height: 48px;
+  --nav-radius: var(--radius-md);
+  --nav-active-bg: var(--gradient-primary);
+
   --font-family-base: var(--font-sans);
   --font-size-sm: var(--text-sm);
   --font-size-md: var(--text-base);
@@ -173,6 +179,101 @@
   --shadow-sm: var(--shadow-1);
   --shadow-md: var(--shadow-2);
 
-  --transition-fast: 140ms ease;
-  --transition-base: 200ms ease;
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-base: 150ms;
+  --motion-slow: 250ms;
+  --motion-highlight: 800ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --translate-sm: 6px;
+  --translate-md: 12px;
+
+  --transition-fast: var(--motion-fast) var(--ease-standard);
+  --transition-base: var(--motion-base) var(--ease-standard);
+}
+
+.dark {
+  /* Level 0 surface */
+  --background: 222 30% 10%;
+  --foreground: 210 24% 95%;
+  --muted: 222 20% 15%;
+  --muted-foreground: 216 18% 72%;
+
+  /* Level 1 surface */
+  --card: 222 24% 14%;
+  --card-foreground: 210 24% 95%;
+
+  /* Level 2 surface */
+  --popover: 222 22% 18%;
+  --popover-foreground: 210 24% 96%;
+
+  --border: 218 18% 32%;
+  --input: 218 18% 32%;
+  --ring: 202 95% 64%;
+  --ring-offset: 222 30% 10%;
+
+  --primary: 202 94% 62%;
+  --primary-foreground: 222 47% 11%;
+  --danger: 0 84% 67%;
+  --danger-foreground: 0 0% 100%;
+  --warning: 40 96% 67%;
+  --warning-foreground: 37 86% 12%;
+  --success: 152 60% 56%;
+  --success-foreground: 153 78% 10%;
+  --info: 214 94% 72%;
+  --info-foreground: 221 43% 12%;
+
+  --risk-high: 0 88% 69%;
+  --risk-medium: 40 96% 67%;
+  --risk-low: 152 64% 57%;
+
+  --status-open: 214 94% 72%;
+  --status-ack: 40 96% 67%;
+  --status-resolved: 152 64% 57%;
+
+  /* Dark charts need stronger saturation and slightly stronger fills/grids */
+  --chart-pain: 0 90% 70%;
+  --chart-mood: 214 92% 74%;
+  --chart-adherence: 152 66% 62%;
+  --chart-fill-alpha-start: 0.36;
+  --chart-fill-alpha-end: 0;
+  --chart-grid-alpha: 0.28;
+
+  --gradient-page: linear-gradient(
+    160deg,
+    hsl(var(--primary) / 0.14),
+    hsl(var(--background) / 0.98) 44%,
+    hsl(var(--info) / 0.1)
+  );
+  --gradient-primary: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.28),
+    hsl(var(--primary) / 0.12)
+  );
+  --gradient-risk-high: linear-gradient(
+    135deg,
+    hsl(var(--risk-high) / 0.28),
+    hsl(var(--risk-high) / 0.1)
+  );
+  --gradient-success: linear-gradient(
+    135deg,
+    hsl(var(--success) / 0.26),
+    hsl(var(--success) / 0.1)
+  );
+  --gradient-warning: linear-gradient(
+    135deg,
+    hsl(var(--warning) / 0.26),
+    hsl(var(--warning) / 0.1)
+  );
+
+  /* Keep depth definition subtle in dark surfaces */
+  --shadow-1: 0 8px 24px hsl(222 56% 3% / 0.24);
+  --shadow-2: 0 16px 40px hsl(222 56% 3% / 0.32);
+
+  --glass-alpha-card: 0.64;
+  --glass-alpha-popover: 0.7;
+  --glass-alpha-overlay: 0.6;
+  --glass-border-alpha: 0.55;
+  --glass-border-alpha-strong: 0.64;
 }

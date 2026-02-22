@@ -20,6 +20,7 @@ import { cn } from '../../utils/cn';
 interface AlertCardListProps {
   alerts: AlertItem[];
   seenAlertMap: SeenAlertMap;
+  highlightedAlertIds: string[];
   clinicianId: string;
   mutationPending: boolean;
   assignmentPending: boolean;
@@ -51,6 +52,7 @@ function statusBadgeVariant(
 export function AlertCardList({
   alerts,
   seenAlertMap,
+  highlightedAlertIds,
   clinicianId,
   mutationPending,
   assignmentPending,
@@ -74,7 +76,15 @@ export function AlertCardList({
         const showReasonToggle = reasonText.length > 120;
 
         return (
-          <Card key={alert._id} title={null} className="alerts-card-list__card" aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}>
+          <Card
+            key={alert._id}
+            title={null}
+            className={cn(
+              'alerts-card-list__card',
+              highlightedAlertIds.includes(alert._id) && 'alert-arrived',
+            )}
+            aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}
+          >
             <div className="alerts-card-list__body">
               <div className="alerts-card-list__top">
                 <div className="alerts-card-list__patient-group">

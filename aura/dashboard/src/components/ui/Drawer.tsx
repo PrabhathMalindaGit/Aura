@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 import { MEDIA_QUERIES } from '../../styles/breakpoints';
+import { MOTION_DURATION_MS } from '../../utils/motion';
 import { cn } from '../../utils/cn';
 import { focusFirstElement, trapTabKey } from '../../utils/focus';
 
@@ -33,8 +35,57 @@ export function Drawer({
   const panelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const fallbackFocusRef = useRef<HTMLElement | null>(null);
+  const closeTimeoutRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
   const isPhone = useMediaQuery(MEDIA_QUERIES.smDown);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [isRendered, setIsRendered] = useState(open);
+  const [isVisible, setIsVisible] = useState(open);
   const fullscreenOnPhone = mobileFullscreen && isPhone;
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (closeTimeoutRef.current !== null) {
+      window.clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+
+    if (rafRef.current !== null) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+
+    if (open) {
+      setIsRendered(true);
+      rafRef.current = window.requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+      return;
+    }
+
+    setIsVisible(false);
+
+    if (prefersReducedMotion) {
+      setIsRendered(false);
+      return;
+    }
+
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setIsRendered(false);
+      closeTimeoutRef.current = null;
+    }, MOTION_DURATION_MS.slow);
+  }, [open, prefersReducedMotion]);
 
   useEffect(() => {
     if (!open) {
@@ -83,15 +134,22 @@ export function Drawer({
     };
   }, [open, onClose, returnFocusRef]);
 
-  if (!open) {
+  if (!isRendered) {
     return null;
   }
 
   return (
     <div
-      className={cn('drawer', open && 'drawer--open', fullscreenOnPhone && 'drawer--mobile-fullscreen')}
+      className={cn(
+        'drawer',
+        isVisible && 'drawer--open',
+        !isVisible && 'drawer--closing',
+        fullscreenOnPhone && 'drawer--mobile-fullscreen',
+        prefersReducedMotion && 'rm-none',
+      )}
       role="dialog"
       aria-modal="true"
+      aria-hidden={!open}
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       aria-label={ariaLabel ?? title}

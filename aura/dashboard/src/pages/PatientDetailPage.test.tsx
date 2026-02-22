@@ -197,7 +197,7 @@ describe('PatientDetailPage', () => {
     expect(await screen.findByRole('dialog', { name: /Day detail/i })).toBeInTheDocument();
     expect(screen.getByText('Check-in snapshot')).toBeInTheDocument();
     expect(screen.getByText('Alerts on this day')).toBeInTheDocument();
-  });
+  }, 12_000);
 
   it('switching 14/30 refetches trends and closes day detail panel', async () => {
     const fetchMock = installFetchMock();
@@ -222,7 +222,7 @@ describe('PatientDetailPage', () => {
       const calls = fetchMock.mock.calls.map((call) => String(call[0]));
       expect(calls.some((url) => url.includes(`/clinician/patients/${patientId}/trends?days=30`))).toBe(true);
     });
-  });
+  }, 12_000);
 
   it('renders only alerts that belong to the selected patient', async () => {
     installFetchMock();

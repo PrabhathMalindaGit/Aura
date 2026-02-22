@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
@@ -17,7 +17,8 @@ import {
 import { StatusTabs } from '../components/alerts/StatusTabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
-import { EmptyState } from '../components/ui/EmptyState';
+import { RetryButton } from '../components/system/RetryButton';
+import { StatusPanel } from '../components/system/StatusPanel';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -57,13 +58,17 @@ import {
   filterAlertsForExportByRange,
   formatExportDateRangeSummary,
 } from '../services/exportService';
+import { findNewIds, mergeUniqueIds, removeIds } from '../utils/highlight';
 import { computeAlertKpis } from '../utils/kpi';
+import { NEW_ALERT_HIGHLIGHT_TTL_MS } from '../utils/motion';
 import { hasRiskOverride } from '../utils/risk';
 import { isAlertSeenForUi, isAlertUnseenForUi } from '../utils/seen';
 import { isAfterWithinDays } from '../utils/time';
+import { toErrorView } from '../utils/errorView';
 
 const POLLING_INTERVAL_MS = 12_000;
 const SEEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const RETRY_EVENT = 'aura:retry';
 
 function createDefaultExportStatuses(activeStatus: AlertStatus): Record<AlertStatus, boolean> {
   return {
@@ -85,6 +90,18 @@ function formatLastUpdated(lastSuccessAt: number | null): string {
   return new Date(lastSuccessAt).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+function formatTroubleshootingTime(timestamp: number | null): string | undefined {
+  if (!timestamp) {
+    return undefined;
+  }
+
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   });
 }
 
@@ -216,6 +233,7 @@ export function AlertsPage(): JSX.Element {
   const [alertsExportDownloadLoading, setAlertsExportDownloadLoading] = useState(false);
   const [alertsExportPreviewCount, setAlertsExportPreviewCount] = useState(0);
   const [alertsExportError, setAlertsExportError] = useState<string | null>(null);
+  const [highlightedAlertIds, setHighlightedAlertIds] = useState<string[]>([]);
   const alertsExportRangeError = validateDateRange(alertsExportRange);
   const selectedAlertsExportStatuses = useMemo(
     () =>
@@ -226,6 +244,8 @@ export function AlertsPage(): JSX.Element {
   );
 
   const drawerFocusReturnRef = useRef<HTMLElement | null>(null);
+  const previousOpenAlertIdsRef = useRef<string[] | null>(null);
+  const highlightTimeoutsRef = useRef<Record<string, number>>({});
 
   const queryClient = useQueryClient();
   const documentHidden = useDocumentHidden();
@@ -371,6 +391,58 @@ export function AlertsPage(): JSX.Element {
     [alertsQuery.data, assignments.applyAlertAssignments, overrides.applyAlertOverrides],
   );
 
+  useEffect(() => {
+    return () => {
+      Object.values(highlightTimeoutsRef.current).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      highlightTimeoutsRef.current = {};
+    };
+  }, []);
+
+  useEffect(() => {
+    if (status !== 'open') {
+      previousOpenAlertIdsRef.current = null;
+      setHighlightedAlertIds([]);
+      Object.values(highlightTimeoutsRef.current).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      highlightTimeoutsRef.current = {};
+      return;
+    }
+
+    if (!alertsQuery.data) {
+      return;
+    }
+
+    const currentIds = sourceAlerts.map((alert) => alert._id);
+    const previousIds = previousOpenAlertIdsRef.current;
+
+    if (!previousIds) {
+      previousOpenAlertIdsRef.current = currentIds;
+      return;
+    }
+
+    const incomingIds = findNewIds(previousIds, currentIds);
+    if (incomingIds.length > 0) {
+      setHighlightedAlertIds((current) => mergeUniqueIds(current, incomingIds));
+
+      incomingIds.forEach((alertId) => {
+        const existingTimeout = highlightTimeoutsRef.current[alertId];
+        if (existingTimeout) {
+          window.clearTimeout(existingTimeout);
+        }
+
+        highlightTimeoutsRef.current[alertId] = window.setTimeout(() => {
+          setHighlightedAlertIds((current) => removeIds(current, [alertId]));
+          delete highlightTimeoutsRef.current[alertId];
+        }, NEW_ALERT_HIGHLIGHT_TTL_MS);
+      });
+    }
+
+    previousOpenAlertIdsRef.current = currentIds;
+  }, [alertsQuery.data, sourceAlerts, status]);
+
   const openAlertsForOverview = useMemo(() => {
     if (status === 'open') {
       return sourceAlerts;
@@ -436,8 +508,39 @@ export function AlertsPage(): JSX.Element {
     () => computeAlertKpis(openAlertsForOverview, seenAlertMap, clinicianId),
     [clinicianId, openAlertsForOverview, seenAlertMap],
   );
-  const allClear = !overviewLoading && alertKpis.openCount === 0;
+  const allClear = !overviewLoading && !alertsQuery.error && connection.online && alertKpis.openCount === 0;
   const activeAlertSeen = activeAlert ? isAlertSeenForUi(activeAlert, seenAlertMap) : false;
+  const fetchError = alertsQuery.error ? asAppError(alertsQuery.error) : null;
+  const staleDataAvailable = sourceAlerts.length > 0;
+  const staleErrorBannerVisible = Boolean(fetchError && staleDataAvailable);
+  const blockingErrorVisible = Boolean(fetchError && !staleDataAvailable && connection.online);
+  const blockingOfflineVisible = !connection.online && !staleDataAvailable && !fetchError;
+  const errorView = fetchError ? toErrorView(fetchError) : null;
+  const troubleshootingDetails =
+    fetchError || !connection.online
+      ? {
+          endpoint: connection.lastEndpoint,
+          status: connection.lastHttpStatus,
+          timestamp: formatTroubleshootingTime(connection.lastErrorAt),
+        }
+      : undefined;
+
+  const retryAlerts = useCallback((): void => {
+    void alertsQuery.refetch();
+  }, [alertsQuery]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const onRetry = (): void => {
+      retryAlerts();
+    };
+
+    window.addEventListener(RETRY_EVENT, onRetry);
+    return () => window.removeEventListener(RETRY_EVENT, onRetry);
+  }, [retryAlerts]);
 
   async function collectAlertsForExport(statusesToInclude: AlertStatus[]): Promise<AlertItem[]> {
     const collections = await Promise.all(statusesToInclude.map((statusItem) => listAlerts(statusItem)));
@@ -638,15 +741,13 @@ export function AlertsPage(): JSX.Element {
         5) Simulate offline and verify non-blocking banner while existing data remains.
         6) Verify search/source/time filters and mobile card layout.
       */}
-      {!connection.online ? (
-        <AlertBanner variant="warning" title="Offline mode detected">
-          Polling is paused. Existing alerts remain visible until connection returns.
-        </AlertBanner>
-      ) : null}
-
-      {alertsQuery.error ? (
-        <AlertBanner variant="error" title="Could not refresh alerts">
-          {toUserMessage(alertsQuery.error)}
+      {staleErrorBannerVisible ? (
+        <AlertBanner
+          variant="warning"
+          title="Service temporarily unavailable"
+          action={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+        >
+          Showing last known data from {formatLastUpdated(connection.lastSuccessAt)}.
         </AlertBanner>
       ) : null}
 
@@ -748,15 +849,45 @@ export function AlertsPage(): JSX.Element {
               <Skeleton height={72} />
               <Skeleton height={72} />
             </div>
+          ) : blockingErrorVisible && errorView ? (
+            <StatusPanel
+              variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
+              title="Unable to load alerts"
+              description={errorView.description}
+              actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+              details={troubleshootingDetails}
+            />
+          ) : blockingOfflineVisible ? (
+            <StatusPanel
+              variant="info"
+              title="Offline"
+              description="No cached alerts are available yet. Reconnect and retry."
+              actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+              details={troubleshootingDetails}
+            />
+          ) : status === 'open' && sourceAlerts.length === 0 ? (
+            <StatusPanel
+              variant="success"
+              title="All clear"
+              description={`No open alerts right now. Last updated ${formatLastUpdated(connection.lastSuccessAt)}.`}
+            />
+          ) : sourceAlerts.length === 0 ? (
+            <StatusPanel
+              variant="empty"
+              title={`No ${status} alerts`}
+              description="Alerts in this queue will appear here as they are updated."
+            />
           ) : visibleAlerts.length === 0 ? (
-            <EmptyState
-              title="No alerts match this view"
-              description="Try changing status, search text, or filters to broaden the queue."
+            <StatusPanel
+              variant="empty"
+              title="No results"
+              description="Try clearing filters or searching by patient ID."
             />
           ) : isMobileLayout ? (
             <AlertCardList
               alerts={visibleAlerts}
               seenAlertMap={seenAlertMap}
+              highlightedAlertIds={highlightedAlertIds}
               clinicianId={clinicianId}
               mutationPending={updateAlertMutation.isPending}
               assignmentPending={assignments.assignmentBusy}
@@ -770,6 +901,7 @@ export function AlertsPage(): JSX.Element {
             <AlertsTable
               alerts={visibleAlerts}
               seenAlertMap={seenAlertMap}
+              highlightedAlertIds={highlightedAlertIds}
               clinicianId={clinicianId}
               mutationPending={updateAlertMutation.isPending}
               assignmentPending={assignments.assignmentBusy}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 
 interface KpiCounterProps {
   value: number;
@@ -16,7 +16,7 @@ export function KpiCounter({
   reserveDigits = 3,
   durationMs = 520,
 }: KpiCounterProps): JSX.Element {
-  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [displayValue, setDisplayValue] = useState(value);
   const previousValueRef = useRef(value);
 

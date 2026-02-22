@@ -1,4 +1,4 @@
-import { markRequestError, markRequestSuccess } from './connection';
+import { markError, markSuccess } from './connectionStore';
 import { AppError, createAppError, isAppError } from '../utils/errors';
 
 const DEFAULT_TIMEOUT_MS = 8_000;
@@ -51,6 +51,18 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
 
   appendQueryParams(url, query);
   return url.toString();
+}
+
+function toEndpointPath(path: string): string {
+  if (/^https?:\/\//.test(path)) {
+    try {
+      return new URL(path).pathname || '/';
+    } catch {
+      return '/';
+    }
+  }
+
+  return path.startsWith('/') ? path : `/${path}`;
 }
 
 function safeMessageForStatus(status: number): { message: string; hint?: string } {
@@ -126,6 +138,7 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
     options;
 
   const controller = new AbortController();
+  const endpointPath = toEndpointPath(path);
   const timer = setTimeout(() => {
     controller.abort();
   }, timeoutMs);
@@ -151,7 +164,7 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
     }
 
     if (response.status === 204) {
-      markRequestSuccess();
+      markSuccess(endpointPath);
       return undefined as T;
     }
 
@@ -162,14 +175,14 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
 
     try {
       const jsonData = (await response.json()) as T;
-      markRequestSuccess();
+      markSuccess(endpointPath);
       return jsonData;
     } catch {
       throw createAppError('Parse', 'Could not read server response.');
     }
   } catch (error) {
     const appError = mapUnknownToAppError(error);
-    markRequestError();
+    markError(endpointPath, appError);
     throw appError;
   } finally {
     clearTimeout(timer);

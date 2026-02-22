@@ -21,7 +21,7 @@ import {
 import { Card } from '../ui/Card';
 import { AccessibleTrendList } from './AccessibleTrendList';
 import { LatestTrendBadges } from './LatestTrendBadges';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 import { getChartAnimationConfig, isJsdomRuntime, mapMedicationToNumeric } from '../../utils/chart';
 
 interface TrendChartsProps {
@@ -114,7 +114,7 @@ function renderResponsiveChart(chartElement: JSX.Element): JSX.Element {
 }
 
 export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Element {
-  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const prefersReducedMotion = usePrefersReducedMotion();
   const animation = getChartAnimationConfig(prefersReducedMotion);
   const gradientSeed = useId().replace(/:/g, '-');
   const painGradientId = `${gradientSeed}-pain-gradient`;

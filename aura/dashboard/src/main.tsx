@@ -4,8 +4,12 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router } from './app/routes';
 import { asAppError, isRetryable } from './utils/errors';
+import { initTheme } from './services/theme';
 import './styles/tokens.css';
 import './styles/globals.css';
+import './styles/system.css';
+
+initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

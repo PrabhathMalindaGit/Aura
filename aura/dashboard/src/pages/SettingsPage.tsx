@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -13,10 +13,18 @@ import {
   setSessionSettings,
   type SessionSettings,
 } from '../services/sessionSettings';
+import {
+  getThemeMode,
+  setThemeMode,
+  subscribeThemeMode,
+  type ThemeMode,
+} from '../services/theme';
 
 export function SettingsPage(): JSX.Element {
   const [showOfflineWarning, setShowOfflineWarning] = useState(true);
   const [compactTableMode, setCompactTableMode] = useState(false);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getThemeMode());
+  const [themeNotice, setThemeNotice] = useState<string | null>(null);
   const [clinicianId, setClinicianId] = useState(() => getClinicianId());
   const [clinicianName, setClinicianName] = useState(() => getClinicianName());
   const [identityNotice, setIdentityNotice] = useState<string | null>(null);
@@ -24,6 +32,12 @@ export function SettingsPage(): JSX.Element {
     getSessionSettings(),
   );
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    return subscribeThemeMode((mode) => {
+      setThemeModeState(mode);
+    });
+  }, []);
 
   function applySessionSettings(update: Partial<SessionSettings>): void {
     const next = setSessionSettings(update);
@@ -35,6 +49,68 @@ export function SettingsPage(): JSX.Element {
     <div className="page-stack">
       <Card title="Clinician Preferences">
         <div className="settings-list">
+          <fieldset className="setting-item setting-item--field theme-mode-fieldset">
+            <legend>
+              <strong>Theme</strong>
+              <small>System follows your OS preference.</small>
+            </legend>
+            <div className="theme-mode-group" role="radiogroup" aria-label="Theme mode">
+              <label className="theme-mode-option" htmlFor="theme-mode-system">
+                <input
+                  id="theme-mode-system"
+                  type="radio"
+                  name="theme-mode"
+                  value="system"
+                  checked={themeMode === 'system'}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      const nextMode = setThemeMode('system');
+                      setThemeModeState(nextMode);
+                      setThemeNotice('Theme set to system preference.');
+                    }
+                  }}
+                />
+                <span>System</span>
+              </label>
+
+              <label className="theme-mode-option" htmlFor="theme-mode-light">
+                <input
+                  id="theme-mode-light"
+                  type="radio"
+                  name="theme-mode"
+                  value="light"
+                  checked={themeMode === 'light'}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      const nextMode = setThemeMode('light');
+                      setThemeModeState(nextMode);
+                      setThemeNotice('Theme set to light.');
+                    }
+                  }}
+                />
+                <span>Light</span>
+              </label>
+
+              <label className="theme-mode-option" htmlFor="theme-mode-dark">
+                <input
+                  id="theme-mode-dark"
+                  type="radio"
+                  name="theme-mode"
+                  value="dark"
+                  checked={themeMode === 'dark'}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      const nextMode = setThemeMode('dark');
+                      setThemeModeState(nextMode);
+                      setThemeNotice('Theme set to dark.');
+                    }
+                  }}
+                />
+                <span>Dark</span>
+              </label>
+            </div>
+          </fieldset>
+
           <label className="setting-item" htmlFor="offline-warning-toggle">
             <span>
               <strong>Offline warning banner</strong>
@@ -66,6 +142,12 @@ export function SettingsPage(): JSX.Element {
           <Button>Save Preferences</Button>
           <Button variant="secondary">Reset</Button>
         </div>
+
+        {themeNotice ? (
+          <p className="muted-text" role="status" aria-live="polite">
+            {themeNotice}
+          </p>
+        ) : null}
       </Card>
 
       <Card title="Session Security">

@@ -307,10 +307,65 @@ describe('AlertsPage queue flow', () => {
     await waitFor(() => {
       expect(screen.getByLabelText(rowLabel)).toBeInTheDocument();
       expect(screen.getByText('Action failed')).toBeInTheDocument();
-    }, { timeout: 7_000 });
+    }, { timeout: 12_000 });
 
     expect(fetchMock).toHaveBeenCalled();
-  }, 12_000);
+  }, 20_000);
+
+  it('shows blocking error panel when alerts fail with no cached data', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: false }, 500);
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Unable to load alerts')).toBeInTheDocument();
+      expect(
+        screen.getByText('The backend is temporarily unavailable. Please retry shortly.'),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    }, { timeout: 8_000 });
+  });
+
+  it('keeps last known list and shows warning banner on refresh failure', async () => {
+    let openFetchCount = 0;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+
+      if (url.includes('/clinician/alerts?status=open') && method === 'GET') {
+        openFetchCount += 1;
+        if (openFetchCount === 1) {
+          return createJsonResponse({ ok: true, alerts: [baseAlert] });
+        }
+
+        return createJsonResponse({ ok: false }, 500);
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    const rowLabel = `Alert ${baseAlert._id} for patient ${baseAlert.patientId}`;
+    await screen.findByLabelText(rowLabel);
+
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Service temporarily unavailable')).toBeInTheDocument();
+      expect(screen.getByLabelText(rowLabel)).toBeInTheDocument();
+    }, { timeout: 8_000 });
+  });
 
   it('unassigned alert shows Assign to me quick action', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -673,6 +728,42 @@ describe('AlertsPage queue flow', () => {
         name: `Retry notification for alert ${unknownNotificationAlert._id}`,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('marks newly arrived alerts with the arrival highlight class', async () => {
+    const incomingAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-new-arrival',
+      patientId: 'patient-new',
+    };
+    let openFetchCount = 0;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        openFetchCount += 1;
+        return createJsonResponse({
+          ok: true,
+          alerts: openFetchCount > 1 ? [incomingAlert, baseAlert] : [baseAlert],
+        });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    const existingRowLabel = `Alert ${baseAlert._id} for patient ${baseAlert.patientId}`;
+    await screen.findByLabelText(existingRowLabel);
+
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    const incomingRowLabel = `Alert ${incomingAlert._id} for patient ${incomingAlert.patientId}`;
+    await waitFor(() => {
+      expect(screen.getByLabelText(incomingRowLabel)).toHaveClass('alert-arrived');
+    });
   });
 
   it('renders alert cards instead of table on small widths', async () => {

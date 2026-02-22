@@ -14,10 +14,12 @@ import { OverrideChip } from './OverrideChip';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
+import { cn } from '../../utils/cn';
 
 interface AlertsTableProps {
   alerts: AlertItem[];
   seenAlertMap: SeenAlertMap;
+  highlightedAlertIds: string[];
   clinicianId: string;
   mutationPending: boolean;
   assignmentPending: boolean;
@@ -65,6 +67,7 @@ function moveFocusToRow(
 export function AlertsTable({
   alerts,
   seenAlertMap,
+  highlightedAlertIds,
   clinicianId,
   mutationPending,
   assignmentPending,
@@ -104,7 +107,10 @@ export function AlertsTable({
                 key={alert._id}
                 data-row-index={index}
                 tabIndex={0}
-                className="alerts-table__row"
+                className={cn(
+                  'alerts-table__row',
+                  highlightedAlertIds.includes(alert._id) && 'alert-arrived',
+                )}
                 onClick={(event) => onOpen(alert, event.currentTarget)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {

@@ -35,6 +35,10 @@ const chatMessageSchema = new Schema(
       type: riskSchema,
       default: () => ({ level: "low", reasons: [] }),
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -42,6 +46,7 @@ const chatMessageSchema = new Schema(
 );
 
 chatMessageSchema.index({ patientId: 1, createdAt: -1 });
+chatMessageSchema.index({ demoTag: 1 });
 
 const ChatMessage = model("ChatMessage", chatMessageSchema);
 

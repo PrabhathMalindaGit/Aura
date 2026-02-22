@@ -65,6 +65,10 @@ const checkInSchema = new Schema(
       type: riskSchema,
       default: () => ({ level: "low", reasons: [] }),
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -73,6 +77,7 @@ const checkInSchema = new Schema(
 
 checkInSchema.index({ patientId: 1, date: 1 }, { unique: true });
 checkInSchema.index({ patientId: 1, createdAt: -1 });
+checkInSchema.index({ demoTag: 1 });
 
 const CheckIn = model("CheckIn", checkInSchema);
 

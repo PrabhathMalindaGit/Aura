@@ -148,6 +148,10 @@ const alertSchema = new Schema(
         retryCount: 0,
       }),
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -158,6 +162,7 @@ alertSchema.index({ status: 1, createdAt: -1 });
 alertSchema.index({ patientId: 1, createdAt: -1 });
 alertSchema.index({ patientId: 1, status: 1, createdAt: -1 });
 alertSchema.index({ assignedTo: 1, status: 1, createdAt: -1 });
+alertSchema.index({ demoTag: 1 });
 
 const Alert = model("Alert", alertSchema);
 

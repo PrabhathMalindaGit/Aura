@@ -18,6 +18,10 @@ const careEventSchema = new Schema(
       type: Schema.Types.Mixed,
       default: {},
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -26,6 +30,7 @@ const careEventSchema = new Schema(
 
 careEventSchema.index({ patientId: 1, createdAt: -1 });
 careEventSchema.index({ alertId: 1, createdAt: 1 });
+careEventSchema.index({ demoTag: 1 });
 
 const CareEvent = model("CareEvent", careEventSchema);
 

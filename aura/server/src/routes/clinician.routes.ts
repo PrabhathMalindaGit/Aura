@@ -7,6 +7,7 @@ import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
 import { validateBody } from "../middleware/validate";
+import type { RequestWithUser } from "../types/auth";
 import { env } from "../env";
 import { emitNotificationRetryRequested } from "../services/n8n";
 import { isObjectId } from "../utils/ids";
@@ -26,25 +27,25 @@ const patchSchema = z.object({
   status: z.enum(["acknowledged", "resolved"]),
 });
 const seenSchema = z.object({
-  clinicianId: z.string().trim().min(1),
+  clinicianId: z.string().trim().min(1).optional(),
   clinicianName: z.string().trim().min(1).optional(),
 });
 const assignmentSchema = z.object({
-  assignedTo: z.union([z.string().trim().min(1), z.null()]),
+  assignedTo: z.union([z.string().trim().min(1), z.null()]).optional(),
   assignedToName: z.string().trim().min(1).optional(),
-  requestedBy: z.string().trim().min(1),
+  requestedBy: z.string().trim().min(1).optional(),
   requestedByName: z.string().trim().min(1).optional(),
   force: z.boolean().optional().default(false),
 });
 const riskOverrideSchema = z.object({
   riskFinal: z.enum(["low", "medium", "high"]),
   overrideReason: z.string().trim().min(3),
-  overriddenBy: z.string().trim().min(1),
+  overriddenBy: z.string().trim().min(1).optional(),
   overriddenByName: z.string().trim().min(1).optional(),
 });
 const retryNotificationSchema = z.object({
   channel: z.enum(["telegram"]).optional().default("telegram"),
-  requestedBy: z.string().trim().min(1),
+  requestedBy: z.string().trim().min(1).optional(),
   requestedByName: z.string().trim().min(1).optional(),
   reason: z.string().trim().max(200).optional(),
 });
@@ -133,6 +134,42 @@ type PatientProfile = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+type ClinicianActor = {
+  id: string;
+  name?: string;
+};
+
+function hasAuthHeader(req: RequestWithUser): boolean {
+  const header = req.header("authorization");
+  return Boolean(header && header.trim());
+}
+
+function resolveClinicianActor(
+  req: RequestWithUser,
+  legacyId?: string,
+  legacyName?: string
+): ClinicianActor | null {
+  if (req.user) {
+    return {
+      id: req.user.id,
+      name: req.user.name,
+    };
+  }
+
+  if (!env.ALLOW_UNAUTH_CLINICIAN_BODY_IDS || hasAuthHeader(req)) {
+    return null;
+  }
+
+  if (!legacyId || !legacyId.trim()) {
+    return null;
+  }
+
+  return {
+    id: legacyId.trim(),
+    name: legacyName?.trim() || undefined,
+  };
+}
 
 function toIsoDateString(value?: Date): string | undefined {
   if (!value) {
@@ -782,6 +819,10 @@ router.patch(
 
       const { displayName, status, clinicianId, requestedBy, requestedByName } =
         req.body as z.infer<typeof patchPatientSchema>;
+      const requestWithUser = req as RequestWithUser;
+      const auditRequestedBy = requestWithUser.user?.id ?? requestedBy;
+      const auditRequestedByName =
+        requestWithUser.user?.name ?? requestedByName;
 
       const existing = await Patient.findOne({ patientId });
       const changed: Record<string, { from: string | null; to: string | null }> = {};
@@ -871,8 +912,8 @@ router.patch(
           patientId,
           payload: {
             changed,
-            requestedBy,
-            requestedByName,
+            requestedBy: auditRequestedBy,
+            requestedByName: auditRequestedByName,
           },
         });
       }
@@ -1172,9 +1213,22 @@ router.patch(
     }
 
     try {
+      const requestWithUser = req as RequestWithUser;
       const { clinicianId, clinicianName } = req.body as z.infer<
         typeof seenSchema
       >;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        clinicianId,
+        clinicianName
+      );
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
       const alert = await Alert.findById(alertId);
 
       if (!alert) {
@@ -1185,7 +1239,7 @@ router.patch(
       }
 
       const existingSeenBy = Array.isArray(alert.seenBy) ? alert.seenBy : [];
-      const alreadySeen = existingSeenBy.includes(clinicianId);
+      const alreadySeen = existingSeenBy.includes(actor.id);
 
       if (alreadySeen) {
         return res.json({
@@ -1194,7 +1248,7 @@ router.patch(
         });
       }
 
-      alert.seenBy = Array.from(new Set([...existingSeenBy, clinicianId]));
+      alert.seenBy = Array.from(new Set([...existingSeenBy, actor.id]));
       if (!alert.seenAt) {
         alert.seenAt = new Date();
       }
@@ -1204,9 +1258,9 @@ router.patch(
         type: "ALERT_SEEN",
         patientId: alert.patientId,
         alertId: String(alert._id),
-        payload: clinicianName
-          ? { clinicianId, clinicianName }
-          : { clinicianId },
+        payload: actor.name
+          ? { clinicianId: actor.id, clinicianName: actor.name }
+          : { clinicianId: actor.id },
       });
 
       return res.json({
@@ -1247,8 +1301,45 @@ router.patch(
     }
 
     try {
-      const { assignedTo, assignedToName, requestedBy, requestedByName, force } =
-        req.body as z.infer<typeof assignmentSchema>;
+      const requestWithUser = req as RequestWithUser;
+      const {
+        assignedTo,
+        assignedToName,
+        requestedBy,
+        requestedByName,
+        force,
+      } = req.body as z.infer<typeof assignmentSchema>;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        requestedBy,
+        requestedByName
+      );
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const hasAssignedToField = Object.prototype.hasOwnProperty.call(
+        req.body as Record<string, unknown>,
+        "assignedTo"
+      );
+
+      let targetAssignedTo: string | null;
+      if (assignedTo === null) {
+        targetAssignedTo = null;
+      } else if (!hasAssignedToField || assignedTo === "me") {
+        targetAssignedTo = actor.id;
+      } else {
+        targetAssignedTo = assignedTo.trim();
+      }
+
+      const targetAssignedToName =
+        targetAssignedTo && targetAssignedTo === actor.id
+          ? requestWithUser.user?.name ?? actor.name ?? assignedToName?.trim()
+          : assignedToName?.trim();
+
       const alert = await Alert.findById(alertId);
 
       if (!alert) {
@@ -1270,7 +1361,7 @@ router.patch(
 
       let action: "assign" | "unassign" | "takeover" | null = null;
 
-      if (assignedTo === null) {
+      if (targetAssignedTo === null) {
         if (!previousAssignedTo) {
           return res.json({
             ok: true,
@@ -1278,7 +1369,7 @@ router.patch(
           });
         }
 
-        if (previousAssignedTo !== requestedBy && !force) {
+        if (previousAssignedTo !== actor.id && !force) {
           return res.status(409).json({
             ok: false,
             error: "ASSIGNMENT_CONFLICT",
@@ -1291,11 +1382,11 @@ router.patch(
         alert.assignedAt = undefined;
         action = "unassign";
       } else {
-        const nextAssignedTo = assignedTo.trim();
+        const nextAssignedTo = targetAssignedTo;
 
         if (!previousAssignedTo) {
           alert.assignedTo = nextAssignedTo;
-          alert.assignedToName = assignedToName?.trim();
+          alert.assignedToName = targetAssignedToName;
           alert.assignedAt = new Date();
           action = "assign";
         } else if (previousAssignedTo === nextAssignedTo) {
@@ -1311,7 +1402,7 @@ router.patch(
           });
         } else {
           alert.assignedTo = nextAssignedTo;
-          alert.assignedToName = assignedToName?.trim();
+          alert.assignedToName = targetAssignedToName;
           alert.assignedAt = new Date();
           action = "takeover";
         }
@@ -1329,8 +1420,8 @@ router.patch(
           assignedToName: alert.assignedToName,
           previousAssignedTo,
           previousAssignedToName,
-          requestedBy,
-          requestedByName,
+          requestedBy: actor.id,
+          requestedByName: requestWithUser.user?.name ?? actor.name,
           force,
         },
       });
@@ -1373,8 +1464,22 @@ router.post(
     }
 
     try {
+      const requestWithUser = req as RequestWithUser;
       const { channel, requestedBy, requestedByName, reason } =
         req.body as z.infer<typeof retryNotificationSchema>;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        requestedBy,
+        requestedByName
+      );
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const actorName = requestWithUser.user?.name ?? actor.name;
       const alert = await Alert.findById(alertId);
 
       if (!alert) {
@@ -1420,8 +1525,8 @@ router.post(
         alertId: String(alert._id),
         payload: {
           channel,
-          requestedBy,
-          requestedByName,
+          requestedBy: actor.id,
+          requestedByName: actorName,
           reason,
           retryCount: nextRetryCount,
         },
@@ -1433,8 +1538,8 @@ router.post(
           patientId: alert.patientId,
           alertId: String(alert._id),
           channel,
-          requestedBy,
-          requestedByName,
+          requestedBy: actor.id,
+          requestedByName: actorName,
           timestamp: now.toISOString(),
         });
 
@@ -1445,7 +1550,7 @@ router.post(
             alertId: String(alert._id),
             payload: {
               channel,
-              requestedBy,
+              requestedBy: actor.id,
               retryCount: nextRetryCount,
             },
           });
@@ -1466,7 +1571,7 @@ router.post(
             alertId: String(alert._id),
             payload: {
               channel,
-              requestedBy,
+              requestedBy: actor.id,
               retryCount: nextRetryCount,
               error: "N8N_RETRY_WEBHOOK_FAILED",
             },
@@ -1513,8 +1618,21 @@ router.patch(
     }
 
     try {
+      const requestWithUser = req as RequestWithUser;
       const { riskFinal, overrideReason, overriddenBy, overriddenByName } =
         req.body as z.infer<typeof riskOverrideSchema>;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        overriddenBy,
+        overriddenByName
+      );
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+      const actorName = requestWithUser.user?.name ?? actor.name;
       const alert = await Alert.findById(alertId);
 
       if (!alert) {
@@ -1538,7 +1656,7 @@ router.patch(
       const isSameOverride =
         previousRiskFinal === riskFinal &&
         (previousOverrideReason ?? "") === overrideReason &&
-        currentOverriddenBy === overriddenBy;
+        currentOverriddenBy === actor.id;
 
       if (isSameOverride) {
         return res.json({
@@ -1549,8 +1667,8 @@ router.patch(
 
       alert.riskFinal = riskFinal;
       alert.overrideReason = overrideReason;
-      alert.overriddenBy = overriddenBy;
-      alert.overriddenByName = overriddenByName?.trim();
+      alert.overriddenBy = actor.id;
+      alert.overriddenByName = actorName;
       alert.overriddenAt = new Date();
 
       await alert.save();
@@ -1562,8 +1680,8 @@ router.patch(
         payload: {
           riskFinal,
           overrideReason,
-          overriddenBy,
-          overriddenByName: overriddenByName?.trim(),
+          overriddenBy: actor.id,
+          overriddenByName: actorName,
           previousRiskFinal,
           previousOverrideReason,
         },

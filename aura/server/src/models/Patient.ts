@@ -20,6 +20,10 @@ const patientSchema = new Schema(
       type: String,
       trim: true,
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -29,6 +33,7 @@ const patientSchema = new Schema(
 patientSchema.index({ patientId: 1 }, { unique: true });
 patientSchema.index({ status: 1 });
 patientSchema.index({ clinicianId: 1, status: 1 });
+patientSchema.index({ demoTag: 1 });
 
 const Patient = model("Patient", patientSchema);
 

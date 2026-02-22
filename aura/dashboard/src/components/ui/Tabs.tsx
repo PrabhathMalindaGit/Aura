@@ -10,9 +10,10 @@ interface TabsProps {
   tabs: TabItem[];
   value?: string;
   onValueChange?: (id: string) => void;
+  getTabTestId?: (id: string) => string | undefined;
 }
 
-export function Tabs({ tabs, value, onValueChange }: TabsProps): JSX.Element {
+export function Tabs({ tabs, value, onValueChange, getTabTestId }: TabsProps): JSX.Element {
   const [uncontrolledValue, setUncontrolledValue] = useState<string>(tabs[0]?.id ?? '');
 
   const activeId = useMemo(() => value ?? uncontrolledValue, [value, uncontrolledValue]);
@@ -34,6 +35,7 @@ export function Tabs({ tabs, value, onValueChange }: TabsProps): JSX.Element {
             role="tab"
             type="button"
             aria-selected={isActive}
+            data-testid={getTabTestId?.(tab.id)}
             className={cn('tabs__tab', isActive && 'tabs__tab--active')}
             onClick={() => selectTab(tab.id)}
           >

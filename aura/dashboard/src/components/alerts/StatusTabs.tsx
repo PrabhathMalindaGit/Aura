@@ -12,6 +12,14 @@ const statuses: Array<{ value: AlertStatus; label: string }> = [
   { value: 'resolved', label: 'Resolved' },
 ];
 
+function statusTabTestId(status: AlertStatus): string {
+  if (status === 'acknowledged') {
+    return 'alerts-tab-ack';
+  }
+
+  return `alerts-tab-${status}`;
+}
+
 export function StatusTabs({ value, onChange }: StatusTabsProps): JSX.Element {
   return (
     <div className="alerts-status-tabs" role="tablist" aria-label="Alert status tabs">
@@ -24,6 +32,7 @@ export function StatusTabs({ value, onChange }: StatusTabsProps): JSX.Element {
             type="button"
             role="tab"
             aria-selected={selected}
+            data-testid={statusTabTestId(status.value)}
             className={cn('alerts-status-tabs__tab', selected && 'alerts-status-tabs__tab--active')}
             onClick={() => onChange(status.value)}
           >

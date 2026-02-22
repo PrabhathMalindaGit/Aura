@@ -219,17 +219,19 @@ export function AlertDetailDrawer({
         labelledBy={DRAWER_TITLE_ID}
         describedBy={DRAWER_DESCRIPTION_ID}
         mobileFullscreen
+        dataTestId="alert-drawer"
         onClose={onClose}
         returnFocusRef={returnFocusRef}
         footer={
           effectiveAlert ? (
-            <div className="drawer-footer-actions">
+            <div className="drawer-footer-actions safe-bottom">
               <Button
                 ref={resolveActionRef}
                 variant="danger"
                 disabled={resolveDisabled}
                 onClick={handleResolve}
                 aria-label="Resolve alert"
+                data-testid="alert-resolve"
               >
                 Resolve
               </Button>
@@ -238,6 +240,7 @@ export function AlertDetailDrawer({
                 disabled={acknowledgeDisabled}
                 onClick={handleAcknowledge}
                 aria-label="Acknowledge alert"
+                data-testid="alert-acknowledge"
               >
                 Acknowledge
               </Button>

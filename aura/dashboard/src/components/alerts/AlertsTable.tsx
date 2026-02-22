@@ -106,6 +106,7 @@ export function AlertsTable({
               <tr
                 key={alert._id}
                 data-row-index={index}
+                data-testid={`alert-row-${alert._id}`}
                 tabIndex={0}
                 className={cn(
                   'alerts-table__row',
@@ -204,6 +205,7 @@ export function AlertsTable({
                   >
                     <Button
                       variant="ghost"
+                      data-testid={`alert-open-${alert._id}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpen(alert, event.currentTarget);

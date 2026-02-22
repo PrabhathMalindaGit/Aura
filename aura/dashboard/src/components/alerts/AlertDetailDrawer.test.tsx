@@ -199,7 +199,7 @@ describe('AlertDetailDrawer accessibility and actions', () => {
   });
 
   it('uses full-screen drawer mode on phone widths', async () => {
-    installMatchMediaMock((query) => query.includes('(max-width: 600px)'));
+    installMatchMediaMock((query) => query.includes('(max-width: 899px)'));
     renderDrawer();
 
     const dialog = await screen.findByRole('dialog', { name: 'Alert' });

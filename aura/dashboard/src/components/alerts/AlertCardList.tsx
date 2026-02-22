@@ -84,6 +84,7 @@ export function AlertCardList({
               highlightedAlertIds.includes(alert._id) && 'alert-arrived',
             )}
             aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}
+            data-testid={`alert-card-${alert._id}`}
           >
             <div className="alerts-card-list__body">
               <div className="alerts-card-list__top">
@@ -163,6 +164,7 @@ export function AlertCardList({
               <div className="alerts-actions alerts-actions--stack alerts-card-list__actions">
                 <Button
                   variant="ghost"
+                  data-testid={`alert-open-${alert._id}`}
                   onClick={(event) => onOpen(alert, event.currentTarget)}
                   fullWidth
                 >

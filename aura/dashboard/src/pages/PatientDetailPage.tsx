@@ -407,6 +407,7 @@ export function PatientDetailPage(): JSX.Element {
                 { id: '30', label: '30 days' },
               ]}
               value={String(selectedDays)}
+              getTabTestId={(tabId) => `days-toggle-${tabId}`}
               onValueChange={(value) => {
                 const nextDays = value === '30' ? '30' : '14';
                 setSearchParams((current) => {

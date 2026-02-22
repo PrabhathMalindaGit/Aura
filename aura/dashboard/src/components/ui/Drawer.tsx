@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useBreakpoint } from '../../hooks/useBreakpoint';
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
-import { MEDIA_QUERIES } from '../../styles/breakpoints';
 import { MOTION_DURATION_MS } from '../../utils/motion';
 import { cn } from '../../utils/cn';
 import { focusFirstElement, trapTabKey } from '../../utils/focus';
@@ -18,6 +17,7 @@ interface DrawerProps {
   describedBy?: string;
   ariaLabel?: string;
   mobileFullscreen?: boolean;
+  dataTestId?: string;
 }
 
 export function Drawer({
@@ -31,17 +31,19 @@ export function Drawer({
   describedBy,
   ariaLabel,
   mobileFullscreen = false,
+  dataTestId,
 }: DrawerProps): JSX.Element | null {
   const panelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const fallbackFocusRef = useRef<HTMLElement | null>(null);
   const closeTimeoutRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
-  const isPhone = useMediaQuery(MEDIA_QUERIES.smDown);
+  const { isMobile } = useBreakpoint();
   const prefersReducedMotion = usePrefersReducedMotion();
   const [isRendered, setIsRendered] = useState(open);
   const [isVisible, setIsVisible] = useState(open);
-  const fullscreenOnPhone = mobileFullscreen && isPhone;
+  const fullscreenOnPhone = mobileFullscreen && isMobile;
+  const placement = isMobile ? 'bottom' : 'right';
 
   useEffect(() => {
     return () => {
@@ -142,6 +144,7 @@ export function Drawer({
     <div
       className={cn(
         'drawer',
+        `drawer--placement-${placement}`,
         isVisible && 'drawer--open',
         !isVisible && 'drawer--closing',
         fullscreenOnPhone && 'drawer--mobile-fullscreen',
@@ -153,6 +156,7 @@ export function Drawer({
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       aria-label={ariaLabel ?? title}
+      data-testid={dataTestId}
     >
       <button
         type="button"

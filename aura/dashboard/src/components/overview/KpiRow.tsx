@@ -9,7 +9,7 @@ interface KpiRowProps {
 export function KpiRow({ summary, loading = false }: KpiRowProps): JSX.Element {
   return (
     <section className="kpi-row" aria-label="Alert workflow KPI counters">
-      <div className="kpi-row__item">
+      <div className="kpi-row__item cq">
         <KpiCard
           label="Open alerts"
           value={summary.openCount}
@@ -22,7 +22,7 @@ export function KpiRow({ summary, loading = false }: KpiRowProps): JSX.Element {
           loading={loading}
         />
       </div>
-      <div className="kpi-row__item">
+      <div className="kpi-row__item cq">
         <KpiCard
           label="Unseen"
           value={summary.unseenCount}
@@ -31,7 +31,7 @@ export function KpiRow({ summary, loading = false }: KpiRowProps): JSX.Element {
           loading={loading}
         />
       </div>
-      <div className="kpi-row__item">
+      <div className="kpi-row__item cq">
         <KpiCard
           label="Assigned to me"
           value={summary.assignedToMeCount}
@@ -40,7 +40,7 @@ export function KpiRow({ summary, loading = false }: KpiRowProps): JSX.Element {
           loading={loading}
         />
       </div>
-      <div className="kpi-row__item">
+      <div className="kpi-row__item cq">
         <KpiCard
           label="Notif failed"
           value={summary.notifFailedCount}

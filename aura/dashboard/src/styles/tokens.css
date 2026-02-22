@@ -7,10 +7,10 @@
   /* Typography */
   --font-sans: 'IBM Plex Sans', 'Segoe UI', 'Helvetica Neue', sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  --text-xs: 12px;
-  --text-sm: 14px;
-  --text-base: 16px;
-  --text-lg: 20px;
+  --text-xs: clamp(11px, 0.9vw, 12px);
+  --text-sm: clamp(13px, 1.1vw, 14px);
+  --text-base: clamp(15px, 1.2vw, 16px);
+  --text-lg: clamp(18px, 1.6vw, 20px);
   --leading-tight: 1.3;
   --leading-normal: 1.5;
   --font-normal: 400;
@@ -29,8 +29,15 @@
   --space-6: 24px;
   --space-8: 32px;
   --page-padding: clamp(12px, 2vw, 24px);
+  --card-padding: clamp(12px, 1.6vw, 18px);
   --card-gap: clamp(10px, 1.5vw, 18px);
   --section-gap: clamp(16px, 2vw, 28px);
+
+  /* Drawer + sheet sizing */
+  --drawer-desktop-width: 540px;
+  --drawer-tablet-width: 480px;
+  --sheet-max-height: 92dvh;
+  --sheet-radius: 18px;
 
   /* Radius */
   --radius-sm: 10px;
@@ -81,9 +88,12 @@
   --chart-fill-alpha-end: 0;
   --chart-stroke-alpha: 1;
   --chart-grid-alpha: 0.18;
-  --chart-height-mobile: 180px;
-  --chart-height-tablet: 240px;
-  --chart-height-desktop: 280px;
+  --chart-h-mobile: 180px;
+  --chart-h-tablet: 240px;
+  --chart-h-desktop: 280px;
+  --chart-height-mobile: var(--chart-h-mobile);
+  --chart-height-tablet: var(--chart-h-tablet);
+  --chart-height-desktop: var(--chart-h-desktop);
   --chart-height: var(--chart-height-mobile);
 
   --gradient-page: linear-gradient(

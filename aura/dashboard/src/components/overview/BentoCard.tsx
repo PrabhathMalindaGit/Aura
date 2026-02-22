@@ -32,6 +32,7 @@ export function BentoCard({
       action={action}
       className={cn(
         'bento-card',
+        'cq',
         `bento-card--${size}`,
         `bento-card--col-${colSpan}`,
         `bento-card--row-${rowSpan}`,

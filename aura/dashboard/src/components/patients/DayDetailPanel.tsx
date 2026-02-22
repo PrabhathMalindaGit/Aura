@@ -46,10 +46,11 @@ export function DayDetailPanel({
       open={open}
       title={dayPoint ? `Day detail ${formatDateKey(dayPoint.date)}` : 'Day detail'}
       mobileFullscreen
+      dataTestId="day-detail-panel"
       onClose={onClose}
       returnFocusRef={returnFocusRef}
       footer={
-        <div className="drawer-footer-actions">
+        <div className="drawer-footer-actions safe-bottom">
           <Button variant="secondary" onClick={onClose}>
             Close
           </Button>

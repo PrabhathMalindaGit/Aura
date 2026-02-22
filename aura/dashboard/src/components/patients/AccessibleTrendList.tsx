@@ -24,7 +24,7 @@ export function AccessibleTrendList({
         const hasCheckin = trendPointHasAnyData(point);
 
         return (
-          <li key={point.date} className="trend-access-list__item">
+          <li key={point.date} className="trend-access-list__item" data-testid={`trend-row-${point.date}`}>
             <span className="trend-access-list__text">
               <strong>{formatDateKey(point.date)}</strong>
               {hasCheckin ? (
@@ -38,6 +38,7 @@ export function AccessibleTrendList({
             </span>
             <Button
               variant="ghost"
+              data-testid={`trend-view-${point.date}`}
               onClick={(event) => onSelectDate(point.date, event.currentTarget)}
               aria-label={`View details for ${formatDateKey(point.date)}`}
             >

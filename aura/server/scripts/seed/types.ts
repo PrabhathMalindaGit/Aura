@@ -6,6 +6,7 @@ export interface SeedSummary {
   chatMessages: number;
   alerts: number;
   careEvents: number;
+  exercisePlans: number;
 }
 
 export interface SeedOptions {
@@ -20,6 +21,7 @@ export interface ResetSummary {
   chatMessagesDeleted: number;
   alertsDeleted: number;
   careEventsDeleted: number;
+  exercisePlansDeleted: number;
 }
 
 export interface SeedAlertDefinition {

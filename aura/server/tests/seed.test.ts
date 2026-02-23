@@ -6,6 +6,7 @@ import Alert from "../src/models/Alert";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
+import ExercisePlan from "../src/models/ExercisePlan";
 import Patient from "../src/models/Patient";
 import User from "../src/models/User";
 import { DEMO_TAG, resetDemoData, seedDemoData } from "../scripts/seed/lib";
@@ -31,6 +32,7 @@ describe("seed demo data", () => {
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
+      ExercisePlan.deleteMany({}),
       Patient.deleteMany({}),
       User.deleteMany({}),
     ]);
@@ -49,6 +51,7 @@ describe("seed demo data", () => {
       chatMessages: 30,
       alerts: 6,
       careEvents: 20,
+      exercisePlans: 3,
     });
 
     const alertStatuses = await Alert.aggregate([
@@ -112,6 +115,7 @@ describe("seed demo data", () => {
     });
     const resetSummary = await resetDemoData();
     expect(resetSummary.patientsDeleted).toBe(3);
+    expect(resetSummary.exercisePlansDeleted).toBe(3);
 
     const nonDemoPatient = await Patient.findOne({
       patientId: "non-demo-patient",

@@ -84,6 +84,32 @@ curl -sS "http://localhost:3000/patient/chat/history?limit=50" \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient today exercise plan:
+```bash
+curl -sS "http://localhost:3000/patient/exercise-plan/today" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient create exercise session:
+```bash
+curl -sS -X POST http://localhost:3000/patient/exercise-sessions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"startedAt":"2026-02-23T08:00:00.000Z","endedAt":"2026-02-23T08:12:30.000Z","planVersion":1,"planTitle":"Lower limb strengthening","planDayOfWeek":1,"exercises":[{"itemKey":"quad-set-1","nameSnapshot":"Quad set","order":1,"planned":{"sets":3,"reps":12},"completed":true,"difficulty":"ok","painDuring":2,"note":"Managed well"},{"itemKey":"heel-slide-1","nameSnapshot":"Heel slide","order":2,"planned":{"sets":3,"reps":10},"completed":false}]}'
+```
+
+- Patient list exercise sessions:
+```bash
+curl -sS "http://localhost:3000/patient/exercise-sessions?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient get exercise session detail:
+```bash
+curl -sS "http://localhost:3000/patient/exercise-sessions/<SESSION_ID>" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Get clinician alerts:
 ```bash
 curl -s "http://localhost:3000/clinician/alerts?status=open"
@@ -94,6 +120,32 @@ curl -s "http://localhost:3000/clinician/alerts?status=open"
 curl -X PATCH http://localhost:3000/clinician/alerts/<ALERT_ID> \
   -H "Content-Type: application/json" \
   -d '{"status":"acknowledged"}'
+```
+
+- Upsert exercise plan for a patient:
+```bash
+curl -sS -X PUT http://localhost:3000/clinician/patients/p1/exercise-plan \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"title":"Lower limb strengthening","daysOfWeek":[1,3,5],"items":[{"key":"quad-set-1","name":"Quad set","instructions":"Tighten your thigh muscle and hold.","sets":3,"reps":12,"order":1},{"key":"heel-slide-1","name":"Heel slide","instructions":"Slide your heel toward your body.","sets":3,"reps":10,"order":2}]}'
+```
+
+- Get clinician exercise plan for a patient:
+```bash
+curl -sS http://localhost:3000/clinician/patients/p1/exercise-plan \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician exercise sessions for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/exercise-sessions?limit=50" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician exercise session detail:
+```bash
+curl -sS "http://localhost:3000/clinician/exercise-sessions/<SESSION_ID>" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 
 ## 5) n8n verification

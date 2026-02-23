@@ -9,7 +9,11 @@ export type ErrorKey =
   | "chatSend"
   | "chatLoad"
   | "progressLoad"
-  | "exercisePlanLoad";
+  | "reminderPermission"
+  | "reminderSchedule"
+  | "exercisePlanLoad"
+  | "exerciseSessionSave"
+  | "exerciseSessionsLoad";
 
 export type LastErrorRecord = {
   key: ErrorKey;

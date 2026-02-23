@@ -27,6 +27,7 @@ npm run seed:reset
 - 10 chat messages per patient
 - 6 alerts with status variety (`open`, `acknowledged`, `resolved`)
 - care_events timeline entries per alert
+- 1 clinician-assigned exercise plan per demo patient
 
 ## Notes
 

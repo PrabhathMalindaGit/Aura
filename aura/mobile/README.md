@@ -212,6 +212,198 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 6. Return online and retry:
    - expect send succeeds and history continues.
 
+## Step 6: Progress (14/30 day summaries + history)
+
+- Progress tab loads check-ins from:
+  - `GET /patient/checkins?limit=200`
+- Summary supports:
+  - `14 days`
+  - `30 days`
+- History list shows recent check-ins and supports tap-to-detail view.
+- Trust-under-failure integration:
+  - `Last refreshed` key: `progress`
+  - `Last failed attempt` key: `progressLoad`
+  - offline uses cached progress when available.
+
+### Progress manual test
+
+1. Sign in with `P1-DEMO`.
+2. Submit a few check-ins in **Check-in** tab.
+3. Open **Progress** tab:
+   - verify summary values appear for 14-day window.
+   - switch to 30-day window and verify values update.
+   - verify history rows show date, pain, mood, exercises, medication.
+4. Pull to refresh:
+   - online success updates `Last refreshed`.
+5. Turn offline and reopen Progress:
+   - cached data should display if available.
+   - if no cache, clear offline empty state is shown.
+6. Stop backend while online and pull to refresh:
+   - `progressLoad` failure appears.
+   - Retry action is shown for retryable failures.
+
+### Developer cache reset
+
+- In **Settings** (development mode), use:
+  - `Clear saved progress`
+  to remove the cached progress payload for the signed-in patient.
+
+## Step 7: Local daily reminders (Settings)
+
+- Reminders are **local notifications only** (no backend push, no push token flow).
+- Configure in **Settings > Daily reminder**:
+  - enable/disable toggle
+  - hour/minute inputs (0-23, 0-59)
+  - persisted per signed-in patient
+- Permission flow:
+  - enabling requests notification permission
+  - if denied, reminder stays off and settings guidance is shown
+- Development helpers in Settings:
+  - `Send test notification now`
+  - `List scheduled notifications (debug)`
+
+### Reminder test flow
+
+1. Use a real device when possible for reliable notification behavior.
+2. Sign in and open **Settings**.
+3. Enable reminder and set time 1–2 minutes ahead.
+4. Keep app in foreground/background and verify local notification appears.
+5. Disable reminder and verify future reminders stop.
+6. Deny permission, re-enable reminder, verify guidance with `Open Settings`.
+
+### Notes
+
+- Expo Go support differs by platform/version; local notification testing is most reliable on physical devices.
+- This step does not add remote push notifications.
+
+## Step 8 Demo Script (Demo Hub)
+
+### Required services
+
+1. Start backend on `http://localhost:3000`.
+2. Start AI service on `http://localhost:8001`.
+3. Start mobile app:
+   - `cd "/Users/University/Final Project/aura/mobile"`
+   - `npm run start`
+
+### Demo flow (matches Home/Demo Hub checklist)
+
+1. Sign in with `P1-DEMO`.
+2. Check-in low risk:
+   - pain `2`, mood `4`, exercises `80%`, meds on
+   - expected: `Saved`.
+3. Check-in high risk:
+   - pain `9`, mood `2`, exercises `20%`, meds off
+   - expected: Safety screen.
+4. Chat low risk:
+   - send `I completed my exercises and feel okay.`
+   - expected: assistant reply appears.
+5. Chat high risk:
+   - send `I have chest pain right now.`
+   - expected: Safety screen, no assistant reply.
+6. Progress:
+   - open Progress tab, switch `14 days` / `30 days`
+   - open one check-in detail row.
+7. Settings:
+   - enable/disable daily reminder
+   - log out.
+
+### Offline expectations during demo
+
+- Offline banner appears.
+- Send/submit actions show `Nothing was sent`.
+- `Last failed attempt` timestamps update for the corresponding action.
+- Progress and chat should show cached data when available.
+
+### Demo reset tools (development only)
+
+- In Home/Demo Hub:
+  - `Reset demo state` clears chat cache, check-ins cache, last refreshed stamps, last failed attempts, and reminder prefs.
+  - `Reset + sign out` does the same and signs out.
+
+### Step 8 troubleshooting
+
+- Assistant reply missing:
+  - verify `EXPO_PUBLIC_API_BASE` in `.env`
+  - verify backend `/patient/chat/send` is reachable.
+- High-risk message does not open Safety:
+  - verify AI classify service is running on `:8001`
+  - verify backend safety classification path is healthy.
+- Progress not updating:
+  - use pull-to-refresh
+  - check `Last failed attempt (progressLoad)` for latest failure time.
+
+## Step 9: Clinician-assigned Exercise Plan (HEP)
+
+- Patient endpoint used by mobile:
+  - `GET /patient/exercise-plan/today`
+- Screen:
+  - open **Home (Demo Hub)** and tap **Go to Plan**
+  - route: `/exercise-plan`
+- Trust-under-failure integration:
+  - `Last refreshed` key: `exercisePlan`
+  - `Last failed attempt` key: `exercisePlanLoad`
+  - offline shows cached plan when available.
+
+### Step 9 demo flow
+
+1. Clinician signs into dashboard and updates plan for `p1`.
+2. Patient signs into mobile with `P1-DEMO`.
+3. Open **Go to Plan** and verify:
+   - plan title and item list appear
+   - item order is stable
+   - `Open video` opens external URL when present.
+4. Turn offline and reopen plan:
+   - if cached, app shows `Offline — showing saved plan`
+   - `Last refreshed` does not advance while offline.
+5. Stop backend while online and refresh plan:
+   - `Last failed attempt (exercisePlanLoad)` updates
+   - cached plan remains visible when available.
+
+## Step 10: Exercise sessions + micro feedback
+
+- New mobile routes:
+  - `/exercise-session` (runner)
+  - `/exercise-sessions` (recent list + pending uploads)
+  - `/exercise-session-detail?id=<sessionId>` (detail)
+- Backend endpoints used:
+  - `POST /patient/exercise-sessions`
+  - `GET /patient/exercise-sessions?limit=20`
+  - `GET /patient/exercise-sessions/:id`
+- Trust-under-failure keys:
+  - `Last refreshed`: `exerciseSessions`
+  - `Last failed`: `exerciseSessionSave`, `exerciseSessionsLoad`
+
+### Step 10 demo flow
+
+1. Open **Go to Plan** and tap **Start session**.
+2. Mark at least two exercises done:
+   - on each mark, complete the micro-feedback modal:
+     - difficulty (`easy` / `ok` / `hard`)
+     - pain during (`0..5`)
+     - optional short note.
+3. Tap **Finish session**.
+4. Expected online behavior:
+   - session is saved to backend
+   - app navigates to session detail or sessions list
+   - session appears in **Go to Sessions** list.
+5. Expected offline behavior:
+   - finish does not call backend
+   - session is stored as pending (`Not sent`)
+   - open **Go to Sessions** and use **Submit pending** once online.
+
+### Step 10 troubleshooting
+
+- Session list empty after finishing online:
+  - confirm backend is reachable at `EXPO_PUBLIC_API_BASE`
+  - pull-to-refresh on `/exercise-sessions`.
+- Pending submit fails:
+  - check network state (offline banner)
+  - retry **Submit pending** after connectivity recovers.
+- Detail screen cannot load:
+  - verify session was created on backend
+  - open from list row to ensure valid `id` param.
+
 ## How to Test Offline
 
 - iOS simulator: disable network in simulator/device settings.

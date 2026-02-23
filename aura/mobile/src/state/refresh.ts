@@ -8,7 +8,8 @@ export type RefreshKey =
   | "chat"
   | "checkins"
   | "progress"
-  | "exercisePlan";
+  | "exercisePlan"
+  | "exerciseSessions";
 
 const PREFIX = "aura:lastRefreshed:";
 const RELATIVE_TICK_MS = 30000;

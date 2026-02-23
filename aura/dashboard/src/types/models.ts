@@ -161,3 +161,89 @@ export interface AlertContextResult {
   triggeringEvent?: TriggeringEvent;
   timeline?: TimelineEvent[];
 }
+
+export type ExercisePlanIntensity = 'easy' | 'moderate' | 'hard';
+
+export interface ExercisePlanItem {
+  key: string;
+  name: string;
+  instructions: string;
+  sets?: number;
+  reps?: number;
+  holdSeconds?: number;
+  restSeconds?: number;
+  intensity?: ExercisePlanIntensity;
+  videoUrl?: string;
+  contraindications?: string[];
+  order: number;
+}
+
+export interface ExercisePlan {
+  title: string;
+  timezone?: string;
+  daysOfWeek: number[];
+  items: ExercisePlanItem[];
+  version: number;
+  updatedAt: string;
+  updatedBy?: {
+    clinicianId: string;
+    name?: string;
+  };
+}
+
+export interface ExercisePlanResponse {
+  ok: true;
+  patientId: string;
+  plan: ExercisePlan | null;
+}
+
+export type ExerciseSessionStatus = 'completed' | 'abandoned';
+export type ExerciseSessionDifficulty = 'easy' | 'ok' | 'hard';
+
+export interface ExerciseSessionExercise {
+  itemKey: string;
+  nameSnapshot: string;
+  order: number;
+  planned?: {
+    sets?: number;
+    reps?: number;
+    holdSeconds?: number;
+    restSeconds?: number;
+  };
+  completed: boolean;
+  setsDone?: number;
+  repsDone?: number;
+  difficulty?: ExerciseSessionDifficulty;
+  painDuring?: number;
+  note?: string;
+  completedAt?: string;
+}
+
+export interface ExerciseSessionListItem {
+  id: string;
+  startedAt: string;
+  durationSeconds: number;
+  exerciseCount: number;
+  completedCount: number;
+  avgPainDuring?: number;
+  planTitle?: string;
+}
+
+export interface ExerciseSessionDetail extends ExerciseSessionListItem {
+  endedAt: string;
+  status: ExerciseSessionStatus;
+  planVersion?: number;
+  planDayOfWeek?: number;
+  exercises: ExerciseSessionExercise[];
+}
+
+export interface ExerciseSessionsListResponse {
+  ok: true;
+  patientId?: string;
+  sessions: ExerciseSessionListItem[];
+}
+
+export interface ExerciseSessionResponse {
+  ok: true;
+  session: ExerciseSessionDetail;
+}

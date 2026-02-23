@@ -15,6 +15,7 @@ npm run dev
 - `/alerts`
 - `/patients`
 - `/patients/:patientId`
+- `/patients/:patientId/plan`
 - `/smoke`
 - `/settings`
 - unknown paths redirect to `/alerts`
@@ -54,6 +55,27 @@ curl -sS -X POST http://localhost:3000/auth/clinician/login \
 ```js
 localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
 ```
+
+## Exercise plan editor demo path
+
+1. Open a patient detail page, e.g. `/patients/p1`.
+2. Click **Exercise Plan**.
+3. Use the JSON editor:
+   - **Validate** to check JSON parse/shape quickly.
+   - **Load demo template** to prefill a valid plan.
+   - **Save** to upsert `PUT /clinician/patients/:patientId/exercise-plan`.
+4. Reload to confirm persisted version and updated timestamp.
+
+## Exercise sessions viewer demo path
+
+1. Record a session from mobile:
+   - open mobile **Today’s plan** screen
+   - tap **Start session**
+   - complete at least one exercise and finish.
+2. In dashboard, open `/patients/p1`.
+3. Use the **Exercise sessions** card to view recent entries.
+4. Click **View all** to open `/patients/:patientId/sessions`.
+5. Click any row for full per-exercise feedback detail.
 
 ## Notes
 

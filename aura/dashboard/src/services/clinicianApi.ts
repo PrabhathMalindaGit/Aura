@@ -25,6 +25,12 @@ import {
   type CheckinsRangeResponse,
   type CheckinEvent,
   type ChatEvent,
+  type ExercisePlan,
+  type ExercisePlanResponse,
+  type ExerciseSessionDetail,
+  type ExerciseSessionResponse,
+  type ExerciseSessionsListResponse,
+  type ExerciseSessionListItem,
   type ListAlertsResponse,
   type ListPatientsResponse,
   type PatchAlertResponse,
@@ -532,6 +538,79 @@ export async function listPatients(): Promise<PatientSummary[]> {
   });
 
   return response.patients;
+}
+
+export async function getExercisePlan(patientId: string): Promise<ExercisePlan | null> {
+  const response = await fetchJson<ExercisePlanResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/exercise-plan`,
+    {
+      method: 'GET',
+    },
+  );
+
+  return response.plan ?? null;
+}
+
+export interface PutExercisePlanPayload {
+  title: string;
+  daysOfWeek: number[];
+  items: Array<{
+    key: string;
+    name: string;
+    instructions: string;
+    sets?: number;
+    reps?: number;
+    holdSeconds?: number;
+    restSeconds?: number;
+    intensity?: 'easy' | 'moderate' | 'hard';
+    videoUrl?: string;
+    contraindications?: string[];
+    order: number;
+  }>;
+}
+
+export async function putExercisePlan(
+  patientId: string,
+  payload: PutExercisePlanPayload,
+): Promise<ExercisePlan> {
+  const response = await fetchJson<ExercisePlanResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/exercise-plan`,
+    {
+      method: 'PUT',
+      json: payload,
+    },
+  );
+
+  if (!response.plan) {
+    throw createAppError('Unknown', 'Exercise plan response was empty.');
+  }
+
+  return response.plan;
+}
+
+export async function getPatientExerciseSessions(
+  patientId: string,
+  limit = 50,
+): Promise<ExerciseSessionListItem[]> {
+  const response = await fetchJson<ExerciseSessionsListResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/exercise-sessions?limit=${encodeURIComponent(
+      String(limit),
+    )}`,
+    { method: 'GET' },
+  );
+
+  return response.sessions ?? [];
+}
+
+export async function getExerciseSessionById(
+  sessionId: string,
+): Promise<ExerciseSessionDetail> {
+  const response = await fetchJson<ExerciseSessionResponse>(
+    `/clinician/exercise-sessions/${encodeURIComponent(sessionId)}`,
+    { method: 'GET' },
+  );
+
+  return response.session;
 }
 
 export async function getAlertContext(alertId: string): Promise<AlertContextResult> {

@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
+import "@/src/services/notificationsInit";
 import { AuthProvider } from '@/src/state/auth';
 
 export {

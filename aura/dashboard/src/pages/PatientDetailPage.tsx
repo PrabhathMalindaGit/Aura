@@ -14,6 +14,7 @@ import { PatientSummaryCards } from '../components/patients/PatientSummaryCards'
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import {
+  getPatientExerciseSessions,
   getPatientTrendsEndpointHint,
   isPatientTrendsEndpointMissing,
   listAlerts,
@@ -58,6 +59,12 @@ type PatientExportDataset = 'trends' | 'alerts';
 
 function parseDays(value: string | null): 14 | 30 {
   return value === '30' ? 30 : 14;
+}
+
+function formatDuration(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${String(secs).padStart(2, '0')}s`;
 }
 
 function formatLastUpdated(lastSuccessAt: number | null): string {
@@ -159,6 +166,16 @@ export function PatientDetailPage(): JSX.Element {
     placeholderData: (previous) => previous,
   });
 
+  const patientSessionsQuery = useQuery({
+    queryKey: ['patient-sessions', patientId],
+    queryFn: () => getPatientExerciseSessions(patientId ?? '', 5),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
   const updateAlertMutation = useUpdateAlertStatus();
 
   useEffect(() => {
@@ -196,6 +213,10 @@ export function PatientDetailPage(): JSX.Element {
   const trendSummary = useMemo(() => deriveTrendSummary(normalizedTrends), [normalizedTrends]);
 
   const patientAlerts = useMemo(() => patientAlertsQuery.data ?? [], [patientAlertsQuery.data]);
+  const patientSessions = useMemo(
+    () => patientSessionsQuery.data ?? [],
+    [patientSessionsQuery.data],
+  );
 
   const openAlertCount = useMemo(
     () => patientAlerts.filter((alert) => alert.status === 'open').length,
@@ -428,6 +449,14 @@ export function PatientDetailPage(): JSX.Element {
             <Button variant="secondary" onClick={openPatientExportModal}>
               Export CSV
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                navigate(`/patients/${patientId}/plan`);
+              }}
+            >
+              Exercise Plan
+            </Button>
           </div>
         }
       >
@@ -473,7 +502,76 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientSessionsQuery.error ? (
+        <AlertBanner variant="error" title="Could not load exercise sessions">
+          {toUserMessage(patientSessionsQuery.error)}
+        </AlertBanner>
+      ) : null}
+
       <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+
+      <Card
+        title="Exercise sessions"
+        action={
+          <div className="patient-detail-actions">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void patientSessionsQuery.refetch();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                navigate(`/patients/${patientId}/sessions`);
+              }}
+            >
+              View all
+            </Button>
+          </div>
+        }
+      >
+        {patientSessionsQuery.isLoading && patientSessions.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Session list loading placeholder">
+            <Skeleton height={54} />
+            <Skeleton height={54} />
+          </div>
+        ) : patientSessions.length === 0 ? (
+          <EmptyState
+            title="No sessions yet"
+            description="Once the patient runs a session in mobile, it will appear here."
+          />
+        ) : (
+          <div className="patient-sessions-list">
+            {patientSessions.map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                className="unstyled-button patient-sessions-item"
+                onClick={() => navigate(`/patients/${patientId}/sessions/${session.id}`)}
+              >
+                <div>
+                  <strong>{new Date(session.startedAt).toLocaleString()}</strong>
+                  <p className="muted-text">
+                    {session.planTitle ?? 'Exercise session'} · {formatDuration(session.durationSeconds)}
+                  </p>
+                </div>
+                <div className="patient-sessions-metrics">
+                  <span>
+                    {session.completedCount}/{session.exerciseCount} complete
+                  </span>
+                  <span>
+                    Avg pain:{' '}
+                    {typeof session.avgPainDuring === 'number' ? `${session.avgPainDuring}/5` : '—'}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {showTrendsLoading ? (
         <Card title="Trend charts">

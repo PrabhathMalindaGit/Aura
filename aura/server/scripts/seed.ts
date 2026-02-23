@@ -22,6 +22,7 @@ async function run(): Promise<void> {
       console.log(`ChatMessages deleted: ${resetSummary.chatMessagesDeleted}`);
       console.log(`Alerts deleted: ${resetSummary.alertsDeleted}`);
       console.log(`CareEvents deleted: ${resetSummary.careEventsDeleted}`);
+      console.log(`ExercisePlans deleted: ${resetSummary.exercisePlansDeleted}`);
     }
 
     const summary = await seedDemoData({
@@ -34,6 +35,7 @@ async function run(): Promise<void> {
     console.log(`ChatMessages: ${summary.chatMessages}`);
     console.log(`Alerts: ${summary.alerts}`);
     console.log(`CareEvents: ${summary.careEvents}`);
+    console.log(`ExercisePlans: ${summary.exercisePlans}`);
   } finally {
     await disconnectMongo();
   }

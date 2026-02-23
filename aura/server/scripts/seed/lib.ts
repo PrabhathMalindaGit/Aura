@@ -2,6 +2,7 @@ import Alert from "../../src/models/Alert";
 import CareEvent from "../../src/models/CareEvent";
 import ChatMessage from "../../src/models/ChatMessage";
 import CheckIn from "../../src/models/CheckIn";
+import ExercisePlan from "../../src/models/ExercisePlan";
 import Patient from "../../src/models/Patient";
 import User from "../../src/models/User";
 import { hashPassword } from "../../src/utils/password";
@@ -12,6 +13,7 @@ import {
   CHECKIN_WINDOW_DAYS,
   CLINICIANS,
   DEMO_CLINICIAN_USERS,
+  DEMO_EXERCISE_PLANS,
   DEMO_PATIENTS,
   DEMO_TAG,
   RNG_SEED,
@@ -101,6 +103,7 @@ function seedStatusCounts(statuses: SeedStatus[]): Record<SeedStatus, number> {
 
 export async function resetDemoData(): Promise<ResetSummary> {
   const [
+    exercisePlansDeleted,
     careEventsDeleted,
     alertsDeleted,
     chatMessagesDeleted,
@@ -108,6 +111,7 @@ export async function resetDemoData(): Promise<ResetSummary> {
     patientsDeleted,
     usersDeleted,
   ] = await Promise.all([
+    ExercisePlan.deleteMany({ demoTag: DEMO_TAG }),
     CareEvent.deleteMany({ demoTag: DEMO_TAG }),
     Alert.deleteMany({ demoTag: DEMO_TAG }),
     ChatMessage.deleteMany({ demoTag: DEMO_TAG }),
@@ -123,6 +127,7 @@ export async function resetDemoData(): Promise<ResetSummary> {
     chatMessagesDeleted: chatMessagesDeleted.deletedCount ?? 0,
     alertsDeleted: alertsDeleted.deletedCount ?? 0,
     careEventsDeleted: careEventsDeleted.deletedCount ?? 0,
+    exercisePlansDeleted: exercisePlansDeleted.deletedCount ?? 0,
   };
 }
 
@@ -456,6 +461,34 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     { ordered: true }
   );
 
+  await ExercisePlan.collection.bulkWrite(
+    DEMO_EXERCISE_PLANS.map((plan) => ({
+      updateOne: {
+        filter: { patientId: plan.patientId },
+        update: {
+          $set: {
+            title: plan.title,
+            daysOfWeek: [...plan.daysOfWeek],
+            items: [...plan.items].map((item) => ({ ...item })),
+            timezone: "UTC",
+            version: 1,
+            updatedBy: {
+              clinicianId:
+                plan.patientId === "p3" ? CLINICIANS.two.id : CLINICIANS.one.id,
+              name: plan.patientId === "p3" ? CLINICIANS.two.name : CLINICIANS.one.name,
+            },
+            demoTag: DEMO_TAG,
+          },
+          $setOnInsert: {
+            patientId: plan.patientId,
+          },
+        },
+        upsert: true,
+      },
+    })),
+    { ordered: true }
+  );
+
   const checkInRows = buildCheckInRows(now);
   const insertedCheckIns = await CheckIn.insertMany(checkInRows.map((row) => row.doc), {
     ordered: true,
@@ -518,12 +551,13 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   );
   await CareEvent.insertMany(careEventDocs, { ordered: true });
 
-  const [patients, checkIns, chatMessages, alerts, careEvents] = await Promise.all([
+  const [patients, checkIns, chatMessages, alerts, careEvents, exercisePlans] = await Promise.all([
     Patient.countDocuments({ demoTag: DEMO_TAG }),
     CheckIn.countDocuments({ demoTag: DEMO_TAG }),
     ChatMessage.countDocuments({ demoTag: DEMO_TAG }),
     Alert.countDocuments({ demoTag: DEMO_TAG }),
     CareEvent.countDocuments({ demoTag: DEMO_TAG }),
+    ExercisePlan.countDocuments({ demoTag: DEMO_TAG }),
   ]);
 
   const statusCounts = seedStatusCounts(alertDefinitions.map((definition) => definition.status));
@@ -537,6 +571,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     chatMessages,
     alerts,
     careEvents,
+    exercisePlans,
   };
 }
 

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -72,6 +73,14 @@ export default function SafetyScreen() {
   const reasonMessages = useMemo(() => formatReasons(reasonCodes), [reasonCodes]);
   const alertId = Array.isArray(params.alertId) ? params.alertId[0] : params.alertId;
 
+  const goHome = () => {
+    try {
+      router.replace("/(tabs)");
+    } catch {
+      router.push("/(tabs)");
+    }
+  };
+
   if (status === "loading") {
     return (
       <View style={styles.loadingContainer}>
@@ -129,11 +138,19 @@ export default function SafetyScreen() {
           />
           <PrimaryButton
             label="I’m safe right now"
-            onPress={() => {
-              router.replace("/(tabs)");
-            }}
+            onPress={goHome}
             accessibilityLabel="I am safe and return to home"
           />
+          <Pressable
+            accessibilityRole="button"
+            onPress={goHome}
+            style={({ pressed }) => [
+              styles.backHomeButton,
+              pressed ? styles.backHomeButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.backHomeText}>Back to Home</Text>
+          </Pressable>
         </View>
       </View>
     </Screen>
@@ -181,5 +198,18 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 4,
     gap: 12,
+  },
+  backHomeButton: {
+    alignSelf: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  backHomeButtonPressed: {
+    opacity: 0.75,
+  },
+  backHomeText: {
+    fontSize: 14,
+    color: "#1f2937",
+    fontWeight: "600",
   },
 });

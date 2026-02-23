@@ -182,6 +182,36 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - `SUPPORT_PHONE_PLACEHOLDER` currently defaults to `+0000000000`.
 - Replace both in `/Users/University/Final Project/aura/mobile/src/config/constants.ts` before production.
 
+## Step 5: Safety-Gated Chat
+
+- Chat tab uses patient endpoints:
+  - `GET /patient/chat/history?limit=50`
+  - `POST /patient/chat/send`
+- History load:
+  - online success updates `Last refreshed` for key `chat`
+  - failures are stored as `chatLoad` last-error records
+  - when offline, app shows cached messages if available
+- Send flow:
+  - offline sends are blocked: `You’re offline. Nothing was sent.`
+  - low risk appends assistant reply
+  - high risk immediately routes to `/safety` and does not append assistant reply
+  - send failures are stored as `chatSend` last-error records with retry affordance
+
+### Chat manual test
+
+1. Sign in with `P1-DEMO`.
+2. Open **Chat** tab and verify history loads.
+3. Send low-risk message:
+   - `I completed my exercises and feel okay.`
+   - expect assistant reply in chat.
+4. Send high-risk message:
+   - `I have chest pain right now.`
+   - expect navigation to Safety screen and no assistant reply bubble.
+5. Turn offline and send:
+   - expect blocked send and updated last failed attempt for `chatSend`.
+6. Return online and retry:
+   - expect send succeeds and history continues.
+
 ## How to Test Offline
 
 - iOS simulator: disable network in simulator/device settings.

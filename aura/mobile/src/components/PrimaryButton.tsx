@@ -5,6 +5,7 @@ type PrimaryButtonProps = {
   onPress: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   loading?: boolean;
+  accessibilityLabel?: string;
 };
 
 export function PrimaryButton({
@@ -12,12 +13,14 @@ export function PrimaryButton({
   onPress,
   disabled = false,
   loading = false,
+  accessibilityLabel,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [

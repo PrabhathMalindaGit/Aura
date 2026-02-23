@@ -1,10 +1,26 @@
 import { StatusBar } from 'expo-status-bar';
-import { Platform, StyleSheet } from 'react-native';
+import { Redirect } from 'expo-router';
+import { ActivityIndicator, Platform, StyleSheet } from 'react-native';
 
 import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
+import { useAuth } from '@/src/state/auth';
 
 export default function ModalScreen() {
+  const { status } = useAuth();
+
+  if (status === 'loading') {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="small" />
+      </View>
+    );
+  }
+
+  if (status === 'signedOut') {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Modal</Text>

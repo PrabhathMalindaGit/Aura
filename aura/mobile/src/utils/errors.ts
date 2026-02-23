@@ -64,18 +64,26 @@ export function normalizeUnknownError(error: unknown): AppError {
 
 export function toLastErrorRecord(
   key: ErrorKey,
-  appError: AppError,
+  appError: {
+    title: string;
+    message: string;
+    kind: AppError["kind"] | "offline";
+    retryable: boolean;
+    detail?: string;
+  },
   titleOverride?: string
 ): LastErrorRecord {
   const message = appError.message || "Please try again.";
   const normalizedLower = message.toLowerCase();
 
   const kind: LastErrorRecord["kind"] =
-    appError.kind === "network" &&
-    (normalizedLower.includes("offline") ||
-      normalizedLower.includes("no connection"))
+    appError.kind === "offline"
       ? "offline"
-      : appError.kind;
+      : appError.kind === "network" &&
+          (normalizedLower.includes("offline") ||
+            normalizedLower.includes("no connection"))
+        ? "offline"
+        : appError.kind;
 
   return {
     key,

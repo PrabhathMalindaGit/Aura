@@ -7,6 +7,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { API_BASE } from "@/src/config/env";
 import { useGuardedAction } from "@/src/hooks/useGuardedAction";
+import { useAuth } from "@/src/state/auth";
 import {
   clearAllLastErrors,
   useLastError,
@@ -18,7 +19,9 @@ import {
 } from "@/src/state/refresh";
 
 export default function TabOneScreen() {
+  const auth = useAuth();
   const isOffline = useIsOffline();
+  const homeRefresh = useLastRefreshed("home");
   const chatRefresh = useLastRefreshed("chat");
   const progressRefresh = useLastRefreshed("progress");
   const chatSendError = useLastError("chatSend");
@@ -45,6 +48,7 @@ export default function TabOneScreen() {
   const handleClearStamps = () => {
     void (async () => {
       await clearAllLastRefreshed();
+      await homeRefresh.reload();
       await chatRefresh.reload();
       await progressRefresh.reload();
     })();
@@ -76,11 +80,20 @@ export default function TabOneScreen() {
     })();
   };
 
+  const handleSignOut = () => {
+    void auth.signOut();
+  };
+
   return (
     <Screen title="Aura">
       <View style={styles.container}>
         <Text style={styles.body}>Mobile foundation ready (Step 1.5).</Text>
+        <Text style={styles.sessionText}>Session: {auth.status}</Text>
+        <Text style={styles.sessionText}>
+          Signed in as: {auth.patient?.displayName ?? auth.patient?.id ?? "Unknown"}
+        </Text>
         <Text style={styles.apiText}>API: {API_BASE}</Text>
+        <LastRefreshed label="Last refreshed (home)" value={homeRefresh.label} />
         <LastRefreshed label="Last refreshed (chat)" value={chatRefresh.label} />
         <LastRefreshed
           label="Last refreshed (progress)"
@@ -125,6 +138,7 @@ export default function TabOneScreen() {
               label="Clear all last errors"
               onPress={handleClearAllErrors}
             />
+            <PrimaryButton label="Sign out (dev)" onPress={handleSignOut} />
           </>
         ) : null}
         <PrimaryButton label="Try guarded action" onPress={handleGuardedAction} />
@@ -148,6 +162,10 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 16,
+  },
+  sessionText: {
+    fontSize: 14,
+    color: "#374151",
   },
   apiText: {
     fontSize: 14,

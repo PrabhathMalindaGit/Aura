@@ -40,6 +40,21 @@ npm run e2e:live
 
 Live E2E runs only when `LIVE_E2E=1` is set by the script and skips early if backend health is unreachable.
 
+## Dev auth helper for clinician APIs
+If backend clinician RBAC is enabled, set a bearer token in localStorage for dashboard API calls.
+
+1) Get token:
+```bash
+curl -sS -X POST http://localhost:3000/auth/clinician/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"clinician1@example.com","password":"devpass123"}'
+```
+
+2) In browser devtools console:
+```js
+localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
+```
+
 ## Notes
 
 - Legacy README preserved in `README_OLD.md`.

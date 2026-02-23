@@ -46,7 +46,14 @@ curl -X POST http://localhost:8001/classify \
 - checkin pain>=7 returns `{"risk":"high","reasons":["PAIN_GE_THRESHOLD"],"ruleVersion":"v1"}`
 - crisis phrase returns `{"risk":"high","reasons":["CRISIS_LANGUAGE"],"ruleVersion":"v1"}`
 
-## 9) Troubleshooting
+## 9) Test rag reply stub
+```bash
+curl -X POST http://localhost:8001/rag/reply \
+  -H "Content-Type: application/json" \
+  -d '{"patientId":"p1","message":"Knee feels better today"}'
+```
+
+## 10) Troubleshooting
 - If port 8001 in use: `lsof -i :8001`
 - If venv activation fails: ensure you are using bash/zsh
 - If import errors: confirm folder names match and run from ai/ directory

@@ -8,6 +8,7 @@ from src.config import get_settings
 from src.logging_conf import setup_logging
 from src.routers.classify import router as classify_router
 from src.routers.health import router as health_router
+from src.routers.rag import router as rag_router
 
 settings = get_settings()
 setup_logging(settings.log_level)
@@ -31,6 +32,7 @@ app.add_middleware(
 
 app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(classify_router, tags=["classify"])
+app.include_router(rag_router, tags=["rag"])
 
 
 @app.exception_handler(Exception)

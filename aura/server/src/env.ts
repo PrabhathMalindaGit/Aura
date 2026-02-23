@@ -33,6 +33,12 @@ export const env = {
   JWT_SECRET:
     process.env.JWT_SECRET ||
     (nodeEnv === "production" ? "" : "dev_jwt_secret"),
+  PATIENT_JWT_SECRET:
+    process.env.PATIENT_JWT_SECRET ||
+    process.env.JWT_SECRET ||
+    (nodeEnv === "production" ? "" : "dev_patient_jwt_secret"),
+  PATIENT_TOKEN_TTL: process.env.PATIENT_TOKEN_TTL || "30d",
+  DEMO_PATIENT_LOGIN: toBool(process.env.DEMO_PATIENT_LOGIN, false),
   ALLOW_UNAUTH_CLINICIAN_BODY_IDS: toBool(
     process.env.ALLOW_UNAUTH_CLINICIAN_BODY_IDS,
     false

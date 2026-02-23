@@ -11,6 +11,10 @@ const patientSchema = new Schema(
       type: String,
       trim: true,
     },
+    accessCode: {
+      type: String,
+      trim: true,
+    },
     status: {
       type: String,
       enum: ["active", "on_hold", "discharged", "inactive"],
@@ -31,6 +35,7 @@ const patientSchema = new Schema(
 );
 
 patientSchema.index({ patientId: 1 }, { unique: true });
+patientSchema.index({ accessCode: 1 }, { unique: true, sparse: true });
 patientSchema.index({ status: 1 });
 patientSchema.index({ clinicianId: 1, status: 1 });
 patientSchema.index({ demoTag: 1 });

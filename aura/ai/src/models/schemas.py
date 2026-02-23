@@ -19,3 +19,14 @@ class ClassifyResponse(BaseModel):
     risk: Literal["low", "high"]
     reasons: list[str] = Field(default_factory=list)
     ruleVersion: str
+
+
+class RagReplyRequest(BaseModel):
+    patientId: str = Field(min_length=1, max_length=64)
+    message: str = Field(min_length=1, max_length=2000)
+    context: dict | list | None = None
+
+
+class RagReplyResponse(BaseModel):
+    reply: str
+    citations: list[str] = Field(default_factory=list)

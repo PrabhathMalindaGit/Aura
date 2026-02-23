@@ -9,7 +9,9 @@ export type NotificationStatusCallbackBody = {
   channel: "telegram";
   status: NotificationStatusCallbackStatus;
   timestamp?: string;
+  attemptedAt?: string;
   messageId?: string;
+  providerMessageId?: string;
   target?: string;
   error?: string;
   meta?: {

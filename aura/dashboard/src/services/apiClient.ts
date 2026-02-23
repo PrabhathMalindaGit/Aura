@@ -4,6 +4,7 @@ import { AppError, createAppError, isAppError } from '../utils/errors';
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_API_BASE_URL = 'http://localhost:3000';
 const JSON_CONTENT_TYPE = 'application/json';
+const CLINICIAN_TOKEN_STORAGE_KEYS = ['clinicianToken', 'aura_auth_token', 'aura_access_token'];
 
 type QueryPrimitive = string | number | boolean | null | undefined;
 type QueryValue = QueryPrimitive | QueryPrimitive[];
@@ -17,6 +18,21 @@ export interface FetchJsonOptions extends Omit<RequestInit, 'body'> {
 
 export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
+}
+
+function getStoredClinicianToken(): string | null {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return null;
+  }
+
+  for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
+    const value = window.localStorage.getItem(key);
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
 }
 
 function appendQueryParams(url: URL, query?: Record<string, QueryValue>): void {
@@ -147,6 +163,13 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
   requestHeaders.set('Accept', JSON_CONTENT_TYPE);
   if (json !== undefined && !requestHeaders.has('Content-Type')) {
     requestHeaders.set('Content-Type', JSON_CONTENT_TYPE);
+  }
+
+  if (!requestHeaders.has('Authorization')) {
+    const clinicianToken = getStoredClinicianToken();
+    if (clinicianToken) {
+      requestHeaders.set('Authorization', `Bearer ${clinicianToken}`);
+    }
   }
 
   const resolvedSignal = withAbortSignal(signal, controller);

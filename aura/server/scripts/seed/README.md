@@ -19,6 +19,7 @@ npm run seed:reset
 ## What gets seeded
 
 - 3 patients (`active`, `on_hold`, `discharged`)
+  - access codes: `P1-DEMO`, `P2-DEMO`, `P3-DEMO`
 - 2 clinician users for auth testing:
   - `clinician1@example.com` / `devpass123`
   - `clinician2@example.com` / `devpass123`

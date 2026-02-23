@@ -441,6 +441,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
         update: {
           $set: {
             displayName: patient.displayName,
+            accessCode: patient.accessCode,
             status: patient.status,
             clinicianId: patient.clinicianId,
             demoTag: DEMO_TAG,

@@ -146,6 +146,43 @@ curl -X POST http://localhost:3000/chat/send \
 ## Security note
 This guide is for local development only. Later, protect n8n with authentication and do not expose your localhost n8n instance publicly.
 
+## Notification status callback (required for truthful delivery state)
+After Telegram send in workflow `01 - Alert Created Webhook`, post delivery status back to Aura backend:
+
+- Endpoint: `POST http://localhost:3000/events/notification-status`
+- Header: `x-aura-webhook-key: <AURA_WEBHOOK_KEY>`
+- Content-Type: `application/json`
+
+Success branch payload example:
+```json
+{
+  "alertId": "65f0aa11bb22cc33dd44ee55",
+  "patientId": "p1",
+  "channel": "telegram",
+  "status": "sent",
+  "timestamp": "2026-02-23T10:00:00.000Z",
+  "providerMessageId": "123456",
+  "target": "telegram:clinician-group"
+}
+```
+
+Failure branch payload example:
+```json
+{
+  "alertId": "65f0aa11bb22cc33dd44ee55",
+  "patientId": "p1",
+  "channel": "telegram",
+  "status": "failed",
+  "timestamp": "2026-02-23T10:00:05.000Z",
+  "error": "TELEGRAM_DELIVERY_FAILED"
+}
+```
+
+Notes:
+- Backend accepts `messageId` and `providerMessageId` (either is fine).
+- Backend accepts `timestamp` (preferred) and `attemptedAt` as timestamp fallback.
+- Do not send chat text/check-in notes in callback payloads.
+
 ## Next steps (do not implement now)
 - Add Email/Slack/Telegram notification nodes.
 - Add a backend writeback call to store additional `care_events` metadata.

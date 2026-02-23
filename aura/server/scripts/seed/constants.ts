@@ -18,18 +18,21 @@ export const DEMO_PATIENTS = [
   {
     patientId: "p1",
     displayName: "Patient One",
+    accessCode: "P1-DEMO",
     status: "active",
     clinicianId: CLINICIANS.one.id,
   },
   {
     patientId: "p2",
     displayName: "Patient Two",
+    accessCode: "P2-DEMO",
     status: "on_hold",
     clinicianId: CLINICIANS.one.id,
   },
   {
     patientId: "p3",
     displayName: "Patient Three",
+    accessCode: "P3-DEMO",
     status: "discharged",
     clinicianId: CLINICIANS.two.id,
   },

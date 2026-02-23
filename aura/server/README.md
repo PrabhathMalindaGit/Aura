@@ -43,6 +43,47 @@ curl -X POST http://localhost:3000/chat/send \
   -d '{"patientId":"p1","text":"I cant breathe"}'
 ```
 
+- Patient login (access code):
+```bash
+curl -sS -X POST http://localhost:3000/patient/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"accessCode":"P1-DEMO"}'
+```
+
+- Patient me:
+```bash
+curl -sS http://localhost:3000/patient/me \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient check-in:
+```bash
+curl -sS -X POST http://localhost:3000/patient/checkins \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"date":"2026-02-23","mood":3,"pain":2,"adherence":{"exercises":0.5,"medication":true},"notes":"doing okay"}'
+```
+
+- Patient check-ins list:
+```bash
+curl -sS "http://localhost:3000/patient/checkins?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient chat send:
+```bash
+curl -sS -X POST http://localhost:3000/patient/chat/send \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"message":"Knee still feels tight today"}'
+```
+
+- Patient chat history:
+```bash
+curl -sS "http://localhost:3000/patient/chat/history?limit=50" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Get clinician alerts:
 ```bash
 curl -s "http://localhost:3000/clinician/alerts?status=open"

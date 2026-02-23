@@ -21,7 +21,9 @@ const notificationStatusCallbackSchema = z.object({
   channel: z.literal("telegram"),
   status: z.enum(["attempted", "sent", "failed", "skipped"]),
   timestamp: z.string().optional(),
+  attemptedAt: z.string().optional(),
   messageId: z.string().trim().min(1).max(200).optional(),
+  providerMessageId: z.string().trim().min(1).max(200).optional(),
   target: z.string().trim().min(1).max(200).optional(),
   error: z.string().max(1000).optional(),
   meta: z
@@ -264,6 +266,8 @@ router.post(
   async (req, res) => {
     const body = req.body as NotificationStatusCallbackBody;
     const alertId = body.alertId;
+    const callbackTimestampRaw = body.timestamp ?? body.attemptedAt;
+    const callbackMessageId = body.messageId ?? body.providerMessageId;
 
     if (!isObjectId(alertId)) {
       return res.status(400).json({
@@ -279,7 +283,7 @@ router.post(
     }
 
     const now = new Date();
-    const normalizedTimestamp = normalizeTimestamp(body.timestamp, now);
+    const normalizedTimestamp = normalizeTimestamp(callbackTimestampRaw, now);
     if (!normalizedTimestamp.ok) {
       return res.status(400).json({
         ok: false,
@@ -328,8 +332,8 @@ router.post(
       if (body.target) {
         nextNotification.target = body.target;
       }
-      if (body.messageId) {
-        nextNotification.messageId = body.messageId;
+      if (callbackMessageId) {
+        nextNotification.messageId = callbackMessageId;
       }
 
       if (body.status === "attempted") {
@@ -397,7 +401,7 @@ router.post(
           status: "attempted",
           timestamp: callbackTimestamp,
           target: body.target,
-          messageId: body.messageId,
+          messageId: callbackMessageId,
           meta: body.meta,
         });
         if (attemptedEvent) {
@@ -418,7 +422,7 @@ router.post(
         status: body.status,
         timestamp: callbackTimestamp,
         target: body.target,
-        messageId: body.messageId,
+        messageId: callbackMessageId,
         error: sanitizedErrorForEvent,
         meta: body.meta,
       });

@@ -11,9 +11,11 @@ import { Section } from "@/src/components/Section";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
+import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { useLastError } from "@/src/state/lastError";
 import { formatNetworkReason, useNetwork } from "@/src/state/network";
+import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { resetDemoState } from "@/src/utils/demoReset";
@@ -38,6 +40,14 @@ export default function HomeScreen() {
     itemCount: 0,
   });
   const [pendingSessionCount, setPendingSessionCount] = useState(0);
+  const [pendingPromCount, setPendingPromCount] = useState(0);
+  const [promSummary, setPromSummary] = useState<{
+    status: "loading" | "hasDue" | "none";
+    dueCount: number;
+  }>({
+    status: "loading",
+    dueCount: 0,
+  });
   const [rehabSummary, setRehabSummary] = useState<{
     status: "loading" | "set" | "none";
     currentTitle: string;
@@ -52,6 +62,7 @@ export default function HomeScreen() {
   const exercisePlanRefresh = useLastRefreshed("exercisePlan");
   const exerciseSessionsRefresh = useLastRefreshed("exerciseSessions");
   const rehabPhasesRefresh = useLastRefreshed("rehabPhases");
+  const promsRefresh = useLastRefreshed("proms");
 
   const authError = useLastError("auth");
   const checkinSubmitError = useLastError("checkinSubmit");
@@ -64,6 +75,8 @@ export default function HomeScreen() {
   const exerciseSessionsLoadError = useLastError("exerciseSessionsLoad");
   const reminderPermissionError = useLastError("reminderPermission");
   const reminderScheduleError = useLastError("reminderSchedule");
+  const promsLoadError = useLastError("promsLoad");
+  const promSubmitError = useLastError("promSubmit");
 
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
@@ -116,6 +129,16 @@ export default function HomeScreen() {
         title: exerciseSessionsLoadError.lastError?.title,
       },
       {
+        label: "PROMs load",
+        value: promsLoadError.label,
+        title: promsLoadError.lastError?.title,
+      },
+      {
+        label: "PROM submit",
+        value: promSubmitError.label,
+        title: promSubmitError.lastError?.title,
+      },
+      {
         label: "Reminder permission",
         value: reminderPermissionError.label,
         title: reminderPermissionError.lastError?.title,
@@ -145,6 +168,10 @@ export default function HomeScreen() {
       exerciseSessionSaveError.lastError?.title,
       exerciseSessionsLoadError.label,
       exerciseSessionsLoadError.lastError?.title,
+      promsLoadError.label,
+      promsLoadError.lastError?.title,
+      promSubmitError.label,
+      promSubmitError.lastError?.title,
       reminderPermissionError.label,
       reminderPermissionError.lastError?.title,
       reminderScheduleError.label,
@@ -160,6 +187,7 @@ export default function HomeScreen() {
       exercisePlanRefresh.reload(),
       exerciseSessionsRefresh.reload(),
       rehabPhasesRefresh.reload(),
+      promsRefresh.reload(),
       authError.reload(),
       checkinSubmitError.reload(),
       chatLoadError.reload(),
@@ -169,18 +197,23 @@ export default function HomeScreen() {
       rehabPhasesLoadError.reload(),
       exerciseSessionSaveError.reload(),
       exerciseSessionsLoadError.reload(),
+      promsLoadError.reload(),
+      promSubmitError.reload(),
       reminderPermissionError.reload(),
       reminderScheduleError.reload(),
     ]);
   };
 
-  const reloadPendingCount = async (): Promise<void> => {
+  const reloadPendingCounts = async (): Promise<void> => {
     if (!patientId) {
       setPendingSessionCount(0);
+      setPendingPromCount(0);
       return;
     }
     const pending = await getPending(patientId);
     setPendingSessionCount(pending.length);
+    const pendingProms = await getPendingPromSubmissions(patientId);
+    setPendingPromCount(pendingProms.length);
   };
 
   useEffect(() => {
@@ -257,9 +290,40 @@ export default function HomeScreen() {
     };
   }, [patientId, rehabPhasesRefresh.lastRefreshedAt]);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setPromSummary({
+        status: "none",
+        dueCount: 0,
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedProms(patientId);
+      if (!active) {
+        return;
+      }
+
+      const dueCount = cached?.dueCards.length ?? 0;
+      setPromSummary({
+        status: dueCount > 0 ? "hasDue" : "none",
+        dueCount,
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, promsRefresh.lastRefreshedAt]);
+
   useFocusEffect(
     useCallback(() => {
-      void reloadPendingCount();
+      void reloadPendingCounts();
       return undefined;
     }, [patientId])
   );
@@ -283,7 +347,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/plan/rehab caches, pending sessions, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/plan/rehab/PROM caches, PROM drafts, pending sessions/PROM uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -299,7 +363,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, cached progress, cached plan, cached rehab journey, pending sessions, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, progress, plan, rehab journey, questionnaires, PROM drafts, pending sessions/PROM uploads, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -370,6 +434,11 @@ export default function HomeScreen() {
             value={rehabPhasesRefresh.label}
             compact
           />
+          <LastRefreshed
+            label="Last refreshed (questionnaires)"
+            value={promsRefresh.label}
+            compact
+          />
 
           <View style={styles.divider} />
           {failedAttemptLines.map((line) => (
@@ -395,12 +464,23 @@ export default function HomeScreen() {
             Pending sessions: {pendingSessionCount}
           </Text>
           <Text style={styles.statusDetail}>
+            Pending PROM uploads: {pendingPromCount}
+          </Text>
+          <Text style={styles.statusDetail}>
             Phase:{" "}
             {rehabSummary.status === "loading"
               ? "Loading cached status..."
               : rehabSummary.status === "set"
                 ? rehabSummary.currentTitle
                 : "Not set"}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Questionnaires due:{" "}
+            {promSummary.status === "loading"
+              ? "Loading cached count..."
+              : promSummary.status === "hasDue"
+                ? promSummary.dueCount
+                : 0}
           </Text>
           <PrimaryButton
             label="Go to Check-in"
@@ -426,6 +506,10 @@ export default function HomeScreen() {
           <PrimaryButton
             label="Rehab journey"
             onPress={() => router.push("/rehab-journey" as never)}
+          />
+          <PrimaryButton
+            label="PROMs"
+            onPress={() => router.push("/proms" as never)}
           />
         </Section>
 
@@ -456,7 +540,13 @@ export default function HomeScreen() {
             • Session: start from Plan, complete 2 exercises, finish and open session detail.
           </Text>
           <Text style={styles.bullet}>
+            • PROMs: open Questionnaires, complete due form, verify due moves to completed.
+          </Text>
+          <Text style={styles.bullet}>
             • Offline session: finish while offline, then submit pending when online.
+          </Text>
+          <Text style={styles.bullet}>
+            • Offline PROM: complete while offline, then submit pending when online.
           </Text>
           <Text style={styles.bullet}>
             • Settings: toggle daily reminder, then log out.

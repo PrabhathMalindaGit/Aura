@@ -3121,6 +3121,41 @@ time,
   }
 }
 
+.patient-prom-assign {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  align-items: end;
+}
+
+.patient-prom-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.patient-prom-item {
+  width: 100%;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: var(--radius-md);
+  background: hsl(var(--card));
+  padding: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.patient-prom-item:hover {
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+.patient-prom-meta,
+.patient-prom-score {
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
 @media (max-width: 600px) {
   .latest-trend-badges {
     grid-template-columns: 1fr;

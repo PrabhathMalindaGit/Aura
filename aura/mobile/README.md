@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -434,6 +434,45 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
   - refresh Rehab journey screen while online.
 - Offline shows no timeline:
   - open Rehab journey once while online to create cache, then retry offline.
+
+## Step 12: Questionnaires (PROMs) + deterministic scoring
+
+- New mobile routes:
+  - `/proms` (due/completed list + pending uploads)
+  - `/prom-fill?promId=<PROM_ID>` (one-question-per-screen wizard)
+- Backend endpoints used:
+  - `GET /patient/proms/due?limit=10`
+  - `GET /patient/proms/history?limit=20`
+  - `GET /patient/proms/:id`
+  - `POST /patient/proms/:id/submit`
+- Trust-under-failure keys:
+  - `Last refreshed`: `proms`
+  - `Last failed`: `promsLoad`, `promSubmit`
+
+### Step 12 demo flow
+
+1. In dashboard, assign `AURA_RECOVERY_5` to `p1`.
+2. In mobile Demo Hub, tap **PROMs**.
+3. Open a due questionnaire and complete all questions in the wizard.
+4. Submit online:
+   - due item moves to completed
+   - completed row shows score + severity band.
+5. Offline flow:
+   - open a cached questionnaire
+   - complete and submit while offline
+   - item is saved to pending uploads
+   - return online and tap **Submit pending**.
+
+### Step 12 troubleshooting
+
+- Questionnaire does not open offline:
+  - open it once online first so the instance is cached.
+- Pending submissions do not clear:
+  - verify network is online
+  - check `Last failed attempt` for `promSubmit`.
+- Due/completed lists stale:
+  - pull-to-refresh on `/proms`
+  - verify API base URL in `.env`.
 
 ## How to Test Offline
 

@@ -4,8 +4,11 @@ import ChatMessage from "../../src/models/ChatMessage";
 import CheckIn from "../../src/models/CheckIn";
 import ExercisePlan from "../../src/models/ExercisePlan";
 import Patient from "../../src/models/Patient";
+import PromInstance from "../../src/models/PromInstance";
+import PromTemplate from "../../src/models/PromTemplate";
 import User from "../../src/models/User";
 import { buildDefaultPhases, recomputePhaseStatuses } from "../../src/services/rehabPhaseService";
+import { buildDefaultPromTemplate, computePromScore } from "../../src/services/promsService";
 import { hashPassword } from "../../src/utils/password";
 
 import {
@@ -115,6 +118,8 @@ function getClinicianName(clinicianId: string): string | undefined {
 
 export async function resetDemoData(): Promise<ResetSummary> {
   const [
+    promInstancesDeleted,
+    promTemplatesDeleted,
     exercisePlansDeleted,
     careEventsDeleted,
     alertsDeleted,
@@ -123,6 +128,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     patientsDeleted,
     usersDeleted,
   ] = await Promise.all([
+    PromInstance.deleteMany({ demoTag: DEMO_TAG }),
+    PromTemplate.deleteMany({ demoTag: DEMO_TAG }),
     ExercisePlan.deleteMany({ demoTag: DEMO_TAG }),
     CareEvent.deleteMany({ demoTag: DEMO_TAG }),
     Alert.deleteMany({ demoTag: DEMO_TAG }),
@@ -140,6 +147,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     alertsDeleted: alertsDeleted.deletedCount ?? 0,
     careEventsDeleted: careEventsDeleted.deletedCount ?? 0,
     exercisePlansDeleted: exercisePlansDeleted.deletedCount ?? 0,
+    promTemplatesDeleted: promTemplatesDeleted.deletedCount ?? 0,
+    promInstancesDeleted: promInstancesDeleted.deletedCount ?? 0,
   };
 }
 
@@ -415,6 +424,101 @@ function buildCareEventsForAlert(
   return events;
 }
 
+function buildPromInstanceSeedDocs(now: Date): Array<Record<string, unknown>> {
+  const template = buildDefaultPromTemplate();
+  const questionSnapshot = template.questions.map((question) => ({
+    id: question.id,
+    text: question.text,
+    type: question.type,
+    min: question.min,
+    max: question.max,
+    labels: question.labels,
+    required: question.required !== false,
+    reverse: question.reverse === true,
+  }));
+
+  const completedAtP2 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const completedAnswersP2 = [
+    { questionId: "q1", value: 2 },
+    { questionId: "q2", value: 2 },
+    { questionId: "q3", value: 1 },
+    { questionId: "q4", value: 2 },
+    { questionId: "q5", value: 1 },
+  ];
+  const completedScoreP2 = computePromScore(template, completedAnswersP2);
+
+  const completedAtP3 = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+  const completedAnswersP3 = [
+    { questionId: "q1", value: 3 },
+    { questionId: "q2", value: 4 },
+    { questionId: "q3", value: 3 },
+    { questionId: "q4", value: 3 },
+    { questionId: "q5", value: 4 },
+  ];
+  const completedScoreP3 = computePromScore(template, completedAnswersP3);
+
+  return [
+    {
+      patientId: "p1",
+      templateKey: template.key,
+      templateVersion: template.version,
+      titleSnapshot: template.title,
+      questionsSnapshot: questionSnapshot,
+      dueAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      status: "due",
+      answers: [],
+      score: null,
+      demoTag: DEMO_TAG,
+      createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+    },
+    {
+      patientId: "p2",
+      templateKey: template.key,
+      templateVersion: template.version,
+      titleSnapshot: template.title,
+      questionsSnapshot: questionSnapshot,
+      dueAt: new Date(now.getTime() - 30 * 60 * 1000),
+      status: "due",
+      answers: [],
+      score: null,
+      demoTag: DEMO_TAG,
+      createdAt: new Date(now.getTime() - 90 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 90 * 60 * 1000),
+    },
+    {
+      patientId: "p2",
+      templateKey: template.key,
+      templateVersion: template.version,
+      titleSnapshot: template.title,
+      questionsSnapshot: questionSnapshot,
+      dueAt: new Date(completedAtP2.getTime() - 2 * 60 * 60 * 1000),
+      status: "completed",
+      completedAt: completedAtP2,
+      answers: completedAnswersP2,
+      score: completedScoreP2,
+      demoTag: DEMO_TAG,
+      createdAt: new Date(completedAtP2.getTime() - 3 * 60 * 60 * 1000),
+      updatedAt: completedAtP2,
+    },
+    {
+      patientId: "p3",
+      templateKey: template.key,
+      templateVersion: template.version,
+      titleSnapshot: template.title,
+      questionsSnapshot: questionSnapshot,
+      dueAt: new Date(completedAtP3.getTime() - 90 * 60 * 1000),
+      status: "completed",
+      completedAt: completedAtP3,
+      answers: completedAnswersP3,
+      score: completedScoreP3,
+      demoTag: DEMO_TAG,
+      createdAt: new Date(completedAtP3.getTime() - 3 * 60 * 60 * 1000),
+      updatedAt: completedAtP3,
+    },
+  ];
+}
+
 export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSummary> {
   const now = options.now ? new Date(options.now) : new Date();
   const resetFirst = options.resetFirst ?? true;
@@ -513,6 +617,34 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     { ordered: true }
   );
 
+  const promTemplate = buildDefaultPromTemplate();
+  await PromTemplate.updateOne(
+    { key: promTemplate.key },
+    {
+      $set: {
+        title: promTemplate.title,
+        description: promTemplate.description,
+        version: promTemplate.version,
+        questions: promTemplate.questions.map((question) => ({
+          ...question,
+          required: question.required !== false,
+          reverse: question.reverse === true,
+        })),
+        scoring: {
+          ...promTemplate.scoring,
+          normalizeTo100: promTemplate.scoring.normalizeTo100 !== false,
+        },
+        demoTag: DEMO_TAG,
+      },
+      $setOnInsert: {
+        key: promTemplate.key,
+      },
+    },
+    { upsert: true }
+  );
+
+  await PromInstance.insertMany(buildPromInstanceSeedDocs(now), { ordered: true });
+
   const checkInRows = buildCheckInRows(now);
   const insertedCheckIns = await CheckIn.insertMany(checkInRows.map((row) => row.doc), {
     ordered: true,
@@ -575,13 +707,24 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   );
   await CareEvent.insertMany(careEventDocs, { ordered: true });
 
-  const [patients, checkIns, chatMessages, alerts, careEvents, exercisePlans] = await Promise.all([
+  const [
+    patients,
+    checkIns,
+    chatMessages,
+    alerts,
+    careEvents,
+    exercisePlans,
+    promTemplates,
+    promInstances,
+  ] = await Promise.all([
     Patient.countDocuments({ demoTag: DEMO_TAG }),
     CheckIn.countDocuments({ demoTag: DEMO_TAG }),
     ChatMessage.countDocuments({ demoTag: DEMO_TAG }),
     Alert.countDocuments({ demoTag: DEMO_TAG }),
     CareEvent.countDocuments({ demoTag: DEMO_TAG }),
     ExercisePlan.countDocuments({ demoTag: DEMO_TAG }),
+    PromTemplate.countDocuments({ demoTag: DEMO_TAG }),
+    PromInstance.countDocuments({ demoTag: DEMO_TAG }),
   ]);
 
   const statusCounts = seedStatusCounts(alertDefinitions.map((definition) => definition.status));
@@ -596,6 +739,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     alerts,
     careEvents,
     exercisePlans,
+    promTemplates,
+    promInstances,
   };
 }
 

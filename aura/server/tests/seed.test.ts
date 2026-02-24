@@ -8,6 +8,8 @@ import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
 import ExercisePlan from "../src/models/ExercisePlan";
 import Patient from "../src/models/Patient";
+import PromInstance from "../src/models/PromInstance";
+import PromTemplate from "../src/models/PromTemplate";
 import User from "../src/models/User";
 import { DEMO_TAG, resetDemoData, seedDemoData } from "../scripts/seed/lib";
 
@@ -33,6 +35,8 @@ describe("seed demo data", () => {
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
       ExercisePlan.deleteMany({}),
+      PromTemplate.deleteMany({}),
+      PromInstance.deleteMany({}),
       Patient.deleteMany({}),
       User.deleteMany({}),
     ]);
@@ -52,7 +56,23 @@ describe("seed demo data", () => {
       alerts: 6,
       careEvents: 20,
       exercisePlans: 3,
+      promTemplates: 1,
+      promInstances: 4,
     });
+
+    const promTemplate = await PromTemplate.findOne({ demoTag: DEMO_TAG }).lean();
+    expect(promTemplate?.key).toBe("AURA_RECOVERY_5");
+
+    const promDueCount = await PromInstance.countDocuments({
+      demoTag: DEMO_TAG,
+      status: "due",
+    });
+    const promCompletedCount = await PromInstance.countDocuments({
+      demoTag: DEMO_TAG,
+      status: "completed",
+    });
+    expect(promDueCount).toBe(2);
+    expect(promCompletedCount).toBe(2);
 
     const alertStatuses = await Alert.aggregate([
       { $match: { demoTag: DEMO_TAG } },
@@ -131,6 +151,8 @@ describe("seed demo data", () => {
     const resetSummary = await resetDemoData();
     expect(resetSummary.patientsDeleted).toBe(3);
     expect(resetSummary.exercisePlansDeleted).toBe(3);
+    expect(resetSummary.promTemplatesDeleted).toBe(1);
+    expect(resetSummary.promInstancesDeleted).toBe(4);
 
     const nonDemoPatient = await Patient.findOne({
       patientId: "non-demo-patient",

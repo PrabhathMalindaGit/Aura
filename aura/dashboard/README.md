@@ -16,6 +16,7 @@ npm run dev
 - `/patients`
 - `/patients/:patientId`
 - `/patients/:patientId/plan`
+- `/proms/:promId`
 - `/smoke`
 - `/settings`
 - unknown paths redirect to `/alerts`
@@ -86,6 +87,17 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
    - click **Save**.
 3. Refresh to confirm the selected phase persists and timeline statuses recompute.
 4. In mobile, open **Rehab journey** to verify the patient view reflects this update.
+
+## PROMs demo path (Step 12)
+
+1. Open `/patients/p1`.
+2. In **Questionnaires (PROMs)**:
+   - select template `AURA_RECOVERY_5`
+   - click **Assign** (or set an optional due date and assign).
+3. Verify the new entry appears in the **Due** list.
+4. Click **Open** to view `/proms/:promId` detail.
+5. In mobile, complete the due PROM.
+6. Refresh patient detail and verify it moves into **Completed** with score and band.
 
 ## Notes
 

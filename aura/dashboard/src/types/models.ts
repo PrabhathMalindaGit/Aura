@@ -275,3 +275,77 @@ export interface ExerciseSessionResponse {
   ok: true;
   session: ExerciseSessionDetail;
 }
+
+export type PromBandKey = 'green' | 'amber' | 'red';
+
+export interface PromScore {
+  raw: number;
+  normalized: number;
+  bandKey: PromBandKey;
+  bandLabel: string;
+}
+
+export interface PromDueCard {
+  id: string;
+  templateKey: string;
+  title: string;
+  dueAt: string;
+  status: 'due' | 'completed';
+}
+
+export interface PromHistoryRow {
+  id: string;
+  templateKey: string;
+  title: string;
+  completedAt: string;
+  score: {
+    normalized: number;
+    bandKey?: PromBandKey;
+    bandLabel: string;
+  } | null;
+}
+
+export interface PromQuestion {
+  id: string;
+  text: string;
+  type: 'likert';
+  min: number;
+  max: number;
+  labels?: {
+    minLabel?: string;
+    maxLabel?: string;
+  };
+  required?: boolean;
+  reverse?: boolean;
+}
+
+export interface PromAnswer {
+  questionId: string;
+  value: number;
+}
+
+export interface PromInstanceDetail {
+  id: string;
+  patientId?: string;
+  templateKey: string;
+  templateVersion: number;
+  title: string;
+  dueAt: string;
+  status: 'due' | 'completed';
+  completedAt: string | null;
+  questions: PromQuestion[];
+  answers: PromAnswer[];
+  score: PromScore | null;
+}
+
+export interface ClinicianPatientPromsResponse {
+  ok: true;
+  patientId: string;
+  due: PromDueCard[];
+  completed: PromHistoryRow[];
+}
+
+export interface ClinicianPromDetailResponse {
+  ok: true;
+  prom: PromInstanceDetail;
+}

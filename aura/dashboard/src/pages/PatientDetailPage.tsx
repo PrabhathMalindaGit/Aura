@@ -14,7 +14,9 @@ import { PatientSummaryCards } from '../components/patients/PatientSummaryCards'
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import {
+  assignPromToPatient,
   getPatientExerciseSessions,
+  getPatientProms,
   getRehabPhases,
   getPatientTrendsEndpointHint,
   isPatientTrendsEndpointMissing,
@@ -31,6 +33,8 @@ import type {
   AlertItem,
   AlertStatus,
   PatientSummary,
+  PromDueCard,
+  PromHistoryRow,
   RehabPayload,
   TrendPointRaw,
 } from '../types/models';
@@ -67,6 +71,20 @@ type PatientExportDataset = 'trends' | 'alerts';
 
 function parseDays(value: string | null): 14 | 30 {
   return value === '30' ? 30 : 14;
+}
+
+function toIsoDatetimeInput(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const parsed = new Date(trimmed);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new Error('Due date must be a valid date/time.');
+  }
+
+  return parsed.toISOString();
 }
 
 function formatDuration(seconds: number): string {
@@ -152,6 +170,10 @@ export function PatientDetailPage(): JSX.Element {
   const [selectedRehabKey, setSelectedRehabKey] = useState('');
   const [rehabSaveError, setRehabSaveError] = useState<string | null>(null);
   const [isSavingRehab, setIsSavingRehab] = useState(false);
+  const [promTemplateKey, setPromTemplateKey] = useState('AURA_RECOVERY_5');
+  const [promDueAt, setPromDueAt] = useState('');
+  const [promSaveError, setPromSaveError] = useState<string | null>(null);
+  const [isAssigningProm, setIsAssigningProm] = useState(false);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
   const [patientExportOpen, setPatientExportOpen] = useState(false);
   const [patientExportRange, setPatientExportRange] = useState<DateRangeValue>(() =>
@@ -200,6 +222,16 @@ export function PatientDetailPage(): JSX.Element {
   const patientRehabQuery = useQuery({
     queryKey: ['patient-rehab', patientId],
     queryFn: () => getRehabPhases(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientPromsQuery = useQuery({
+    queryKey: ['patient-proms', patientId],
+    queryFn: () => getPatientProms(patientId ?? '', 50),
     enabled: Boolean(patientId),
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
@@ -266,6 +298,14 @@ export function PatientDetailPage(): JSX.Element {
     () => patientRehabQuery.data ?? null,
     [patientRehabQuery.data],
   );
+  const patientPromDue = useMemo<PromDueCard[]>(
+    () => patientPromsQuery.data?.due ?? [],
+    [patientPromsQuery.data?.due],
+  );
+  const patientPromCompleted = useMemo<PromHistoryRow[]>(
+    () => patientPromsQuery.data?.completed ?? [],
+    [patientPromsQuery.data?.completed],
+  );
 
   const openAlertCount = useMemo(
     () => patientAlerts.filter((alert) => alert.status === 'open').length,
@@ -331,6 +371,25 @@ export function PatientDetailPage(): JSX.Element {
       setRehabSaveError(toUserMessage(asAppError(error)));
     } finally {
       setIsSavingRehab(false);
+    }
+  }
+
+  async function handleAssignProm(): Promise<void> {
+    if (!patientId || !promTemplateKey) {
+      return;
+    }
+
+    setPromSaveError(null);
+    setIsAssigningProm(true);
+    try {
+      const dueAtIso = toIsoDatetimeInput(promDueAt);
+      await assignPromToPatient(patientId, promTemplateKey, dueAtIso);
+      setPromDueAt('');
+      await patientPromsQuery.refetch();
+    } catch (error) {
+      setPromSaveError(toUserMessage(asAppError(error)));
+    } finally {
+      setIsAssigningProm(false);
     }
   }
 
@@ -585,9 +644,21 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientPromsQuery.error ? (
+        <AlertBanner variant="error" title="Could not load PROMs">
+          {toUserMessage(patientPromsQuery.error)}
+        </AlertBanner>
+      ) : null}
+
       {rehabSaveError ? (
         <AlertBanner variant="error" title="Could not update rehab phase">
           {rehabSaveError}
+        </AlertBanner>
+      ) : null}
+
+      {promSaveError ? (
+        <AlertBanner variant="error" title="Could not assign PROM">
+          {promSaveError}
         </AlertBanner>
       ) : null}
 
@@ -682,6 +753,120 @@ export function PatientDetailPage(): JSX.Element {
                     {phase.description ? <p className="muted-text">{phase.description}</p> : null}
                   </div>
                 ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Questionnaires (PROMs)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientPromsQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientPromsQuery.isLoading && patientPromDue.length === 0 && patientPromCompleted.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="PROM list loading placeholder">
+            <Skeleton height={54} />
+            <Skeleton height={54} />
+          </div>
+        ) : (
+          <div className="stack stack--3">
+            <div className="patient-prom-assign">
+              <label className="form-field" htmlFor="prom-template-select">
+                <span>Template</span>
+                <select
+                  id="prom-template-select"
+                  value={promTemplateKey}
+                  onChange={(event) => {
+                    setPromTemplateKey(event.currentTarget.value);
+                  }}
+                >
+                  <option value="AURA_RECOVERY_5">AURA_RECOVERY_5</option>
+                </select>
+              </label>
+              <label className="form-field" htmlFor="prom-due-input">
+                <span>Due at (optional)</span>
+                <input
+                  id="prom-due-input"
+                  type="datetime-local"
+                  value={promDueAt}
+                  onChange={(event) => {
+                    setPromDueAt(event.currentTarget.value);
+                  }}
+                />
+              </label>
+              <Button
+                variant="secondary"
+                disabled={isAssigningProm}
+                onClick={() => {
+                  void handleAssignProm();
+                }}
+              >
+                {isAssigningProm ? 'Assigning...' : 'Assign'}
+              </Button>
+            </div>
+
+            <div className="stack stack--2">
+              <strong>Due</strong>
+              {patientPromDue.length === 0 ? (
+                <p className="muted-text">No questionnaires due.</p>
+              ) : (
+                <div className="patient-prom-list">
+                  {patientPromDue.map((prom) => (
+                    <button
+                      key={prom.id}
+                      type="button"
+                      className="unstyled-button patient-prom-item"
+                      onClick={() => navigate(`/proms/${prom.id}`)}
+                    >
+                      <div>
+                        <strong>{prom.title}</strong>
+                        <p className="muted-text">
+                          Due {new Date(prom.dueAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className="patient-prom-meta">Open</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="stack stack--2">
+              <strong>Completed</strong>
+              {patientPromCompleted.length === 0 ? (
+                <p className="muted-text">No completed questionnaires yet.</p>
+              ) : (
+                <div className="patient-prom-list">
+                  {patientPromCompleted.map((prom) => (
+                    <button
+                      key={prom.id}
+                      type="button"
+                      className="unstyled-button patient-prom-item"
+                      onClick={() => navigate(`/proms/${prom.id}`)}
+                    >
+                      <div>
+                        <strong>{prom.title}</strong>
+                        <p className="muted-text">
+                          Completed {new Date(prom.completedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className="patient-prom-score">
+                        {prom.score
+                          ? `${prom.score.normalized} · ${prom.score.bandLabel}`
+                          : 'No score'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

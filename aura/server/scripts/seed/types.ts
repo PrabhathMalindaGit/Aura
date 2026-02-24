@@ -7,6 +7,8 @@ export interface SeedSummary {
   alerts: number;
   careEvents: number;
   exercisePlans: number;
+  promTemplates: number;
+  promInstances: number;
 }
 
 export interface SeedOptions {
@@ -22,6 +24,8 @@ export interface ResetSummary {
   alertsDeleted: number;
   careEventsDeleted: number;
   exercisePlansDeleted: number;
+  promTemplatesDeleted: number;
+  promInstancesDeleted: number;
 }
 
 export interface SeedAlertDefinition {

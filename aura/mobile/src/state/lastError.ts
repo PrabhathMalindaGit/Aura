@@ -14,7 +14,9 @@ export type ErrorKey =
   | "exercisePlanLoad"
   | "exerciseSessionSave"
   | "exerciseSessionsLoad"
-  | "rehabPhasesLoad";
+  | "rehabPhasesLoad"
+  | "promsLoad"
+  | "promSubmit";
 
 export type LastErrorRecord = {
   key: ErrorKey;

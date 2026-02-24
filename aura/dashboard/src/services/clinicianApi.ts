@@ -33,6 +33,11 @@ import {
   type ExerciseSessionResponse,
   type ExerciseSessionsListResponse,
   type ExerciseSessionListItem,
+  type ClinicianPatientPromsResponse,
+  type ClinicianPromDetailResponse,
+  type PromDueCard,
+  type PromHistoryRow,
+  type PromInstanceDetail,
   type ListAlertsResponse,
   type ListPatientsResponse,
   type PatchAlertResponse,
@@ -645,6 +650,52 @@ export async function getExerciseSessionById(
   );
 
   return response.session;
+}
+
+export async function getPatientProms(
+  patientId: string,
+  limit = 50,
+): Promise<{ due: PromDueCard[]; completed: PromHistoryRow[] }> {
+  const response = await fetchJson<ClinicianPatientPromsResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/proms?limit=${encodeURIComponent(
+      String(limit),
+    )}`,
+    { method: 'GET' },
+  );
+
+  return {
+    due: response.due ?? [],
+    completed: response.completed ?? [],
+  };
+}
+
+export async function assignPromToPatient(
+  patientId: string,
+  templateKey: string,
+  dueAt?: string,
+): Promise<PromDueCard> {
+  const response = await fetchJson<{
+    ok: true;
+    patientId: string;
+    due: PromDueCard;
+  }>(`/clinician/patients/${encodeURIComponent(patientId)}/proms/assign`, {
+    method: 'POST',
+    json: {
+      templateKey,
+      ...(dueAt ? { dueAt } : {}),
+    },
+  });
+
+  return response.due;
+}
+
+export async function getPromInstanceById(promId: string): Promise<PromInstanceDetail> {
+  const response = await fetchJson<ClinicianPromDetailResponse>(
+    `/clinician/proms/${encodeURIComponent(promId)}`,
+    { method: 'GET' },
+  );
+
+  return response.prom;
 }
 
 export async function getAlertContext(alertId: string): Promise<AlertContextResult> {

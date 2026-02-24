@@ -93,6 +93,73 @@ export type RehabPayload = {
   };
 };
 
+export type PromBandKey = "green" | "amber" | "red";
+
+export type PromScore = {
+  raw: number;
+  normalized: number;
+  bandKey: PromBandKey;
+  bandLabel: string;
+};
+
+export type PromDueCard = {
+  id: string;
+  templateKey: string;
+  title: string;
+  dueAt: string;
+  status: "due" | "completed";
+};
+
+export type PromHistoryRow = {
+  id: string;
+  templateKey: string;
+  title: string;
+  completedAt: string;
+  score: {
+    normalized: number;
+    bandKey?: PromBandKey;
+    bandLabel: string;
+  } | null;
+};
+
+export type PromQuestion = {
+  id: string;
+  text: string;
+  type: "likert";
+  min: number;
+  max: number;
+  labels?: {
+    minLabel?: string;
+    maxLabel?: string;
+  };
+  required: boolean;
+};
+
+export type PromAnswer = {
+  questionId: string;
+  value: number;
+};
+
+export type PromInstance = {
+  id: string;
+  templateKey: string;
+  templateVersion: number;
+  title: string;
+  dueAt: string;
+  status: "due" | "completed";
+  completedAt: string | null;
+  questions: PromQuestion[];
+  answers: PromAnswer[];
+  score: PromScore | null;
+};
+
+export type PromSubmitResponse = {
+  ok: boolean;
+  id?: string;
+  completedAt?: string;
+  score: PromScore | null;
+};
+
 export type ExerciseSessionStatus = "completed" | "abandoned";
 export type ExerciseSessionDifficulty = "easy" | "ok" | "hard";
 
@@ -483,6 +550,257 @@ function normalizeRehabPayload(value: unknown): RehabPayload {
                 : undefined,
           }
         : undefined,
+  };
+}
+
+function normalizeIsoString(value: unknown): string | null {
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (Number.isFinite(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+  return null;
+}
+
+function normalizePromScore(value: unknown): PromScore | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const score = value as {
+    raw?: unknown;
+    normalized?: unknown;
+    bandKey?: unknown;
+    bandLabel?: unknown;
+  };
+
+  const raw = toFiniteNumber(score.raw);
+  const normalized = toFiniteNumber(score.normalized);
+  const bandKey =
+    score.bandKey === "green" || score.bandKey === "amber" || score.bandKey === "red"
+      ? score.bandKey
+      : null;
+  const bandLabel =
+    typeof score.bandLabel === "string" && score.bandLabel.trim()
+      ? score.bandLabel.trim()
+      : null;
+
+  if (raw === null || normalized === null || !bandKey || !bandLabel) {
+    return null;
+  }
+
+  return {
+    raw,
+    normalized,
+    bandKey,
+    bandLabel,
+  };
+}
+
+function normalizePromDueCard(value: unknown): PromDueCard | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const card = value as {
+    id?: unknown;
+    _id?: unknown;
+    templateKey?: unknown;
+    title?: unknown;
+    titleSnapshot?: unknown;
+    dueAt?: unknown;
+    status?: unknown;
+  };
+
+  const id = typeof (card.id ?? card._id) === "string" ? String(card.id ?? card._id).trim() : "";
+  const templateKey = typeof card.templateKey === "string" ? card.templateKey.trim() : "";
+  const titleSource = card.title ?? card.titleSnapshot;
+  const title = typeof titleSource === "string" ? titleSource.trim() : "";
+  const dueAt = normalizeIsoString(card.dueAt);
+  const status: "due" | "completed" = card.status === "completed" ? "completed" : "due";
+
+  if (!id || !templateKey || !title || !dueAt) {
+    return null;
+  }
+
+  return {
+    id,
+    templateKey,
+    title,
+    dueAt,
+    status,
+  };
+}
+
+function normalizePromHistoryRow(value: unknown): PromHistoryRow | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const row = value as {
+    id?: unknown;
+    _id?: unknown;
+    templateKey?: unknown;
+    title?: unknown;
+    titleSnapshot?: unknown;
+    completedAt?: unknown;
+    score?: unknown;
+  };
+
+  const id = typeof (row.id ?? row._id) === "string" ? String(row.id ?? row._id).trim() : "";
+  const templateKey = typeof row.templateKey === "string" ? row.templateKey.trim() : "";
+  const titleSource = row.title ?? row.titleSnapshot;
+  const title = typeof titleSource === "string" ? titleSource.trim() : "";
+  const completedAt = normalizeIsoString(row.completedAt);
+  if (!id || !templateKey || !title || !completedAt) {
+    return null;
+  }
+
+  const score = normalizePromScore(row.score);
+  return {
+    id,
+    templateKey,
+    title,
+    completedAt,
+    score: score
+      ? {
+          normalized: score.normalized,
+          bandKey: score.bandKey,
+          bandLabel: score.bandLabel,
+        }
+      : null,
+  };
+}
+
+function normalizePromQuestion(value: unknown): PromQuestion | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const question = value as {
+    id?: unknown;
+    text?: unknown;
+    type?: unknown;
+    min?: unknown;
+    max?: unknown;
+    labels?: { minLabel?: unknown; maxLabel?: unknown };
+    required?: unknown;
+  };
+
+  const id = typeof question.id === "string" ? question.id.trim() : "";
+  const text = typeof question.text === "string" ? question.text.trim() : "";
+  const min = toFiniteNumber(question.min);
+  const max = toFiniteNumber(question.max);
+  if (!id || !text || min === null || max === null) {
+    return null;
+  }
+
+  return {
+    id,
+    text,
+    type: "likert",
+    min,
+    max,
+    labels:
+      question.labels && typeof question.labels === "object"
+        ? {
+            minLabel:
+              typeof question.labels.minLabel === "string"
+                ? question.labels.minLabel
+                : undefined,
+            maxLabel:
+              typeof question.labels.maxLabel === "string"
+                ? question.labels.maxLabel
+                : undefined,
+          }
+        : undefined,
+    required: question.required !== false,
+  };
+}
+
+function normalizePromAnswer(value: unknown): PromAnswer | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const answer = value as { questionId?: unknown; value?: unknown };
+  const questionId =
+    typeof answer.questionId === "string" ? answer.questionId.trim() : "";
+  const numericValue = toFiniteNumber(answer.value);
+  if (!questionId || numericValue === null) {
+    return null;
+  }
+
+  return {
+    questionId,
+    value: numericValue,
+  };
+}
+
+function normalizePromInstance(value: unknown): PromInstance | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const instance = value as {
+    id?: unknown;
+    _id?: unknown;
+    templateKey?: unknown;
+    templateVersion?: unknown;
+    title?: unknown;
+    titleSnapshot?: unknown;
+    dueAt?: unknown;
+    status?: unknown;
+    completedAt?: unknown;
+    questions?: unknown;
+    questionsSnapshot?: unknown;
+    answers?: unknown;
+    score?: unknown;
+  };
+
+  const id =
+    typeof (instance.id ?? instance._id) === "string"
+      ? String(instance.id ?? instance._id).trim()
+      : "";
+  const templateKey =
+    typeof instance.templateKey === "string" ? instance.templateKey.trim() : "";
+  const titleSource = instance.title ?? instance.titleSnapshot;
+  const title = typeof titleSource === "string" ? titleSource.trim() : "";
+  const templateVersion = toFiniteNumber(instance.templateVersion) ?? 1;
+  const dueAt = normalizeIsoString(instance.dueAt);
+  const status: "due" | "completed" = instance.status === "completed" ? "completed" : "due";
+  const completedAt = normalizeIsoString(instance.completedAt);
+  if (!id || !templateKey || !title || !dueAt) {
+    return null;
+  }
+
+  const questionsSource = Array.isArray(instance.questions)
+    ? instance.questions
+    : Array.isArray(instance.questionsSnapshot)
+      ? instance.questionsSnapshot
+      : [];
+  const questions = questionsSource
+    .map((entry) => normalizePromQuestion(entry))
+    .filter((entry): entry is PromQuestion => Boolean(entry));
+
+  const answers = Array.isArray(instance.answers)
+    ? instance.answers
+        .map((entry) => normalizePromAnswer(entry))
+        .filter((entry): entry is PromAnswer => Boolean(entry))
+    : [];
+
+  return {
+    id,
+    templateKey,
+    templateVersion,
+    title,
+    dueAt,
+    status,
+    completedAt,
+    questions,
+    answers,
+    score: normalizePromScore(instance.score),
   };
 }
 
@@ -897,6 +1215,115 @@ export async function getExerciseSession(
   }
 
   return detail;
+}
+
+export async function getDueProms(
+  token: string,
+  limit = 10
+): Promise<PromDueCard[]> {
+  const payload = await apiFetchJson<
+    | PromDueCard[]
+    | {
+        due?: unknown;
+        items?: unknown;
+      }
+  >(`/patient/proms/due?limit=${encodeURIComponent(String(limit))}`, {
+    method: "GET",
+    token,
+  });
+
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.due)
+      ? payload.due
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : [];
+
+  return source
+    .map((entry) => normalizePromDueCard(entry))
+    .filter((entry): entry is PromDueCard => Boolean(entry))
+    .sort((left, right) => Date.parse(left.dueAt) - Date.parse(right.dueAt));
+}
+
+export async function getPromHistory(
+  token: string,
+  limit = 20
+): Promise<PromHistoryRow[]> {
+  const payload = await apiFetchJson<
+    | PromHistoryRow[]
+    | {
+        history?: unknown;
+        items?: unknown;
+      }
+  >(`/patient/proms/history?limit=${encodeURIComponent(String(limit))}`, {
+    method: "GET",
+    token,
+  });
+
+  const source = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.history)
+      ? payload.history
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : [];
+
+  return source
+    .map((entry) => normalizePromHistoryRow(entry))
+    .filter((entry): entry is PromHistoryRow => Boolean(entry))
+    .sort((left, right) => Date.parse(right.completedAt) - Date.parse(left.completedAt));
+}
+
+export async function getPromInstance(
+  token: string,
+  promId: string
+): Promise<PromInstance> {
+  const payload = await apiFetchJson<{
+    prom?: unknown;
+    instance?: unknown;
+    data?: unknown;
+  }>(`/patient/proms/${encodeURIComponent(promId)}`, {
+    method: "GET",
+    token,
+  });
+
+  const instance =
+    normalizePromInstance(payload.prom) ??
+    normalizePromInstance(payload.instance) ??
+    normalizePromInstance(payload.data) ??
+    normalizePromInstance(payload);
+
+  if (!instance) {
+    throw invalidResponseError("Could not parse questionnaire detail.");
+  }
+
+  return instance;
+}
+
+export async function submitProm(
+  token: string,
+  promId: string,
+  answers: PromAnswer[]
+): Promise<PromSubmitResponse> {
+  const payload = await apiFetchJson<{
+    ok?: unknown;
+    id?: unknown;
+    completedAt?: unknown;
+    score?: unknown;
+  }>(`/patient/proms/${encodeURIComponent(promId)}/submit`, {
+    method: "POST",
+    token,
+    body: { answers },
+  });
+
+  return {
+    ok: payload.ok !== false,
+    id: typeof payload.id === "string" ? payload.id : undefined,
+    completedAt:
+      typeof payload.completedAt === "string" ? payload.completedAt : undefined,
+    score: normalizePromScore(payload.score),
+  };
 }
 
 function toChatRole(value: unknown): ChatRole {

@@ -28,6 +28,8 @@ npm run seed:reset
 - 6 alerts with status variety (`open`, `acknowledged`, `resolved`)
 - care_events timeline entries per alert
 - 1 clinician-assigned exercise plan per demo patient
+- 1 PROM template (`AURA_RECOVERY_5`) with deterministic scoring bands
+- 4 PROM instances across demo patients (2 due, 2 completed)
 
 ## Notes
 

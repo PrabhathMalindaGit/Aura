@@ -96,6 +96,32 @@ curl -sS "http://localhost:3000/patient/rehab-phases" \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient due PROMs:
+```bash
+curl -sS "http://localhost:3000/patient/proms/due?limit=10" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient PROM history:
+```bash
+curl -sS "http://localhost:3000/patient/proms/history?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient PROM instance detail:
+```bash
+curl -sS "http://localhost:3000/patient/proms/<PROM_ID>" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient submit PROM:
+```bash
+curl -sS -X POST "http://localhost:3000/patient/proms/<PROM_ID>/submit" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"answers":[{"questionId":"q1","value":2},{"questionId":"q2","value":1},{"questionId":"q3","value":2},{"questionId":"q4","value":1},{"questionId":"q5","value":2}]}'
+```
+
 - Patient create exercise session:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/exercise-sessions \
@@ -165,6 +191,26 @@ curl -sS "http://localhost:3000/clinician/patients/p1/exercise-sessions?limit=50
 - Get clinician exercise session detail:
 ```bash
 curl -sS "http://localhost:3000/clinician/exercise-sessions/<SESSION_ID>" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Assign PROM to patient:
+```bash
+curl -sS -X POST "http://localhost:3000/clinician/patients/p1/proms/assign" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"templateKey":"AURA_RECOVERY_5"}'
+```
+
+- Get clinician PROMs list for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/proms?limit=50" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician PROM detail:
+```bash
+curl -sS "http://localhost:3000/clinician/proms/<PROM_ID>" \
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 

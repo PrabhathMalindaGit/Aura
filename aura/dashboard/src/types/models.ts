@@ -227,6 +227,34 @@ export interface MedicationAdherenceRangeResponse {
   days: MedicationAdherenceDay[];
 }
 
+export type SymptomPhotoKind = 'swelling' | 'wound' | 'rash' | 'other';
+
+export interface SymptomPhotoItem {
+  id: string;
+  date: string;
+  kind: SymptomPhotoKind;
+  notePreview?: string;
+  createdAt: string;
+}
+
+export interface SymptomPhotoMeta {
+  ok: true;
+  id: string;
+  patientId?: string;
+  date: string;
+  kind: SymptomPhotoKind;
+  note?: string;
+  createdAt: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+export interface PatientPhotosResponse {
+  ok: true;
+  patientId: string;
+  items: SymptomPhotoItem[];
+}
+
 export type PatientStatus = 'active' | 'on_hold' | 'discharged' | 'inactive';
 
 export interface PatientSummary {
@@ -490,6 +518,15 @@ export interface WeeklyReportPayload {
     trackedNights: number;
     avgHours: number | null;
     avgQuality: number | null;
+  };
+  photos: {
+    uploadedThisWeek: number;
+    kinds: {
+      swelling: number;
+      wound: number;
+      rash: number;
+      other: number;
+    };
   };
   hydration: {
     trackedDays: number;

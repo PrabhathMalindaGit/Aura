@@ -8,11 +8,13 @@ import {
   clearAllMedicationTodayCacheForPatient,
 } from "@/src/state/medicationTodayCache";
 import { clearCachedMedications } from "@/src/state/medicationsCache";
+import { clearPendingPhotosDirectory, clearPendingPhotoUploads } from "@/src/state/pendingPhotoUploads";
 import { clearPendingNutrition } from "@/src/state/pendingNutrition";
 import { clearPendingHydration } from "@/src/state/pendingHydration";
 import { clearPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
 import { clearPending } from "@/src/state/pendingSessions";
 import { clearPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
+import { clearCachedPhotosList } from "@/src/state/photosCache";
 import { clearAllPromDraftsForPatient } from "@/src/state/promDrafts";
 import { clearPromsCache } from "@/src/state/promsCache";
 import { clearCachedRehabPhases } from "@/src/state/rehabPhasesCache";
@@ -40,6 +42,7 @@ export async function resetDemoState(
     tasks.push(clearAllNutritionCacheForPatient(patientId));
     tasks.push(clearCachedMedications(patientId));
     tasks.push(clearAllMedicationTodayCacheForPatient(patientId));
+    tasks.push(clearCachedPhotosList(patientId));
     tasks.push(clearCachedRehabPhases(patientId));
     tasks.push(clearPromsCache(patientId));
     tasks.push(clearAllWeeklyReportsForPatient(patientId));
@@ -48,8 +51,10 @@ export async function resetDemoState(
     tasks.push(clearPendingHydration(patientId));
     tasks.push(clearPendingNutrition(patientId));
     tasks.push(clearPendingMedicationLogs(patientId));
+    tasks.push(clearPendingPhotoUploads(patientId));
     tasks.push(clearPendingPromSubmissions(patientId));
     tasks.push(clearReminderPrefs(patientId));
+    tasks.push(clearPendingPhotosDirectory());
   }
 
   await Promise.all(tasks);

@@ -263,6 +263,20 @@ export function PatientWeeklyReportPage(): JSX.Element {
             </div>
           </Card>
 
+          <Card title="Symptom photos">
+            <div className="stack stack--1">
+              <p className="muted-text">
+                Uploaded this week: {reportQuery.data.photos.uploadedThisWeek}
+              </p>
+              <p className="muted-text">
+                Swelling: {reportQuery.data.photos.kinds.swelling} · Wound:{' '}
+                {reportQuery.data.photos.kinds.wound} · Rash:{' '}
+                {reportQuery.data.photos.kinds.rash} · Other:{' '}
+                {reportQuery.data.photos.kinds.other}
+              </p>
+            </div>
+          </Card>
+
           <Card title="Hydration">
             <div className="stack stack--1">
               <p className="muted-text">Tracked days: {reportQuery.data.hydration.trackedDays}</p>

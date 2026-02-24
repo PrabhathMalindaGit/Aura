@@ -129,6 +129,7 @@ function buildShareText(report: WeeklyReport): string {
         : "—"
     }`,
     `Sleep: tracked nights ${report.sleep.trackedNights}, avg hours ${numberOrDash(report.sleep.avgHours)}, avg quality ${numberOrDash(report.sleep.avgQuality)}`,
+    `Symptom photos: ${report.photos.uploadedThisWeek} uploaded (swelling ${report.photos.kinds.swelling}, wound ${report.photos.kinds.wound}, rash ${report.photos.kinds.rash}, other ${report.photos.kinds.other})`,
     `Hydration: tracked days ${report.hydration.trackedDays}, avg daily ${numberOrDash(report.hydration.avgDailyMl)} ml, total ${report.hydration.totalMl} ml, goal days ${report.hydration.daysMeetingTarget}/${report.hydration.trackedDays}`,
     `Nutrition: tracked days ${report.nutrition.trackedDays}, avg fruit/veg ${numberOrDash(report.nutrition.avgFruitVegServings)}, protein OK/high days ${report.nutrition.proteinOkHighDays}, anti-inflammatory days ${report.nutrition.antiInflammatoryDays}, regular meals days ${report.nutrition.regularMealsDays}`,
     `Medications: scheduled ${report.medications.scheduledDoses}, taken ${report.medications.takenDoses}, skipped ${report.medications.skippedDoses}, adherence ${pctOrDash(report.medications.adherencePct)}`,
@@ -462,6 +463,17 @@ export default function WeeklyReportScreen() {
               <Text style={styles.metaText}>Tracked nights: {report.sleep.trackedNights}</Text>
               <Text style={styles.metaText}>Average hours: {numberOrDash(report.sleep.avgHours)}</Text>
               <Text style={styles.metaText}>Average quality: {numberOrDash(report.sleep.avgQuality)}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Symptom photos</Text>
+              <Text style={styles.metaText}>
+                Uploaded this week: {report.photos.uploadedThisWeek}
+              </Text>
+              <Text style={styles.metaText}>Swelling: {report.photos.kinds.swelling}</Text>
+              <Text style={styles.metaText}>Wound: {report.photos.kinds.wound}</Text>
+              <Text style={styles.metaText}>Rash: {report.photos.kinds.rash}</Text>
+              <Text style={styles.metaText}>Other: {report.photos.kinds.other}</Text>
             </View>
 
             <View style={styles.card}>

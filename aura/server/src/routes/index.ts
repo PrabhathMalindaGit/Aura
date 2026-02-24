@@ -14,6 +14,7 @@ import nutritionRoutes from "./nutrition.routes";
 import patientRoutes from "./patient.routes";
 import promsRoutes from "./proms.routes";
 import rehabPhasesRoutes from "./rehabPhases.routes";
+import symptomPhotosRoutes from "./symptomPhotos.routes";
 import weeklyReportsRoutes from "./weeklyReports.routes";
 
 const router = Router();
@@ -29,6 +30,7 @@ router.use(nutritionRoutes);
 router.use(exercisePlanRoutes);
 router.use(exerciseSessionsRoutes);
 router.use(rehabPhasesRoutes);
+router.use(symptomPhotosRoutes);
 router.use(promsRoutes);
 router.use(weeklyReportsRoutes);
 router.use(eventsRoutes);

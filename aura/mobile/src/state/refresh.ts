@@ -15,7 +15,8 @@ export type RefreshKey =
   | "hydration"
   | "nutrition"
   | "medications"
-  | "weeklyReport";
+  | "weeklyReport"
+  | "photos";
 
 const PREFIX = "aura:lastRefreshed:";
 const RELATIVE_TICK_MS = 30000;

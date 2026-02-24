@@ -125,8 +125,10 @@ export async function apiFetchJson<T>(
     Accept: "application/json",
     ...(options.headers ?? {}),
   };
+  const isFormDataBody =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
 
-  if (options.body !== undefined) {
+  if (options.body !== undefined && !isFormDataBody) {
     headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
   }
 
@@ -140,7 +142,9 @@ export async function apiFetchJson<T>(
       headers,
       body:
         options.body !== undefined
-          ? JSON.stringify(options.body)
+          ? isFormDataBody
+            ? (options.body as FormData)
+            : JSON.stringify(options.body)
           : undefined,
       signal: controller.signal,
     });

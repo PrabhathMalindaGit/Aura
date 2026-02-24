@@ -14,6 +14,7 @@ import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedHydrationDay } from "@/src/state/hydrationCache";
 import { getCachedMedicationToday } from "@/src/state/medicationTodayCache";
 import { getCachedNutritionDay } from "@/src/state/nutritionCache";
+import { getCachedPhotosList } from "@/src/state/photosCache";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
@@ -22,6 +23,7 @@ import { formatNetworkReason, useNetwork } from "@/src/state/network";
 import { getPendingNutrition } from "@/src/state/pendingNutrition";
 import { getPendingHydration } from "@/src/state/pendingHydration";
 import { getPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
+import { getPendingPhotoUploads } from "@/src/state/pendingPhotoUploads";
 import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
@@ -54,6 +56,14 @@ export default function HomeScreen() {
   const [pendingNutritionCount, setPendingNutritionCount] = useState(0);
   const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
   const [pendingMedicationCount, setPendingMedicationCount] = useState(0);
+  const [pendingPhotoCount, setPendingPhotoCount] = useState(0);
+  const [photoSummary, setPhotoSummary] = useState<{
+    status: "loading" | "available" | "none";
+    itemCount: number;
+  }>({
+    status: "loading",
+    itemCount: 0,
+  });
   const [medicationTodaySummary, setMedicationTodaySummary] = useState<{
     taken: number;
     total: number;
@@ -86,6 +96,7 @@ export default function HomeScreen() {
   const hydrationRefresh = useLastRefreshed("hydration");
   const nutritionRefresh = useLastRefreshed("nutrition");
   const medicationsRefresh = useLastRefreshed("medications");
+  const photosRefresh = useLastRefreshed("photos");
   const weeklyReportRefresh = useLastRefreshed("weeklyReport");
 
   const authError = useLastError("auth");
@@ -107,6 +118,8 @@ export default function HomeScreen() {
   const nutritionLogError = useLastError("nutritionLog");
   const medicationsLoadError = useLastError("medicationsLoad");
   const medicationLogError = useLastError("medicationLog");
+  const photosLoadError = useLastError("photosLoad");
+  const photoUploadError = useLastError("photoUpload");
   const weeklyReportLoadError = useLastError("weeklyReportLoad");
 
   const patientId = auth.patient?.id ?? "";
@@ -203,6 +216,16 @@ export default function HomeScreen() {
         title: medicationLogError.lastError?.title,
       },
       {
+        label: "Photos load",
+        value: photosLoadError.label,
+        title: photosLoadError.lastError?.title,
+      },
+      {
+        label: "Photo upload",
+        value: photoUploadError.label,
+        title: photoUploadError.lastError?.title,
+      },
+      {
         label: "Weekly report load",
         value: weeklyReportLoadError.label,
         title: weeklyReportLoadError.lastError?.title,
@@ -253,6 +276,10 @@ export default function HomeScreen() {
       medicationsLoadError.lastError?.title,
       medicationLogError.label,
       medicationLogError.lastError?.title,
+      photosLoadError.label,
+      photosLoadError.lastError?.title,
+      photoUploadError.label,
+      photoUploadError.lastError?.title,
       weeklyReportLoadError.label,
       weeklyReportLoadError.lastError?.title,
       reminderPermissionError.label,
@@ -274,6 +301,7 @@ export default function HomeScreen() {
       hydrationRefresh.reload(),
       nutritionRefresh.reload(),
       medicationsRefresh.reload(),
+      photosRefresh.reload(),
       weeklyReportRefresh.reload(),
       authError.reload(),
       checkinSubmitError.reload(),
@@ -292,6 +320,8 @@ export default function HomeScreen() {
       nutritionLogError.reload(),
       medicationsLoadError.reload(),
       medicationLogError.reload(),
+      photosLoadError.reload(),
+      photoUploadError.reload(),
       weeklyReportLoadError.reload(),
       reminderPermissionError.reload(),
       reminderScheduleError.reload(),
@@ -305,6 +335,7 @@ export default function HomeScreen() {
       setPendingHydrationCount(0);
       setPendingNutritionCount(0);
       setPendingMedicationCount(0);
+      setPendingPhotoCount(0);
       return;
     }
     const pending = await getPending(patientId);
@@ -317,6 +348,8 @@ export default function HomeScreen() {
     setPendingNutritionCount(pendingNutrition.length);
     const pendingMedication = await getPendingMedicationLogs(patientId);
     setPendingMedicationCount(pendingMedication.length);
+    const pendingPhotos = await getPendingPhotoUploads(patientId);
+    setPendingPhotoCount(pendingPhotos.length);
   };
 
   useEffect(() => {
@@ -452,6 +485,42 @@ export default function HomeScreen() {
     let active = true;
 
     if (!patientId) {
+      setPhotoSummary({
+        status: "none",
+        itemCount: 0,
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedPhotosList(patientId);
+      if (!active) {
+        return;
+      }
+      if (!cached) {
+        setPhotoSummary({
+          status: "none",
+          itemCount: 0,
+        });
+        return;
+      }
+      setPhotoSummary({
+        status: cached.items.length > 0 ? "available" : "none",
+        itemCount: cached.items.length,
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, photosRefresh.lastRefreshedAt]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
       setHydrationTodayMl(null);
       return () => {
         active = false;
@@ -581,7 +650,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/plan/hydration/nutrition/medications/rehab/PROM/weekly-report caches, drafts, pending uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/plan/hydration/nutrition/medications/photos/rehab/PROM/weekly-report caches, drafts, pending uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -597,7 +666,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, progress, hydration, nutrition, medications, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, progress, hydration, nutrition, medications, photos, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -689,6 +758,11 @@ export default function HomeScreen() {
             compact
           />
           <LastRefreshed
+            label="Last refreshed (photos)"
+            value={photosRefresh.label}
+            compact
+          />
+          <LastRefreshed
             label="Last refreshed (weekly report)"
             value={weeklyReportRefresh.label}
             compact
@@ -728,6 +802,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.statusDetail}>
             Pending medication logs: {pendingMedicationCount}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Pending photos: {pendingPhotoCount}
           </Text>
           <Text style={styles.statusDetail}>
             Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not cached"}
@@ -770,6 +847,14 @@ export default function HomeScreen() {
                 ? "Available"
                 : "Not cached"}
           </Text>
+          <Text style={styles.statusDetail}>
+            Symptom photos:{" "}
+            {photoSummary.status === "loading"
+              ? "Loading cached summary..."
+              : photoSummary.status === "available"
+                ? `Cached (${photoSummary.itemCount})`
+                : "Not cached"}
+          </Text>
           <PrimaryButton
             label="Go to Check-in"
             onPress={() => router.push("/(tabs)/checkin")}
@@ -802,6 +887,10 @@ export default function HomeScreen() {
           <PrimaryButton
             label="Medications"
             onPress={() => router.push("/medications" as never)}
+          />
+          <PrimaryButton
+            label="Symptom photos"
+            onPress={() => router.push("/symptom-photos" as never)}
           />
           <PrimaryButton
             label="Rehab journey"
@@ -857,6 +946,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • Medications: mark dose Taken, go offline and mark another, then sync pending when online.
+          </Text>
+          <Text style={styles.bullet}>
+            • Symptom photos: add online, then add offline and sync pending when back online.
           </Text>
           <Text style={styles.bullet}>
             • Offline session: finish while offline, then submit pending when online.

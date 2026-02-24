@@ -163,6 +163,16 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
    - top repeated areas from recent check-ins.
 4. Open weekly report (`/patients/p1/weekly-report`) and verify **Top pain areas** is shown.
 
+## Symptom photo add-on demo path (Step 14 #6)
+
+1. In mobile, open **Symptom photos** and upload a photo while online.
+2. In mobile, go offline, add another photo, then return online and use **Sync now**.
+3. In dashboard, open `/patients/p1`.
+4. Review **Symptom photos (recent)** card:
+   - recent rows show date + kind + note preview
+   - clicking **View** opens the authenticated image blob in a new tab.
+5. Open weekly report (`/patients/p1/weekly-report`) and verify the **Symptom photos** block is shown.
+
 ## Notes
 
 - Legacy README preserved in `README_OLD.md`.

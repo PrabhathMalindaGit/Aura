@@ -16,7 +16,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { fetchJson } from './apiClient';
+import { fetchJson, getApiBaseUrl } from './apiClient';
 import {
   type AlertContextResponse,
   type AlertContextResult,
@@ -27,6 +27,8 @@ import {
   type NutritionRangeResponse,
   type MedicationListResponse,
   type MedicationAdherenceRangeResponse,
+  type PatientPhotosResponse,
+  type SymptomPhotoMeta,
   type CheckinEvent,
   type ChatEvent,
   type ExercisePlan,
@@ -65,6 +67,7 @@ const PATIENTS_QUERY_STALE_TIME_MS = 30_000;
 const DEFAULT_POLLING_INTERVAL_MS = 12_000;
 const TRENDS_ENDPOINT_HINT =
   'Trends endpoint not ready. Add GET /clinician/patients/:id/trends?days=14|30';
+const CLINICIAN_TOKEN_STORAGE_KEYS = ['clinicianToken', 'aura_auth_token', 'aura_access_token'];
 
 interface AlertPollingOptions {
   pollingEnabled?: boolean;
@@ -77,6 +80,20 @@ interface AlertMutationContext {
 
 function retryIfAllowed(failureCount: number, error: unknown): boolean {
   return failureCount < 2 && isRetryable(asAppError(error));
+}
+
+function getStoredClinicianToken(): string | null {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return null;
+  }
+
+  for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
+    const value = window.localStorage.getItem(key);
+    if (value && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 export const clinicianQueryKeys = {
@@ -604,6 +621,62 @@ export async function getPatientMedicationAdherence(
       method: 'GET',
     },
   );
+}
+
+export async function getPatientPhotos(
+  patientId: string,
+  params: { limit?: number; from?: string; to?: string } = {},
+): Promise<PatientPhotosResponse> {
+  const query = new URLSearchParams();
+  if (typeof params.limit === 'number' && Number.isFinite(params.limit)) {
+    query.set('limit', String(Math.max(1, Math.trunc(params.limit))));
+  }
+  if (params.from) {
+    query.set('from', params.from);
+  }
+  if (params.to) {
+    query.set('to', params.to);
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  return fetchJson<PatientPhotosResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/photos${suffix}`,
+    { method: 'GET' },
+  );
+}
+
+export async function getPhotoMeta(photoId: string): Promise<SymptomPhotoMeta> {
+  return fetchJson<SymptomPhotoMeta>(
+    `/clinician/photos/${encodeURIComponent(photoId)}/meta`,
+    { method: 'GET' },
+  );
+}
+
+export async function fetchPhotoBlob(photoId: string): Promise<Blob> {
+  const token = getStoredClinicianToken();
+  const headers = new Headers();
+  headers.set('Accept', 'image/*');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/clinician/photos/${encodeURIComponent(photoId)}/file`,
+      {
+        method: 'GET',
+        headers,
+      },
+    );
+    if (!response.ok) {
+      throw createAppError('HTTP', 'Could not load symptom photo file.', {
+        status: response.status,
+      });
+    }
+    return await response.blob();
+  } catch (error) {
+    throw asAppError(error);
+  }
 }
 
 export async function listPatients(): Promise<PatientSummary[]> {

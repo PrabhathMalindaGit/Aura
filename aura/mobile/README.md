@@ -646,6 +646,37 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 5. Open **Weekly report**:
    - verify **Top pain areas** section appears when body-map data exists this week.
 
+## Step 14: Symptom photo upload add-on
+
+- Symptom photos are tracked on a dedicated screen:
+  - `/symptom-photos` (opened from Demo Hub quick actions)
+- Backend endpoints used:
+  - `POST /patient/photos` (multipart upload)
+  - `GET /patient/photos`
+  - `GET /patient/photos/:id/meta`
+  - `GET /patient/photos/:id/file`
+- Trust-under-failure keys:
+  - `Last refreshed`: `photos`
+  - `Last failed`: `photosLoad`, `photoUpload`
+- Offline behavior:
+  - photo selection is allowed offline
+  - uploads are queued as pending and synced manually with **Sync now**.
+
+### Step 14 photo demo flow
+
+1. Open **Symptom photos** and add a photo while online.
+2. Verify the photo appears in the list and opens in **Photo** viewer.
+3. Turn offline and add another photo:
+   - item is marked **Pending sync**
+   - pending count increases.
+4. Go online and tap **Sync now**:
+   - pending count clears
+   - uploaded item appears in server-backed list.
+5. Open **Weekly report**:
+   - verify **Symptom photos** section appears (uploaded count + kinds).
+6. Open dashboard `/patients/p1`:
+   - verify **Symptom photos (recent)** panel shows entries and **View** opens image.
+
 ## How to Test Offline
 
 - iOS simulator: disable network in simulator/device settings.

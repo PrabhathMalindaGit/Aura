@@ -23,7 +23,9 @@ export type ErrorKey =
   | "nutritionLog"
   | "medicationsLoad"
   | "medicationLog"
-  | "weeklyReportLoad";
+  | "weeklyReportLoad"
+  | "photosLoad"
+  | "photoUpload";
 
 export type LastErrorRecord = {
   key: ErrorKey;

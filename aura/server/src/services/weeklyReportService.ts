@@ -7,6 +7,7 @@ import MedicationLog from "../models/MedicationLog";
 import MedicationSchedule from "../models/MedicationSchedule";
 import NutritionLog from "../models/NutritionLog";
 import PromInstance from "../models/PromInstance";
+import SymptomPhoto from "../models/SymptomPhoto";
 import { bodyMapRegionLabel, isBodyMapRegion } from "../constants/bodyMap";
 
 export type WeeklyReport = {
@@ -42,6 +43,15 @@ export type WeeklyReport = {
     trackedNights: number;
     avgHours: number | null;
     avgQuality: number | null;
+  };
+  photos: {
+    uploadedThisWeek: number;
+    kinds: {
+      swelling: number;
+      wound: number;
+      rash: number;
+      other: number;
+    };
   };
   hydration: {
     trackedDays: number;
@@ -303,6 +313,7 @@ function buildHighlights(input: {
   medicationScheduledDoses: number;
   medicationAdherencePct: number | null;
   topPainRegion: { label: string; count: number } | null;
+  photoUploadsThisWeek: number;
 }): string[] {
   const highlights: string[] = [];
 
@@ -396,6 +407,10 @@ function buildHighlights(input: {
     );
   }
 
+  if (input.photoUploadsThisWeek >= 3) {
+    highlights.push(`You shared ${input.photoUploadsThisWeek} symptom photos this week.`);
+  }
+
   if (highlights.length === 0) {
     highlights.push("No major changes were detected this week.");
   }
@@ -463,6 +478,7 @@ export async function generateWeeklyReport(options: {
     weekAlerts,
     weekHighRiskAlerts,
     hydrationRows,
+    symptomPhotos,
     nutritionRows,
     activeMedications,
   ] =
@@ -523,6 +539,15 @@ export async function generateWeeklyReport(options: {
         },
       })
         .select({ date: 1, amountMl: 1 })
+        .lean(),
+      SymptomPhoto.find({
+        patientId,
+        date: {
+          $gte: weekStart,
+          $lt: weekEnd,
+        },
+      })
+        .select({ kind: 1 })
         .lean(),
       NutritionLog.find({
         patientId,
@@ -782,6 +807,23 @@ export async function generateWeeklyReport(options: {
     hydrationTotalsByDay.set(date, (hydrationTotalsByDay.get(date) ?? 0) + amountMl);
   }
   const hydrationDailyTotals = [...hydrationTotalsByDay.values()];
+  const photosSummary = {
+    uploadedThisWeek: symptomPhotos.length,
+    kinds: {
+      swelling: 0,
+      wound: 0,
+      rash: 0,
+      other: 0,
+    },
+  };
+  for (const row of symptomPhotos) {
+    const kind = getStringValue((row as { kind?: unknown }).kind);
+    if (kind === "swelling" || kind === "wound" || kind === "rash") {
+      photosSummary.kinds[kind] += 1;
+    } else {
+      photosSummary.kinds.other += 1;
+    }
+  }
   const hydrationSummary = {
     trackedDays: hydrationDailyTotals.length,
     avgDailyMl: avg(hydrationDailyTotals),
@@ -922,6 +964,7 @@ export async function generateWeeklyReport(options: {
           count: bodyMapSummary.topRegions[0].count,
         }
       : null,
+    photoUploadsThisWeek: photosSummary.uploadedThisWeek,
   });
 
   const nextSteps = buildNextSteps({
@@ -950,6 +993,7 @@ export async function generateWeeklyReport(options: {
     checkins: checkinsSummary,
     bodyMap: bodyMapSummary,
     sleep: sleepSummary,
+    photos: photosSummary,
     hydration: hydrationSummary,
     nutrition: nutritionSummary,
     medications: medicationsSummary,

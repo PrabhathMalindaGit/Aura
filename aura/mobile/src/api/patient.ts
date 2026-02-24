@@ -207,6 +207,46 @@ export type MedicationAdherenceRangeResponse = {
   days: MedicationAdherenceDay[];
 };
 
+export type SymptomPhotoKind = "swelling" | "wound" | "rash" | "other";
+
+export type SymptomPhotoItem = {
+  id: string;
+  date: string;
+  kind: SymptomPhotoKind;
+  notePreview?: string;
+  createdAt: string;
+  pending?: boolean;
+  localId?: string;
+  localFileUri?: string;
+};
+
+export type SymptomPhotoMeta = {
+  id: string;
+  date: string;
+  kind: SymptomPhotoKind;
+  note?: string;
+  createdAt: string;
+  mimeType: string;
+  sizeBytes: number;
+  patientId?: string;
+};
+
+export type PhotoUploadPayload = {
+  uri: string;
+  mimeType: string;
+  date?: string;
+  kind: SymptomPhotoKind;
+  note?: string;
+};
+
+export type PhotoUploadResponse = {
+  ok: boolean;
+  id: string;
+  date: string;
+  kind: SymptomPhotoKind;
+  createdAt: string;
+};
+
 export type ExercisePlanItem = {
   key: string;
   name: string;
@@ -360,6 +400,15 @@ export type WeeklyReport = {
     trackedNights: number;
     avgHours: number | null;
     avgQuality: number | null;
+  };
+  photos: {
+    uploadedThisWeek: number;
+    kinds: {
+      swelling: number;
+      wound: number;
+      rash: number;
+      other: number;
+    };
   };
   hydration: {
     trackedDays: number;
@@ -849,6 +898,15 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       avgHours?: unknown;
       avgQuality?: unknown;
     };
+    photos?: {
+      uploadedThisWeek?: unknown;
+      kinds?: {
+        swelling?: unknown;
+        wound?: unknown;
+        rash?: unknown;
+        other?: unknown;
+      };
+    };
     hydration?: {
       trackedDays?: unknown;
       avgDailyMl?: unknown;
@@ -935,6 +993,11 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
   const alertsCreatedThisWeek = toFiniteNumber(record.safety?.alertsCreatedThisWeek) ?? 0;
   const highRiskAlertsThisWeek = toFiniteNumber(record.safety?.highRiskAlertsThisWeek) ?? 0;
   const trackedSleepNights = toFiniteNumber(record.sleep?.trackedNights) ?? 0;
+  const photosUploadedThisWeek = toFiniteNumber(record.photos?.uploadedThisWeek) ?? 0;
+  const photosSwelling = toFiniteNumber(record.photos?.kinds?.swelling) ?? 0;
+  const photosWound = toFiniteNumber(record.photos?.kinds?.wound) ?? 0;
+  const photosRash = toFiniteNumber(record.photos?.kinds?.rash) ?? 0;
+  const photosOther = toFiniteNumber(record.photos?.kinds?.other) ?? 0;
   const hydrationTrackedDays = toFiniteNumber(record.hydration?.trackedDays) ?? 0;
   const hydrationTotalMl = toFiniteNumber(record.hydration?.totalMl) ?? 0;
   const hydrationDaysMeetingTarget =
@@ -1043,6 +1106,15 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       trackedNights: trackedSleepNights,
       avgHours: toFiniteNumber(record.sleep?.avgHours),
       avgQuality: toFiniteNumber(record.sleep?.avgQuality),
+    },
+    photos: {
+      uploadedThisWeek: Math.max(0, Math.trunc(photosUploadedThisWeek)),
+      kinds: {
+        swelling: Math.max(0, Math.trunc(photosSwelling)),
+        wound: Math.max(0, Math.trunc(photosWound)),
+        rash: Math.max(0, Math.trunc(photosRash)),
+        other: Math.max(0, Math.trunc(photosOther)),
+      },
     },
     hydration: {
       trackedDays: hydrationTrackedDays,
@@ -2213,6 +2285,101 @@ function normalizeMedicationAdherenceRange(value: unknown): MedicationAdherenceR
   };
 }
 
+function normalizeSymptomPhotoKind(value: unknown): SymptomPhotoKind {
+  return value === "swelling" || value === "wound" || value === "rash"
+    ? value
+    : "other";
+}
+
+function normalizeSymptomPhotoItem(value: unknown): SymptomPhotoItem | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const item = value as {
+    id?: unknown;
+    _id?: unknown;
+    date?: unknown;
+    kind?: unknown;
+    notePreview?: unknown;
+    createdAt?: unknown;
+    pending?: unknown;
+    localId?: unknown;
+    localFileUri?: unknown;
+  };
+
+  const id =
+    typeof item.id === "string"
+      ? item.id
+      : typeof item._id === "string"
+        ? item._id
+        : "";
+  const date = typeof item.date === "string" ? item.date : "";
+  const createdAt = typeof item.createdAt === "string" ? item.createdAt : "";
+  if (!id || !date || !createdAt) {
+    return null;
+  }
+
+  return {
+    id,
+    date,
+    kind: normalizeSymptomPhotoKind(item.kind),
+    notePreview:
+      typeof item.notePreview === "string" && item.notePreview.trim()
+        ? item.notePreview.trim()
+        : undefined,
+    createdAt,
+    pending: item.pending === true ? true : undefined,
+    localId: typeof item.localId === "string" ? item.localId : undefined,
+    localFileUri:
+      typeof item.localFileUri === "string" ? item.localFileUri : undefined,
+  };
+}
+
+function normalizeSymptomPhotoMeta(value: unknown): SymptomPhotoMeta | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const meta = value as {
+    id?: unknown;
+    _id?: unknown;
+    date?: unknown;
+    kind?: unknown;
+    note?: unknown;
+    createdAt?: unknown;
+    mimeType?: unknown;
+    sizeBytes?: unknown;
+    patientId?: unknown;
+  };
+
+  const id =
+    typeof meta.id === "string"
+      ? meta.id
+      : typeof meta._id === "string"
+        ? meta._id
+        : "";
+  const date = typeof meta.date === "string" ? meta.date : "";
+  const createdAt = typeof meta.createdAt === "string" ? meta.createdAt : "";
+  const mimeType = typeof meta.mimeType === "string" ? meta.mimeType : "";
+  const sizeBytes = toFiniteNumber(meta.sizeBytes);
+  if (!id || !date || !createdAt || !mimeType || sizeBytes === null) {
+    return null;
+  }
+
+  return {
+    id,
+    date,
+    kind: normalizeSymptomPhotoKind(meta.kind),
+    note: typeof meta.note === "string" ? meta.note : undefined,
+    createdAt,
+    mimeType,
+    sizeBytes: Math.max(0, Math.trunc(sizeBytes)),
+    patientId:
+      typeof meta.patientId === "string" && meta.patientId.trim()
+        ? meta.patientId
+        : undefined,
+  };
+}
+
 export async function logHydration(
   token: string,
   payload: { date?: string; amountMl: number }
@@ -2495,6 +2662,153 @@ export async function getMedicationAdherenceRange(
   if (!normalized) {
     throw invalidResponseError("Could not parse medication adherence response.");
   }
+  return normalized;
+}
+
+function fallbackFileName(mimeType: string): string {
+  const extension =
+    mimeType === "image/png"
+      ? "png"
+      : mimeType === "image/webp"
+        ? "webp"
+        : mimeType === "image/heic"
+          ? "heic"
+          : mimeType === "image/heif"
+            ? "heif"
+            : "jpg";
+  return `symptom-photo.${extension}`;
+}
+
+export async function uploadPhoto(
+  token: string,
+  payload: PhotoUploadPayload
+): Promise<PhotoUploadResponse> {
+  const form = new FormData();
+  if (payload.date) {
+    form.append("date", payload.date);
+  }
+  form.append("kind", payload.kind);
+  if (payload.note && payload.note.trim()) {
+    form.append("note", payload.note.trim().slice(0, 280));
+  }
+
+  const uri = payload.uri;
+  const fileNameCandidate =
+    typeof uri === "string" && uri.includes("/") ? uri.split("/").pop() : "";
+  const fileName =
+    typeof fileNameCandidate === "string" && fileNameCandidate.trim()
+      ? fileNameCandidate
+      : fallbackFileName(payload.mimeType);
+
+  form.append("file", {
+    uri,
+    name: fileName,
+    type: payload.mimeType,
+  } as any);
+
+  const response = await apiFetchJson<{
+    ok?: unknown;
+    id?: unknown;
+    _id?: unknown;
+    date?: unknown;
+    kind?: unknown;
+    createdAt?: unknown;
+    data?: unknown;
+  }>("/patient/photos", {
+    method: "POST",
+    token,
+    body: form,
+  });
+
+  const record =
+    response.data && typeof response.data === "object"
+      ? ({ ...response, ...response.data } as typeof response)
+      : response;
+  const id =
+    typeof record.id === "string"
+      ? record.id
+      : typeof record._id === "string"
+        ? record._id
+        : "";
+  const date = typeof record.date === "string" ? record.date : "";
+  const createdAt = typeof record.createdAt === "string" ? record.createdAt : "";
+  if (!id || !date || !createdAt) {
+    throw invalidResponseError("Could not parse symptom photo upload response.");
+  }
+
+  return {
+    ok: record.ok !== false,
+    id,
+    date,
+    kind: normalizeSymptomPhotoKind(record.kind),
+    createdAt,
+  };
+}
+
+export async function listPhotos(
+  token: string,
+  params?: { limit?: number; from?: string; to?: string }
+): Promise<SymptomPhotoItem[]> {
+  const query = new URLSearchParams();
+  if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+    query.set("limit", String(Math.max(1, Math.trunc(params.limit))));
+  }
+  if (params?.from) {
+    query.set("from", params.from);
+  }
+  if (params?.to) {
+    query.set("to", params.to);
+  }
+  const path = query.toString()
+    ? `/patient/photos?${query.toString()}`
+    : "/patient/photos";
+
+  const payload = await apiFetchJson<{
+    items?: unknown;
+    photos?: unknown;
+    data?: unknown;
+  }>(path, {
+    method: "GET",
+    token,
+  });
+
+  const source = Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray(payload.photos)
+      ? payload.photos
+      : Array.isArray(payload.data)
+        ? payload.data
+        : [];
+
+  return source
+    .map((item) => normalizeSymptomPhotoItem(item))
+    .filter((item): item is SymptomPhotoItem => Boolean(item))
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+}
+
+export async function getPhotoMeta(
+  token: string,
+  photoId: string
+): Promise<SymptomPhotoMeta> {
+  const payload = await apiFetchJson<{
+    photo?: unknown;
+    item?: unknown;
+    data?: unknown;
+  }>(`/patient/photos/${encodeURIComponent(photoId)}/meta`, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeSymptomPhotoMeta(payload.photo) ??
+    normalizeSymptomPhotoMeta(payload.item) ??
+    normalizeSymptomPhotoMeta(payload.data) ??
+    normalizeSymptomPhotoMeta(payload);
+
+  if (!normalized) {
+    throw invalidResponseError("Could not parse symptom photo metadata.");
+  }
+
   return normalized;
 }
 

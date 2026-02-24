@@ -15,7 +15,9 @@ import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import {
   assignPromToPatient,
+  fetchPhotoBlob,
   getPatientMedicationAdherence,
+  getPatientPhotos,
   getPatientExerciseSessions,
   getPatientHydrationRange,
   getPatientNutritionRange,
@@ -39,6 +41,7 @@ import type {
   PromDueCard,
   PromHistoryRow,
   RehabPayload,
+  SymptomPhotoItem,
   TrendPointRaw,
 } from '../types/models';
 import { toCsv, downloadCsv } from '../utils/csv';
@@ -232,6 +235,8 @@ export function PatientDetailPage(): JSX.Element {
   const [promDueAt, setPromDueAt] = useState('');
   const [promSaveError, setPromSaveError] = useState<string | null>(null);
   const [isAssigningProm, setIsAssigningProm] = useState(false);
+  const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
+  const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
   const [patientExportOpen, setPatientExportOpen] = useState(false);
   const [patientExportRange, setPatientExportRange] = useState<DateRangeValue>(() =>
@@ -299,6 +304,21 @@ export function PatientDetailPage(): JSX.Element {
     queryKey: ['patient-medications-adherence', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () =>
       getPatientMedicationAdherence(patientId ?? '', recentSleepFrom, recentSleepTo),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientPhotosQuery = useQuery({
+    queryKey: ['patient-photos', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: () =>
+      getPatientPhotos(patientId ?? '', {
+        limit: 20,
+        from: recentSleepFrom,
+        to: recentSleepTo,
+      }),
     enabled: Boolean(patientId),
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
@@ -608,6 +628,45 @@ export function PatientDetailPage(): JSX.Element {
       adherencePct,
     };
   }, [recentMedicationDays]);
+  const recentPhotos = useMemo<SymptomPhotoItem[]>(
+    () => (patientPhotosQuery.data?.items ?? []).slice(0, 7),
+    [patientPhotosQuery.data?.items],
+  );
+  const recentPhotoSummary = useMemo(() => {
+    if (recentPhotos.length === 0) {
+      return {
+        total: 0,
+        swelling: 0,
+        wound: 0,
+        rash: 0,
+        other: 0,
+      };
+    }
+
+    let swelling = 0;
+    let wound = 0;
+    let rash = 0;
+    let other = 0;
+    for (const item of recentPhotos) {
+      if (item.kind === 'swelling') {
+        swelling += 1;
+      } else if (item.kind === 'wound') {
+        wound += 1;
+      } else if (item.kind === 'rash') {
+        rash += 1;
+      } else {
+        other += 1;
+      }
+    }
+
+    return {
+      total: recentPhotos.length,
+      swelling,
+      wound,
+      rash,
+      other,
+    };
+  }, [recentPhotos]);
 
   const patientAlerts = useMemo(() => patientAlertsQuery.data ?? [], [patientAlertsQuery.data]);
   const patientSessions = useMemo(
@@ -694,6 +753,27 @@ export function PatientDetailPage(): JSX.Element {
       setRehabSaveError(toUserMessage(asAppError(error)));
     } finally {
       setIsSavingRehab(false);
+    }
+  }
+
+  async function handleOpenPhoto(photoId: string): Promise<void> {
+    if (!photoId) {
+      return;
+    }
+
+    setPhotoOpenError(null);
+    setOpeningPhotoId(photoId);
+    try {
+      const blob = await fetchPhotoBlob(photoId);
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+      }, 60_000);
+    } catch (error) {
+      setPhotoOpenError(toUserMessage(asAppError(error)));
+    } finally {
+      setOpeningPhotoId(null);
     }
   }
 
@@ -997,6 +1077,18 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientPhotosQuery.error ? (
+        <AlertBanner variant="error" title="Could not load symptom photos">
+          {toUserMessage(patientPhotosQuery.error)}
+        </AlertBanner>
+      ) : null}
+
+      {photoOpenError ? (
+        <AlertBanner variant="error" title="Could not open symptom photo">
+          {photoOpenError}
+        </AlertBanner>
+      ) : null}
+
       {rehabSaveError ? (
         <AlertBanner variant="error" title="Could not update rehab phase">
           {rehabSaveError}
@@ -1093,6 +1185,68 @@ export function PatientDetailPage(): JSX.Element {
                     .map((entry) => `${bodyMapRegionLabel(entry.region)} (${entry.intensity})`)
                     .join(', ')}
                 </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Symptom photos (recent)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientPhotosQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientPhotosQuery.isLoading && recentPhotos.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Symptom photos loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={88} />
+          </div>
+        ) : recentPhotos.length === 0 ? (
+          <p className="muted-text">No symptom photos in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Uploaded: <strong>{recentPhotoSummary.total}</strong> · swelling{' '}
+              <strong>{recentPhotoSummary.swelling}</strong> · wound{' '}
+              <strong>{recentPhotoSummary.wound}</strong> · rash{' '}
+              <strong>{recentPhotoSummary.rash}</strong> · other{' '}
+              <strong>{recentPhotoSummary.other}</strong>
+            </p>
+            <div className="stack stack--1">
+              {recentPhotos.slice(0, 5).map((photo) => (
+                <div
+                  key={photo.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <p className="muted-text" style={{ margin: 0 }}>
+                    {photo.date}: {photo.kind}
+                    {photo.notePreview ? ` · ${photo.notePreview}` : ''}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={openingPhotoId === photo.id}
+                    onClick={() => {
+                      void handleOpenPhoto(photo.id);
+                    }}
+                  >
+                    {openingPhotoId === photo.id ? 'Opening…' : 'View'}
+                  </Button>
+                </div>
               ))}
             </div>
           </div>

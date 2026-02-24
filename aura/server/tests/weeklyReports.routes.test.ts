@@ -14,6 +14,7 @@ import MedicationSchedule from "../src/models/MedicationSchedule";
 import NutritionLog from "../src/models/NutritionLog";
 import Patient from "../src/models/Patient";
 import PromInstance from "../src/models/PromInstance";
+import SymptomPhoto from "../src/models/SymptomPhoto";
 import { signAuthToken } from "../src/utils/jwt";
 import { signPatientToken } from "../src/utils/patientJwt";
 
@@ -38,6 +39,7 @@ describe("weekly report routes", () => {
       CheckIn.deleteMany({}),
       ExerciseSession.deleteMany({}),
       HydrationLog.deleteMany({}),
+      SymptomPhoto.deleteMany({}),
       NutritionLog.deleteMany({}),
       Medication.deleteMany({}),
       MedicationSchedule.deleteMany({}),
@@ -211,6 +213,45 @@ describe("weekly report routes", () => {
         amountMl: 2300,
         source: "manual",
         createdAt: new Date("2026-02-24T10:00:00.000Z"),
+      },
+    ]);
+
+    await SymptomPhoto.insertMany([
+      {
+        patientId: "p1",
+        date: "2026-02-23",
+        kind: "swelling",
+        note: "Mild swelling in the evening",
+        mimeType: "image/jpeg",
+        sizeBytes: 1200,
+        storageKey: "p1-week-1.jpg",
+      },
+      {
+        patientId: "p1",
+        date: "2026-02-24",
+        kind: "wound",
+        note: "Incision looked clean",
+        mimeType: "image/jpeg",
+        sizeBytes: 1300,
+        storageKey: "p1-week-2.jpg",
+      },
+      {
+        patientId: "p1",
+        date: "2026-02-27",
+        kind: "rash",
+        note: "Small irritation",
+        mimeType: "image/png",
+        sizeBytes: 1400,
+        storageKey: "p1-week-3.png",
+      },
+      {
+        patientId: "p2",
+        date: "2026-02-24",
+        kind: "other",
+        note: "Other example",
+        mimeType: "image/webp",
+        sizeBytes: 1500,
+        storageKey: "p2-week-1.webp",
       },
     ]);
 
@@ -458,6 +499,7 @@ describe("weekly report routes", () => {
     expect(response.body).toHaveProperty("exercises.sessionCount");
     expect(response.body).toHaveProperty("proms.dueNowCount");
     expect(response.body).toHaveProperty("safety.alertsCreatedThisWeek");
+    expect(response.body).toHaveProperty("photos.uploadedThisWeek");
   });
 
   it("patient report endpoint remains scoped to req.patient.id", async () => {
@@ -524,6 +566,15 @@ describe("weekly report routes", () => {
       daysMeetingTarget: 1,
       targetMl: 2000,
     });
+    expect(response.body.photos).toMatchObject({
+      uploadedThisWeek: 3,
+      kinds: {
+        swelling: 1,
+        wound: 1,
+        rash: 1,
+        other: 0,
+      },
+    });
     expect(response.body.nutrition).toMatchObject({
       trackedDays: 4,
       avgFruitVegServings: 2.8,
@@ -570,5 +621,6 @@ describe("weekly report routes", () => {
     expect(highlights).toContain("You focused on anti-inflammatory foods on 3 days.");
     expect(highlights).toContain("Medication adherence was low this week.");
     expect(highlights).toContain("Pain was frequently reported in lower back.");
+    expect(highlights).toContain("You shared 3 symptom photos this week.");
   });
 });

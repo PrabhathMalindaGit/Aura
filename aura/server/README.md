@@ -136,6 +136,35 @@ curl -sS "http://localhost:3000/patient/medications/logs/range?from=2026-02-17&t
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient symptom photo upload:
+```bash
+curl -sS -X POST http://localhost:3000/patient/photos \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -F "file=@/absolute/path/to/symptom.jpg;type=image/jpeg" \
+  -F "date=2026-02-23" \
+  -F "kind=swelling" \
+  -F "note=Mild swelling near incision"
+```
+
+- Patient symptom photo list:
+```bash
+curl -sS "http://localhost:3000/patient/photos?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient symptom photo metadata:
+```bash
+curl -sS "http://localhost:3000/patient/photos/<PHOTO_ID>/meta" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient symptom photo file (binary stream):
+```bash
+curl -sS "http://localhost:3000/patient/photos/<PHOTO_ID>/file" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  --output symptom-photo.jpg
+```
+
 - Patient chat send:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/chat/send \
@@ -311,11 +340,31 @@ curl -sS "http://localhost:3000/clinician/patients/p1/medications/adherence?from
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 
+- Get clinician symptom photos for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/photos?limit=20&from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician symptom photo metadata:
+```bash
+curl -sS "http://localhost:3000/clinician/photos/<PHOTO_ID>/meta" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician symptom photo file (binary stream):
+```bash
+curl -sS "http://localhost:3000/clinician/photos/<PHOTO_ID>/file" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  --output clinician-photo.jpg
+```
+
 - Get clinician weekly report for a patient:
 ```bash
 curl -sS "http://localhost:3000/clinician/patients/p1/reports/weekly?weekStart=2026-02-23&tzOffsetMinutes=0" \
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
+Response now includes deterministic `photos` counts (`uploadedThisWeek` + kind breakdown).
 
 ## 5) n8n verification
 - Open `http://localhost:5678`

@@ -625,6 +625,27 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 6. Open dashboard `/patients/p1`:
    - verify **Medication adherence (last 7 days)** panel updates.
 
+## Step 14: Body map pain localization add-on
+
+- Body map is now optional in check-ins:
+  - region chips (up to 6 selections in UI)
+  - per-region intensity (`0..10`)
+  - per-region pain type (`ache`, `sharp`, `burning`, `tingling`, `stiffness`, `other`)
+- Backend endpoint used:
+  - `POST /patient/checkins` (bodyMap embedded in check-in payload)
+- Trust-under-failure behavior:
+  - check-in submission is still blocked while offline
+  - no new offline queue was added for body map (same as check-in behavior)
+
+### Step 14 body map demo flow
+
+1. Open **Check-in** and select 1–2 body areas in **Where is the pain?**.
+2. Set intensity/type for each selected area and submit while online.
+3. Open **Progress** and tap the new check-in row to open **Check-in detail**.
+4. Verify **Pain areas** renders region label + intensity + type.
+5. Open **Weekly report**:
+   - verify **Top pain areas** section appears when body-map data exists this week.
+
 ## How to Test Offline
 
 - iOS simulator: disable network in simulator/device settings.

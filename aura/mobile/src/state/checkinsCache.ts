@@ -1,6 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { CheckInItem } from "@/src/api/patient";
+import {
+  isBodyMapPainType,
+  isBodyMapRegion,
+  type BodyMapPainType,
+  type BodyMapRegion,
+} from "@/src/utils/bodyMapLabels";
 
 const PREFIX = "aura:checkinsCache:v1:";
 const MAX_CACHE_ITEMS = 400;
@@ -28,6 +34,9 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
       hours?: unknown;
       quality?: unknown;
       disturbances?: unknown;
+    };
+    bodyMap?: {
+      regions?: unknown;
     };
   };
 
@@ -74,6 +83,49 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
     typeof sleepQuality === "number" ||
     typeof sleepDisturbances === "number";
 
+  const bodyMapRegions = Array.isArray(item.bodyMap?.regions)
+    ? item.bodyMap.regions
+        .map((entry) => {
+          const region =
+            entry && typeof entry === "object"
+              ? (entry as {
+                  region?: unknown;
+                  intensity?: unknown;
+                  type?: unknown;
+                })
+              : undefined;
+          if (!region || !isBodyMapRegion(region.region)) {
+            return null;
+          }
+          if (
+            typeof region.intensity !== "number" ||
+            !Number.isFinite(region.intensity) ||
+            !Number.isInteger(region.intensity) ||
+            region.intensity < 0 ||
+            region.intensity > 10
+          ) {
+            return null;
+          }
+          if (!isBodyMapPainType(region.type)) {
+            return null;
+          }
+          return {
+            region: region.region,
+            intensity: region.intensity,
+            type: region.type,
+          };
+        })
+        .filter(
+          (
+            region
+          ): region is {
+            region: BodyMapRegion;
+            intensity: number;
+            type: BodyMapPainType;
+          } => Boolean(region)
+        )
+    : [];
+
   return {
     id: item.id.trim(),
     date: typeof item.date === "string" ? item.date : undefined,
@@ -94,6 +146,12 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
           disturbances: sleepDisturbances,
         }
       : undefined,
+    bodyMap:
+      bodyMapRegions.length > 0
+        ? {
+            regions: bodyMapRegions,
+          }
+        : undefined,
   };
 }
 

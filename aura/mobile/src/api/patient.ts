@@ -1,5 +1,11 @@
 import { apiFetchJson, type ApiError } from "@/src/api/client";
 import type { Patient, Risk } from "@/src/types/models";
+import {
+  isBodyMapPainType,
+  isBodyMapRegion,
+  type BodyMapPainType,
+  type BodyMapRegion,
+} from "@/src/utils/bodyMapLabels";
 
 type PatientLike = {
   id?: string;
@@ -34,6 +40,13 @@ export type CheckInCreatePayload = {
     hours?: number;
     quality?: number;
     disturbances?: number;
+  };
+  bodyMap?: {
+    regions: Array<{
+      region: BodyMapRegion;
+      intensity: number;
+      type: BodyMapPainType;
+    }>;
   };
   notes?: string;
 };
@@ -335,6 +348,14 @@ export type WeeklyReport = {
     medicationYesPct: number | null;
     notesCount: number;
   };
+  bodyMap: {
+    topRegions: Array<{
+      region: BodyMapRegion;
+      label: string;
+      count: number;
+      avgIntensity: number | null;
+    }>;
+  };
   sleep: {
     trackedNights: number;
     avgHours: number | null;
@@ -459,6 +480,13 @@ export type CheckInItem = {
     hours?: number;
     quality?: number;
     disturbances?: number;
+  };
+  bodyMap?: {
+    regions: Array<{
+      region: BodyMapRegion;
+      intensity: number;
+      type: BodyMapPainType;
+    }>;
   };
   notes?: string;
 };
@@ -813,6 +841,9 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       medicationYesPct?: unknown;
       notesCount?: unknown;
     };
+    bodyMap?: {
+      topRegions?: unknown;
+    };
     sleep?: {
       trackedNights?: unknown;
       avgHours?: unknown;
@@ -922,6 +953,48 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
   const medicationSkippedDoses =
     toFiniteNumber(record.medications?.skippedDoses) ?? 0;
 
+  const bodyMapTopRegions = Array.isArray(record.bodyMap?.topRegions)
+    ? record.bodyMap.topRegions
+        .map((entry) => {
+          const row =
+            entry && typeof entry === "object"
+              ? (entry as {
+                  region?: unknown;
+                  label?: unknown;
+                  count?: unknown;
+                  avgIntensity?: unknown;
+                })
+              : undefined;
+          if (!row || !isBodyMapRegion(row.region)) {
+            return null;
+          }
+          const label =
+            typeof row.label === "string" && row.label.trim()
+              ? row.label.trim()
+              : row.region;
+          const countValue = toFiniteNumber(row.count);
+          if (countValue === null) {
+            return null;
+          }
+          return {
+            region: row.region,
+            label,
+            count: Math.max(0, Math.trunc(countValue)),
+            avgIntensity: toFiniteNumber(row.avgIntensity),
+          };
+        })
+        .filter(
+          (
+            item
+          ): item is {
+            region: BodyMapRegion;
+            label: string;
+            count: number;
+            avgIntensity: number | null;
+          } => Boolean(item)
+        )
+    : [];
+
   const latestCompleted =
     record.proms?.latestCompleted &&
     typeof record.proms.latestCompleted === "object" &&
@@ -962,6 +1035,9 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       avgExercisesPct: toFiniteNumber(record.checkins?.avgExercisesPct),
       medicationYesPct: toFiniteNumber(record.checkins?.medicationYesPct),
       notesCount,
+    },
+    bodyMap: {
+      topRegions: bodyMapTopRegions,
     },
     sleep: {
       trackedNights: trackedSleepNights,
@@ -1263,6 +1339,69 @@ function normalizePromInstance(value: unknown): PromInstance | null {
   };
 }
 
+function normalizeBodyMapRegionEntry(
+  value: unknown
+): {
+  region: BodyMapRegion;
+  intensity: number;
+  type: BodyMapPainType;
+} | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const item = value as { region?: unknown; intensity?: unknown; type?: unknown };
+  if (!isBodyMapRegion(item.region)) {
+    return null;
+  }
+  if (
+    typeof item.intensity !== "number" ||
+    !Number.isFinite(item.intensity) ||
+    !Number.isInteger(item.intensity) ||
+    item.intensity < 0 ||
+    item.intensity > 10
+  ) {
+    return null;
+  }
+  if (!isBodyMapPainType(item.type)) {
+    return null;
+  }
+
+  return {
+    region: item.region,
+    intensity: item.intensity,
+    type: item.type,
+  };
+}
+
+function normalizeBodyMap(value: unknown): CheckInItem["bodyMap"] | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const regionsSource = Array.isArray((value as { regions?: unknown }).regions)
+    ? ((value as { regions: unknown[] }).regions as unknown[])
+    : [];
+
+  const regions = regionsSource
+    .map((item) => normalizeBodyMapRegionEntry(item))
+    .filter(
+      (
+        item
+      ): item is {
+        region: BodyMapRegion;
+        intensity: number;
+        type: BodyMapPainType;
+      } => Boolean(item)
+    );
+
+  if (regions.length === 0) {
+    return undefined;
+  }
+
+  return { regions };
+}
+
 function normalizeCheckInItem(value: unknown): CheckInItem | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -1285,6 +1424,7 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
       quality?: unknown;
       disturbances?: unknown;
     };
+    bodyMap?: unknown;
     notes?: unknown;
   };
 
@@ -1334,6 +1474,7 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
     mood,
     adherence,
     sleep,
+    bodyMap: normalizeBodyMap(item.bodyMap),
     notes: typeof item.notes === "string" ? item.notes : undefined,
   };
 }

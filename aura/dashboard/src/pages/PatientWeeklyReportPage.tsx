@@ -238,6 +238,23 @@ export function PatientWeeklyReportPage(): JSX.Element {
             </div>
           </Card>
 
+          <Card title="Top pain areas">
+            <div className="stack stack--1">
+              {reportQuery.data.bodyMap.topRegions.length === 0 ? (
+                <p className="muted-text">No localized pain areas recorded this week.</p>
+              ) : (
+                reportQuery.data.bodyMap.topRegions.map((entry) => (
+                  <p key={`${entry.region}-${entry.count}`} className="muted-text">
+                    {entry.label}: {entry.count} {entry.count === 1 ? 'entry' : 'entries'}
+                    {entry.avgIntensity === null
+                      ? ''
+                      : ` · avg intensity ${entry.avgIntensity}/10`}
+                  </p>
+                ))
+              )}
+            </div>
+          </Card>
+
           <Card title="Sleep">
             <div className="stack stack--1">
               <p className="muted-text">Tracked nights: {reportQuery.data.sleep.trackedNights}</p>

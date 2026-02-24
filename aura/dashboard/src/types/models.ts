@@ -49,6 +49,13 @@ export interface CheckinEvent {
   date: string;
   pain: number;
   mood: number;
+  bodyMap?: {
+    regions: Array<{
+      region: string;
+      intensity: number;
+      type: string;
+    }>;
+  };
   adherence?: {
     exercises?: number;
     medication?: boolean;
@@ -88,6 +95,13 @@ export interface TrendPointRaw {
   date: string;
   pain?: number;
   mood?: number;
+  bodyMap?: {
+    regions: Array<{
+      region: string;
+      intensity: number;
+      type: string;
+    }>;
+  };
   adherence?: {
     exercises?: number;
     medication?: boolean;
@@ -463,6 +477,14 @@ export interface WeeklyReportPayload {
     avgExercisesPct: number | null;
     medicationYesPct: number | null;
     notesCount: number;
+  };
+  bodyMap: {
+    topRegions: Array<{
+      region: string;
+      label: string;
+      count: number;
+      avgIntensity: number | null;
+    }>;
   };
   sleep: {
     trackedNights: number;

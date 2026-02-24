@@ -61,7 +61,7 @@ curl -sS http://localhost:3000/patient/me \
 curl -sS -X POST http://localhost:3000/patient/checkins \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <PATIENT_TOKEN>" \
-  -d '{"date":"2026-02-23","mood":3,"pain":2,"adherence":{"exercises":0.5,"medication":true},"sleep":{"hours":7.5,"quality":4,"disturbances":1},"notes":"doing okay"}'
+  -d '{"date":"2026-02-23","mood":3,"pain":2,"adherence":{"exercises":0.5,"medication":true},"sleep":{"hours":7.5,"quality":4,"disturbances":1},"bodyMap":{"regions":[{"region":"lower_back","intensity":6,"type":"stiffness"},{"region":"knee_left","intensity":5,"type":"ache"}]},"notes":"doing okay"}'
 ```
 
 - Patient check-ins list:
@@ -193,6 +193,7 @@ curl -sS -X POST "http://localhost:3000/patient/proms/<PROM_ID>/submit" \
 curl -sS "http://localhost:3000/patient/reports/weekly?weekStart=2026-02-23&tzOffsetMinutes=0" \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
+Response includes deterministic `bodyMap.topRegions` when localized pain was logged in check-ins during that week.
 
 - Patient create exercise session:
 ```bash

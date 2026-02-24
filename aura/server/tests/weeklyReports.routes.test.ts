@@ -59,6 +59,9 @@ describe("weekly report routes", () => {
         pain: 4,
         adherence: { exercises: 0.8, medication: true },
         sleep: { hours: 6.5, quality: 3, disturbances: 1 },
+        bodyMap: {
+          regions: [{ region: "lower_back", intensity: 5, type: "stiffness" }],
+        },
         notes: "Light stiffness",
         createdAt: new Date("2026-02-23T10:00:00.000Z"),
         updatedAt: new Date("2026-02-23T10:00:00.000Z"),
@@ -70,8 +73,26 @@ describe("weekly report routes", () => {
         pain: 6,
         adherence: { exercises: 0.6, medication: false },
         sleep: { hours: 5.5, quality: 2, disturbances: 2 },
+        bodyMap: {
+          regions: [
+            { region: "lower_back", intensity: 7, type: "ache" },
+            { region: "knee_left", intensity: 5, type: "sharp" },
+          ],
+        },
         createdAt: new Date("2026-02-27T10:00:00.000Z"),
         updatedAt: new Date("2026-02-27T10:00:00.000Z"),
+      },
+      {
+        patientId: "p1",
+        date: "2026-03-01",
+        mood: 3,
+        pain: 5,
+        adherence: { exercises: 0.5, medication: true },
+        bodyMap: {
+          regions: [{ region: "lower_back", intensity: 6, type: "stiffness" }],
+        },
+        createdAt: new Date("2026-03-01T10:00:00.000Z"),
+        updatedAt: new Date("2026-03-01T10:00:00.000Z"),
       },
       {
         patientId: "p1",
@@ -477,12 +498,19 @@ describe("weekly report routes", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.checkins).toMatchObject({
-      count: 2,
+      count: 3,
       avgPain: 5,
-      avgMood: 2.5,
-      avgExercisesPct: 70,
-      medicationYesPct: 50,
+      avgMood: 2.7,
+      avgExercisesPct: 63,
+      medicationYesPct: 67,
       notesCount: 1,
+    });
+    expect(Array.isArray(response.body.bodyMap?.topRegions)).toBe(true);
+    expect(response.body.bodyMap.topRegions[0]).toMatchObject({
+      region: "lower_back",
+      label: "Lower back",
+      count: 3,
+      avgIntensity: 6,
     });
     expect(response.body.sleep).toMatchObject({
       trackedNights: 2,
@@ -541,5 +569,6 @@ describe("weekly report routes", () => {
     expect(highlights).toContain("Protein intake looked low on most logged days.");
     expect(highlights).toContain("You focused on anti-inflammatory foods on 3 days.");
     expect(highlights).toContain("Medication adherence was low this week.");
+    expect(highlights).toContain("Pain was frequently reported in lower back.");
   });
 });

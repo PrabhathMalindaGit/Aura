@@ -121,6 +121,13 @@ function buildShareText(report: WeeklyReport): string {
     ...report.summary.highlights.map((item) => `- ${item}`),
     "",
     `Check-ins: ${report.checkins.count}, avg pain ${numberOrDash(report.checkins.avgPain)}, avg mood ${numberOrDash(report.checkins.avgMood)}, exercises ${pctOrDash(report.checkins.avgExercisesPct)}`,
+    `Top pain areas: ${
+      report.bodyMap.topRegions.length > 0
+        ? report.bodyMap.topRegions
+            .map((entry) => `${entry.label} (${entry.count})`)
+            .join(", ")
+        : "—"
+    }`,
     `Sleep: tracked nights ${report.sleep.trackedNights}, avg hours ${numberOrDash(report.sleep.avgHours)}, avg quality ${numberOrDash(report.sleep.avgQuality)}`,
     `Hydration: tracked days ${report.hydration.trackedDays}, avg daily ${numberOrDash(report.hydration.avgDailyMl)} ml, total ${report.hydration.totalMl} ml, goal days ${report.hydration.daysMeetingTarget}/${report.hydration.trackedDays}`,
     `Nutrition: tracked days ${report.nutrition.trackedDays}, avg fruit/veg ${numberOrDash(report.nutrition.avgFruitVegServings)}, protein OK/high days ${report.nutrition.proteinOkHighDays}, anti-inflammatory days ${report.nutrition.antiInflammatoryDays}, regular meals days ${report.nutrition.regularMealsDays}`,
@@ -432,6 +439,22 @@ export default function WeeklyReportScreen() {
               <Text style={styles.metaText}>Exercise adherence: {pctOrDash(report.checkins.avgExercisesPct)}</Text>
               <Text style={styles.metaText}>Medication yes: {pctOrDash(report.checkins.medicationYesPct)}</Text>
               <Text style={styles.metaText}>Notes logged: {report.checkins.notesCount}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Top pain areas</Text>
+              {report.bodyMap.topRegions.length === 0 ? (
+                <Text style={styles.metaText}>No localized pain areas recorded this week.</Text>
+              ) : (
+                report.bodyMap.topRegions.map((entry) => (
+                  <Text key={`${entry.region}-${entry.count}`} style={styles.metaText}>
+                    {entry.label}: {entry.count} {entry.count === 1 ? "entry" : "entries"}
+                    {entry.avgIntensity !== null
+                      ? ` · avg intensity ${numberOrDash(entry.avgIntensity)}/10`
+                      : ""}
+                  </Text>
+                ))
+              )}
             </View>
 
             <View style={styles.card}>

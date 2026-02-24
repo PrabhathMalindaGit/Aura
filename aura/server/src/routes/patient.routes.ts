@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 
+import { BODY_MAP_PAIN_TYPES, BODY_MAP_REGIONS } from "../constants/bodyMap";
 import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
@@ -9,7 +10,10 @@ import { requirePatientAuth } from "../middleware/patientAuth";
 import { validateBody } from "../middleware/validate";
 import { AIUnavailableError } from "../services/ai";
 import { processChatMessage } from "../services/chatFlow";
-import { processCheckIn } from "../services/checkinFlow";
+import {
+  CheckInValidationError,
+  processCheckIn,
+} from "../services/checkinFlow";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { logger } from "../utils/logger";
 import { signPatientToken, hasPatientJwtSecretConfigured } from "../utils/patientJwt";
@@ -24,6 +28,12 @@ const sleepHoursSchema = z
     message: "hours must have at most one decimal place",
   });
 
+const bodyMapRegionSchema = z.object({
+  region: z.enum(BODY_MAP_REGIONS),
+  intensity: z.number().int().min(0).max(10),
+  type: z.enum(BODY_MAP_PAIN_TYPES),
+});
+
 const patientLoginSchema = z
   .object({
     accessCode: z.string().trim().min(1).max(80).optional(),
@@ -34,25 +44,45 @@ const patientLoginSchema = z
     message: "accessCode or patientId is required",
   });
 
-const patientCheckInSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  mood: z.number().min(1).max(5),
-  pain: z.number().min(0).max(10),
-  adherence: z
-    .object({
-      exercises: z.number().min(0).max(1).optional(),
-      medication: z.boolean().optional(),
-    })
-    .optional(),
-  sleep: z
-    .object({
-      hours: sleepHoursSchema.optional(),
-      quality: z.number().int().min(1).max(5).optional(),
-      disturbances: z.number().int().min(0).max(5).optional(),
-    })
-    .optional(),
-  notes: z.string().max(2000).optional(),
-});
+const patientCheckInSchema = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    mood: z.number().min(1).max(5),
+    pain: z.number().min(0).max(10),
+    adherence: z
+      .object({
+        exercises: z.number().min(0).max(1).optional(),
+        medication: z.boolean().optional(),
+      })
+      .optional(),
+    sleep: z
+      .object({
+        hours: sleepHoursSchema.optional(),
+        quality: z.number().int().min(1).max(5).optional(),
+        disturbances: z.number().int().min(0).max(5).optional(),
+      })
+      .optional(),
+    bodyMap: z
+      .object({
+        regions: z.array(bodyMapRegionSchema).max(12),
+      })
+      .optional(),
+    notes: z.string().max(2000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const regions = value.bodyMap?.regions ?? [];
+    const seen = new Set<string>();
+    regions.forEach((region, index) => {
+      if (seen.has(region.region)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["bodyMap", "regions", index, "region"],
+          message: "Duplicate regions are not allowed",
+        });
+      }
+      seen.add(region.region);
+    });
+  });
 
 const patientCheckInsQuerySchema = z.object({
   from: z.string().optional(),
@@ -213,7 +243,7 @@ router.post(
     }
 
     try {
-      const { date, mood, pain, adherence, sleep, notes } =
+      const { date, mood, pain, adherence, sleep, bodyMap, notes } =
         req.body as z.infer<typeof patientCheckInSchema>;
 
       const result = await processCheckIn({
@@ -223,6 +253,7 @@ router.post(
         pain,
         adherence,
         sleep,
+        bodyMap,
         notes,
       });
 
@@ -238,6 +269,14 @@ router.post(
     } catch (error) {
       if (error instanceof AIUnavailableError) {
         return res.status(502).json({ ok: false, error: "AI_UNAVAILABLE" });
+      }
+
+      if (error instanceof CheckInValidationError) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: [{ path: error.field, message: error.message }],
+        });
       }
 
       if (typeof error === "object" && error !== null && "code" in error) {
@@ -373,6 +412,29 @@ router.get("/patient/checkins", requirePatientAuth, async (req, res) => {
                   typeof checkin.sleep.disturbances === "number"
                     ? checkin.sleep.disturbances
                     : undefined,
+              }
+            : undefined,
+        bodyMap:
+          checkin.bodyMap &&
+          Array.isArray(checkin.bodyMap.regions) &&
+          checkin.bodyMap.regions.length > 0
+            ? {
+                regions: checkin.bodyMap.regions
+                  .map((region) => ({
+                    region:
+                      typeof region.region === "string" ? region.region : undefined,
+                    intensity:
+                      typeof region.intensity === "number"
+                        ? region.intensity
+                        : undefined,
+                    type: typeof region.type === "string" ? region.type : undefined,
+                  }))
+                  .filter(
+                    (region): region is { region: string; intensity: number; type: string } =>
+                      typeof region.region === "string" &&
+                      typeof region.intensity === "number" &&
+                      typeof region.type === "string"
+                  ),
               }
             : undefined,
         risk: {

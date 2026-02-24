@@ -154,6 +154,15 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
    - weekly adherence percentage.
 5. Open weekly report (`/patients/p1/weekly-report`) and verify the **Medications** block is shown.
 
+## Body map add-on demo path (Step 14 #5)
+
+1. In mobile, submit a check-in with body map selections (for example: lower back + left knee).
+2. In dashboard, open `/patients/p1`.
+3. Review **Body map (recent)** card:
+   - latest rows with date and localized pain entries
+   - top repeated areas from recent check-ins.
+4. Open weekly report (`/patients/p1/weekly-report`) and verify **Top pain areas** is shown.
+
 ## Notes
 
 - Legacy README preserved in `README_OLD.md`.

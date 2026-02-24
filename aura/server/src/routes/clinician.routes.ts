@@ -280,6 +280,59 @@ function toNumberOrNull(value: unknown): number | null {
   return value;
 }
 
+function mapBodyMap(value: unknown):
+  | {
+      regions: Array<{
+        region: string;
+        intensity: number;
+        type: string;
+      }>;
+    }
+  | undefined {
+  const bodyMapRecord =
+    value && typeof value === "object"
+      ? (value as { regions?: unknown })
+      : undefined;
+
+  if (!bodyMapRecord || !Array.isArray(bodyMapRecord.regions)) {
+    return undefined;
+  }
+
+  const regions = bodyMapRecord.regions
+    .map((entry) => {
+      const row =
+        entry && typeof entry === "object"
+          ? (entry as { region?: unknown; intensity?: unknown; type?: unknown })
+          : undefined;
+      const region = toStringOrNull(row?.region);
+      const intensity = toNumberOrNull(row?.intensity);
+      const type = toStringOrNull(row?.type);
+      if (!region || intensity === null || !type) {
+        return null;
+      }
+      return {
+        region,
+        intensity,
+        type,
+      };
+    })
+    .filter(
+      (
+        region
+      ): region is {
+        region: string;
+        intensity: number;
+        type: string;
+      } => Boolean(region)
+    );
+
+  if (regions.length === 0) {
+    return undefined;
+  }
+
+  return { regions };
+}
+
 function sanitizePayload(payload: unknown): unknown {
   if (!payload || typeof payload !== "object") {
     return payload;
@@ -422,6 +475,7 @@ function mapCheckinSnapshot(checkin: Record<string, unknown>) {
           : null,
     },
     notes: toStringOrNull(checkin.notes) ?? undefined,
+    bodyMap: mapBodyMap(checkin.bodyMap),
     risk: riskRecord
       ? {
           level: toStringOrNull(riskRecord.level),
@@ -1020,8 +1074,8 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
     });
 
     const selectedFields = includeNotes
-      ? "patientId date pain mood adherence sleep risk createdAt notes"
-      : "patientId date pain mood adherence sleep risk createdAt";
+      ? "patientId date pain mood adherence sleep bodyMap risk createdAt notes"
+      : "patientId date pain mood adherence sleep bodyMap risk createdAt";
 
     const rows = await CheckIn.find({
       patientId,
@@ -1066,6 +1120,7 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
               disturbances: toNumberOrNull(sleepRecord.disturbances),
             }
           : undefined,
+        bodyMap: mapBodyMap(row.bodyMap),
         risk: riskRecord
           ? {
               level: riskRecord.level === "high" ? "high" : "low",

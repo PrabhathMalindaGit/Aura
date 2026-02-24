@@ -60,6 +60,12 @@ describe("GET /clinician/patients/:patientId/checkins", () => {
       pain: 8,
       adherence: { exercises: 0.2, medication: false },
       sleep: { hours: 5.5, quality: 2, disturbances: 3 },
+      bodyMap: {
+        regions: [
+          { region: "lower_back", intensity: 8, type: "stiffness" },
+          { region: "knee_left", intensity: 6, type: "ache" },
+        ],
+      },
       notes: "Day one note",
       risk: { level: "high", reasons: ["pain_spike"] },
     });
@@ -113,6 +119,12 @@ describe("GET /clinician/patients/:patientId/checkins", () => {
         hours: 5.5,
         quality: 2,
         disturbances: 3,
+      },
+      bodyMap: {
+        regions: [
+          { region: "lower_back", intensity: 8, type: "stiffness" },
+          { region: "knee_left", intensity: 6, type: "ache" },
+        ],
       },
     });
   });

@@ -12,6 +12,10 @@ import Patient from "../../src/models/Patient";
 import PromInstance from "../../src/models/PromInstance";
 import PromTemplate from "../../src/models/PromTemplate";
 import User from "../../src/models/User";
+import {
+  type BodyMapPainType,
+  type BodyMapRegion,
+} from "../../src/constants/bodyMap";
 import { buildDefaultPhases, recomputePhaseStatuses } from "../../src/services/rehabPhaseService";
 import { buildDefaultPromTemplate, computePromScore } from "../../src/services/promsService";
 import { hashPassword } from "../../src/utils/password";
@@ -207,6 +211,24 @@ function buildCheckInRows(now: Date): CheckInSeedRow[] {
   const rows: CheckInSeedRow[] = [];
   const rng = mulberry32(RNG_SEED);
   const baseDay = utcDay(now);
+  const regionSequence: BodyMapRegion[] = [
+    "lower_back",
+    "knee_left",
+    "knee_right",
+    "upper_back",
+    "shoulder_left",
+    "shoulder_right",
+    "hip_left",
+    "hip_right",
+  ];
+  const painTypeSequence: BodyMapPainType[] = [
+    "stiffness",
+    "ache",
+    "sharp",
+    "tingling",
+    "burning",
+    "other",
+  ];
 
   DEMO_PATIENTS.forEach((patient, patientIndex) => {
     for (let dayOffset = 0; dayOffset < CHECKIN_WINDOW_DAYS; dayOffset += 1) {
@@ -250,6 +272,32 @@ function buildCheckInRows(now: Date): CheckInSeedRow[] {
           : "Knee feels tight after activity."
         : undefined;
 
+      const includeBodyMap = pain >= 5 || (dayOffset + patientIndex) % 6 === 2;
+      const bodyMap =
+        includeBodyMap
+          ? {
+              regions: Array.from(
+                { length: pain >= 7 ? 2 : 1 },
+                (_unused, index) => {
+                  const region =
+                    regionSequence[
+                      (dayOffset + patientIndex * 2 + index) % regionSequence.length
+                    ];
+                  const intensity = clamp(pain - index, 0, 10);
+                  const type =
+                    painTypeSequence[
+                      (dayOffset + patientIndex + index) % painTypeSequence.length
+                    ];
+                  return {
+                    region,
+                    intensity,
+                    type,
+                  };
+                }
+              ),
+            }
+          : undefined;
+
       rows.push({
         patientId: patient.patientId,
         dayOffset,
@@ -263,6 +311,7 @@ function buildCheckInRows(now: Date): CheckInSeedRow[] {
             medication,
           },
           sleep,
+          bodyMap,
           notes,
           risk: {
             level: pain >= 7 ? "high" : "low",

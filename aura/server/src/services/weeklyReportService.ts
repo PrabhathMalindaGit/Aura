@@ -7,6 +7,7 @@ import MedicationLog from "../models/MedicationLog";
 import MedicationSchedule from "../models/MedicationSchedule";
 import NutritionLog from "../models/NutritionLog";
 import PromInstance from "../models/PromInstance";
+import { bodyMapRegionLabel, isBodyMapRegion } from "../constants/bodyMap";
 
 export type WeeklyReport = {
   ok: true;
@@ -28,6 +29,14 @@ export type WeeklyReport = {
     avgExercisesPct: number | null;
     medicationYesPct: number | null;
     notesCount: number;
+  };
+  bodyMap: {
+    topRegions: Array<{
+      region: string;
+      label: string;
+      count: number;
+      avgIntensity: number | null;
+    }>;
   };
   sleep: {
     trackedNights: number;
@@ -293,6 +302,7 @@ function buildHighlights(input: {
   nutritionAntiInflammatoryDays: number;
   medicationScheduledDoses: number;
   medicationAdherencePct: number | null;
+  topPainRegion: { label: string; count: number } | null;
 }): string[] {
   const highlights: string[] = [];
 
@@ -380,6 +390,12 @@ function buildHighlights(input: {
     highlights.push("Great medication consistency this week.");
   }
 
+  if (input.topPainRegion && input.topPainRegion.count >= 3) {
+    highlights.push(
+      `Pain was frequently reported in ${input.topPainRegion.label.toLowerCase()}.`
+    );
+  }
+
   if (highlights.length === 0) {
     highlights.push("No major changes were detected this week.");
   }
@@ -458,7 +474,7 @@ export async function generateWeeklyReport(options: {
           $lt: endUtc,
         },
       })
-        .select({ pain: 1, mood: 1, adherence: 1, sleep: 1, notes: 1, createdAt: 1 })
+        .select({ pain: 1, mood: 1, adherence: 1, sleep: 1, bodyMap: 1, notes: 1, createdAt: 1 })
         .lean(),
       ExerciseSession.find({
         patientId,
@@ -561,6 +577,10 @@ export async function generateWeeklyReport(options: {
   const exerciseAdherenceValues: number[] = [];
   const sleepHoursValues: number[] = [];
   const sleepQualityValues: number[] = [];
+  const bodyMapRegionStats = new Map<
+    string,
+    { count: number; intensityValues: number[] }
+  >();
   let medicationWithField = 0;
   let medicationYesCount = 0;
   let notesCount = 0;
@@ -603,6 +623,35 @@ export async function generateWeeklyReport(options: {
 
     if (getStringValue(checkin.notes)) {
       notesCount += 1;
+    }
+
+    const bodyMapRecord =
+      checkin.bodyMap && typeof checkin.bodyMap === "object"
+        ? (checkin.bodyMap as { regions?: unknown })
+        : undefined;
+    const regions = Array.isArray(bodyMapRecord?.regions)
+      ? bodyMapRecord.regions
+      : [];
+    for (const entry of regions) {
+      const regionRecord =
+        entry && typeof entry === "object"
+          ? (entry as { region?: unknown; intensity?: unknown })
+          : undefined;
+      if (!isBodyMapRegion(regionRecord?.region)) {
+        continue;
+      }
+      const stat = bodyMapRegionStats.get(regionRecord.region) ?? {
+        count: 0,
+        intensityValues: [],
+      };
+      stat.count += 1;
+      if (
+        typeof regionRecord.intensity === "number" &&
+        Number.isFinite(regionRecord.intensity)
+      ) {
+        stat.intensityValues.push(regionRecord.intensity);
+      }
+      bodyMapRegionStats.set(regionRecord.region, stat);
     }
   }
 
@@ -693,6 +742,28 @@ export async function generateWeeklyReport(options: {
         : null,
     medicationYesPct: pct(medicationYesCount, medicationWithField),
     notesCount,
+  };
+
+  const bodyMapSummary = {
+    topRegions: [...bodyMapRegionStats.entries()]
+      .map(([region, value]) => ({
+        region,
+        label: bodyMapRegionLabel(region),
+        count: value.count,
+        avgIntensity: avg(value.intensityValues),
+      }))
+      .sort((left, right) => {
+        if (right.count !== left.count) {
+          return right.count - left.count;
+        }
+        const rightIntensity = right.avgIntensity ?? -1;
+        const leftIntensity = left.avgIntensity ?? -1;
+        if (rightIntensity !== leftIntensity) {
+          return rightIntensity - leftIntensity;
+        }
+        return left.label.localeCompare(right.label);
+      })
+      .slice(0, 3),
   };
 
   const sleepSummary = {
@@ -845,6 +916,12 @@ export async function generateWeeklyReport(options: {
     nutritionAntiInflammatoryDays: nutritionSummary.antiInflammatoryDays,
     medicationScheduledDoses: medicationsSummary.scheduledDoses,
     medicationAdherencePct: medicationsSummary.adherencePct,
+    topPainRegion: bodyMapSummary.topRegions[0]
+      ? {
+          label: bodyMapSummary.topRegions[0].label,
+          count: bodyMapSummary.topRegions[0].count,
+        }
+      : null,
   });
 
   const nextSteps = buildNextSteps({
@@ -871,6 +948,7 @@ export async function generateWeeklyReport(options: {
       nextSteps,
     },
     checkins: checkinsSummary,
+    bodyMap: bodyMapSummary,
     sleep: sleepSummary,
     hydration: hydrationSummary,
     nutrition: nutritionSummary,

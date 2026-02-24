@@ -180,6 +180,12 @@ describe("patient auth + patient endpoints", () => {
           quality: 4,
           disturbances: 1,
         },
+        bodyMap: {
+          regions: [
+            { region: "lower_back", intensity: 6, type: "stiffness" },
+            { region: "knee_left", intensity: 5, type: "ache" },
+          ],
+        },
         notes: "Doing okay",
       });
 
@@ -198,6 +204,12 @@ describe("patient auth + patient endpoints", () => {
       hours: 7.5,
       quality: 4,
       disturbances: 1,
+    });
+    expect(created?.bodyMap).toMatchObject({
+      regions: [
+        { region: "lower_back", intensity: 6, type: "stiffness" },
+        { region: "knee_left", intensity: 5, type: "ache" },
+      ],
     });
   });
 
@@ -252,6 +264,51 @@ describe("patient auth + patient endpoints", () => {
     expect(response.body.error).toBe("VALIDATION_ERROR");
   });
 
+  it("rejects invalid body map region and pain type", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-24",
+        mood: 3,
+        pain: 4,
+        bodyMap: {
+          regions: [{ region: "unknown_area", intensity: 4, type: "invalid_type" }],
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("VALIDATION_ERROR");
+  });
+
+  it("rejects duplicate body map regions", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-24",
+        mood: 3,
+        pain: 4,
+        bodyMap: {
+          regions: [
+            { region: "lower_back", intensity: 4, type: "ache" },
+            { region: "lower_back", intensity: 5, type: "sharp" },
+          ],
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("VALIDATION_ERROR");
+  });
+
   it("lists patient check-ins with filters and limit", async () => {
     await seedPatient({ patientId: "p9", accessCode: "P9-DEMO" });
 
@@ -265,6 +322,9 @@ describe("patient auth + patient endpoints", () => {
           hours: 7,
           quality: 4,
           disturbances: 1,
+        },
+        bodyMap: {
+          regions: [{ region: "knee_left", intensity: 5, type: "ache" }],
         },
         createdAt: new Date("2026-02-20T08:00:00.000Z"),
         updatedAt: new Date("2026-02-20T08:00:00.000Z"),
@@ -310,6 +370,9 @@ describe("patient auth + patient endpoints", () => {
         hours: 7,
         quality: 4,
         disturbances: 1,
+      },
+      bodyMap: {
+        regions: [{ region: "knee_left", intensity: 5, type: "ache" }],
       },
     });
   });

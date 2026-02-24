@@ -67,6 +67,7 @@ import {
   normalizeTrendPoints,
   trendPointHasAnyData,
 } from '../utils/trends';
+import { bodyMapRegionLabel } from '../utils/bodyMap';
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 const CLINICIAN_BUCKET = 'anon';
@@ -442,6 +443,64 @@ export function PatientDetailPage(): JSX.Element {
       trackedCount: recentSleepRows.length,
     };
   }, [recentSleepRows]);
+  const recentBodyMapRows = useMemo(
+    () =>
+      ((patientRecentCheckinsQuery.data ?? []) as TrendPointRaw[])
+        .map((row) => {
+          const regions = Array.isArray(row.bodyMap?.regions)
+            ? row.bodyMap.regions
+                .map((entry) => {
+                  const region = typeof entry.region === 'string' ? entry.region : null;
+                  const intensity =
+                    typeof entry.intensity === 'number' && Number.isFinite(entry.intensity)
+                      ? entry.intensity
+                      : null;
+                  if (!region || intensity === null) {
+                    return null;
+                  }
+                  return {
+                    region,
+                    intensity,
+                    type: typeof entry.type === 'string' ? entry.type : undefined,
+                  };
+                })
+                .filter(
+                  (
+                    entry,
+                  ): entry is { region: string; intensity: number; type?: string } =>
+                    Boolean(entry),
+                )
+            : [];
+          if (regions.length === 0) {
+            return null;
+          }
+          return {
+            date: row.date,
+            regions,
+          };
+        })
+        .filter((row): row is { date: string; regions: Array<{ region: string; intensity: number; type?: string }> } =>
+          Boolean(row),
+        )
+        .sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [patientRecentCheckinsQuery.data],
+  );
+  const recentBodyMapSummary = useMemo(() => {
+    const byRegion = new Map<string, number>();
+    for (const row of recentBodyMapRows) {
+      for (const region of row.regions) {
+        byRegion.set(region.region, (byRegion.get(region.region) ?? 0) + 1);
+      }
+    }
+    return [...byRegion.entries()]
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 3)
+      .map(([region, count]) => ({
+        region,
+        label: bodyMapRegionLabel(region),
+        count,
+      }));
+  }, [recentBodyMapRows]);
   const recentHydrationDays = useMemo(
     () =>
       (patientHydrationQuery.data?.days ?? [])
@@ -987,6 +1046,52 @@ export function PatientDetailPage(): JSX.Element {
                   {row.date}: {row.hours !== null ? `${row.hours}h` : '—'} · quality{' '}
                   {row.quality !== null ? row.quality : '—'}
                   {row.disturbances !== null ? ` · disturbances ${row.disturbances}` : ''}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Body map (recent)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientRecentCheckinsQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientRecentCheckinsQuery.isLoading && recentBodyMapRows.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Body map loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={68} />
+          </div>
+        ) : recentBodyMapRows.length === 0 ? (
+          <p className="muted-text">No body map pain localization in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Top areas:{' '}
+              <strong>
+                {recentBodyMapSummary.length > 0
+                  ? recentBodyMapSummary
+                      .map((item) => `${item.label} (${item.count})`)
+                      .join(', ')
+                  : '—'}
+              </strong>
+            </p>
+            <div className="stack stack--1">
+              {recentBodyMapRows.slice(0, 5).map((row) => (
+                <p key={`${row.date}-bodymap`} className="muted-text">
+                  {row.date}:{' '}
+                  {row.regions
+                    .map((entry) => `${bodyMapRegionLabel(entry.region)} (${entry.intensity})`)
+                    .join(', ')}
                 </p>
               ))}
             </div>

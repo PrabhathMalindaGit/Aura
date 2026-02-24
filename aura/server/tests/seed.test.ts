@@ -139,6 +139,12 @@ describe("seed demo data", () => {
     });
     expect(checkinsWithSleepCount).toBeGreaterThan(0);
 
+    const checkinsWithBodyMapCount = await CheckIn.countDocuments({
+      demoTag: DEMO_TAG,
+      "bodyMap.regions.0": { $exists: true },
+    });
+    expect(checkinsWithBodyMapCount).toBeGreaterThan(0);
+
     const rehabPatients = await Patient.find({ demoTag: DEMO_TAG })
       .sort({ patientId: 1 })
       .lean();

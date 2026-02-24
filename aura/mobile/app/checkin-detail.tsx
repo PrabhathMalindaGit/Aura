@@ -5,6 +5,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { useAuth } from "@/src/state/auth";
 import { clearSelectedCheckin, getSelectedCheckin } from "@/src/state/progressSelection";
+import { painTypeLabel, regionLabel } from "@/src/utils/bodyMapLabels";
 import { formatISOToHuman } from "@/src/utils/date";
 
 function detailDateLabel(date?: string, createdAt?: string): string {
@@ -77,6 +78,22 @@ export default function CheckinDetailScreen() {
           <>
             <Text style={styles.label}>Notes</Text>
             <Text style={styles.value}>{selected.notes}</Text>
+          </>
+        ) : null}
+
+        {selected.bodyMap?.regions && selected.bodyMap.regions.length > 0 ? (
+          <>
+            <Text style={styles.label}>Pain areas</Text>
+            {selected.bodyMap.regions.map((region) => (
+              <Text
+                key={`${region.region}-${region.type}-${region.intensity}`}
+                style={styles.value}
+              >
+                {`${regionLabel(region.region)} — ${region.intensity}/10 (${painTypeLabel(
+                  region.type
+                )})`}
+              </Text>
+            ))}
           </>
         ) : null}
 

@@ -25,6 +25,14 @@ import { useAuth } from "@/src/state/auth";
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import {
+  BODY_MAP_PAIN_TYPES,
+  BODY_MAP_REGION_GROUPS,
+  painTypeLabel,
+  regionLabel,
+  type BodyMapPainType,
+  type BodyMapRegion,
+} from "@/src/utils/bodyMapLabels";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -49,6 +57,11 @@ type OptionalStepperProps = Omit<StepperProps, "value" | "onChange"> & {
   value: number | null;
   onChange: (nextValue: number | null) => void;
   clearLabel?: string;
+};
+
+type BodyMapSelection = {
+  intensity: number;
+  type: BodyMapPainType;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -210,6 +223,10 @@ export default function CheckinScreen() {
   const [sleepHours, setSleepHours] = useState<number | null>(null);
   const [sleepQuality, setSleepQuality] = useState<number | null>(null);
   const [sleepDisturbances, setSleepDisturbances] = useState<number | null>(null);
+  const [selectedRegions, setSelectedRegions] = useState<BodyMapRegion[]>([]);
+  const [bodyMapSelections, setBodyMapSelections] = useState<
+    Partial<Record<BodyMapRegion, BodyMapSelection>>
+  >({});
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
@@ -224,8 +241,11 @@ export default function CheckinScreen() {
     if (exercisePercent < 0 || exercisePercent > 100) {
       return "Exercise adherence must be between 0% and 100%.";
     }
+    if (selectedRegions.length > 6) {
+      return "Select up to 6 body areas.";
+    }
     return null;
-  }, [exercisePercent, mood, pain]);
+  }, [exercisePercent, mood, pain, selectedRegions.length]);
 
   if (auth.status === "loading") {
     return (
@@ -249,6 +269,8 @@ export default function CheckinScreen() {
     setSleepHours(null);
     setSleepQuality(null);
     setSleepDisturbances(null);
+    setSelectedRegions([]);
+    setBodyMapSelections({});
     setNotes("");
   };
 
@@ -295,6 +317,7 @@ export default function CheckinScreen() {
 
     const hasSleepData =
       sleepHours !== null || sleepQuality !== null || sleepDisturbances !== null;
+    const hasBodyMapData = selectedRegions.length > 0;
 
     const payload: CheckInCreatePayload = {
       date,
@@ -309,6 +332,15 @@ export default function CheckinScreen() {
             hours: sleepHours ?? undefined,
             quality: sleepQuality ?? undefined,
             disturbances: sleepDisturbances ?? undefined,
+          }
+        : undefined,
+      bodyMap: hasBodyMapData
+        ? {
+            regions: selectedRegions.map((region) => ({
+              region,
+              intensity: bodyMapSelections[region]?.intensity ?? (pain > 0 ? pain : 5),
+              type: bodyMapSelections[region]?.type ?? "ache",
+            })),
           }
         : undefined,
       notes: notes.trim() ? notes.trim() : undefined,
@@ -546,6 +578,172 @@ export default function CheckinScreen() {
           />
         </Section>
 
+        <Section title="Where is the pain? (optional)">
+          <Text style={styles.helperText}>
+            Select up to 6 areas and record intensity/type for each selected area.
+          </Text>
+
+          {BODY_MAP_REGION_GROUPS.map((group) => (
+            <View key={group.title} style={styles.bodyMapGroup}>
+              <Text style={styles.bodyMapGroupTitle}>{group.title}</Text>
+              <View style={styles.bodyMapChipRow}>
+                {group.regions.map((region) => {
+                  const selected = selectedRegions.includes(region);
+                  return (
+                    <Pressable
+                      key={region}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Toggle ${regionLabel(region)}`}
+                      onPress={() => {
+                        setSelectedRegions((current) => {
+                          if (current.includes(region)) {
+                            setBodyMapSelections((previous) => {
+                              const next = { ...previous };
+                              delete next[region];
+                              return next;
+                            });
+                            return current.filter((entry) => entry !== region);
+                          }
+
+                          if (current.length >= 6) {
+                            setNotice({
+                              variant: "warning",
+                              title: "Body map limit",
+                              message: "Select up to 6 regions.",
+                            });
+                            return current;
+                          }
+
+                          setBodyMapSelections((previous) => ({
+                            ...previous,
+                            [region]: {
+                              intensity: pain > 0 ? pain : 5,
+                              type: "ache",
+                            },
+                          }));
+                          return [...current, region];
+                        });
+                      }}
+                      style={({ pressed }) => [
+                        styles.bodyMapChip,
+                        selected ? styles.bodyMapChipSelected : null,
+                        pressed ? styles.bodyMapChipPressed : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.bodyMapChipText,
+                          selected ? styles.bodyMapChipTextSelected : null,
+                        ]}
+                      >
+                        {regionLabel(region)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+
+          {selectedRegions.length > 0 ? (
+            <View style={styles.bodyMapSelectionStack}>
+              {selectedRegions.map((region) => {
+                const selection = bodyMapSelections[region] ?? {
+                  intensity: pain > 0 ? pain : 5,
+                  type: "ache" as BodyMapPainType,
+                };
+                return (
+                  <View key={`selection-${region}`} style={styles.bodyMapSelectionCard}>
+                    <View style={styles.inlineHeaderRow}>
+                      <Text style={styles.fieldLabel}>{regionLabel(region)}</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => {
+                          setSelectedRegions((current) =>
+                            current.filter((entry) => entry !== region)
+                          );
+                          setBodyMapSelections((previous) => {
+                            const next = { ...previous };
+                            delete next[region];
+                            return next;
+                          });
+                        }}
+                        style={({ pressed }) => [
+                          styles.clearOptionalButton,
+                          pressed ? styles.clearOptionalButtonPressed : null,
+                        ]}
+                      >
+                        <Text style={styles.clearOptionalButtonText}>Remove</Text>
+                      </Pressable>
+                    </View>
+
+                    <Stepper
+                      label={`${regionLabel(region)} intensity`}
+                      value={selection.intensity}
+                      min={0}
+                      max={10}
+                      step={1}
+                      valueFormatter={(value) => `${value}/10`}
+                      onChange={(nextValue) => {
+                        setBodyMapSelections((current) => ({
+                          ...current,
+                          [region]: {
+                            intensity: nextValue,
+                            type: current[region]?.type ?? "ache",
+                          },
+                        }));
+                      }}
+                    />
+
+                    <View style={styles.moodWrapper}>
+                      <Text style={styles.fieldLabel}>Type</Text>
+                      <View style={styles.moodRow}>
+                        {BODY_MAP_PAIN_TYPES.map((type) => {
+                          const selected = selection.type === type;
+                          return (
+                            <Pressable
+                              key={`${region}-${type}`}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Set ${regionLabel(
+                                region
+                              )} type ${painTypeLabel(type)}`}
+                              onPress={() => {
+                                setBodyMapSelections((current) => ({
+                                  ...current,
+                                  [region]: {
+                                    intensity: current[region]?.intensity ?? (pain > 0 ? pain : 5),
+                                    type,
+                                  },
+                                }));
+                              }}
+                              style={({ pressed }) => [
+                                styles.moodChip,
+                                selected ? styles.moodChipSelected : null,
+                                pressed ? styles.moodChipPressed : null,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.moodChipText,
+                                  selected ? styles.moodChipTextSelected : null,
+                                ]}
+                              >
+                                {painTypeLabel(type)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.helperText}>No pain areas selected.</Text>
+          )}
+        </Section>
+
         <Section title="Notes (optional)">
           <TextInput
             value={notes}
@@ -574,6 +772,10 @@ export default function CheckinScreen() {
                 setSleepHours(7.5);
                 setSleepQuality(4);
                 setSleepDisturbances(1);
+                setSelectedRegions(["knee_left"]);
+                setBodyMapSelections({
+                  knee_left: { intensity: 3, type: "ache" },
+                });
                 setNotes("");
                 setNotice(null);
               }}
@@ -588,6 +790,11 @@ export default function CheckinScreen() {
                 setSleepHours(5.5);
                 setSleepQuality(2);
                 setSleepDisturbances(3);
+                setSelectedRegions(["lower_back", "knee_left"]);
+                setBodyMapSelections({
+                  lower_back: { intensity: 8, type: "stiffness" },
+                  knee_left: { intensity: 7, type: "sharp" },
+                });
                 setNotes("");
                 setNotice(null);
               }}
@@ -700,6 +907,57 @@ const styles = StyleSheet.create({
   moodWrapper: {
     gap: 8,
     marginBottom: 8,
+  },
+  bodyMapGroup: {
+    gap: 8,
+    marginBottom: 8,
+  },
+  bodyMapGroupTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4b5563",
+  },
+  bodyMapChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  bodyMapChip: {
+    minHeight: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+  },
+  bodyMapChipSelected: {
+    backgroundColor: "#111827",
+    borderColor: "#111827",
+  },
+  bodyMapChipPressed: {
+    opacity: 0.8,
+  },
+  bodyMapChipText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#111827",
+  },
+  bodyMapChipTextSelected: {
+    color: "#fff",
+  },
+  bodyMapSelectionStack: {
+    gap: 10,
+    marginTop: 8,
+  },
+  bodyMapSelectionCard: {
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+    backgroundColor: "#f9fafb",
   },
   moodRow: {
     flexDirection: "row",

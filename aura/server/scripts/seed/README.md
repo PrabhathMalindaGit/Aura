@@ -23,7 +23,7 @@ npm run seed:reset
 - 2 clinician users for auth testing:
   - `clinician1@example.com` / `devpass123`
   - `clinician2@example.com` / `devpass123`
-- 30-day check-in window with deterministic gaps (22 check-ins per patient)
+- 30-day check-in window with deterministic gaps (22 check-ins per patient) including optional sleep/body-map entries
 - 14-day hydration log entries with deterministic gaps and daily variation
 - 14-day nutrition log entries with deterministic gaps and enum variation
 - 1-2 medications per demo patient with deterministic daily schedules

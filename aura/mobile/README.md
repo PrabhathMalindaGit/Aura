@@ -594,6 +594,37 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 6. Open dashboard `/patients/p1`:
    - verify **Nutrition (last 7 days)** panel updates.
 
+## Step 14: Medication & supplement tracker add-on
+
+- New route:
+  - `/medications` (opened from Demo Hub quick actions)
+- Backend endpoints used:
+  - `GET /patient/medications`
+  - `GET /patient/medications/today`
+  - `POST /patient/medications/log`
+  - `GET /patient/medications/logs/range`
+- Trust-under-failure keys:
+  - `Last refreshed`: `medications`
+  - `Last failed`: `medicationsLoad`, `medicationLog`
+- Offline behavior:
+  - dose logs are queued locally while offline
+  - pending dose logs sync with **Sync now** when online.
+
+### Step 14 medication demo flow
+
+1. Open **Medications** and mark one dose as **Taken**.
+2. Verify the dose status updates immediately in today checklist.
+3. Turn offline and mark another dose:
+   - pending count increases
+   - dose row shows pending sync behavior.
+4. Go online and tap **Sync now**:
+   - pending count clears
+   - checklist refreshes from server.
+5. Open **Weekly report**:
+   - verify medications section appears (scheduled/taken/skipped/adherence).
+6. Open dashboard `/patients/p1`:
+   - verify **Medication adherence (last 7 days)** panel updates.
+
 ## How to Test Offline
 
 - iOS simulator: disable network in simulator/device settings.

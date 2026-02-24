@@ -14,6 +14,7 @@ export type RefreshKey =
   | "proms"
   | "hydration"
   | "nutrition"
+  | "medications"
   | "weeklyReport";
 
 const PREFIX = "aura:lastRefreshed:";

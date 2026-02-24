@@ -5,6 +5,9 @@ export interface SeedSummary {
   checkIns: number;
   hydrationLogs: number;
   nutritionLogs: number;
+  medications: number;
+  medicationSchedules: number;
+  medicationLogs: number;
   chatMessages: number;
   alerts: number;
   careEvents: number;
@@ -24,6 +27,9 @@ export interface ResetSummary {
   checkInsDeleted: number;
   hydrationLogsDeleted: number;
   nutritionLogsDeleted: number;
+  medicationsDeleted: number;
+  medicationSchedulesDeleted: number;
+  medicationLogsDeleted: number;
   chatMessagesDeleted: number;
   alertsDeleted: number;
   careEventsDeleted: number;

@@ -4,6 +4,9 @@ import ChatMessage from "../../src/models/ChatMessage";
 import CheckIn from "../../src/models/CheckIn";
 import ExercisePlan from "../../src/models/ExercisePlan";
 import HydrationLog from "../../src/models/HydrationLog";
+import Medication from "../../src/models/Medication";
+import MedicationLog from "../../src/models/MedicationLog";
+import MedicationSchedule from "../../src/models/MedicationSchedule";
 import NutritionLog from "../../src/models/NutritionLog";
 import Patient from "../../src/models/Patient";
 import PromInstance from "../../src/models/PromInstance";
@@ -41,6 +44,27 @@ interface HydrationSeedRow {
 
 interface NutritionSeedRow {
   patientId: string;
+  doc: Record<string, unknown>;
+}
+
+interface MedicationSeedRow {
+  patientId: string;
+  medKey: string;
+  doc: Record<string, unknown>;
+}
+
+interface MedicationScheduleSeedRow {
+  patientId: string;
+  medKey: string;
+  times: string[];
+  daysOfWeek?: number[];
+  startDate?: string;
+  endDate?: string;
+}
+
+interface MedicationLogSeedRow {
+  patientId: string;
+  medKey: string;
   doc: Record<string, unknown>;
 }
 
@@ -133,6 +157,9 @@ export async function resetDemoData(): Promise<ResetSummary> {
     promInstancesDeleted,
     promTemplatesDeleted,
     exercisePlansDeleted,
+    medicationSchedulesDeleted,
+    medicationsDeleted,
+    medicationLogsDeleted,
     hydrationLogsDeleted,
     nutritionLogsDeleted,
     careEventsDeleted,
@@ -145,6 +172,9 @@ export async function resetDemoData(): Promise<ResetSummary> {
     PromInstance.deleteMany({ demoTag: DEMO_TAG }),
     PromTemplate.deleteMany({ demoTag: DEMO_TAG }),
     ExercisePlan.deleteMany({ demoTag: DEMO_TAG }),
+    MedicationSchedule.deleteMany({ demoTag: DEMO_TAG }),
+    Medication.deleteMany({ demoTag: DEMO_TAG }),
+    MedicationLog.deleteMany({ demoTag: DEMO_TAG }),
     HydrationLog.deleteMany({ demoTag: DEMO_TAG }),
     NutritionLog.deleteMany({ demoTag: DEMO_TAG }),
     CareEvent.deleteMany({ demoTag: DEMO_TAG }),
@@ -165,6 +195,9 @@ export async function resetDemoData(): Promise<ResetSummary> {
     alertsDeleted: alertsDeleted.deletedCount ?? 0,
     careEventsDeleted: careEventsDeleted.deletedCount ?? 0,
     exercisePlansDeleted: exercisePlansDeleted.deletedCount ?? 0,
+    medicationsDeleted: medicationsDeleted.deletedCount ?? 0,
+    medicationSchedulesDeleted: medicationSchedulesDeleted.deletedCount ?? 0,
+    medicationLogsDeleted: medicationLogsDeleted.deletedCount ?? 0,
     promTemplatesDeleted: promTemplatesDeleted.deletedCount ?? 0,
     promInstancesDeleted: promInstancesDeleted.deletedCount ?? 0,
   };
@@ -349,6 +382,120 @@ function buildNutritionRows(now: Date): NutritionSeedRow[] {
   });
 
   return rows;
+}
+
+function buildMedicationSeed(now: Date): {
+  medications: MedicationSeedRow[];
+  schedules: MedicationScheduleSeedRow[];
+  logs: MedicationLogSeedRow[];
+} {
+  const definitions: Array<{
+    patientId: string;
+    medKey: string;
+    name: string;
+    type: "medication" | "supplement";
+    instructions?: string;
+    times: string[];
+  }> = [
+    {
+      patientId: "p1",
+      medKey: "p1-ibuprofen",
+      name: "Ibuprofen",
+      type: "medication",
+      instructions: "Take as prescribed by your clinician with food.",
+      times: ["08:00", "20:00"],
+    },
+    {
+      patientId: "p1",
+      medKey: "p1-omega3",
+      name: "Omega-3",
+      type: "supplement",
+      instructions: "Take with breakfast as prescribed.",
+      times: ["09:00"],
+    },
+    {
+      patientId: "p2",
+      medKey: "p2-acetaminophen",
+      name: "Acetaminophen",
+      type: "medication",
+      instructions: "Take as prescribed by your clinician.",
+      times: ["08:00", "20:00"],
+    },
+    {
+      patientId: "p3",
+      medKey: "p3-vitamin-d",
+      name: "Vitamin D",
+      type: "supplement",
+      instructions: "Take daily as prescribed.",
+      times: ["09:00"],
+    },
+  ];
+
+  const medications: MedicationSeedRow[] = definitions.map((definition) => ({
+    patientId: definition.patientId,
+    medKey: definition.medKey,
+    doc: {
+      patientId: definition.patientId,
+      name: definition.name,
+      type: definition.type,
+      instructions: definition.instructions,
+      active: true,
+      demoTag: DEMO_TAG,
+    },
+  }));
+
+  const schedules: MedicationScheduleSeedRow[] = definitions.map((definition) => ({
+    patientId: definition.patientId,
+    medKey: definition.medKey,
+    times: definition.times,
+    daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+  }));
+
+  const patientOrder = new Map<string, number>(
+    DEMO_PATIENTS.map((patient, index) => [patient.patientId, index])
+  );
+  const baseDay = utcDay(now);
+  const logs: MedicationLogSeedRow[] = [];
+
+  for (const [definitionIndex, definition] of definitions.entries()) {
+    const patientIndex = patientOrder.get(definition.patientId) ?? 0;
+    for (let dayOffset = 0; dayOffset < 14; dayOffset += 1) {
+      if ((dayOffset + patientIndex + definitionIndex) % 5 === 0) {
+        continue;
+      }
+
+      const day = addUtcDays(baseDay, -dayOffset);
+      for (const [timeIndex, time] of definition.times.entries()) {
+        const [hourString, minuteString] = time.split(":");
+        const hour = Number.parseInt(hourString, 10);
+        const minute = Number.parseInt(minuteString, 10);
+        const createdAt = withUtcTime(day, hour, minute + ((dayOffset * 9 + timeIndex * 7) % 10));
+
+        const taken = (dayOffset + timeIndex + definitionIndex + patientIndex) % 4 !== 0;
+        logs.push({
+          patientId: definition.patientId,
+          medKey: definition.medKey,
+          doc: {
+            patientId: definition.patientId,
+            date: toDateKey(day),
+            time,
+            status: taken ? "taken" : "skipped",
+            note: taken ? undefined : "Skipped planned dose.",
+            source: "manual",
+            demoTag: DEMO_TAG,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        });
+      }
+    }
+  }
+
+  return {
+    medications,
+    schedules,
+    logs,
+  };
 }
 
 function buildChatRows(now: Date): ChatSeedRow[] {
@@ -784,6 +931,37 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
 
   await PromInstance.insertMany(buildPromInstanceSeedDocs(now), { ordered: true });
 
+  const medicationSeed = buildMedicationSeed(now);
+  const insertedMedications = await Medication.insertMany(
+    medicationSeed.medications.map((row) => row.doc),
+    { ordered: true }
+  );
+  const medicationIdByKey = new Map<string, string>();
+  medicationSeed.medications.forEach((row, index) => {
+    medicationIdByKey.set(row.medKey, String(insertedMedications[index]._id));
+  });
+
+  await MedicationSchedule.insertMany(
+    medicationSeed.schedules.map((row) => ({
+      patientId: row.patientId,
+      medicationId: requireMappedId(medicationIdByKey, row.medKey, `${row.patientId} schedule medication`),
+      times: row.times,
+      daysOfWeek: row.daysOfWeek ?? [0, 1, 2, 3, 4, 5, 6],
+      startDate: row.startDate,
+      endDate: row.endDate,
+      demoTag: DEMO_TAG,
+    })),
+    { ordered: true }
+  );
+
+  await MedicationLog.insertMany(
+    medicationSeed.logs.map((row) => ({
+      ...row.doc,
+      medicationId: requireMappedId(medicationIdByKey, row.medKey, `${row.patientId} medication log`),
+    })),
+    { ordered: true }
+  );
+
   const checkInRows = buildCheckInRows(now);
   const hydrationRows = buildHydrationRows(now);
   const nutritionRows = buildNutritionRows(now);
@@ -859,6 +1037,9 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     checkIns,
     hydrationLogs,
     nutritionLogs,
+    medications,
+    medicationSchedules,
+    medicationLogs,
     chatMessages,
     alerts,
     careEvents,
@@ -870,6 +1051,9 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     CheckIn.countDocuments({ demoTag: DEMO_TAG }),
     HydrationLog.countDocuments({ demoTag: DEMO_TAG }),
     NutritionLog.countDocuments({ demoTag: DEMO_TAG }),
+    Medication.countDocuments({ demoTag: DEMO_TAG }),
+    MedicationSchedule.countDocuments({ demoTag: DEMO_TAG }),
+    MedicationLog.countDocuments({ demoTag: DEMO_TAG }),
     ChatMessage.countDocuments({ demoTag: DEMO_TAG }),
     Alert.countDocuments({ demoTag: DEMO_TAG }),
     CareEvent.countDocuments({ demoTag: DEMO_TAG }),
@@ -888,6 +1072,9 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     checkIns,
     hydrationLogs,
     nutritionLogs,
+    medications,
+    medicationSchedules,
+    medicationLogs,
     chatMessages,
     alerts,
     careEvents,

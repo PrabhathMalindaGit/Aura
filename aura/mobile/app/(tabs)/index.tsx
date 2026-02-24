@@ -12,6 +12,7 @@ import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedHydrationDay } from "@/src/state/hydrationCache";
+import { getCachedMedicationToday } from "@/src/state/medicationTodayCache";
 import { getCachedNutritionDay } from "@/src/state/nutritionCache";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
@@ -20,6 +21,7 @@ import { useLastError } from "@/src/state/lastError";
 import { formatNetworkReason, useNetwork } from "@/src/state/network";
 import { getPendingNutrition } from "@/src/state/pendingNutrition";
 import { getPendingHydration } from "@/src/state/pendingHydration";
+import { getPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
 import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
@@ -51,6 +53,11 @@ export default function HomeScreen() {
   const [hydrationTodayMl, setHydrationTodayMl] = useState<number | null>(null);
   const [pendingNutritionCount, setPendingNutritionCount] = useState(0);
   const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
+  const [pendingMedicationCount, setPendingMedicationCount] = useState(0);
+  const [medicationTodaySummary, setMedicationTodaySummary] = useState<{
+    taken: number;
+    total: number;
+  } | null>(null);
   const [promSummary, setPromSummary] = useState<{
     status: "loading" | "hasDue" | "none";
     dueCount: number;
@@ -78,6 +85,7 @@ export default function HomeScreen() {
   const promsRefresh = useLastRefreshed("proms");
   const hydrationRefresh = useLastRefreshed("hydration");
   const nutritionRefresh = useLastRefreshed("nutrition");
+  const medicationsRefresh = useLastRefreshed("medications");
   const weeklyReportRefresh = useLastRefreshed("weeklyReport");
 
   const authError = useLastError("auth");
@@ -97,6 +105,8 @@ export default function HomeScreen() {
   const hydrationLogError = useLastError("hydrationLog");
   const nutritionLoadError = useLastError("nutritionLoad");
   const nutritionLogError = useLastError("nutritionLog");
+  const medicationsLoadError = useLastError("medicationsLoad");
+  const medicationLogError = useLastError("medicationLog");
   const weeklyReportLoadError = useLastError("weeklyReportLoad");
 
   const patientId = auth.patient?.id ?? "";
@@ -183,6 +193,16 @@ export default function HomeScreen() {
         title: nutritionLogError.lastError?.title,
       },
       {
+        label: "Medications load",
+        value: medicationsLoadError.label,
+        title: medicationsLoadError.lastError?.title,
+      },
+      {
+        label: "Medication log",
+        value: medicationLogError.label,
+        title: medicationLogError.lastError?.title,
+      },
+      {
         label: "Weekly report load",
         value: weeklyReportLoadError.label,
         title: weeklyReportLoadError.lastError?.title,
@@ -229,6 +249,10 @@ export default function HomeScreen() {
       nutritionLoadError.lastError?.title,
       nutritionLogError.label,
       nutritionLogError.lastError?.title,
+      medicationsLoadError.label,
+      medicationsLoadError.lastError?.title,
+      medicationLogError.label,
+      medicationLogError.lastError?.title,
       weeklyReportLoadError.label,
       weeklyReportLoadError.lastError?.title,
       reminderPermissionError.label,
@@ -249,6 +273,7 @@ export default function HomeScreen() {
       promsRefresh.reload(),
       hydrationRefresh.reload(),
       nutritionRefresh.reload(),
+      medicationsRefresh.reload(),
       weeklyReportRefresh.reload(),
       authError.reload(),
       checkinSubmitError.reload(),
@@ -265,6 +290,8 @@ export default function HomeScreen() {
       hydrationLogError.reload(),
       nutritionLoadError.reload(),
       nutritionLogError.reload(),
+      medicationsLoadError.reload(),
+      medicationLogError.reload(),
       weeklyReportLoadError.reload(),
       reminderPermissionError.reload(),
       reminderScheduleError.reload(),
@@ -277,6 +304,7 @@ export default function HomeScreen() {
       setPendingPromCount(0);
       setPendingHydrationCount(0);
       setPendingNutritionCount(0);
+      setPendingMedicationCount(0);
       return;
     }
     const pending = await getPending(patientId);
@@ -287,6 +315,8 @@ export default function HomeScreen() {
     setPendingHydrationCount(pendingHydration.length);
     const pendingNutrition = await getPendingNutrition(patientId);
     setPendingNutritionCount(pendingNutrition.length);
+    const pendingMedication = await getPendingMedicationLogs(patientId);
+    setPendingMedicationCount(pendingMedication.length);
   };
 
   useEffect(() => {
@@ -470,6 +500,61 @@ export default function HomeScreen() {
     };
   }, [patientId, today, nutritionRefresh.lastRefreshedAt]);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setMedicationTodaySummary(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const [cached, pending] = await Promise.all([
+        getCachedMedicationToday(patientId, today),
+        getPendingMedicationLogs(patientId),
+      ]);
+      if (!active) {
+        return;
+      }
+
+      const baseItems = cached?.items ?? [];
+      const pendingForToday = pending.filter((entry) => entry.date === today);
+      const pendingMap = new Map<string, "taken" | "skipped">();
+      for (const entry of pendingForToday) {
+        pendingMap.set(`${entry.medicationId}:${entry.time}`, entry.status);
+      }
+
+      let total = 0;
+      let taken = 0;
+      for (const item of baseItems) {
+        for (const dose of item.doses) {
+          total += 1;
+          const pendingStatus = pendingMap.get(`${item.medicationId}:${dose.time}`);
+          const effectiveStatus = pendingStatus ?? dose.status;
+          if (effectiveStatus === "taken") {
+            taken += 1;
+          }
+        }
+      }
+
+      if (total === 0 && pendingForToday.length === 0) {
+        setMedicationTodaySummary(null);
+        return;
+      }
+
+      setMedicationTodaySummary({
+        taken,
+        total: total === 0 ? pendingForToday.length : total,
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, today, medicationsRefresh.lastRefreshedAt]);
+
   useFocusEffect(
     useCallback(() => {
       void reloadPendingCounts();
@@ -496,7 +581,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/plan/hydration/nutrition/rehab/PROM/weekly-report caches, drafts, pending uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/plan/hydration/nutrition/medications/rehab/PROM/weekly-report caches, drafts, pending uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -512,7 +597,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, progress, hydration, nutrition, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, progress, hydration, nutrition, medications, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -599,6 +684,11 @@ export default function HomeScreen() {
             compact
           />
           <LastRefreshed
+            label="Last refreshed (medications)"
+            value={medicationsRefresh.label}
+            compact
+          />
+          <LastRefreshed
             label="Last refreshed (weekly report)"
             value={weeklyReportRefresh.label}
             compact
@@ -637,6 +727,9 @@ export default function HomeScreen() {
             Pending nutrition: {pendingNutritionCount}
           </Text>
           <Text style={styles.statusDetail}>
+            Pending medication logs: {pendingMedicationCount}
+          </Text>
+          <Text style={styles.statusDetail}>
             Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not cached"}
           </Text>
           <Text style={styles.statusDetail}>
@@ -646,6 +739,12 @@ export default function HomeScreen() {
               : nutritionTodayLogged
                 ? "Logged"
                 : "Not logged"}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Medications today:{" "}
+            {medicationTodaySummary
+              ? `${medicationTodaySummary.taken}/${medicationTodaySummary.total} taken`
+              : "Not cached"}
           </Text>
           <Text style={styles.statusDetail}>
             Phase:{" "}
@@ -701,6 +800,10 @@ export default function HomeScreen() {
             onPress={() => router.push("/nutrition" as never)}
           />
           <PrimaryButton
+            label="Medications"
+            onPress={() => router.push("/medications" as never)}
+          />
+          <PrimaryButton
             label="Rehab journey"
             onPress={() => router.push("/rehab-journey" as never)}
           />
@@ -751,6 +854,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • Nutrition: save today log, go offline and save again, then sync pending when online.
+          </Text>
+          <Text style={styles.bullet}>
+            • Medications: mark dose Taken, go offline and mark another, then sync pending when online.
           </Text>
           <Text style={styles.bullet}>
             • Offline session: finish while offline, then submit pending when online.

@@ -4,8 +4,13 @@ import { clearCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { clearAllHydrationCacheForPatient } from "@/src/state/hydrationCache";
 import { clearAllLastErrors } from "@/src/state/lastError";
 import { clearAllNutritionCacheForPatient } from "@/src/state/nutritionCache";
+import {
+  clearAllMedicationTodayCacheForPatient,
+} from "@/src/state/medicationTodayCache";
+import { clearCachedMedications } from "@/src/state/medicationsCache";
 import { clearPendingNutrition } from "@/src/state/pendingNutrition";
 import { clearPendingHydration } from "@/src/state/pendingHydration";
+import { clearPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
 import { clearPending } from "@/src/state/pendingSessions";
 import { clearPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { clearAllPromDraftsForPatient } from "@/src/state/promDrafts";
@@ -33,6 +38,8 @@ export async function resetDemoState(
     tasks.push(clearCachedExercisePlan(patientId));
     tasks.push(clearAllHydrationCacheForPatient(patientId));
     tasks.push(clearAllNutritionCacheForPatient(patientId));
+    tasks.push(clearCachedMedications(patientId));
+    tasks.push(clearAllMedicationTodayCacheForPatient(patientId));
     tasks.push(clearCachedRehabPhases(patientId));
     tasks.push(clearPromsCache(patientId));
     tasks.push(clearAllWeeklyReportsForPatient(patientId));
@@ -40,6 +47,7 @@ export async function resetDemoState(
     tasks.push(clearPending(patientId));
     tasks.push(clearPendingHydration(patientId));
     tasks.push(clearPendingNutrition(patientId));
+    tasks.push(clearPendingMedicationLogs(patientId));
     tasks.push(clearPendingPromSubmissions(patientId));
     tasks.push(clearReminderPrefs(patientId));
   }

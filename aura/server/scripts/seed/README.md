@@ -26,6 +26,8 @@ npm run seed:reset
 - 30-day check-in window with deterministic gaps (22 check-ins per patient)
 - 14-day hydration log entries with deterministic gaps and daily variation
 - 14-day nutrition log entries with deterministic gaps and enum variation
+- 1-2 medications per demo patient with deterministic daily schedules
+- 14-day medication adherence logs (taken/skipped) with deterministic variation
 - 10 chat messages per patient
 - 6 alerts with status variety (`open`, `acknowledged`, `resolved`)
 - care_events timeline entries per alert

@@ -144,6 +144,16 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
    - protein OK/high day count.
 5. Open weekly report (`/patients/p1/weekly-report`) and verify nutrition stats are shown.
 
+## Medication add-on demo path (Step 14 #4)
+
+1. In mobile, open **Medications** and mark at least one scheduled dose as **Taken**.
+2. Turn offline in mobile, mark another dose, then return online and sync pending logs.
+3. In dashboard, open `/patients/p1`.
+4. Review **Medication adherence (last 7 days)** card:
+   - daily scheduled/taken/skipped values
+   - weekly adherence percentage.
+5. Open weekly report (`/patients/p1/weekly-report`) and verify the **Medications** block is shown.
+
 ## Notes
 
 - Legacy README preserved in `README_OLD.md`.

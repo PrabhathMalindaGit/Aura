@@ -171,6 +171,48 @@ export interface NutritionRangeResponse {
   days: NutritionDay[];
 }
 
+export type MedicationType = 'medication' | 'supplement';
+export type MedicationDoseStatus = 'due' | 'taken' | 'skipped';
+
+export interface MedicationDose {
+  time: string;
+  status: MedicationDoseStatus;
+  loggedAt?: string;
+  logId?: string;
+}
+
+export interface MedicationItem {
+  id: string;
+  name: string;
+  type: MedicationType;
+  instructions?: string;
+  active: boolean;
+  schedule: {
+    times: string[];
+  };
+}
+
+export interface MedicationListResponse {
+  ok: true;
+  patientId?: string;
+  medications: MedicationItem[];
+}
+
+export interface MedicationAdherenceDay {
+  date: string;
+  taken: number;
+  skipped: number;
+  totalScheduled: number;
+}
+
+export interface MedicationAdherenceRangeResponse {
+  ok: true;
+  patientId?: string;
+  from: string;
+  to: string;
+  days: MedicationAdherenceDay[];
+}
+
 export type PatientStatus = 'active' | 'on_hold' | 'discharged' | 'inactive';
 
 export interface PatientSummary {
@@ -440,6 +482,12 @@ export interface WeeklyReportPayload {
     proteinOkHighDays: number;
     antiInflammatoryDays: number;
     regularMealsDays: number;
+  };
+  medications: {
+    scheduledDoses: number;
+    takenDoses: number;
+    skippedDoses: number;
+    adherencePct: number | null;
   };
   exercises: {
     sessionCount: number;

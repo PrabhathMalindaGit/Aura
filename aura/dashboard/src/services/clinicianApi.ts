@@ -25,6 +25,8 @@ import {
   type CheckinsRangeResponse,
   type HydrationRangeResponse,
   type NutritionRangeResponse,
+  type MedicationListResponse,
+  type MedicationAdherenceRangeResponse,
   type CheckinEvent,
   type ChatEvent,
   type ExercisePlan,
@@ -570,6 +572,34 @@ export async function getPatientNutritionRange(
   });
   return fetchJson<NutritionRangeResponse>(
     `/clinician/patients/${encodeURIComponent(patientId)}/nutrition/range?${query.toString()}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function getPatientMedications(
+  patientId: string,
+): Promise<MedicationListResponse> {
+  return fetchJson<MedicationListResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/medications`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function getPatientMedicationAdherence(
+  patientId: string,
+  from: string,
+  to: string,
+): Promise<MedicationAdherenceRangeResponse> {
+  const query = new URLSearchParams({
+    from,
+    to,
+  });
+  return fetchJson<MedicationAdherenceRangeResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/medications/adherence?${query.toString()}`,
     {
       method: 'GET',
     },

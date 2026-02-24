@@ -124,6 +124,7 @@ function buildShareText(report: WeeklyReport): string {
     `Sleep: tracked nights ${report.sleep.trackedNights}, avg hours ${numberOrDash(report.sleep.avgHours)}, avg quality ${numberOrDash(report.sleep.avgQuality)}`,
     `Hydration: tracked days ${report.hydration.trackedDays}, avg daily ${numberOrDash(report.hydration.avgDailyMl)} ml, total ${report.hydration.totalMl} ml, goal days ${report.hydration.daysMeetingTarget}/${report.hydration.trackedDays}`,
     `Nutrition: tracked days ${report.nutrition.trackedDays}, avg fruit/veg ${numberOrDash(report.nutrition.avgFruitVegServings)}, protein OK/high days ${report.nutrition.proteinOkHighDays}, anti-inflammatory days ${report.nutrition.antiInflammatoryDays}, regular meals days ${report.nutrition.regularMealsDays}`,
+    `Medications: scheduled ${report.medications.scheduledDoses}, taken ${report.medications.takenDoses}, skipped ${report.medications.skippedDoses}, adherence ${pctOrDash(report.medications.adherencePct)}`,
     `Exercise sessions: ${report.exercises.sessionCount}, duration ${report.exercises.totalDurationMinutes} min, completion ${report.exercises.completedExercises}/${report.exercises.totalExercises}`,
     `PROMs: due now ${report.proms.dueNowCount}, completed this week ${report.proms.completedThisWeekCount}`,
     `Safety: alerts ${report.safety.alertsCreatedThisWeek}, high-risk ${report.safety.highRiskAlertsThisWeek}`,
@@ -464,6 +465,22 @@ export default function WeeklyReportScreen() {
               </Text>
               <Text style={styles.metaText}>
                 Regular meals days: {report.nutrition.regularMealsDays}
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Medications</Text>
+              <Text style={styles.metaText}>
+                Scheduled doses: {report.medications.scheduledDoses}
+              </Text>
+              <Text style={styles.metaText}>
+                Taken doses: {report.medications.takenDoses}
+              </Text>
+              <Text style={styles.metaText}>
+                Skipped doses: {report.medications.skippedDoses}
+              </Text>
+              <Text style={styles.metaText}>
+                Adherence: {pctOrDash(report.medications.adherencePct)}
               </Text>
             </View>
 

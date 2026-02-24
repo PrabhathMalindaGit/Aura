@@ -8,6 +8,9 @@ import Alert from "../src/models/Alert";
 import CheckIn from "../src/models/CheckIn";
 import ExerciseSession from "../src/models/ExerciseSession";
 import HydrationLog from "../src/models/HydrationLog";
+import Medication from "../src/models/Medication";
+import MedicationLog from "../src/models/MedicationLog";
+import MedicationSchedule from "../src/models/MedicationSchedule";
 import NutritionLog from "../src/models/NutritionLog";
 import Patient from "../src/models/Patient";
 import PromInstance from "../src/models/PromInstance";
@@ -36,6 +39,9 @@ describe("weekly report routes", () => {
       ExerciseSession.deleteMany({}),
       HydrationLog.deleteMany({}),
       NutritionLog.deleteMany({}),
+      Medication.deleteMany({}),
+      MedicationSchedule.deleteMany({}),
+      MedicationLog.deleteMany({}),
       PromInstance.deleteMany({}),
       Alert.deleteMany({}),
     ]);
@@ -240,6 +246,62 @@ describe("weekly report routes", () => {
       },
     ]);
 
+    const [p1Medication, p2Medication] = await Medication.insertMany([
+      {
+        patientId: "p1",
+        name: "Ibuprofen",
+        type: "medication",
+        instructions: "Take as prescribed.",
+        active: true,
+      },
+      {
+        patientId: "p2",
+        name: "Magnesium",
+        type: "supplement",
+        active: true,
+      },
+    ]);
+
+    await MedicationSchedule.insertMany([
+      {
+        patientId: "p1",
+        medicationId: p1Medication._id,
+        times: ["08:00", "20:00"],
+        daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      },
+    ]);
+
+    await MedicationLog.insertMany([
+      {
+        patientId: "p1",
+        medicationId: p1Medication._id,
+        date: "2026-02-23",
+        time: "08:00",
+        status: "taken",
+      },
+      {
+        patientId: "p1",
+        medicationId: p1Medication._id,
+        date: "2026-02-24",
+        time: "08:00",
+        status: "skipped",
+      },
+      {
+        patientId: "p1",
+        medicationId: p1Medication._id,
+        date: "2026-02-25",
+        time: "20:00",
+        status: "taken",
+      },
+      {
+        patientId: "p2",
+        medicationId: p2Medication._id,
+        date: "2026-02-24",
+        time: "08:00",
+        status: "taken",
+      },
+    ]);
+
     const questionSnapshot = [
       {
         id: "q1",
@@ -441,6 +503,12 @@ describe("weekly report routes", () => {
       antiInflammatoryDays: 3,
       regularMealsDays: 2,
     });
+    expect(response.body.medications).toMatchObject({
+      scheduledDoses: 14,
+      takenDoses: 2,
+      skippedDoses: 1,
+      adherencePct: 14,
+    });
 
     expect(response.body.exercises).toMatchObject({
       sessionCount: 1,
@@ -472,5 +540,6 @@ describe("weekly report routes", () => {
     const highlights = response.body.summary?.highlights as string[];
     expect(highlights).toContain("Protein intake looked low on most logged days.");
     expect(highlights).toContain("You focused on anti-inflammatory foods on 3 days.");
+    expect(highlights).toContain("Medication adherence was low this week.");
   });
 });

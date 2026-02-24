@@ -2,6 +2,9 @@ import Alert from "../models/Alert";
 import CheckIn from "../models/CheckIn";
 import ExerciseSession from "../models/ExerciseSession";
 import HydrationLog from "../models/HydrationLog";
+import Medication from "../models/Medication";
+import MedicationLog from "../models/MedicationLog";
+import MedicationSchedule from "../models/MedicationSchedule";
 import NutritionLog from "../models/NutritionLog";
 import PromInstance from "../models/PromInstance";
 
@@ -44,6 +47,12 @@ export type WeeklyReport = {
     proteinOkHighDays: number;
     antiInflammatoryDays: number;
     regularMealsDays: number;
+  };
+  medications: {
+    scheduledDoses: number;
+    takenDoses: number;
+    skippedDoses: number;
+    adherencePct: number | null;
   };
   exercises: {
     sessionCount: number;
@@ -138,6 +147,74 @@ function toDateOnlyUTC(date: Date): string {
   ).padStart(2, "0")}`;
 }
 
+function parseDateOnlyUtc(value: string): Date | null {
+  if (!dateOnlyRegexValid(value)) {
+    return null;
+  }
+
+  const [yearString, monthString, dayString] = value.split("-");
+  const year = Number.parseInt(yearString, 10);
+  const month = Number.parseInt(monthString, 10);
+  const day = Number.parseInt(dayString, 10);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
+function compareDateOnly(left: string, right: string): number {
+  return Date.parse(`${left}T00:00:00.000Z`) - Date.parse(`${right}T00:00:00.000Z`);
+}
+
+function addDaysDateOnly(date: string, deltaDays: number): string {
+  const parsed = parseDateOnlyUtc(date);
+  if (!parsed) {
+    return date;
+  }
+  const shifted = new Date(parsed.getTime() + deltaDays * MS_PER_DAY);
+  return toDateOnlyUTC(shifted);
+}
+
+function expandWeekDates(weekStart: string): string[] {
+  return Array.from({ length: 7 }, (_unused, index) => addDaysDateOnly(weekStart, index));
+}
+
+function scheduleAppliesOnDate(
+  schedule: {
+    daysOfWeek?: unknown;
+    startDate?: unknown;
+    endDate?: unknown;
+  },
+  date: string
+): boolean {
+  const parsed = parseDateOnlyUtc(date);
+  if (!parsed) {
+    return false;
+  }
+
+  const rawDays = Array.isArray(schedule.daysOfWeek) ? schedule.daysOfWeek : [0, 1, 2, 3, 4, 5, 6];
+  const days = rawDays.filter((value): value is number => Number.isInteger(value) && value >= 0 && value <= 6);
+  const dayOfWeek = parsed.getUTCDay();
+  if (!days.includes(dayOfWeek)) {
+    return false;
+  }
+
+  const startDate = getStringValue(schedule.startDate);
+  const endDate = getStringValue(schedule.endDate);
+  if (startDate && compareDateOnly(date, startDate) < 0) {
+    return false;
+  }
+  if (endDate && compareDateOnly(date, endDate) > 0) {
+    return false;
+  }
+  return true;
+}
+
 function mondayWeekStartForNow(tzOffsetMinutes: number): string {
   const shiftedNow = new Date(Date.now() + tzOffsetMinutes * 60_000);
   const day = shiftedNow.getUTCDay();
@@ -214,6 +291,8 @@ function buildHighlights(input: {
   nutritionAvgFruitVegServings: number | null;
   nutritionProteinOkHighDays: number;
   nutritionAntiInflammatoryDays: number;
+  medicationScheduledDoses: number;
+  medicationAdherencePct: number | null;
 }): string[] {
   const highlights: string[] = [];
 
@@ -285,6 +364,22 @@ function buildHighlights(input: {
     );
   }
 
+  if (
+    input.medicationScheduledDoses >= 10 &&
+    input.medicationAdherencePct !== null &&
+    input.medicationAdherencePct < 60
+  ) {
+    highlights.push("Medication adherence was low this week.");
+  }
+
+  if (
+    input.medicationScheduledDoses >= 5 &&
+    input.medicationAdherencePct !== null &&
+    input.medicationAdherencePct >= 80
+  ) {
+    highlights.push("Great medication consistency this week.");
+  }
+
   if (highlights.length === 0) {
     highlights.push("No major changes were detected this week.");
   }
@@ -353,6 +448,7 @@ export async function generateWeeklyReport(options: {
     weekHighRiskAlerts,
     hydrationRows,
     nutritionRows,
+    activeMedications,
   ] =
     await Promise.all([
       CheckIn.find({
@@ -429,7 +525,36 @@ export async function generateWeeklyReport(options: {
           createdAt: 1,
         })
         .lean(),
+      Medication.find({
+        patientId,
+        active: true,
+      })
+        .select({ _id: 1 })
+        .lean(),
     ]);
+
+  const medicationIds = activeMedications.map((item) => item._id);
+  const [medicationSchedules, medicationLogs] =
+    medicationIds.length > 0
+      ? await Promise.all([
+          MedicationSchedule.find({
+            patientId,
+            medicationId: { $in: medicationIds },
+          })
+            .select({ medicationId: 1, times: 1, daysOfWeek: 1, startDate: 1, endDate: 1 })
+            .lean(),
+          MedicationLog.find({
+            patientId,
+            medicationId: { $in: medicationIds },
+            date: {
+              $gte: weekStart,
+              $lt: weekEnd,
+            },
+          })
+            .select({ date: 1, status: 1 })
+            .lean(),
+        ])
+      : [[], []];
 
   const painValues: number[] = [];
   const moodValues: number[] = [];
@@ -646,6 +771,37 @@ export async function generateWeeklyReport(options: {
     regularMealsDays,
   };
 
+  const weekDates = expandWeekDates(weekStart);
+  let scheduledDoses = 0;
+  for (const date of weekDates) {
+    for (const schedule of medicationSchedules) {
+      if (!scheduleAppliesOnDate(schedule, date)) {
+        continue;
+      }
+      const times = Array.isArray(schedule.times)
+        ? schedule.times.filter((time): time is string => typeof time === "string" && /^([01]\d|2[0-3]):([0-5]\d)$/.test(time))
+        : [];
+      scheduledDoses += times.length;
+    }
+  }
+
+  let takenDoses = 0;
+  let skippedDoses = 0;
+  for (const log of medicationLogs) {
+    if (log.status === "taken") {
+      takenDoses += 1;
+    } else if (log.status === "skipped") {
+      skippedDoses += 1;
+    }
+  }
+
+  const medicationsSummary = {
+    scheduledDoses,
+    takenDoses,
+    skippedDoses,
+    adherencePct: pct(takenDoses, scheduledDoses),
+  };
+
   const exercisesSummary = {
     sessionCount: sessions.length,
     totalDurationMinutes: Math.round(totalDurationSeconds / 60),
@@ -687,6 +843,8 @@ export async function generateWeeklyReport(options: {
     nutritionAvgFruitVegServings: nutritionSummary.avgFruitVegServings,
     nutritionProteinOkHighDays: nutritionSummary.proteinOkHighDays,
     nutritionAntiInflammatoryDays: nutritionSummary.antiInflammatoryDays,
+    medicationScheduledDoses: medicationsSummary.scheduledDoses,
+    medicationAdherencePct: medicationsSummary.adherencePct,
   });
 
   const nextSteps = buildNextSteps({
@@ -716,6 +874,7 @@ export async function generateWeeklyReport(options: {
     sleep: sleepSummary,
     hydration: hydrationSummary,
     nutrition: nutritionSummary,
+    medications: medicationsSummary,
     exercises: exercisesSummary,
     proms: promsSummary,
     safety: safetySummary,

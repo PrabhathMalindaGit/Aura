@@ -21,6 +21,8 @@ export type ErrorKey =
   | "hydrationLog"
   | "nutritionLoad"
   | "nutritionLog"
+  | "medicationsLoad"
+  | "medicationLog"
   | "weeklyReportLoad";
 
 export type LastErrorRecord = {

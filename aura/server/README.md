@@ -110,6 +110,32 @@ curl -sS "http://localhost:3000/patient/nutrition/range?from=2026-02-17&to=2026-
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient medications list:
+```bash
+curl -sS "http://localhost:3000/patient/medications" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient medication checklist for today:
+```bash
+curl -sS "http://localhost:3000/patient/medications/today?date=2026-02-23&tzOffsetMinutes=0" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient medication dose log upsert:
+```bash
+curl -sS -X POST http://localhost:3000/patient/medications/log \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"medicationId":"<MEDICATION_ID>","date":"2026-02-23","time":"08:00","status":"taken","note":"As prescribed"}'
+```
+
+- Patient medication adherence range (inclusive end date):
+```bash
+curl -sS "http://localhost:3000/patient/medications/logs/range?from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Patient chat send:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/chat/send \
@@ -269,6 +295,18 @@ curl -sS "http://localhost:3000/clinician/patients/p1/hydration/range?from=2026-
 - Get clinician nutrition range for a patient:
 ```bash
 curl -sS "http://localhost:3000/clinician/patients/p1/nutrition/range?from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician medications for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/medications" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician medication adherence for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/medications/adherence?from=2026-02-17&to=2026-02-23" \
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 

@@ -121,6 +121,79 @@ export type NutritionRangeResponse = {
   days: NutritionDay[];
 };
 
+export type MedicationType = "medication" | "supplement";
+export type MedicationDoseStatus = "due" | "taken" | "skipped";
+
+export type MedicationDose = {
+  time: string;
+  status: MedicationDoseStatus;
+  loggedAt?: string;
+  logId?: string;
+  pending?: boolean;
+  localId?: string;
+};
+
+export type MedicationItem = {
+  id: string;
+  name: string;
+  type: MedicationType;
+  instructions?: string;
+  active: boolean;
+  schedule: {
+    times: string[];
+  };
+};
+
+export type MedicationListResponse = {
+  ok: boolean;
+  medications: MedicationItem[];
+};
+
+export type MedicationTodayItem = {
+  medicationId: string;
+  name: string;
+  type: MedicationType;
+  instructions?: string;
+  doses: MedicationDose[];
+};
+
+export type MedicationTodayResponse = {
+  ok: boolean;
+  date: string;
+  items: MedicationTodayItem[];
+};
+
+export type MedicationLogPayload = {
+  medicationId: string;
+  date?: string;
+  time: string;
+  status: "taken" | "skipped";
+  note?: string;
+};
+
+export type MedicationLogResult = {
+  ok: boolean;
+  id?: string;
+  date: string;
+  time: string;
+  status: "taken" | "skipped";
+  loggedAt?: string;
+};
+
+export type MedicationAdherenceDay = {
+  date: string;
+  taken: number;
+  skipped: number;
+  totalScheduled: number;
+};
+
+export type MedicationAdherenceRangeResponse = {
+  ok: boolean;
+  from: string;
+  to: string;
+  days: MedicationAdherenceDay[];
+};
+
 export type ExercisePlanItem = {
   key: string;
   name: string;
@@ -280,6 +353,12 @@ export type WeeklyReport = {
     proteinOkHighDays: number;
     antiInflammatoryDays: number;
     regularMealsDays: number;
+  };
+  medications: {
+    scheduledDoses: number;
+    takenDoses: number;
+    skippedDoses: number;
+    adherencePct: number | null;
   };
   exercises: {
     sessionCount: number;
@@ -753,6 +832,12 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       antiInflammatoryDays?: unknown;
       regularMealsDays?: unknown;
     };
+    medications?: {
+      scheduledDoses?: unknown;
+      takenDoses?: unknown;
+      skippedDoses?: unknown;
+      adherencePct?: unknown;
+    };
     exercises?: {
       sessionCount?: unknown;
       totalDurationMinutes?: unknown;
@@ -831,6 +916,11 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
     toFiniteNumber(record.nutrition?.antiInflammatoryDays) ?? 0;
   const nutritionRegularMealsDays =
     toFiniteNumber(record.nutrition?.regularMealsDays) ?? 0;
+  const medicationScheduledDoses =
+    toFiniteNumber(record.medications?.scheduledDoses) ?? 0;
+  const medicationTakenDoses = toFiniteNumber(record.medications?.takenDoses) ?? 0;
+  const medicationSkippedDoses =
+    toFiniteNumber(record.medications?.skippedDoses) ?? 0;
 
   const latestCompleted =
     record.proms?.latestCompleted &&
@@ -891,6 +981,12 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       proteinOkHighDays: nutritionProteinOkHighDays,
       antiInflammatoryDays: nutritionAntiInflammatoryDays,
       regularMealsDays: nutritionRegularMealsDays,
+    },
+    medications: {
+      scheduledDoses: medicationScheduledDoses,
+      takenDoses: medicationTakenDoses,
+      skippedDoses: medicationSkippedDoses,
+      adherencePct: toFiniteNumber(record.medications?.adherencePct),
     },
     exercises: {
       sessionCount,
@@ -1717,6 +1813,265 @@ function normalizeNutritionRange(value: unknown): NutritionRangeResponse | null 
   };
 }
 
+function normalizeMedicationType(value: unknown): MedicationType {
+  return value === "supplement" ? "supplement" : "medication";
+}
+
+function normalizeMedicationDose(value: unknown): MedicationDose | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const dose = value as {
+    time?: unknown;
+    status?: unknown;
+    loggedAt?: unknown;
+    logId?: unknown;
+    pending?: unknown;
+    localId?: unknown;
+  };
+
+  const time = typeof dose.time === "string" ? dose.time : "";
+  if (!time || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
+    return null;
+  }
+
+  const status =
+    dose.status === "taken" || dose.status === "skipped" || dose.status === "due"
+      ? dose.status
+      : null;
+  if (!status) {
+    return null;
+  }
+
+  return {
+    time,
+    status,
+    loggedAt: typeof dose.loggedAt === "string" ? dose.loggedAt : undefined,
+    logId: typeof dose.logId === "string" ? dose.logId : undefined,
+    pending: dose.pending === true ? true : undefined,
+    localId: typeof dose.localId === "string" ? dose.localId : undefined,
+  };
+}
+
+function normalizeMedicationItem(value: unknown): MedicationItem | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const item = value as {
+    id?: unknown;
+    _id?: unknown;
+    name?: unknown;
+    type?: unknown;
+    instructions?: unknown;
+    active?: unknown;
+    schedule?: unknown;
+    times?: unknown;
+  };
+
+  const id =
+    typeof item.id === "string"
+      ? item.id
+      : typeof item._id === "string"
+        ? item._id
+        : "";
+  const name = typeof item.name === "string" ? item.name.trim() : "";
+  if (!id || !name) {
+    return null;
+  }
+
+  const scheduleRecord =
+    item.schedule && typeof item.schedule === "object"
+      ? (item.schedule as { times?: unknown })
+      : null;
+  const rawTimes = Array.isArray(scheduleRecord?.times)
+    ? scheduleRecord?.times
+    : Array.isArray(item.times)
+      ? item.times
+      : [];
+
+  const times = rawTimes
+    .filter((time): time is string => typeof time === "string" && /^([01]\d|2[0-3]):([0-5]\d)$/.test(time))
+    .sort((left, right) => left.localeCompare(right));
+
+  return {
+    id,
+    name,
+    type: normalizeMedicationType(item.type),
+    instructions:
+      typeof item.instructions === "string" && item.instructions.trim()
+        ? item.instructions.trim()
+        : undefined,
+    active: item.active !== false,
+    schedule: {
+      times: [...new Set(times)],
+    },
+  };
+}
+
+function normalizeMedicationTodayItem(value: unknown): MedicationTodayItem | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const item = value as {
+    medicationId?: unknown;
+    id?: unknown;
+    name?: unknown;
+    type?: unknown;
+    instructions?: unknown;
+    doses?: unknown;
+  };
+
+  const medicationId =
+    typeof item.medicationId === "string"
+      ? item.medicationId
+      : typeof item.id === "string"
+        ? item.id
+        : "";
+  const name = typeof item.name === "string" ? item.name.trim() : "";
+  if (!medicationId || !name) {
+    return null;
+  }
+
+  const doses = Array.isArray(item.doses)
+    ? item.doses
+        .map((dose) => normalizeMedicationDose(dose))
+        .filter((dose): dose is MedicationDose => Boolean(dose))
+        .sort((left, right) => left.time.localeCompare(right.time))
+    : [];
+
+  return {
+    medicationId,
+    name,
+    type: normalizeMedicationType(item.type),
+    instructions:
+      typeof item.instructions === "string" && item.instructions.trim()
+        ? item.instructions.trim()
+        : undefined,
+    doses,
+  };
+}
+
+function normalizeMedicationList(value: unknown): MedicationListResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as {
+    ok?: unknown;
+    medications?: unknown;
+    items?: unknown;
+  };
+
+  const source = Array.isArray(record.medications)
+    ? record.medications
+    : Array.isArray(record.items)
+      ? record.items
+      : [];
+
+  return {
+    ok: record.ok !== false,
+    medications: source
+      .map((item) => normalizeMedicationItem(item))
+      .filter((item): item is MedicationItem => Boolean(item)),
+  };
+}
+
+function normalizeMedicationToday(value: unknown): MedicationTodayResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    date?: unknown;
+    items?: unknown;
+    medications?: unknown;
+  };
+  const date = typeof record.date === "string" ? record.date : "";
+  if (!date) {
+    return null;
+  }
+
+  const source = Array.isArray(record.items)
+    ? record.items
+    : Array.isArray(record.medications)
+      ? record.medications
+      : [];
+
+  return {
+    ok: record.ok !== false,
+    date,
+    items: source
+      .map((item) => normalizeMedicationTodayItem(item))
+      .filter((item): item is MedicationTodayItem => Boolean(item)),
+  };
+}
+
+function normalizeMedicationAdherenceDay(value: unknown): MedicationAdherenceDay | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const day = value as {
+    date?: unknown;
+    taken?: unknown;
+    skipped?: unknown;
+    totalScheduled?: unknown;
+  };
+
+  const date = typeof day.date === "string" ? day.date : "";
+  const taken = toFiniteNumber(day.taken);
+  const skipped = toFiniteNumber(day.skipped);
+  const totalScheduled = toFiniteNumber(day.totalScheduled);
+  if (!date || taken === null || skipped === null || totalScheduled === null) {
+    return null;
+  }
+
+  return {
+    date,
+    taken: Math.max(0, Math.round(taken)),
+    skipped: Math.max(0, Math.round(skipped)),
+    totalScheduled: Math.max(0, Math.round(totalScheduled)),
+  };
+}
+
+function normalizeMedicationAdherenceRange(value: unknown): MedicationAdherenceRangeResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    from?: unknown;
+    to?: unknown;
+    days?: unknown;
+    items?: unknown;
+  };
+  const from = typeof record.from === "string" ? record.from : "";
+  const to = typeof record.to === "string" ? record.to : "";
+  if (!from || !to) {
+    return null;
+  }
+
+  const source = Array.isArray(record.days)
+    ? record.days
+    : Array.isArray(record.items)
+      ? record.items
+      : [];
+
+  const days = source
+    .map((day) => normalizeMedicationAdherenceDay(day))
+    .filter((day): day is MedicationAdherenceDay => Boolean(day))
+    .sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+
+  return {
+    ok: record.ok !== false,
+    from,
+    to,
+    days,
+  };
+}
+
 export async function logHydration(
   token: string,
   payload: { date?: string; amountMl: number }
@@ -1880,6 +2235,125 @@ export async function getHydrationRange(
     throw invalidResponseError("Could not parse hydration range response.");
   }
 
+  return normalized;
+}
+
+export async function getMedications(token: string): Promise<MedicationListResponse> {
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    medications?: unknown;
+  }>("/patient/medications", {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeMedicationList(payload.data) ??
+    normalizeMedicationList(payload.medications) ??
+    normalizeMedicationList(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse medications response.");
+  }
+  return normalized;
+}
+
+export async function getMedicationToday(
+  token: string,
+  params?: { date?: string; tzOffsetMinutes?: number }
+): Promise<MedicationTodayResponse> {
+  const query = new URLSearchParams();
+  if (params?.date) {
+    query.set("date", params.date);
+  }
+  if (typeof params?.tzOffsetMinutes === "number" && Number.isFinite(params.tzOffsetMinutes)) {
+    query.set("tzOffsetMinutes", String(Math.trunc(params.tzOffsetMinutes)));
+  }
+
+  const path = query.toString()
+    ? `/patient/medications/today?${query.toString()}`
+    : "/patient/medications/today";
+
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    medications?: unknown;
+  }>(path, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeMedicationToday(payload.data) ??
+    normalizeMedicationToday(payload.medications) ??
+    normalizeMedicationToday(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse medication today response.");
+  }
+  return normalized;
+}
+
+export async function logMedicationDose(
+  token: string,
+  payload: MedicationLogPayload
+): Promise<MedicationLogResult> {
+  const response = await apiFetchJson<{
+    ok?: unknown;
+    id?: unknown;
+    date?: unknown;
+    time?: unknown;
+    status?: unknown;
+    loggedAt?: unknown;
+    data?: unknown;
+  }>("/patient/medications/log", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+
+  const record =
+    response.data && typeof response.data === "object"
+      ? ({ ...response.data, ...response } as typeof response)
+      : response;
+
+  const date = typeof record.date === "string" ? record.date : "";
+  const time = typeof record.time === "string" ? record.time : "";
+  const status = record.status === "taken" || record.status === "skipped" ? record.status : null;
+  if (!date || !time || !status) {
+    throw invalidResponseError("Could not parse medication log response.");
+  }
+
+  return {
+    ok: record.ok !== false,
+    id: typeof record.id === "string" ? record.id : undefined,
+    date,
+    time,
+    status,
+    loggedAt: typeof record.loggedAt === "string" ? record.loggedAt : undefined,
+  };
+}
+
+export async function getMedicationAdherenceRange(
+  token: string,
+  params: { from: string; to: string }
+): Promise<MedicationAdherenceRangeResponse> {
+  const query = new URLSearchParams();
+  query.set("from", params.from);
+  query.set("to", params.to);
+
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    medications?: unknown;
+  }>(`/patient/medications/logs/range?${query.toString()}`, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeMedicationAdherenceRange(payload.data) ??
+    normalizeMedicationAdherenceRange(payload.medications) ??
+    normalizeMedicationAdherenceRange(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse medication adherence response.");
+  }
   return normalized;
 }
 

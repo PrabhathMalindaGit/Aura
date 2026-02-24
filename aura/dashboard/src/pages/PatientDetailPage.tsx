@@ -15,6 +15,7 @@ import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import {
   assignPromToPatient,
+  getPatientMedicationAdherence,
   getPatientExerciseSessions,
   getPatientHydrationRange,
   getPatientNutritionRange,
@@ -293,6 +294,17 @@ export function PatientDetailPage(): JSX.Element {
     placeholderData: (previous) => previous,
   });
 
+  const patientMedicationAdherenceQuery = useQuery({
+    queryKey: ['patient-medications-adherence', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: () =>
+      getPatientMedicationAdherence(patientId ?? '', recentSleepFrom, recentSleepTo),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
   const patientAlertsQuery = useQuery({
     queryKey: ['patient-alerts', patientId],
     queryFn: () => fetchPatientAlerts(patientId ?? ''),
@@ -501,6 +513,42 @@ export function PatientDetailPage(): JSX.Element {
       proteinOkHighDays,
     };
   }, [recentNutritionDays]);
+  const recentMedicationDays = useMemo(
+    () =>
+      (patientMedicationAdherenceQuery.data?.days ?? [])
+        .map((day) => ({
+          date: day.date,
+          taken: typeof day.taken === 'number' ? day.taken : 0,
+          skipped: typeof day.skipped === 'number' ? day.skipped : 0,
+          totalScheduled:
+            typeof day.totalScheduled === 'number' ? day.totalScheduled : 0,
+        }))
+        .sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [patientMedicationAdherenceQuery.data?.days],
+  );
+  const recentMedicationSummary = useMemo(() => {
+    if (recentMedicationDays.length === 0) {
+      return {
+        scheduled: 0,
+        taken: 0,
+        skipped: 0,
+        adherencePct: null as number | null,
+      };
+    }
+
+    const scheduled = recentMedicationDays.reduce((sum, day) => sum + day.totalScheduled, 0);
+    const taken = recentMedicationDays.reduce((sum, day) => sum + day.taken, 0);
+    const skipped = recentMedicationDays.reduce((sum, day) => sum + day.skipped, 0);
+    const adherencePct =
+      scheduled > 0 ? Math.round((taken / scheduled) * 100) : null;
+
+    return {
+      scheduled,
+      taken,
+      skipped,
+      adherencePct,
+    };
+  }, [recentMedicationDays]);
 
   const patientAlerts = useMemo(() => patientAlertsQuery.data ?? [], [patientAlertsQuery.data]);
   const patientSessions = useMemo(
@@ -884,6 +932,12 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientMedicationAdherenceQuery.error ? (
+        <AlertBanner variant="error" title="Could not load medication adherence">
+          {toUserMessage(patientMedicationAdherenceQuery.error)}
+        </AlertBanner>
+      ) : null}
+
       {rehabSaveError ? (
         <AlertBanner variant="error" title="Could not update rehab phase">
           {rehabSaveError}
@@ -1019,6 +1073,52 @@ export function PatientDetailPage(): JSX.Element {
                         day.entry.antiInflammatoryFocus ? 'yes' : 'no'
                       } · meals ${day.entry.mealRegularity}`
                     : 'No entry'}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Medication adherence (last 7 days)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientMedicationAdherenceQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientMedicationAdherenceQuery.isLoading && recentMedicationDays.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Medication adherence loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={88} />
+          </div>
+        ) : recentMedicationDays.length === 0 ? (
+          <p className="muted-text">No medication adherence data in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Scheduled doses: <strong>{recentMedicationSummary.scheduled}</strong> · Taken:{' '}
+              <strong>{recentMedicationSummary.taken}</strong> · Skipped:{' '}
+              <strong>{recentMedicationSummary.skipped}</strong>
+            </p>
+            <p className="muted-text">
+              Adherence:{' '}
+              <strong>
+                {recentMedicationSummary.adherencePct === null
+                  ? '—'
+                  : `${recentMedicationSummary.adherencePct}%`}
+              </strong>
+            </p>
+            <div className="stack stack--1">
+              {recentMedicationDays.slice(0, 7).map((day) => (
+                <p key={day.date} className="muted-text">
+                  {day.date}: {day.taken}/{day.totalScheduled} taken{day.skipped > 0 ? ` · skipped ${day.skipped}` : ''}
                 </p>
               ))}
             </div>

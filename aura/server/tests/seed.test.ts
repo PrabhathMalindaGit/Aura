@@ -7,6 +7,9 @@ import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
 import ExercisePlan from "../src/models/ExercisePlan";
+import Medication from "../src/models/Medication";
+import MedicationLog from "../src/models/MedicationLog";
+import MedicationSchedule from "../src/models/MedicationSchedule";
 import Patient from "../src/models/Patient";
 import NutritionLog from "../src/models/NutritionLog";
 import PromInstance from "../src/models/PromInstance";
@@ -36,6 +39,9 @@ describe("seed demo data", () => {
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
       NutritionLog.deleteMany({}),
+      Medication.deleteMany({}),
+      MedicationSchedule.deleteMany({}),
+      MedicationLog.deleteMany({}),
       ExercisePlan.deleteMany({}),
       PromTemplate.deleteMany({}),
       PromInstance.deleteMany({}),
@@ -56,6 +62,9 @@ describe("seed demo data", () => {
       checkIns: 66,
       hydrationLogs: 65,
       nutritionLogs: 34,
+      medications: 4,
+      medicationSchedules: 4,
+      medicationLogs: 67,
       chatMessages: 30,
       alerts: 6,
       careEvents: 20,
@@ -162,6 +171,9 @@ describe("seed demo data", () => {
     expect(resetSummary.patientsDeleted).toBe(3);
     expect(resetSummary.hydrationLogsDeleted).toBe(65);
     expect(resetSummary.nutritionLogsDeleted).toBe(34);
+    expect(resetSummary.medicationsDeleted).toBe(4);
+    expect(resetSummary.medicationSchedulesDeleted).toBe(4);
+    expect(resetSummary.medicationLogsDeleted).toBe(67);
     expect(resetSummary.exercisePlansDeleted).toBe(3);
     expect(resetSummary.promTemplatesDeleted).toBe(1);
     expect(resetSummary.promInstancesDeleted).toBe(4);

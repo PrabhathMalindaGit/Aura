@@ -275,6 +275,21 @@ export function PatientWeeklyReportPage(): JSX.Element {
             </div>
           </Card>
 
+          <Card title="Medications">
+            <div className="stack stack--1">
+              <p className="muted-text">
+                Scheduled doses: {reportQuery.data.medications.scheduledDoses}
+              </p>
+              <p className="muted-text">Taken doses: {reportQuery.data.medications.takenDoses}</p>
+              <p className="muted-text">
+                Skipped doses: {reportQuery.data.medications.skippedDoses}
+              </p>
+              <p className="muted-text">
+                Adherence: {formatPct(reportQuery.data.medications.adherencePct)}
+              </p>
+            </div>
+          </Card>
+
           <Card title="Exercise sessions">
             <div className="stack stack--1">
               <p className="muted-text">Sessions: {reportQuery.data.exercises.sessionCount}</p>

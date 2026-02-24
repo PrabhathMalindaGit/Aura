@@ -3,6 +3,7 @@ import { clearCachedCheckins } from "@/src/state/checkinsCache";
 import { clearCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { clearAllLastErrors } from "@/src/state/lastError";
 import { clearPending } from "@/src/state/pendingSessions";
+import { clearCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
 import { clearReminderPrefs } from "@/src/state/reminderPrefs";
 
@@ -22,6 +23,7 @@ export async function resetDemoState(
     tasks.push(clearCachedChat(patientId));
     tasks.push(clearCachedCheckins(patientId));
     tasks.push(clearCachedExercisePlan(patientId));
+    tasks.push(clearCachedRehabPhases(patientId));
     tasks.push(clearPending(patientId));
     tasks.push(clearReminderPrefs(patientId));
   }

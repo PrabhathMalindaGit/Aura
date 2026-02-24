@@ -99,6 +99,21 @@ describe("seed demo data", () => {
       resetFirst: true,
     });
     expect(secondSummary).toEqual(firstSummary);
+
+    const rehabPatients = await Patient.find({ demoTag: DEMO_TAG })
+      .sort({ patientId: 1 })
+      .lean();
+    expect(rehabPatients).toHaveLength(3);
+
+    const p1Rehab = rehabPatients.find((patient) => patient.patientId === "p1")?.rehab;
+    const p2Rehab = rehabPatients.find((patient) => patient.patientId === "p2")?.rehab;
+    const p3Rehab = rehabPatients.find((patient) => patient.patientId === "p3")?.rehab;
+
+    expect(p1Rehab?.currentKey).toBe("phase-early");
+    expect(p2Rehab?.currentKey).toBe("phase-strength");
+    expect(p3Rehab?.currentKey).toBe("phase-return");
+    expect(Array.isArray(p1Rehab?.phases)).toBe(true);
+    expect((p1Rehab?.phases ?? []).length).toBeGreaterThanOrEqual(4);
   });
 
   it("reset removes only demo-tagged documents", async () => {

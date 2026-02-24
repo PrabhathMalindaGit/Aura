@@ -186,3 +186,9 @@ export const DEMO_EXERCISE_PLANS = [
     ],
   },
 ] as const;
+
+export const DEMO_REHAB_CURRENT_KEYS = {
+  p1: "phase-early",
+  p2: "phase-strength",
+  p3: "phase-return",
+} as const;

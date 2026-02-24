@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -403,6 +403,37 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - Detail screen cannot load:
   - verify session was created on backend
   - open from list row to ensure valid `id` param.
+
+## Step 11: Rehab phase tracker
+
+- New mobile route: `/rehab-journey`
+- Backend endpoint used:
+  - `GET /patient/rehab-phases`
+- Trust-under-failure keys:
+  - `Last refreshed`: `rehabPhases`
+  - `Last failed`: `rehabPhasesLoad`
+
+### Step 11 demo flow
+
+1. In dashboard, open patient detail (for example `/patients/p1`) and change **Rehab phase**.
+2. In mobile Demo Hub, tap **Rehab journey**.
+3. Verify timeline shows:
+   - done phases (✓)
+   - current phase (Current)
+   - locked phases (🔒)
+4. Turn offline and reopen Rehab journey:
+   - cached timeline is shown if available
+   - `Last refreshed` does not advance while offline.
+
+### Step 11 troubleshooting
+
+- Rehab journey is empty online:
+  - verify patient has seeded rehab phases (`npm run seed:reset` in server).
+- Rehab phase change in dashboard not visible in mobile:
+  - confirm both clients use the same backend base URL.
+  - refresh Rehab journey screen while online.
+- Offline shows no timeline:
+  - open Rehab journey once while online to create cache, then retry offline.
 
 ## How to Test Offline
 

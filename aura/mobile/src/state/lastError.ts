@@ -13,7 +13,8 @@ export type ErrorKey =
   | "reminderSchedule"
   | "exercisePlanLoad"
   | "exerciseSessionSave"
-  | "exerciseSessionsLoad";
+  | "exerciseSessionsLoad"
+  | "rehabPhasesLoad";
 
 export type LastErrorRecord = {
   key: ErrorKey;

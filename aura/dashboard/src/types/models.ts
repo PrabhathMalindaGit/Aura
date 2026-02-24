@@ -197,6 +197,34 @@ export interface ExercisePlanResponse {
   plan: ExercisePlan | null;
 }
 
+export type RehabStatus = 'locked' | 'current' | 'done';
+
+export interface RehabPhase {
+  key: string;
+  title: string;
+  description?: string;
+  order: number;
+  status: RehabStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface RehabPayload {
+  currentKey: string | null;
+  phases: RehabPhase[];
+  updatedAt: string;
+  updatedBy?: {
+    clinicianId: string;
+    name?: string;
+  };
+}
+
+export interface RehabResponse {
+  ok: true;
+  patientId: string;
+  rehab: RehabPayload;
+}
+
 export type ExerciseSessionStatus = 'completed' | 'abandoned';
 export type ExerciseSessionDifficulty = 'easy' | 'ok' | 'hard';
 

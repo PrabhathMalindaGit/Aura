@@ -5,6 +5,7 @@ import CheckIn from "../../src/models/CheckIn";
 import ExercisePlan from "../../src/models/ExercisePlan";
 import Patient from "../../src/models/Patient";
 import User from "../../src/models/User";
+import { buildDefaultPhases, recomputePhaseStatuses } from "../../src/services/rehabPhaseService";
 import { hashPassword } from "../../src/utils/password";
 
 import {
@@ -15,6 +16,7 @@ import {
   DEMO_CLINICIAN_USERS,
   DEMO_EXERCISE_PLANS,
   DEMO_PATIENTS,
+  DEMO_REHAB_CURRENT_KEYS,
   DEMO_TAG,
   RNG_SEED,
   USER_CHAT_TEXTS,
@@ -99,6 +101,16 @@ function seedStatusCounts(statuses: SeedStatus[]): Record<SeedStatus, number> {
     },
     { open: 0, acknowledged: 0, resolved: 0 }
   );
+}
+
+function getClinicianName(clinicianId: string): string | undefined {
+  if (clinicianId === CLINICIANS.one.id) {
+    return CLINICIANS.one.name;
+  }
+  if (clinicianId === CLINICIANS.two.id) {
+    return CLINICIANS.two.name;
+  }
+  return undefined;
 }
 
 export async function resetDemoData(): Promise<ResetSummary> {
@@ -439,7 +451,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     { ordered: true }
   );
 
-  await Patient.bulkWrite(
+  await Patient.collection.bulkWrite(
     DEMO_PATIENTS.map((patient) => ({
       updateOne: {
         filter: { patientId: patient.patientId },
@@ -449,12 +461,24 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
             accessCode: patient.accessCode,
             status: patient.status,
             clinicianId: patient.clinicianId,
+            rehab: {
+              ...recomputePhaseStatuses(
+                buildDefaultPhases(),
+                DEMO_REHAB_CURRENT_KEYS[patient.patientId],
+                now
+              ),
+              updatedAt: now,
+              updatedBy: {
+                clinicianId: patient.clinicianId,
+                name: getClinicianName(patient.clinicianId),
+              },
+            },
             demoTag: DEMO_TAG,
           },
           $setOnInsert: {
             patientId: patient.patientId,
           },
-        },
+        } as Record<string, unknown>,
         upsert: true,
       },
     })),

@@ -27,6 +27,8 @@ import {
   type ChatEvent,
   type ExercisePlan,
   type ExercisePlanResponse,
+  type RehabPayload,
+  type RehabResponse,
   type ExerciseSessionDetail,
   type ExerciseSessionResponse,
   type ExerciseSessionsListResponse,
@@ -586,6 +588,38 @@ export async function putExercisePlan(
   }
 
   return response.plan;
+}
+
+export async function getRehabPhases(patientId: string): Promise<RehabPayload> {
+  const response = await fetchJson<Partial<RehabResponse>>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/rehab-phases`,
+    {
+      method: 'GET',
+    },
+  );
+
+  return response?.rehab
+    ? response.rehab
+    : {
+      currentKey: null,
+      phases: [],
+      updatedAt: new Date(0).toISOString(),
+    };
+}
+
+export async function setCurrentRehabPhase(
+  patientId: string,
+  currentKey: string,
+): Promise<RehabPayload> {
+  const response = await fetchJson<RehabResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/rehab-phase`,
+    {
+      method: 'PATCH',
+      json: { currentKey },
+    },
+  );
+
+  return response.rehab;
 }
 
 export async function getPatientExerciseSessions(

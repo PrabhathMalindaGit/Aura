@@ -9,7 +9,8 @@ export type RefreshKey =
   | "checkins"
   | "progress"
   | "exercisePlan"
-  | "exerciseSessions";
+  | "exerciseSessions"
+  | "rehabPhases";
 
 const PREFIX = "aura:lastRefreshed:";
 const RELATIVE_TICK_MS = 30000;

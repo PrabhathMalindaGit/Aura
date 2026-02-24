@@ -71,6 +71,28 @@ export type TodayPlanResponse = {
   plan: TodayExercisePlan | null;
 };
 
+export type RehabPhaseStatus = "locked" | "current" | "done";
+
+export type RehabPhase = {
+  key: string;
+  title: string;
+  description?: string;
+  order: number;
+  status: RehabPhaseStatus;
+  startedAt?: string | null;
+  completedAt?: string | null;
+};
+
+export type RehabPayload = {
+  currentKey: string | null;
+  phases: RehabPhase[];
+  updatedAt?: string;
+  updatedBy?: {
+    clinicianId: string;
+    name?: string;
+  };
+};
+
 export type ExerciseSessionStatus = "completed" | "abandoned";
 export type ExerciseSessionDifficulty = "easy" | "ok" | "hard";
 
@@ -378,6 +400,89 @@ function normalizeTodayPlan(value: unknown): TodayExercisePlan | null {
     items: [...normalizedItems].sort((left, right) => left.order - right.order),
     version,
     updatedAt,
+  };
+}
+
+function normalizeRehabPhase(value: unknown): RehabPhase | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const phase = value as {
+    key?: unknown;
+    title?: unknown;
+    description?: unknown;
+    order?: unknown;
+    status?: unknown;
+    startedAt?: unknown;
+    completedAt?: unknown;
+  };
+
+  const key = typeof phase.key === "string" ? phase.key.trim() : "";
+  const title = typeof phase.title === "string" ? phase.title.trim() : "";
+  const order = toFiniteNumber(phase.order);
+  if (!key || !title || order === null) {
+    return null;
+  }
+
+  const status: RehabPhaseStatus =
+    phase.status === "done" || phase.status === "current" || phase.status === "locked"
+      ? phase.status
+      : "locked";
+
+  return {
+    key,
+    title,
+    description:
+      typeof phase.description === "string" && phase.description.trim()
+        ? phase.description.trim()
+        : undefined,
+    order,
+    status,
+    startedAt: typeof phase.startedAt === "string" ? phase.startedAt : null,
+    completedAt: typeof phase.completedAt === "string" ? phase.completedAt : null,
+  };
+}
+
+function normalizeRehabPayload(value: unknown): RehabPayload {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const phases = Array.isArray(record.phases)
+    ? record.phases
+        .map((phase) => normalizeRehabPhase(phase))
+        .filter((phase): phase is RehabPhase => Boolean(phase))
+        .sort((left, right) => left.order - right.order)
+    : [];
+
+  const currentKeyCandidate =
+    typeof record.currentKey === "string" && record.currentKey.trim()
+      ? record.currentKey.trim()
+      : null;
+  const currentKey =
+    currentKeyCandidate && phases.some((phase) => phase.key === currentKeyCandidate)
+      ? currentKeyCandidate
+      : phases.length > 0
+        ? phases.find((phase) => phase.status === "current")?.key ?? null
+        : null;
+
+  const updatedByRecord =
+    record.updatedBy && typeof record.updatedBy === "object"
+      ? (record.updatedBy as { clinicianId?: unknown; name?: unknown })
+      : undefined;
+
+  return {
+    currentKey,
+    phases,
+    updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
+    updatedBy:
+      updatedByRecord && typeof updatedByRecord.clinicianId === "string"
+        ? {
+            clinicianId: updatedByRecord.clinicianId,
+            name:
+              typeof updatedByRecord.name === "string"
+                ? updatedByRecord.name
+                : undefined,
+          }
+        : undefined,
   };
 }
 
@@ -697,6 +802,25 @@ export async function getTodayExercisePlan(
     dayOfWeek,
     plan,
   };
+}
+
+export async function getRehabPhases(token: string): Promise<RehabPayload> {
+  const payload = await apiFetchJson<{
+    rehab?: unknown;
+    phases?: unknown;
+    currentKey?: unknown;
+    updatedAt?: unknown;
+    updatedBy?: unknown;
+  }>("/patient/rehab-phases", {
+    method: "GET",
+    token,
+  });
+
+  if (payload.rehab && typeof payload.rehab === "object") {
+    return normalizeRehabPayload(payload.rehab);
+  }
+
+  return normalizeRehabPayload(payload);
 }
 
 export async function createExerciseSession(

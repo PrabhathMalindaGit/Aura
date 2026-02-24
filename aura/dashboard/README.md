@@ -77,6 +77,16 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
 4. Click **View all** to open `/patients/:patientId/sessions`.
 5. Click any row for full per-exercise feedback detail.
 
+## Rehab phase editor demo path
+
+1. Open `/patients/p1` (or another seeded patient).
+2. In the **Rehab phase** card:
+   - review current phase and timeline statuses
+   - choose a new current phase from the dropdown
+   - click **Save**.
+3. Refresh to confirm the selected phase persists and timeline statuses recompute.
+4. In mobile, open **Rehab journey** to verify the patient view reflects this update.
+
 ## Notes
 
 - Legacy README preserved in `README_OLD.md`.

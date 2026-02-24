@@ -11,6 +11,7 @@ import { Section } from "@/src/components/Section";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
+import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { useLastError } from "@/src/state/lastError";
 import { formatNetworkReason, useNetwork } from "@/src/state/network";
 import { getPending } from "@/src/state/pendingSessions";
@@ -37,12 +38,20 @@ export default function HomeScreen() {
     itemCount: 0,
   });
   const [pendingSessionCount, setPendingSessionCount] = useState(0);
+  const [rehabSummary, setRehabSummary] = useState<{
+    status: "loading" | "set" | "none";
+    currentTitle: string;
+  }>({
+    status: "loading",
+    currentTitle: "",
+  });
 
   const checkinsRefresh = useLastRefreshed("checkins");
   const chatRefresh = useLastRefreshed("chat");
   const progressRefresh = useLastRefreshed("progress");
   const exercisePlanRefresh = useLastRefreshed("exercisePlan");
   const exerciseSessionsRefresh = useLastRefreshed("exerciseSessions");
+  const rehabPhasesRefresh = useLastRefreshed("rehabPhases");
 
   const authError = useLastError("auth");
   const checkinSubmitError = useLastError("checkinSubmit");
@@ -50,6 +59,7 @@ export default function HomeScreen() {
   const chatSendError = useLastError("chatSend");
   const progressLoadError = useLastError("progressLoad");
   const exercisePlanLoadError = useLastError("exercisePlanLoad");
+  const rehabPhasesLoadError = useLastError("rehabPhasesLoad");
   const exerciseSessionSaveError = useLastError("exerciseSessionSave");
   const exerciseSessionsLoadError = useLastError("exerciseSessionsLoad");
   const reminderPermissionError = useLastError("reminderPermission");
@@ -91,6 +101,11 @@ export default function HomeScreen() {
         title: exercisePlanLoadError.lastError?.title,
       },
       {
+        label: "Rehab phases load",
+        value: rehabPhasesLoadError.label,
+        title: rehabPhasesLoadError.lastError?.title,
+      },
+      {
         label: "Exercise session save",
         value: exerciseSessionSaveError.label,
         title: exerciseSessionSaveError.lastError?.title,
@@ -124,6 +139,8 @@ export default function HomeScreen() {
       progressLoadError.lastError?.title,
       exercisePlanLoadError.label,
       exercisePlanLoadError.lastError?.title,
+      rehabPhasesLoadError.label,
+      rehabPhasesLoadError.lastError?.title,
       exerciseSessionSaveError.label,
       exerciseSessionSaveError.lastError?.title,
       exerciseSessionsLoadError.label,
@@ -142,12 +159,14 @@ export default function HomeScreen() {
       progressRefresh.reload(),
       exercisePlanRefresh.reload(),
       exerciseSessionsRefresh.reload(),
+      rehabPhasesRefresh.reload(),
       authError.reload(),
       checkinSubmitError.reload(),
       chatLoadError.reload(),
       chatSendError.reload(),
       progressLoadError.reload(),
       exercisePlanLoadError.reload(),
+      rehabPhasesLoadError.reload(),
       exerciseSessionSaveError.reload(),
       exerciseSessionsLoadError.reload(),
       reminderPermissionError.reload(),
@@ -195,6 +214,49 @@ export default function HomeScreen() {
     };
   }, [patientId, exercisePlanRefresh.lastRefreshedAt]);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setRehabSummary({
+        status: "none",
+        currentTitle: "",
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedRehabPhases(patientId);
+      if (!active) {
+        return;
+      }
+
+      const rehab = cached?.rehab;
+      if (!rehab || rehab.phases.length === 0) {
+        setRehabSummary({
+          status: "none",
+          currentTitle: "",
+        });
+        return;
+      }
+
+      const current =
+        rehab.phases.find((phase) => phase.key === rehab.currentKey) ??
+        rehab.phases.find((phase) => phase.status === "current") ??
+        null;
+      setRehabSummary({
+        status: "set",
+        currentTitle: current?.title ?? "Not set",
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, rehabPhasesRefresh.lastRefreshedAt]);
+
   useFocusEffect(
     useCallback(() => {
       void reloadPendingCount();
@@ -221,7 +283,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/plan caches, pending sessions, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/plan/rehab caches, pending sessions, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -237,7 +299,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, cached progress, cached plan, pending sessions, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, cached progress, cached plan, cached rehab journey, pending sessions, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -303,6 +365,11 @@ export default function HomeScreen() {
             value={exerciseSessionsRefresh.label}
             compact
           />
+          <LastRefreshed
+            label="Last refreshed (rehab journey)"
+            value={rehabPhasesRefresh.label}
+            compact
+          />
 
           <View style={styles.divider} />
           {failedAttemptLines.map((line) => (
@@ -327,6 +394,14 @@ export default function HomeScreen() {
           <Text style={styles.statusDetail}>
             Pending sessions: {pendingSessionCount}
           </Text>
+          <Text style={styles.statusDetail}>
+            Phase:{" "}
+            {rehabSummary.status === "loading"
+              ? "Loading cached status..."
+              : rehabSummary.status === "set"
+                ? rehabSummary.currentTitle
+                : "Not set"}
+          </Text>
           <PrimaryButton
             label="Go to Check-in"
             onPress={() => router.push("/(tabs)/checkin")}
@@ -347,6 +422,10 @@ export default function HomeScreen() {
           <PrimaryButton
             label="Go to Sessions"
             onPress={() => router.push("/exercise-sessions")}
+          />
+          <PrimaryButton
+            label="Rehab journey"
+            onPress={() => router.push("/rehab-journey" as never)}
           />
         </Section>
 
@@ -369,6 +448,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • Plan: open Today&apos;s Plan and confirm assigned exercises.
+          </Text>
+          <Text style={styles.bullet}>
+            • Rehab journey: open timeline and confirm current phase.
           </Text>
           <Text style={styles.bullet}>
             • Session: start from Plan, complete 2 exercises, finish and open session detail.

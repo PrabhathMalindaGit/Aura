@@ -15,9 +15,11 @@ import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import {
   getPatientExerciseSessions,
+  getRehabPhases,
   getPatientTrendsEndpointHint,
   isPatientTrendsEndpointMissing,
   listAlerts,
+  setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
   usePatients,
   usePatientTrends,
@@ -25,7 +27,13 @@ import {
 } from '../services/clinicianApi';
 import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
-import type { AlertItem, AlertStatus, PatientSummary, TrendPointRaw } from '../types/models';
+import type {
+  AlertItem,
+  AlertStatus,
+  PatientSummary,
+  RehabPayload,
+  TrendPointRaw,
+} from '../types/models';
 import { toCsv, downloadCsv } from '../utils/csv';
 import {
   getPresetDateRange,
@@ -115,6 +123,16 @@ function statusLabel(status: PatientSummary['status']): string {
   return 'Active';
 }
 
+function rehabStatusIcon(status: RehabPayload['phases'][number]['status']): string {
+  if (status === 'done') {
+    return '✓';
+  }
+  if (status === 'current') {
+    return '●';
+  }
+  return '🔒';
+}
+
 async function fetchPatientAlerts(patientId: string): Promise<AlertItem[]> {
   const collections = await Promise.all(ALERT_STATUSES.map((status) => listAlerts(status)));
   const merged = collections.flat();
@@ -131,6 +149,9 @@ export function PatientDetailPage(): JSX.Element {
 
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedRehabKey, setSelectedRehabKey] = useState('');
+  const [rehabSaveError, setRehabSaveError] = useState<string | null>(null);
+  const [isSavingRehab, setIsSavingRehab] = useState(false);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
   const [patientExportOpen, setPatientExportOpen] = useState(false);
   const [patientExportRange, setPatientExportRange] = useState<DateRangeValue>(() =>
@@ -176,6 +197,16 @@ export function PatientDetailPage(): JSX.Element {
     placeholderData: (previous) => previous,
   });
 
+  const patientRehabQuery = useQuery({
+    queryKey: ['patient-rehab', patientId],
+    queryFn: () => getRehabPhases(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
   const updateAlertMutation = useUpdateAlertStatus();
 
   useEffect(() => {
@@ -200,6 +231,20 @@ export function PatientDetailPage(): JSX.Element {
     setSelectedDateKey(null);
   }, [selectedDays]);
 
+  useEffect(() => {
+    const phases = patientRehabQuery.data?.phases ?? [];
+    if (phases.length === 0) {
+      setSelectedRehabKey('');
+      return;
+    }
+
+    const preferredKey =
+      patientRehabQuery.data?.currentKey ??
+      phases.find((phase) => phase.status === 'current')?.key ??
+      phases[0].key;
+    setSelectedRehabKey(preferredKey);
+  }, [patientRehabQuery.data]);
+
   const trendData = useMemo(
     () => (trendsQuery.data ?? []) as TrendPointRaw[],
     [trendsQuery.data],
@@ -216,6 +261,10 @@ export function PatientDetailPage(): JSX.Element {
   const patientSessions = useMemo(
     () => patientSessionsQuery.data ?? [],
     [patientSessionsQuery.data],
+  );
+  const patientRehab = useMemo(
+    () => patientRehabQuery.data ?? null,
+    [patientRehabQuery.data],
   );
 
   const openAlertCount = useMemo(
@@ -261,6 +310,28 @@ export function PatientDetailPage(): JSX.Element {
         },
       },
     );
+  }
+
+  async function handleRehabSave(): Promise<void> {
+    if (!patientId || !selectedRehabKey) {
+      return;
+    }
+
+    setRehabSaveError(null);
+    setIsSavingRehab(true);
+    try {
+      const updated = await setCurrentRehabPhase(patientId, selectedRehabKey);
+      setSelectedRehabKey(
+        updated.currentKey ??
+          updated.phases.find((phase) => phase.status === 'current')?.key ??
+          '',
+      );
+      await patientRehabQuery.refetch();
+    } catch (error) {
+      setRehabSaveError(toUserMessage(asAppError(error)));
+    } finally {
+      setIsSavingRehab(false);
+    }
   }
 
   const patientExportPreviewCount = useMemo(() => {
@@ -508,7 +579,113 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientRehabQuery.error ? (
+        <AlertBanner variant="error" title="Could not load rehab phases">
+          {toUserMessage(patientRehabQuery.error)}
+        </AlertBanner>
+      ) : null}
+
+      {rehabSaveError ? (
+        <AlertBanner variant="error" title="Could not update rehab phase">
+          {rehabSaveError}
+        </AlertBanner>
+      ) : null}
+
       <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+
+      <Card
+        title="Rehab phase"
+        action={
+          <div className="patient-detail-actions">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void patientRehabQuery.refetch();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!selectedRehabKey || isSavingRehab}
+              onClick={() => {
+                void handleRehabSave();
+              }}
+            >
+              {isSavingRehab ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        }
+      >
+        {patientRehabQuery.isLoading && !patientRehab ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Rehab phases loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={80} />
+          </div>
+        ) : !patientRehab || patientRehab.phases.length === 0 ? (
+          <EmptyState
+            title="No rehab phases configured"
+            description="Initialize rehab phases by refreshing this panel."
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void patientRehabQuery.refetch();
+                }}
+              >
+                Retry
+              </Button>
+            }
+          />
+        ) : (
+          <div className="stack stack--3">
+            <p className="muted-text">
+              Current phase:{' '}
+              <strong>
+                {patientRehab.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ??
+                  'Not set'}
+              </strong>
+            </p>
+            <label className="form-field" htmlFor="rehab-current-select">
+              <span>Current phase</span>
+              <select
+                id="rehab-current-select"
+                value={selectedRehabKey}
+                onChange={(event) => {
+                  setSelectedRehabKey(event.currentTarget.value);
+                }}
+              >
+                {patientRehab.phases.map((phase) => (
+                  <option key={phase.key} value={phase.key}>
+                    {phase.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="stack stack--2">
+              {patientRehab.phases
+                .slice()
+                .sort((left, right) => left.order - right.order)
+                .map((phase) => (
+                  <div key={phase.key}>
+                    <strong>
+                      {rehabStatusIcon(phase.status)} {phase.title}
+                    </strong>
+                    <p className="muted-text">
+                      {phase.status === 'done'
+                        ? 'Done'
+                        : phase.status === 'current'
+                          ? 'Current'
+                          : 'Locked'}
+                      {phase.completedAt ? ` · Completed ${new Date(phase.completedAt).toLocaleDateString()}` : ''}
+                    </p>
+                    {phase.description ? <p className="muted-text">{phase.description}</p> : null}
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card
         title="Exercise sessions"

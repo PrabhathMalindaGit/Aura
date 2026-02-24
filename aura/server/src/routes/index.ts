@@ -9,6 +9,7 @@ import exerciseSessionsRoutes from "./exerciseSessions.routes";
 import eventsRoutes from "./events.routes";
 import healthRoutes from "./health.routes";
 import patientRoutes from "./patient.routes";
+import rehabPhasesRoutes from "./rehabPhases.routes";
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use(chatRoutes);
 router.use(clinicianRoutes);
 router.use(exercisePlanRoutes);
 router.use(exerciseSessionsRoutes);
+router.use(rehabPhasesRoutes);
 router.use(eventsRoutes);
 router.use(patientRoutes);
 

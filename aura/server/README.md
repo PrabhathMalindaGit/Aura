@@ -90,6 +90,12 @@ curl -sS "http://localhost:3000/patient/exercise-plan/today" \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient rehab phases:
+```bash
+curl -sS "http://localhost:3000/patient/rehab-phases" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Patient create exercise session:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/exercise-sessions \
@@ -134,6 +140,20 @@ curl -sS -X PUT http://localhost:3000/clinician/patients/p1/exercise-plan \
 ```bash
 curl -sS http://localhost:3000/clinician/patients/p1/exercise-plan \
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician rehab phases for a patient:
+```bash
+curl -sS http://localhost:3000/clinician/patients/p1/rehab-phases \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Set clinician current rehab phase:
+```bash
+curl -sS -X PATCH http://localhost:3000/clinician/patients/p1/rehab-phase \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"currentKey":"phase-strength"}'
 ```
 
 - Get clinician exercise sessions for a patient:

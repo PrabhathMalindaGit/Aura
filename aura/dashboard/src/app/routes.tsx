@@ -5,6 +5,7 @@ import { PatientsPage } from '../pages/PatientsPage';
 import { PatientDetailPage } from '../pages/PatientDetailPage';
 import { PatientExercisePlanPage } from '../pages/PatientExercisePlanPage';
 import { PatientExerciseSessionsPage } from '../pages/PatientExerciseSessionsPage';
+import { PatientWeeklyReportPage } from '../pages/PatientWeeklyReportPage';
 import { ExerciseSessionDetailPage } from '../pages/ExerciseSessionDetailPage';
 import { PromDetailPage } from '../pages/PromDetailPage';
 import { SettingsPage } from '../pages/SettingsPage';
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'patients/:patientId/plan', element: <PatientExercisePlanPage /> },
       { path: 'patients/:patientId/sessions', element: <PatientExerciseSessionsPage /> },
       { path: 'patients/:patientId/sessions/:sessionId', element: <ExerciseSessionDetailPage /> },
+      { path: 'patients/:patientId/weekly-report', element: <PatientWeeklyReportPage /> },
       { path: 'proms/:promId', element: <PromDetailPage /> },
       { path: 'smoke', element: <SmokePage /> },
       { path: 'settings', element: <SettingsPage /> },

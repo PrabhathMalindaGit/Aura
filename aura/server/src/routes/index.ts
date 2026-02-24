@@ -8,9 +8,12 @@ import exercisePlanRoutes from "./exercisePlan.routes";
 import exerciseSessionsRoutes from "./exerciseSessions.routes";
 import eventsRoutes from "./events.routes";
 import healthRoutes from "./health.routes";
+import hydrationRoutes from "./hydration.routes";
+import nutritionRoutes from "./nutrition.routes";
 import patientRoutes from "./patient.routes";
 import promsRoutes from "./proms.routes";
 import rehabPhasesRoutes from "./rehabPhases.routes";
+import weeklyReportsRoutes from "./weeklyReports.routes";
 
 const router = Router();
 
@@ -19,10 +22,13 @@ router.use(authRoutes);
 router.use(checkinsRoutes);
 router.use(chatRoutes);
 router.use(clinicianRoutes);
+router.use(hydrationRoutes);
+router.use(nutritionRoutes);
 router.use(exercisePlanRoutes);
 router.use(exerciseSessionsRoutes);
 router.use(rehabPhasesRoutes);
 router.use(promsRoutes);
+router.use(weeklyReportsRoutes);
 router.use(eventsRoutes);
 router.use(patientRoutes);
 

@@ -24,6 +24,8 @@ npm run seed:reset
   - `clinician1@example.com` / `devpass123`
   - `clinician2@example.com` / `devpass123`
 - 30-day check-in window with deterministic gaps (22 check-ins per patient)
+- 14-day hydration log entries with deterministic gaps and daily variation
+- 14-day nutrition log entries with deterministic gaps and enum variation
 - 10 chat messages per patient
 - 6 alerts with status variety (`open`, `acknowledged`, `resolved`)
 - care_events timeline entries per alert

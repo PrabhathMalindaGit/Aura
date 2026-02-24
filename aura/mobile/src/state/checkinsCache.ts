@@ -24,6 +24,11 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
       exercises?: unknown;
       medication?: unknown;
     };
+    sleep?: {
+      hours?: unknown;
+      quality?: unknown;
+      disturbances?: unknown;
+    };
   };
 
   if (typeof item.id !== "string" || !item.id.trim()) {
@@ -51,6 +56,23 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
       ? item.adherence.medication
       : undefined;
   const hasMedication = typeof medication === "boolean";
+  const sleepHours =
+    typeof item.sleep?.hours === "number" && Number.isFinite(item.sleep.hours)
+      ? item.sleep.hours
+      : undefined;
+  const sleepQuality =
+    typeof item.sleep?.quality === "number" && Number.isFinite(item.sleep.quality)
+      ? item.sleep.quality
+      : undefined;
+  const sleepDisturbances =
+    typeof item.sleep?.disturbances === "number" &&
+    Number.isFinite(item.sleep.disturbances)
+      ? item.sleep.disturbances
+      : undefined;
+  const hasSleep =
+    typeof sleepHours === "number" ||
+    typeof sleepQuality === "number" ||
+    typeof sleepDisturbances === "number";
 
   return {
     id: item.id.trim(),
@@ -65,6 +87,13 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
             medication,
           }
         : undefined,
+    sleep: hasSleep
+      ? {
+          hours: sleepHours,
+          quality: sleepQuality,
+          disturbances: sleepDisturbances,
+        }
+      : undefined,
   };
 }
 

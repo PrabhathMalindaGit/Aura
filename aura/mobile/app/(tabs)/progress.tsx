@@ -11,7 +11,12 @@ import {
 } from "react-native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
-import { listCheckins, type CheckInItem } from "@/src/api/patient";
+import {
+  getHydrationRange,
+  listCheckins,
+  type CheckInItem,
+  type HydrationDayTotal,
+} from "@/src/api/patient";
 import { InlineNotice } from "@/src/components/InlineNotice";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
@@ -22,11 +27,15 @@ import {
   getCachedCheckins,
   setCachedCheckins,
 } from "@/src/state/checkinsCache";
+import {
+  getCachedHydrationRange,
+  mergeCachedHydrationDayTotals,
+} from "@/src/state/hydrationCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { setSelectedCheckin } from "@/src/state/progressSelection";
 import { useLastRefreshed } from "@/src/state/refresh";
-import { formatISOToHuman } from "@/src/utils/date";
+import { addDaysISO, formatISOToHuman, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import { computeSummary, parseCheckinTime } from "@/src/utils/progressStats";
 
@@ -39,6 +48,11 @@ type NoticeState = {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+};
+
+type HydrationSummary = {
+  avgDailyMl: number | null;
+  daysMeetingTarget: number;
 };
 
 function toFriendlyProgressError(error: unknown): {
@@ -135,6 +149,7 @@ export default function ProgressScreen() {
 
   const [windowDays, setWindowDays] = useState<WindowDays>(14);
   const [items, setItems] = useState<CheckInItem[]>([]);
+  const [hydrationDays, setHydrationDays] = useState<HydrationDayTotal[]>([]);
   const [source, setSource] = useState<LoadSource>("none");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -145,6 +160,27 @@ export default function ProgressScreen() {
   const summary14 = useMemo(() => computeSummary(items, 14), [items]);
   const summary30 = useMemo(() => computeSummary(items, 30), [items]);
   const activeSummary = windowDays === 14 ? summary14 : summary30;
+  const hydrationSummary = useMemo<HydrationSummary>(() => {
+    const end = todayISO();
+    const from = addDaysISO(end, -(windowDays - 1));
+    const filtered = hydrationDays.filter(
+      (day) => Date.parse(day.date) >= Date.parse(from) && Date.parse(day.date) <= Date.parse(end)
+    );
+    if (filtered.length === 0) {
+      return {
+        avgDailyMl: null,
+        daysMeetingTarget: 0,
+      };
+    }
+
+    const total = filtered.reduce((sum, day) => sum + day.totalMl, 0);
+    const avgDailyMl = Math.round((total / filtered.length) * 10) / 10;
+    const daysMeetingTarget = filtered.filter((day) => day.totalMl >= 2000).length;
+    return {
+      avgDailyMl,
+      daysMeetingTarget,
+    };
+  }, [hydrationDays, windowDays]);
 
   const loadProgress = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -161,7 +197,10 @@ export default function ProgressScreen() {
       setNotice(null);
 
       if (isOffline) {
-        const cached = await getCachedCheckins(patientId);
+        const [cached, cachedHydration] = await Promise.all([
+          getCachedCheckins(patientId),
+          getCachedHydrationRange(patientId, addDaysISO(todayISO(), -29), todayISO()),
+        ]);
         if (cached && cached.length > 0) {
           setItems(sortByNewest(cached));
           setSource("cache");
@@ -179,6 +218,7 @@ export default function ProgressScreen() {
             message: "Offline — no saved progress data is available yet.",
           });
         }
+        setHydrationDays(cachedHydration?.days ?? []);
 
         setIsLoading(false);
         setIsRefreshing(false);
@@ -186,13 +226,25 @@ export default function ProgressScreen() {
       }
 
       try {
-        const nextItems = await listCheckins(auth.token, { limit: 200 });
+        const hydrationFrom = addDaysISO(todayISO(), -29);
+        const hydrationTo = todayISO();
+        const [nextItems, hydrationRange] = await Promise.all([
+          listCheckins(auth.token, { limit: 200 }),
+          getHydrationRange(auth.token, {
+            from: hydrationFrom,
+            to: hydrationTo,
+          }),
+        ]);
         const sortedItems = sortByNewest(nextItems);
         setItems(sortedItems);
+        setHydrationDays(hydrationRange.days);
         setSource("live");
-        await setCachedCheckins(patientId, sortedItems);
-        await progressRefresh.refreshLocal();
-        await progressLoadError.clear();
+        await Promise.all([
+          setCachedCheckins(patientId, sortedItems),
+          mergeCachedHydrationDayTotals(patientId, hydrationRange.days, hydrationRange.targetMl),
+          progressRefresh.refreshLocal(),
+          progressLoadError.clear(),
+        ]);
       } catch (error) {
         const friendly = toFriendlyProgressError(error);
         await progressLoadError.setLocalError({
@@ -202,7 +254,11 @@ export default function ProgressScreen() {
           retryable: friendly.retryable,
         });
 
-        const cached = await getCachedCheckins(patientId);
+        const [cached, cachedHydration] = await Promise.all([
+          getCachedCheckins(patientId),
+          getCachedHydrationRange(patientId, addDaysISO(todayISO(), -29), todayISO()),
+        ]);
+        setHydrationDays(cachedHydration?.days ?? []);
         if (cached && cached.length > 0) {
           setItems(sortByNewest(cached));
           setSource("cache");
@@ -368,6 +424,28 @@ export default function ProgressScreen() {
               {formatValue(activeSummary.medicationYesPct, "%")}
             </Text>
           </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Avg sleep (hrs)</Text>
+            <Text style={styles.summaryValue}>
+              {formatValue(activeSummary.avgSleepHours)}
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Avg sleep quality</Text>
+            <Text style={styles.summaryValue}>
+              {formatValue(activeSummary.avgSleepQuality, "/5")}
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Avg hydration</Text>
+            <Text style={styles.summaryValue}>
+              {formatValue(hydrationSummary.avgDailyMl, " ml")}
+            </Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Hydration goal days</Text>
+            <Text style={styles.summaryValue}>{hydrationSummary.daysMeetingTarget}</Text>
+          </View>
         </View>
 
         <View style={styles.historySection}>
@@ -400,6 +478,12 @@ export default function ProgressScreen() {
                       ? "Yes"
                       : "No"
                     : "—";
+                const sleepSummary =
+                  typeof item.sleep?.hours === "number"
+                    ? `${item.sleep.hours.toFixed(1)}h`
+                    : typeof item.sleep?.quality === "number"
+                      ? `Q${item.sleep.quality}/5`
+                      : null;
 
                 return (
                   <Pressable
@@ -418,6 +502,9 @@ export default function ProgressScreen() {
                     <Text style={styles.rowMeta}>Mood {item.mood}/5</Text>
                     <Text style={styles.rowMeta}>Exercises {exercisePct}</Text>
                     <Text style={styles.rowMeta}>Medication {medTaken}</Text>
+                    {sleepSummary ? (
+                      <Text style={styles.rowMeta}>Sleep {sleepSummary}</Text>
+                    ) : null}
                   </Pressable>
                 );
               }}

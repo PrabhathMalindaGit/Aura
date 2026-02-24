@@ -31,6 +31,27 @@ const riskSchema = new Schema(
   { _id: false }
 );
 
+const sleepSchema = new Schema(
+  {
+    hours: {
+      type: Number,
+      min: 0,
+      max: 16,
+    },
+    quality: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    disturbances: {
+      type: Number,
+      min: 0,
+      max: 5,
+    },
+  },
+  { _id: false }
+);
+
 const checkInSchema = new Schema(
   {
     patientId: {
@@ -64,6 +85,10 @@ const checkInSchema = new Schema(
     risk: {
       type: riskSchema,
       default: () => ({ level: "low", reasons: [] }),
+    },
+    sleep: {
+      type: sleepSchema,
+      default: undefined,
     },
     demoTag: {
       type: String,

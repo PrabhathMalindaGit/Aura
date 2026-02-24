@@ -3,6 +3,8 @@ import CareEvent from "../../src/models/CareEvent";
 import ChatMessage from "../../src/models/ChatMessage";
 import CheckIn from "../../src/models/CheckIn";
 import ExercisePlan from "../../src/models/ExercisePlan";
+import HydrationLog from "../../src/models/HydrationLog";
+import NutritionLog from "../../src/models/NutritionLog";
 import Patient from "../../src/models/Patient";
 import PromInstance from "../../src/models/PromInstance";
 import PromTemplate from "../../src/models/PromTemplate";
@@ -29,6 +31,16 @@ import type { ResetSummary, SeedAlertDefinition, SeedOptions, SeedSummary } from
 interface CheckInSeedRow {
   patientId: string;
   dayOffset: number;
+  doc: Record<string, unknown>;
+}
+
+interface HydrationSeedRow {
+  patientId: string;
+  doc: Record<string, unknown>;
+}
+
+interface NutritionSeedRow {
+  patientId: string;
   doc: Record<string, unknown>;
 }
 
@@ -121,6 +133,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     promInstancesDeleted,
     promTemplatesDeleted,
     exercisePlansDeleted,
+    hydrationLogsDeleted,
+    nutritionLogsDeleted,
     careEventsDeleted,
     alertsDeleted,
     chatMessagesDeleted,
@@ -131,6 +145,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     PromInstance.deleteMany({ demoTag: DEMO_TAG }),
     PromTemplate.deleteMany({ demoTag: DEMO_TAG }),
     ExercisePlan.deleteMany({ demoTag: DEMO_TAG }),
+    HydrationLog.deleteMany({ demoTag: DEMO_TAG }),
+    NutritionLog.deleteMany({ demoTag: DEMO_TAG }),
     CareEvent.deleteMany({ demoTag: DEMO_TAG }),
     Alert.deleteMany({ demoTag: DEMO_TAG }),
     ChatMessage.deleteMany({ demoTag: DEMO_TAG }),
@@ -143,6 +159,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     usersDeleted: usersDeleted.deletedCount ?? 0,
     patientsDeleted: patientsDeleted.deletedCount ?? 0,
     checkInsDeleted: checkInsDeleted.deletedCount ?? 0,
+    hydrationLogsDeleted: hydrationLogsDeleted.deletedCount ?? 0,
+    nutritionLogsDeleted: nutritionLogsDeleted.deletedCount ?? 0,
     chatMessagesDeleted: chatMessagesDeleted.deletedCount ?? 0,
     alertsDeleted: alertsDeleted.deletedCount ?? 0,
     careEventsDeleted: careEventsDeleted.deletedCount ?? 0,
@@ -177,6 +195,21 @@ function buildCheckInRows(now: Date): CheckInSeedRow[] {
       const exercises = Number((0.2 + rng() * 0.75).toFixed(2));
       const medication = rng() > 0.28;
       const hasNote = rng() > 0.5;
+      const includeSleep = rng() > 0.25;
+
+      const sleepHoursRaw = clamp(8.2 - pain * 0.28 + (rng() * 1.4 - 0.7), 0, 16);
+      const sleepHours = Math.round(sleepHoursRaw * 10) / 10;
+      const sleepQuality = clamp(Math.round(5 - pain / 3 + (rng() > 0.7 ? 1 : 0)), 1, 5);
+      const sleepDisturbances = clamp(Math.round((pain - 2) / 2 + (rng() > 0.75 ? 1 : 0)), 0, 5);
+
+      const sleep =
+        includeSleep
+          ? {
+              hours: sleepHours,
+              quality: sleepQuality,
+              disturbances: sleepDisturbances,
+            }
+          : undefined;
 
       const notes = hasNote
         ? patient.patientId === "p3"
@@ -196,6 +229,7 @@ function buildCheckInRows(now: Date): CheckInSeedRow[] {
             exercises,
             medication,
           },
+          sleep,
           notes,
           risk: {
             level: pain >= 7 ? "high" : "low",
@@ -204,6 +238,111 @@ function buildCheckInRows(now: Date): CheckInSeedRow[] {
           demoTag: DEMO_TAG,
           createdAt,
           updatedAt: minutesAfter(createdAt, 5),
+        },
+      });
+    }
+  });
+
+  return rows;
+}
+
+function buildHydrationRows(now: Date): HydrationSeedRow[] {
+  const rows: HydrationSeedRow[] = [];
+  const rng = mulberry32(RNG_SEED + 101);
+  const baseDay = utcDay(now);
+  const hydrationWindowDays = 14;
+  const slots = [250, 500, 750];
+
+  DEMO_PATIENTS.forEach((patient, patientIndex) => {
+    for (let dayOffset = 0; dayOffset < hydrationWindowDays; dayOffset += 1) {
+      if ((dayOffset + patientIndex) % 4 === 0) {
+        continue;
+      }
+
+      const day = addUtcDays(baseDay, -dayOffset);
+      const entryCount = 1 + ((dayOffset + patientIndex) % 3);
+
+      for (let entryIndex = 0; entryIndex < entryCount; entryIndex += 1) {
+        const amountMl = slots[Math.floor(rng() * slots.length)];
+        const createdAt = withUtcTime(
+          day,
+          8 + patientIndex * 2 + entryIndex * 3,
+          (dayOffset * 11 + entryIndex * 17) % 60
+        );
+
+        rows.push({
+          patientId: patient.patientId,
+          doc: {
+            patientId: patient.patientId,
+            date: toDateKey(day),
+            amountMl,
+            source: "manual",
+            demoTag: DEMO_TAG,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        });
+      }
+    }
+  });
+
+  return rows;
+}
+
+function buildNutritionRows(now: Date): NutritionSeedRow[] {
+  const rows: NutritionSeedRow[] = [];
+  const rng = mulberry32(RNG_SEED + 202);
+  const baseDay = utcDay(now);
+  const nutritionWindowDays = 14;
+  const proteinScale: Array<"low" | "ok" | "high"> = ["low", "ok", "high"];
+  const regularityScale: Array<"irregular" | "mostly" | "regular"> = [
+    "irregular",
+    "mostly",
+    "regular",
+  ];
+  const appetiteScale: Array<"low" | "normal" | "high"> = ["low", "normal", "high"];
+
+  DEMO_PATIENTS.forEach((patient, patientIndex) => {
+    for (let dayOffset = 0; dayOffset < nutritionWindowDays; dayOffset += 1) {
+      if ((dayOffset + patientIndex) % 5 === 0) {
+        continue;
+      }
+
+      const day = addUtcDays(baseDay, -dayOffset);
+      const createdAt = withUtcTime(day, 18 + patientIndex, (dayOffset * 13) % 60);
+      const protein = proteinScale[(dayOffset + patientIndex) % proteinScale.length];
+      const fruitVegServings = clamp(
+        Math.round(1 + patientIndex + rng() * 4),
+        0,
+        6
+      );
+      const antiInflammatoryFocus = rng() > 0.45;
+      const mealRegularity =
+        regularityScale[(dayOffset + patientIndex * 2) % regularityScale.length];
+      const appetite =
+        (dayOffset + patientIndex) % 3 === 0
+          ? appetiteScale[(dayOffset + patientIndex) % appetiteScale.length]
+          : undefined;
+      const notes =
+        (dayOffset + patientIndex) % 4 === 0
+          ? "Focused on balanced meals today."
+          : undefined;
+
+      rows.push({
+        patientId: patient.patientId,
+        doc: {
+          patientId: patient.patientId,
+          date: toDateKey(day),
+          protein,
+          fruitVegServings,
+          antiInflammatoryFocus,
+          mealRegularity,
+          appetite,
+          notes,
+          source: "manual",
+          demoTag: DEMO_TAG,
+          createdAt,
+          updatedAt: createdAt,
         },
       });
     }
@@ -646,7 +785,15 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   await PromInstance.insertMany(buildPromInstanceSeedDocs(now), { ordered: true });
 
   const checkInRows = buildCheckInRows(now);
+  const hydrationRows = buildHydrationRows(now);
+  const nutritionRows = buildNutritionRows(now);
   const insertedCheckIns = await CheckIn.insertMany(checkInRows.map((row) => row.doc), {
+    ordered: true,
+  });
+  await HydrationLog.insertMany(hydrationRows.map((row) => row.doc), {
+    ordered: true,
+  });
+  await NutritionLog.insertMany(nutritionRows.map((row) => row.doc), {
     ordered: true,
   });
   const checkInSourceIds = new Map<string, string>();
@@ -710,6 +857,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   const [
     patients,
     checkIns,
+    hydrationLogs,
+    nutritionLogs,
     chatMessages,
     alerts,
     careEvents,
@@ -719,6 +868,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   ] = await Promise.all([
     Patient.countDocuments({ demoTag: DEMO_TAG }),
     CheckIn.countDocuments({ demoTag: DEMO_TAG }),
+    HydrationLog.countDocuments({ demoTag: DEMO_TAG }),
+    NutritionLog.countDocuments({ demoTag: DEMO_TAG }),
     ChatMessage.countDocuments({ demoTag: DEMO_TAG }),
     Alert.countDocuments({ demoTag: DEMO_TAG }),
     CareEvent.countDocuments({ demoTag: DEMO_TAG }),
@@ -735,6 +886,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   return {
     patients,
     checkIns,
+    hydrationLogs,
+    nutritionLogs,
     chatMessages,
     alerts,
     careEvents,

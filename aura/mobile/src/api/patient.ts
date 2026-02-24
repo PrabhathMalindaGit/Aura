@@ -30,6 +30,11 @@ export type CheckInCreatePayload = {
     exercises: number;
     medication: boolean;
   };
+  sleep?: {
+    hours?: number;
+    quality?: number;
+    disturbances?: number;
+  };
   notes?: string;
 };
 
@@ -38,6 +43,82 @@ export type CheckInCreateResponse = {
   checkInId?: string;
   risk?: Risk;
   alertId?: string | null;
+};
+
+export type HydrationEntry = {
+  id: string;
+  amountMl: number;
+  createdAt: string;
+  pending?: boolean;
+  localId?: string;
+};
+
+export type HydrationTodayResponse = {
+  ok: boolean;
+  date: string;
+  totalMl: number;
+  targetMl: number;
+  entries: HydrationEntry[];
+};
+
+export type HydrationDayTotal = {
+  date: string;
+  totalMl: number;
+  metTarget?: boolean;
+};
+
+export type HydrationRangeResponse = {
+  ok: boolean;
+  from: string;
+  to: string;
+  targetMl: number;
+  days: HydrationDayTotal[];
+};
+
+export type NutritionProtein = "low" | "ok" | "high";
+export type NutritionMealRegularity = "irregular" | "mostly" | "regular";
+export type NutritionAppetite = "low" | "normal" | "high";
+
+export type NutritionEntry = {
+  id: string;
+  date: string;
+  protein: NutritionProtein;
+  fruitVegServings: number;
+  antiInflammatoryFocus: boolean;
+  mealRegularity: NutritionMealRegularity;
+  appetite?: NutritionAppetite;
+  notes?: string;
+  createdAt: string;
+  pending?: boolean;
+  localId?: string;
+};
+
+export type NutritionLogPayload = {
+  date?: string;
+  protein: NutritionProtein;
+  fruitVegServings: number;
+  antiInflammatoryFocus: boolean;
+  mealRegularity: NutritionMealRegularity;
+  appetite?: NutritionAppetite;
+  notes?: string;
+};
+
+export type NutritionTodayResponse = {
+  ok: boolean;
+  date: string;
+  entry: NutritionEntry | null;
+};
+
+export type NutritionDay = {
+  date: string;
+  entry: NutritionEntry | null;
+};
+
+export type NutritionRangeResponse = {
+  ok: boolean;
+  from: string;
+  to: string;
+  days: NutritionDay[];
 };
 
 export type ExercisePlanItem = {
@@ -160,6 +241,75 @@ export type PromSubmitResponse = {
   score: PromScore | null;
 };
 
+export type WeeklyReport = {
+  ok: true;
+  patientId: string;
+  period: {
+    weekStart: string;
+    weekEnd: string;
+    tzOffsetMinutes: number | null;
+  };
+  summary: {
+    headline: string;
+    highlights: string[];
+    nextSteps: string[];
+  };
+  checkins: {
+    count: number;
+    avgPain: number | null;
+    avgMood: number | null;
+    avgExercisesPct: number | null;
+    medicationYesPct: number | null;
+    notesCount: number;
+  };
+  sleep: {
+    trackedNights: number;
+    avgHours: number | null;
+    avgQuality: number | null;
+  };
+  hydration: {
+    trackedDays: number;
+    avgDailyMl: number | null;
+    totalMl: number;
+    daysMeetingTarget: number;
+    targetMl: number;
+  };
+  nutrition: {
+    trackedDays: number;
+    avgFruitVegServings: number | null;
+    proteinOkHighDays: number;
+    antiInflammatoryDays: number;
+    regularMealsDays: number;
+  };
+  exercises: {
+    sessionCount: number;
+    totalDurationMinutes: number;
+    completedExercises: number;
+    totalExercises: number;
+    avgPainDuring: number | null;
+    difficulty: {
+      easy: number;
+      ok: number;
+      hard: number;
+    };
+  };
+  proms: {
+    dueNowCount: number;
+    completedThisWeekCount: number;
+    latestCompleted: {
+      id: string;
+      title: string;
+      normalized: number;
+      bandLabel: string;
+      completedAt: string;
+    } | null;
+  };
+  safety: {
+    alertsCreatedThisWeek: number;
+    highRiskAlertsThisWeek: number;
+  };
+};
+
 export type ExerciseSessionStatus = "completed" | "abandoned";
 export type ExerciseSessionDifficulty = "easy" | "ok" | "hard";
 
@@ -225,6 +375,11 @@ export type CheckInItem = {
   adherence?: {
     exercises?: number;
     medication?: boolean;
+  };
+  sleep?: {
+    hours?: number;
+    quality?: number;
+    disturbances?: number;
   };
   notes?: string;
 };
@@ -553,6 +708,214 @@ function normalizeRehabPayload(value: unknown): RehabPayload {
   };
 }
 
+function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    patientId?: unknown;
+    period?: {
+      weekStart?: unknown;
+      weekEnd?: unknown;
+      tzOffsetMinutes?: unknown;
+    };
+    summary?: {
+      headline?: unknown;
+      highlights?: unknown;
+      nextSteps?: unknown;
+    };
+    checkins?: {
+      count?: unknown;
+      avgPain?: unknown;
+      avgMood?: unknown;
+      avgExercisesPct?: unknown;
+      medicationYesPct?: unknown;
+      notesCount?: unknown;
+    };
+    sleep?: {
+      trackedNights?: unknown;
+      avgHours?: unknown;
+      avgQuality?: unknown;
+    };
+    hydration?: {
+      trackedDays?: unknown;
+      avgDailyMl?: unknown;
+      totalMl?: unknown;
+      daysMeetingTarget?: unknown;
+      targetMl?: unknown;
+    };
+    nutrition?: {
+      trackedDays?: unknown;
+      avgFruitVegServings?: unknown;
+      proteinOkHighDays?: unknown;
+      antiInflammatoryDays?: unknown;
+      regularMealsDays?: unknown;
+    };
+    exercises?: {
+      sessionCount?: unknown;
+      totalDurationMinutes?: unknown;
+      completedExercises?: unknown;
+      totalExercises?: unknown;
+      avgPainDuring?: unknown;
+      difficulty?: {
+        easy?: unknown;
+        ok?: unknown;
+        hard?: unknown;
+      };
+    };
+    proms?: {
+      dueNowCount?: unknown;
+      completedThisWeekCount?: unknown;
+      latestCompleted?: {
+        id?: unknown;
+        title?: unknown;
+        normalized?: unknown;
+        bandLabel?: unknown;
+        completedAt?: unknown;
+      } | null;
+    };
+    safety?: {
+      alertsCreatedThisWeek?: unknown;
+      highRiskAlertsThisWeek?: unknown;
+    };
+  };
+
+  const patientId =
+    typeof record.patientId === "string" ? record.patientId.trim() : "";
+  const weekStart =
+    typeof record.period?.weekStart === "string" ? record.period.weekStart.trim() : "";
+  const weekEnd =
+    typeof record.period?.weekEnd === "string" ? record.period.weekEnd.trim() : "";
+  const headline =
+    typeof record.summary?.headline === "string" ? record.summary.headline.trim() : "";
+
+  if (!patientId || !weekStart || !weekEnd || !headline) {
+    return null;
+  }
+
+  const highlights = Array.isArray(record.summary?.highlights)
+    ? record.summary.highlights
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+  const nextSteps = Array.isArray(record.summary?.nextSteps)
+    ? record.summary.nextSteps
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+
+  const count = toFiniteNumber(record.checkins?.count) ?? 0;
+  const notesCount = toFiniteNumber(record.checkins?.notesCount) ?? 0;
+  const sessionCount = toFiniteNumber(record.exercises?.sessionCount) ?? 0;
+  const totalDurationMinutes = toFiniteNumber(record.exercises?.totalDurationMinutes) ?? 0;
+  const completedExercises = toFiniteNumber(record.exercises?.completedExercises) ?? 0;
+  const totalExercises = toFiniteNumber(record.exercises?.totalExercises) ?? 0;
+  const dueNowCount = toFiniteNumber(record.proms?.dueNowCount) ?? 0;
+  const completedThisWeekCount = toFiniteNumber(record.proms?.completedThisWeekCount) ?? 0;
+  const alertsCreatedThisWeek = toFiniteNumber(record.safety?.alertsCreatedThisWeek) ?? 0;
+  const highRiskAlertsThisWeek = toFiniteNumber(record.safety?.highRiskAlertsThisWeek) ?? 0;
+  const trackedSleepNights = toFiniteNumber(record.sleep?.trackedNights) ?? 0;
+  const hydrationTrackedDays = toFiniteNumber(record.hydration?.trackedDays) ?? 0;
+  const hydrationTotalMl = toFiniteNumber(record.hydration?.totalMl) ?? 0;
+  const hydrationDaysMeetingTarget =
+    toFiniteNumber(record.hydration?.daysMeetingTarget) ?? 0;
+  const hydrationTargetMl = toFiniteNumber(record.hydration?.targetMl) ?? 2000;
+  const nutritionTrackedDays = toFiniteNumber(record.nutrition?.trackedDays) ?? 0;
+  const nutritionProteinOkHighDays =
+    toFiniteNumber(record.nutrition?.proteinOkHighDays) ?? 0;
+  const nutritionAntiInflammatoryDays =
+    toFiniteNumber(record.nutrition?.antiInflammatoryDays) ?? 0;
+  const nutritionRegularMealsDays =
+    toFiniteNumber(record.nutrition?.regularMealsDays) ?? 0;
+
+  const latestCompleted =
+    record.proms?.latestCompleted &&
+    typeof record.proms.latestCompleted === "object" &&
+    typeof record.proms.latestCompleted.id === "string" &&
+    typeof record.proms.latestCompleted.title === "string" &&
+    typeof record.proms.latestCompleted.normalized === "number" &&
+    typeof record.proms.latestCompleted.bandLabel === "string" &&
+    typeof record.proms.latestCompleted.completedAt === "string"
+      ? {
+          id: record.proms.latestCompleted.id,
+          title: record.proms.latestCompleted.title,
+          normalized: record.proms.latestCompleted.normalized,
+          bandLabel: record.proms.latestCompleted.bandLabel,
+          completedAt: record.proms.latestCompleted.completedAt,
+        }
+      : null;
+
+  return {
+    ok: true,
+    patientId,
+    period: {
+      weekStart,
+      weekEnd,
+      tzOffsetMinutes:
+        typeof record.period?.tzOffsetMinutes === "number"
+          ? record.period.tzOffsetMinutes
+          : null,
+    },
+    summary: {
+      headline,
+      highlights,
+      nextSteps,
+    },
+    checkins: {
+      count,
+      avgPain: toFiniteNumber(record.checkins?.avgPain),
+      avgMood: toFiniteNumber(record.checkins?.avgMood),
+      avgExercisesPct: toFiniteNumber(record.checkins?.avgExercisesPct),
+      medicationYesPct: toFiniteNumber(record.checkins?.medicationYesPct),
+      notesCount,
+    },
+    sleep: {
+      trackedNights: trackedSleepNights,
+      avgHours: toFiniteNumber(record.sleep?.avgHours),
+      avgQuality: toFiniteNumber(record.sleep?.avgQuality),
+    },
+    hydration: {
+      trackedDays: hydrationTrackedDays,
+      avgDailyMl: toFiniteNumber(record.hydration?.avgDailyMl),
+      totalMl: hydrationTotalMl,
+      daysMeetingTarget: hydrationDaysMeetingTarget,
+      targetMl: hydrationTargetMl,
+    },
+    nutrition: {
+      trackedDays: nutritionTrackedDays,
+      avgFruitVegServings: toFiniteNumber(record.nutrition?.avgFruitVegServings),
+      proteinOkHighDays: nutritionProteinOkHighDays,
+      antiInflammatoryDays: nutritionAntiInflammatoryDays,
+      regularMealsDays: nutritionRegularMealsDays,
+    },
+    exercises: {
+      sessionCount,
+      totalDurationMinutes,
+      completedExercises,
+      totalExercises,
+      avgPainDuring: toFiniteNumber(record.exercises?.avgPainDuring),
+      difficulty: {
+        easy: toFiniteNumber(record.exercises?.difficulty?.easy) ?? 0,
+        ok: toFiniteNumber(record.exercises?.difficulty?.ok) ?? 0,
+        hard: toFiniteNumber(record.exercises?.difficulty?.hard) ?? 0,
+      },
+    },
+    proms: {
+      dueNowCount,
+      completedThisWeekCount,
+      latestCompleted,
+    },
+    safety: {
+      alertsCreatedThisWeek,
+      highRiskAlertsThisWeek,
+    },
+  };
+}
+
 function normalizeIsoString(value: unknown): string | null {
   if (typeof value === "string") {
     const parsed = new Date(value);
@@ -821,6 +1184,11 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
       exercises?: unknown;
       medication?: unknown;
     };
+    sleep?: {
+      hours?: unknown;
+      quality?: unknown;
+      disturbances?: unknown;
+    };
     notes?: unknown;
   };
 
@@ -850,6 +1218,18 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
         }
       : undefined;
 
+  const sleepHours = toFiniteNumber(item.sleep?.hours);
+  const sleepQuality = toFiniteNumber(item.sleep?.quality);
+  const sleepDisturbances = toFiniteNumber(item.sleep?.disturbances);
+  const sleep =
+    sleepHours !== null || sleepQuality !== null || sleepDisturbances !== null
+      ? {
+          hours: sleepHours ?? undefined,
+          quality: sleepQuality ?? undefined,
+          disturbances: sleepDisturbances ?? undefined,
+        }
+      : undefined;
+
   return {
     id: id.trim(),
     date: typeof item.date === "string" ? item.date : undefined,
@@ -857,6 +1237,7 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
     pain,
     mood,
     adherence,
+    sleep,
     notes: typeof item.notes === "string" ? item.notes : undefined,
   };
 }
@@ -1032,6 +1413,483 @@ function sortCheckInsDesc(items: CheckInItem[]): CheckInItem[] {
   return [...items].sort((a, b) => parseCheckInTimestamp(b) - parseCheckInTimestamp(a));
 }
 
+function normalizeHydrationEntry(value: unknown): HydrationEntry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const entry = value as {
+    id?: unknown;
+    _id?: unknown;
+    amountMl?: unknown;
+    createdAt?: unknown;
+  };
+  const id = typeof entry.id === "string" ? entry.id : typeof entry._id === "string" ? entry._id : "";
+  const amountMl = toFiniteNumber(entry.amountMl);
+  const createdAt = typeof entry.createdAt === "string" ? entry.createdAt : "";
+
+  if (!id || amountMl === null || !createdAt) {
+    return null;
+  }
+
+  return {
+    id,
+    amountMl: Math.round(amountMl),
+    createdAt,
+  };
+}
+
+function normalizeHydrationDayTotal(value: unknown): HydrationDayTotal | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const day = value as {
+    date?: unknown;
+    totalMl?: unknown;
+    metTarget?: unknown;
+  };
+  const date = typeof day.date === "string" ? day.date : "";
+  const totalMl = toFiniteNumber(day.totalMl);
+  if (!date || totalMl === null) {
+    return null;
+  }
+
+  return {
+    date,
+    totalMl: Math.round(totalMl),
+    metTarget: typeof day.metTarget === "boolean" ? day.metTarget : undefined,
+  };
+}
+
+function normalizeHydrationToday(value: unknown): HydrationTodayResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    date?: unknown;
+    totalMl?: unknown;
+    targetMl?: unknown;
+    entries?: unknown;
+    items?: unknown;
+  };
+
+  const date = typeof record.date === "string" ? record.date : "";
+  const totalMl = toFiniteNumber(record.totalMl);
+  if (!date || totalMl === null) {
+    return null;
+  }
+
+  const source = Array.isArray(record.entries)
+    ? record.entries
+    : Array.isArray(record.items)
+      ? record.items
+      : [];
+  const entries = source
+    .map((entry) => normalizeHydrationEntry(entry))
+    .filter((entry): entry is HydrationEntry => Boolean(entry))
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+
+  return {
+    ok: record.ok !== false,
+    date,
+    totalMl: Math.round(totalMl),
+    targetMl: toFiniteNumber(record.targetMl) ?? 2000,
+    entries,
+  };
+}
+
+function normalizeHydrationRange(value: unknown): HydrationRangeResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    from?: unknown;
+    to?: unknown;
+    targetMl?: unknown;
+    days?: unknown;
+    items?: unknown;
+  };
+
+  const from = typeof record.from === "string" ? record.from : "";
+  const to = typeof record.to === "string" ? record.to : "";
+  if (!from || !to) {
+    return null;
+  }
+
+  const source = Array.isArray(record.days)
+    ? record.days
+    : Array.isArray(record.items)
+      ? record.items
+      : [];
+  const days = source
+    .map((entry) => normalizeHydrationDayTotal(entry))
+    .filter((entry): entry is HydrationDayTotal => Boolean(entry))
+    .sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+
+  return {
+    ok: record.ok !== false,
+    from,
+    to,
+    targetMl: toFiniteNumber(record.targetMl) ?? 2000,
+    days,
+  };
+}
+
+function normalizeNutritionEntry(value: unknown): NutritionEntry | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const entry = value as {
+    id?: unknown;
+    _id?: unknown;
+    date?: unknown;
+    protein?: unknown;
+    fruitVegServings?: unknown;
+    antiInflammatoryFocus?: unknown;
+    mealRegularity?: unknown;
+    appetite?: unknown;
+    notes?: unknown;
+    createdAt?: unknown;
+    pending?: unknown;
+    localId?: unknown;
+  };
+
+  const id =
+    typeof entry.id === "string"
+      ? entry.id
+      : typeof entry._id === "string"
+        ? entry._id
+        : "";
+  const date = typeof entry.date === "string" ? entry.date : "";
+  const protein =
+    entry.protein === "low" || entry.protein === "ok" || entry.protein === "high"
+      ? entry.protein
+      : null;
+  const fruitVegServings = toFiniteNumber(entry.fruitVegServings);
+  const antiInflammatoryFocus =
+    typeof entry.antiInflammatoryFocus === "boolean"
+      ? entry.antiInflammatoryFocus
+      : null;
+  const mealRegularity =
+    entry.mealRegularity === "irregular" ||
+    entry.mealRegularity === "mostly" ||
+    entry.mealRegularity === "regular"
+      ? entry.mealRegularity
+      : null;
+  const createdAt = typeof entry.createdAt === "string" ? entry.createdAt : "";
+
+  if (
+    !id ||
+    !date ||
+    !protein ||
+    fruitVegServings === null ||
+    antiInflammatoryFocus === null ||
+    !mealRegularity ||
+    !createdAt
+  ) {
+    return null;
+  }
+
+  const appetite =
+    entry.appetite === "low" || entry.appetite === "normal" || entry.appetite === "high"
+      ? entry.appetite
+      : undefined;
+  const notes =
+    typeof entry.notes === "string" && entry.notes.trim() ? entry.notes.trim() : undefined;
+
+  return {
+    id,
+    date,
+    protein,
+    fruitVegServings: Math.round(fruitVegServings),
+    antiInflammatoryFocus,
+    mealRegularity,
+    appetite,
+    notes,
+    createdAt,
+    pending: entry.pending === true ? true : undefined,
+    localId: typeof entry.localId === "string" ? entry.localId : undefined,
+  };
+}
+
+function normalizeNutritionToday(value: unknown): NutritionTodayResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    date?: unknown;
+    entry?: unknown;
+    item?: unknown;
+    nutrition?: unknown;
+  };
+  const date = typeof record.date === "string" ? record.date : "";
+  if (!date) {
+    return null;
+  }
+
+  const entryCandidate =
+    record.entry ?? record.item ?? (record.nutrition as { entry?: unknown } | undefined)?.entry;
+  const entry =
+    entryCandidate === null || typeof entryCandidate === "undefined"
+      ? null
+      : normalizeNutritionEntry(entryCandidate);
+
+  if (entryCandidate && !entry) {
+    return null;
+  }
+
+  return {
+    ok: record.ok !== false,
+    date,
+    entry,
+  };
+}
+
+function normalizeNutritionRange(value: unknown): NutritionRangeResponse | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    ok?: unknown;
+    from?: unknown;
+    to?: unknown;
+    days?: unknown;
+    items?: unknown;
+  };
+  const from = typeof record.from === "string" ? record.from : "";
+  const to = typeof record.to === "string" ? record.to : "";
+  if (!from || !to) {
+    return null;
+  }
+
+  const source = Array.isArray(record.days)
+    ? record.days
+    : Array.isArray(record.items)
+      ? record.items
+      : [];
+
+  const days: NutritionDay[] = [];
+  for (const value of source) {
+    if (!value || typeof value !== "object") {
+      continue;
+    }
+    const day = value as {
+      date?: unknown;
+      entry?: unknown;
+      item?: unknown;
+    };
+    const date = typeof day.date === "string" ? day.date : "";
+    if (!date) {
+      continue;
+    }
+
+    const entryCandidate = day.entry ?? day.item;
+    const entry =
+      entryCandidate === null || typeof entryCandidate === "undefined"
+        ? null
+        : normalizeNutritionEntry(entryCandidate);
+    if (entryCandidate && !entry) {
+      continue;
+    }
+
+    days.push({
+      date,
+      entry,
+    });
+  }
+
+  days.sort((left, right) => Date.parse(left.date) - Date.parse(right.date));
+
+  return {
+    ok: record.ok !== false,
+    from,
+    to,
+    days,
+  };
+}
+
+export async function logHydration(
+  token: string,
+  payload: { date?: string; amountMl: number }
+): Promise<HydrationEntry> {
+  const response = await apiFetchJson<{
+    id?: unknown;
+    _id?: unknown;
+    amountMl?: unknown;
+    createdAt?: unknown;
+    ok?: unknown;
+  }>("/patient/hydration/log", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+
+  const normalized = normalizeHydrationEntry(response);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse hydration log response.");
+  }
+
+  return normalized;
+}
+
+export async function logNutrition(
+  token: string,
+  payload: NutritionLogPayload
+): Promise<NutritionEntry> {
+  const response = await apiFetchJson<{
+    entry?: unknown;
+    nutrition?: unknown;
+    data?: unknown;
+  }>("/patient/nutrition/log", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+
+  const normalized =
+    normalizeNutritionEntry(response.entry) ??
+    normalizeNutritionEntry(response.nutrition) ??
+    normalizeNutritionEntry(response.data) ??
+    normalizeNutritionEntry(response);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse nutrition log response.");
+  }
+
+  return normalized;
+}
+
+export async function getNutritionToday(
+  token: string,
+  date?: string
+): Promise<NutritionTodayResponse> {
+  const query = new URLSearchParams();
+  if (date) {
+    query.set("date", date);
+  }
+  const path = query.toString()
+    ? `/patient/nutrition/today?${query.toString()}`
+    : "/patient/nutrition/today";
+
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    nutrition?: unknown;
+  }>(path, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeNutritionToday(payload.data) ??
+    normalizeNutritionToday(payload.nutrition) ??
+    normalizeNutritionToday(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse nutrition today response.");
+  }
+
+  return normalized;
+}
+
+export async function getNutritionRange(
+  token: string,
+  params: { from: string; to: string }
+): Promise<NutritionRangeResponse> {
+  const query = new URLSearchParams();
+  query.set("from", params.from);
+  query.set("to", params.to);
+
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    nutrition?: unknown;
+  }>(`/patient/nutrition/range?${query.toString()}`, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeNutritionRange(payload.data) ??
+    normalizeNutritionRange(payload.nutrition) ??
+    normalizeNutritionRange(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse nutrition range response.");
+  }
+
+  return normalized;
+}
+
+export async function getHydrationToday(
+  token: string,
+  date?: string
+): Promise<HydrationTodayResponse> {
+  const query = new URLSearchParams();
+  if (date) {
+    query.set("date", date);
+  }
+  const path = query.toString()
+    ? `/patient/hydration/today?${query.toString()}`
+    : "/patient/hydration/today";
+
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    hydration?: unknown;
+  }>(path, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeHydrationToday(payload.data) ??
+    normalizeHydrationToday(payload.hydration) ??
+    normalizeHydrationToday(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse hydration total response.");
+  }
+
+  return normalized;
+}
+
+export async function getHydrationRange(
+  token: string,
+  params: { from: string; to: string }
+): Promise<HydrationRangeResponse> {
+  const query = new URLSearchParams();
+  query.set("from", params.from);
+  query.set("to", params.to);
+
+  const payload = await apiFetchJson<{
+    data?: unknown;
+    hydration?: unknown;
+  }>(`/patient/hydration/range?${query.toString()}`, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeHydrationRange(payload.data) ??
+    normalizeHydrationRange(payload.hydration) ??
+    normalizeHydrationRange(payload);
+  if (!normalized) {
+    throw invalidResponseError("Could not parse hydration range response.");
+  }
+
+  return normalized;
+}
+
+export async function deleteHydrationEntry(token: string, id: string): Promise<void> {
+  await apiFetchJson(`/patient/hydration/entries/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
 export async function listCheckins(
   token: string,
   params?: { from?: string; to?: string; limit?: number }
@@ -1139,6 +1997,45 @@ export async function getRehabPhases(token: string): Promise<RehabPayload> {
   }
 
   return normalizeRehabPayload(payload);
+}
+
+export async function getWeeklyReport(
+  token: string,
+  params?: { weekStart?: string; tzOffsetMinutes?: number }
+): Promise<WeeklyReport> {
+  const query = new URLSearchParams();
+  if (params?.weekStart) {
+    query.set("weekStart", params.weekStart);
+  }
+  if (
+    typeof params?.tzOffsetMinutes === "number" &&
+    Number.isFinite(params.tzOffsetMinutes)
+  ) {
+    query.set("tzOffsetMinutes", String(Math.trunc(params.tzOffsetMinutes)));
+  }
+
+  const path = query.toString()
+    ? `/patient/reports/weekly?${query.toString()}`
+    : "/patient/reports/weekly";
+
+  const payload = await apiFetchJson<{
+    report?: unknown;
+    data?: unknown;
+  }>(path, {
+    method: "GET",
+    token,
+  });
+
+  const normalized =
+    normalizeWeeklyReport(payload.report) ??
+    normalizeWeeklyReport(payload.data) ??
+    normalizeWeeklyReport(payload);
+
+  if (!normalized) {
+    throw invalidResponseError("Could not parse weekly report response.");
+  }
+
+  return normalized;
 }
 
 export async function createExerciseSession(

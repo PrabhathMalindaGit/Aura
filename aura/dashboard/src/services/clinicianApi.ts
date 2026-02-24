@@ -23,6 +23,8 @@ import {
   type AlertItem,
   type AlertStatus,
   type CheckinsRangeResponse,
+  type HydrationRangeResponse,
+  type NutritionRangeResponse,
   type CheckinEvent,
   type ChatEvent,
   type ExercisePlan,
@@ -38,6 +40,7 @@ import {
   type PromDueCard,
   type PromHistoryRow,
   type PromInstanceDetail,
+  type WeeklyReportPayload,
   type ListAlertsResponse,
   type ListPatientsResponse,
   type PatchAlertResponse,
@@ -539,6 +542,40 @@ export async function tryGetPatientCheckinsRange(
   }
 }
 
+export async function getPatientHydrationRange(
+  patientId: string,
+  from: string,
+  to: string,
+): Promise<HydrationRangeResponse> {
+  const query = new URLSearchParams({
+    from,
+    to,
+  });
+  return fetchJson<HydrationRangeResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/hydration/range?${query.toString()}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function getPatientNutritionRange(
+  patientId: string,
+  from: string,
+  to: string,
+): Promise<NutritionRangeResponse> {
+  const query = new URLSearchParams({
+    from,
+    to,
+  });
+  return fetchJson<NutritionRangeResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/nutrition/range?${query.toString()}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
 export async function listPatients(): Promise<PatientSummary[]> {
   const response = await fetchJson<ListPatientsResponse>('/clinician/patients', {
     method: 'GET',
@@ -696,6 +733,25 @@ export async function getPromInstanceById(promId: string): Promise<PromInstanceD
   );
 
   return response.prom;
+}
+
+export async function getWeeklyReport(
+  patientId: string,
+  options: { weekStart?: string; tzOffsetMinutes?: number } = {},
+): Promise<WeeklyReportPayload> {
+  const query = new URLSearchParams();
+  if (options.weekStart) {
+    query.set('weekStart', options.weekStart);
+  }
+  if (typeof options.tzOffsetMinutes === 'number' && Number.isFinite(options.tzOffsetMinutes)) {
+    query.set('tzOffsetMinutes', String(Math.trunc(options.tzOffsetMinutes)));
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  return fetchJson<WeeklyReportPayload>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/reports/weekly${suffix}`,
+    { method: 'GET' },
+  );
 }
 
 export async function getAlertContext(alertId: string): Promise<AlertContextResult> {

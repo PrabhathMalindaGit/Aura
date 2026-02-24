@@ -16,6 +16,7 @@ npm run dev
 - `/patients`
 - `/patients/:patientId`
 - `/patients/:patientId/plan`
+- `/patients/:patientId/weekly-report`
 - `/proms/:promId`
 - `/smoke`
 - `/settings`
@@ -98,6 +99,50 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
 4. Click **Open** to view `/proms/:promId` detail.
 5. In mobile, complete the due PROM.
 6. Refresh patient detail and verify it moves into **Completed** with score and band.
+
+## Weekly report demo path (Step 13)
+
+1. Open `/patients/p1`.
+2. In the **Weekly report** card, choose **View this week** or **View last week**.
+3. Verify the report page shows:
+   - headline + highlights + next steps
+   - check-in metrics
+   - exercise session metrics
+   - PROM due/completed summary
+   - safety counts.
+4. Use **Refresh** to reload the same week.
+
+## Sleep add-on demo path (Step 14)
+
+1. In mobile, submit one or more check-ins with optional sleep fields.
+2. In dashboard, open `/patients/p1`.
+3. Review **Sleep (recent)** card:
+   - tracked entries from recent check-ins
+   - average sleep hours and quality
+   - latest 7-day sleep rows (date, hours, quality, disturbances).
+4. Open weekly report (`/patients/p1/weekly-report`) and verify sleep stats are shown.
+
+## Hydration add-on demo path (Step 14 #2)
+
+1. In mobile, open **Hydration** and log intake entries (`+250 ml` / `+500 ml` / `+750 ml`).
+2. In dashboard, open `/patients/p1`.
+3. Review **Hydration (last 7 days)** card:
+   - day totals in ml
+   - average daily intake
+   - goal-day count (`>= 2000 ml`).
+4. Open weekly report (`/patients/p1/weekly-report`) and verify hydration stats are shown.
+
+## Nutrition add-on demo path (Step 14 #3)
+
+1. In mobile, open **Nutrition** and save today’s log.
+2. Turn offline in mobile, save again, then go back online and sync pending logs.
+3. In dashboard, open `/patients/p1`.
+4. Review **Nutrition (last 7 days)** card:
+   - per-day latest nutrition signal
+   - tracked-day count
+   - avg fruit/veg servings
+   - protein OK/high day count.
+5. Open weekly report (`/patients/p1/weekly-report`) and verify nutrition stats are shown.
 
 ## Notes
 

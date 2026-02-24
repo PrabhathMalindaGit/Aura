@@ -7,6 +7,8 @@ export type ProgressSummary = {
   avgMood: number | null;
   avgExerciseAdherencePct: number | null;
   medicationYesPct: number | null;
+  avgSleepHours: number | null;
+  avgSleepQuality: number | null;
 };
 
 function roundTo(value: number, decimals = 1): number {
@@ -74,12 +76,20 @@ export function computeSummary(
   const medicationValues = scoped
     .map((item) => item.adherence?.medication)
     .filter((value): value is boolean => typeof value === "boolean");
+  const sleepHoursValues = scoped
+    .map((item) => item.sleep?.hours)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const sleepQualityValues = scoped
+    .map((item) => item.sleep?.quality)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
 
   const avgPain = avg(painValues);
   const avgMood = avg(moodValues);
   const avgExerciseRatio = avg(exercises);
   const medicationYes = medicationValues.filter(Boolean).length;
   const medicationYesPct = pct(medicationYes, medicationValues.length);
+  const avgSleepHours = avg(sleepHoursValues);
+  const avgSleepQuality = avg(sleepQualityValues);
 
   return {
     days,
@@ -90,5 +100,7 @@ export function computeSummary(
       avgExerciseRatio === null ? null : Math.round(avgExerciseRatio * 100),
     medicationYesPct:
       medicationYesPct === null ? null : Math.round(medicationYesPct),
+    avgSleepHours: avgSleepHours === null ? null : roundTo(avgSleepHours, 1),
+    avgSleepQuality: avgSleepQuality === null ? null : roundTo(avgSleepQuality, 1),
   };
 }

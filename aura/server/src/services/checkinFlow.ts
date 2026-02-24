@@ -14,6 +14,11 @@ export type CheckInFlowInput = {
     exercises?: number;
     medication?: boolean;
   };
+  sleep?: {
+    hours?: number;
+    quality?: number;
+    disturbances?: number;
+  };
   notes?: string;
 };
 
@@ -37,6 +42,7 @@ export async function processCheckIn(
       exercises: input.adherence?.exercises ?? 0,
       medication: input.adherence?.medication ?? false,
     },
+    sleep: input.sleep,
     notes: input.notes,
     risk: {
       level: "low",

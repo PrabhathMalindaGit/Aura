@@ -1,7 +1,11 @@
 import { clearCachedChat } from "@/src/state/chatCache";
 import { clearCachedCheckins } from "@/src/state/checkinsCache";
 import { clearCachedExercisePlan } from "@/src/state/exercisePlanCache";
+import { clearAllHydrationCacheForPatient } from "@/src/state/hydrationCache";
 import { clearAllLastErrors } from "@/src/state/lastError";
+import { clearAllNutritionCacheForPatient } from "@/src/state/nutritionCache";
+import { clearPendingNutrition } from "@/src/state/pendingNutrition";
+import { clearPendingHydration } from "@/src/state/pendingHydration";
 import { clearPending } from "@/src/state/pendingSessions";
 import { clearPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { clearAllPromDraftsForPatient } from "@/src/state/promDrafts";
@@ -9,6 +13,7 @@ import { clearPromsCache } from "@/src/state/promsCache";
 import { clearCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
 import { clearReminderPrefs } from "@/src/state/reminderPrefs";
+import { clearAllWeeklyReportsForPatient } from "@/src/state/weeklyReportCache";
 
 export type DemoResetOptions = {
   patientId?: string;
@@ -26,10 +31,15 @@ export async function resetDemoState(
     tasks.push(clearCachedChat(patientId));
     tasks.push(clearCachedCheckins(patientId));
     tasks.push(clearCachedExercisePlan(patientId));
+    tasks.push(clearAllHydrationCacheForPatient(patientId));
+    tasks.push(clearAllNutritionCacheForPatient(patientId));
     tasks.push(clearCachedRehabPhases(patientId));
     tasks.push(clearPromsCache(patientId));
+    tasks.push(clearAllWeeklyReportsForPatient(patientId));
     tasks.push(clearAllPromDraftsForPatient(patientId));
     tasks.push(clearPending(patientId));
+    tasks.push(clearPendingHydration(patientId));
+    tasks.push(clearPendingNutrition(patientId));
     tasks.push(clearPendingPromSubmissions(patientId));
     tasks.push(clearReminderPrefs(patientId));
   }

@@ -61,12 +61,52 @@ curl -sS http://localhost:3000/patient/me \
 curl -sS -X POST http://localhost:3000/patient/checkins \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <PATIENT_TOKEN>" \
-  -d '{"date":"2026-02-23","mood":3,"pain":2,"adherence":{"exercises":0.5,"medication":true},"notes":"doing okay"}'
+  -d '{"date":"2026-02-23","mood":3,"pain":2,"adherence":{"exercises":0.5,"medication":true},"sleep":{"hours":7.5,"quality":4,"disturbances":1},"notes":"doing okay"}'
 ```
 
 - Patient check-ins list:
 ```bash
 curl -sS "http://localhost:3000/patient/checkins?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient hydration log:
+```bash
+curl -sS -X POST http://localhost:3000/patient/hydration/log \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"date":"2026-02-23","amountMl":250}'
+```
+
+- Patient hydration today:
+```bash
+curl -sS "http://localhost:3000/patient/hydration/today?date=2026-02-23" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient hydration range (inclusive end date):
+```bash
+curl -sS "http://localhost:3000/patient/hydration/range?from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient nutrition log:
+```bash
+curl -sS -X POST http://localhost:3000/patient/nutrition/log \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"date":"2026-02-23","protein":"ok","fruitVegServings":4,"antiInflammatoryFocus":true,"mealRegularity":"mostly","appetite":"normal","notes":"Balanced meals today"}'
+```
+
+- Patient nutrition today:
+```bash
+curl -sS "http://localhost:3000/patient/nutrition/today?date=2026-02-23" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient nutrition range (inclusive end date):
+```bash
+curl -sS "http://localhost:3000/patient/nutrition/range?from=2026-02-17&to=2026-02-23" \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
@@ -120,6 +160,12 @@ curl -sS -X POST "http://localhost:3000/patient/proms/<PROM_ID>/submit" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <PATIENT_TOKEN>" \
   -d '{"answers":[{"questionId":"q1","value":2},{"questionId":"q2","value":1},{"questionId":"q3","value":2},{"questionId":"q4","value":1},{"questionId":"q5","value":2}]}'
+```
+
+- Patient weekly report (Monday weekStart):
+```bash
+curl -sS "http://localhost:3000/patient/reports/weekly?weekStart=2026-02-23&tzOffsetMinutes=0" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
 - Patient create exercise session:
@@ -211,6 +257,24 @@ curl -sS "http://localhost:3000/clinician/patients/p1/proms?limit=50" \
 - Get clinician PROM detail:
 ```bash
 curl -sS "http://localhost:3000/clinician/proms/<PROM_ID>" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician hydration range for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/hydration/range?from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician nutrition range for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/nutrition/range?from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician weekly report for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/reports/weekly?weekStart=2026-02-23&tzOffsetMinutes=0" \
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 

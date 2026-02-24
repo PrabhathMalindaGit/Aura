@@ -16,7 +16,12 @@ export type ErrorKey =
   | "exerciseSessionsLoad"
   | "rehabPhasesLoad"
   | "promsLoad"
-  | "promSubmit";
+  | "promSubmit"
+  | "hydrationLoad"
+  | "hydrationLog"
+  | "nutritionLoad"
+  | "nutritionLog"
+  | "weeklyReportLoad";
 
 export type LastErrorRecord = {
   key: ErrorKey;

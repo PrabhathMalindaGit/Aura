@@ -11,13 +11,19 @@ import { Section } from "@/src/components/Section";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
+import { getCachedHydrationDay } from "@/src/state/hydrationCache";
+import { getCachedNutritionDay } from "@/src/state/nutritionCache";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
+import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { useLastError } from "@/src/state/lastError";
 import { formatNetworkReason, useNetwork } from "@/src/state/network";
+import { getPendingNutrition } from "@/src/state/pendingNutrition";
+import { getPendingHydration } from "@/src/state/pendingHydration";
 import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { startOfWeekMondayISO, todayISO } from "@/src/utils/date";
 import { resetDemoState } from "@/src/utils/demoReset";
 
 type NoticeState = {
@@ -41,6 +47,10 @@ export default function HomeScreen() {
   });
   const [pendingSessionCount, setPendingSessionCount] = useState(0);
   const [pendingPromCount, setPendingPromCount] = useState(0);
+  const [pendingHydrationCount, setPendingHydrationCount] = useState(0);
+  const [hydrationTodayMl, setHydrationTodayMl] = useState<number | null>(null);
+  const [pendingNutritionCount, setPendingNutritionCount] = useState(0);
+  const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
   const [promSummary, setPromSummary] = useState<{
     status: "loading" | "hasDue" | "none";
     dueCount: number;
@@ -55,6 +65,9 @@ export default function HomeScreen() {
     status: "loading",
     currentTitle: "",
   });
+  const [weeklyReportAvailable, setWeeklyReportAvailable] = useState<
+    "loading" | "available" | "none"
+  >("loading");
 
   const checkinsRefresh = useLastRefreshed("checkins");
   const chatRefresh = useLastRefreshed("chat");
@@ -63,6 +76,9 @@ export default function HomeScreen() {
   const exerciseSessionsRefresh = useLastRefreshed("exerciseSessions");
   const rehabPhasesRefresh = useLastRefreshed("rehabPhases");
   const promsRefresh = useLastRefreshed("proms");
+  const hydrationRefresh = useLastRefreshed("hydration");
+  const nutritionRefresh = useLastRefreshed("nutrition");
+  const weeklyReportRefresh = useLastRefreshed("weeklyReport");
 
   const authError = useLastError("auth");
   const checkinSubmitError = useLastError("checkinSubmit");
@@ -77,9 +93,17 @@ export default function HomeScreen() {
   const reminderScheduleError = useLastError("reminderSchedule");
   const promsLoadError = useLastError("promsLoad");
   const promSubmitError = useLastError("promSubmit");
+  const hydrationLoadError = useLastError("hydrationLoad");
+  const hydrationLogError = useLastError("hydrationLog");
+  const nutritionLoadError = useLastError("nutritionLoad");
+  const nutritionLogError = useLastError("nutritionLog");
+  const weeklyReportLoadError = useLastError("weeklyReportLoad");
 
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
+  const tzOffsetMinutes = -new Date().getTimezoneOffset();
+  const thisWeekStart = startOfWeekMondayISO(tzOffsetMinutes);
+  const today = todayISO();
 
   const failedAttemptLines = useMemo(
     () => [
@@ -139,6 +163,31 @@ export default function HomeScreen() {
         title: promSubmitError.lastError?.title,
       },
       {
+        label: "Hydration load",
+        value: hydrationLoadError.label,
+        title: hydrationLoadError.lastError?.title,
+      },
+      {
+        label: "Hydration log",
+        value: hydrationLogError.label,
+        title: hydrationLogError.lastError?.title,
+      },
+      {
+        label: "Nutrition load",
+        value: nutritionLoadError.label,
+        title: nutritionLoadError.lastError?.title,
+      },
+      {
+        label: "Nutrition log",
+        value: nutritionLogError.label,
+        title: nutritionLogError.lastError?.title,
+      },
+      {
+        label: "Weekly report load",
+        value: weeklyReportLoadError.label,
+        title: weeklyReportLoadError.lastError?.title,
+      },
+      {
         label: "Reminder permission",
         value: reminderPermissionError.label,
         title: reminderPermissionError.lastError?.title,
@@ -172,6 +221,16 @@ export default function HomeScreen() {
       promsLoadError.lastError?.title,
       promSubmitError.label,
       promSubmitError.lastError?.title,
+      hydrationLoadError.label,
+      hydrationLoadError.lastError?.title,
+      hydrationLogError.label,
+      hydrationLogError.lastError?.title,
+      nutritionLoadError.label,
+      nutritionLoadError.lastError?.title,
+      nutritionLogError.label,
+      nutritionLogError.lastError?.title,
+      weeklyReportLoadError.label,
+      weeklyReportLoadError.lastError?.title,
       reminderPermissionError.label,
       reminderPermissionError.lastError?.title,
       reminderScheduleError.label,
@@ -188,6 +247,9 @@ export default function HomeScreen() {
       exerciseSessionsRefresh.reload(),
       rehabPhasesRefresh.reload(),
       promsRefresh.reload(),
+      hydrationRefresh.reload(),
+      nutritionRefresh.reload(),
+      weeklyReportRefresh.reload(),
       authError.reload(),
       checkinSubmitError.reload(),
       chatLoadError.reload(),
@@ -199,6 +261,11 @@ export default function HomeScreen() {
       exerciseSessionsLoadError.reload(),
       promsLoadError.reload(),
       promSubmitError.reload(),
+      hydrationLoadError.reload(),
+      hydrationLogError.reload(),
+      nutritionLoadError.reload(),
+      nutritionLogError.reload(),
+      weeklyReportLoadError.reload(),
       reminderPermissionError.reload(),
       reminderScheduleError.reload(),
     ]);
@@ -208,12 +275,18 @@ export default function HomeScreen() {
     if (!patientId) {
       setPendingSessionCount(0);
       setPendingPromCount(0);
+      setPendingHydrationCount(0);
+      setPendingNutritionCount(0);
       return;
     }
     const pending = await getPending(patientId);
     setPendingSessionCount(pending.length);
     const pendingProms = await getPendingPromSubmissions(patientId);
     setPendingPromCount(pendingProms.length);
+    const pendingHydration = await getPendingHydration(patientId);
+    setPendingHydrationCount(pendingHydration.length);
+    const pendingNutrition = await getPendingNutrition(patientId);
+    setPendingNutritionCount(pendingNutrition.length);
   };
 
   useEffect(() => {
@@ -321,6 +394,82 @@ export default function HomeScreen() {
     };
   }, [patientId, promsRefresh.lastRefreshedAt]);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setWeeklyReportAvailable("none");
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedWeeklyReport(patientId, thisWeekStart);
+      if (!active) {
+        return;
+      }
+
+      setWeeklyReportAvailable(cached ? "available" : "none");
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, thisWeekStart, weeklyReportRefresh.lastRefreshedAt]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setHydrationTodayMl(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedHydrationDay(patientId, today);
+      const pending = await getPendingHydration(patientId);
+      if (!active) {
+        return;
+      }
+      const pendingTotal = pending
+        .filter((entry) => entry.date === today)
+        .reduce((sum, entry) => sum + entry.amountMl, 0);
+      setHydrationTodayMl((cached?.totalMl ?? 0) + pendingTotal);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, today, hydrationRefresh.lastRefreshedAt]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setNutritionTodayLogged(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedNutritionDay(patientId, today);
+      const pending = await getPendingNutrition(patientId);
+      if (!active) {
+        return;
+      }
+      const pendingToday = pending.some((entry) => entry.date === today);
+      setNutritionTodayLogged(Boolean(cached?.entry) || pendingToday);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, today, nutritionRefresh.lastRefreshedAt]);
+
   useFocusEffect(
     useCallback(() => {
       void reloadPendingCounts();
@@ -347,7 +496,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/plan/rehab/PROM caches, PROM drafts, pending sessions/PROM uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/plan/hydration/nutrition/rehab/PROM/weekly-report caches, drafts, pending uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -363,7 +512,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, progress, plan, rehab journey, questionnaires, PROM drafts, pending sessions/PROM uploads, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, progress, hydration, nutrition, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -439,6 +588,21 @@ export default function HomeScreen() {
             value={promsRefresh.label}
             compact
           />
+          <LastRefreshed
+            label="Last refreshed (hydration)"
+            value={hydrationRefresh.label}
+            compact
+          />
+          <LastRefreshed
+            label="Last refreshed (nutrition)"
+            value={nutritionRefresh.label}
+            compact
+          />
+          <LastRefreshed
+            label="Last refreshed (weekly report)"
+            value={weeklyReportRefresh.label}
+            compact
+          />
 
           <View style={styles.divider} />
           {failedAttemptLines.map((line) => (
@@ -467,6 +631,23 @@ export default function HomeScreen() {
             Pending PROM uploads: {pendingPromCount}
           </Text>
           <Text style={styles.statusDetail}>
+            Pending hydration: {pendingHydrationCount}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Pending nutrition: {pendingNutritionCount}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not cached"}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Nutrition today:{" "}
+            {nutritionTodayLogged === null
+              ? "Unknown"
+              : nutritionTodayLogged
+                ? "Logged"
+                : "Not logged"}
+          </Text>
+          <Text style={styles.statusDetail}>
             Phase:{" "}
             {rehabSummary.status === "loading"
               ? "Loading cached status..."
@@ -481,6 +662,14 @@ export default function HomeScreen() {
               : promSummary.status === "hasDue"
                 ? promSummary.dueCount
                 : 0}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Weekly report:{" "}
+            {weeklyReportAvailable === "loading"
+              ? "Checking cache..."
+              : weeklyReportAvailable === "available"
+                ? "Available"
+                : "Not cached"}
           </Text>
           <PrimaryButton
             label="Go to Check-in"
@@ -504,12 +693,24 @@ export default function HomeScreen() {
             onPress={() => router.push("/exercise-sessions")}
           />
           <PrimaryButton
+            label="Hydration"
+            onPress={() => router.push("/hydration" as never)}
+          />
+          <PrimaryButton
+            label="Nutrition"
+            onPress={() => router.push("/nutrition" as never)}
+          />
+          <PrimaryButton
             label="Rehab journey"
             onPress={() => router.push("/rehab-journey" as never)}
           />
           <PrimaryButton
             label="PROMs"
             onPress={() => router.push("/proms" as never)}
+          />
+          <PrimaryButton
+            label="Weekly report"
+            onPress={() => router.push("/weekly-report" as never)}
           />
         </Section>
 
@@ -541,6 +742,15 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • PROMs: open Questionnaires, complete due form, verify due moves to completed.
+          </Text>
+          <Text style={styles.bullet}>
+            • Weekly report: open this week, then share report text.
+          </Text>
+          <Text style={styles.bullet}>
+            • Hydration: tap +250ml/+500ml, go offline, add more, then sync pending when online.
+          </Text>
+          <Text style={styles.bullet}>
+            • Nutrition: save today log, go offline and save again, then sync pending when online.
           </Text>
           <Text style={styles.bullet}>
             • Offline session: finish while offline, then submit pending when online.

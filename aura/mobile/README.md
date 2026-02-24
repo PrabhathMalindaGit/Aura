@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `weeklyReport`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `weeklyReportLoad`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -473,6 +473,126 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - Due/completed lists stale:
   - pull-to-refresh on `/proms`
   - verify API base URL in `.env`.
+
+## Step 13: Weekly report (deterministic, non-AI)
+
+- New mobile route:
+  - `/weekly-report`
+- Backend endpoint used:
+  - `GET /patient/reports/weekly?weekStart=YYYY-MM-DD&tzOffsetMinutes=<offset>`
+- Trust-under-failure keys:
+  - `Last refreshed`: `weeklyReport`
+  - `Last failed`: `weeklyReportLoad`
+
+### Step 13 demo flow
+
+1. Open Demo Hub and tap **Weekly report**.
+2. Select **This week** and verify:
+   - headline, highlights, and next steps
+   - check-in, exercise, PROM, and safety sections.
+3. Tap **Share report** and confirm text share sheet opens.
+4. Go offline and reopen **Weekly report**:
+   - cached report is shown when available
+   - `Last refreshed` does not update offline.
+5. Return online and tap **Refresh report**.
+
+### Step 13 troubleshooting
+
+- Weekly report not loading online:
+  - verify backend is running and reachable from `EXPO_PUBLIC_API_BASE`.
+  - check `Last failed attempt` for `weeklyReportLoad`.
+- Offline report empty:
+  - open the same week online once to populate cache, then retry offline.
+- Shared text looks stale:
+  - refresh online first, then use **Share report** again.
+
+## Step 14: Sleep tracker add-on
+
+- Sleep is now optional in check-ins:
+  - `sleep.hours` (0..16, 0.5 step in UI)
+  - `sleep.quality` (1..5)
+  - `sleep.disturbances` (0..5)
+- Sleep inputs are submitted through existing endpoint:
+  - `POST /patient/checkins`
+- Progress summary now includes:
+  - average sleep hours
+  - average sleep quality
+- Weekly report now includes a sleep section:
+  - tracked nights
+  - average hours
+  - average quality
+
+### Step 14 demo flow
+
+1. Submit a check-in with sleep values in **Check-in** tab.
+2. Open **Progress**:
+   - verify sleep averages update for 14/30 day windows.
+3. Open **Weekly report**:
+   - verify sleep section appears with tracked nights and averages.
+4. Turn offline and try submitting check-in:
+   - submission is blocked (nothing sent), same as existing behavior.
+5. Reopen Progress/Weekly report offline:
+   - cached data remains visible when previously loaded.
+
+## Step 14: Hydration tracker add-on
+
+- New route:
+  - `/hydration` (opened from Demo Hub quick actions)
+- Backend endpoints used:
+  - `POST /patient/hydration/log`
+  - `GET /patient/hydration/today`
+  - `GET /patient/hydration/range`
+- Trust-under-failure keys:
+  - `Last refreshed`: `hydration`
+  - `Last failed`: `hydrationLoad`, `hydrationLog`
+- Offline behavior:
+  - quick-add hydration entries are queued locally as pending
+  - pending entries sync with **Sync now** when online.
+
+### Step 14 hydration demo flow
+
+1. Open **Hydration** and tap `+250 ml` / `+500 ml` a few times.
+2. Verify **Today total** and entry list update.
+3. Turn offline and tap add again:
+   - pending count increases
+   - entries show `(Pending)`.
+4. Go online and tap **Sync now**:
+   - pending clears
+   - today totals refresh from server.
+5. Open **Progress**:
+   - verify hydration summary cards (`Avg hydration`, `Hydration goal days`).
+6. Open **Weekly report**:
+   - verify hydration section appears.
+
+## Step 14: Nutrition tracker add-on
+
+- New route:
+  - `/nutrition` (opened from Demo Hub quick actions)
+- Backend endpoints used:
+  - `POST /patient/nutrition/log`
+  - `GET /patient/nutrition/today`
+  - `GET /patient/nutrition/range`
+- Trust-under-failure keys:
+  - `Last refreshed`: `nutrition`
+  - `Last failed`: `nutritionLoad`, `nutritionLog`
+- Offline behavior:
+  - nutrition logs are queued locally when offline
+  - pending nutrition logs sync with **Sync now** when online.
+
+### Step 14 nutrition demo flow
+
+1. Open **Nutrition** and save today’s log.
+2. Verify today summary updates (`Saved at ...`).
+3. Turn offline, change values, save again:
+   - pending count increases
+   - entry shows as pending sync.
+4. Go online and tap **Sync now**:
+   - pending clears
+   - latest saved entry reflects synced server data.
+5. Open **Weekly report**:
+   - verify nutrition section appears.
+6. Open dashboard `/patients/p1`:
+   - verify **Nutrition (last 7 days)** panel updates.
 
 ## How to Test Offline
 

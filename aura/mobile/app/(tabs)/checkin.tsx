@@ -45,6 +45,12 @@ type StepperProps = {
   onChange: (nextValue: number) => void;
 };
 
+type OptionalStepperProps = Omit<StepperProps, "value" | "onChange"> & {
+  value: number | null;
+  onChange: (nextValue: number | null) => void;
+  clearLabel?: string;
+};
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -86,6 +92,40 @@ function Stepper({
           ]}
         >
           <Text style={styles.stepperButtonText}>+</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function OptionalStepper({
+  value,
+  onChange,
+  clearLabel = "Clear",
+  ...props
+}: OptionalStepperProps) {
+  const effectiveValue = value ?? props.min;
+
+  return (
+    <View style={styles.optionalStepperWrapper}>
+      <Stepper
+        {...props}
+        value={effectiveValue}
+        onChange={(nextValue) => onChange(nextValue)}
+      />
+      <View style={styles.optionalStepperFooter}>
+        <Text style={styles.optionalValueHint}>
+          {value === null ? "Not set" : "Set"}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onChange(null)}
+          style={({ pressed }) => [
+            styles.clearOptionalButton,
+            pressed ? styles.clearOptionalButtonPressed : null,
+          ]}
+        >
+          <Text style={styles.clearOptionalButtonText}>{clearLabel}</Text>
         </Pressable>
       </View>
     </View>
@@ -167,6 +207,9 @@ export default function CheckinScreen() {
   const [mood, setMood] = useState<number | null>(null);
   const [exercisePercent, setExercisePercent] = useState(0);
   const [medication, setMedication] = useState(false);
+  const [sleepHours, setSleepHours] = useState<number | null>(null);
+  const [sleepQuality, setSleepQuality] = useState<number | null>(null);
+  const [sleepDisturbances, setSleepDisturbances] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
@@ -203,6 +246,9 @@ export default function CheckinScreen() {
     setMood(null);
     setExercisePercent(0);
     setMedication(false);
+    setSleepHours(null);
+    setSleepQuality(null);
+    setSleepDisturbances(null);
     setNotes("");
   };
 
@@ -247,6 +293,9 @@ export default function CheckinScreen() {
       return;
     }
 
+    const hasSleepData =
+      sleepHours !== null || sleepQuality !== null || sleepDisturbances !== null;
+
     const payload: CheckInCreatePayload = {
       date,
       mood: mood ?? 1,
@@ -255,6 +304,13 @@ export default function CheckinScreen() {
         exercises: Number((exercisePercent / 100).toFixed(1)),
         medication,
       },
+      sleep: hasSleepData
+        ? {
+            hours: sleepHours ?? undefined,
+            quality: sleepQuality ?? undefined,
+            disturbances: sleepDisturbances ?? undefined,
+          }
+        : undefined,
       notes: notes.trim() ? notes.trim() : undefined,
     };
 
@@ -418,6 +474,78 @@ export default function CheckinScreen() {
           </View>
         </Section>
 
+        <Section title="Sleep (optional)">
+          <OptionalStepper
+            label="Hours slept"
+            value={sleepHours}
+            min={0}
+            max={16}
+            step={0.5}
+            valueFormatter={(value) => `${value.toFixed(1)} hours`}
+            onChange={setSleepHours}
+            clearLabel="Clear hours"
+          />
+
+          <View style={styles.moodWrapper}>
+            <View style={styles.inlineHeaderRow}>
+              <Text style={styles.fieldLabel}>Sleep quality</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setSleepQuality(null)}
+                style={({ pressed }) => [
+                  styles.clearOptionalButton,
+                  pressed ? styles.clearOptionalButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.clearOptionalButtonText}>Clear</Text>
+              </Pressable>
+            </View>
+            <View style={styles.moodRow}>
+              {[1, 2, 3, 4, 5].map((value) => {
+                const selected = sleepQuality === value;
+                return (
+                  <Pressable
+                    key={`sleep-quality-${value}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set sleep quality ${value}`}
+                    onPress={() => setSleepQuality(value)}
+                    style={({ pressed }) => [
+                      styles.moodChip,
+                      selected ? styles.moodChipSelected : null,
+                      pressed ? styles.moodChipPressed : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.moodChipText,
+                        selected ? styles.moodChipTextSelected : null,
+                      ]}
+                    >
+                      {value}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.helperText}>
+              {sleepQuality === null
+                ? "Not set"
+                : `Selected quality: ${sleepQuality}/5`}
+            </Text>
+          </View>
+
+          <OptionalStepper
+            label="Night disturbances"
+            value={sleepDisturbances}
+            min={0}
+            max={5}
+            step={1}
+            valueFormatter={(value) => `${value}`}
+            onChange={setSleepDisturbances}
+            clearLabel="Clear disturbances"
+          />
+        </Section>
+
         <Section title="Notes (optional)">
           <TextInput
             value={notes}
@@ -443,6 +571,9 @@ export default function CheckinScreen() {
                 setMood(4);
                 setExercisePercent(80);
                 setMedication(true);
+                setSleepHours(7.5);
+                setSleepQuality(4);
+                setSleepDisturbances(1);
                 setNotes("");
                 setNotice(null);
               }}
@@ -454,6 +585,9 @@ export default function CheckinScreen() {
                 setMood(2);
                 setExercisePercent(20);
                 setMedication(false);
+                setSleepHours(5.5);
+                setSleepQuality(2);
+                setSleepDisturbances(3);
                 setNotes("");
                 setNotice(null);
               }}
@@ -500,6 +634,40 @@ const styles = StyleSheet.create({
   stepperWrapper: {
     gap: 8,
     marginBottom: 8,
+  },
+  optionalStepperWrapper: {
+    gap: 4,
+    marginBottom: 8,
+  },
+  optionalStepperFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  optionalValueHint: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  clearOptionalButton: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  clearOptionalButtonPressed: {
+    opacity: 0.75,
+  },
+  clearOptionalButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  inlineHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   stepperRow: {
     flexDirection: "row",

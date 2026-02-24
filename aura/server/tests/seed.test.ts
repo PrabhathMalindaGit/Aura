@@ -8,6 +8,7 @@ import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
 import ExercisePlan from "../src/models/ExercisePlan";
 import Patient from "../src/models/Patient";
+import NutritionLog from "../src/models/NutritionLog";
 import PromInstance from "../src/models/PromInstance";
 import PromTemplate from "../src/models/PromTemplate";
 import User from "../src/models/User";
@@ -34,6 +35,7 @@ describe("seed demo data", () => {
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
+      NutritionLog.deleteMany({}),
       ExercisePlan.deleteMany({}),
       PromTemplate.deleteMany({}),
       PromInstance.deleteMany({}),
@@ -52,6 +54,8 @@ describe("seed demo data", () => {
     expect(firstSummary).toEqual({
       patients: 3,
       checkIns: 66,
+      hydrationLogs: 65,
+      nutritionLogs: 34,
       chatMessages: 30,
       alerts: 6,
       careEvents: 20,
@@ -120,6 +124,12 @@ describe("seed demo data", () => {
     });
     expect(secondSummary).toEqual(firstSummary);
 
+    const checkinsWithSleepCount = await CheckIn.countDocuments({
+      demoTag: DEMO_TAG,
+      "sleep.hours": { $exists: true },
+    });
+    expect(checkinsWithSleepCount).toBeGreaterThan(0);
+
     const rehabPatients = await Patient.find({ demoTag: DEMO_TAG })
       .sort({ patientId: 1 })
       .lean();
@@ -150,6 +160,8 @@ describe("seed demo data", () => {
     });
     const resetSummary = await resetDemoData();
     expect(resetSummary.patientsDeleted).toBe(3);
+    expect(resetSummary.hydrationLogsDeleted).toBe(65);
+    expect(resetSummary.nutritionLogsDeleted).toBe(34);
     expect(resetSummary.exercisePlansDeleted).toBe(3);
     expect(resetSummary.promTemplatesDeleted).toBe(1);
     expect(resetSummary.promInstancesDeleted).toBe(4);

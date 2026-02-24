@@ -16,6 +16,8 @@ import { TrendCharts } from '../components/patients/TrendCharts';
 import {
   assignPromToPatient,
   getPatientExerciseSessions,
+  getPatientHydrationRange,
+  getPatientNutritionRange,
   getPatientProms,
   getRehabPhases,
   getPatientTrendsEndpointHint,
@@ -91,6 +93,60 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}m ${String(secs).padStart(2, '0')}s`;
+}
+
+function toDateOnlyUTC(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    date.getUTCDate(),
+  ).padStart(2, '0')}`;
+}
+
+function parseDateOnly(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const [yearString, monthString, dayString] = value.split('-');
+  const year = Number.parseInt(yearString, 10);
+  const month = Number.parseInt(monthString, 10);
+  const day = Number.parseInt(dayString, 10);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function mondayWeekStartForCurrentTimezone(): string {
+  const tzOffsetMinutes = -new Date().getTimezoneOffset();
+  const shiftedNow = new Date(Date.now() + tzOffsetMinutes * 60_000);
+  const day = shiftedNow.getUTCDay();
+  const daysSinceMonday = (day + 6) % 7;
+  const monday = new Date(
+    Date.UTC(
+      shiftedNow.getUTCFullYear(),
+      shiftedNow.getUTCMonth(),
+      shiftedNow.getUTCDate() - daysSinceMonday,
+    ),
+  );
+
+  return toDateOnlyUTC(monday);
+}
+
+function addDaysToWeekStart(weekStart: string, deltaDays: number): string {
+  const parsed = parseDateOnly(weekStart);
+  if (!parsed) {
+    return weekStart;
+  }
+
+  const next = new Date(parsed.getTime() + deltaDays * 24 * 60 * 60 * 1000);
+  return toDateOnlyUTC(next);
 }
 
 function formatLastUpdated(lastSuccessAt: number | null): string {
@@ -198,6 +254,44 @@ export function PatientDetailPage(): JSX.Element {
   );
 
   const trendsQuery = usePatientTrends(patientId, selectedDays);
+  const recentSleepTo = useMemo(() => toDateOnlyUTC(new Date()), []);
+  const recentSleepFrom = useMemo(
+    () => addDaysToWeekStart(recentSleepTo, -6),
+    [recentSleepTo],
+  );
+
+  const patientRecentCheckinsQuery = useQuery({
+    queryKey: ['patient-recent-checkins', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: async () => {
+      const rows = await tryGetPatientCheckinsRange(patientId ?? '', recentSleepFrom, recentSleepTo);
+      return rows ?? [];
+    },
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientHydrationQuery = useQuery({
+    queryKey: ['patient-hydration', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: () => getPatientHydrationRange(patientId ?? '', recentSleepFrom, recentSleepTo),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientNutritionQuery = useQuery({
+    queryKey: ['patient-nutrition', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: () => getPatientNutritionRange(patientId ?? '', recentSleepFrom, recentSleepTo),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
 
   const patientAlertsQuery = useQuery({
     queryKey: ['patient-alerts', patientId],
@@ -288,6 +382,125 @@ export function PatientDetailPage(): JSX.Element {
   );
 
   const trendSummary = useMemo(() => deriveTrendSummary(normalizedTrends), [normalizedTrends]);
+  const recentSleepRows = useMemo(
+    () =>
+      ((patientRecentCheckinsQuery.data ?? []) as TrendPointRaw[])
+        .map((row) => {
+          const hours = typeof row.sleep?.hours === 'number' ? row.sleep.hours : null;
+          const quality = typeof row.sleep?.quality === 'number' ? row.sleep.quality : null;
+          const disturbances =
+            typeof row.sleep?.disturbances === 'number' ? row.sleep.disturbances : null;
+          if (hours === null && quality === null && disturbances === null) {
+            return null;
+          }
+          return {
+            date: row.date,
+            hours,
+            quality,
+            disturbances,
+          };
+        })
+        .filter(
+          (
+            row,
+          ): row is { date: string; hours: number | null; quality: number | null; disturbances: number | null } =>
+            Boolean(row),
+        )
+        .sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [patientRecentCheckinsQuery.data],
+  );
+  const recentSleepSummary = useMemo(() => {
+    const hours = recentSleepRows
+      .map((row) => row.hours)
+      .filter((value): value is number => value !== null);
+    const quality = recentSleepRows
+      .map((row) => row.quality)
+      .filter((value): value is number => value !== null);
+    const avgHours =
+      hours.length > 0
+        ? Math.round((hours.reduce((sum, value) => sum + value, 0) / hours.length) * 10) / 10
+        : null;
+    const avgQuality =
+      quality.length > 0
+        ? Math.round((quality.reduce((sum, value) => sum + value, 0) / quality.length) * 10) / 10
+        : null;
+    return {
+      avgHours,
+      avgQuality,
+      trackedCount: recentSleepRows.length,
+    };
+  }, [recentSleepRows]);
+  const recentHydrationDays = useMemo(
+    () =>
+      (patientHydrationQuery.data?.days ?? [])
+        .map((day) => ({
+          date: day.date,
+          totalMl: typeof day.totalMl === 'number' ? day.totalMl : 0,
+          metTarget:
+            typeof day.metTarget === 'boolean'
+              ? day.metTarget
+              : typeof day.totalMl === 'number'
+                ? day.totalMl >= 2000
+                : false,
+        }))
+        .sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [patientHydrationQuery.data?.days],
+  );
+  const recentHydrationSummary = useMemo(() => {
+    if (recentHydrationDays.length === 0) {
+      return {
+        avgDailyMl: null as number | null,
+        daysMeetingTarget: 0,
+      };
+    }
+
+    const total = recentHydrationDays.reduce((sum, day) => sum + day.totalMl, 0);
+    const avgDailyMl = Math.round((total / recentHydrationDays.length) * 10) / 10;
+    const daysMeetingTarget = recentHydrationDays.filter((day) => day.totalMl >= 2000).length;
+    return {
+      avgDailyMl,
+      daysMeetingTarget,
+    };
+  }, [recentHydrationDays]);
+  const recentNutritionDays = useMemo(
+    () =>
+      (patientNutritionQuery.data?.days ?? [])
+        .map((day) => ({
+          date: day.date,
+          entry: day.entry
+            ? {
+                ...day.entry,
+                fruitVegServings:
+                  typeof day.entry.fruitVegServings === 'number' ? day.entry.fruitVegServings : 0,
+              }
+            : null,
+        }))
+        .sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [patientNutritionQuery.data?.days],
+  );
+  const recentNutritionSummary = useMemo(() => {
+    const withEntry = recentNutritionDays.filter((day) => day.entry !== null);
+    if (withEntry.length === 0) {
+      return {
+        trackedDays: 0,
+        avgFruitVeg: null as number | null,
+        proteinOkHighDays: 0,
+      };
+    }
+
+    const fruitVegTotal = withEntry.reduce((sum, day) => sum + (day.entry?.fruitVegServings ?? 0), 0);
+    const avgFruitVeg = Math.round((fruitVegTotal / withEntry.length) * 10) / 10;
+    const proteinOkHighDays = withEntry.filter((day) => {
+      const protein = day.entry?.protein;
+      return protein === 'ok' || protein === 'high';
+    }).length;
+
+    return {
+      trackedDays: withEntry.length,
+      avgFruitVeg,
+      proteinOkHighDays,
+    };
+  }, [recentNutritionDays]);
 
   const patientAlerts = useMemo(() => patientAlertsQuery.data ?? [], [patientAlertsQuery.data]);
   const patientSessions = useMemo(
@@ -316,6 +529,9 @@ export function PatientDetailPage(): JSX.Element {
     () => normalizedTrends.find((point) => point.date === selectedDateKey) ?? null,
     [normalizedTrends, selectedDateKey],
   );
+
+  const thisWeekStart = useMemo(() => mondayWeekStartForCurrentTimezone(), []);
+  const lastWeekStart = useMemo(() => addDaysToWeekStart(thisWeekStart, -7), [thisWeekStart]);
 
   const selectedDayAlerts = useMemo(
     () => (selectedDayPoint ? alertsForDate(patientAlerts, selectedDayPoint.date) : []),
@@ -650,6 +866,24 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientRecentCheckinsQuery.error ? (
+        <AlertBanner variant="error" title="Could not load recent sleep">
+          {toUserMessage(patientRecentCheckinsQuery.error)}
+        </AlertBanner>
+      ) : null}
+
+      {patientHydrationQuery.error ? (
+        <AlertBanner variant="error" title="Could not load hydration">
+          {toUserMessage(patientHydrationQuery.error)}
+        </AlertBanner>
+      ) : null}
+
+      {patientNutritionQuery.error ? (
+        <AlertBanner variant="error" title="Could not load nutrition">
+          {toUserMessage(patientNutritionQuery.error)}
+        </AlertBanner>
+      ) : null}
+
       {rehabSaveError ? (
         <AlertBanner variant="error" title="Could not update rehab phase">
           {rehabSaveError}
@@ -663,6 +897,134 @@ export function PatientDetailPage(): JSX.Element {
       ) : null}
 
       <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+
+      <Card
+        title="Sleep (recent)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientRecentCheckinsQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientRecentCheckinsQuery.isLoading && recentSleepRows.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Sleep loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={68} />
+          </div>
+        ) : recentSleepRows.length === 0 ? (
+          <p className="muted-text">No recent sleep entries in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Tracked check-ins: <strong>{recentSleepSummary.trackedCount}</strong>
+            </p>
+            <p className="muted-text">
+              Avg hours: <strong>{recentSleepSummary.avgHours ?? '—'}</strong> · Avg quality:{' '}
+              <strong>{recentSleepSummary.avgQuality ?? '—'}</strong>
+            </p>
+            <div className="stack stack--1">
+              {recentSleepRows.slice(0, 7).map((row) => (
+                <p key={row.date} className="muted-text">
+                  {row.date}: {row.hours !== null ? `${row.hours}h` : '—'} · quality{' '}
+                  {row.quality !== null ? row.quality : '—'}
+                  {row.disturbances !== null ? ` · disturbances ${row.disturbances}` : ''}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Hydration (last 7 days)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientHydrationQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientHydrationQuery.isLoading && recentHydrationDays.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Hydration loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={68} />
+          </div>
+        ) : recentHydrationDays.length === 0 ? (
+          <p className="muted-text">No hydration entries in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Avg daily intake: <strong>{recentHydrationSummary.avgDailyMl ?? '—'}</strong> ml
+            </p>
+            <p className="muted-text">
+              Goal days (≥2000 ml): <strong>{recentHydrationSummary.daysMeetingTarget}</strong>/
+              {recentHydrationDays.length}
+            </p>
+            <div className="stack stack--1">
+              {recentHydrationDays.slice(0, 7).map((day) => (
+                <p key={day.date} className="muted-text">
+                  {day.date}: {day.totalMl} ml {day.metTarget ? '✓' : ''}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Nutrition (last 7 days)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientNutritionQuery.refetch();
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientNutritionQuery.isLoading && recentNutritionDays.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Nutrition loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={88} />
+          </div>
+        ) : recentNutritionDays.length === 0 ? (
+          <p className="muted-text">No nutrition logs in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Tracked days: <strong>{recentNutritionSummary.trackedDays}</strong> · Avg fruit/veg:{' '}
+              <strong>{recentNutritionSummary.avgFruitVeg ?? '—'}</strong>
+            </p>
+            <p className="muted-text">
+              Protein OK/high days: <strong>{recentNutritionSummary.proteinOkHighDays}</strong>/
+              {recentNutritionSummary.trackedDays}
+            </p>
+            <div className="stack stack--1">
+              {recentNutritionDays.slice(0, 7).map((day) => (
+                <p key={day.date} className="muted-text">
+                  {day.date}:{' '}
+                  {day.entry
+                    ? `${day.entry.protein} protein · fruit/veg ${day.entry.fruitVegServings} · anti-inflammatory ${
+                        day.entry.antiInflammatoryFocus ? 'yes' : 'no'
+                      } · meals ${day.entry.mealRegularity}`
+                    : 'No entry'}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card
         title="Rehab phase"
@@ -870,6 +1232,32 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
+      </Card>
+
+      <Card title="Weekly report">
+        <div className="stack stack--2">
+          <p className="muted-text">
+            View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and next steps.
+          </p>
+          <div className="patient-detail-actions">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(thisWeekStart)}`);
+              }}
+            >
+              View this week
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(lastWeekStart)}`);
+              }}
+            >
+              View last week
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Card

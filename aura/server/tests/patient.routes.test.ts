@@ -175,6 +175,11 @@ describe("patient auth + patient endpoints", () => {
           exercises: 0.5,
           medication: true,
         },
+        sleep: {
+          hours: 7.5,
+          quality: 4,
+          disturbances: 1,
+        },
         notes: "Doing okay",
       });
 
@@ -189,6 +194,11 @@ describe("patient auth + patient endpoints", () => {
     const created = await CheckIn.findOne({ patientId: "p1" }).lean();
     expect(created).toBeTruthy();
     expect(created?.pain).toBe(2);
+    expect(created?.sleep).toMatchObject({
+      hours: 7.5,
+      quality: 4,
+      disturbances: 1,
+    });
   });
 
   it("creates high-risk patient check-in and escalates alert", async () => {
@@ -220,6 +230,28 @@ describe("patient auth + patient endpoints", () => {
     expect(alertCount).toBe(1);
   });
 
+  it("rejects invalid sleep fields on patient check-in", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-24",
+        mood: 3,
+        pain: 2,
+        sleep: {
+          hours: 17,
+          quality: 6,
+        },
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe("VALIDATION_ERROR");
+  });
+
   it("lists patient check-ins with filters and limit", async () => {
     await seedPatient({ patientId: "p9", accessCode: "P9-DEMO" });
 
@@ -229,6 +261,11 @@ describe("patient auth + patient endpoints", () => {
         date: "2026-02-20",
         mood: 4,
         pain: 3,
+        sleep: {
+          hours: 7,
+          quality: 4,
+          disturbances: 1,
+        },
         createdAt: new Date("2026-02-20T08:00:00.000Z"),
         updatedAt: new Date("2026-02-20T08:00:00.000Z"),
       },
@@ -260,6 +297,21 @@ describe("patient auth + patient endpoints", () => {
     expect(response.body.ok).toBe(true);
     expect(response.body.checkins).toHaveLength(1);
     expect(response.body.checkins[0].date).toBe("2026-02-21");
+    expect(response.body.checkins[0].sleep).toBeUndefined();
+
+    const withSleep = await request(app)
+      .get("/patient/checkins?from=2026-02-20T00:00:00.000Z&to=2026-02-20T23:59:59.999Z&limit=5")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(withSleep.status).toBe(200);
+    expect(withSleep.body.checkins[0]).toMatchObject({
+      date: "2026-02-20",
+      sleep: {
+        hours: 7,
+        quality: 4,
+        disturbances: 1,
+      },
+    });
   });
 
   it("returns low-risk patient chat with assistant reply from rag stub", async () => {

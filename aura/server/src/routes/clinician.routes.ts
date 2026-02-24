@@ -1020,8 +1020,8 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
     });
 
     const selectedFields = includeNotes
-      ? "patientId date pain mood adherence risk createdAt notes"
-      : "patientId date pain mood adherence risk createdAt";
+      ? "patientId date pain mood adherence sleep risk createdAt notes"
+      : "patientId date pain mood adherence sleep risk createdAt";
 
     const rows = await CheckIn.find({
       patientId,
@@ -1041,6 +1041,10 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
         row.risk && typeof row.risk === "object"
           ? (row.risk as Record<string, unknown>)
           : undefined;
+      const sleepRecord =
+        row.sleep && typeof row.sleep === "object"
+          ? (row.sleep as Record<string, unknown>)
+          : undefined;
 
       return {
         id: String(row._id ?? ""),
@@ -1055,6 +1059,13 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
               ? adherenceRecord.medication
               : null,
         },
+        sleep: sleepRecord
+          ? {
+              hours: toNumberOrNull(sleepRecord.hours),
+              quality: toNumberOrNull(sleepRecord.quality),
+              disturbances: toNumberOrNull(sleepRecord.disturbances),
+            }
+          : undefined,
         risk: riskRecord
           ? {
               level: riskRecord.level === "high" ? "high" : "low",

@@ -19,6 +19,8 @@ async function run(): Promise<void> {
       console.log(`Users deleted: ${resetSummary.usersDeleted}`);
       console.log(`Patients deleted: ${resetSummary.patientsDeleted}`);
       console.log(`CheckIns deleted: ${resetSummary.checkInsDeleted}`);
+      console.log(`HydrationLogs deleted: ${resetSummary.hydrationLogsDeleted}`);
+      console.log(`NutritionLogs deleted: ${resetSummary.nutritionLogsDeleted}`);
       console.log(`ChatMessages deleted: ${resetSummary.chatMessagesDeleted}`);
       console.log(`Alerts deleted: ${resetSummary.alertsDeleted}`);
       console.log(`CareEvents deleted: ${resetSummary.careEventsDeleted}`);
@@ -34,6 +36,8 @@ async function run(): Promise<void> {
     console.log("Seed completed.");
     console.log(`Patients: ${summary.patients}`);
     console.log(`CheckIns: ${summary.checkIns}`);
+    console.log(`HydrationLogs: ${summary.hydrationLogs}`);
+    console.log(`NutritionLogs: ${summary.nutritionLogs}`);
     console.log(`ChatMessages: ${summary.chatMessages}`);
     console.log(`Alerts: ${summary.alerts}`);
     console.log(`CareEvents: ${summary.careEvents}`);

@@ -16,6 +16,14 @@ import { signPatientToken, hasPatientJwtSecretConfigured } from "../utils/patien
 
 const router = Router();
 
+const sleepHoursSchema = z
+  .number()
+  .min(0)
+  .max(16)
+  .refine((value) => Math.abs(value * 10 - Math.round(value * 10)) < 1e-9, {
+    message: "hours must have at most one decimal place",
+  });
+
 const patientLoginSchema = z
   .object({
     accessCode: z.string().trim().min(1).max(80).optional(),
@@ -34,6 +42,13 @@ const patientCheckInSchema = z.object({
     .object({
       exercises: z.number().min(0).max(1).optional(),
       medication: z.boolean().optional(),
+    })
+    .optional(),
+  sleep: z
+    .object({
+      hours: sleepHoursSchema.optional(),
+      quality: z.number().int().min(1).max(5).optional(),
+      disturbances: z.number().int().min(0).max(5).optional(),
     })
     .optional(),
   notes: z.string().max(2000).optional(),
@@ -198,7 +213,7 @@ router.post(
     }
 
     try {
-      const { date, mood, pain, adherence, notes } =
+      const { date, mood, pain, adherence, sleep, notes } =
         req.body as z.infer<typeof patientCheckInSchema>;
 
       const result = await processCheckIn({
@@ -207,6 +222,7 @@ router.post(
         mood,
         pain,
         adherence,
+        sleep,
         notes,
       });
 
@@ -339,6 +355,26 @@ router.get("/patient/checkins", requirePatientAuth, async (req, res) => {
           exercises: checkin.adherence?.exercises,
           medication: checkin.adherence?.medication,
         },
+        sleep:
+          checkin.sleep &&
+          (typeof checkin.sleep.hours === "number" ||
+            typeof checkin.sleep.quality === "number" ||
+            typeof checkin.sleep.disturbances === "number")
+            ? {
+                hours:
+                  typeof checkin.sleep.hours === "number"
+                    ? checkin.sleep.hours
+                    : undefined,
+                quality:
+                  typeof checkin.sleep.quality === "number"
+                    ? checkin.sleep.quality
+                    : undefined,
+                disturbances:
+                  typeof checkin.sleep.disturbances === "number"
+                    ? checkin.sleep.disturbances
+                    : undefined,
+              }
+            : undefined,
         risk: {
           level: checkin.risk?.level ?? "low",
           reasonCodes: Array.isArray(checkin.risk?.reasons)

@@ -92,6 +92,11 @@ export interface TrendPointRaw {
     exercises?: number;
     medication?: boolean;
   };
+  sleep?: {
+    hours?: number;
+    quality?: number;
+    disturbances?: number;
+  };
   notes?: string;
 }
 
@@ -120,6 +125,50 @@ export interface TrendsResponse {
 export interface CheckinsRangeResponse {
   ok: true;
   checkins: TrendPointRaw[];
+}
+
+export interface HydrationDayTotal {
+  date: string;
+  totalMl: number;
+  metTarget?: boolean;
+}
+
+export interface HydrationRangeResponse {
+  ok: true;
+  patientId?: string;
+  from: string;
+  to: string;
+  targetMl: number;
+  days: HydrationDayTotal[];
+}
+
+export type NutritionProtein = 'low' | 'ok' | 'high';
+export type NutritionMealRegularity = 'irregular' | 'mostly' | 'regular';
+export type NutritionAppetite = 'low' | 'normal' | 'high';
+
+export interface NutritionEntry {
+  id: string;
+  date: string;
+  protein: NutritionProtein;
+  fruitVegServings: number;
+  antiInflammatoryFocus: boolean;
+  mealRegularity: NutritionMealRegularity;
+  appetite?: NutritionAppetite;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface NutritionDay {
+  date: string;
+  entry: NutritionEntry | null;
+}
+
+export interface NutritionRangeResponse {
+  ok: true;
+  patientId?: string;
+  from: string;
+  to: string;
+  days: NutritionDay[];
 }
 
 export type PatientStatus = 'active' | 'on_hold' | 'discharged' | 'inactive';
@@ -348,4 +397,75 @@ export interface ClinicianPatientPromsResponse {
 export interface ClinicianPromDetailResponse {
   ok: true;
   prom: PromInstanceDetail;
+}
+
+export interface WeeklyReportPeriod {
+  weekStart: string;
+  weekEnd: string;
+  tzOffsetMinutes: number | null;
+}
+
+export interface WeeklyReportPayload {
+  ok: true;
+  patientId: string;
+  period: WeeklyReportPeriod;
+  summary: {
+    headline: string;
+    highlights: string[];
+    nextSteps: string[];
+  };
+  checkins: {
+    count: number;
+    avgPain: number | null;
+    avgMood: number | null;
+    avgExercisesPct: number | null;
+    medicationYesPct: number | null;
+    notesCount: number;
+  };
+  sleep: {
+    trackedNights: number;
+    avgHours: number | null;
+    avgQuality: number | null;
+  };
+  hydration: {
+    trackedDays: number;
+    avgDailyMl: number | null;
+    totalMl: number;
+    daysMeetingTarget: number;
+    targetMl: number;
+  };
+  nutrition: {
+    trackedDays: number;
+    avgFruitVegServings: number | null;
+    proteinOkHighDays: number;
+    antiInflammatoryDays: number;
+    regularMealsDays: number;
+  };
+  exercises: {
+    sessionCount: number;
+    totalDurationMinutes: number;
+    completedExercises: number;
+    totalExercises: number;
+    avgPainDuring: number | null;
+    difficulty: {
+      easy: number;
+      ok: number;
+      hard: number;
+    };
+  };
+  proms: {
+    dueNowCount: number;
+    completedThisWeekCount: number;
+    latestCompleted: {
+      id: string;
+      title: string;
+      normalized: number;
+      bandLabel: string;
+      completedAt: string;
+    } | null;
+  };
+  safety: {
+    alertsCreatedThisWeek: number;
+    highRiskAlertsThisWeek: number;
+  };
 }

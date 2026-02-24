@@ -9,6 +9,14 @@ import { redactText } from "../utils/redact";
 
 const router = Router();
 
+const sleepHoursSchema = z
+  .number()
+  .min(0)
+  .max(16)
+  .refine((value) => Math.abs(value * 10 - Math.round(value * 10)) < 1e-9, {
+    message: "hours must have at most one decimal place",
+  });
+
 const checkInSchema = z.object({
   patientId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -20,12 +28,19 @@ const checkInSchema = z.object({
       medication: z.boolean().optional(),
     })
     .optional(),
+  sleep: z
+    .object({
+      hours: sleepHoursSchema.optional(),
+      quality: z.number().int().min(1).max(5).optional(),
+      disturbances: z.number().int().min(0).max(5).optional(),
+    })
+    .optional(),
   notes: z.string().max(2000).optional(),
 });
 
 router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
   try {
-    const { patientId, date, mood, pain, adherence, notes } = req.body as z.infer<
+    const { patientId, date, mood, pain, adherence, sleep, notes } = req.body as z.infer<
       typeof checkInSchema
     >;
 
@@ -34,6 +49,7 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
       date,
       mood,
       pain,
+      sleep,
       notesPreview: redactText(notes),
     });
 
@@ -43,6 +59,7 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
       mood,
       pain,
       adherence,
+      sleep,
       notes,
     });
 

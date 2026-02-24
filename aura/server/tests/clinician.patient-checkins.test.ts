@@ -59,6 +59,7 @@ describe("GET /clinician/patients/:patientId/checkins", () => {
       mood: 2,
       pain: 8,
       adherence: { exercises: 0.2, medication: false },
+      sleep: { hours: 5.5, quality: 2, disturbances: 3 },
       notes: "Day one note",
       risk: { level: "high", reasons: ["pain_spike"] },
     });
@@ -107,6 +108,13 @@ describe("GET /clinician/patients/:patientId/checkins", () => {
       "2026-03-05",
     ]);
     expect(checkins[0]).not.toHaveProperty("notes");
+    expect(checkins[0]).toMatchObject({
+      sleep: {
+        hours: 5.5,
+        quality: 2,
+        disturbances: 3,
+      },
+    });
   });
 
   it("includes notes when includeNotes=true", async () => {

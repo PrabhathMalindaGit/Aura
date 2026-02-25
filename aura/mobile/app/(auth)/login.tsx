@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
+import { useRouter, type Href } from "expo-router";
 
 import { isApiError } from "@/src/api/client";
 import { InlineNotice } from "@/src/components/InlineNotice";
@@ -37,6 +38,7 @@ function toFriendlySignInMessage(error: unknown): string {
 }
 
 export default function LoginScreen() {
+  const router = useRouter();
   const { signIn } = useAuth();
   const isOffline = useIsOffline();
   const authError = useLastError("auth");
@@ -91,6 +93,18 @@ export default function LoginScreen() {
           autoCapitalize="characters"
         />
         {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            router.push("/caregiver-login" as Href);
+          }}
+          style={({ pressed }) => [
+            styles.caregiverLink,
+            pressed ? styles.caregiverLinkPressed : null,
+          ]}
+        >
+          <Text style={styles.caregiverLinkText}>I’m a caregiver</Text>
+        </Pressable>
         <PrimaryButton
           label="Continue"
           loading={isSubmitting}
@@ -123,6 +137,18 @@ const styles = StyleSheet.create({
   helper: {
     fontSize: 12,
     color: "#4b5563",
+  },
+  caregiverLink: {
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+  },
+  caregiverLinkPressed: {
+    opacity: 0.7,
+  },
+  caregiverLinkText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1f2937",
   },
   apiText: {
     fontSize: 12,

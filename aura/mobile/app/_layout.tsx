@@ -11,6 +11,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
 import "@/src/services/notificationsInit";
 import { AuthProvider } from '@/src/state/auth';
+import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -54,12 +55,14 @@ function RootLayoutNav() {
 
   return (
     <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <View style={styles.root}>
-          <Slot />
-          <OfflineBanner />
-        </View>
-      </ThemeProvider>
+      <CaregiverSessionProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <View style={styles.root}>
+            <Slot />
+            <OfflineBanner />
+          </View>
+        </ThemeProvider>
+      </CaregiverSessionProvider>
     </AuthProvider>
   );
 }

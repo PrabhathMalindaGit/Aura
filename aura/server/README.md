@@ -230,6 +230,45 @@ curl -sS "http://localhost:3000/patient/insights?limit=5" \
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient create caregiver invite code:
+```bash
+curl -sS -X POST http://localhost:3000/patient/caregiver/invites \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"expiresHours":24}'
+```
+
+- Patient list caregiver invites:
+```bash
+curl -sS "http://localhost:3000/patient/caregiver/invites" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient revoke caregiver invite:
+```bash
+curl -sS -X POST "http://localhost:3000/patient/caregiver/invites/<INVITE_ID>/revoke" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Caregiver login with invite code:
+```bash
+curl -sS -X POST http://localhost:3000/caregiver/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"code":"CG-ABCD-EFGH"}'
+```
+
+- Caregiver summary (read-only):
+```bash
+curl -sS "http://localhost:3000/caregiver/summary" \
+  -H "Authorization: Bearer <CAREGIVER_TOKEN>"
+```
+
+- Caregiver weekly report (read-only):
+```bash
+curl -sS "http://localhost:3000/caregiver/reports/weekly?weekStart=2026-02-23&tzOffsetMinutes=0" \
+  -H "Authorization: Bearer <CAREGIVER_TOKEN>"
+```
+
 - Patient create exercise session:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/exercise-sessions \

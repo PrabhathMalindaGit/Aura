@@ -16,6 +16,7 @@ export type RefreshKey =
   | "nutrition"
   | "medications"
   | "insights"
+  | "caregiver"
   | "weeklyReport"
   | "photos";
 

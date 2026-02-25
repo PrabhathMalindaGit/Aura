@@ -24,6 +24,8 @@ export type ErrorKey =
   | "medicationsLoad"
   | "medicationLog"
   | "insightsLoad"
+  | "caregiverLoad"
+  | "caregiverLogin"
   | "weeklyReportLoad"
   | "photosLoad"
   | "photoUpload";

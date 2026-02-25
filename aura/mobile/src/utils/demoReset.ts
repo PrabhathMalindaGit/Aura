@@ -1,5 +1,7 @@
 import { clearCachedChat } from "@/src/state/chatCache";
 import { clearCachedCheckins } from "@/src/state/checkinsCache";
+import { clearAllCaregiverCache } from "@/src/state/caregiverCache";
+import { clearCaregiverSessionStorage } from "@/src/state/caregiverTokenStorage";
 import { clearCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { clearAllHydrationCacheForPatient } from "@/src/state/hydrationCache";
 import { clearCachedInsights } from "@/src/state/insightsCache";
@@ -34,6 +36,8 @@ export async function resetDemoState(
   const patientId = options.patientId?.trim() ?? "";
 
   const tasks: Array<Promise<void>> = [clearAllLastRefreshed(), clearAllLastErrors()];
+  tasks.push(clearAllCaregiverCache());
+  tasks.push(clearCaregiverSessionStorage());
 
   if (patientId) {
     tasks.push(clearCachedChat(patientId));

@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `insights`, `weeklyReport`, `photos`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `insights`, `caregiver`, `weeklyReport`, `photos`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `insightsLoad`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `insightsLoad`, `caregiverLoad`, `caregiverLogin`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -745,6 +745,45 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 6. Turn on airplane mode and repeat either tool:
    - both tools still work offline.
 7. Restart app and verify coping usage counts persist.
+
+## Step 17: Caregiver access (read-only)
+
+- Patient flow:
+  - Open **Settings** and tap **Manage caregiver invites**.
+  - Generate a short-lived invite code (default 24h).
+  - Revoke active invite codes when needed.
+- Caregiver flow:
+  - From login, tap **I’m a caregiver**.
+  - Sign in with the invite code on `/caregiver-login`.
+  - View read-only summary on `/caregiver-home`.
+  - Open `/caregiver-weekly-report` for this/last week.
+
+### Privacy and scope
+
+- Caregiver views are strictly read-only.
+- Caregiver endpoints do not expose:
+  - chat contents
+  - patient free-text notes
+  - symptom photos
+  - detailed body-map region lists
+- Caregiver token is scoped to one linked patient only.
+
+### Offline behavior
+
+- Caregiver home and caregiver weekly report use local cache.
+- When offline:
+  - app shows `Offline — showing saved info.`
+  - last refreshed is not updated.
+
+### Step 17 demo flow
+
+1. Patient signs in and opens **Settings → Manage caregiver invites**.
+2. Generate invite code and copy/share it securely.
+3. Sign out or switch user, open **I’m a caregiver** login.
+4. Enter invite code and open **Caregiver** home.
+5. Confirm summary + weekly preview are visible.
+6. Turn offline and reopen caregiver home/report:
+   - cached data remains visible with offline notice.
 
 ## How to Test Offline
 

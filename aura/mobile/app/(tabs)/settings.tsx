@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Linking,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useRouter, type Href } from "expo-router";
 
 import { InlineNotice } from "@/src/components/InlineNotice";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -86,6 +88,7 @@ function normalizeInputs(hourInput: string, minuteInput: string): {
 }
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const auth = useAuth();
   const network = useNetwork();
   const reminderPermissionError = useLastError("reminderPermission");
@@ -426,7 +429,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen title="Settings">
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container}>
         <Section title="Daily reminder">
           <Text style={styles.line}>
             Reminders: {reminderEnabled ? "On" : "Off"}
@@ -541,6 +544,18 @@ export default function SettingsScreen() {
           </Text>
         </Section>
 
+        <Section title="Caregiver access">
+          <Text style={styles.line}>
+            Generate and revoke temporary caregiver invite codes.
+          </Text>
+          <PrimaryButton
+            label="Manage caregiver invites"
+            onPress={() => {
+              router.push("/caregiver-invite" as Href);
+            }}
+          />
+        </Section>
+
         <Section title="Logout">
           <PrimaryButton
             label={isSigningOut ? "Signing out…" : "Log out"}
@@ -596,7 +611,7 @@ export default function SettingsScreen() {
             ) : null}
           </Section>
         ) : null}
-      </View>
+      </ScrollView>
     </Screen>
   );
 }

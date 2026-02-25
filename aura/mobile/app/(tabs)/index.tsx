@@ -10,6 +10,7 @@ import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
+import { getUsage } from "@/src/state/copingUsage";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedHydrationDay } from "@/src/state/hydrationCache";
 import { getCachedInsights } from "@/src/state/insightsCache";
@@ -58,6 +59,15 @@ export default function HomeScreen() {
   const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
   const [pendingMedicationCount, setPendingMedicationCount] = useState(0);
   const [pendingPhotoCount, setPendingPhotoCount] = useState(0);
+  const [copingSummary, setCopingSummary] = useState<{
+    status: "loading" | "ready";
+    breathingCount: number;
+    groundingCount: number;
+  }>({
+    status: "loading",
+    breathingCount: 0,
+    groundingCount: 0,
+  });
   const [photoSummary, setPhotoSummary] = useState<{
     status: "loading" | "available" | "none";
     itemCount: number;
@@ -372,6 +382,18 @@ export default function HomeScreen() {
     const pendingPhotos = await getPendingPhotoUploads(patientId);
     setPendingPhotoCount(pendingPhotos.length);
   };
+
+  const loadCopingUsage = useCallback(async (): Promise<void> => {
+    const [breathing, grounding] = await Promise.all([
+      getUsage("breathing"),
+      getUsage("grounding"),
+    ]);
+    setCopingSummary({
+      status: "ready",
+      breathingCount: breathing.count,
+      groundingCount: grounding.count,
+    });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -692,8 +714,9 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       void reloadPendingCounts();
+      void loadCopingUsage();
       return undefined;
-    }, [patientId])
+    }, [loadCopingUsage, patientId])
   );
 
   const runReset = async (includeSignOut = false) => {
@@ -877,6 +900,12 @@ export default function HomeScreen() {
             Pending photos: {pendingPhotoCount}
           </Text>
           <Text style={styles.statusDetail}>
+            Coping:{" "}
+            {copingSummary.status === "loading"
+              ? "Loading usage..."
+              : `Breathing used ${copingSummary.breathingCount} times • Grounding used ${copingSummary.groundingCount} times`}
+          </Text>
+          <Text style={styles.statusDetail}>
             Insights:{" "}
             {insightSummary.status === "loading"
               ? "Loading cached summary..."
@@ -945,6 +974,10 @@ export default function HomeScreen() {
           <PrimaryButton
             label="Go to Settings"
             onPress={() => router.push("/(tabs)/settings")}
+          />
+          <PrimaryButton
+            label="Coping tools"
+            onPress={() => router.push("/coping-tools" as never)}
           />
           <PrimaryButton
             label="Insights"
@@ -1044,6 +1077,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • PROMs: open Questionnaires, complete due form, verify due moves to completed.
+          </Text>
+          <Text style={styles.bullet}>
+            • Coping tools: run a 1-minute breathing session and complete the grounding wizard offline.
           </Text>
           <Text style={styles.bullet}>
             • Insights: clinician generates suggestions, approves one, patient opens Insights and sees approved card.

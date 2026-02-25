@@ -700,6 +700,52 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
    - cached approved cards remain visible
    - last refreshed timestamp does not update offline.
 
+## Step 16: Coping tools (offline)
+
+- New routes:
+  - `/coping-tools`
+  - `/breathing`
+  - `/grounding`
+- Works fully offline:
+  - no backend required
+  - usage counts and last-used timestamps are stored locally.
+
+### Breathing tool
+
+- Duration options:
+  - `1 min`
+  - `3 min`
+  - `5 min`
+- Pattern:
+  - inhale `4s`
+  - hold `2s`
+  - exhale `6s`
+- Controls:
+  - Start, Pause/Resume, Stop
+  - completion message and back to tools action.
+
+### Grounding tool (5-4-3-2-1)
+
+- Guided steps:
+  - 5 see
+  - 4 feel
+  - 3 hear
+  - 2 smell
+  - 1 taste
+- One step at a time with Back, Next, and Skip.
+- Entered text is not persisted (privacy); only usage metadata is saved.
+
+### Step 16 demo flow
+
+1. Open **Coping tools** from Demo Hub.
+2. Run a **1-minute breathing** session to completion.
+3. Verify breathing usage count increases.
+4. Open **Grounding** and complete all steps.
+5. Verify grounding usage count increases.
+6. Turn on airplane mode and repeat either tool:
+   - both tools still work offline.
+7. Restart app and verify coping usage counts persist.
+
 ## How to Test Offline
 
 - iOS simulator: disable network in simulator/device settings.

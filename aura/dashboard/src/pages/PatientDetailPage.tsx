@@ -16,8 +16,10 @@ import { TrendCharts } from '../components/patients/TrendCharts';
 import {
   assignPromToPatient,
   fetchPhotoBlob,
+  generatePatientInsights,
   getPatientMedicationAdherence,
   getPatientPhotos,
+  getPatientInsights,
   getPatientExerciseSessions,
   getPatientHydrationRange,
   getPatientNutritionRange,
@@ -26,6 +28,7 @@ import {
   getPatientTrendsEndpointHint,
   isPatientTrendsEndpointMissing,
   listAlerts,
+  reviewInsight,
   setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
   usePatients,
@@ -36,6 +39,7 @@ import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
 import type {
   AlertItem,
+  InsightItem,
   AlertStatus,
   PatientSummary,
   PromDueCard,
@@ -212,6 +216,35 @@ function rehabStatusIcon(status: RehabPayload['phases'][number]['status']): stri
   return '🔒';
 }
 
+function insightCategoryLabel(category: string): string {
+  if (category === 'questionnaires') {
+    return 'Questionnaires';
+  }
+  if (category === 'recovery') {
+    return 'Recovery';
+  }
+  if (category === 'adherence') {
+    return 'Adherence';
+  }
+  if (category === 'safety') {
+    return 'Safety';
+  }
+  if (category === 'symptoms') {
+    return 'Symptoms';
+  }
+  return 'Habits';
+}
+
+function insightConfidenceVariant(value: string): 'default' | 'success' | 'warning' | 'danger' {
+  if (value === 'high') {
+    return 'success';
+  }
+  if (value === 'medium') {
+    return 'warning';
+  }
+  return 'default';
+}
+
 async function fetchPatientAlerts(patientId: string): Promise<AlertItem[]> {
   const collections = await Promise.all(ALERT_STATUSES.map((status) => listAlerts(status)));
   const merged = collections.flat();
@@ -235,6 +268,10 @@ export function PatientDetailPage(): JSX.Element {
   const [promDueAt, setPromDueAt] = useState('');
   const [promSaveError, setPromSaveError] = useState<string | null>(null);
   const [isAssigningProm, setIsAssigningProm] = useState(false);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [insightReviewingId, setInsightReviewingId] = useState<string | null>(null);
+  const [insightActionError, setInsightActionError] = useState<string | null>(null);
+  const [insightActionNotice, setInsightActionNotice] = useState<string | null>(null);
   const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
   const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
@@ -359,6 +396,22 @@ export function PatientDetailPage(): JSX.Element {
   const patientPromsQuery = useQuery({
     queryKey: ['patient-proms', patientId],
     queryFn: () => getPatientProms(patientId ?? '', 50),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientInsightsQuery = useQuery({
+    queryKey: ['patient-insights', patientId],
+    queryFn: async () => {
+      const [pending, approved] = await Promise.all([
+        getPatientInsights(patientId ?? '', 'pending', 20),
+        getPatientInsights(patientId ?? '', 'approved', 20),
+      ]);
+      return { pending, approved };
+    },
     enabled: Boolean(patientId),
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
@@ -685,6 +738,14 @@ export function PatientDetailPage(): JSX.Element {
     () => patientPromsQuery.data?.completed ?? [],
     [patientPromsQuery.data?.completed],
   );
+  const patientPendingInsights = useMemo<InsightItem[]>(
+    () => patientInsightsQuery.data?.pending ?? [],
+    [patientInsightsQuery.data?.pending],
+  );
+  const patientApprovedInsights = useMemo<InsightItem[]>(
+    () => patientInsightsQuery.data?.approved ?? [],
+    [patientInsightsQuery.data?.approved],
+  );
 
   const openAlertCount = useMemo(
     () => patientAlerts.filter((alert) => alert.status === 'open').length,
@@ -793,6 +854,45 @@ export function PatientDetailPage(): JSX.Element {
       setPromSaveError(toUserMessage(asAppError(error)));
     } finally {
       setIsAssigningProm(false);
+    }
+  }
+
+  async function handleGenerateInsights(): Promise<void> {
+    if (!patientId) {
+      return;
+    }
+
+    setInsightActionError(null);
+    setInsightActionNotice(null);
+    setIsGeneratingInsights(true);
+    try {
+      const result = await generatePatientInsights(patientId, 14);
+      setInsightActionNotice(
+        `Generated ${result.created} pending insight${result.created === 1 ? '' : 's'} (${result.skipped} duplicate${result.skipped === 1 ? '' : 's'} skipped).`,
+      );
+      await patientInsightsQuery.refetch();
+    } catch (error) {
+      setInsightActionError(toUserMessage(asAppError(error)));
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  }
+
+  async function handleReviewPatientInsight(
+    insightId: string,
+    status: 'approved' | 'rejected',
+  ): Promise<void> {
+    setInsightActionError(null);
+    setInsightActionNotice(null);
+    setInsightReviewingId(`${insightId}:${status}`);
+    try {
+      await reviewInsight(insightId, status);
+      setInsightActionNotice(status === 'approved' ? 'Insight approved.' : 'Insight rejected.');
+      await patientInsightsQuery.refetch();
+    } catch (error) {
+      setInsightActionError(toUserMessage(asAppError(error)));
+    } finally {
+      setInsightReviewingId(null);
     }
   }
 
@@ -1053,6 +1153,12 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientInsightsQuery.error ? (
+        <AlertBanner variant="error" title="Could not load insights">
+          {toUserMessage(patientInsightsQuery.error)}
+        </AlertBanner>
+      ) : null}
+
       {patientRecentCheckinsQuery.error ? (
         <AlertBanner variant="error" title="Could not load recent sleep">
           {toUserMessage(patientRecentCheckinsQuery.error)}
@@ -1098,6 +1204,18 @@ export function PatientDetailPage(): JSX.Element {
       {promSaveError ? (
         <AlertBanner variant="error" title="Could not assign PROM">
           {promSaveError}
+        </AlertBanner>
+      ) : null}
+
+      {insightActionError ? (
+        <AlertBanner variant="error" title="Could not update insights">
+          {insightActionError}
+        </AlertBanner>
+      ) : null}
+
+      {insightActionNotice ? (
+        <AlertBanner variant="success" title="Insights updated">
+          {insightActionNotice}
         </AlertBanner>
       ) : null}
 
@@ -1585,6 +1703,136 @@ export function PatientDetailPage(): JSX.Element {
                           : 'No score'}
                       </span>
                     </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Insight cards"
+        action={
+          <div className="patient-detail-actions">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void patientInsightsQuery.refetch();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={isGeneratingInsights}
+              onClick={() => {
+                void handleGenerateInsights();
+              }}
+            >
+              {isGeneratingInsights ? 'Generating…' : 'Generate suggestions'}
+            </Button>
+          </div>
+        }
+      >
+        {patientInsightsQuery.isLoading &&
+        patientPendingInsights.length === 0 &&
+        patientApprovedInsights.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Insight list loading placeholder">
+            <Skeleton height={54} />
+            <Skeleton height={68} />
+          </div>
+        ) : (
+          <div className="stack stack--3">
+            <p className="muted-text">
+              Pending: <strong>{patientPendingInsights.length}</strong> · Approved:{' '}
+              <strong>{patientApprovedInsights.length}</strong>
+            </p>
+            <div className="stack stack--2">
+              <strong>Pending review</strong>
+              {patientPendingInsights.length === 0 ? (
+                <p className="muted-text">No pending suggestions.</p>
+              ) : (
+                <div className="stack stack--2">
+                  {patientPendingInsights.map((insight) => (
+                    <div
+                      key={insight.id}
+                      style={{
+                        border: '1px solid var(--color-border-muted)',
+                        borderRadius: '0.75rem',
+                        padding: '0.75rem',
+                        display: 'grid',
+                        gap: '0.4rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <Badge variant="default">{insightCategoryLabel(insight.category)}</Badge>
+                        <Badge variant={insightConfidenceVariant(insight.confidence)}>
+                          {insight.confidence}
+                        </Badge>
+                        <Badge variant="default">P{insight.priority}</Badge>
+                      </div>
+                      <strong>{insight.title}</strong>
+                      <p className="muted-text" style={{ margin: 0 }}>
+                        {insight.message}
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={insightReviewingId !== null}
+                          onClick={() => {
+                            void handleReviewPatientInsight(insight.id, 'approved');
+                          }}
+                        >
+                          {insightReviewingId === `${insight.id}:approved` ? 'Approving…' : 'Approve'}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={insightReviewingId !== null}
+                          onClick={() => {
+                            void handleReviewPatientInsight(insight.id, 'rejected');
+                          }}
+                        >
+                          {insightReviewingId === `${insight.id}:rejected` ? 'Rejecting…' : 'Reject'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="stack stack--2">
+              <strong>Approved</strong>
+              {patientApprovedInsights.length === 0 ? (
+                <p className="muted-text">No approved insights yet.</p>
+              ) : (
+                <div className="stack stack--2">
+                  {patientApprovedInsights.map((insight) => (
+                    <div
+                      key={insight.id}
+                      style={{
+                        border: '1px solid var(--color-border-muted)',
+                        borderRadius: '0.75rem',
+                        padding: '0.75rem',
+                        display: 'grid',
+                        gap: '0.35rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <Badge variant="default">{insightCategoryLabel(insight.category)}</Badge>
+                        <Badge variant={insightConfidenceVariant(insight.confidence)}>
+                          {insight.confidence}
+                        </Badge>
+                        <Badge variant="default">P{insight.priority}</Badge>
+                      </div>
+                      <strong>{insight.title}</strong>
+                      <p className="muted-text" style={{ margin: 0 }}>
+                        {insight.message}
+                      </p>
+                    </div>
                   ))}
                 </div>
               )}

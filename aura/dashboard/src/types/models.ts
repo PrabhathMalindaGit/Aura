@@ -255,6 +255,50 @@ export interface PatientPhotosResponse {
   items: SymptomPhotoItem[];
 }
 
+export type InsightStatus = 'pending' | 'approved' | 'rejected';
+export type InsightCategory =
+  | 'adherence'
+  | 'symptoms'
+  | 'recovery'
+  | 'safety'
+  | 'habits'
+  | 'questionnaires';
+export type InsightConfidence = 'low' | 'medium' | 'high';
+
+export interface InsightItem {
+  id: string;
+  patientId: string;
+  patientDisplayName?: string;
+  status: InsightStatus;
+  title: string;
+  message: string;
+  category: InsightCategory;
+  confidence: InsightConfidence;
+  priority: number;
+  windowDays: number;
+  createdAt: string;
+  reviewedAt?: string;
+}
+
+export interface InsightsQueueResponse {
+  ok: true;
+  items: InsightItem[];
+}
+
+export interface PatientInsightsResponse {
+  ok: true;
+  patientId: string;
+  items: InsightItem[];
+}
+
+export interface GenerateInsightsResponse {
+  ok: true;
+  patientId: string;
+  windowDays: number;
+  created: number;
+  skipped: number;
+}
+
 export type PatientStatus = 'active' | 'on_hold' | 'discharged' | 'inactive';
 
 export interface PatientSummary {

@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `weeklyReport`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `insights`, `weeklyReport`, `photos`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `weeklyReportLoad`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `insightsLoad`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -676,6 +676,29 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
    - verify **Symptom photos** section appears (uploaded count + kinds).
 6. Open dashboard `/patients/p1`:
    - verify **Symptom photos (recent)** panel shows entries and **View** opens image.
+
+## Step 15: Clinician-reviewed insight cards
+
+- New route:
+  - `/insights` (opened from Demo Hub quick actions)
+- Backend endpoint used:
+  - `GET /patient/insights` (approved-only)
+- Trust-under-failure keys:
+  - `Last refreshed`: `insights`
+  - `Last failed`: `insightsLoad`
+- Offline behavior:
+  - patient sees cached approved insights only
+  - pending/rejected suggestions are never shown on mobile.
+
+### Step 15 demo flow
+
+1. In dashboard, open `/patients/p1` and click **Generate suggestions** in the Insight cards panel.
+2. Approve one pending suggestion (inline or from `/insights` queue page).
+3. In mobile, open **Demo Hub** and check the **Insights** preview cards.
+4. Open **View all insights** and verify approved cards appear.
+5. Go offline and reopen **Insights**:
+   - cached approved cards remain visible
+   - last refreshed timestamp does not update offline.
 
 ## How to Test Offline
 

@@ -107,6 +107,10 @@ export function AppShell(): JSX.Element {
       return 'Patient Detail';
     }
 
+    if (pathname.startsWith('/insights')) {
+      return 'Insights Queue';
+    }
+
     if (pathname.startsWith('/patients')) {
       return 'Patients';
     }

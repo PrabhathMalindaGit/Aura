@@ -8,6 +8,7 @@ import { PatientExerciseSessionsPage } from '../pages/PatientExerciseSessionsPag
 import { PatientWeeklyReportPage } from '../pages/PatientWeeklyReportPage';
 import { ExerciseSessionDetailPage } from '../pages/ExerciseSessionDetailPage';
 import { PromDetailPage } from '../pages/PromDetailPage';
+import { InsightsQueuePage } from '../pages/InsightsQueuePage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SessionEndedPage } from '../pages/SessionEndedPage';
 import { SmokePage } from '../pages/SmokePage';
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/alerts" replace /> },
       { path: 'alerts', element: <AlertsPage /> },
+      { path: 'insights', element: <InsightsQueuePage /> },
       { path: 'patients', element: <PatientsPage /> },
       { path: 'patients/:patientId', element: <PatientDetailPage /> },
       { path: 'patients/:patientId/plan', element: <PatientExercisePlanPage /> },

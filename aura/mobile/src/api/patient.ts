@@ -247,6 +247,27 @@ export type PhotoUploadResponse = {
   createdAt: string;
 };
 
+export type InsightCategory =
+  | "adherence"
+  | "symptoms"
+  | "recovery"
+  | "safety"
+  | "habits"
+  | "questionnaires";
+
+export type InsightConfidence = "low" | "medium" | "high";
+
+export type ApprovedInsight = {
+  id: string;
+  title: string;
+  message: string;
+  category: InsightCategory;
+  confidence: InsightConfidence;
+  priority: number;
+  createdAt: string;
+  reviewedAt?: string;
+};
+
 export type ExercisePlanItem = {
   key: string;
   name: string;
@@ -2380,6 +2401,71 @@ function normalizeSymptomPhotoMeta(value: unknown): SymptomPhotoMeta | null {
   };
 }
 
+function normalizeInsightCategory(value: unknown): InsightCategory {
+  if (
+    value === "adherence" ||
+    value === "symptoms" ||
+    value === "recovery" ||
+    value === "safety" ||
+    value === "questionnaires"
+  ) {
+    return value;
+  }
+  return "habits";
+}
+
+function normalizeInsightConfidence(value: unknown): InsightConfidence {
+  if (value === "high" || value === "medium") {
+    return value;
+  }
+  return "low";
+}
+
+function normalizeApprovedInsight(value: unknown): ApprovedInsight | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as {
+    id?: unknown;
+    _id?: unknown;
+    title?: unknown;
+    message?: unknown;
+    category?: unknown;
+    confidence?: unknown;
+    priority?: unknown;
+    createdAt?: unknown;
+    reviewedAt?: unknown;
+  };
+
+  const id =
+    typeof record.id === "string"
+      ? record.id
+      : typeof record._id === "string"
+        ? record._id
+        : "";
+  const title = typeof record.title === "string" ? record.title.trim() : "";
+  const message = typeof record.message === "string" ? record.message.trim() : "";
+  const createdAt = typeof record.createdAt === "string" ? record.createdAt : "";
+  const priority = toFiniteNumber(record.priority);
+  if (!id || !title || !message || !createdAt || priority === null) {
+    return null;
+  }
+
+  return {
+    id,
+    title: title.slice(0, 80),
+    message: message.slice(0, 280),
+    category: normalizeInsightCategory(record.category),
+    confidence: normalizeInsightConfidence(record.confidence),
+    priority: Math.max(1, Math.min(5, Math.round(priority))),
+    createdAt,
+    reviewedAt:
+      typeof record.reviewedAt === "string" && record.reviewedAt.trim()
+        ? record.reviewedAt
+        : undefined,
+  };
+}
+
 export async function logHydration(
   token: string,
   payload: { date?: string; amountMl: number }
@@ -2810,6 +2896,43 @@ export async function getPhotoMeta(
   }
 
   return normalized;
+}
+
+export async function getApprovedInsights(
+  token: string,
+  limit: number = 5
+): Promise<ApprovedInsight[]> {
+  const query = new URLSearchParams();
+  if (Number.isFinite(limit)) {
+    query.set("limit", String(Math.max(1, Math.trunc(limit))));
+  }
+  const path = query.toString()
+    ? `/patient/insights?${query.toString()}`
+    : "/patient/insights";
+
+  const payload = await apiFetchJson<{
+    items?: unknown;
+    insights?: unknown;
+    data?: unknown;
+  }>(path, {
+    method: "GET",
+    token,
+  });
+
+  const source = Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray(payload.insights)
+      ? payload.insights
+      : Array.isArray(payload.data)
+        ? payload.data
+        : Array.isArray(payload as unknown)
+          ? (payload as unknown[])
+          : [];
+
+  return source
+    .map((item) => normalizeApprovedInsight(item))
+    .filter((item): item is ApprovedInsight => Boolean(item))
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
 }
 
 export async function deleteHydrationEntry(token: string, id: string): Promise<void> {

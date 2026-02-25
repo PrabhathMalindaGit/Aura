@@ -29,6 +29,11 @@ import {
   type MedicationAdherenceRangeResponse,
   type PatientPhotosResponse,
   type SymptomPhotoMeta,
+  type InsightItem,
+  type InsightStatus,
+  type InsightsQueueResponse,
+  type PatientInsightsResponse,
+  type GenerateInsightsResponse,
   type CheckinEvent,
   type ChatEvent,
   type ExercisePlan,
@@ -677,6 +682,69 @@ export async function fetchPhotoBlob(photoId: string): Promise<Blob> {
   } catch (error) {
     throw asAppError(error);
   }
+}
+
+export async function listInsightsQueue(
+  status: InsightStatus = 'pending',
+  limit: number = 50,
+): Promise<InsightItem[]> {
+  const query = new URLSearchParams();
+  query.set('status', status);
+  if (Number.isFinite(limit)) {
+    query.set('limit', String(Math.max(1, Math.trunc(limit))));
+  }
+  const response = await fetchJson<InsightsQueueResponse>(
+    `/clinician/insights?${query.toString()}`,
+    { method: 'GET' },
+  );
+  return response.items ?? [];
+}
+
+export async function reviewInsight(
+  insightId: string,
+  status: 'approved' | 'rejected',
+): Promise<InsightItem> {
+  const response = await fetchJson<{ ok: true; item: InsightItem }>(
+    `/clinician/insights/${encodeURIComponent(insightId)}`,
+    {
+      method: 'PATCH',
+      json: { status },
+    },
+  );
+  return response.item;
+}
+
+export async function generatePatientInsights(
+  patientId: string,
+  windowDays: number = 14,
+): Promise<GenerateInsightsResponse> {
+  return fetchJson<GenerateInsightsResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/insights/generate`,
+    {
+      method: 'POST',
+      json: { windowDays },
+    },
+  );
+}
+
+export async function getPatientInsights(
+  patientId: string,
+  status?: InsightStatus,
+  limit: number = 50,
+): Promise<InsightItem[]> {
+  const query = new URLSearchParams();
+  if (status) {
+    query.set('status', status);
+  }
+  if (Number.isFinite(limit)) {
+    query.set('limit', String(Math.max(1, Math.trunc(limit))));
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const response = await fetchJson<PatientInsightsResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/insights${suffix}`,
+    { method: 'GET' },
+  );
+  return response.items ?? [];
 }
 
 export async function listPatients(): Promise<PatientSummary[]> {

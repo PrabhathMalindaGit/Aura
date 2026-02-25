@@ -13,6 +13,7 @@ npm run dev
 ## Routes
 
 - `/alerts`
+- `/insights`
 - `/patients`
 - `/patients/:patientId`
 - `/patients/:patientId/plan`
@@ -172,6 +173,14 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
    - recent rows show date + kind + note preview
    - clicking **View** opens the authenticated image blob in a new tab.
 5. Open weekly report (`/patients/p1/weekly-report`) and verify the **Symptom photos** block is shown.
+
+## Step 15: Clinician-reviewed insight cards
+
+1. Open `/patients/p1`.
+2. In **Insight cards**, click **Generate suggestions**.
+3. Approve one pending suggestion inline, or open `/insights` and approve from the queue.
+4. Confirm pending/approved counts update in patient detail.
+5. In mobile (same patient), open **Insights** and confirm only approved cards are visible.
 
 ## Notes
 

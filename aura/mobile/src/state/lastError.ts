@@ -23,6 +23,7 @@ export type ErrorKey =
   | "nutritionLog"
   | "medicationsLoad"
   | "medicationLog"
+  | "insightsLoad"
   | "weeklyReportLoad"
   | "photosLoad"
   | "photoUpload";

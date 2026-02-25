@@ -224,6 +224,12 @@ curl -sS "http://localhost:3000/patient/reports/weekly?weekStart=2026-02-23&tzOf
 ```
 Response includes deterministic `bodyMap.topRegions` when localized pain was logged in check-ins during that week.
 
+- Patient approved insights:
+```bash
+curl -sS "http://localhost:3000/patient/insights?limit=5" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Patient create exercise session:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/exercise-sessions \
@@ -365,6 +371,34 @@ curl -sS "http://localhost:3000/clinician/patients/p1/reports/weekly?weekStart=2
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 Response now includes deterministic `photos` counts (`uploadedThisWeek` + kind breakdown).
+
+- Generate clinician insight suggestions for a patient:
+```bash
+curl -sS -X POST "http://localhost:3000/clinician/patients/p1/insights/generate" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"windowDays":14}'
+```
+
+- Get clinician pending insights queue:
+```bash
+curl -sS "http://localhost:3000/clinician/insights?status=pending&limit=50" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Approve or reject clinician insight:
+```bash
+curl -sS -X PATCH "http://localhost:3000/clinician/insights/<INSIGHT_ID>" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"status":"approved"}'
+```
+
+- Get clinician insights for one patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/insights?status=approved&limit=20" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
 
 ## 5) n8n verification
 - Open `http://localhost:5678`

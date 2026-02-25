@@ -12,6 +12,7 @@ import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedHydrationDay } from "@/src/state/hydrationCache";
+import { getCachedInsights } from "@/src/state/insightsCache";
 import { getCachedMedicationToday } from "@/src/state/medicationTodayCache";
 import { getCachedNutritionDay } from "@/src/state/nutritionCache";
 import { getCachedPhotosList } from "@/src/state/photosCache";
@@ -64,6 +65,15 @@ export default function HomeScreen() {
     status: "loading",
     itemCount: 0,
   });
+  const [insightSummary, setInsightSummary] = useState<{
+    status: "loading" | "available" | "none";
+    itemCount: number;
+    top: Array<{ id: string; title: string; message: string }>;
+  }>({
+    status: "loading",
+    itemCount: 0,
+    top: [],
+  });
   const [medicationTodaySummary, setMedicationTodaySummary] = useState<{
     taken: number;
     total: number;
@@ -96,6 +106,7 @@ export default function HomeScreen() {
   const hydrationRefresh = useLastRefreshed("hydration");
   const nutritionRefresh = useLastRefreshed("nutrition");
   const medicationsRefresh = useLastRefreshed("medications");
+  const insightsRefresh = useLastRefreshed("insights");
   const photosRefresh = useLastRefreshed("photos");
   const weeklyReportRefresh = useLastRefreshed("weeklyReport");
 
@@ -118,6 +129,7 @@ export default function HomeScreen() {
   const nutritionLogError = useLastError("nutritionLog");
   const medicationsLoadError = useLastError("medicationsLoad");
   const medicationLogError = useLastError("medicationLog");
+  const insightsLoadError = useLastError("insightsLoad");
   const photosLoadError = useLastError("photosLoad");
   const photoUploadError = useLastError("photoUpload");
   const weeklyReportLoadError = useLastError("weeklyReportLoad");
@@ -216,6 +228,11 @@ export default function HomeScreen() {
         title: medicationLogError.lastError?.title,
       },
       {
+        label: "Insights load",
+        value: insightsLoadError.label,
+        title: insightsLoadError.lastError?.title,
+      },
+      {
         label: "Photos load",
         value: photosLoadError.label,
         title: photosLoadError.lastError?.title,
@@ -276,6 +293,8 @@ export default function HomeScreen() {
       medicationsLoadError.lastError?.title,
       medicationLogError.label,
       medicationLogError.lastError?.title,
+      insightsLoadError.label,
+      insightsLoadError.lastError?.title,
       photosLoadError.label,
       photosLoadError.lastError?.title,
       photoUploadError.label,
@@ -301,6 +320,7 @@ export default function HomeScreen() {
       hydrationRefresh.reload(),
       nutritionRefresh.reload(),
       medicationsRefresh.reload(),
+      insightsRefresh.reload(),
       photosRefresh.reload(),
       weeklyReportRefresh.reload(),
       authError.reload(),
@@ -320,6 +340,7 @@ export default function HomeScreen() {
       nutritionLogError.reload(),
       medicationsLoadError.reload(),
       medicationLogError.reload(),
+      insightsLoadError.reload(),
       photosLoadError.reload(),
       photoUploadError.reload(),
       weeklyReportLoadError.reload(),
@@ -516,6 +537,50 @@ export default function HomeScreen() {
       active = false;
     };
   }, [patientId, photosRefresh.lastRefreshedAt]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setInsightSummary({
+        status: "none",
+        itemCount: 0,
+        top: [],
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedInsights(patientId);
+      if (!active) {
+        return;
+      }
+      if (!cached || cached.items.length === 0) {
+        setInsightSummary({
+          status: "none",
+          itemCount: 0,
+          top: [],
+        });
+        return;
+      }
+
+      setInsightSummary({
+        status: "available",
+        itemCount: cached.items.length,
+        top: cached.items.slice(0, 2).map((item) => ({
+          id: item.id,
+          title: item.title,
+          message: item.message,
+        })),
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [insightsRefresh.lastRefreshedAt, patientId]);
 
   useEffect(() => {
     let active = true;
@@ -758,6 +823,11 @@ export default function HomeScreen() {
             compact
           />
           <LastRefreshed
+            label="Last refreshed (insights)"
+            value={insightsRefresh.label}
+            compact
+          />
+          <LastRefreshed
             label="Last refreshed (photos)"
             value={photosRefresh.label}
             compact
@@ -805,6 +875,14 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.statusDetail}>
             Pending photos: {pendingPhotoCount}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Insights:{" "}
+            {insightSummary.status === "loading"
+              ? "Loading cached summary..."
+              : insightSummary.status === "available"
+                ? `Approved (${insightSummary.itemCount})`
+                : "No approved insights cached"}
           </Text>
           <Text style={styles.statusDetail}>
             Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not cached"}
@@ -869,6 +947,10 @@ export default function HomeScreen() {
             onPress={() => router.push("/(tabs)/settings")}
           />
           <PrimaryButton
+            label="Insights"
+            onPress={() => router.push("/insights" as never)}
+          />
+          <PrimaryButton
             label="Go to Plan"
             onPress={() => router.push("/exercise-plan")}
           />
@@ -906,6 +988,34 @@ export default function HomeScreen() {
           />
         </Section>
 
+        <Section title="Insights">
+          <Text style={styles.statusDetail}>
+            Only clinician-reviewed cards are shown.
+          </Text>
+          {insightSummary.status === "loading" ? (
+            <Text style={styles.statusDetail}>Loading cached approved insights…</Text>
+          ) : insightSummary.status === "none" ? (
+            <Text style={styles.statusDetail}>No reviewed insights yet.</Text>
+          ) : (
+            <View style={styles.insightsList}>
+              {insightSummary.top.map((item) => (
+                <View key={item.id} style={styles.insightCard}>
+                  <Text style={styles.insightTitle}>{item.title}</Text>
+                  <Text style={styles.insightMessage}>{item.message}</Text>
+                </View>
+              ))}
+              <Text style={styles.statusDetail}>
+                Showing {insightSummary.top.length} of {insightSummary.itemCount} approved
+                insight{insightSummary.itemCount === 1 ? "" : "s"}.
+              </Text>
+            </View>
+          )}
+          <PrimaryButton
+            label="View all insights"
+            onPress={() => router.push("/insights" as never)}
+          />
+        </Section>
+
         <Section title="Demo script (2–3 minutes)">
           <Text style={styles.bullet}>• Sign in: `P1-DEMO`.</Text>
           <Text style={styles.bullet}>
@@ -934,6 +1044,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • PROMs: open Questionnaires, complete due form, verify due moves to completed.
+          </Text>
+          <Text style={styles.bullet}>
+            • Insights: clinician generates suggestions, approves one, patient opens Insights and sees approved card.
           </Text>
           <Text style={styles.bullet}>
             • Weekly report: open this week, then share report text.
@@ -1033,5 +1146,26 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: "#6b7280",
+  },
+  insightsList: {
+    gap: 8,
+  },
+  insightCard: {
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    padding: 10,
+    gap: 4,
+  },
+  insightTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  insightMessage: {
+    fontSize: 13,
+    color: "#374151",
+    lineHeight: 18,
   },
 });

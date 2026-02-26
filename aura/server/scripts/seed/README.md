@@ -5,7 +5,7 @@ This seed script creates deterministic demo data for clinician dashboard workflo
 ## Safety
 
 - Uses `demoTag: "demo-v1"` on every seeded document.
-- Reset deletes only documents tagged with `demoTag: "demo-v1"`.
+- Reset deletes documents tagged with `demoTag: "demo-v1"` and records belonging to demo identities (`p1/p2/p3`, `clinician-1/2`, demo clinician emails).
 - No PHI is generated or logged.
 
 ## Commands
@@ -38,4 +38,4 @@ npm run seed:reset
 ## Notes
 
 - `npm run seed` is deterministic and safe for repeat runs.
-- `npm run seed:reset` explicitly clears only `demo-v1` records before reseeding.
+- `npm run seed:reset` clears `demo-v1` records and demo-identity records before reseeding.

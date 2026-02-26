@@ -2,10 +2,13 @@ import Alert from "../../src/models/Alert";
 import AppointmentRequest from "../../src/models/AppointmentRequest";
 import AppointmentSlot from "../../src/models/AppointmentSlot";
 import CareEvent from "../../src/models/CareEvent";
+import CaregiverInvite from "../../src/models/CaregiverInvite";
 import ChatMessage from "../../src/models/ChatMessage";
 import CheckIn from "../../src/models/CheckIn";
 import ExercisePlan from "../../src/models/ExercisePlan";
+import ExerciseSession from "../../src/models/ExerciseSession";
 import HydrationLog from "../../src/models/HydrationLog";
+import InsightSuggestion from "../../src/models/InsightSuggestion";
 import Medication from "../../src/models/Medication";
 import MedicationLog from "../../src/models/MedicationLog";
 import MedicationSchedule from "../../src/models/MedicationSchedule";
@@ -13,6 +16,7 @@ import NutritionLog from "../../src/models/NutritionLog";
 import Patient from "../../src/models/Patient";
 import PromInstance from "../../src/models/PromInstance";
 import PromTemplate from "../../src/models/PromTemplate";
+import SymptomPhoto from "../../src/models/SymptomPhoto";
 import User from "../../src/models/User";
 import WearableDaily from "../../src/models/WearableDaily";
 import {
@@ -177,6 +181,23 @@ function getClinicianName(clinicianId: string): string | undefined {
 }
 
 export async function resetDemoData(): Promise<ResetSummary> {
+  const demoPatientIds = DEMO_PATIENTS.map((patient) => patient.patientId);
+  const demoAccessCodes = DEMO_PATIENTS.map((patient) => patient.accessCode);
+  const demoClinicianIds = [CLINICIANS.one.id, CLINICIANS.two.id];
+  const demoClinicianEmails = DEMO_CLINICIAN_USERS.map((user) => user.email.toLowerCase());
+  const byDemoTag = { demoTag: DEMO_TAG };
+  const demoOrPatient = { $or: [byDemoTag, { patientId: { $in: demoPatientIds } }] };
+  const demoOrClinician = { $or: [byDemoTag, { clinicianId: { $in: demoClinicianIds } }] };
+  const demoOrEmail = { $or: [byDemoTag, { email: { $in: demoClinicianEmails } }] };
+  const demoPatientIdentity = {
+    $or: [
+      byDemoTag,
+      { patientId: { $in: demoPatientIds } },
+      { accessCode: { $in: demoAccessCodes } },
+    ],
+  };
+  const demoPromTemplateKey = buildDefaultPromTemplate().key;
+
   const [
     promInstancesDeleted,
     promTemplatesDeleted,
@@ -195,24 +216,32 @@ export async function resetDemoData(): Promise<ResetSummary> {
     checkInsDeleted,
     patientsDeleted,
     usersDeleted,
+    _exerciseSessionsDeleted,
+    _symptomPhotosDeleted,
+    _insightSuggestionsDeleted,
+    _caregiverInvitesDeleted,
   ] = await Promise.all([
-    PromInstance.deleteMany({ demoTag: DEMO_TAG }),
-    PromTemplate.deleteMany({ demoTag: DEMO_TAG }),
-    ExercisePlan.deleteMany({ demoTag: DEMO_TAG }),
-    AppointmentSlot.deleteMany({ demoTag: DEMO_TAG }),
-    AppointmentRequest.deleteMany({ demoTag: DEMO_TAG }),
-    MedicationSchedule.deleteMany({ demoTag: DEMO_TAG }),
-    Medication.deleteMany({ demoTag: DEMO_TAG }),
-    MedicationLog.deleteMany({ demoTag: DEMO_TAG }),
-    HydrationLog.deleteMany({ demoTag: DEMO_TAG }),
-    NutritionLog.deleteMany({ demoTag: DEMO_TAG }),
-    WearableDaily.deleteMany({ demoTag: DEMO_TAG }),
-    CareEvent.deleteMany({ demoTag: DEMO_TAG }),
-    Alert.deleteMany({ demoTag: DEMO_TAG }),
-    ChatMessage.deleteMany({ demoTag: DEMO_TAG }),
-    CheckIn.deleteMany({ demoTag: DEMO_TAG }),
-    Patient.deleteMany({ demoTag: DEMO_TAG }),
-    User.deleteMany({ demoTag: DEMO_TAG }),
+    PromInstance.deleteMany(demoOrPatient),
+    PromTemplate.deleteMany({ $or: [byDemoTag, { key: demoPromTemplateKey }] }),
+    ExercisePlan.deleteMany(demoOrPatient),
+    AppointmentSlot.deleteMany(demoOrClinician),
+    AppointmentRequest.deleteMany(demoOrPatient),
+    MedicationSchedule.deleteMany(demoOrPatient),
+    Medication.deleteMany(demoOrPatient),
+    MedicationLog.deleteMany(demoOrPatient),
+    HydrationLog.deleteMany(demoOrPatient),
+    NutritionLog.deleteMany(demoOrPatient),
+    WearableDaily.deleteMany(demoOrPatient),
+    CareEvent.deleteMany(demoOrPatient),
+    Alert.deleteMany(demoOrPatient),
+    ChatMessage.deleteMany(demoOrPatient),
+    CheckIn.deleteMany(demoOrPatient),
+    Patient.deleteMany(demoPatientIdentity),
+    User.deleteMany(demoOrEmail),
+    ExerciseSession.deleteMany(demoOrPatient),
+    SymptomPhoto.deleteMany(demoOrPatient),
+    InsightSuggestion.deleteMany(demoOrPatient),
+    CaregiverInvite.deleteMany(demoOrPatient),
   ]);
 
   return {

@@ -63,6 +63,7 @@ export type LayoutTokens = {
   screenPaddingHorizontal: number;
   screenPaddingVertical: number;
   contentMaxWidth: number;
+  frameRadius: number;
 };
 
 export type ThemeTokens = {
@@ -124,7 +125,8 @@ const typography: TypographyTokens = {
 const layout: LayoutTokens = {
   screenPaddingHorizontal: 16,
   screenPaddingVertical: 16,
-  contentMaxWidth: 460,
+  contentMaxWidth: 420,
+  frameRadius: 28,
 };
 
 const lightColors: ColorTokens = {

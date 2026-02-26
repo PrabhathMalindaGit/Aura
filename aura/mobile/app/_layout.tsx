@@ -3,14 +3,15 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import "@/src/services/notificationsInit";
 import { AuthProvider } from '@/src/state/auth';
 import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
+import { useTokens } from '@/src/theme/tokens';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -51,22 +52,54 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+  const isWeb = Platform.OS === "web";
 
   return (
     <AuthProvider>
       <CaregiverSessionProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <View style={styles.root}>
-            <Slot />
-          </View>
+          {isWeb ? (
+            <View style={styles.webBackdrop}>
+              <View style={styles.webFrame}>
+                <Slot />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.root}>
+              <Slot />
+            </View>
+          )}
         </ThemeProvider>
       </CaregiverSessionProvider>
     </AuthProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+    },
+    webBackdrop: {
+      flex: 1,
+      width: "100%",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.background,
+      paddingVertical: tokens.spacing.md,
+    },
+    webFrame: {
+      flex: 1,
+      width: "100%",
+      maxWidth: tokens.layout.contentMaxWidth,
+      borderRadius: tokens.layout.frameRadius,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      overflow: "hidden",
+      backgroundColor: tokens.colors.background,
+      ...tokens.elevation.card,
+    },
+  });
+}

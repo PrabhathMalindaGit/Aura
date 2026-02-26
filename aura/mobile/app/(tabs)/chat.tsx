@@ -25,11 +25,13 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
+import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import { getCachedChat, setCachedChat } from "@/src/state/chatCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTrustStatus } from "@/src/state/trustStatus";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
@@ -174,6 +176,10 @@ export default function ChatScreen() {
   const lastUnsentMessageRef = useRef<string | null>(null);
 
   const patientId = auth.patient?.id ?? "";
+  const trustStatus = useTrustStatus({
+    patientId,
+    errorRecords: [chatLoadError.lastError, chatSendError.lastError],
+  });
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -237,11 +243,7 @@ export default function ChatScreen() {
       } else {
         setMessages([]);
         setShowingOfflineCache(false);
-        setNotice({
-          variant: "info",
-          title: "Offline",
-          message: "Connect to load chat history.",
-        });
+        setNotice(null);
       }
       setIsLoading(false);
       return;
@@ -315,11 +317,7 @@ export default function ChatScreen() {
           kind: "offline",
           retryable: true,
         });
-        setNotice({
-          variant: "warning",
-          title: "Offline",
-          message: offlineMessage,
-        });
+        setNotice(null);
         return;
       }
 
@@ -506,7 +504,12 @@ export default function ChatScreen() {
   }
 
   return (
-    <Screen title="Chat" scroll={false}>
+    <Screen
+      title="Chat"
+      scroll={false}
+      // Banner belongs in Screen.banner; do not duplicate inside list header/items.
+      banner={<TrustBanner status={trustStatus} onRetry={notice?.action} />}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -530,18 +533,11 @@ export default function ChatScreen() {
               onClear={chatSendError.lastError ? chatSendError.clear : undefined}
               compact
             />
-            {isOffline ? (
-              <InlineNotice
-                variant="warning"
-                title="Offline"
-                message="Offline — messages can’t be sent."
-              />
-            ) : null}
-            {showingOfflineCache ? (
+            {showingOfflineCache && !isOffline ? (
               <InlineNotice
                 variant="info"
-                title="Offline"
-                message="Showing saved messages (offline)."
+                title="Saved data"
+                message="Showing saved messages while live chat is unavailable."
               />
             ) : null}
             {notice ? (

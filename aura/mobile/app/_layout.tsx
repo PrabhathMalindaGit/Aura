@@ -8,7 +8,6 @@ import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { OfflineBanner } from '@/src/components/OfflineBanner';
 import "@/src/services/notificationsInit";
 import { AuthProvider } from '@/src/state/auth';
 import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
@@ -59,7 +58,6 @@ function RootLayoutNav() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <View style={styles.root}>
             <Slot />
-            <OfflineBanner />
           </View>
         </ThemeProvider>
       </CaregiverSessionProvider>

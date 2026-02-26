@@ -21,6 +21,7 @@ import { InlineNotice } from "@/src/components/InlineNotice";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { Screen } from "@/src/components/Screen";
+import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedCheckins,
@@ -34,6 +35,7 @@ import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { setSelectedCheckin } from "@/src/state/progressSelection";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTrustStatus } from "@/src/state/trustStatus";
 import { addDaysISO, formatISOToHuman, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import { computeSummary, parseCheckinTime } from "@/src/utils/progressStats";
@@ -169,6 +171,10 @@ export default function ProgressScreen() {
   const [notice, setNotice] = useState<NoticeState | null>(null);
 
   const patientId = auth.patient?.id ?? "";
+  const trustStatus = useTrustStatus({
+    patientId,
+    errorRecords: [progressLoadError.lastError],
+  });
   const historyItems = useMemo(() => items.slice(0, 30), [items]);
 
   const summary14 = useMemo(() => computeSummary(items, 14), [items]);
@@ -218,20 +224,11 @@ export default function ProgressScreen() {
         if (cached && cached.length > 0) {
           setItems(sortByNewest(cached));
           setSource("cache");
-          setNotice({
-            variant: "warning",
-            title: "Offline",
-            message: "Offline — showing saved data (if available).",
-          });
         } else {
           setItems([]);
           setSource("none");
-          setNotice({
-            variant: "warning",
-            title: "Offline",
-            message: "Offline — no saved progress data is available yet.",
-          });
         }
+        setNotice(null);
         setHydrationDays(cachedHydration?.days ?? []);
 
         setIsLoading(false);
@@ -338,7 +335,7 @@ export default function ProgressScreen() {
   }
 
   // IMPORTANT: Keep summary/toggles/notices in ListHeaderComponent.
-  // Do not duplicate these blocks inside renderItem.
+  // Banner belongs in Screen.banner; do not duplicate in header/items.
   const listHeader = (
     <View style={styles.listHeader}>
       <LastRefreshed value={progressRefresh.label} />
@@ -348,14 +345,6 @@ export default function ProgressScreen() {
         message={progressLoadError.lastError?.message}
         onClear={progressLoadError.lastError ? progressLoadError.clear : undefined}
       />
-
-      {isOffline ? (
-        <InlineNotice
-          variant="warning"
-          title="Offline"
-          message="Offline — showing saved data (if available)."
-        />
-      ) : null}
 
       {source === "cache" && !isOffline ? (
         <InlineNotice
@@ -452,7 +441,18 @@ export default function ProgressScreen() {
   );
 
   return (
-    <Screen title="Progress" scroll={false}>
+    <Screen
+      title="Progress"
+      scroll={false}
+      banner={
+        <TrustBanner
+          status={trustStatus}
+          onRetry={() => {
+            void loadProgress("refresh");
+          }}
+        />
+      }
+    >
       <FlatList
         data={historyItems}
         keyExtractor={checkinKey}

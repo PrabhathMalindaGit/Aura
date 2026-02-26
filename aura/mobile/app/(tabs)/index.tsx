@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { InlineNotice } from "@/src/components/InlineNotice";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
+import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import { getCachedAppointmentRequests } from "@/src/state/appointmentsCache";
 import { getUsage } from "@/src/state/copingUsage";
@@ -22,7 +22,6 @@ import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { getCachedWearables } from "@/src/state/wearablesCache";
 import { getWearablesConnected } from "@/src/state/wearablesConnection";
-import { useNetwork } from "@/src/state/network";
 import { getPendingNutrition } from "@/src/state/pendingNutrition";
 import { getPendingHydration } from "@/src/state/pendingHydration";
 import { getPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
@@ -30,6 +29,7 @@ import { getPendingPhotoUploads } from "@/src/state/pendingPhotoUploads";
 import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTrustStatus } from "@/src/state/trustStatus";
 import { startOfWeekMondayISO, todayISO } from "@/src/utils/date";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
@@ -41,12 +41,6 @@ type StatusSummary = {
   pendingMedication: number;
   pendingPhotos: number;
   pendingWearables: number;
-};
-
-type NoticeState = {
-  variant: "info" | "warning" | "error";
-  title: string;
-  message: string;
 };
 
 type CopingSummary = {
@@ -67,14 +61,12 @@ const EMPTY_PENDING: StatusSummary = {
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
-  const network = useNetwork();
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
   const thisWeekStart = startOfWeekMondayISO(tzOffsetMinutes);
   const today = todayISO();
 
-  const [notice, setNotice] = useState<NoticeState | null>(null);
   const [planSummary, setPlanSummary] = useState<{
     status: "loading" | "assigned" | "none";
     itemCount: number;
@@ -143,6 +135,10 @@ export default function HomeScreen() {
       pendingSummary.pendingWearables,
     [pendingSummary]
   );
+  const trustStatus = useTrustStatus({
+    patientId,
+    pendingCountOverride: totalPendingUploads,
+  });
 
   const reloadPendingCounts = useCallback(async (): Promise<void> => {
     if (!patientId) {
@@ -563,29 +559,13 @@ export default function HomeScreen() {
     };
   }, [patientId, appointmentsRefresh.lastRefreshedAt]);
 
-  useEffect(() => {
-    if (network.isOffline) {
-      setNotice({
-        variant: "warning",
-        title: "Offline",
-        message: "Showing saved data. New uploads will sync when you’re online.",
-      });
-      return;
-    }
-
-    setNotice(null);
-  }, [network.isOffline]);
-
   return (
-    <Screen title="Home" scroll contentContainerStyle={styles.container}>
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-
+    <Screen
+      title="Home"
+      scroll
+      contentContainerStyle={styles.container}
+      banner={<TrustBanner status={trustStatus} />}
+    >
         <Section title="Today">
           <Text style={styles.titleLine}>Welcome back, {patientLabel}.</Text>
           <Text style={styles.detailLine}>

@@ -21,10 +21,12 @@ import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
+import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTrustStatus } from "@/src/state/trustStatus";
 import {
   BODY_MAP_PAIN_TYPES,
   BODY_MAP_REGION_GROUPS,
@@ -221,6 +223,11 @@ export default function CheckinScreen() {
   const isOffline = useIsOffline();
   const checkinsRefresh = useLastRefreshed("checkins");
   const checkinError = useLastError("checkinSubmit");
+  const patientId = auth.patient?.id ?? "";
+  const trustStatus = useTrustStatus({
+    patientId,
+    errorRecords: [checkinError.lastError],
+  });
 
   const [date] = useState(() => todayISO());
   const [pain, setPain] = useState(0);
@@ -377,12 +384,7 @@ export default function CheckinScreen() {
         kind: "offline",
         retryable: true,
       });
-      setNotice({
-        variant: "warning",
-        title: "Offline",
-        message,
-        retryable: true,
-      });
+      setNotice(null);
       return;
     }
 
@@ -470,15 +472,12 @@ export default function CheckinScreen() {
   };
 
   return (
-    <Screen title="Daily check-in" scroll contentContainerStyle={styles.container}>
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="You’re offline. Nothing was sent."
-          />
-        ) : null}
-
+    <Screen
+      title="Daily check-in"
+      scroll
+      contentContainerStyle={styles.container}
+      banner={<TrustBanner status={trustStatus} />}
+    >
         <LastRefreshed label="Last refreshed (check-ins)" value={checkinsRefresh.label} />
         <LastFailedAttempt
           value={checkinError.label}

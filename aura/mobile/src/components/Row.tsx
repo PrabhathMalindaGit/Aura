@@ -1,6 +1,8 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { getPressFeedbackStyle } from "@/src/components/Motion";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 
 type AccessoryMode = "chevron" | "none";
@@ -27,6 +29,7 @@ export function Row({
   testID,
 }: RowProps) {
   const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isPressable = Boolean(onPress) && !disabled;
   const resolvedAccessory: AccessoryMode =
@@ -77,7 +80,7 @@ export function Row({
       style={({ pressed }) => [
         styles.base,
         disabled ? styles.disabled : null,
-        pressed && isPressable ? styles.pressed : null,
+        pressed && isPressable ? getPressFeedbackStyle(reduceMotion, 0.82) : null,
       ]}
     >
       {content}
@@ -139,9 +142,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: 18,
       lineHeight: 20,
       fontWeight: tokens.typography.weights.semibold,
-    },
-    pressed: {
-      opacity: 0.82,
     },
     disabled: {
       opacity: 0.55,

@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { FadeSlideIn } from "@/src/components/Motion";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import type { TrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
 
@@ -12,6 +14,7 @@ type TrustBannerProps = {
 
 export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
   const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   if (status.kind === "ok") {
@@ -48,31 +51,33 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
   }
 
   return (
-    <View
-      testID={testID}
-      accessible
-      accessibilityRole="alert"
-      accessibilityLabel={`${title}. ${subtitle}`}
-      style={[styles.container, toneStyle]}
-    >
-      <View style={styles.copyBlock}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+    <FadeSlideIn key={status.kind} visible reduceMotion={reduceMotion}>
+      <View
+        testID={testID}
+        accessible
+        accessibilityRole="alert"
+        accessibilityLabel={`${title}. ${subtitle}`}
+        style={[styles.container, toneStyle]}
+      >
+        <View style={styles.copyBlock}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        </View>
+        {status.kind === "serverDown" && onRetry ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading data"
+            onPress={onRetry}
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed ? styles.retryButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        ) : null}
       </View>
-      {status.kind === "serverDown" && onRetry ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading data"
-          onPress={onRetry}
-          style={({ pressed }) => [
-            styles.retryButton,
-            pressed ? styles.retryButtonPressed : null,
-          ]}
-        >
-          <Text style={styles.retryText}>Retry</Text>
-        </Pressable>
-      ) : null}
-    </View>
+    </FadeSlideIn>
   );
 }
 

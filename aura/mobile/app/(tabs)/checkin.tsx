@@ -22,6 +22,7 @@ import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { FadeSlideIn } from "@/src/components/Motion";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
@@ -35,6 +36,7 @@ import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
+import { runLayoutAnimationIfAllowed } from "@/src/theme/motion";
 import { useTokens } from "@/src/theme/tokens";
 import {
   BODY_MAP_PAIN_TYPES,
@@ -810,11 +812,8 @@ export default function CheckinScreen() {
           accessibilityRole="button"
           accessibilityLabel="Toggle optional details"
           onPress={() => {
-            // Reduced motion: keep expand/collapse instant when motion reduction is enabled.
-            if (reduceMotion) {
-              setAddonsExpanded((current) => !current);
-              return;
-            }
+            // Accordion layout motion stays native-only and is skipped with reduced motion.
+            runLayoutAnimationIfAllowed(reduceMotion);
             setAddonsExpanded((current) => !current);
           }}
           style={({ pressed }) => [
@@ -829,7 +828,7 @@ export default function CheckinScreen() {
           <Text style={styles.accordionGlyph}>{addonsExpanded ? "−" : "+"}</Text>
         </Pressable>
 
-        {addonsExpanded ? (
+        <FadeSlideIn visible={addonsExpanded} reduceMotion={reduceMotion}>
           <View style={styles.addonsContent}>
             <Card variant="outlined" style={styles.addonCard}>
               <View style={styles.sectionStack}>
@@ -1099,7 +1098,7 @@ export default function CheckinScreen() {
               </View>
             </Card>
           </View>
-        ) : null}
+        </FadeSlideIn>
       </View>
     </Card>
   );

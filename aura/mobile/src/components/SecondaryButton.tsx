@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, type GestureResponderEvent } from "react-native";
 
+import { getPressFeedbackStyle } from "@/src/components/Motion";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 
 type SecondaryButtonProps = {
@@ -19,6 +21,7 @@ export function SecondaryButton({
   accessibilityLabel,
 }: SecondaryButtonProps) {
   const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isDisabled = disabled || loading;
   const resolvedLabel = accessibilityLabel ?? (loading ? `${label}. Loading` : label);
@@ -36,7 +39,7 @@ export function SecondaryButton({
       style={({ pressed }) => [
         styles.button,
         isDisabled ? styles.buttonDisabled : null,
-        pressed && !isDisabled ? styles.buttonPressed : null,
+        pressed && !isDisabled ? getPressFeedbackStyle(reduceMotion, 0.86) : null,
       ]}
     >
       <Text style={styles.label}>{loading ? "…" : label}</Text>
@@ -58,9 +61,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     buttonDisabled: {
       opacity: 0.55,
-    },
-    buttonPressed: {
-      opacity: 0.86,
     },
     label: {
       color: tokens.colors.accent,

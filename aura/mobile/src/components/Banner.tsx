@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { FadeSlideIn } from "@/src/components/Motion";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 
 export type BannerVariant = "info" | "success" | "warning" | "danger";
@@ -21,6 +23,7 @@ export function Banner({
   onAction,
 }: BannerProps) {
   const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const toneStyle =
@@ -33,29 +36,31 @@ export function Banner({
           : styles.infoTone;
 
   return (
-    <View
-      accessible
-      accessibilityLabel={message ? `${title}. ${message}` : title}
-      style={[styles.container, toneStyle]}
-    >
-      <View style={styles.copyBlock}>
-        <Text style={styles.title}>{title}</Text>
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+    <FadeSlideIn visible reduceMotion={reduceMotion}>
+      <View
+        accessible
+        accessibilityLabel={message ? `${title}. ${message}` : title}
+        style={[styles.container, toneStyle]}
+      >
+        <View style={styles.copyBlock}>
+          <Text style={styles.title}>{title}</Text>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+        </View>
+        {actionLabel && onAction ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+            onPress={onAction}
+            style={({ pressed }) => [
+              styles.actionButton,
+              pressed ? styles.actionButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.actionText}>{actionLabel}</Text>
+          </Pressable>
+        ) : null}
       </View>
-      {actionLabel && onAction ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-          onPress={onAction}
-          style={({ pressed }) => [
-            styles.actionButton,
-            pressed ? styles.actionButtonPressed : null,
-          ]}
-        >
-          <Text style={styles.actionText}>{actionLabel}</Text>
-        </Pressable>
-      ) : null}
-    </View>
+    </FadeSlideIn>
   );
 }
 

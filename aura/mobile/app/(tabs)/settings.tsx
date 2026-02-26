@@ -14,6 +14,7 @@ import { useRouter, type Href } from "expo-router";
 
 import { Banner } from "@/src/components/Banner";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
+import { FadeSlideIn } from "@/src/components/Motion";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
@@ -39,6 +40,7 @@ import { clearPending } from "@/src/state/pendingSessions";
 import { getReminderPrefs, setReminderPrefs } from "@/src/state/reminderPrefs";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
 import { useReducedMotion } from "@/src/state/useReducedMotion";
+import { runLayoutAnimationIfAllowed } from "@/src/theme/motion";
 import { useTokens } from "@/src/theme/tokens";
 import { resetDemoState } from "@/src/utils/demoReset";
 
@@ -587,11 +589,8 @@ export default function SettingsScreen() {
   };
 
   const toggleDeveloperMode = () => {
-    // If we add disclosure animation later, gate it by reduceMotion first.
-    if (reduceMotion) {
-      setIsDeveloperExpanded((current) => !current);
-      return;
-    }
+    // Keep disclosure motion native-only and disabled when reduced motion is on.
+    runLayoutAnimationIfAllowed(reduceMotion);
     setIsDeveloperExpanded((current) => !current);
   };
 
@@ -810,7 +809,7 @@ export default function SettingsScreen() {
             right={<Text style={styles.rowValue}>{isDeveloperExpanded ? "Hide" : "Show"}</Text>}
           />
 
-          {isDeveloperExpanded ? (
+          <FadeSlideIn visible={isDeveloperExpanded} reduceMotion={reduceMotion}>
             <View style={styles.devPanel}>
               <Text style={styles.devGroupTitle}>Demo data</Text>
               <SecondaryButton
@@ -953,9 +952,11 @@ export default function SettingsScreen() {
                 />
               ) : null}
             </View>
-          ) : (
+          </FadeSlideIn>
+
+          {!isDeveloperExpanded ? (
             <Text style={styles.devHint}>Hidden by default. Expand for local demo and debug actions.</Text>
-          )}
+          ) : null}
         </Section>
       ) : null}
     </Screen>

@@ -1,6 +1,8 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { getPressFeedbackStyle } from "@/src/components/Motion";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 
 type IconButtonProps = {
@@ -21,6 +23,7 @@ export function IconButton({
   testID,
 }: IconButtonProps) {
   const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   return (
@@ -35,7 +38,7 @@ export function IconButton({
       style={({ pressed }) => [
         styles.button,
         disabled ? styles.disabled : null,
-        pressed && !disabled ? styles.pressed : null,
+        pressed && !disabled ? getPressFeedbackStyle(reduceMotion, 0.82) : null,
       ]}
     >
       {icon ? (
@@ -70,9 +73,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: 18,
       lineHeight: 20,
       fontWeight: tokens.typography.weights.semibold,
-    },
-    pressed: {
-      opacity: 0.82,
     },
     disabled: {
       opacity: 0.5,

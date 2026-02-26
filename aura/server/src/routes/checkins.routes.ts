@@ -1,17 +1,57 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import { BODY_MAP_PAIN_TYPES, BODY_MAP_REGIONS } from "../constants/bodyMap";
+import {
+  BODY_MAP_PAIN_TYPES,
+  BODY_MAP_REGIONS,
+  isBodyMapPainType,
+  isBodyMapRegion,
+} from "../constants/bodyMap";
 import { validateBody } from "../middleware/validate";
 import { AIUnavailableError } from "../services/ai";
 import {
   CheckInValidationError,
+  type CheckInFlowInput,
   processCheckIn,
 } from "../services/checkinFlow";
 import { logger } from "../utils/logger";
 import { redactText } from "../utils/redact";
 
 const router = Router();
+
+function normalizeBodyMapForFlow(
+  value:
+    | {
+        regions?: Array<{
+          region?: unknown;
+          intensity?: unknown;
+          type?: unknown;
+        }>;
+      }
+    | undefined
+): CheckInFlowInput["bodyMap"] {
+  if (!value?.regions || value.regions.length === 0) {
+    return undefined;
+  }
+
+  const regions: NonNullable<CheckInFlowInput["bodyMap"]>["regions"] = [];
+  for (const region of value.regions) {
+    if (
+      isBodyMapRegion(region.region) &&
+      typeof region.intensity === "number" &&
+      Number.isInteger(region.intensity) &&
+      isBodyMapPainType(region.type)
+    ) {
+      regions.push({
+        region: region.region,
+        intensity: region.intensity,
+        type: region.type,
+      });
+    }
+  }
+
+  return regions.length > 0 ? { regions } : undefined;
+}
 
 const sleepHoursSchema = z
   .number()
@@ -91,7 +131,7 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
       pain,
       adherence,
       sleep,
-      bodyMap,
+      bodyMap: normalizeBodyMapForFlow(bodyMap),
       notes,
     });
 

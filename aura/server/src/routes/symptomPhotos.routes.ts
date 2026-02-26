@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
-import { Router } from "express";
+import { Router, type Response } from "express";
 import multer from "multer";
 import { z } from "zod";
 
@@ -94,24 +94,24 @@ function toNotePreview(value: unknown): string | undefined {
     : trimmed;
 }
 
-function toValidationError(res: Parameters<typeof router.post>[1], message: string) {
-  return (res as any).status(400).json({
+function toValidationError(res: Response, message: string) {
+  return res.status(400).json({
     ok: false,
     error: "VALIDATION_ERROR",
     details: [{ path: "body", message }],
   });
 }
 
-function handleUploadError(error: unknown, res: Parameters<typeof router.post>[1]) {
+function handleUploadError(error: unknown, res: Response) {
   if (error instanceof SymptomPhotoUploadValidationError) {
-    return (res as any).status(error.statusCode).json({
+    return res.status(error.statusCode).json({
       ok: false,
       error: "VALIDATION_ERROR",
       details: [{ path: "file", message: error.message }],
     });
   }
   if (error instanceof multer.MulterError) {
-    return (res as any).status(400).json({
+    return res.status(400).json({
       ok: false,
       error: "VALIDATION_ERROR",
       details: [{ path: "file", message: error.message }],
@@ -338,7 +338,7 @@ router.get("/patient/photos/:id/meta", requirePatientAuth, async (req, res) => {
 });
 
 async function streamSymptomPhotoFile(
-  res: Parameters<typeof router.get>[1],
+  res: Response,
   row: {
     mimeType?: unknown;
     sizeBytes?: unknown;
@@ -347,14 +347,14 @@ async function streamSymptomPhotoFile(
 ) {
   const storageKey = typeof row.storageKey === "string" ? row.storageKey : "";
   if (!storageKey) {
-    return (res as any).status(404).json({ ok: false, error: "NOT_FOUND" });
+    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
   }
 
   const filePath = resolveSymptomPhotoPath(storageKey);
   try {
     await fsPromises.access(filePath);
   } catch {
-    return (res as any).status(404).json({ ok: false, error: "NOT_FOUND" });
+    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
   }
 
   const mimeType =
@@ -364,22 +364,22 @@ async function streamSymptomPhotoFile(
       ? Math.max(0, Math.floor(row.sizeBytes))
       : undefined;
 
-  (res as any).setHeader("Content-Type", mimeType);
-  (res as any).setHeader("Cache-Control", "private, max-age=300");
-  (res as any).setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Type", mimeType);
+  res.setHeader("Cache-Control", "private, max-age=300");
+  res.setHeader("X-Content-Type-Options", "nosniff");
   if (typeof sizeBytes === "number" && sizeBytes > 0) {
-    (res as any).setHeader("Content-Length", String(sizeBytes));
+    res.setHeader("Content-Length", String(sizeBytes));
   }
 
   const stream = fs.createReadStream(filePath);
   stream.on("error", () => {
-    if (!(res as any).headersSent) {
-      (res as any).status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
     } else {
-      (res as any).end();
+      res.end();
     }
   });
-  stream.pipe(res as any);
+  stream.pipe(res);
   return undefined;
 }
 

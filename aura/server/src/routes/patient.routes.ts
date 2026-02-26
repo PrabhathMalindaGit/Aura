@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import { BODY_MAP_PAIN_TYPES, BODY_MAP_REGIONS } from "../constants/bodyMap";
+import {
+  BODY_MAP_PAIN_TYPES,
+  BODY_MAP_REGIONS,
+  isBodyMapPainType,
+  isBodyMapRegion,
+} from "../constants/bodyMap";
 import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
@@ -12,6 +17,7 @@ import { AIUnavailableError } from "../services/ai";
 import { processChatMessage } from "../services/chatFlow";
 import {
   CheckInValidationError,
+  type CheckInFlowInput,
   processCheckIn,
 } from "../services/checkinFlow";
 import type { RequestWithPatient } from "../types/patientAuth";
@@ -97,6 +103,40 @@ const patientChatSendSchema = z.object({
 const patientChatHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).optional().default(50),
 });
+
+function normalizeBodyMapForFlow(
+  value:
+    | {
+        regions?: Array<{
+          region?: unknown;
+          intensity?: unknown;
+          type?: unknown;
+        }>;
+      }
+    | undefined
+): CheckInFlowInput["bodyMap"] {
+  if (!value?.regions || value.regions.length === 0) {
+    return undefined;
+  }
+
+  const regions: NonNullable<CheckInFlowInput["bodyMap"]>["regions"] = [];
+  for (const region of value.regions) {
+    if (
+      isBodyMapRegion(region.region) &&
+      typeof region.intensity === "number" &&
+      Number.isInteger(region.intensity) &&
+      isBodyMapPainType(region.type)
+    ) {
+      regions.push({
+        region: region.region,
+        intensity: region.intensity,
+        type: region.type,
+      });
+    }
+  }
+
+  return regions.length > 0 ? { regions } : undefined;
+}
 
 function parseIsoDate(value: string): Date | null {
   const parsed = new Date(value);
@@ -253,7 +293,7 @@ router.post(
         pain,
         adherence,
         sleep,
-        bodyMap,
+        bodyMap: normalizeBodyMapForFlow(bodyMap),
         notes,
       });
 
@@ -419,22 +459,22 @@ router.get("/patient/checkins", requirePatientAuth, async (req, res) => {
           Array.isArray(checkin.bodyMap.regions) &&
           checkin.bodyMap.regions.length > 0
             ? {
-                regions: checkin.bodyMap.regions
-                  .map((region) => ({
-                    region:
-                      typeof region.region === "string" ? region.region : undefined,
-                    intensity:
-                      typeof region.intensity === "number"
-                        ? region.intensity
-                        : undefined,
-                    type: typeof region.type === "string" ? region.type : undefined,
-                  }))
-                  .filter(
-                    (region): region is { region: string; intensity: number; type: string } =>
-                      typeof region.region === "string" &&
-                      typeof region.intensity === "number" &&
-                      typeof region.type === "string"
-                  ),
+                regions: checkin.bodyMap.regions.reduce<
+                  Array<{ region: string; intensity: number; type: string }>
+                >((acc, region) => {
+                  if (
+                    isBodyMapRegion(region.region) &&
+                    typeof region.intensity === "number" &&
+                    isBodyMapPainType(region.type)
+                  ) {
+                    acc.push({
+                      region: region.region,
+                      intensity: region.intensity,
+                      type: region.type,
+                    });
+                  }
+                  return acc;
+                }, []),
               }
             : undefined,
         risk: {

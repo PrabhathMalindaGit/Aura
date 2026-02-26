@@ -1,13 +1,15 @@
 import cors from "cors";
 import express from "express";
 
-import { env } from "./env";
+import { assertRuntimeEnvSafety, env } from "./env";
 import { authenticateJwt } from "./middleware/auth";
 import { errorHandler } from "./middleware/errorHandler";
 import { requireRoles } from "./middleware/rbac";
 import routes from "./routes";
 
 const app = express();
+
+assertRuntimeEnvSafety(env);
 
 app.use(cors());
 app.use(express.json());

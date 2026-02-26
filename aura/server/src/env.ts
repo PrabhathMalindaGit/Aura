@@ -54,3 +54,14 @@ export const env = {
   ),
   PAIN_HIGH_THRESHOLD: toInt(process.env.PAIN_HIGH_THRESHOLD, 7),
 } as const;
+
+type RuntimeEnv = {
+  NODE_ENV: string;
+  ALLOW_UNAUTH_CLINICIAN_BODY_IDS: boolean;
+};
+
+export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
+  if (value.ALLOW_UNAUTH_CLINICIAN_BODY_IDS && value.NODE_ENV !== "test") {
+    throw new Error("ALLOW_UNAUTH_CLINICIAN_BODY_IDS is allowed only when NODE_ENV=test");
+  }
+}

@@ -34,6 +34,7 @@ import { useNetwork } from "@/src/state/network";
 import { clearPending } from "@/src/state/pendingSessions";
 import { getReminderPrefs, setReminderPrefs } from "@/src/state/reminderPrefs";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { resetDemoState } from "@/src/utils/demoReset";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
@@ -93,6 +94,8 @@ function normalizeInputs(hourInput: string, minuteInput: string): {
 export default function SettingsScreen() {
   const router = useRouter();
   const auth = useAuth();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const network = useNetwork();
   const reminderPermissionError = useLastError("reminderPermission");
   const reminderScheduleError = useLastError("reminderSchedule");
@@ -792,96 +795,107 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 4,
-    paddingBottom: 18,
-  },
-  line: {
-    fontSize: 14,
-    color: "#374151",
-    marginBottom: 4,
-  },
-  switchRow: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  switchLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: "#374151",
-    fontWeight: "500",
-  },
-  timeRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  timeInputWrap: {
-    flex: 1,
-    gap: 6,
-  },
-  timeLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-    fontWeight: "500",
-  },
-  timeInput: {
-    minHeight: 42,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    color: "#111827",
-    backgroundColor: "#ffffff",
-  },
-  devToggle: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#f9fafb",
-  },
-  devTogglePressed: {
-    opacity: 0.8,
-  },
-  devToggleTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  devToggleState: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#4b5563",
-  },
-  devHint: {
-    marginTop: 8,
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  devPanel: {
-    marginTop: 10,
-    gap: 8,
-  },
-  devGroupTitle: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    color: "#6b7280",
-    textTransform: "uppercase",
-  },
-  devLine: {
-    fontSize: 12,
-    color: "#4b5563",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.xs,
+      paddingBottom: tokens.spacing.xl,
+    },
+    line: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: tokens.colors.textMuted,
+      marginBottom: tokens.spacing.xs,
+    },
+    switchRow: {
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.md,
+    },
+    switchLabel: {
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 20,
+      color: tokens.colors.text,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    timeRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.md,
+    },
+    timeInputWrap: {
+      flex: 1,
+      gap: tokens.spacing.sm - 2,
+    },
+    timeLabel: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    timeInput: {
+      minHeight: 42,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.sm,
+      paddingHorizontal: tokens.spacing.md - 2,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.text,
+      backgroundColor: tokens.colors.surface,
+    },
+    devToggle: {
+      minHeight: 44,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.md - 2,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    devTogglePressed: {
+      opacity: 0.8,
+    },
+    devToggleTitle: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    devToggleState: {
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.textMuted,
+    },
+    devHint: {
+      marginTop: tokens.spacing.sm,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    devPanel: {
+      marginTop: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    devGroupTitle: {
+      marginTop: tokens.spacing.sm - 2,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: "700",
+      letterSpacing: 0.3,
+      color: tokens.colors.textMuted,
+      textTransform: "uppercase",
+    },
+    devLine: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+  });
+}

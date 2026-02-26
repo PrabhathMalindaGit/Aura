@@ -1,5 +1,5 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -139,28 +139,34 @@ function formatValue(value: number | null, suffix = ""): string {
 }
 
 function sortByNewest(items: CheckInItem[]): CheckInItem[] {
-  return [...items].sort((a, b) => parseCheckinTime(b) - parseCheckinTime(a));
-}
-
-function checkinKey(item: CheckInItem, index: number): string {
-  if (item.id) {
-    return `checkin-${item.id}`;
+  const sorted = [...items].sort((a, b) => parseCheckinTime(b) - parseCheckinTime(a));
+  const seenIds = new Set<string>();
+  const deduped: CheckInItem[] = [];
+  for (const item of sorted) {
+    if (seenIds.has(item.id)) {
+      continue;
+    }
+    seenIds.add(item.id);
+    deduped.push(item);
   }
-  if (item.createdAt) {
-    return `checkin-created-${item.createdAt}-${index}`;
-  }
-  if (item.date) {
-    return `checkin-date-${item.date}-${index}`;
-  }
-  return `checkin-${index}`;
+  return deduped;
 }
 
 export default function ProgressScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
-  const progressRefresh = useLastRefreshed("progress");
-  const progressLoadError = useLastError("progressLoad");
+  const {
+    label: progressRefreshLabel,
+    refreshLocal: refreshProgressStamp,
+  } = useLastRefreshed("progress");
+  const {
+    label: progressLoadErrorLabel,
+    lastError: progressLoadLastError,
+    setLocalError: setProgressLoadError,
+    clear: clearProgressLoadError,
+  } = useLastError("progressLoad");
+  const loadInFlightRef = useRef(false);
 
   const [windowDays, setWindowDays] = useState<WindowDays>(14);
   const [items, setItems] = useState<CheckInItem[]>([]);
@@ -173,7 +179,7 @@ export default function ProgressScreen() {
   const patientId = auth.patient?.id ?? "";
   const trustStatus = useTrustStatus({
     patientId,
-    errorRecords: [progressLoadError.lastError],
+    errorRecords: [progressLoadLastError],
   });
   const historyItems = useMemo(() => items.slice(0, 30), [items]);
 
@@ -202,11 +208,13 @@ export default function ProgressScreen() {
     };
   }, [hydrationDays, windowDays]);
 
+  // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
   const loadProgress = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
-      if (!auth.token || !patientId) {
+      if (!auth.token || !patientId || loadInFlightRef.current) {
         return;
       }
+      loadInFlightRef.current = true;
 
       if (mode === "refresh") {
         setIsRefreshing(true);
@@ -253,12 +261,12 @@ export default function ProgressScreen() {
         await Promise.all([
           setCachedCheckins(patientId, sortedItems),
           mergeCachedHydrationDayTotals(patientId, hydrationRange.days, hydrationRange.targetMl),
-          progressRefresh.refreshLocal(),
-          progressLoadError.clear(),
+          refreshProgressStamp(),
+          clearProgressLoadError(),
         ]);
       } catch (error) {
         const friendly = toFriendlyProgressError(error);
-        await progressLoadError.setLocalError({
+        await setProgressLoadError({
           title: friendly.title,
           message: friendly.message,
           kind: friendly.kind,
@@ -300,16 +308,18 @@ export default function ProgressScreen() {
           });
         }
       } finally {
+        loadInFlightRef.current = false;
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
     [
       auth.token,
+      clearProgressLoadError,
       isOffline,
       patientId,
-      progressLoadError,
-      progressRefresh,
+      refreshProgressStamp,
+      setProgressLoadError,
     ]
   );
 
@@ -319,6 +329,20 @@ export default function ProgressScreen() {
     }
     void loadProgress("initial");
   }, [auth.status, loadProgress]);
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (seen.has(item.id)) {
+        console.warn(`[progress] duplicate check-in id detected: ${item.id}`);
+        break;
+      }
+      seen.add(item.id);
+    }
+  }, [items]);
 
   if (auth.status === "loading") {
     return (
@@ -338,12 +362,12 @@ export default function ProgressScreen() {
   // Banner belongs in Screen.banner; do not duplicate in header/items.
   const listHeader = (
     <View style={styles.listHeader}>
-      <LastRefreshed value={progressRefresh.label} />
+      <LastRefreshed value={progressRefreshLabel} />
       <LastFailedAttempt
-        value={progressLoadError.label}
-        title={progressLoadError.lastError?.title}
-        message={progressLoadError.lastError?.message}
-        onClear={progressLoadError.lastError ? progressLoadError.clear : undefined}
+        value={progressLoadErrorLabel}
+        title={progressLoadLastError?.title}
+        message={progressLoadLastError?.message}
+        onClear={progressLoadLastError ? clearProgressLoadError : undefined}
       />
 
       {source === "cache" && !isOffline ? (
@@ -455,7 +479,7 @@ export default function ProgressScreen() {
     >
       <FlatList
         data={historyItems}
-        keyExtractor={checkinKey}
+        keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}

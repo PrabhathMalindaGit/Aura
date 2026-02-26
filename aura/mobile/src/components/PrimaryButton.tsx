@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, type GestureResponderEvent } from "react-native";
+import { useTokens } from "@/src/theme/tokens";
 
 type PrimaryButtonProps = {
   label: string;
@@ -15,6 +17,8 @@ export function PrimaryButton({
   loading = false,
   accessibilityLabel,
 }: PrimaryButtonProps) {
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isDisabled = disabled || loading;
 
   return (
@@ -34,24 +38,28 @@ export function PrimaryButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    minHeight: 44,
-    borderRadius: 10,
-    backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  label: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    button: {
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.lg,
+      ...tokens.elevation.sm,
+    },
+    buttonDisabled: {
+      opacity: 0.55,
+    },
+    buttonPressed: {
+      opacity: 0.88,
+    },
+    label: {
+      color: tokens.colors.primaryTextOn,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+  });
+}

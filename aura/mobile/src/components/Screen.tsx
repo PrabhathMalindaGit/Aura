@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTokens } from "@/src/theme/tokens";
 
 type ScreenProps = {
   children: ReactNode;
@@ -32,6 +33,8 @@ export function Screen({
   contentContainerStyle,
   containerStyle,
 }: ScreenProps) {
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const widthStyle = maxWidth ? { maxWidth, width: "100%" as const } : null;
 
   const content = (
@@ -75,33 +78,36 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  scrollContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  nonScrollContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  centered: {
-    alignItems: "center",
-  },
-  fill: {
-    flex: 1,
-  },
-  content: {
-    gap: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "600",
-    marginBottom: 12,
-    color: "#0f172a",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: tokens.colors.background,
+    },
+    scrollContainer: {
+      paddingHorizontal: tokens.layout.screenPaddingHorizontal,
+      paddingVertical: tokens.layout.screenPaddingVertical,
+    },
+    nonScrollContainer: {
+      flex: 1,
+      paddingHorizontal: tokens.layout.screenPaddingHorizontal,
+      paddingVertical: tokens.layout.screenPaddingVertical,
+    },
+    centered: {
+      alignItems: "center",
+    },
+    fill: {
+      flex: 1,
+    },
+    content: {
+      gap: tokens.spacing.sm,
+    },
+    title: {
+      fontSize: tokens.typography.title.fontSize,
+      lineHeight: tokens.typography.title.lineHeight,
+      fontWeight: tokens.typography.title.fontWeight,
+      marginBottom: tokens.spacing.md,
+      color: tokens.colors.text,
+    },
+  });
+}

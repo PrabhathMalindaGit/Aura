@@ -156,10 +156,17 @@ function normalizeCachedCheckIn(value: unknown): CheckInItem | null {
 }
 
 function normalizeItems(items: CheckInItem[]): CheckInItem[] {
-  return items
-    .slice(0, MAX_CACHE_ITEMS)
-    .map((item) => normalizeCachedCheckIn(item))
-    .filter((item): item is CheckInItem => Boolean(item));
+  const seenIds = new Set<string>();
+  const normalized: CheckInItem[] = [];
+  for (const item of items.slice(0, MAX_CACHE_ITEMS)) {
+    const parsed = normalizeCachedCheckIn(item);
+    if (!parsed || seenIds.has(parsed.id)) {
+      continue;
+    }
+    seenIds.add(parsed.id);
+    normalized.push(parsed);
+  }
+  return normalized;
 }
 
 export async function getCachedCheckins(

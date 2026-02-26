@@ -75,6 +75,23 @@ function toRenderable(items: ChatItem[]): MessageItem[] {
   }));
 }
 
+function dedupeMessagesByIdentity(items: MessageItem[]): MessageItem[] {
+  const seenServerIds = new Set<string>();
+  const deduped: MessageItem[] = [];
+
+  for (const item of items) {
+    if (item.id) {
+      if (seenServerIds.has(item.id)) {
+        continue;
+      }
+      seenServerIds.add(item.id);
+    }
+    deduped.push(item);
+  }
+
+  return deduped;
+}
+
 function toPersisted(items: MessageItem[]): ChatItem[] {
   return items.map((item) => ({
     id: item.id,
@@ -169,16 +186,30 @@ export default function ChatScreen() {
   const params = useLocalSearchParams<ChatDevParams>();
   const auth = useAuth();
   const isOffline = useIsOffline();
-  const chatRefresh = useLastRefreshed("chat");
-  const chatLoadError = useLastError("chatLoad");
-  const chatSendError = useLastError("chatSend");
+  const {
+    label: chatRefreshLabel,
+    refreshLocal: refreshChatStamp,
+  } = useLastRefreshed("chat");
+  const {
+    label: chatLoadErrorLabel,
+    lastError: chatLoadLastError,
+    setLocalError: setChatLoadError,
+    clear: clearChatLoadError,
+  } = useLastError("chatLoad");
+  const {
+    label: chatSendErrorLabel,
+    lastError: chatSendLastError,
+    setLocalError: setChatSendError,
+    clear: clearChatSendError,
+  } = useLastError("chatSend");
   const listRef = useRef<FlatList<MessageItem>>(null);
   const lastUnsentMessageRef = useRef<string | null>(null);
+  const isLoadingHistoryRef = useRef(false);
 
   const patientId = auth.patient?.id ?? "";
   const trustStatus = useTrustStatus({
     patientId,
-    errorRecords: [chatLoadError.lastError, chatSendError.lastError],
+    errorRecords: [chatLoadLastError, chatSendLastError],
   });
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [draft, setDraft] = useState("");
@@ -219,7 +250,7 @@ export default function ChatScreen() {
   const updateMessages = useCallback(
     (updater: (previous: MessageItem[]) => MessageItem[]) => {
       setMessages((previous) => {
-        const next = updater(previous);
+        const next = dedupeMessagesByIdentity(updater(previous));
         persistRenderable(next);
         return next;
       });
@@ -227,42 +258,43 @@ export default function ChatScreen() {
     [persistRenderable]
   );
 
+  // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
   const loadHistory = useCallback(async () => {
-    if (!auth.token || !patientId) {
+    if (!auth.token || !patientId || isLoadingHistoryRef.current) {
       return;
     }
 
+    isLoadingHistoryRef.current = true;
     setIsLoading(true);
     setNotice(null);
 
-    if (isOffline) {
-      const cached = await getCachedChat(patientId);
-      if (cached && cached.length > 0) {
-        setMessages(toRenderable(cached));
-        setShowingOfflineCache(true);
-      } else {
-        setMessages([]);
-        setShowingOfflineCache(false);
-        setNotice(null);
-      }
-      setIsLoading(false);
-      return;
-    }
-
     try {
+      if (isOffline) {
+        const cached = await getCachedChat(patientId);
+        if (cached && cached.length > 0) {
+          setMessages(dedupeMessagesByIdentity(toRenderable(cached)));
+          setShowingOfflineCache(true);
+        } else {
+          setMessages([]);
+          setShowingOfflineCache(false);
+          setNotice(null);
+        }
+        return;
+      }
+
       const history = await chatHistory(auth.token, CHAT_LIMIT);
-      const renderable = toRenderable(history);
+      const renderable = dedupeMessagesByIdentity(toRenderable(history));
       setMessages(renderable);
       setShowingOfflineCache(false);
-      await chatRefresh.refreshLocal();
-      await chatLoadError.clear();
+      await refreshChatStamp();
+      await clearChatLoadError();
       if (patientId) {
         await setCachedChat(patientId, history);
       }
     } catch (error) {
       const normalized = normalizeChatError(error);
       const friendly = toFriendlyMessage(normalized, "Couldn’t load history");
-      await chatLoadError.setLocalError({
+      await setChatLoadError({
         title: friendly.title,
         message: friendly.message,
         kind: friendly.kind,
@@ -271,7 +303,7 @@ export default function ChatScreen() {
 
       const cached = await getCachedChat(patientId);
       if (cached && cached.length > 0) {
-        setMessages(toRenderable(cached));
+        setMessages(dedupeMessagesByIdentity(toRenderable(cached)));
         setShowingOfflineCache(true);
       }
 
@@ -287,14 +319,16 @@ export default function ChatScreen() {
           : undefined,
       });
     } finally {
+      isLoadingHistoryRef.current = false;
       setIsLoading(false);
     }
   }, [
     auth.token,
-    chatLoadError,
-    chatRefresh,
+    clearChatLoadError,
+    refreshChatStamp,
     isOffline,
     patientId,
+    setChatLoadError,
   ]);
 
   const handleSend = useCallback(
@@ -311,7 +345,7 @@ export default function ChatScreen() {
 
       if (isOffline) {
         const offlineMessage = "You’re offline. Nothing was sent.";
-        await chatSendError.setLocalError({
+        await setChatSendError({
           title: "Couldn’t send",
           message: offlineMessage,
           kind: "offline",
@@ -353,7 +387,7 @@ export default function ChatScreen() {
             params.reasonCodes = reasonCodes.join(",");
           }
 
-          await chatSendError.clear();
+          await clearChatSendError();
           updateMessages((previous) => [
             ...previous,
             {
@@ -383,14 +417,14 @@ export default function ChatScreen() {
             delivery: "sent",
           },
         ]);
-        await chatRefresh.refreshLocal();
-        await chatSendError.clear();
+        await refreshChatStamp();
+        await clearChatSendError();
         lastUnsentMessageRef.current = null;
       } catch (error) {
         const normalized = normalizeChatError(error);
         const friendly = toFriendlyMessage(normalized, "Couldn’t send");
 
-        await chatSendError.setLocalError({
+        await setChatSendError({
           title: friendly.title,
           message: friendly.message,
           kind: friendly.kind,
@@ -435,12 +469,13 @@ export default function ChatScreen() {
     },
     [
       auth.token,
-      chatRefresh,
-      chatSendError,
+      clearChatSendError,
       draft,
       isOffline,
       patientId,
+      refreshChatStamp,
       router,
+      setChatSendError,
       updateMessages,
     ]
   );
@@ -489,6 +524,20 @@ export default function ChatScreen() {
     return () => clearTimeout(timer);
   }, [messages.length]);
 
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    const seen = new Set<string>();
+    for (const item of messages) {
+      if (seen.has(item.localId)) {
+        console.warn(`[chat] duplicate message key detected: ${item.localId}`);
+        break;
+      }
+      seen.add(item.localId);
+    }
+  }, [messages]);
+
   if (auth.status === "loading") {
     return (
       <Screen title="Chat" scroll={false}>
@@ -508,7 +557,14 @@ export default function ChatScreen() {
       title="Chat"
       scroll={false}
       // Banner belongs in Screen.banner; do not duplicate inside list header/items.
-      banner={<TrustBanner status={trustStatus} onRetry={notice?.action} />}
+      banner={
+        <TrustBanner
+          status={trustStatus}
+          onRetry={() => {
+            void loadHistory();
+          }}
+        />
+      }
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -516,21 +572,21 @@ export default function ChatScreen() {
       >
         <View style={styles.flex}>
           <View style={styles.metaSection}>
-            <LastRefreshed value={chatRefresh.label} />
+            <LastRefreshed value={chatRefreshLabel} />
             <LastFailedAttempt
               label="Last history load failure"
-              value={chatLoadError.label}
-              title={chatLoadError.lastError?.title}
-              message={chatLoadError.lastError?.message}
-              onClear={chatLoadError.lastError ? chatLoadError.clear : undefined}
+              value={chatLoadErrorLabel}
+              title={chatLoadLastError?.title}
+              message={chatLoadLastError?.message}
+              onClear={chatLoadLastError ? clearChatLoadError : undefined}
               compact
             />
             <LastFailedAttempt
               label="Last send failure"
-              value={chatSendError.label}
-              title={chatSendError.lastError?.title}
-              message={chatSendError.lastError?.message}
-              onClear={chatSendError.lastError ? chatSendError.clear : undefined}
+              value={chatSendErrorLabel}
+              title={chatSendLastError?.title}
+              message={chatSendLastError?.message}
+              onClear={chatSendLastError ? clearChatSendError : undefined}
               compact
             />
             {showingOfflineCache && !isOffline ? (

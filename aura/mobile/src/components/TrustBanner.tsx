@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { TrustStatus } from "@/src/state/trustStatus";
+import { useTokens } from "@/src/theme/tokens";
 
 type TrustBannerProps = {
   status: TrustStatus;
@@ -9,6 +11,9 @@ type TrustBannerProps = {
 };
 
 export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
   if (status.kind === "ok") {
     return null;
   }
@@ -70,63 +75,67 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  copyBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0f172a",
-  },
-  subtitle: {
-    fontSize: 12,
-    color: "#334155",
-    lineHeight: 16,
-  },
-  retryButton: {
-    minHeight: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#2563eb",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    backgroundColor: "#eff6ff",
-  },
-  retryButtonPressed: {
-    opacity: 0.8,
-  },
-  retryText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#1d4ed8",
-  },
-  offlineTone: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#94a3b8",
-  },
-  serverTone: {
-    backgroundColor: "#fff7ed",
-    borderColor: "#fdba74",
-  },
-  syncTone: {
-    backgroundColor: "#ecfeff",
-    borderColor: "#67e8f9",
-  },
-  infoTone: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      borderWidth: 1,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.md - 2,
+      flexDirection: "row",
+      gap: tokens.spacing.sm + 2,
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    copyBlock: {
+      flex: 1,
+      gap: 2,
+    },
+    title: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    subtitle: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    retryButton: {
+      minHeight: 36,
+      borderRadius: tokens.radius.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.md,
+      backgroundColor: tokens.colors.surface,
+    },
+    retryButtonPressed: {
+      opacity: 0.82,
+    },
+    retryText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.accent,
+    },
+    offlineTone: {
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.border,
+    },
+    serverTone: {
+      backgroundColor: tokens.colors.warningTextOn,
+      borderColor: tokens.colors.warning,
+    },
+    syncTone: {
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.accent,
+    },
+    infoTone: {
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.border,
+    },
+  });
+}

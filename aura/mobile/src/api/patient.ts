@@ -3008,7 +3008,15 @@ export async function listCheckins(
     .map((item) => normalizeCheckInItem(item))
     .filter((item): item is CheckInItem => Boolean(item));
 
-  return sortCheckInsDesc(normalized);
+  const sorted = sortCheckInsDesc(normalized);
+  const seen = new Set<string>();
+  return sorted.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
+  });
 }
 
 export async function getTodayExercisePlan(

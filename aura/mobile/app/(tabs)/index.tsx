@@ -30,6 +30,7 @@ import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
+import { useTokens } from "@/src/theme/tokens";
 import { startOfWeekMondayISO, todayISO } from "@/src/utils/date";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
@@ -61,6 +62,8 @@ const EMPTY_PENDING: StatusSummary = {
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
@@ -747,39 +750,46 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 10,
-    paddingBottom: 16,
-  },
-  titleLine: {
-    fontSize: 16,
-    color: "#111827",
-    fontWeight: "600",
-  },
-  detailLine: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  cardList: {
-    gap: 8,
-  },
-  infoCard: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#f9fafb",
-    gap: 4,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  cardMessage: {
-    fontSize: 13,
-    color: "#374151",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.lg,
+    },
+    titleLine: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.text,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    detailLine: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: tokens.colors.textMuted,
+    },
+    cardList: {
+      gap: tokens.spacing.sm,
+    },
+    infoCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      paddingVertical: tokens.spacing.md,
+      paddingHorizontal: tokens.spacing.md,
+      backgroundColor: tokens.colors.surface,
+      gap: tokens.spacing.xs,
+      ...tokens.elevation.sm,
+    },
+    cardTitle: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    cardMessage: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: tokens.colors.textMuted,
+    },
+  });
+}

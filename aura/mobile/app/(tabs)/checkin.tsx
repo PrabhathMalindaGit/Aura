@@ -36,6 +36,7 @@ import {
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
+// Layout: Single Screen wrapper; avoid nested ScrollView.
 type SubmitNotice = {
   variant: "success" | "warning" | "error";
   title: string;
@@ -319,7 +320,7 @@ export default function CheckinScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Daily check-in">
+      <Screen title="Daily check-in" scroll={false}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" />
         </View>
@@ -469,8 +470,7 @@ export default function CheckinScreen() {
   };
 
   return (
-    <Screen title="Daily check-in">
-      <View style={styles.container}>
+    <Screen title="Daily check-in" scroll contentContainerStyle={styles.container}>
         {isOffline ? (
           <InlineNotice
             variant="warning"
@@ -837,7 +837,6 @@ export default function CheckinScreen() {
             void handleSubmit();
           }}
         />
-      </View>
     </Screen>
   );
 }

@@ -3,7 +3,6 @@ import {
   Alert,
   Linking,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -37,6 +36,7 @@ import { getReminderPrefs, setReminderPrefs } from "@/src/state/reminderPrefs";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
 import { resetDemoState } from "@/src/utils/demoReset";
 
+// Layout: Single Screen wrapper; avoid nested ScrollView.
 const DEFAULT_HOUR = 19;
 const DEFAULT_MINUTE = 0;
 type ReminderTimeInput = ReturnType<typeof normalizeInputs>;
@@ -114,6 +114,7 @@ export default function SettingsScreen() {
   const [timeValidationError, setTimeValidationError] = useState<string | null>(null);
   const [isReminderBusy, setIsReminderBusy] = useState(false);
   const [isDeveloperExpanded, setIsDeveloperExpanded] = useState(false);
+  const isDeveloperModeVisible = __DEV__;
 
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const patientId = auth.patient?.id ?? "";
@@ -468,9 +469,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen title="Settings">
-      <ScrollView contentContainerStyle={styles.container}>
-        <Section title="Account">
+    <Screen title="Settings" scroll contentContainerStyle={styles.container}>
+        <Section title="Account / Profile">
           <Text style={styles.line}>Patient: {patientName}</Text>
           <Text style={styles.line}>Session: {auth.status}</Text>
           <PrimaryButton
@@ -556,7 +556,7 @@ export default function SettingsScreen() {
           ) : null}
         </Section>
 
-        <Section title="Caregiver access">
+        <Section title="Caregiver">
           <Text style={styles.line}>Generate and revoke temporary caregiver invite codes.</Text>
           <PrimaryButton
             label="Manage caregiver invites"
@@ -566,7 +566,7 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Support and safety plan">
+        <Section title="Support & Safety plan">
           <Text style={styles.line}>
             If you feel unsafe or symptoms escalate, use Safety for immediate guidance.
           </Text>
@@ -583,7 +583,8 @@ export default function SettingsScreen() {
           <Text style={styles.line}>API base: {API_BASE}</Text>
         </Section>
 
-        {__DEV__ ? (
+        {/* IMPORTANT: Keep Developer Mode in this single location; do not duplicate via mapped sections. */}
+        {isDeveloperModeVisible ? (
           <Section title="Developer Mode">
             <Pressable
               accessibilityRole="button"
@@ -787,7 +788,6 @@ export default function SettingsScreen() {
             )}
           </Section>
         ) : null}
-      </ScrollView>
     </Screen>
   );
 }

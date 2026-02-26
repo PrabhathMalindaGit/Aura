@@ -32,6 +32,7 @@ import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
+// Layout: Single Screen wrapper; avoid nested ScrollView.
 type MessageItem = ChatItem & {
   localId: string;
   delivery: "sent" | "failed";
@@ -492,7 +493,7 @@ export default function ChatScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Chat">
+      <Screen title="Chat" scroll={false}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -505,7 +506,7 @@ export default function ChatScreen() {
   }
 
   return (
-    <Screen title="Chat">
+    <Screen title="Chat" scroll={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}

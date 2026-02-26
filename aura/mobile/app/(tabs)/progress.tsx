@@ -38,6 +38,7 @@ import { addDaysISO, formatISOToHuman, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import { computeSummary, parseCheckinTime } from "@/src/utils/progressStats";
 
+// Layout: Single Screen wrapper; avoid nested ScrollView.
 type LoadSource = "live" | "cache" | "none";
 type WindowDays = 14 | 30;
 
@@ -139,6 +140,19 @@ function sortByNewest(items: CheckInItem[]): CheckInItem[] {
   return [...items].sort((a, b) => parseCheckinTime(b) - parseCheckinTime(a));
 }
 
+function checkinKey(item: CheckInItem, index: number): string {
+  if (item.id) {
+    return `checkin-${item.id}`;
+  }
+  if (item.createdAt) {
+    return `checkin-created-${item.createdAt}-${index}`;
+  }
+  if (item.date) {
+    return `checkin-date-${item.date}-${index}`;
+  }
+  return `checkin-${index}`;
+}
+
 export default function ProgressScreen() {
   const router = useRouter();
   const auth = useAuth();
@@ -155,6 +169,7 @@ export default function ProgressScreen() {
   const [notice, setNotice] = useState<NoticeState | null>(null);
 
   const patientId = auth.patient?.id ?? "";
+  const historyItems = useMemo(() => items.slice(0, 30), [items]);
 
   const summary14 = useMemo(() => computeSummary(items, 14), [items]);
   const summary30 = useMemo(() => computeSummary(items, 30), [items]);
@@ -310,7 +325,7 @@ export default function ProgressScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Progress">
+      <Screen title="Progress" scroll={false}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -322,210 +337,191 @@ export default function ProgressScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return (
-    <Screen title="Progress">
-      <View style={styles.container}>
-        <LastRefreshed value={progressRefresh.label} />
-        <LastFailedAttempt
-          value={progressLoadError.label}
-          title={progressLoadError.lastError?.title}
-          message={progressLoadError.lastError?.message}
-          onClear={progressLoadError.lastError ? progressLoadError.clear : undefined}
+  // IMPORTANT: Keep summary/toggles/notices in ListHeaderComponent.
+  // Do not duplicate these blocks inside renderItem.
+  const listHeader = (
+    <View style={styles.listHeader}>
+      <LastRefreshed value={progressRefresh.label} />
+      <LastFailedAttempt
+        value={progressLoadError.label}
+        title={progressLoadError.lastError?.title}
+        message={progressLoadError.lastError?.message}
+        onClear={progressLoadError.lastError ? progressLoadError.clear : undefined}
+      />
+
+      {isOffline ? (
+        <InlineNotice
+          variant="warning"
+          title="Offline"
+          message="Offline — showing saved data (if available)."
         />
+      ) : null}
 
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — showing saved data (if available)."
-          />
-        ) : null}
+      {source === "cache" && !isOffline ? (
+        <InlineNotice
+          variant="info"
+          title="Saved data"
+          message="Showing saved data while live refresh is unavailable."
+        />
+      ) : null}
 
-        {source === "cache" && !isOffline ? (
-          <InlineNotice
-            variant="info"
-            title="Saved data"
-            message="Showing saved data while live refresh is unavailable."
-          />
-        ) : null}
+      {notice ? (
+        <InlineNotice
+          variant={notice.variant}
+          title={notice.title}
+          message={notice.message}
+          actionLabel={notice.actionLabel}
+          onAction={notice.onAction}
+        />
+      ) : null}
 
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
+      <View style={styles.toggleRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setWindowDays(14)}
+          style={({ pressed }) => [
+            styles.toggleChip,
+            windowDays === 14 ? styles.toggleChipActive : null,
+            pressed ? styles.toggleChipPressed : null,
+          ]}
+        >
+          <Text style={[styles.toggleText, windowDays === 14 ? styles.toggleTextActive : null]}>
+            14 days
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setWindowDays(30)}
+          style={({ pressed }) => [
+            styles.toggleChip,
+            windowDays === 30 ? styles.toggleChipActive : null,
+            pressed ? styles.toggleChipPressed : null,
+          ]}
+        >
+          <Text style={[styles.toggleText, windowDays === 30 ? styles.toggleTextActive : null]}>
+            30 days
+          </Text>
+        </Pressable>
+      </View>
 
-        <View style={styles.toggleRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setWindowDays(14)}
-            style={({ pressed }) => [
-              styles.toggleChip,
-              windowDays === 14 ? styles.toggleChipActive : null,
-              pressed ? styles.toggleChipPressed : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                windowDays === 14 ? styles.toggleTextActive : null,
-              ]}
-            >
-              14 days
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setWindowDays(30)}
-            style={({ pressed }) => [
-              styles.toggleChip,
-              windowDays === 30 ? styles.toggleChipActive : null,
-              pressed ? styles.toggleChipPressed : null,
-            ]}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                windowDays === 30 ? styles.toggleTextActive : null,
-              ]}
-            >
-              30 days
-            </Text>
-          </Pressable>
+      <View style={styles.summaryGrid}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Check-ins</Text>
+          <Text style={styles.summaryValue}>{activeSummary.checkinCount}</Text>
         </View>
-
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Check-ins</Text>
-            <Text style={styles.summaryValue}>{activeSummary.checkinCount}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Average pain</Text>
-            <Text style={styles.summaryValue}>{formatValue(activeSummary.avgPain, "/10")}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Average mood</Text>
-            <Text style={styles.summaryValue}>{formatValue(activeSummary.avgMood, "/5")}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Exercise adherence</Text>
-            <Text style={styles.summaryValue}>
-              {formatValue(activeSummary.avgExerciseAdherencePct, "%")}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Medication taken</Text>
-            <Text style={styles.summaryValue}>
-              {formatValue(activeSummary.medicationYesPct, "%")}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Avg sleep (hrs)</Text>
-            <Text style={styles.summaryValue}>
-              {formatValue(activeSummary.avgSleepHours)}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Avg sleep quality</Text>
-            <Text style={styles.summaryValue}>
-              {formatValue(activeSummary.avgSleepQuality, "/5")}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Avg hydration</Text>
-            <Text style={styles.summaryValue}>
-              {formatValue(hydrationSummary.avgDailyMl, " ml")}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Hydration goal days</Text>
-            <Text style={styles.summaryValue}>{hydrationSummary.daysMeetingTarget}</Text>
-          </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Average pain</Text>
+          <Text style={styles.summaryValue}>{formatValue(activeSummary.avgPain, "/10")}</Text>
         </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Average mood</Text>
+          <Text style={styles.summaryValue}>{formatValue(activeSummary.avgMood, "/5")}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Exercise adherence</Text>
+          <Text style={styles.summaryValue}>
+            {formatValue(activeSummary.avgExerciseAdherencePct, "%")}
+          </Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Medication taken</Text>
+          <Text style={styles.summaryValue}>{formatValue(activeSummary.medicationYesPct, "%")}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Avg sleep (hrs)</Text>
+          <Text style={styles.summaryValue}>{formatValue(activeSummary.avgSleepHours)}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Avg sleep quality</Text>
+          <Text style={styles.summaryValue}>
+            {formatValue(activeSummary.avgSleepQuality, "/5")}
+          </Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Avg hydration</Text>
+          <Text style={styles.summaryValue}>{formatValue(hydrationSummary.avgDailyMl, " ml")}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Hydration goal days</Text>
+          <Text style={styles.summaryValue}>{hydrationSummary.daysMeetingTarget}</Text>
+        </View>
+      </View>
 
-        <View style={styles.historySection}>
-          <Text style={styles.historyTitle}>Recent check-ins</Text>
-          {isLoading && items.length === 0 ? (
+      <Text style={styles.historyTitle}>Recent check-ins</Text>
+    </View>
+  );
+
+  return (
+    <Screen title="Progress" scroll={false}>
+      <FlatList
+        data={historyItems}
+        keyExtractor={checkinKey}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              void loadProgress("refresh");
+            }}
+          />
+        }
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={listHeader}
+        renderItem={({ item }) => {
+          const exercisePct =
+            typeof item.adherence?.exercises === "number"
+              ? `${Math.round(item.adherence.exercises * 100)}%`
+              : "—";
+          const medTaken =
+            typeof item.adherence?.medication === "boolean"
+              ? item.adherence.medication
+                ? "Yes"
+                : "No"
+              : "—";
+          const sleepSummary =
+            typeof item.sleep?.hours === "number"
+              ? `${item.sleep.hours.toFixed(1)}h`
+              : typeof item.sleep?.quality === "number"
+                ? `Q${item.sleep.quality}/5`
+                : null;
+
+          return (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setSelectedCheckin(item);
+                router.push("/checkin-detail" as any);
+              }}
+              style={({ pressed }) => [styles.rowCard, pressed ? styles.rowCardPressed : null]}
+            >
+              <Text style={styles.rowDate}>{displayDate(item)}</Text>
+              <Text style={styles.rowMeta}>Pain {item.pain}/10</Text>
+              <Text style={styles.rowMeta}>Mood {item.mood}/5</Text>
+              <Text style={styles.rowMeta}>Exercises {exercisePct}</Text>
+              <Text style={styles.rowMeta}>Medication {medTaken}</Text>
+              {sleepSummary ? <Text style={styles.rowMeta}>Sleep {sleepSummary}</Text> : null}
+            </Pressable>
+          );
+        }}
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
           ) : (
-            <FlatList
-              data={items.slice(0, 30)}
-              keyExtractor={(item, index) => `${item.id}-${index}`}
-              refreshControl={
-                <RefreshControl
-                  refreshing={isRefreshing}
-                  onRefresh={() => {
-                    void loadProgress("refresh");
-                  }}
-                />
-              }
-              contentContainerStyle={styles.listContent}
-              renderItem={({ item }) => {
-                const exercisePct =
-                  typeof item.adherence?.exercises === "number"
-                    ? `${Math.round(item.adherence.exercises * 100)}%`
-                    : "—";
-                const medTaken =
-                  typeof item.adherence?.medication === "boolean"
-                    ? item.adherence.medication
-                      ? "Yes"
-                      : "No"
-                    : "—";
-                const sleepSummary =
-                  typeof item.sleep?.hours === "number"
-                    ? `${item.sleep.hours.toFixed(1)}h`
-                    : typeof item.sleep?.quality === "number"
-                      ? `Q${item.sleep.quality}/5`
-                      : null;
-
-                return (
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setSelectedCheckin(item);
-                      router.push("/checkin-detail" as any);
-                    }}
-                    style={({ pressed }) => [
-                      styles.rowCard,
-                      pressed ? styles.rowCardPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.rowDate}>{displayDate(item)}</Text>
-                    <Text style={styles.rowMeta}>Pain {item.pain}/10</Text>
-                    <Text style={styles.rowMeta}>Mood {item.mood}/5</Text>
-                    <Text style={styles.rowMeta}>Exercises {exercisePct}</Text>
-                    <Text style={styles.rowMeta}>Medication {medTaken}</Text>
-                    {sleepSummary ? (
-                      <Text style={styles.rowMeta}>Sleep {sleepSummary}</Text>
-                    ) : null}
-                  </Pressable>
-                );
-              }}
-              ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>
-                    No check-ins yet. Your trends will appear after your first check-in.
-                  </Text>
-                </View>
-              }
-            />
-          )}
-        </View>
-
-      </View>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>
+                No check-ins yet. Your trends will appear after your first check-in.
+              </Text>
+            </View>
+          )
+        }
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  listHeader: {
     gap: 8,
   },
   centered: {
@@ -587,10 +583,6 @@ const styles = StyleSheet.create({
     color: "#111827",
     fontWeight: "700",
   },
-  historySection: {
-    flex: 1,
-    marginTop: 2,
-  },
   historyTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -598,7 +590,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     gap: 8,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   rowCard: {
     borderWidth: 1,

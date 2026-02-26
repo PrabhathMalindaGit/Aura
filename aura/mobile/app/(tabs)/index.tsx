@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { InlineNotice } from "@/src/components/InlineNotice";
@@ -32,6 +32,7 @@ import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { startOfWeekMondayISO, todayISO } from "@/src/utils/date";
 
+// Layout: Single Screen wrapper; avoid nested ScrollView.
 type StatusSummary = {
   pendingSessions: number;
   pendingProms: number;
@@ -576,8 +577,7 @@ export default function HomeScreen() {
   }, [network.isOffline]);
 
   return (
-    <Screen title="Home">
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen title="Home" scroll contentContainerStyle={styles.container}>
         {notice ? (
           <InlineNotice
             variant={notice.variant}
@@ -763,7 +763,6 @@ export default function HomeScreen() {
             onPress={() => router.push("/(tabs)/settings")}
           />
         </Section>
-      </ScrollView>
     </Screen>
   );
 }

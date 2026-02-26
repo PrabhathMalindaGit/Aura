@@ -30,6 +30,7 @@ export const env = {
     process.env.N8N_WEBHOOK_ALERT || "http://localhost:5678/webhook/alert-created",
   N8N_RETRY_WEBHOOK_URL: process.env.N8N_RETRY_WEBHOOK_URL || "",
   AURA_WEBHOOK_KEY: process.env.AURA_WEBHOOK_KEY || "",
+  AURA_INTERNAL_KEY: process.env.AURA_INTERNAL_KEY || "",
   JWT_SECRET:
     process.env.JWT_SECRET ||
     (nodeEnv === "production" ? "" : "dev_jwt_secret"),
@@ -43,6 +44,10 @@ export const env = {
     (nodeEnv === "production" ? "" : "dev_caregiver_jwt_secret"),
   CAREGIVER_TOKEN_TTL: process.env.CAREGIVER_TOKEN_TTL || "7d",
   DEMO_PATIENT_LOGIN: toBool(process.env.DEMO_PATIENT_LOGIN, false),
+  LEGACY_PUBLIC_ENDPOINTS_ENABLED: toBool(
+    process.env.LEGACY_PUBLIC_ENDPOINTS_ENABLED,
+    false
+  ),
   ALLOW_UNAUTH_CLINICIAN_BODY_IDS: toBool(
     process.env.ALLOW_UNAUTH_CLINICIAN_BODY_IDS,
     false

@@ -3,6 +3,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 import Alert from "../src/models/Alert";
+import AppointmentRequest from "../src/models/AppointmentRequest";
+import AppointmentSlot from "../src/models/AppointmentSlot";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
@@ -38,6 +40,8 @@ describe("seed demo data", () => {
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
+      AppointmentSlot.deleteMany({}),
+      AppointmentRequest.deleteMany({}),
       NutritionLog.deleteMany({}),
       Medication.deleteMany({}),
       MedicationSchedule.deleteMany({}),
@@ -60,6 +64,8 @@ describe("seed demo data", () => {
     expect(firstSummary).toEqual({
       patients: 3,
       checkIns: 66,
+      appointmentSlots: 4,
+      appointmentRequests: 1,
       hydrationLogs: 65,
       nutritionLogs: 34,
       medications: 4,
@@ -175,6 +181,8 @@ describe("seed demo data", () => {
     });
     const resetSummary = await resetDemoData();
     expect(resetSummary.patientsDeleted).toBe(3);
+    expect(resetSummary.appointmentSlotsDeleted).toBe(4);
+    expect(resetSummary.appointmentRequestsDeleted).toBe(1);
     expect(resetSummary.hydrationLogsDeleted).toBe(65);
     expect(resetSummary.nutritionLogsDeleted).toBe(34);
     expect(resetSummary.medicationsDeleted).toBe(4);

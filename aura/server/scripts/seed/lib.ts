@@ -1,4 +1,6 @@
 import Alert from "../../src/models/Alert";
+import AppointmentRequest from "../../src/models/AppointmentRequest";
+import AppointmentSlot from "../../src/models/AppointmentSlot";
 import CareEvent from "../../src/models/CareEvent";
 import ChatMessage from "../../src/models/ChatMessage";
 import CheckIn from "../../src/models/CheckIn";
@@ -69,6 +71,18 @@ interface MedicationScheduleSeedRow {
 interface MedicationLogSeedRow {
   patientId: string;
   medKey: string;
+  doc: Record<string, unknown>;
+}
+
+interface AppointmentSlotSeedRow {
+  slotKey: string;
+  clinicianId: string;
+  doc: Record<string, unknown>;
+}
+
+interface AppointmentRequestSeedRow {
+  patientId: string;
+  slotKey: string;
   doc: Record<string, unknown>;
 }
 
@@ -161,6 +175,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     promInstancesDeleted,
     promTemplatesDeleted,
     exercisePlansDeleted,
+    appointmentSlotsDeleted,
+    appointmentRequestsDeleted,
     medicationSchedulesDeleted,
     medicationsDeleted,
     medicationLogsDeleted,
@@ -176,6 +192,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     PromInstance.deleteMany({ demoTag: DEMO_TAG }),
     PromTemplate.deleteMany({ demoTag: DEMO_TAG }),
     ExercisePlan.deleteMany({ demoTag: DEMO_TAG }),
+    AppointmentSlot.deleteMany({ demoTag: DEMO_TAG }),
+    AppointmentRequest.deleteMany({ demoTag: DEMO_TAG }),
     MedicationSchedule.deleteMany({ demoTag: DEMO_TAG }),
     Medication.deleteMany({ demoTag: DEMO_TAG }),
     MedicationLog.deleteMany({ demoTag: DEMO_TAG }),
@@ -193,6 +211,8 @@ export async function resetDemoData(): Promise<ResetSummary> {
     usersDeleted: usersDeleted.deletedCount ?? 0,
     patientsDeleted: patientsDeleted.deletedCount ?? 0,
     checkInsDeleted: checkInsDeleted.deletedCount ?? 0,
+    appointmentSlotsDeleted: appointmentSlotsDeleted.deletedCount ?? 0,
+    appointmentRequestsDeleted: appointmentRequestsDeleted.deletedCount ?? 0,
     hydrationLogsDeleted: hydrationLogsDeleted.deletedCount ?? 0,
     nutritionLogsDeleted: nutritionLogsDeleted.deletedCount ?? 0,
     chatMessagesDeleted: chatMessagesDeleted.deletedCount ?? 0,
@@ -544,6 +564,88 @@ function buildMedicationSeed(now: Date): {
     medications,
     schedules,
     logs,
+  };
+}
+
+function buildAppointmentSeed(now: Date): {
+  slots: AppointmentSlotSeedRow[];
+  requests: AppointmentRequestSeedRow[];
+} {
+  const baseDay = utcDay(now);
+  const tomorrow = addUtcDays(baseDay, 1);
+  const dayAfter = addUtcDays(baseDay, 2);
+
+  const slots: AppointmentSlotSeedRow[] = [
+    {
+      slotKey: "p1-tomorrow-1000",
+      clinicianId: CLINICIANS.one.id,
+      doc: {
+        clinicianId: CLINICIANS.one.id,
+        startsAt: withUtcTime(tomorrow, 10, 0),
+        endsAt: withUtcTime(tomorrow, 10, 30),
+        modality: "video",
+        status: "available",
+        meetingLink: "https://example.com/meet/demo-slot-1",
+        demoTag: DEMO_TAG,
+      },
+    },
+    {
+      slotKey: "p1-tomorrow-1030",
+      clinicianId: CLINICIANS.one.id,
+      doc: {
+        clinicianId: CLINICIANS.one.id,
+        startsAt: withUtcTime(tomorrow, 10, 30),
+        endsAt: withUtcTime(tomorrow, 11, 0),
+        modality: "video",
+        status: "available",
+        meetingLink: "https://example.com/meet/demo-slot-2",
+        demoTag: DEMO_TAG,
+      },
+    },
+    {
+      slotKey: "p1-tomorrow-1100",
+      clinicianId: CLINICIANS.one.id,
+      doc: {
+        clinicianId: CLINICIANS.one.id,
+        startsAt: withUtcTime(tomorrow, 11, 0),
+        endsAt: withUtcTime(tomorrow, 11, 30),
+        modality: "video",
+        status: "available",
+        meetingLink: "https://example.com/meet/demo-slot-3",
+        demoTag: DEMO_TAG,
+      },
+    },
+    {
+      slotKey: "p3-dayafter-0900",
+      clinicianId: CLINICIANS.two.id,
+      doc: {
+        clinicianId: CLINICIANS.two.id,
+        startsAt: withUtcTime(dayAfter, 9, 0),
+        endsAt: withUtcTime(dayAfter, 9, 30),
+        modality: "video",
+        status: "available",
+        meetingLink: "https://example.com/meet/demo-slot-4",
+        demoTag: DEMO_TAG,
+      },
+    },
+  ];
+
+  const requests: AppointmentRequestSeedRow[] = [
+    {
+      patientId: "p1",
+      slotKey: "p1-tomorrow-1000",
+      doc: {
+        patientId: "p1",
+        status: "pending",
+        note: "Available in the morning.",
+        demoTag: DEMO_TAG,
+      },
+    },
+  ];
+
+  return {
+    slots,
+    requests,
   };
 }
 
@@ -980,6 +1082,28 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
 
   await PromInstance.insertMany(buildPromInstanceSeedDocs(now), { ordered: true });
 
+  const appointmentSeed = buildAppointmentSeed(now);
+  const insertedAppointmentSlots = await AppointmentSlot.insertMany(
+    appointmentSeed.slots.map((row) => row.doc),
+    { ordered: true }
+  );
+  const appointmentSlotIdByKey = new Map<string, string>();
+  appointmentSeed.slots.forEach((row, index) => {
+    appointmentSlotIdByKey.set(row.slotKey, String(insertedAppointmentSlots[index]._id));
+  });
+
+  await AppointmentRequest.insertMany(
+    appointmentSeed.requests.map((row) => ({
+      ...row.doc,
+      slotId: requireMappedId(
+        appointmentSlotIdByKey,
+        row.slotKey,
+        `${row.patientId} appointment request slot`
+      ),
+    })),
+    { ordered: true }
+  );
+
   const medicationSeed = buildMedicationSeed(now);
   const insertedMedications = await Medication.insertMany(
     medicationSeed.medications.map((row) => row.doc),
@@ -1084,6 +1208,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   const [
     patients,
     checkIns,
+    appointmentSlots,
+    appointmentRequests,
     hydrationLogs,
     nutritionLogs,
     medications,
@@ -1098,6 +1224,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   ] = await Promise.all([
     Patient.countDocuments({ demoTag: DEMO_TAG }),
     CheckIn.countDocuments({ demoTag: DEMO_TAG }),
+    AppointmentSlot.countDocuments({ demoTag: DEMO_TAG }),
+    AppointmentRequest.countDocuments({ demoTag: DEMO_TAG }),
     HydrationLog.countDocuments({ demoTag: DEMO_TAG }),
     NutritionLog.countDocuments({ demoTag: DEMO_TAG }),
     Medication.countDocuments({ demoTag: DEMO_TAG }),
@@ -1119,6 +1247,8 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   return {
     patients,
     checkIns,
+    appointmentSlots,
+    appointmentRequests,
     hydrationLogs,
     nutritionLogs,
     medications,

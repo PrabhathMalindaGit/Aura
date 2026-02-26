@@ -111,6 +111,10 @@ export function AppShell(): JSX.Element {
       return 'Insights Queue';
     }
 
+    if (pathname.startsWith('/appointments')) {
+      return 'Appointments';
+    }
+
     if (pathname.startsWith('/patients')) {
       return 'Patients';
     }

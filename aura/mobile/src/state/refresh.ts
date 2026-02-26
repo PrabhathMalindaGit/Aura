@@ -15,6 +15,7 @@ export type RefreshKey =
   | "hydration"
   | "nutrition"
   | "medications"
+  | "appointments"
   | "insights"
   | "caregiver"
   | "weeklyReport"

@@ -27,6 +27,10 @@ import {
   type NutritionRangeResponse,
   type MedicationListResponse,
   type MedicationAdherenceRangeResponse,
+  type AppointmentSlot,
+  type AppointmentSlotsResponse,
+  type AppointmentRequestItem,
+  type AppointmentRequestsResponse,
   type PatientPhotosResponse,
   type SymptomPhotoMeta,
   type InsightItem,
@@ -626,6 +630,93 @@ export async function getPatientMedicationAdherence(
       method: 'GET',
     },
   );
+}
+
+export async function createAppointmentSlot(payload: {
+  startsAt: string;
+  endsAt: string;
+  meetingLink?: string;
+}): Promise<AppointmentSlot> {
+  const response = await fetchJson<{
+    ok: true;
+    slot: AppointmentSlot;
+  }>('/clinician/appointments/slots', {
+    method: 'POST',
+    json: payload,
+  });
+
+  return response.slot;
+}
+
+export async function listAppointmentSlots(params: {
+  from?: string;
+  to?: string;
+  status?: 'available' | 'closed';
+  limit?: number;
+} = {}): Promise<AppointmentSlot[]> {
+  const query = new URLSearchParams();
+  if (params.from) {
+    query.set('from', params.from);
+  }
+  if (params.to) {
+    query.set('to', params.to);
+  }
+  if (params.status) {
+    query.set('status', params.status);
+  }
+  if (typeof params.limit === 'number' && Number.isFinite(params.limit)) {
+    query.set('limit', String(Math.max(1, Math.trunc(params.limit))));
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const response = await fetchJson<AppointmentSlotsResponse>(
+    `/clinician/appointments/slots${suffix}`,
+    { method: 'GET' },
+  );
+  return response.items ?? [];
+}
+
+export async function listAppointmentRequests(params: {
+  status?: 'pending' | 'approved' | 'rejected' | 'canceled';
+  from?: string;
+  to?: string;
+  limit?: number;
+} = {}): Promise<AppointmentRequestItem[]> {
+  const query = new URLSearchParams();
+  if (params.status) {
+    query.set('status', params.status);
+  }
+  if (params.from) {
+    query.set('from', params.from);
+  }
+  if (params.to) {
+    query.set('to', params.to);
+  }
+  if (typeof params.limit === 'number' && Number.isFinite(params.limit)) {
+    query.set('limit', String(Math.max(1, Math.trunc(params.limit))));
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const response = await fetchJson<AppointmentRequestsResponse>(
+    `/clinician/appointments/requests${suffix}`,
+    { method: 'GET' },
+  );
+  return response.items ?? [];
+}
+
+export async function reviewAppointmentRequest(
+  requestId: string,
+  status: 'approved' | 'rejected',
+): Promise<AppointmentRequestItem> {
+  const response = await fetchJson<{
+    ok: true;
+    item: AppointmentRequestItem;
+  }>(`/clinician/appointments/requests/${encodeURIComponent(requestId)}`, {
+    method: 'PATCH',
+    json: { status },
+  });
+
+  return response.item;
 }
 
 export async function getPatientPhotos(

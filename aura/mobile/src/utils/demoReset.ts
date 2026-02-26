@@ -1,5 +1,10 @@
 import { clearCachedChat } from "@/src/state/chatCache";
 import { clearCachedCheckins } from "@/src/state/checkinsCache";
+import {
+  clearCachedAppointmentRequests,
+  clearCachedAppointmentSlots,
+} from "@/src/state/appointmentsCache";
+import { clearAllRemindersForPatient } from "@/src/state/appointmentReminders";
 import { clearAllCaregiverCache } from "@/src/state/caregiverCache";
 import { clearCaregiverSessionStorage } from "@/src/state/caregiverTokenStorage";
 import { clearCachedExercisePlan } from "@/src/state/exercisePlanCache";
@@ -40,6 +45,8 @@ export async function resetDemoState(
   tasks.push(clearCaregiverSessionStorage());
 
   if (patientId) {
+    tasks.push(clearCachedAppointmentSlots(patientId));
+    tasks.push(clearCachedAppointmentRequests(patientId));
     tasks.push(clearCachedChat(patientId));
     tasks.push(clearCachedCheckins(patientId));
     tasks.push(clearCachedExercisePlan(patientId));
@@ -60,6 +67,7 @@ export async function resetDemoState(
     tasks.push(clearPendingPhotoUploads(patientId));
     tasks.push(clearPendingPromSubmissions(patientId));
     tasks.push(clearReminderPrefs(patientId));
+    tasks.push(clearAllRemindersForPatient(patientId));
     tasks.push(clearPendingPhotosDirectory());
   }
 

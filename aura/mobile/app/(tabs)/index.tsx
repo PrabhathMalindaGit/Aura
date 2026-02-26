@@ -10,6 +10,7 @@ import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
+import { getCachedAppointmentRequests } from "@/src/state/appointmentsCache";
 import { getUsage } from "@/src/state/copingUsage";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedHydrationDay } from "@/src/state/hydrationCache";
@@ -59,6 +60,13 @@ export default function HomeScreen() {
   const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
   const [pendingMedicationCount, setPendingMedicationCount] = useState(0);
   const [pendingPhotoCount, setPendingPhotoCount] = useState(0);
+  const [appointmentSummary, setAppointmentSummary] = useState<{
+    pendingCount: number;
+    nextApprovedLabel: string;
+  }>({
+    pendingCount: 0,
+    nextApprovedLabel: "None",
+  });
   const [copingSummary, setCopingSummary] = useState<{
     status: "loading" | "ready";
     breathingCount: number;
@@ -116,6 +124,7 @@ export default function HomeScreen() {
   const hydrationRefresh = useLastRefreshed("hydration");
   const nutritionRefresh = useLastRefreshed("nutrition");
   const medicationsRefresh = useLastRefreshed("medications");
+  const appointmentsRefresh = useLastRefreshed("appointments");
   const insightsRefresh = useLastRefreshed("insights");
   const photosRefresh = useLastRefreshed("photos");
   const weeklyReportRefresh = useLastRefreshed("weeklyReport");
@@ -139,6 +148,8 @@ export default function HomeScreen() {
   const nutritionLogError = useLastError("nutritionLog");
   const medicationsLoadError = useLastError("medicationsLoad");
   const medicationLogError = useLastError("medicationLog");
+  const appointmentsLoadError = useLastError("appointmentsLoad");
+  const appointmentRequestError = useLastError("appointmentRequest");
   const insightsLoadError = useLastError("insightsLoad");
   const photosLoadError = useLastError("photosLoad");
   const photoUploadError = useLastError("photoUpload");
@@ -238,6 +249,16 @@ export default function HomeScreen() {
         title: medicationLogError.lastError?.title,
       },
       {
+        label: "Appointments load",
+        value: appointmentsLoadError.label,
+        title: appointmentsLoadError.lastError?.title,
+      },
+      {
+        label: "Appointment request",
+        value: appointmentRequestError.label,
+        title: appointmentRequestError.lastError?.title,
+      },
+      {
         label: "Insights load",
         value: insightsLoadError.label,
         title: insightsLoadError.lastError?.title,
@@ -303,6 +324,10 @@ export default function HomeScreen() {
       medicationsLoadError.lastError?.title,
       medicationLogError.label,
       medicationLogError.lastError?.title,
+      appointmentsLoadError.label,
+      appointmentsLoadError.lastError?.title,
+      appointmentRequestError.label,
+      appointmentRequestError.lastError?.title,
       insightsLoadError.label,
       insightsLoadError.lastError?.title,
       photosLoadError.label,
@@ -330,6 +355,7 @@ export default function HomeScreen() {
       hydrationRefresh.reload(),
       nutritionRefresh.reload(),
       medicationsRefresh.reload(),
+      appointmentsRefresh.reload(),
       insightsRefresh.reload(),
       photosRefresh.reload(),
       weeklyReportRefresh.reload(),
@@ -350,6 +376,8 @@ export default function HomeScreen() {
       nutritionLogError.reload(),
       medicationsLoadError.reload(),
       medicationLogError.reload(),
+      appointmentsLoadError.reload(),
+      appointmentRequestError.reload(),
       insightsLoadError.reload(),
       photosLoadError.reload(),
       photoUploadError.reload(),
@@ -711,6 +739,51 @@ export default function HomeScreen() {
     };
   }, [patientId, today, medicationsRefresh.lastRefreshedAt]);
 
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
+      setAppointmentSummary({
+        pendingCount: 0,
+        nextApprovedLabel: "None",
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedAppointmentRequests(patientId);
+      if (!active) {
+        return;
+      }
+
+      const requests = cached?.requests ?? [];
+      const pendingCount = requests.filter((item) => item.status === "pending").length;
+      const approved = requests
+        .filter((item) => item.status === "approved")
+        .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
+      const nextApproved =
+        approved.find((item) => Date.parse(item.startsAt) > Date.now()) ?? approved[0];
+
+      setAppointmentSummary({
+        pendingCount,
+        nextApprovedLabel: nextApproved
+          ? new Date(nextApproved.startsAt).toLocaleString([], {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "None",
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [appointmentsRefresh.lastRefreshedAt, patientId]);
+
   useFocusEffect(
     useCallback(() => {
       void reloadPendingCounts();
@@ -738,7 +811,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/plan/hydration/nutrition/medications/photos/rehab/PROM/weekly-report caches, drafts, pending uploads, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/appointments/plan/hydration/nutrition/medications/photos/rehab/PROM/weekly-report caches, drafts, pending uploads, appointment reminders, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -754,7 +827,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, progress, hydration, nutrition, medications, photos, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, progress, appointments, hydration, nutrition, medications, photos, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, appointment reminders, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -846,6 +919,11 @@ export default function HomeScreen() {
             compact
           />
           <LastRefreshed
+            label="Last refreshed (appointments)"
+            value={appointmentsRefresh.label}
+            compact
+          />
+          <LastRefreshed
             label="Last refreshed (insights)"
             value={insightsRefresh.label}
             compact
@@ -895,6 +973,12 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.statusDetail}>
             Pending medication logs: {pendingMedicationCount}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Appointment requests pending: {appointmentSummary.pendingCount}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Next approved appointment: {appointmentSummary.nextApprovedLabel}
           </Text>
           <Text style={styles.statusDetail}>
             Pending photos: {pendingPhotoCount}
@@ -1004,6 +1088,10 @@ export default function HomeScreen() {
             onPress={() => router.push("/medications" as never)}
           />
           <PrimaryButton
+            label="Appointments"
+            onPress={() => router.push("/appointments" as never)}
+          />
+          <PrimaryButton
             label="Symptom photos"
             onPress={() => router.push("/symptom-photos" as never)}
           />
@@ -1095,6 +1183,9 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.bullet}>
             • Medications: mark dose Taken, go offline and mark another, then sync pending when online.
+          </Text>
+          <Text style={styles.bullet}>
+            • Appointments: request a slot, clinician approves in dashboard, then verify approved status and reminder scheduling.
           </Text>
           <Text style={styles.bullet}>
             • Symptom photos: add online, then add offline and sync pending when back online.

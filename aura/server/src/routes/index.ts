@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import authRoutes from "./auth.routes";
+import appointmentsRoutes from "./appointments.routes";
 import chatRoutes from "./chat.routes";
 import checkinsRoutes from "./checkins.routes";
 import caregiverRoutes from "./caregiver.routes";
@@ -23,6 +24,7 @@ const router = Router();
 
 router.use(healthRoutes);
 router.use(authRoutes);
+router.use(appointmentsRoutes);
 router.use(checkinsRoutes);
 router.use(caregiverRoutes);
 router.use(chatRoutes);

@@ -3,6 +3,8 @@ export type SeedStatus = "open" | "acknowledged" | "resolved";
 export interface SeedSummary {
   patients: number;
   checkIns: number;
+  appointmentSlots: number;
+  appointmentRequests: number;
   hydrationLogs: number;
   nutritionLogs: number;
   medications: number;
@@ -25,6 +27,8 @@ export interface ResetSummary {
   usersDeleted: number;
   patientsDeleted: number;
   checkInsDeleted: number;
+  appointmentSlotsDeleted: number;
+  appointmentRequestsDeleted: number;
   hydrationLogsDeleted: number;
   nutritionLogsDeleted: number;
   medicationsDeleted: number;

@@ -23,6 +23,8 @@ export type ErrorKey =
   | "nutritionLog"
   | "medicationsLoad"
   | "medicationLog"
+  | "appointmentsLoad"
+  | "appointmentRequest"
   | "insightsLoad"
   | "caregiverLoad"
   | "caregiverLogin"

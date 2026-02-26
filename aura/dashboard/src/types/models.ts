@@ -227,6 +227,49 @@ export interface MedicationAdherenceRangeResponse {
   days: MedicationAdherenceDay[];
 }
 
+export type AppointmentSlotStatus = 'available' | 'closed';
+export type AppointmentRequestStatus = 'pending' | 'approved' | 'rejected' | 'canceled';
+
+export interface AppointmentSlot {
+  slotId: string;
+  clinicianId?: string;
+  clinicianName?: string;
+  startsAt: string;
+  endsAt: string;
+  modality: 'video';
+  meetingLink?: string;
+  status?: AppointmentSlotStatus;
+  createdAt?: string;
+}
+
+export interface AppointmentSlotsResponse {
+  ok: true;
+  items: AppointmentSlot[];
+}
+
+export interface AppointmentRequestItem {
+  requestId: string;
+  slotId: string;
+  patientId: string;
+  status: AppointmentRequestStatus;
+  note?: string;
+  startsAt: string;
+  endsAt: string;
+  modality: 'video';
+  meetingLink?: string;
+  reviewedAt?: string;
+  reviewedBy?: {
+    clinicianId: string;
+    name?: string;
+  };
+  createdAt: string;
+}
+
+export interface AppointmentRequestsResponse {
+  ok: true;
+  items: AppointmentRequestItem[];
+}
+
 export type SymptomPhotoKind = 'swelling' | 'wound' | 'rash' | 'other';
 
 export interface SymptomPhotoItem {

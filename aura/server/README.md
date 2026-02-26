@@ -269,6 +269,42 @@ curl -sS "http://localhost:3000/caregiver/reports/weekly?weekStart=2026-02-23&tz
   -H "Authorization: Bearer <CAREGIVER_TOKEN>"
 ```
 
+- Clinician create appointment slot:
+```bash
+curl -sS -X POST http://localhost:3000/clinician/appointments/slots \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"startsAt":"2026-03-20T10:00:00.000Z","endsAt":"2026-03-20T10:30:00.000Z","meetingLink":"https://example.com/meet/aura-demo"}'
+```
+
+- Patient list available appointment slots:
+```bash
+curl -sS "http://localhost:3000/patient/appointments/slots?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient create appointment request:
+```bash
+curl -sS -X POST http://localhost:3000/patient/appointments/requests \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"slotId":"<SLOT_ID>","note":"Morning is best for me"}'
+```
+
+- Clinician review request (approve/reject):
+```bash
+curl -sS -X PATCH "http://localhost:3000/clinician/appointments/requests/<REQUEST_ID>" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>" \
+  -d '{"status":"approved"}'
+```
+
+- Patient list own appointment requests:
+```bash
+curl -sS "http://localhost:3000/patient/appointments/requests?limit=20" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Patient create exercise session:
 ```bash
 curl -sS -X POST http://localhost:3000/patient/exercise-sessions \

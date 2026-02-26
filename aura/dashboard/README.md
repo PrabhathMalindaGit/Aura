@@ -14,6 +14,7 @@ npm run dev
 
 - `/alerts`
 - `/insights`
+- `/appointments`
 - `/patients`
 - `/patients/:patientId`
 - `/patients/:patientId/plan`
@@ -181,6 +182,14 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
 3. Approve one pending suggestion inline, or open `/insights` and approve from the queue.
 4. Confirm pending/approved counts update in patient detail.
 5. In mobile (same patient), open **Insights** and confirm only approved cards are visible.
+
+## Step 17 Add-on #2: Telerehab scheduling
+
+1. Open `/appointments`.
+2. In **Create slot**, add start/end time and optional meeting link, then create a slot.
+3. In **Requests**, keep filter on `pending`, then approve or reject patient requests.
+4. In mobile, patient requests move from pending to approved/rejected after refresh.
+5. Approved requests show appointment details and local reminder scheduling on mobile.
 
 ## Notes
 

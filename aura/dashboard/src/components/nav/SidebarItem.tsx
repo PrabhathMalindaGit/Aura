@@ -46,6 +46,17 @@ function NavIcon({ icon }: NavIconProps): JSX.Element {
     );
   }
 
+  if (icon === 'appointments') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2.5 2.5 0 0 1 2.5 2.5v12A2.5 2.5 0 0 1 19 21H5a2.5 2.5 0 0 1-2.5-2.5v-12A2.5 2.5 0 0 1 5 4h1V3a1 1 0 0 1 1-1Zm12.5 8H4.5v8.5c0 .28.22.5.5.5h14c.28 0 .5-.22.5-.5V10ZM5 6a.5.5 0 0 0-.5.5V8h15V6.5a.5.5 0 0 0-.5-.5H18v1a1 1 0 1 1-2 0V6H8v1a1 1 0 1 1-2 0V6H5Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path

@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `insights`, `caregiver`, `weeklyReport`, `photos`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `appointments`, `insights`, `caregiver`, `weeklyReport`, `photos`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `insightsLoad`, `caregiverLoad`, `caregiverLogin`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `appointmentsLoad`, `appointmentRequest`, `insightsLoad`, `caregiverLoad`, `caregiverLogin`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -784,6 +784,35 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 5. Confirm summary + weekly preview are visible.
 6. Turn offline and reopen caregiver home/report:
    - cached data remains visible with offline notice.
+
+## Step 17 Add-on #2: Telerehab scheduling
+
+- New patient route:
+  - `/appointments`
+- Demo Hub integration:
+  - quick action **Appointments**
+  - cached summary for pending request count and next approved time.
+
+### Behavior
+
+- Patient can browse available slots and submit requests while online.
+- Request statuses are explicit: `pending`, `approved`, `rejected`, `canceled`.
+- Offline mode:
+  - cached slots/requests remain visible
+  - booking/cancel actions are blocked with `Nothing was sent`.
+- Approved appointments schedule a local notification 15 minutes before start time.
+
+### Step 17 Add-on #2 demo flow
+
+1. In dashboard, clinician opens **Appointments** and creates one upcoming slot.
+2. In mobile, open **Appointments** and request a slot.
+3. Back in dashboard, approve the request.
+4. In mobile, refresh and verify request status is **Approved**.
+5. Confirm reminder scheduling for the approved request.
+6. Turn offline:
+   - open **Appointments**
+   - verify cached slots/requests are visible
+   - verify booking actions are blocked.
 
 ## How to Test Offline
 

@@ -176,6 +176,123 @@ describe("seed demo data", () => {
     expect((p1Rehab?.phases ?? []).length).toBeGreaterThanOrEqual(4);
   });
 
+  it("reset clears untagged demo check-ins that would collide on unique keys", async () => {
+    const fixedNow = new Date("2026-02-22T12:00:00.000Z");
+    const duplicateDate = "2026-02-21";
+
+    await seedDemoData({
+      now: fixedNow,
+      resetFirst: true,
+    });
+
+    await CheckIn.deleteOne({ patientId: "p1", date: duplicateDate });
+    await CheckIn.create({
+      patientId: "p1",
+      date: duplicateDate,
+      mood: 3,
+      pain: 4,
+      adherence: {
+        exercises: 0.5,
+        medication: true,
+      },
+      risk: {
+        level: "low",
+        reasons: [],
+      },
+    });
+
+    await expect(
+      seedDemoData({
+        now: fixedNow,
+        resetFirst: true,
+      })
+    ).resolves.toBeDefined();
+
+    const checkins = await CheckIn.find({
+      patientId: "p1",
+      date: duplicateDate,
+    }).lean();
+    expect(checkins).toHaveLength(1);
+    expect(checkins[0]?.demoTag).toBe(DEMO_TAG);
+  });
+
+  it("reset clears untagged demo wearable rows that would collide on unique keys", async () => {
+    const fixedNow = new Date("2026-02-22T12:00:00.000Z");
+    const duplicateDate = "2026-02-21";
+
+    await seedDemoData({
+      now: fixedNow,
+      resetFirst: true,
+    });
+
+    await WearableDaily.deleteOne({
+      patientId: "p1",
+      source: "mock",
+      date: duplicateDate,
+    });
+    await WearableDaily.create({
+      patientId: "p1",
+      source: "mock",
+      date: duplicateDate,
+      steps: 4200,
+      activeMinutes: 28,
+      restingHr: 72,
+    });
+
+    await expect(
+      seedDemoData({
+        now: fixedNow,
+        resetFirst: true,
+      })
+    ).resolves.toBeDefined();
+
+    const wearableRows = await WearableDaily.find({
+      patientId: "p1",
+      source: "mock",
+      date: duplicateDate,
+    }).lean();
+    expect(wearableRows).toHaveLength(1);
+    expect(wearableRows[0]?.demoTag).toBe(DEMO_TAG);
+  });
+
+  it("reset clears untagged demo appointment slots that would collide on unique keys", async () => {
+    const fixedNow = new Date("2026-02-22T12:00:00.000Z");
+    const duplicateStartsAt = new Date("2026-02-23T10:00:00.000Z");
+    const duplicateEndsAt = new Date("2026-02-23T10:30:00.000Z");
+
+    await seedDemoData({
+      now: fixedNow,
+      resetFirst: true,
+    });
+
+    await AppointmentSlot.deleteOne({
+      clinicianId: "clinician-1",
+      startsAt: duplicateStartsAt,
+    });
+    await AppointmentSlot.create({
+      clinicianId: "clinician-1",
+      startsAt: duplicateStartsAt,
+      endsAt: duplicateEndsAt,
+      modality: "video",
+      status: "available",
+      meetingLink: "https://example.com/meet/runtime-slot",
+    });
+
+    await expect(
+      seedDemoData({
+        now: fixedNow,
+        resetFirst: true,
+      })
+    ).resolves.toBeDefined();
+
+    const slots = await AppointmentSlot.find({
+      clinicianId: "clinician-1",
+      startsAt: duplicateStartsAt,
+    }).lean();
+    expect(slots).toHaveLength(1);
+    expect(slots[0]?.demoTag).toBe(DEMO_TAG);
+  });
+
   it("reset removes only demo-tagged documents", async () => {
     await Patient.create({
       patientId: "non-demo-patient",

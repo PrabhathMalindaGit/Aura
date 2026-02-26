@@ -12,6 +12,10 @@ In the Expo terminal:
 - Press `w` for web
 - Press `a` for Android emulator
 
+## Docs
+
+- UI redesign implementation checklist: `docs/UI_REDESIGN_CHECKLIST.md`
+
 ### Safe start scripts
 
 - `npm run start`: recommended. Cleans invalid port env vars and forces Expo/Metro to port `8081`.

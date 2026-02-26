@@ -1,5 +1,5 @@
-import { Redirect, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -62,6 +62,11 @@ type OptionalStepperProps = Omit<StepperProps, "value" | "onChange"> & {
 type BodyMapSelection = {
   intensity: number;
   type: BodyMapPainType;
+};
+
+type CheckinDevParams = {
+  devPreset?: string | string[];
+  devToken?: string | string[];
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -210,6 +215,7 @@ function toCheckinError(
 
 export default function CheckinScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<CheckinDevParams>();
   const auth = useAuth();
   const isOffline = useIsOffline();
   const checkinsRefresh = useLastRefreshed("checkins");
@@ -230,6 +236,70 @@ export default function CheckinScreen() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
+
+  const devPreset = useMemo(() => {
+    if (Array.isArray(params.devPreset)) {
+      return params.devPreset[0] ?? "";
+    }
+    return params.devPreset ?? "";
+  }, [params.devPreset]);
+
+  const devToken = useMemo(() => {
+    if (Array.isArray(params.devToken)) {
+      return params.devToken[0] ?? "";
+    }
+    return params.devToken ?? "";
+  }, [params.devToken]);
+
+  useEffect(() => {
+    if (!__DEV__ || auth.status !== "signedIn") {
+      return;
+    }
+
+    if (devPreset === "low") {
+      setPain(2);
+      setMood(4);
+      setExercisePercent(80);
+      setMedication(true);
+      setSleepHours(7.5);
+      setSleepQuality(4);
+      setSleepDisturbances(1);
+      setSelectedRegions(["knee_left"]);
+      setBodyMapSelections({
+        knee_left: { intensity: 3, type: "ache" },
+      });
+      setNotes("");
+      setNotice({
+        variant: "success",
+        title: "Preset applied",
+        message: "Loaded low-risk example values.",
+      });
+      router.setParams({ devPreset: "", devToken: "" });
+      return;
+    }
+
+    if (devPreset === "high") {
+      setPain(9);
+      setMood(2);
+      setExercisePercent(20);
+      setMedication(false);
+      setSleepHours(5.5);
+      setSleepQuality(2);
+      setSleepDisturbances(3);
+      setSelectedRegions(["lower_back", "knee_left"]);
+      setBodyMapSelections({
+        lower_back: { intensity: 8, type: "stiffness" },
+        knee_left: { intensity: 7, type: "sharp" },
+      });
+      setNotes("");
+      setNotice({
+        variant: "warning",
+        title: "Preset applied",
+        message: "Loaded high-risk example values.",
+      });
+      router.setParams({ devPreset: "", devToken: "" });
+    }
+  }, [auth.status, devPreset, devToken, router]);
 
   const validationMessage = useMemo(() => {
     if (mood === null || mood < 1 || mood > 5) {
@@ -759,48 +829,6 @@ export default function CheckinScreen() {
             Tip: Avoid names or personal details.
           </Text>
         </Section>
-
-        {__DEV__ ? (
-          <Section title="Developer helpers">
-            <PrimaryButton
-              label="Fill low-risk example"
-              onPress={() => {
-                setPain(2);
-                setMood(4);
-                setExercisePercent(80);
-                setMedication(true);
-                setSleepHours(7.5);
-                setSleepQuality(4);
-                setSleepDisturbances(1);
-                setSelectedRegions(["knee_left"]);
-                setBodyMapSelections({
-                  knee_left: { intensity: 3, type: "ache" },
-                });
-                setNotes("");
-                setNotice(null);
-              }}
-            />
-            <PrimaryButton
-              label="Fill high-risk example"
-              onPress={() => {
-                setPain(9);
-                setMood(2);
-                setExercisePercent(20);
-                setMedication(false);
-                setSleepHours(5.5);
-                setSleepQuality(2);
-                setSleepDisturbances(3);
-                setSelectedRegions(["lower_back", "knee_left"]);
-                setBodyMapSelections({
-                  lower_back: { intensity: 8, type: "stiffness" },
-                  knee_left: { intensity: 7, type: "sharp" },
-                });
-                setNotes("");
-                setNotice(null);
-              }}
-            />
-          </Section>
-        ) : null}
 
         <PrimaryButton
           label={isSubmitting ? "Submitting…" : "Submit check-in"}

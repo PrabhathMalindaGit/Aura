@@ -1,4 +1,4 @@
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +43,11 @@ type NoticeState = {
   message: string;
   actionLabel?: string;
   action?: () => void;
+};
+
+type ChatDevParams = {
+  devPreset?: string | string[];
+  devToken?: string | string[];
 };
 
 const CHAT_LIMIT = 50;
@@ -158,6 +163,7 @@ function toFriendlyMessage(error: ApiError, fallbackTitle: string): {
 
 export default function ChatScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<ChatDevParams>();
   const auth = useAuth();
   const isOffline = useIsOffline();
   const chatRefresh = useLastRefreshed("chat");
@@ -173,6 +179,20 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [showingOfflineCache, setShowingOfflineCache] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+
+  const devPreset = useMemo(() => {
+    if (Array.isArray(params.devPreset)) {
+      return params.devPreset[0] ?? "";
+    }
+    return params.devPreset ?? "";
+  }, [params.devPreset]);
+
+  const devToken = useMemo(() => {
+    if (Array.isArray(params.devToken)) {
+      return params.devToken[0] ?? "";
+    }
+    return params.devToken ?? "";
+  }, [params.devToken]);
 
   const isSendDisabled = useMemo(
     () => isSending || isOffline || !draft.trim(),
@@ -434,6 +454,33 @@ export default function ChatScreen() {
   }, [auth.status, loadHistory]);
 
   useEffect(() => {
+    if (!__DEV__ || auth.status !== "signedIn") {
+      return;
+    }
+
+    if (devPreset === "low") {
+      setDraft("I completed my exercises and feel okay.");
+      setNotice({
+        variant: "info",
+        title: "Preset loaded",
+        message: "Inserted low-risk demo message.",
+      });
+      router.setParams({ devPreset: "", devToken: "" });
+      return;
+    }
+
+    if (devPreset === "high") {
+      setDraft("I have chest pain right now.");
+      setNotice({
+        variant: "warning",
+        title: "Preset loaded",
+        message: "Inserted high-risk demo message.",
+      });
+      router.setParams({ devPreset: "", devToken: "" });
+    }
+  }, [auth.status, devPreset, devToken, router]);
+
+  useEffect(() => {
     if (messages.length === 0) {
       return;
     }
@@ -513,30 +560,6 @@ export default function ChatScreen() {
                 void loadHistory();
               }}
             />
-            {__DEV__ ? (
-              <View style={styles.devRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setDraft("I completed my exercises and feel okay.")}
-                  style={({ pressed }) => [
-                    styles.devButton,
-                    pressed ? styles.devButtonPressed : null,
-                  ]}
-                >
-                  <Text style={styles.devButtonText}>Set low-risk example</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setDraft("I have chest pain right now.")}
-                  style={({ pressed }) => [
-                    styles.devButton,
-                    pressed ? styles.devButtonPressed : null,
-                  ]}
-                >
-                  <Text style={styles.devButtonText}>Set high-risk example</Text>
-                </Pressable>
-              </View>
-            ) : null}
           </View>
 
           <View style={styles.listWrapper}>
@@ -742,25 +765,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     backgroundColor: "#ffffff",
-  },
-  devRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  devButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
-  },
-  devButtonPressed: {
-    opacity: 0.75,
-  },
-  devButtonText: {
-    fontSize: 12,
-    color: "#374151",
-    fontWeight: "500",
   },
 });

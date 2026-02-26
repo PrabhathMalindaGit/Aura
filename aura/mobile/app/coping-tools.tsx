@@ -1,6 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { InlineNotice } from "@/src/components/InlineNotice";
@@ -11,7 +11,6 @@ import { useAuth } from "@/src/state/auth";
 import {
   formatLastUsed,
   getUsage,
-  resetAllUsage,
   type CopingUsage,
 } from "@/src/state/copingUsage";
 
@@ -29,11 +28,6 @@ export default function CopingToolsScreen() {
   const auth = useAuth();
   const router = useRouter();
   const [usage, setUsage] = useState<UsageSummary>(DEFAULT_SUMMARY);
-  const [notice, setNotice] = useState<{
-    variant: "info" | "warning" | "error";
-    title: string;
-    message: string;
-  } | null>(null);
 
   const loadUsage = useCallback(async () => {
     const [breathing, grounding] = await Promise.all([
@@ -52,24 +46,6 @@ export default function CopingToolsScreen() {
       return undefined;
     }, [auth.status, loadUsage])
   );
-
-  const handleResetUsage = async () => {
-    try {
-      await resetAllUsage();
-      await loadUsage();
-      setNotice({
-        variant: "info",
-        title: "Usage reset",
-        message: "Coping tool usage was reset on this device.",
-      });
-    } catch {
-      setNotice({
-        variant: "error",
-        title: "Reset failed",
-        message: "Could not reset usage. Please try again.",
-      });
-    }
-  };
 
   if (auth.status === "loading") {
     return (
@@ -129,49 +105,6 @@ export default function CopingToolsScreen() {
           title="Safety reminder"
           message="If you feel unsafe or in immediate danger, use the Safety screen or contact local emergency services."
         />
-
-        {__DEV__ ? (
-          <Section title="Developer tools">
-            <PrimaryButton
-              label="Reset coping usage"
-              onPress={() => {
-                Alert.alert(
-                  "Reset coping usage?",
-                  "This clears local coping tool counts on this device.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Reset",
-                      style: "destructive",
-                      onPress: () => {
-                        void handleResetUsage();
-                      },
-                    },
-                  ]
-                );
-              }}
-              accessibilityLabel="Reset coping usage"
-            />
-            <PrimaryButton
-              label="Open Safety screen"
-              onPress={() =>
-                router.push({
-                  pathname: "/safety",
-                  params: { reasonCodes: "CRISIS_LANGUAGE" },
-                })
-              }
-              accessibilityLabel="Open safety screen"
-            />
-          </Section>
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
       </ScrollView>
     </Screen>
   );

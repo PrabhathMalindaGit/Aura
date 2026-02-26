@@ -23,7 +23,6 @@ import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { Screen } from "@/src/components/Screen";
 import { useAuth } from "@/src/state/auth";
 import {
-  clearCachedCheckins,
   getCachedCheckins,
   setCachedCheckins,
 } from "@/src/state/checkinsCache";
@@ -519,25 +518,6 @@ export default function ProgressScreen() {
           )}
         </View>
 
-        {__DEV__ && patientId ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              void clearCachedCheckins(patientId);
-              setNotice({
-                variant: "info",
-                title: "Developer",
-                message: "Cleared saved progress cache for this patient.",
-              });
-            }}
-            style={({ pressed }) => [
-              styles.devButton,
-              pressed ? styles.devButtonPressed : null,
-            ]}
-          >
-            <Text style={styles.devButtonText}>Clear saved progress (dev)</Text>
-          </Pressable>
-        ) : null}
       </View>
     </Screen>
   );
@@ -654,23 +634,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     lineHeight: 20,
-  },
-  devButton: {
-    alignSelf: "flex-start",
-    marginTop: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#f9fafb",
-  },
-  devButtonPressed: {
-    opacity: 0.75,
-  },
-  devButtonText: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#374151",
   },
 });

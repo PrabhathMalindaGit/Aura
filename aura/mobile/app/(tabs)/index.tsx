@@ -1,14 +1,12 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { InlineNotice } from "@/src/components/InlineNotice";
-import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
-import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { getCachedAppointmentRequests } from "@/src/state/appointmentsCache";
 import { getUsage } from "@/src/state/copingUsage";
@@ -24,8 +22,7 @@ import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { getCachedWearables } from "@/src/state/wearablesCache";
 import { getWearablesConnected } from "@/src/state/wearablesConnection";
-import { useLastError } from "@/src/state/lastError";
-import { formatNetworkReason, useNetwork } from "@/src/state/network";
+import { useNetwork } from "@/src/state/network";
 import { getPendingNutrition } from "@/src/state/pendingNutrition";
 import { getPendingHydration } from "@/src/state/pendingHydration";
 import { getPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
@@ -34,7 +31,16 @@ import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { startOfWeekMondayISO, todayISO } from "@/src/utils/date";
-import { resetDemoState } from "@/src/utils/demoReset";
+
+type StatusSummary = {
+  pendingSessions: number;
+  pendingProms: number;
+  pendingHydration: number;
+  pendingNutrition: number;
+  pendingMedication: number;
+  pendingPhotos: number;
+  pendingWearables: number;
+};
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
@@ -42,410 +48,135 @@ type NoticeState = {
   message: string;
 };
 
+type CopingSummary = {
+  breathingCount: number;
+  groundingCount: number;
+};
+
+const EMPTY_PENDING: StatusSummary = {
+  pendingSessions: 0,
+  pendingProms: 0,
+  pendingHydration: 0,
+  pendingNutrition: 0,
+  pendingMedication: 0,
+  pendingPhotos: 0,
+  pendingWearables: 0,
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const network = useNetwork();
-  const [notice, setNotice] = useState<NoticeState | null>(null);
-  const [isResetting, setIsResetting] = useState(false);
-  const [planSummary, setPlanSummary] = useState<{
-    status: "loading" | "assigned" | "none";
-    itemCount: number;
-  }>({
-    status: "loading",
-    itemCount: 0,
-  });
-  const [pendingSessionCount, setPendingSessionCount] = useState(0);
-  const [pendingPromCount, setPendingPromCount] = useState(0);
-  const [pendingHydrationCount, setPendingHydrationCount] = useState(0);
-  const [hydrationTodayMl, setHydrationTodayMl] = useState<number | null>(null);
-  const [pendingNutritionCount, setPendingNutritionCount] = useState(0);
-  const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
-  const [pendingMedicationCount, setPendingMedicationCount] = useState(0);
-  const [pendingPhotoCount, setPendingPhotoCount] = useState(0);
-  const [pendingWearablesCount, setPendingWearablesCount] = useState(0);
-  const [wearablesSummary, setWearablesSummary] = useState<{
-    connected: boolean;
-    avgSteps: number | null;
-    trackedDays: number;
-  }>({
-    connected: false,
-    avgSteps: null,
-    trackedDays: 0,
-  });
-  const [appointmentSummary, setAppointmentSummary] = useState<{
-    pendingCount: number;
-    nextApprovedLabel: string;
-  }>({
-    pendingCount: 0,
-    nextApprovedLabel: "None",
-  });
-  const [copingSummary, setCopingSummary] = useState<{
-    status: "loading" | "ready";
-    breathingCount: number;
-    groundingCount: number;
-  }>({
-    status: "loading",
-    breathingCount: 0,
-    groundingCount: 0,
-  });
-  const [photoSummary, setPhotoSummary] = useState<{
-    status: "loading" | "available" | "none";
-    itemCount: number;
-  }>({
-    status: "loading",
-    itemCount: 0,
-  });
-  const [insightSummary, setInsightSummary] = useState<{
-    status: "loading" | "available" | "none";
-    itemCount: number;
-    top: Array<{ id: string; title: string; message: string }>;
-  }>({
-    status: "loading",
-    itemCount: 0,
-    top: [],
-  });
-  const [medicationTodaySummary, setMedicationTodaySummary] = useState<{
-    taken: number;
-    total: number;
-  } | null>(null);
-  const [promSummary, setPromSummary] = useState<{
-    status: "loading" | "hasDue" | "none";
-    dueCount: number;
-  }>({
-    status: "loading",
-    dueCount: 0,
-  });
-  const [rehabSummary, setRehabSummary] = useState<{
-    status: "loading" | "set" | "none";
-    currentTitle: string;
-  }>({
-    status: "loading",
-    currentTitle: "",
-  });
-  const [weeklyReportAvailable, setWeeklyReportAvailable] = useState<
-    "loading" | "available" | "none"
-  >("loading");
-
-  const checkinsRefresh = useLastRefreshed("checkins");
-  const chatRefresh = useLastRefreshed("chat");
-  const progressRefresh = useLastRefreshed("progress");
-  const exercisePlanRefresh = useLastRefreshed("exercisePlan");
-  const exerciseSessionsRefresh = useLastRefreshed("exerciseSessions");
-  const rehabPhasesRefresh = useLastRefreshed("rehabPhases");
-  const promsRefresh = useLastRefreshed("proms");
-  const hydrationRefresh = useLastRefreshed("hydration");
-  const nutritionRefresh = useLastRefreshed("nutrition");
-  const medicationsRefresh = useLastRefreshed("medications");
-  const wearablesRefresh = useLastRefreshed("wearables");
-  const appointmentsRefresh = useLastRefreshed("appointments");
-  const insightsRefresh = useLastRefreshed("insights");
-  const photosRefresh = useLastRefreshed("photos");
-  const weeklyReportRefresh = useLastRefreshed("weeklyReport");
-
-  const authError = useLastError("auth");
-  const checkinSubmitError = useLastError("checkinSubmit");
-  const chatLoadError = useLastError("chatLoad");
-  const chatSendError = useLastError("chatSend");
-  const progressLoadError = useLastError("progressLoad");
-  const exercisePlanLoadError = useLastError("exercisePlanLoad");
-  const rehabPhasesLoadError = useLastError("rehabPhasesLoad");
-  const exerciseSessionSaveError = useLastError("exerciseSessionSave");
-  const exerciseSessionsLoadError = useLastError("exerciseSessionsLoad");
-  const reminderPermissionError = useLastError("reminderPermission");
-  const reminderScheduleError = useLastError("reminderSchedule");
-  const promsLoadError = useLastError("promsLoad");
-  const promSubmitError = useLastError("promSubmit");
-  const hydrationLoadError = useLastError("hydrationLoad");
-  const hydrationLogError = useLastError("hydrationLog");
-  const nutritionLoadError = useLastError("nutritionLoad");
-  const nutritionLogError = useLastError("nutritionLog");
-  const medicationsLoadError = useLastError("medicationsLoad");
-  const medicationLogError = useLastError("medicationLog");
-  const wearablesLoadError = useLastError("wearablesLoad");
-  const wearablesSyncError = useLastError("wearablesSync");
-  const appointmentsLoadError = useLastError("appointmentsLoad");
-  const appointmentRequestError = useLastError("appointmentRequest");
-  const insightsLoadError = useLastError("insightsLoad");
-  const photosLoadError = useLastError("photosLoad");
-  const photoUploadError = useLastError("photoUpload");
-  const weeklyReportLoadError = useLastError("weeklyReportLoad");
-
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
   const thisWeekStart = startOfWeekMondayISO(tzOffsetMinutes);
   const today = todayISO();
 
-  const failedAttemptLines = useMemo(
-    () => [
-      {
-        label: "Auth",
-        value: authError.label,
-        title: authError.lastError?.title,
-      },
-      {
-        label: "Check-in submit",
-        value: checkinSubmitError.label,
-        title: checkinSubmitError.lastError?.title,
-      },
-      {
-        label: "Chat load",
-        value: chatLoadError.label,
-        title: chatLoadError.lastError?.title,
-      },
-      {
-        label: "Chat send",
-        value: chatSendError.label,
-        title: chatSendError.lastError?.title,
-      },
-      {
-        label: "Progress load",
-        value: progressLoadError.label,
-        title: progressLoadError.lastError?.title,
-      },
-      {
-        label: "Exercise plan load",
-        value: exercisePlanLoadError.label,
-        title: exercisePlanLoadError.lastError?.title,
-      },
-      {
-        label: "Rehab phases load",
-        value: rehabPhasesLoadError.label,
-        title: rehabPhasesLoadError.lastError?.title,
-      },
-      {
-        label: "Exercise session save",
-        value: exerciseSessionSaveError.label,
-        title: exerciseSessionSaveError.lastError?.title,
-      },
-      {
-        label: "Exercise sessions load",
-        value: exerciseSessionsLoadError.label,
-        title: exerciseSessionsLoadError.lastError?.title,
-      },
-      {
-        label: "PROMs load",
-        value: promsLoadError.label,
-        title: promsLoadError.lastError?.title,
-      },
-      {
-        label: "PROM submit",
-        value: promSubmitError.label,
-        title: promSubmitError.lastError?.title,
-      },
-      {
-        label: "Hydration load",
-        value: hydrationLoadError.label,
-        title: hydrationLoadError.lastError?.title,
-      },
-      {
-        label: "Hydration log",
-        value: hydrationLogError.label,
-        title: hydrationLogError.lastError?.title,
-      },
-      {
-        label: "Nutrition load",
-        value: nutritionLoadError.label,
-        title: nutritionLoadError.lastError?.title,
-      },
-      {
-        label: "Nutrition log",
-        value: nutritionLogError.label,
-        title: nutritionLogError.lastError?.title,
-      },
-      {
-        label: "Medications load",
-        value: medicationsLoadError.label,
-        title: medicationsLoadError.lastError?.title,
-      },
-      {
-        label: "Medication log",
-        value: medicationLogError.label,
-        title: medicationLogError.lastError?.title,
-      },
-      {
-        label: "Wearables load",
-        value: wearablesLoadError.label,
-        title: wearablesLoadError.lastError?.title,
-      },
-      {
-        label: "Wearables sync",
-        value: wearablesSyncError.label,
-        title: wearablesSyncError.lastError?.title,
-      },
-      {
-        label: "Appointments load",
-        value: appointmentsLoadError.label,
-        title: appointmentsLoadError.lastError?.title,
-      },
-      {
-        label: "Appointment request",
-        value: appointmentRequestError.label,
-        title: appointmentRequestError.lastError?.title,
-      },
-      {
-        label: "Insights load",
-        value: insightsLoadError.label,
-        title: insightsLoadError.lastError?.title,
-      },
-      {
-        label: "Photos load",
-        value: photosLoadError.label,
-        title: photosLoadError.lastError?.title,
-      },
-      {
-        label: "Photo upload",
-        value: photoUploadError.label,
-        title: photoUploadError.lastError?.title,
-      },
-      {
-        label: "Weekly report load",
-        value: weeklyReportLoadError.label,
-        title: weeklyReportLoadError.lastError?.title,
-      },
-      {
-        label: "Reminder permission",
-        value: reminderPermissionError.label,
-        title: reminderPermissionError.lastError?.title,
-      },
-      {
-        label: "Reminder schedule",
-        value: reminderScheduleError.label,
-        title: reminderScheduleError.lastError?.title,
-      },
-    ],
-    [
-      authError.label,
-      authError.lastError?.title,
-      checkinSubmitError.label,
-      checkinSubmitError.lastError?.title,
-      chatLoadError.label,
-      chatLoadError.lastError?.title,
-      chatSendError.label,
-      chatSendError.lastError?.title,
-      progressLoadError.label,
-      progressLoadError.lastError?.title,
-      exercisePlanLoadError.label,
-      exercisePlanLoadError.lastError?.title,
-      rehabPhasesLoadError.label,
-      rehabPhasesLoadError.lastError?.title,
-      exerciseSessionSaveError.label,
-      exerciseSessionSaveError.lastError?.title,
-      exerciseSessionsLoadError.label,
-      exerciseSessionsLoadError.lastError?.title,
-      promsLoadError.label,
-      promsLoadError.lastError?.title,
-      promSubmitError.label,
-      promSubmitError.lastError?.title,
-      hydrationLoadError.label,
-      hydrationLoadError.lastError?.title,
-      hydrationLogError.label,
-      hydrationLogError.lastError?.title,
-      nutritionLoadError.label,
-      nutritionLoadError.lastError?.title,
-      nutritionLogError.label,
-      nutritionLogError.lastError?.title,
-      medicationsLoadError.label,
-      medicationsLoadError.lastError?.title,
-      medicationLogError.label,
-      medicationLogError.lastError?.title,
-      wearablesLoadError.label,
-      wearablesLoadError.lastError?.title,
-      wearablesSyncError.label,
-      wearablesSyncError.lastError?.title,
-      appointmentsLoadError.label,
-      appointmentsLoadError.lastError?.title,
-      appointmentRequestError.label,
-      appointmentRequestError.lastError?.title,
-      insightsLoadError.label,
-      insightsLoadError.lastError?.title,
-      photosLoadError.label,
-      photosLoadError.lastError?.title,
-      photoUploadError.label,
-      photoUploadError.lastError?.title,
-      weeklyReportLoadError.label,
-      weeklyReportLoadError.lastError?.title,
-      reminderPermissionError.label,
-      reminderPermissionError.lastError?.title,
-      reminderScheduleError.label,
-      reminderScheduleError.lastError?.title,
-    ]
+  const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [planSummary, setPlanSummary] = useState<{
+    status: "loading" | "assigned" | "none";
+    itemCount: number;
+  }>({ status: "loading", itemCount: 0 });
+  const [rehabSummary, setRehabSummary] = useState<{
+    status: "loading" | "set" | "none";
+    currentTitle: string;
+  }>({ status: "loading", currentTitle: "" });
+  const [promSummary, setPromSummary] = useState<{
+    status: "loading" | "hasDue" | "none";
+    dueCount: number;
+  }>({ status: "loading", dueCount: 0 });
+  const [weeklyReportAvailable, setWeeklyReportAvailable] = useState<
+    "loading" | "available" | "none"
+  >("loading");
+  const [insightSummary, setInsightSummary] = useState<{
+    status: "loading" | "available" | "none";
+    itemCount: number;
+    top: Array<{ id: string; title: string; message: string }>;
+  }>({ status: "loading", itemCount: 0, top: [] });
+  const [hydrationTodayMl, setHydrationTodayMl] = useState<number | null>(null);
+  const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
+  const [medicationTodaySummary, setMedicationTodaySummary] = useState<{
+    taken: number;
+    total: number;
+  } | null>(null);
+  const [wearablesSummary, setWearablesSummary] = useState<{
+    connected: boolean;
+    avgSteps: number | null;
+    trackedDays: number;
+  }>({ connected: false, avgSteps: null, trackedDays: 0 });
+  const [appointmentSummary, setAppointmentSummary] = useState<{
+    pendingCount: number;
+    nextApprovedLabel: string;
+  }>({ pendingCount: 0, nextApprovedLabel: "None" });
+  const [pendingSummary, setPendingSummary] = useState<StatusSummary>(EMPTY_PENDING);
+  const [photoSummary, setPhotoSummary] = useState<{
+    status: "loading" | "available" | "none";
+    itemCount: number;
+  }>({ status: "loading", itemCount: 0 });
+  const [copingSummary, setCopingSummary] = useState<CopingSummary>({
+    breathingCount: 0,
+    groundingCount: 0,
+  });
+
+  const exercisePlanRefresh = useLastRefreshed("exercisePlan");
+  const rehabPhasesRefresh = useLastRefreshed("rehabPhases");
+  const promsRefresh = useLastRefreshed("proms");
+  const weeklyReportRefresh = useLastRefreshed("weeklyReport");
+  const insightsRefresh = useLastRefreshed("insights");
+  const hydrationRefresh = useLastRefreshed("hydration");
+  const nutritionRefresh = useLastRefreshed("nutrition");
+  const medicationsRefresh = useLastRefreshed("medications");
+  const wearablesRefresh = useLastRefreshed("wearables");
+  const appointmentsRefresh = useLastRefreshed("appointments");
+  const photosRefresh = useLastRefreshed("photos");
+
+  const totalPendingUploads = useMemo(
+    () =>
+      pendingSummary.pendingSessions +
+      pendingSummary.pendingProms +
+      pendingSummary.pendingHydration +
+      pendingSummary.pendingNutrition +
+      pendingSummary.pendingMedication +
+      pendingSummary.pendingPhotos +
+      pendingSummary.pendingWearables,
+    [pendingSummary]
   );
 
-  const reloadDiagnostics = async () => {
-    await Promise.all([
-      checkinsRefresh.reload(),
-      chatRefresh.reload(),
-      progressRefresh.reload(),
-      exercisePlanRefresh.reload(),
-      exerciseSessionsRefresh.reload(),
-      rehabPhasesRefresh.reload(),
-      promsRefresh.reload(),
-      hydrationRefresh.reload(),
-      nutritionRefresh.reload(),
-      medicationsRefresh.reload(),
-      wearablesRefresh.reload(),
-      appointmentsRefresh.reload(),
-      insightsRefresh.reload(),
-      photosRefresh.reload(),
-      weeklyReportRefresh.reload(),
-      authError.reload(),
-      checkinSubmitError.reload(),
-      chatLoadError.reload(),
-      chatSendError.reload(),
-      progressLoadError.reload(),
-      exercisePlanLoadError.reload(),
-      rehabPhasesLoadError.reload(),
-      exerciseSessionSaveError.reload(),
-      exerciseSessionsLoadError.reload(),
-      promsLoadError.reload(),
-      promSubmitError.reload(),
-      hydrationLoadError.reload(),
-      hydrationLogError.reload(),
-      nutritionLoadError.reload(),
-      nutritionLogError.reload(),
-      medicationsLoadError.reload(),
-      medicationLogError.reload(),
-      wearablesLoadError.reload(),
-      wearablesSyncError.reload(),
-      appointmentsLoadError.reload(),
-      appointmentRequestError.reload(),
-      insightsLoadError.reload(),
-      photosLoadError.reload(),
-      photoUploadError.reload(),
-      weeklyReportLoadError.reload(),
-      reminderPermissionError.reload(),
-      reminderScheduleError.reload(),
-    ]);
-  };
-
-  const reloadPendingCounts = async (): Promise<void> => {
+  const reloadPendingCounts = useCallback(async (): Promise<void> => {
     if (!patientId) {
-      setPendingSessionCount(0);
-      setPendingPromCount(0);
-      setPendingHydrationCount(0);
-      setPendingNutritionCount(0);
-      setPendingMedicationCount(0);
-      setPendingPhotoCount(0);
-      setPendingWearablesCount(0);
+      setPendingSummary(EMPTY_PENDING);
       return;
     }
-    const pending = await getPending(patientId);
-    setPendingSessionCount(pending.length);
-    const pendingProms = await getPendingPromSubmissions(patientId);
-    setPendingPromCount(pendingProms.length);
-    const pendingHydration = await getPendingHydration(patientId);
-    setPendingHydrationCount(pendingHydration.length);
-    const pendingNutrition = await getPendingNutrition(patientId);
-    setPendingNutritionCount(pendingNutrition.length);
-    const pendingMedication = await getPendingMedicationLogs(patientId);
-    setPendingMedicationCount(pendingMedication.length);
-    const pendingPhotos = await getPendingPhotoUploads(patientId);
-    setPendingPhotoCount(pendingPhotos.length);
-    const pendingWearables = await getPendingWearablesSync(patientId);
-    setPendingWearablesCount(pendingWearables.length);
-  };
+
+    const [
+      pendingSessions,
+      pendingProms,
+      pendingHydration,
+      pendingNutrition,
+      pendingMedication,
+      pendingPhotos,
+      pendingWearables,
+    ] = await Promise.all([
+      getPending(patientId),
+      getPendingPromSubmissions(patientId),
+      getPendingHydration(patientId),
+      getPendingNutrition(patientId),
+      getPendingMedicationLogs(patientId),
+      getPendingPhotoUploads(patientId),
+      getPendingWearablesSync(patientId),
+    ]);
+
+    setPendingSummary({
+      pendingSessions: pendingSessions.length,
+      pendingProms: pendingProms.length,
+      pendingHydration: pendingHydration.length,
+      pendingNutrition: pendingNutrition.length,
+      pendingMedication: pendingMedication.length,
+      pendingPhotos: pendingPhotos.length,
+      pendingWearables: pendingWearables.length,
+    });
+  }, [patientId]);
 
   const loadCopingUsage = useCallback(async (): Promise<void> => {
     const [breathing, grounding] = await Promise.all([
@@ -453,20 +184,23 @@ export default function HomeScreen() {
       getUsage("grounding"),
     ]);
     setCopingSummary({
-      status: "ready",
       breathingCount: breathing.count,
       groundingCount: grounding.count,
     });
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      void reloadPendingCounts();
+      void loadCopingUsage();
+      return undefined;
+    }, [reloadPendingCounts, loadCopingUsage])
+  );
+
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
-      setPlanSummary({
-        status: "none",
-        itemCount: 0,
-      });
+      setPlanSummary({ status: "none", itemCount: 0 });
       return () => {
         active = false;
       };
@@ -477,7 +211,6 @@ export default function HomeScreen() {
       if (!active) {
         return;
       }
-
       const itemCount = cached?.response.plan?.items?.length ?? 0;
       setPlanSummary({
         status: cached?.response.plan ? "assigned" : "none",
@@ -492,12 +225,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
-      setRehabSummary({
-        status: "none",
-        currentTitle: "",
-      });
+      setRehabSummary({ status: "none", currentTitle: "" });
       return () => {
         active = false;
       };
@@ -511,10 +240,7 @@ export default function HomeScreen() {
 
       const rehab = cached?.rehab;
       if (!rehab || rehab.phases.length === 0) {
-        setRehabSummary({
-          status: "none",
-          currentTitle: "",
-        });
+        setRehabSummary({ status: "none", currentTitle: "" });
         return;
       }
 
@@ -535,12 +261,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
-      setPromSummary({
-        status: "none",
-        dueCount: 0,
-      });
+      setPromSummary({ status: "none", dueCount: 0 });
       return () => {
         active = false;
       };
@@ -551,7 +273,6 @@ export default function HomeScreen() {
       if (!active) {
         return;
       }
-
       const dueCount = cached?.dueCards.length ?? 0;
       setPromSummary({
         status: dueCount > 0 ? "hasDue" : "none",
@@ -566,7 +287,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
       setWeeklyReportAvailable("none");
       return () => {
@@ -579,7 +299,6 @@ export default function HomeScreen() {
       if (!active) {
         return;
       }
-
       setWeeklyReportAvailable(cached ? "available" : "none");
     })();
 
@@ -590,12 +309,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
-      setPhotoSummary({
-        status: "none",
-        itemCount: 0,
-      });
+      setPhotoSummary({ status: "none", itemCount: 0 });
       return () => {
         active = false;
       };
@@ -606,13 +321,12 @@ export default function HomeScreen() {
       if (!active) {
         return;
       }
+
       if (!cached) {
-        setPhotoSummary({
-          status: "none",
-          itemCount: 0,
-        });
+        setPhotoSummary({ status: "none", itemCount: 0 });
         return;
       }
+
       setPhotoSummary({
         status: cached.items.length > 0 ? "available" : "none",
         itemCount: cached.items.length,
@@ -626,13 +340,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
-      setInsightSummary({
-        status: "none",
-        itemCount: 0,
-        top: [],
-      });
+      setInsightSummary({ status: "none", itemCount: 0, top: [] });
       return () => {
         active = false;
       };
@@ -643,19 +352,16 @@ export default function HomeScreen() {
       if (!active) {
         return;
       }
+
       if (!cached || cached.items.length === 0) {
-        setInsightSummary({
-          status: "none",
-          itemCount: 0,
-          top: [],
-        });
+        setInsightSummary({ status: "none", itemCount: 0, top: [] });
         return;
       }
 
       setInsightSummary({
         status: "available",
         itemCount: cached.items.length,
-        top: cached.items.slice(0, 2).map((item) => ({
+        top: cached.items.slice(0, 1).map((item) => ({
           id: item.id,
           title: item.title,
           message: item.message,
@@ -666,11 +372,10 @@ export default function HomeScreen() {
     return () => {
       active = false;
     };
-  }, [insightsRefresh.lastRefreshedAt, patientId]);
+  }, [patientId, insightsRefresh.lastRefreshedAt]);
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
       setHydrationTodayMl(null);
       return () => {
@@ -679,8 +384,10 @@ export default function HomeScreen() {
     }
 
     void (async () => {
-      const cached = await getCachedHydrationDay(patientId, today);
-      const pending = await getPendingHydration(patientId);
+      const [cached, pending] = await Promise.all([
+        getCachedHydrationDay(patientId, today),
+        getPendingHydration(patientId),
+      ]);
       if (!active) {
         return;
       }
@@ -697,7 +404,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
       setNutritionTodayLogged(null);
       return () => {
@@ -706,11 +412,14 @@ export default function HomeScreen() {
     }
 
     void (async () => {
-      const cached = await getCachedNutritionDay(patientId, today);
-      const pending = await getPendingNutrition(patientId);
+      const [cached, pending] = await Promise.all([
+        getCachedNutritionDay(patientId, today),
+        getPendingNutrition(patientId),
+      ]);
       if (!active) {
         return;
       }
+
       const pendingToday = pending.some((entry) => entry.date === today);
       setNutritionTodayLogged(Boolean(cached?.entry) || pendingToday);
     })();
@@ -722,7 +431,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
       setMedicationTodaySummary(null);
       return () => {
@@ -777,29 +485,25 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
       setWearablesSummary({
         connected: false,
         avgSteps: null,
         trackedDays: 0,
       });
-      setPendingWearablesCount(0);
       return () => {
         active = false;
       };
     }
 
     void (async () => {
-      const [cached, connected, pendingWearables] = await Promise.all([
+      const [cached, connected] = await Promise.all([
         getCachedWearables(patientId),
         getWearablesConnected(patientId),
-        getPendingWearablesSync(patientId),
       ]);
       if (!active) {
         return;
       }
-
       setWearablesSummary({
         connected,
         avgSteps: cached?.summary?.avgSteps ?? null,
@@ -807,7 +511,6 @@ export default function HomeScreen() {
           cached?.summary?.trackedDays ??
           (Array.isArray(cached?.last7Days) ? cached.last7Days.length : 0),
       });
-      setPendingWearablesCount(pendingWearables.length);
     })();
 
     return () => {
@@ -817,7 +520,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let active = true;
-
     if (!patientId) {
       setAppointmentSummary({
         pendingCount: 0,
@@ -858,233 +560,134 @@ export default function HomeScreen() {
     return () => {
       active = false;
     };
-  }, [appointmentsRefresh.lastRefreshedAt, patientId]);
+  }, [patientId, appointmentsRefresh.lastRefreshedAt]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void reloadPendingCounts();
-      void loadCopingUsage();
-      return undefined;
-    }, [loadCopingUsage, patientId])
-  );
-
-  const runReset = async (includeSignOut = false) => {
-    setIsResetting(true);
-    setNotice(null);
-    try {
-      await resetDemoState({
-        patientId,
-        includeSignOut,
-      });
-      await reloadDiagnostics();
-
-      if (includeSignOut) {
-        await auth.signOut();
-        return;
-      }
-
+  useEffect(() => {
+    if (network.isOffline) {
       setNotice({
-        variant: "info",
-        title: "Demo state reset",
-        message:
-          "Cleared chat/progress/appointments/plan/hydration/nutrition/medications/wearables/photos/rehab/PROM/weekly-report caches, drafts, pending uploads, appointment reminders, last refreshed stamps, last failed attempts, and reminder prefs.",
+        variant: "warning",
+        title: "Offline",
+        message: "Showing saved data. New uploads will sync when you’re online.",
       });
-    } catch {
-      setNotice({
-        variant: "error",
-        title: "Reset failed",
-        message: "Could not fully reset demo state. Please try again.",
-      });
-    } finally {
-      setIsResetting(false);
+      return;
     }
-  };
 
-  const confirmReset = () => {
-    Alert.alert(
-      "Reset demo state?",
-      "Clears cached chat, progress, appointments, hydration, nutrition, medications, wearables, photos, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, appointment reminders, last refreshed, last failed attempts, and reminder prefs.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: () => {
-            void runReset(false);
-          },
-        },
-      ]
-    );
-  };
-
-  const confirmResetAndSignOut = () => {
-    Alert.alert(
-      "Reset and sign out?",
-      "This clears demo state and signs you out.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset + sign out",
-          style: "destructive",
-          onPress: () => {
-            void runReset(true);
-          },
-        },
-      ]
-    );
-  };
+    setNotice(null);
+  }, [network.isOffline]);
 
   return (
-    <Screen title="Demo Hub">
+    <Screen title="Home">
       <ScrollView contentContainerStyle={styles.container}>
-        <Section title="System status">
-          <Text style={styles.statusLine}>API base: {API_BASE}</Text>
-          <Text style={styles.statusLine}>
-            Network: {network.isOffline ? "Offline" : "Online"}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Reachability: {formatNetworkReason(network.reason)}
-          </Text>
-          <Text style={styles.statusLine}>Auth: {auth.status}</Text>
-          <Text style={styles.statusLine}>Patient: {patientLabel}</Text>
+        {notice ? (
+          <InlineNotice
+            variant={notice.variant}
+            title={notice.title}
+            message={notice.message}
+          />
+        ) : null}
 
-          <LastRefreshed
-            label="Last refreshed (check-ins)"
-            value={checkinsRefresh.label}
-            compact
+        <Section title="Today">
+          <Text style={styles.titleLine}>Welcome back, {patientLabel}.</Text>
+          <Text style={styles.detailLine}>
+            Pending sync items: {totalPendingUploads}
+          </Text>
+          <PrimaryButton
+            label="Start check-in"
+            onPress={() => router.push("/(tabs)/checkin")}
           />
-          <LastRefreshed label="Last refreshed (chat)" value={chatRefresh.label} compact />
-          <LastRefreshed
-            label="Last refreshed (progress)"
-            value={progressRefresh.label}
-            compact
+          <PrimaryButton
+            label="Open chat"
+            onPress={() => router.push("/(tabs)/chat")}
           />
-          <LastRefreshed
-            label="Last refreshed (exercise plan)"
-            value={exercisePlanRefresh.label}
-            compact
+          <PrimaryButton
+            label="Open progress"
+            onPress={() => router.push("/(tabs)/progress")}
           />
-          <LastRefreshed
-            label="Last refreshed (exercise sessions)"
-            value={exerciseSessionsRefresh.label}
-            compact
+          <PrimaryButton
+            label="Safety"
+            onPress={() => router.push("/safety" as never)}
           />
-          <LastRefreshed
-            label="Last refreshed (rehab journey)"
-            value={rehabPhasesRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (questionnaires)"
-            value={promsRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (hydration)"
-            value={hydrationRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (nutrition)"
-            value={nutritionRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (medications)"
-            value={medicationsRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (wearables)"
-            value={wearablesRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (appointments)"
-            value={appointmentsRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (insights)"
-            value={insightsRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (photos)"
-            value={photosRefresh.label}
-            compact
-          />
-          <LastRefreshed
-            label="Last refreshed (weekly report)"
-            value={weeklyReportRefresh.label}
-            compact
-          />
-
-          <View style={styles.divider} />
-          {failedAttemptLines.map((line) => (
-            <Text key={line.label} style={styles.statusDetail}>
-              {line.label}: {line.value}
-              {line.value !== "Never" && line.title ? ` — ${line.title}` : ""}
-            </Text>
-          ))}
         </Section>
 
-        <Section title="Quick actions">
-          <Text style={styles.statusDetail}>
+        <Section title="Care plan">
+          <Text style={styles.detailLine}>
             Today&apos;s plan:{" "}
             {planSummary.status === "loading"
-              ? "Loading cached summary..."
+              ? "Checking..."
               : planSummary.status === "assigned"
-                ? `Assigned (${planSummary.itemCount} item${
+                ? `${planSummary.itemCount} exercise item${
                     planSummary.itemCount === 1 ? "" : "s"
-                  })`
-                : "None"}
+                  }`
+                : "No plan assigned"}
           </Text>
-          <Text style={styles.statusDetail}>
-            Pending sessions: {pendingSessionCount}
+          <Text style={styles.detailLine}>
+            Rehab phase:{" "}
+            {rehabSummary.status === "loading"
+              ? "Checking..."
+              : rehabSummary.status === "set"
+                ? rehabSummary.currentTitle
+                : "Not set"}
           </Text>
-          <Text style={styles.statusDetail}>
-            Pending PROM uploads: {pendingPromCount}
+          <Text style={styles.detailLine}>
+            Questionnaires due:{" "}
+            {promSummary.status === "loading"
+              ? "Checking..."
+              : promSummary.status === "hasDue"
+                ? promSummary.dueCount
+                : 0}
           </Text>
-          <Text style={styles.statusDetail}>
-            Pending hydration: {pendingHydrationCount}
+          <Text style={styles.detailLine}>
+            Weekly report:{" "}
+            {weeklyReportAvailable === "loading"
+              ? "Checking..."
+              : weeklyReportAvailable === "available"
+                ? "Available"
+                : "Not cached yet"}
           </Text>
-          <Text style={styles.statusDetail}>
-            Pending nutrition: {pendingNutritionCount}
+          <PrimaryButton
+            label="Today’s plan"
+            onPress={() => router.push("/exercise-plan")}
+          />
+          <PrimaryButton
+            label="Questionnaires"
+            onPress={() => router.push("/proms" as never)}
+          />
+          <PrimaryButton
+            label="Weekly report"
+            onPress={() => router.push("/weekly-report" as never)}
+          />
+        </Section>
+
+        <Section title="Insights">
+          {insightSummary.status === "loading" ? (
+            <Text style={styles.detailLine}>Loading reviewed insights…</Text>
+          ) : insightSummary.status === "none" ? (
+            <Text style={styles.detailLine}>No reviewed insights yet.</Text>
+          ) : (
+            <View style={styles.cardList}>
+              {insightSummary.top.map((item) => (
+                <View key={item.id} style={styles.infoCard}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardMessage}>{item.message}</Text>
+                </View>
+              ))}
+              <Text style={styles.detailLine}>
+                {insightSummary.itemCount} approved insight
+                {insightSummary.itemCount === 1 ? "" : "s"}.
+              </Text>
+            </View>
+          )}
+          <PrimaryButton
+            label="View all insights"
+            onPress={() => router.push("/insights" as never)}
+          />
+        </Section>
+
+        <Section title="Daily signals">
+          <Text style={styles.detailLine}>
+            Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not logged"}
           </Text>
-          <Text style={styles.statusDetail}>
-            Pending medication logs: {pendingMedicationCount}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Pending wearables sync: {pendingWearablesCount}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Appointment requests pending: {appointmentSummary.pendingCount}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Next approved appointment: {appointmentSummary.nextApprovedLabel}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Pending photos: {pendingPhotoCount}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Coping:{" "}
-            {copingSummary.status === "loading"
-              ? "Loading usage..."
-              : `Breathing used ${copingSummary.breathingCount} times • Grounding used ${copingSummary.groundingCount} times`}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Insights:{" "}
-            {insightSummary.status === "loading"
-              ? "Loading cached summary..."
-              : insightSummary.status === "available"
-                ? `Approved (${insightSummary.itemCount})`
-                : "No approved insights cached"}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not cached"}
-          </Text>
-          <Text style={styles.statusDetail}>
+          <Text style={styles.detailLine}>
             Nutrition today:{" "}
             {nutritionTodayLogged === null
               ? "Unknown"
@@ -1092,81 +695,28 @@ export default function HomeScreen() {
                 ? "Logged"
                 : "Not logged"}
           </Text>
-          <Text style={styles.statusDetail}>
+          <Text style={styles.detailLine}>
             Medications today:{" "}
             {medicationTodaySummary
               ? `${medicationTodaySummary.taken}/${medicationTodaySummary.total} taken`
-              : "Not cached"}
+              : "Not logged"}
           </Text>
-          <Text style={styles.statusDetail}>
+          <Text style={styles.detailLine}>
             Wearables:{" "}
             {wearablesSummary.connected
               ? wearablesSummary.trackedDays > 0
-                ? `Avg steps ${wearablesSummary.avgSteps ?? "—"} (${wearablesSummary.trackedDays}d)`
-                : "Connected (no cached data)"
+                ? `Avg ${wearablesSummary.avgSteps ?? "—"} steps (${wearablesSummary.trackedDays}d)`
+                : "Connected (no sync yet)"
               : "Not connected"}
           </Text>
-          <Text style={styles.statusDetail}>
-            Phase:{" "}
-            {rehabSummary.status === "loading"
-              ? "Loading cached status..."
-              : rehabSummary.status === "set"
-                ? rehabSummary.currentTitle
-                : "Not set"}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Questionnaires due:{" "}
-            {promSummary.status === "loading"
-              ? "Loading cached count..."
-              : promSummary.status === "hasDue"
-                ? promSummary.dueCount
-                : 0}
-          </Text>
-          <Text style={styles.statusDetail}>
-            Weekly report:{" "}
-            {weeklyReportAvailable === "loading"
-              ? "Checking cache..."
-              : weeklyReportAvailable === "available"
-                ? "Available"
-                : "Not cached"}
-          </Text>
-          <Text style={styles.statusDetail}>
+          <Text style={styles.detailLine}>
             Symptom photos:{" "}
             {photoSummary.status === "loading"
-              ? "Loading cached summary..."
+              ? "Checking..."
               : photoSummary.status === "available"
-                ? `Cached (${photoSummary.itemCount})`
-                : "Not cached"}
+                ? `${photoSummary.itemCount} saved`
+                : "None"}
           </Text>
-          <PrimaryButton
-            label="Go to Check-in"
-            onPress={() => router.push("/(tabs)/checkin")}
-          />
-          <PrimaryButton label="Go to Chat" onPress={() => router.push("/(tabs)/chat")} />
-          <PrimaryButton
-            label="Go to Progress"
-            onPress={() => router.push("/(tabs)/progress")}
-          />
-          <PrimaryButton
-            label="Go to Settings"
-            onPress={() => router.push("/(tabs)/settings")}
-          />
-          <PrimaryButton
-            label="Coping tools"
-            onPress={() => router.push("/coping-tools" as never)}
-          />
-          <PrimaryButton
-            label="Insights"
-            onPress={() => router.push("/insights" as never)}
-          />
-          <PrimaryButton
-            label="Go to Plan"
-            onPress={() => router.push("/exercise-plan")}
-          />
-          <PrimaryButton
-            label="Go to Sessions"
-            onPress={() => router.push("/exercise-sessions")}
-          />
           <PrimaryButton
             label="Hydration"
             onPress={() => router.push("/hydration" as never)}
@@ -1184,158 +734,35 @@ export default function HomeScreen() {
             onPress={() => router.push("/wearables" as never)}
           />
           <PrimaryButton
+            label="Symptom photos"
+            onPress={() => router.push("/symptom-photos" as never)}
+          />
+        </Section>
+
+        <Section title="Appointments and support">
+          <Text style={styles.detailLine}>
+            Requests pending: {appointmentSummary.pendingCount}
+          </Text>
+          <Text style={styles.detailLine}>
+            Next approved: {appointmentSummary.nextApprovedLabel}
+          </Text>
+          <Text style={styles.detailLine}>
+            Coping tools used: breathing {copingSummary.breathingCount}, grounding{" "}
+            {copingSummary.groundingCount}
+          </Text>
+          <PrimaryButton
             label="Appointments"
             onPress={() => router.push("/appointments" as never)}
           />
           <PrimaryButton
-            label="Symptom photos"
-            onPress={() => router.push("/symptom-photos" as never)}
+            label="Coping tools"
+            onPress={() => router.push("/coping-tools" as never)}
           />
           <PrimaryButton
-            label="Rehab journey"
-            onPress={() => router.push("/rehab-journey" as never)}
-          />
-          <PrimaryButton
-            label="PROMs"
-            onPress={() => router.push("/proms" as never)}
-          />
-          <PrimaryButton
-            label="Weekly report"
-            onPress={() => router.push("/weekly-report" as never)}
+            label="Settings"
+            onPress={() => router.push("/(tabs)/settings")}
           />
         </Section>
-
-        <Section title="Insights">
-          <Text style={styles.statusDetail}>
-            Only clinician-reviewed cards are shown.
-          </Text>
-          {insightSummary.status === "loading" ? (
-            <Text style={styles.statusDetail}>Loading cached approved insights…</Text>
-          ) : insightSummary.status === "none" ? (
-            <Text style={styles.statusDetail}>No reviewed insights yet.</Text>
-          ) : (
-            <View style={styles.insightsList}>
-              {insightSummary.top.map((item) => (
-                <View key={item.id} style={styles.insightCard}>
-                  <Text style={styles.insightTitle}>{item.title}</Text>
-                  <Text style={styles.insightMessage}>{item.message}</Text>
-                </View>
-              ))}
-              <Text style={styles.statusDetail}>
-                Showing {insightSummary.top.length} of {insightSummary.itemCount} approved
-                insight{insightSummary.itemCount === 1 ? "" : "s"}.
-              </Text>
-            </View>
-          )}
-          <PrimaryButton
-            label="View all insights"
-            onPress={() => router.push("/insights" as never)}
-          />
-        </Section>
-
-        <Section title="Demo script (2–3 minutes)">
-          <Text style={styles.bullet}>• Sign in: `P1-DEMO`.</Text>
-          <Text style={styles.bullet}>
-            • Check-in low risk: pain 2, mood 4, exercises 80%, meds on → Saved.
-          </Text>
-          <Text style={styles.bullet}>
-            • Check-in high risk: pain 9, mood 2, exercises 20%, meds off → Safety screen.
-          </Text>
-          <Text style={styles.bullet}>
-            • Chat low risk: “I completed my exercises and feel okay.” → Assistant reply.
-          </Text>
-          <Text style={styles.bullet}>
-            • Chat high risk: “I have chest pain right now.” → Safety screen.
-          </Text>
-          <Text style={styles.bullet}>
-            • Progress: switch 14/30 and open one detail row.
-          </Text>
-          <Text style={styles.bullet}>
-            • Plan: open Today&apos;s Plan and confirm assigned exercises.
-          </Text>
-          <Text style={styles.bullet}>
-            • Rehab journey: open timeline and confirm current phase.
-          </Text>
-          <Text style={styles.bullet}>
-            • Session: start from Plan, complete 2 exercises, finish and open session detail.
-          </Text>
-          <Text style={styles.bullet}>
-            • PROMs: open Questionnaires, complete due form, verify due moves to completed.
-          </Text>
-          <Text style={styles.bullet}>
-            • Coping tools: run a 1-minute breathing session and complete the grounding wizard offline.
-          </Text>
-          <Text style={styles.bullet}>
-            • Insights: clinician generates suggestions, approves one, patient opens Insights and sees approved card.
-          </Text>
-          <Text style={styles.bullet}>
-            • Weekly report: open this week, then share report text.
-          </Text>
-          <Text style={styles.bullet}>
-            • Hydration: tap +250ml/+500ml, go offline, add more, then sync pending when online.
-          </Text>
-          <Text style={styles.bullet}>
-            • Nutrition: save today log, go offline and save again, then sync pending when online.
-          </Text>
-          <Text style={styles.bullet}>
-            • Medications: mark dose Taken, go offline and mark another, then sync pending when online.
-          </Text>
-          <Text style={styles.bullet}>
-            • Appointments: request a slot, clinician approves in dashboard, then verify approved status and reminder scheduling.
-          </Text>
-          <Text style={styles.bullet}>
-            • Symptom photos: add online, then add offline and sync pending when back online.
-          </Text>
-          <Text style={styles.bullet}>
-            • Offline session: finish while offline, then submit pending when online.
-          </Text>
-          <Text style={styles.bullet}>
-            • Offline PROM: complete while offline, then submit pending when online.
-          </Text>
-          <Text style={styles.bullet}>
-            • Settings: toggle daily reminder, then log out.
-          </Text>
-          <Text style={styles.note}>
-            If offline, you should see “Nothing was sent” and updated last failed attempt times.
-          </Text>
-        </Section>
-
-        {__DEV__ ? (
-          <Section title="Demo tools">
-            <PrimaryButton
-              label={isResetting ? "Resetting…" : "Reset demo state"}
-              loading={isResetting}
-              disabled={isResetting}
-              onPress={confirmReset}
-            />
-            <PrimaryButton
-              label={isResetting ? "Resetting…" : "Reset + sign out"}
-              loading={isResetting}
-              disabled={isResetting}
-              onPress={confirmResetAndSignOut}
-            />
-            <PrimaryButton
-              label="Open Safety screen (test)"
-              onPress={() =>
-                router.push({
-                  pathname: "/safety",
-                  params: {
-                    alertId: "demo-alert",
-                    reasonCodes: "PAIN_GE_THRESHOLD",
-                  },
-                })
-              }
-            />
-          </Section>
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -1346,49 +773,34 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 16,
   },
-  statusLine: {
-    fontSize: 14,
-    color: "#374151",
+  titleLine: {
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "600",
   },
-  statusDetail: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginVertical: 2,
-  },
-  bullet: {
+  detailLine: {
     fontSize: 13,
-    lineHeight: 19,
-    color: "#374151",
-    marginBottom: 2,
+    color: "#4b5563",
   },
-  note: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  insightsList: {
+  cardList: {
     gap: 8,
   },
-  insightCard: {
+  infoCard: {
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    padding: 10,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#f9fafb",
     gap: 4,
   },
-  insightTitle: {
+  cardTitle: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#111827",
   },
-  insightMessage: {
+  cardMessage: {
     fontSize: 13,
     color: "#374151",
-    lineHeight: 18,
   },
 });

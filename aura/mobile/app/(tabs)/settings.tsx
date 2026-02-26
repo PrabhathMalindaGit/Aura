@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Linking,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -27,12 +28,14 @@ import {
   sendTestNotificationNow,
 } from "@/src/services/reminders";
 import { useAuth } from "@/src/state/auth";
+import { resetAllUsage } from "@/src/state/copingUsage";
 import { clearCachedCheckins } from "@/src/state/checkinsCache";
 import { clearAllLastErrors, useLastError } from "@/src/state/lastError";
 import { useNetwork } from "@/src/state/network";
 import { clearPending } from "@/src/state/pendingSessions";
 import { getReminderPrefs, setReminderPrefs } from "@/src/state/reminderPrefs";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
+import { resetDemoState } from "@/src/utils/demoReset";
 
 const DEFAULT_HOUR = 19;
 const DEFAULT_MINUTE = 0;
@@ -94,6 +97,7 @@ export default function SettingsScreen() {
   const reminderPermissionError = useLastError("reminderPermission");
   const reminderScheduleError = useLastError("reminderSchedule");
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isResettingDemo, setIsResettingDemo] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [devNotice, setDevNotice] = useState<string | null>(null);
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -109,6 +113,7 @@ export default function SettingsScreen() {
   } | null>(null);
   const [timeValidationError, setTimeValidationError] = useState<string | null>(null);
   const [isReminderBusy, setIsReminderBusy] = useState(false);
+  const [isDeveloperExpanded, setIsDeveloperExpanded] = useState(false);
 
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const patientId = auth.patient?.id ?? "";
@@ -270,12 +275,7 @@ export default function SettingsScreen() {
       }
       setReminderEnabled(false);
       setNotificationId(null);
-      await persistReminderPrefs(
-        false,
-        normalized.hour,
-        normalized.minute,
-        null
-      );
+      await persistReminderPrefs(false, normalized.hour, normalized.minute, null);
       await reminderScheduleError.clear();
       setReminderNotice({
         variant: "info",
@@ -342,21 +342,28 @@ export default function SettingsScreen() {
     }
   };
 
+  const confirmAction = (title: string, message: string, onConfirm: () => void) => {
+    Alert.alert(title, message, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Continue",
+        style: "destructive",
+        onPress: onConfirm,
+      },
+    ]);
+  };
+
   const confirmSignOut = () => {
-    Alert.alert(
-      "Log out?",
-      "You’ll need your access code to sign in again.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Log out",
-          style: "destructive",
-          onPress: () => {
-            void handleSignOut();
-          },
+    Alert.alert("Log out?", "You’ll need your access code to sign in again.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: () => {
+          void handleSignOut();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleSignOut = async () => {
@@ -377,24 +384,22 @@ export default function SettingsScreen() {
 
   const handleClearLastErrors = async () => {
     await clearAllLastErrors();
-    setDevNotice("Cleared last errors.");
+    setDevNotice("Cleared last failed attempt records.");
   };
 
   const handleClearSavedProgress = async () => {
-    if (!auth.patient?.id) {
+    if (!patientId) {
       return;
     }
-
-    await clearCachedCheckins(auth.patient.id);
+    await clearCachedCheckins(patientId);
     setDevNotice("Cleared saved progress cache.");
   };
 
   const handleClearPendingSessions = async () => {
-    if (!auth.patient?.id) {
+    if (!patientId) {
       return;
     }
-
-    await clearPending(auth.patient.id);
+    await clearPending(patientId);
     setDevNotice("Cleared pending exercise sessions.");
   };
 
@@ -427,13 +432,60 @@ export default function SettingsScreen() {
     }
   };
 
+  const runReset = async (includeSignOut = false) => {
+    if (!patientId || isResettingDemo) {
+      return;
+    }
+
+    setIsResettingDemo(true);
+    setDevNotice(null);
+    try {
+      await resetDemoState({
+        patientId,
+        includeSignOut,
+      });
+
+      if (includeSignOut) {
+        await auth.signOut();
+        return;
+      }
+
+      setDevNotice("Reset demo state and cleared local demo caches/pending queues.");
+    } catch {
+      setDevNotice("Could not complete demo reset.");
+    } finally {
+      setIsResettingDemo(false);
+    }
+  };
+
+  const handleResetCopingUsage = async () => {
+    try {
+      await resetAllUsage();
+      setDevNotice("Reset coping tool usage counters.");
+    } catch {
+      setDevNotice("Could not reset coping usage.");
+    }
+  };
+
   return (
     <Screen title="Settings">
       <ScrollView contentContainerStyle={styles.container}>
-        <Section title="Daily reminder">
-          <Text style={styles.line}>
-            Reminders: {reminderEnabled ? "On" : "Off"}
-          </Text>
+        <Section title="Account">
+          <Text style={styles.line}>Patient: {patientName}</Text>
+          <Text style={styles.line}>Session: {auth.status}</Text>
+          <PrimaryButton
+            label={isSigningOut ? "Signing out…" : "Log out"}
+            loading={isSigningOut}
+            disabled={isSigningOut}
+            onPress={confirmSignOut}
+          />
+          {logoutError ? (
+            <InlineNotice variant="error" title="Logout failed" message={logoutError} />
+          ) : null}
+        </Section>
+
+        <Section title="Reminders">
+          <Text style={styles.line}>Reminders: {reminderEnabled ? "On" : "Off"}</Text>
           <Text style={styles.line}>Time: {timePreview}</Text>
 
           <View style={styles.switchRow}>
@@ -473,11 +525,7 @@ export default function SettingsScreen() {
           </View>
 
           {timeValidationError ? (
-            <InlineNotice
-              variant="warning"
-              title="Invalid time"
-              message={timeValidationError}
-            />
+            <InlineNotice variant="warning" title="Invalid time" message={timeValidationError} />
           ) : null}
 
           <LastFailedAttempt
@@ -485,11 +533,7 @@ export default function SettingsScreen() {
             value={reminderPermissionError.label}
             title={reminderPermissionError.lastError?.title}
             message={reminderPermissionError.lastError?.message}
-            onClear={
-              reminderPermissionError.lastError
-                ? reminderPermissionError.clear
-                : undefined
-            }
+            onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
             compact
           />
           <LastFailedAttempt
@@ -497,11 +541,7 @@ export default function SettingsScreen() {
             value={reminderScheduleError.label}
             title={reminderScheduleError.lastError?.title}
             message={reminderScheduleError.lastError?.message}
-            onClear={
-              reminderScheduleError.lastError
-                ? reminderScheduleError.clear
-                : undefined
-            }
+            onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
             compact
           />
 
@@ -514,40 +554,10 @@ export default function SettingsScreen() {
               onAction={reminderNotice.onAction}
             />
           ) : null}
-
-          {__DEV__ ? (
-            <>
-              <PrimaryButton
-                label="Send test notification now"
-                onPress={() => {
-                  void handleSendTestReminder();
-                }}
-                disabled={isReminderBusy}
-              />
-              <PrimaryButton
-                label="List scheduled notifications (debug)"
-                onPress={() => {
-                  void handleListScheduled();
-                }}
-                disabled={isReminderBusy}
-              />
-            </>
-          ) : null}
-        </Section>
-
-        <Section title="Session">
-          <Text style={styles.line}>Status: {auth.status}</Text>
-          <Text style={styles.line}>Patient: {patientName}</Text>
-          <Text style={styles.line}>API: {API_BASE}</Text>
-          <Text style={styles.line}>
-            Offline: {network.isOffline ? "Yes" : "No"}
-          </Text>
         </Section>
 
         <Section title="Caregiver access">
-          <Text style={styles.line}>
-            Generate and revoke temporary caregiver invite codes.
-          </Text>
+          <Text style={styles.line}>Generate and revoke temporary caregiver invite codes.</Text>
           <PrimaryButton
             label="Manage caregiver invites"
             onPress={() => {
@@ -556,59 +566,225 @@ export default function SettingsScreen() {
           />
         </Section>
 
-        <Section title="Logout">
+        <Section title="Support and safety plan">
+          <Text style={styles.line}>
+            If you feel unsafe or symptoms escalate, use Safety for immediate guidance.
+          </Text>
           <PrimaryButton
-            label={isSigningOut ? "Signing out…" : "Log out"}
-            loading={isSigningOut}
-            disabled={isSigningOut}
-            onPress={confirmSignOut}
+            label="Open Safety"
+            onPress={() => {
+              router.push("/safety" as never);
+            }}
           />
-          {logoutError ? (
-            <InlineNotice
-              variant="error"
-              title="Logout failed"
-              message={logoutError}
-            />
-          ) : null}
+        </Section>
+
+        <Section title="App info">
+          <Text style={styles.line}>Offline: {network.isOffline ? "Yes" : "No"}</Text>
+          <Text style={styles.line}>API base: {API_BASE}</Text>
         </Section>
 
         {__DEV__ ? (
-          <Section title="Developer tools">
-            <PrimaryButton
-              label="Clear last refreshed stamps"
-              onPress={() => {
-                void handleClearRefreshStamps();
-              }}
-            />
-            <PrimaryButton
-              label="Clear last errors"
-              onPress={() => {
-                void handleClearLastErrors();
-              }}
-            />
-            <PrimaryButton
-              label="Clear saved progress"
-              onPress={() => {
-                void handleClearSavedProgress();
-              }}
-              disabled={!auth.patient?.id}
-            />
-            <PrimaryButton
-              label="Clear pending sessions"
-              onPress={() => {
-                void handleClearPendingSessions();
-              }}
-              disabled={!auth.patient?.id}
-            />
-            {devNotice ? (
-              <InlineNotice
-                variant="info"
-                title="Developer"
-                message={devNotice}
-                actionLabel="Dismiss"
-                onAction={() => setDevNotice(null)}
-              />
-            ) : null}
+          <Section title="Developer Mode">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsDeveloperExpanded((current) => !current)}
+              style={({ pressed }) => [
+                styles.devToggle,
+                pressed ? styles.devTogglePressed : null,
+              ]}
+            >
+              <Text style={styles.devToggleTitle}>Developer tools</Text>
+              <Text style={styles.devToggleState}>
+                {isDeveloperExpanded ? "Hide" : "Show"}
+              </Text>
+            </Pressable>
+
+            {isDeveloperExpanded ? (
+              <View style={styles.devPanel}>
+                <Text style={styles.devGroupTitle}>Demo data</Text>
+                <PrimaryButton
+                  label={isResettingDemo ? "Resetting…" : "Reset demo state"}
+                  loading={isResettingDemo}
+                  disabled={!patientId || isResettingDemo}
+                  onPress={() =>
+                    confirmAction(
+                      "Reset demo state?",
+                      "This clears local demo caches, drafts, and pending queues for this patient.",
+                      () => {
+                        void runReset(false);
+                      }
+                    )
+                  }
+                />
+                <PrimaryButton
+                  label={isResettingDemo ? "Resetting…" : "Reset + sign out"}
+                  loading={isResettingDemo}
+                  disabled={!patientId || isResettingDemo}
+                  onPress={() =>
+                    confirmAction(
+                      "Reset and sign out?",
+                      "This clears local demo state for this patient and signs out.",
+                      () => {
+                        void runReset(true);
+                      }
+                    )
+                  }
+                />
+                <PrimaryButton
+                  label="Reset coping usage"
+                  disabled={!patientId}
+                  onPress={() =>
+                    confirmAction(
+                      "Reset coping usage?",
+                      "This clears local breathing and grounding usage counters.",
+                      () => {
+                        void handleResetCopingUsage();
+                      }
+                    )
+                  }
+                />
+
+                <Text style={styles.devGroupTitle}>Cache and sync</Text>
+                <PrimaryButton
+                  label="Clear last refreshed stamps"
+                  onPress={() =>
+                    confirmAction(
+                      "Clear refresh stamps?",
+                      "This removes local last-refreshed timestamps.",
+                      () => {
+                        void handleClearRefreshStamps();
+                      }
+                    )
+                  }
+                />
+                <PrimaryButton
+                  label="Clear last failed attempts"
+                  onPress={() =>
+                    confirmAction(
+                      "Clear last failed attempts?",
+                      "This removes locally stored error history.",
+                      () => {
+                        void handleClearLastErrors();
+                      }
+                    )
+                  }
+                />
+                <PrimaryButton
+                  label="Clear saved progress cache"
+                  disabled={!patientId}
+                  onPress={() =>
+                    confirmAction(
+                      "Clear saved progress?",
+                      "This removes cached check-ins for this patient on this device.",
+                      () => {
+                        void handleClearSavedProgress();
+                      }
+                    )
+                  }
+                />
+                <PrimaryButton
+                  label="Clear pending sessions"
+                  disabled={!patientId}
+                  onPress={() =>
+                    confirmAction(
+                      "Clear pending sessions?",
+                      "This removes locally queued exercise session uploads.",
+                      () => {
+                        void handleClearPendingSessions();
+                      }
+                    )
+                  }
+                />
+
+                <Text style={styles.devGroupTitle}>Safety and testing</Text>
+                <PrimaryButton
+                  label="Open Safety screen (test)"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/safety",
+                      params: {
+                        alertId: "demo-alert",
+                        reasonCodes: "PAIN_GE_THRESHOLD",
+                      },
+                    })
+                  }
+                />
+                <PrimaryButton
+                  label="Send test notification now"
+                  onPress={() => {
+                    void handleSendTestReminder();
+                  }}
+                  disabled={isReminderBusy}
+                />
+                <PrimaryButton
+                  label="List scheduled notifications"
+                  onPress={() => {
+                    void handleListScheduled();
+                  }}
+                  disabled={isReminderBusy}
+                />
+
+                <Text style={styles.devGroupTitle}>Preset helpers</Text>
+                <PrimaryButton
+                  label="Open Check-in (low-risk preset)"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/checkin",
+                      params: { devPreset: "low", devToken: String(Date.now()) },
+                    })
+                  }
+                />
+                <PrimaryButton
+                  label="Open Check-in (high-risk preset)"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/checkin",
+                      params: { devPreset: "high", devToken: String(Date.now()) },
+                    })
+                  }
+                />
+                <PrimaryButton
+                  label="Open Chat (low-risk draft)"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/chat",
+                      params: { devPreset: "low", devToken: String(Date.now()) },
+                    })
+                  }
+                />
+                <PrimaryButton
+                  label="Open Chat (high-risk draft)"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(tabs)/chat",
+                      params: { devPreset: "high", devToken: String(Date.now()) },
+                    })
+                  }
+                />
+
+                <Text style={styles.devGroupTitle}>Diagnostics</Text>
+                <Text style={styles.devLine}>Auth: {auth.status}</Text>
+                <Text style={styles.devLine}>Patient ID: {patientId || "none"}</Text>
+                <Text style={styles.devLine}>
+                  Network: {network.isOffline ? "Offline" : "Online"}
+                </Text>
+                <Text style={styles.devLine}>API: {API_BASE}</Text>
+
+                {devNotice ? (
+                  <InlineNotice
+                    variant="info"
+                    title="Developer"
+                    message={devNotice}
+                    actionLabel="Dismiss"
+                    onAction={() => setDevNotice(null)}
+                  />
+                ) : null}
+              </View>
+            ) : (
+              <Text style={styles.devHint}>
+                Hidden by default. Expand for local demo and debug actions.
+              </Text>
+            )}
           </Section>
         ) : null}
       </ScrollView>
@@ -619,6 +795,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     gap: 4,
+    paddingBottom: 18,
   },
   line: {
     fontSize: 14,
@@ -660,5 +837,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#111827",
     backgroundColor: "#ffffff",
+  },
+  devToggle: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f9fafb",
+  },
+  devTogglePressed: {
+    opacity: 0.8,
+  },
+  devToggleTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  devToggleState: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4b5563",
+  },
+  devHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  devPanel: {
+    marginTop: 10,
+    gap: 8,
+  },
+  devGroupTitle: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    color: "#6b7280",
+    textTransform: "uppercase",
+  },
+  devLine: {
+    fontSize: 12,
+    color: "#4b5563",
   },
 });

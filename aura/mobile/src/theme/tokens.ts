@@ -56,6 +56,7 @@ export type ElevationTokens = {
   none: ViewStyle;
   sm: ViewStyle;
   md: ViewStyle;
+  card: ViewStyle;
 };
 
 export type LayoutTokens = {
@@ -184,6 +185,13 @@ const lightElevation: ElevationTokens = {
     shadowRadius: 8,
     elevation: 3,
   },
+  card: {
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 2,
+  },
 };
 
 const darkElevation: ElevationTokens = {
@@ -201,6 +209,13 @@ const darkElevation: ElevationTokens = {
     shadowOpacity: 0.55,
     shadowRadius: 8,
     elevation: 3,
+  },
+  card: {
+    shadowColor: "#020617",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.48,
+    shadowRadius: 6,
+    elevation: 2,
   },
 };
 

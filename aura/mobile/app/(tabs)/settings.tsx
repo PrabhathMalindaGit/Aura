@@ -11,11 +11,14 @@ import {
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Banner } from "@/src/components/Banner";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
 import { API_BASE } from "@/src/config/env";
 import {
   cancelReminder,
@@ -89,6 +92,12 @@ function normalizeInputs(hourInput: string, minuteInput: string): {
     isValid: true,
     message: null,
   };
+}
+
+function toBannerVariant(
+  value: "info" | "warning" | "error"
+): "info" | "warning" | "danger" {
+  return value === "error" ? "danger" : value;
 }
 
 export default function SettingsScreen() {
@@ -473,9 +482,23 @@ export default function SettingsScreen() {
 
   return (
     <Screen title="Settings" scroll contentContainerStyle={styles.container}>
-        <Section title="Account / Profile">
-          <Text style={styles.line}>Patient: {patientName}</Text>
-          <Text style={styles.line}>Session: {auth.status}</Text>
+      <Section
+        title="Account / Profile"
+        card
+        right={<StatusPill label={auth.status} variant="neutral" />}
+      >
+          <View style={styles.stack}>
+            <Row
+              title="Patient"
+              right={<Text style={styles.rowValue}>{patientName}</Text>}
+              accessory="none"
+            />
+            <Row
+              title="Session"
+              right={<Text style={styles.rowValue}>{auth.status}</Text>}
+              accessory="none"
+            />
+          </View>
           <PrimaryButton
             label={isSigningOut ? "Signing out…" : "Log out"}
             loading={isSigningOut}
@@ -483,11 +506,20 @@ export default function SettingsScreen() {
             onPress={confirmSignOut}
           />
           {logoutError ? (
-            <InlineNotice variant="error" title="Logout failed" message={logoutError} />
+            <Banner variant="danger" title="Logout failed" message={logoutError} />
           ) : null}
-        </Section>
+      </Section>
 
-        <Section title="Reminders">
+      <Section
+        title="Reminders"
+        card
+        right={
+          <StatusPill
+            label={reminderEnabled ? "Enabled" : "Disabled"}
+            variant={reminderEnabled ? "success" : "neutral"}
+          />
+        }
+      >
           <Text style={styles.line}>Reminders: {reminderEnabled ? "On" : "Off"}</Text>
           <Text style={styles.line}>Time: {timePreview}</Text>
 
@@ -528,7 +560,7 @@ export default function SettingsScreen() {
           </View>
 
           {timeValidationError ? (
-            <InlineNotice variant="warning" title="Invalid time" message={timeValidationError} />
+            <Banner variant="warning" title="Invalid time" message={timeValidationError} />
           ) : null}
 
           <LastFailedAttempt
@@ -549,46 +581,55 @@ export default function SettingsScreen() {
           />
 
           {reminderNotice ? (
-            <InlineNotice
-              variant={reminderNotice.variant}
+            <Banner
+              variant={toBannerVariant(reminderNotice.variant)}
               title={reminderNotice.title}
               message={reminderNotice.message}
               actionLabel={reminderNotice.actionLabel}
               onAction={reminderNotice.onAction}
             />
           ) : null}
-        </Section>
+      </Section>
 
-        <Section title="Caregiver">
-          <Text style={styles.line}>Generate and revoke temporary caregiver invite codes.</Text>
-          <PrimaryButton
-            label="Manage caregiver invites"
-            onPress={() => {
-              router.push("/caregiver-invite" as Href);
-            }}
+      <Section title="Caregiver" card>
+        <Row
+          title="Caregiver access"
+          subtitle="Generate and revoke temporary invite codes."
+          onPress={() => {
+            router.push("/caregiver-invite" as Href);
+          }}
+        />
+      </Section>
+
+      <Section title="Support & Safety plan" card>
+        <Row
+          title="Open Safety"
+          subtitle="If symptoms escalate or you feel unsafe, open Safety."
+          onPress={() => {
+            router.push("/safety" as never);
+          }}
+        />
+      </Section>
+
+      <Section title="App info" card>
+        <View style={styles.stack}>
+          <Row
+            title="Offline"
+            right={<Text style={styles.rowValue}>{network.isOffline ? "Yes" : "No"}</Text>}
+            accessory="none"
           />
-        </Section>
-
-        <Section title="Support & Safety plan">
-          <Text style={styles.line}>
-            If you feel unsafe or symptoms escalate, use Safety for immediate guidance.
-          </Text>
-          <PrimaryButton
-            label="Open Safety"
-            onPress={() => {
-              router.push("/safety" as never);
-            }}
-          />
-        </Section>
-
-        <Section title="App info">
-          <Text style={styles.line}>Offline: {network.isOffline ? "Yes" : "No"}</Text>
-          <Text style={styles.line}>API base: {API_BASE}</Text>
-        </Section>
+          <Row title="API base" right={<Text style={styles.rowValue}>{API_BASE}</Text>} accessory="none" />
+        </View>
+      </Section>
 
         {/* IMPORTANT: Keep Developer Mode in this single location; do not duplicate via mapped sections. */}
         {isDeveloperModeVisible ? (
-          <Section title="Developer Mode">
+          <Section
+            title="Developer Mode"
+            card
+            cardVariant="outlined"
+            right={<StatusPill label={isDeveloperExpanded ? "Open" : "Collapsed"} />}
+          >
             <Pressable
               accessibilityRole="button"
               onPress={() => setIsDeveloperExpanded((current) => !current)}
@@ -649,7 +690,7 @@ export default function SettingsScreen() {
                 />
 
                 <Text style={styles.devGroupTitle}>Cache and sync</Text>
-                <PrimaryButton
+                <SecondaryButton
                   label="Clear last refreshed stamps"
                   onPress={() =>
                     confirmAction(
@@ -661,7 +702,7 @@ export default function SettingsScreen() {
                     )
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Clear last failed attempts"
                   onPress={() =>
                     confirmAction(
@@ -673,7 +714,7 @@ export default function SettingsScreen() {
                     )
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Clear saved progress cache"
                   disabled={!patientId}
                   onPress={() =>
@@ -686,7 +727,7 @@ export default function SettingsScreen() {
                     )
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Clear pending sessions"
                   disabled={!patientId}
                   onPress={() =>
@@ -701,7 +742,7 @@ export default function SettingsScreen() {
                 />
 
                 <Text style={styles.devGroupTitle}>Safety and testing</Text>
-                <PrimaryButton
+                <SecondaryButton
                   label="Open Safety screen (test)"
                   onPress={() =>
                     router.push({
@@ -713,14 +754,14 @@ export default function SettingsScreen() {
                     })
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Send test notification now"
                   onPress={() => {
                     void handleSendTestReminder();
                   }}
                   disabled={isReminderBusy}
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="List scheduled notifications"
                   onPress={() => {
                     void handleListScheduled();
@@ -729,7 +770,7 @@ export default function SettingsScreen() {
                 />
 
                 <Text style={styles.devGroupTitle}>Preset helpers</Text>
-                <PrimaryButton
+                <SecondaryButton
                   label="Open Check-in (low-risk preset)"
                   onPress={() =>
                     router.push({
@@ -738,7 +779,7 @@ export default function SettingsScreen() {
                     })
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Open Check-in (high-risk preset)"
                   onPress={() =>
                     router.push({
@@ -747,7 +788,7 @@ export default function SettingsScreen() {
                     })
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Open Chat (low-risk draft)"
                   onPress={() =>
                     router.push({
@@ -756,7 +797,7 @@ export default function SettingsScreen() {
                     })
                   }
                 />
-                <PrimaryButton
+                <SecondaryButton
                   label="Open Chat (high-risk draft)"
                   onPress={() =>
                     router.push({
@@ -775,7 +816,7 @@ export default function SettingsScreen() {
                 <Text style={styles.devLine}>API: {API_BASE}</Text>
 
                 {devNotice ? (
-                  <InlineNotice
+                  <Banner
                     variant="info"
                     title="Developer"
                     message={devNotice}
@@ -801,11 +842,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.xs,
       paddingBottom: tokens.spacing.xl,
     },
+    stack: {
+      gap: tokens.spacing.sm,
+    },
     line: {
       fontSize: 14,
       lineHeight: 20,
       color: tokens.colors.textMuted,
       marginBottom: tokens.spacing.xs,
+    },
+    rowValue: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
     },
     switchRow: {
       minHeight: 44,

@@ -3,9 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { Card } from "@/src/components/Card";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import { getCachedAppointmentRequests } from "@/src/state/appointmentsCache";
@@ -569,30 +572,56 @@ export default function HomeScreen() {
       contentContainerStyle={styles.container}
       banner={<TrustBanner status={trustStatus} />}
     >
-        <Section title="Today">
+      <Section
+        title="Today"
+        card
+        right={
+          <StatusPill
+            label={totalPendingUploads > 0 ? "Pending sync" : "Up to date"}
+            variant={totalPendingUploads > 0 ? "warning" : "success"}
+          />
+        }
+      >
           <Text style={styles.titleLine}>Welcome back, {patientLabel}.</Text>
           <Text style={styles.detailLine}>
             Pending sync items: {totalPendingUploads}
           </Text>
-          <PrimaryButton
-            label="Start check-in"
-            onPress={() => router.push("/(tabs)/checkin")}
-          />
-          <PrimaryButton
-            label="Open chat"
-            onPress={() => router.push("/(tabs)/chat")}
-          />
-          <PrimaryButton
-            label="Open progress"
-            onPress={() => router.push("/(tabs)/progress")}
-          />
-          <PrimaryButton
-            label="Safety"
-            onPress={() => router.push("/safety" as never)}
-          />
-        </Section>
+          <View style={styles.buttonStack}>
+            <PrimaryButton
+              label="Start check-in"
+              onPress={() => router.push("/(tabs)/checkin")}
+            />
+            <SecondaryButton
+              label="Open chat"
+              onPress={() => router.push("/(tabs)/chat")}
+            />
+            <SecondaryButton
+              label="Open progress"
+              onPress={() => router.push("/(tabs)/progress")}
+            />
+            <SecondaryButton
+              label="Safety"
+              onPress={() => router.push("/safety" as never)}
+            />
+          </View>
+      </Section>
 
-        <Section title="Care plan">
+      <Section
+        title="Care plan"
+        card
+        right={
+          <StatusPill
+            label={
+              weeklyReportAvailable === "available"
+                ? "Report ready"
+                : weeklyReportAvailable === "loading"
+                  ? "Checking"
+                  : "No report"
+            }
+            variant={weeklyReportAvailable === "available" ? "info" : "neutral"}
+          />
+        }
+      >
           <Text style={styles.detailLine}>
             Today&apos;s plan:{" "}
             {planSummary.status === "loading"
@@ -627,21 +656,32 @@ export default function HomeScreen() {
                 ? "Available"
                 : "Not cached yet"}
           </Text>
-          <PrimaryButton
-            label="Today’s plan"
-            onPress={() => router.push("/exercise-plan")}
-          />
-          <PrimaryButton
-            label="Questionnaires"
-            onPress={() => router.push("/proms" as never)}
-          />
-          <PrimaryButton
-            label="Weekly report"
-            onPress={() => router.push("/weekly-report" as never)}
-          />
-        </Section>
+          <View style={styles.buttonStack}>
+            <SecondaryButton
+              label="Today’s plan"
+              onPress={() => router.push("/exercise-plan")}
+            />
+            <SecondaryButton
+              label="Questionnaires"
+              onPress={() => router.push("/proms" as never)}
+            />
+            <SecondaryButton
+              label="Weekly report"
+              onPress={() => router.push("/weekly-report" as never)}
+            />
+          </View>
+      </Section>
 
-        <Section title="Insights">
+      <Section
+        title="Insights"
+        card
+        right={
+          <StatusPill
+            label={insightSummary.status === "available" ? "Reviewed" : "Pending"}
+            variant={insightSummary.status === "available" ? "success" : "neutral"}
+          />
+        }
+      >
           {insightSummary.status === "loading" ? (
             <Text style={styles.detailLine}>Loading reviewed insights…</Text>
           ) : insightSummary.status === "none" ? (
@@ -649,10 +689,10 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.cardList}>
               {insightSummary.top.map((item) => (
-                <View key={item.id} style={styles.infoCard}>
+                <Card key={item.id} variant="outlined" padding={tokens.spacing.md}>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardMessage}>{item.message}</Text>
-                </View>
+                </Card>
               ))}
               <Text style={styles.detailLine}>
                 {insightSummary.itemCount} approved insight
@@ -660,13 +700,13 @@ export default function HomeScreen() {
               </Text>
             </View>
           )}
-          <PrimaryButton
+          <SecondaryButton
             label="View all insights"
             onPress={() => router.push("/insights" as never)}
           />
-        </Section>
+      </Section>
 
-        <Section title="Daily signals">
+      <Section title="Daily signals" card cardVariant="outlined">
           <Text style={styles.detailLine}>
             Hydration today: {hydrationTodayMl !== null ? `${hydrationTodayMl} ml` : "Not logged"}
           </Text>
@@ -698,31 +738,42 @@ export default function HomeScreen() {
               ? "Checking..."
               : photoSummary.status === "available"
                 ? `${photoSummary.itemCount} saved`
-                : "None"}
+              : "None"}
           </Text>
-          <PrimaryButton
-            label="Hydration"
-            onPress={() => router.push("/hydration" as never)}
-          />
-          <PrimaryButton
-            label="Nutrition"
-            onPress={() => router.push("/nutrition" as never)}
-          />
-          <PrimaryButton
-            label="Medications"
-            onPress={() => router.push("/medications" as never)}
-          />
-          <PrimaryButton
-            label="Wearables"
-            onPress={() => router.push("/wearables" as never)}
-          />
-          <PrimaryButton
-            label="Symptom photos"
-            onPress={() => router.push("/symptom-photos" as never)}
-          />
-        </Section>
+          <View style={styles.buttonStack}>
+            <SecondaryButton
+              label="Hydration"
+              onPress={() => router.push("/hydration" as never)}
+            />
+            <SecondaryButton
+              label="Nutrition"
+              onPress={() => router.push("/nutrition" as never)}
+            />
+            <SecondaryButton
+              label="Medications"
+              onPress={() => router.push("/medications" as never)}
+            />
+            <SecondaryButton
+              label="Wearables"
+              onPress={() => router.push("/wearables" as never)}
+            />
+            <SecondaryButton
+              label="Symptom photos"
+              onPress={() => router.push("/symptom-photos" as never)}
+            />
+          </View>
+      </Section>
 
-        <Section title="Appointments and support">
+      <Section
+        title="Appointments and support"
+        card
+        right={
+          <StatusPill
+            label={appointmentSummary.pendingCount > 0 ? "Needs review" : "Stable"}
+            variant={appointmentSummary.pendingCount > 0 ? "warning" : "neutral"}
+          />
+        }
+      >
           <Text style={styles.detailLine}>
             Requests pending: {appointmentSummary.pendingCount}
           </Text>
@@ -733,19 +784,21 @@ export default function HomeScreen() {
             Coping tools used: breathing {copingSummary.breathingCount}, grounding{" "}
             {copingSummary.groundingCount}
           </Text>
-          <PrimaryButton
-            label="Appointments"
-            onPress={() => router.push("/appointments" as never)}
-          />
-          <PrimaryButton
-            label="Coping tools"
-            onPress={() => router.push("/coping-tools" as never)}
-          />
-          <PrimaryButton
-            label="Settings"
-            onPress={() => router.push("/(tabs)/settings")}
-          />
-        </Section>
+          <View style={styles.buttonStack}>
+            <SecondaryButton
+              label="Appointments"
+              onPress={() => router.push("/appointments" as never)}
+            />
+            <SecondaryButton
+              label="Coping tools"
+              onPress={() => router.push("/coping-tools" as never)}
+            />
+            <SecondaryButton
+              label="Settings"
+              onPress={() => router.push("/(tabs)/settings")}
+            />
+          </View>
+      </Section>
     </Screen>
   );
 }
@@ -770,15 +823,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     cardList: {
       gap: tokens.spacing.sm,
     },
-    infoCard: {
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      paddingVertical: tokens.spacing.md,
-      paddingHorizontal: tokens.spacing.md,
-      backgroundColor: tokens.colors.surface,
-      gap: tokens.spacing.xs,
-      ...tokens.elevation.sm,
+    buttonStack: {
+      gap: tokens.spacing.sm,
     },
     cardTitle: {
       fontSize: 14,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Image,
   Linking,
   Pressable,
   StyleSheet,
@@ -44,6 +45,7 @@ import { resetDemoState } from "@/src/utils/demoReset";
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 const DEFAULT_HOUR = 19;
 const DEFAULT_MINUTE = 0;
+
 type ReminderTimeInput = ReturnType<typeof normalizeInputs>;
 
 function twoDigit(value: number): string {
@@ -101,6 +103,103 @@ function toBannerVariant(
   return value === "error" ? "danger" : value;
 }
 
+function extractPatientPhotoUri(patient: unknown): string | null {
+  if (!patient || typeof patient !== "object") {
+    return null;
+  }
+
+  const record = patient as Record<string, unknown>;
+  const candidates = [
+    record.photoUrl,
+    record.avatarUrl,
+    record.profilePhotoUrl,
+    record.imageUrl,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function toInitials(name: string): string {
+  const parts = name
+    .split(/\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "AU";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function getRehabPhaseLabel(patient: unknown): string {
+  if (!patient || typeof patient !== "object") {
+    return "Rehab phase not set";
+  }
+
+  const record = patient as Record<string, unknown>;
+  const candidates = [
+    record.currentPhaseTitle,
+    record.rehabPhaseTitle,
+    record.phaseTitle,
+    record.rehabProgram,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return "Rehab phase not set";
+}
+
+function getCaregiverLabel(patient: unknown): { value: string; subtitle: string } {
+  if (!patient || typeof patient !== "object") {
+    return {
+      value: "Off",
+      subtitle: "Invite a caregiver to view summaries",
+    };
+  }
+
+  const record = patient as Record<string, unknown>;
+  const caregiverName =
+    typeof record.caregiverName === "string" && record.caregiverName.trim().length > 0
+      ? record.caregiverName.trim()
+      : null;
+  const caregiverEnabled =
+    typeof record.caregiverEnabled === "boolean" ? record.caregiverEnabled : null;
+
+  if (caregiverName) {
+    return {
+      value: caregiverName,
+      subtitle: "Linked caregiver access",
+    };
+  }
+
+  if (caregiverEnabled === true) {
+    return {
+      value: "On",
+      subtitle: "Linked caregiver access",
+    };
+  }
+
+  return {
+    value: "Off",
+    subtitle: "Invite a caregiver to view summaries",
+  };
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const auth = useAuth();
@@ -130,8 +229,13 @@ export default function SettingsScreen() {
   const isDeveloperModeVisible = __DEV__;
   const reduceMotion = useReducedMotion();
 
-  const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
+  const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientId = auth.patient?.id ?? "";
+  const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
+  const patientInitials = useMemo(() => toInitials(patientName), [patientName]);
+  const rehabPhaseLabel = useMemo(() => getRehabPhaseLabel(auth.patient), [auth.patient]);
+  const caregiverInfo = useMemo(() => getCaregiverLabel(auth.patient), [auth.patient]);
+
   const timePreview = useMemo(() => {
     const normalized = normalizeInputs(hourInput, minuteInput);
     if (!normalized.isValid) {
@@ -493,32 +597,45 @@ export default function SettingsScreen() {
 
   return (
     <Screen title="Settings" scroll contentContainerStyle={styles.container}>
-      <Section
-        title="Account / Profile"
-        card
-        right={<StatusPill label={auth.status} variant="neutral" />}
-      >
-          <View style={styles.stack}>
-            <Row
-              title="Patient"
-              right={<Text style={styles.rowValue}>{patientName}</Text>}
-              accessory="none"
-            />
-            <Row
-              title="Session"
-              right={<Text style={styles.rowValue}>{auth.status}</Text>}
-              accessory="none"
-            />
+      <Section title="Account / Profile" card>
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarWrap}>
+            {patientPhotoUri ? (
+              <Image source={{ uri: patientPhotoUri }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitials}>{patientInitials}</Text>
+            )}
           </View>
-          <PrimaryButton
-            label={isSigningOut ? "Signing out…" : "Log out"}
-            loading={isSigningOut}
-            disabled={isSigningOut}
-            onPress={confirmSignOut}
+          <View style={styles.profileCopy}>
+            <Text style={styles.profileName}>{patientName}</Text>
+            <Text style={styles.profileMeta}>{rehabPhaseLabel}</Text>
+            <StatusPill label={auth.status === "signedIn" ? "Signed in" : auth.status} />
+          </View>
+        </View>
+
+        <View style={styles.stack}>
+          <Row
+            title="Care team"
+            subtitle="Message your care team"
+            onPress={() => router.push("/(tabs)/chat")}
           />
-          {logoutError ? (
-            <Banner variant="danger" title="Logout failed" message={logoutError} />
-          ) : null}
+          <Row
+            title="Profile details"
+            subtitle={`Patient ID: ${patientId || "Unavailable"}`}
+            accessory="none"
+          />
+        </View>
+
+        <PrimaryButton
+          label={isSigningOut ? "Signing out…" : "Log out"}
+          loading={isSigningOut}
+          disabled={isSigningOut}
+          onPress={confirmSignOut}
+        />
+
+        {logoutError ? (
+          <Banner variant="warning" title="Logout failed" message={logoutError} />
+        ) : null}
       </Section>
 
       <Section
@@ -526,86 +643,109 @@ export default function SettingsScreen() {
         card
         right={
           <StatusPill
-            label={reminderEnabled ? "Enabled" : "Disabled"}
+            label={reminderEnabled ? "On" : "Off"}
             variant={reminderEnabled ? "success" : "neutral"}
           />
         }
       >
-          <Text style={styles.line}>Reminders: {reminderEnabled ? "On" : "Off"}</Text>
-          <Text style={styles.line}>Time: {timePreview}</Text>
-
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Enable daily reminder</Text>
-            <Switch
-              value={reminderEnabled}
-              onValueChange={handleReminderToggle}
-              disabled={!patientId || isReminderBusy}
-            />
-          </View>
-
-          <View style={styles.timeRow}>
-            <View style={styles.timeInputWrap}>
-              <Text style={styles.timeLabel}>Hour (0-23)</Text>
-              <TextInput
-                value={hourInput}
-                onChangeText={setHourInput}
-                onBlur={handleHourBlur}
-                keyboardType="number-pad"
-                maxLength={2}
-                style={styles.timeInput}
-                editable={!isReminderBusy}
+        <View style={styles.stack}>
+          <Row
+            title="Daily reminders"
+            subtitle={reminderEnabled ? "Enabled" : "Disabled"}
+            right={
+              <Switch
+                value={reminderEnabled}
+                onValueChange={handleReminderToggle}
+                disabled={!patientId || isReminderBusy}
               />
-            </View>
-            <View style={styles.timeInputWrap}>
-              <Text style={styles.timeLabel}>Minute (0-59)</Text>
-              <TextInput
-                value={minuteInput}
-                onChangeText={setMinuteInput}
-                onBlur={handleMinuteBlur}
-                keyboardType="number-pad"
-                maxLength={2}
-                style={styles.timeInput}
-                editable={!isReminderBusy}
-              />
-            </View>
-          </View>
-
-          {timeValidationError ? (
-            <Banner variant="warning" title="Invalid time" message={timeValidationError} />
-          ) : null}
-
-          <LastFailedAttempt
-            label="Last reminder permission issue"
-            value={reminderPermissionError.label}
-            title={reminderPermissionError.lastError?.title}
-            message={reminderPermissionError.lastError?.message}
-            onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
-            compact
-          />
-          <LastFailedAttempt
-            label="Last reminder scheduling issue"
-            value={reminderScheduleError.label}
-            title={reminderScheduleError.lastError?.title}
-            message={reminderScheduleError.lastError?.message}
-            onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
-            compact
+            }
+            accessory="none"
           />
 
-          {reminderNotice ? (
-            <Banner
-              variant={toBannerVariant(reminderNotice.variant)}
-              title={reminderNotice.title}
-              message={reminderNotice.message}
-              actionLabel={reminderNotice.actionLabel}
-              onAction={reminderNotice.onAction}
+          <Row
+            title="Reminder time"
+            subtitle={reminderEnabled ? "Update your daily reminder time" : "Turn reminders on first"}
+            right={<Text style={styles.rowValue}>{reminderEnabled ? timePreview : "Off"}</Text>}
+            accessory="none"
+          />
+        </View>
+
+        <View style={styles.timeRow}>
+          <View style={styles.timeInputWrap}>
+            <Text style={styles.timeLabel}>Hour (0-23)</Text>
+            <TextInput
+              value={hourInput}
+              onChangeText={setHourInput}
+              onBlur={handleHourBlur}
+              keyboardType="number-pad"
+              maxLength={2}
+              style={styles.timeInput}
+              editable={!isReminderBusy}
             />
-          ) : null}
+          </View>
+          <View style={styles.timeInputWrap}>
+            <Text style={styles.timeLabel}>Minute (0-59)</Text>
+            <TextInput
+              value={minuteInput}
+              onChangeText={setMinuteInput}
+              onBlur={handleMinuteBlur}
+              keyboardType="number-pad"
+              maxLength={2}
+              style={styles.timeInput}
+              editable={!isReminderBusy}
+            />
+          </View>
+        </View>
+
+        {timeValidationError ? (
+          <Banner variant="warning" title="Invalid time" message={timeValidationError} />
+        ) : null}
+
+        {reminderPermissionError.lastError ? (
+          <Banner
+            variant="warning"
+            title="Notifications need permission"
+            message="Enable notifications in device settings to use reminders."
+            actionLabel="Open Settings"
+            onAction={() => {
+              void openSystemSettings();
+            }}
+          />
+        ) : null}
+
+        <LastFailedAttempt
+          label="Last reminder permission issue"
+          value={reminderPermissionError.label}
+          title={reminderPermissionError.lastError?.title}
+          message={reminderPermissionError.lastError?.message}
+          onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
+          compact
+        />
+        <LastFailedAttempt
+          label="Last reminder scheduling issue"
+          value={reminderScheduleError.label}
+          title={reminderScheduleError.lastError?.title}
+          message={reminderScheduleError.lastError?.message}
+          onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
+          compact
+        />
+
+        {reminderNotice ? (
+          <Banner
+            variant={toBannerVariant(reminderNotice.variant)}
+            title={reminderNotice.title}
+            message={reminderNotice.message}
+            actionLabel={reminderNotice.actionLabel}
+            onAction={reminderNotice.onAction}
+          />
+        ) : null}
       </Section>
 
       <Section title="Caregiver" card>
         <Row
           title="Caregiver access"
-          subtitle="Generate and revoke temporary invite codes."
+          subtitle={caregiverInfo.subtitle}
+          right={<Text style={styles.rowValue}>{caregiverInfo.value}</Text>}
           onPress={() => {
             router.push("/caregiver-invite" as Href);
           }}
@@ -613,238 +753,211 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title="Support & Safety plan" card>
-        <Row
-          title="Open Safety"
-          subtitle="If symptoms escalate or you feel unsafe, open Safety."
-          onPress={() => {
-            router.push("/safety" as never);
-          }}
-        />
+        <View style={styles.stack}>
+          <Row
+            title="Safety plan"
+            subtitle="Open guided support steps"
+            onPress={() => {
+              router.push("/safety" as never);
+            }}
+          />
+          <Row
+            title="Contact clinic"
+            subtitle="Send a message to your care team"
+            onPress={() => {
+              router.push("/(tabs)/chat");
+            }}
+          />
+          <Row
+            title="Emergency help"
+            subtitle="If urgent, contact local emergency services"
+            accessory="none"
+          />
+        </View>
+        <Text style={styles.supportNote}>
+          If you feel unsafe or overwhelmed, open your Safety plan for guided steps.
+        </Text>
       </Section>
 
       <Section title="App info" card>
         <View style={styles.stack}>
           <Row
-            title="Offline"
-            right={<Text style={styles.rowValue}>{network.isOffline ? "Yes" : "No"}</Text>}
+            title="About Aura"
+            subtitle="Recovery tracking and support"
             accessory="none"
           />
-          <Row title="API base" right={<Text style={styles.rowValue}>{API_BASE}</Text>} accessory="none" />
+          <Row
+            title="Version"
+            right={<Text style={styles.rowValue}>Mobile preview</Text>}
+            accessory="none"
+          />
         </View>
       </Section>
 
-        {/* IMPORTANT: Keep Developer Mode in this single location; do not duplicate via mapped sections. */}
-        {isDeveloperModeVisible ? (
-          <Section
+      {/* IMPORTANT: Developer Mode renders once (not inside lists). */}
+      {isDeveloperModeVisible ? (
+        <Section
+          title="Developer Mode"
+          subtitle="Dev builds only"
+          card
+          cardVariant="outlined"
+          right={<StatusPill label={isDeveloperExpanded ? "Open" : "Collapsed"} />}
+        >
+          <Row
             title="Developer Mode"
-            card
-            cardVariant="outlined"
-            right={<StatusPill label={isDeveloperExpanded ? "Open" : "Collapsed"} />}
-          >
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isDeveloperExpanded }}
-              accessibilityHint="Shows or hides developer tools for local testing."
-              onPress={toggleDeveloperMode}
-              style={({ pressed }) => [
-                styles.devToggle,
-                pressed ? styles.devTogglePressed : null,
-              ]}
-            >
-              <Text style={styles.devToggleTitle}>Developer tools</Text>
-              <Text style={styles.devToggleState}>
-                {isDeveloperExpanded ? "Hide" : "Show"}
+            subtitle="Dev builds only"
+            onPress={toggleDeveloperMode}
+            right={<Text style={styles.rowValue}>{isDeveloperExpanded ? "Hide" : "Show"}</Text>}
+          />
+
+          {isDeveloperExpanded ? (
+            <View style={styles.devPanel}>
+              <Text style={styles.devGroupTitle}>Demo data</Text>
+              <SecondaryButton
+                label={isResettingDemo ? "Resetting…" : "Reset demo state"}
+                loading={isResettingDemo}
+                disabled={!patientId || isResettingDemo}
+                onPress={() =>
+                  confirmAction(
+                    "Reset demo state?",
+                    "This clears local demo caches, drafts, and pending queues for this patient.",
+                    () => {
+                      void runReset(false);
+                    }
+                  )
+                }
+              />
+              <SecondaryButton
+                label={isResettingDemo ? "Resetting…" : "Reset + sign out"}
+                loading={isResettingDemo}
+                disabled={!patientId || isResettingDemo}
+                onPress={() =>
+                  confirmAction(
+                    "Reset and sign out?",
+                    "This clears local demo state for this patient and signs out.",
+                    () => {
+                      void runReset(true);
+                    }
+                  )
+                }
+              />
+              <SecondaryButton
+                label="Reset coping usage"
+                disabled={!patientId}
+                onPress={() =>
+                  confirmAction(
+                    "Reset coping usage?",
+                    "This clears local breathing and grounding usage counters.",
+                    () => {
+                      void handleResetCopingUsage();
+                    }
+                  )
+                }
+              />
+
+              <Text style={styles.devGroupTitle}>Cache & sync</Text>
+              <SecondaryButton
+                label="Clear last refreshed stamps"
+                onPress={() =>
+                  confirmAction(
+                    "Clear refresh stamps?",
+                    "This removes local last-refreshed timestamps.",
+                    () => {
+                      void handleClearRefreshStamps();
+                    }
+                  )
+                }
+              />
+              <SecondaryButton
+                label="Clear last failed attempts"
+                onPress={() =>
+                  confirmAction(
+                    "Clear last failed attempts?",
+                    "This removes locally stored error history.",
+                    () => {
+                      void handleClearLastErrors();
+                    }
+                  )
+                }
+              />
+              <SecondaryButton
+                label="Clear saved progress cache"
+                disabled={!patientId}
+                onPress={() =>
+                  confirmAction(
+                    "Clear saved progress?",
+                    "This removes cached check-ins for this patient on this device.",
+                    () => {
+                      void handleClearSavedProgress();
+                    }
+                  )
+                }
+              />
+              <SecondaryButton
+                label="Clear pending sessions"
+                disabled={!patientId}
+                onPress={() =>
+                  confirmAction(
+                    "Clear pending sessions?",
+                    "This removes locally queued exercise session uploads.",
+                    () => {
+                      void handleClearPendingSessions();
+                    }
+                  )
+                }
+              />
+
+              <Text style={styles.devGroupTitle}>Safety/testing</Text>
+              <SecondaryButton
+                label="Open Safety screen (test)"
+                onPress={() =>
+                  router.push({
+                    pathname: "/safety",
+                    params: {
+                      alertId: "demo-alert",
+                      reasonCodes: "PAIN_GE_THRESHOLD",
+                    },
+                  })
+                }
+              />
+              <SecondaryButton
+                label="Send test notification now"
+                onPress={() => {
+                  void handleSendTestReminder();
+                }}
+                disabled={isReminderBusy}
+              />
+              <SecondaryButton
+                label="List scheduled notifications"
+                onPress={() => {
+                  void handleListScheduled();
+                }}
+                disabled={isReminderBusy}
+              />
+
+              <Text style={styles.devGroupTitle}>Diagnostics</Text>
+              <Text style={styles.devLine}>Auth: {auth.status}</Text>
+              <Text style={styles.devLine}>Patient ID: {patientId || "none"}</Text>
+              <Text style={styles.devLine}>
+                Network: {network.isOffline ? "Offline" : "Online"}
               </Text>
-            </Pressable>
+              <Text style={styles.devLine}>API: {API_BASE}</Text>
 
-            {isDeveloperExpanded ? (
-              <View style={styles.devPanel}>
-                <Text style={styles.devGroupTitle}>Demo data</Text>
-                <PrimaryButton
-                  label={isResettingDemo ? "Resetting…" : "Reset demo state"}
-                  loading={isResettingDemo}
-                  disabled={!patientId || isResettingDemo}
-                  onPress={() =>
-                    confirmAction(
-                      "Reset demo state?",
-                      "This clears local demo caches, drafts, and pending queues for this patient.",
-                      () => {
-                        void runReset(false);
-                      }
-                    )
-                  }
+              {devNotice ? (
+                <Banner
+                  variant="info"
+                  title="Developer"
+                  message={devNotice}
+                  actionLabel="Dismiss"
+                  onAction={() => setDevNotice(null)}
                 />
-                <PrimaryButton
-                  label={isResettingDemo ? "Resetting…" : "Reset + sign out"}
-                  loading={isResettingDemo}
-                  disabled={!patientId || isResettingDemo}
-                  onPress={() =>
-                    confirmAction(
-                      "Reset and sign out?",
-                      "This clears local demo state for this patient and signs out.",
-                      () => {
-                        void runReset(true);
-                      }
-                    )
-                  }
-                />
-                <PrimaryButton
-                  label="Reset coping usage"
-                  disabled={!patientId}
-                  onPress={() =>
-                    confirmAction(
-                      "Reset coping usage?",
-                      "This clears local breathing and grounding usage counters.",
-                      () => {
-                        void handleResetCopingUsage();
-                      }
-                    )
-                  }
-                />
-
-                <Text style={styles.devGroupTitle}>Cache and sync</Text>
-                <SecondaryButton
-                  label="Clear last refreshed stamps"
-                  onPress={() =>
-                    confirmAction(
-                      "Clear refresh stamps?",
-                      "This removes local last-refreshed timestamps.",
-                      () => {
-                        void handleClearRefreshStamps();
-                      }
-                    )
-                  }
-                />
-                <SecondaryButton
-                  label="Clear last failed attempts"
-                  onPress={() =>
-                    confirmAction(
-                      "Clear last failed attempts?",
-                      "This removes locally stored error history.",
-                      () => {
-                        void handleClearLastErrors();
-                      }
-                    )
-                  }
-                />
-                <SecondaryButton
-                  label="Clear saved progress cache"
-                  disabled={!patientId}
-                  onPress={() =>
-                    confirmAction(
-                      "Clear saved progress?",
-                      "This removes cached check-ins for this patient on this device.",
-                      () => {
-                        void handleClearSavedProgress();
-                      }
-                    )
-                  }
-                />
-                <SecondaryButton
-                  label="Clear pending sessions"
-                  disabled={!patientId}
-                  onPress={() =>
-                    confirmAction(
-                      "Clear pending sessions?",
-                      "This removes locally queued exercise session uploads.",
-                      () => {
-                        void handleClearPendingSessions();
-                      }
-                    )
-                  }
-                />
-
-                <Text style={styles.devGroupTitle}>Safety and testing</Text>
-                <SecondaryButton
-                  label="Open Safety screen (test)"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/safety",
-                      params: {
-                        alertId: "demo-alert",
-                        reasonCodes: "PAIN_GE_THRESHOLD",
-                      },
-                    })
-                  }
-                />
-                <SecondaryButton
-                  label="Send test notification now"
-                  onPress={() => {
-                    void handleSendTestReminder();
-                  }}
-                  disabled={isReminderBusy}
-                />
-                <SecondaryButton
-                  label="List scheduled notifications"
-                  onPress={() => {
-                    void handleListScheduled();
-                  }}
-                  disabled={isReminderBusy}
-                />
-
-                <Text style={styles.devGroupTitle}>Preset helpers</Text>
-                <SecondaryButton
-                  label="Open Check-in (low-risk preset)"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/checkin",
-                      params: { devPreset: "low", devToken: String(Date.now()) },
-                    })
-                  }
-                />
-                <SecondaryButton
-                  label="Open Check-in (high-risk preset)"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/checkin",
-                      params: { devPreset: "high", devToken: String(Date.now()) },
-                    })
-                  }
-                />
-                <SecondaryButton
-                  label="Open Chat (low-risk draft)"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/chat",
-                      params: { devPreset: "low", devToken: String(Date.now()) },
-                    })
-                  }
-                />
-                <SecondaryButton
-                  label="Open Chat (high-risk draft)"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/(tabs)/chat",
-                      params: { devPreset: "high", devToken: String(Date.now()) },
-                    })
-                  }
-                />
-
-                <Text style={styles.devGroupTitle}>Diagnostics</Text>
-                <Text style={styles.devLine}>Auth: {auth.status}</Text>
-                <Text style={styles.devLine}>Patient ID: {patientId || "none"}</Text>
-                <Text style={styles.devLine}>
-                  Network: {network.isOffline ? "Offline" : "Online"}
-                </Text>
-                <Text style={styles.devLine}>API: {API_BASE}</Text>
-
-                {devNotice ? (
-                  <Banner
-                    variant="info"
-                    title="Developer"
-                    message={devNotice}
-                    actionLabel="Dismiss"
-                    onAction={() => setDevNotice(null)}
-                  />
-                ) : null}
-              </View>
-            ) : (
-              <Text style={styles.devHint}>
-                Hidden by default. Expand for local demo and debug actions.
-              </Text>
-            )}
-          </Section>
-        ) : null}
+              ) : null}
+            </View>
+          ) : (
+            <Text style={styles.devHint}>Hidden by default. Expand for local demo and debug actions.</Text>
+          )}
+        </Section>
+      ) : null}
     </Screen>
   );
 }
@@ -858,31 +971,60 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     stack: {
       gap: tokens.spacing.sm,
     },
-    line: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: tokens.colors.textMuted,
-      marginBottom: tokens.spacing.xs,
-    },
     rowValue: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
     },
-    switchRow: {
-      minHeight: 44,
+    profileHeader: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
       gap: tokens.spacing.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.md,
     },
-    switchLabel: {
+    avatarWrap: {
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
+    avatarImage: {
+      width: "100%",
+      height: "100%",
+    },
+    avatarInitials: {
+      color: tokens.colors.accent,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    profileCopy: {
       flex: 1,
-      fontSize: 14,
-      lineHeight: 20,
+      gap: 2,
+      alignItems: "flex-start",
+    },
+    profileName: {
       color: tokens.colors.text,
-      fontWeight: tokens.typography.weights.medium,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    profileMeta: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      marginBottom: tokens.spacing.xs,
     },
     timeRow: {
       flexDirection: "row",
@@ -890,7 +1032,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     timeInputWrap: {
       flex: 1,
-      gap: tokens.spacing.sm - 2,
+      gap: tokens.spacing.xs,
     },
     timeLabel: {
       fontSize: tokens.typography.caption.fontSize,
@@ -899,7 +1041,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     timeInput: {
-      minHeight: 42,
+      minHeight: 44,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.sm,
@@ -909,32 +1051,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.text,
       backgroundColor: tokens.colors.surface,
     },
-    devToggle: {
-      minHeight: 48,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.md - 2,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: tokens.colors.surfaceElevated,
-    },
-    devTogglePressed: {
-      opacity: 0.8,
-    },
-    devToggleTitle: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: tokens.typography.weights.semibold,
-      color: tokens.colors.text,
-    },
-    devToggleState: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: tokens.typography.weights.semibold,
+    supportNote: {
       color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      marginTop: tokens.spacing.xs,
     },
     devHint: {
       marginTop: tokens.spacing.sm,
@@ -943,11 +1064,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
     },
     devPanel: {
-      marginTop: tokens.spacing.md,
+      marginTop: tokens.spacing.sm,
       gap: tokens.spacing.sm,
     },
     devGroupTitle: {
-      marginTop: tokens.spacing.sm - 2,
+      marginTop: tokens.spacing.sm,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: "700",

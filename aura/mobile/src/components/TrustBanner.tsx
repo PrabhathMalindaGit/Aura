@@ -50,6 +50,7 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
   return (
     <View
       testID={testID}
+      accessible
       accessibilityRole="alert"
       accessibilityLabel={`${title}. ${subtitle}`}
       style={[styles.container, toneStyle]}
@@ -103,7 +104,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
     },
     retryButton: {
-      minHeight: 36,
+      minHeight: 44,
       borderRadius: tokens.radius.sm,
       borderWidth: 1,
       borderColor: tokens.colors.accent,

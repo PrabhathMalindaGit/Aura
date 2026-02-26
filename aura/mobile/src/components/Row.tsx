@@ -55,7 +55,11 @@ export function Row({
 
   if (!onPress) {
     return (
-      <View style={[styles.base, disabled ? styles.disabled : null]} testID={testID}>
+      <View
+        style={[styles.base, disabled ? styles.disabled : null]}
+        accessibilityLabel={accessibilityLabel}
+        testID={testID}
+      >
         {content}
       </View>
     );
@@ -66,6 +70,7 @@ export function Row({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       disabled={!isPressable}
       hitSlop={8}
       onPress={onPress}
@@ -146,4 +151,3 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
   });
 }
-

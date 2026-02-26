@@ -36,7 +36,11 @@ export function EmptyState({
   const isCompact = variant === "compact";
 
   return (
-    <View style={[styles.container, isCompact ? styles.compact : null]}>
+    <View
+      accessible
+      accessibilityLabel={description ? `${title}. ${description}` : title}
+      style={[styles.container, isCompact ? styles.compact : null]}
+    >
       {illustration ? <View style={styles.illustrationWrap}>{illustration}</View> : null}
       {!illustration && imageSource ? (
         <Image source={imageSource} resizeMode="contain" style={styles.image} />
@@ -97,4 +101,3 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
   });
 }
-

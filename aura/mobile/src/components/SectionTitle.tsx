@@ -7,16 +7,24 @@ type SectionTitleProps = {
   title: string;
   subtitle?: string;
   right?: ReactNode;
+  isHeading?: boolean;
 };
 
-export function SectionTitle({ title, subtitle, right }: SectionTitleProps) {
+export function SectionTitle({
+  title,
+  subtitle,
+  right,
+  isHeading = true,
+}: SectionTitleProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   return (
     <View style={styles.wrap}>
       <View style={styles.titleBlock}>
-        <Text style={styles.title}>{title}</Text>
+        <Text accessibilityRole={isHeading ? "header" : undefined} style={styles.title}>
+          {title}
+        </Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       {right ? <View style={styles.right}>{right}</View> : null}
@@ -53,4 +61,3 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
   });
 }
-

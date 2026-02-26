@@ -28,6 +28,7 @@ export function IconButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       hitSlop={8}
@@ -49,8 +50,10 @@ export function IconButton({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     button: {
-      minWidth: 44,
-      minHeight: 44,
+      width: 48,
+      height: 48,
+      minWidth: 48,
+      minHeight: 48,
       borderRadius: tokens.radius.md,
       borderWidth: 1,
       borderColor: tokens.colors.border,
@@ -76,4 +79,3 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
   });
 }
-

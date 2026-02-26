@@ -33,7 +33,11 @@ export function Banner({
           : styles.infoTone;
 
   return (
-    <View style={[styles.container, toneStyle]}>
+    <View
+      accessible
+      accessibilityLabel={message ? `${title}. ${message}` : title}
+      style={[styles.container, toneStyle]}
+    >
       <View style={styles.copyBlock}>
         <Text style={styles.title}>{title}</Text>
         {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -83,7 +87,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.caption.lineHeight,
     },
     actionButton: {
-      minHeight: 36,
+      minHeight: 44,
       borderRadius: tokens.radius.sm,
       paddingHorizontal: tokens.spacing.md,
       borderWidth: 1,
@@ -119,4 +123,3 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
   });
 }
-

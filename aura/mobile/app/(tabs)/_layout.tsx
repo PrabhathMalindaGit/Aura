@@ -47,13 +47,18 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
           headerRight: () => (
             <Link href="/modal" asChild>
-              <Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open app information"
+                hitSlop={8}
+                style={styles.headerIconButton}
+              >
                 {({ pressed }) => (
                   <FontAwesome
                     name="info-circle"
                     size={25}
                     color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
+                    style={{ opacity: pressed ? 0.5 : 1 }}
                   />
                 )}
               </Pressable>
@@ -96,6 +101,13 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerIconButton: {
+    minWidth: 48,
+    minHeight: 48,
+    marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

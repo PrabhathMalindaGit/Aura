@@ -21,11 +21,16 @@ export function SecondaryButton({
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isDisabled = disabled || loading;
+  const resolvedLabel = accessibilityLabel ?? (loading ? `${label}. Loading` : label);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={resolvedLabel}
+      accessibilityState={{
+        disabled: isDisabled,
+        busy: loading || undefined,
+      }}
       disabled={isDisabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -42,7 +47,7 @@ export function SecondaryButton({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     button: {
-      minHeight: 44,
+      minHeight: 48,
       borderRadius: tokens.radius.md,
       borderWidth: 1,
       borderColor: tokens.colors.border,

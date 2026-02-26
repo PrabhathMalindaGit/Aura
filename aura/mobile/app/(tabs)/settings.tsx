@@ -37,6 +37,7 @@ import { useNetwork } from "@/src/state/network";
 import { clearPending } from "@/src/state/pendingSessions";
 import { getReminderPrefs, setReminderPrefs } from "@/src/state/reminderPrefs";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
+import { useReducedMotion } from "@/src/state/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 import { resetDemoState } from "@/src/utils/demoReset";
 
@@ -127,6 +128,7 @@ export default function SettingsScreen() {
   const [isReminderBusy, setIsReminderBusy] = useState(false);
   const [isDeveloperExpanded, setIsDeveloperExpanded] = useState(false);
   const isDeveloperModeVisible = __DEV__;
+  const reduceMotion = useReducedMotion();
 
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const patientId = auth.patient?.id ?? "";
@@ -480,6 +482,15 @@ export default function SettingsScreen() {
     }
   };
 
+  const toggleDeveloperMode = () => {
+    // If we add disclosure animation later, gate it by reduceMotion first.
+    if (reduceMotion) {
+      setIsDeveloperExpanded((current) => !current);
+      return;
+    }
+    setIsDeveloperExpanded((current) => !current);
+  };
+
   return (
     <Screen title="Settings" scroll contentContainerStyle={styles.container}>
       <Section
@@ -632,7 +643,9 @@ export default function SettingsScreen() {
           >
             <Pressable
               accessibilityRole="button"
-              onPress={() => setIsDeveloperExpanded((current) => !current)}
+              accessibilityState={{ expanded: isDeveloperExpanded }}
+              accessibilityHint="Shows or hides developer tools for local testing."
+              onPress={toggleDeveloperMode}
               style={({ pressed }) => [
                 styles.devToggle,
                 pressed ? styles.devTogglePressed : null,
@@ -897,7 +910,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       backgroundColor: tokens.colors.surface,
     },
     devToggle: {
-      minHeight: 44,
+      minHeight: 48,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.md,

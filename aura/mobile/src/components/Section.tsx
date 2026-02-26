@@ -9,6 +9,7 @@ type SectionProps = {
   title: string;
   subtitle?: string;
   right?: ReactNode;
+  heading?: boolean;
   card?: boolean;
   cardVariant?: CardVariant;
   children: ReactNode;
@@ -18,6 +19,7 @@ export function Section({
   title,
   subtitle,
   right,
+  heading = true,
   card = false,
   cardVariant = "default",
   children,
@@ -30,7 +32,12 @@ export function Section({
       <View style={styles.section}>
         <Card variant={cardVariant} padding={tokens.spacing.lg}>
           <View style={styles.content}>
-            <SectionTitle title={title} subtitle={subtitle} right={right} />
+            <SectionTitle
+              title={title}
+              subtitle={subtitle}
+              right={right}
+              isHeading={heading}
+            />
             <View>{children}</View>
           </View>
         </Card>
@@ -40,7 +47,7 @@ export function Section({
 
   return (
     <View style={styles.section}>
-      <SectionTitle title={title} subtitle={subtitle} right={right} />
+      <SectionTitle title={title} subtitle={subtitle} right={right} isHeading={heading} />
       <View>{children}</View>
     </View>
   );

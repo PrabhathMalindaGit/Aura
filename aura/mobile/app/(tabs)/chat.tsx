@@ -20,6 +20,7 @@ import {
   type ChatItem,
   type ChatSendResponse,
 } from "@/src/api/patient";
+import { EmptyState } from "@/src/components/EmptyState";
 import { InlineNotice } from "@/src/components/InlineNotice";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
@@ -675,13 +676,24 @@ export default function ChatScreen() {
                   );
                 }}
                 ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>
-                      {isOffline
-                        ? "Connect to load chat history."
-                        : "No messages yet. Start the conversation below."}
-                    </Text>
-                  </View>
+                  <EmptyState
+                    variant="compact"
+                    illustrationKey={isOffline ? "offline" : "chat"}
+                    title={isOffline ? "Offline — chat history unavailable" : "No messages yet"}
+                    description={
+                      isOffline
+                        ? "Connect to load conversation history."
+                        : "Start the conversation below."
+                    }
+                    ctaLabel={isOffline ? undefined : "Start check-in"}
+                    onCtaPress={
+                      isOffline
+                        ? undefined
+                        : () => {
+                            router.push("/(tabs)/checkin");
+                          }
+                    }
+                  />
                 }
               />
             )}
@@ -792,14 +804,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#b91c1c",
     fontWeight: "600",
-  },
-  emptyContainer: {
-    paddingVertical: 24,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#6b7280",
   },
   composer: {
     borderTopWidth: 1,

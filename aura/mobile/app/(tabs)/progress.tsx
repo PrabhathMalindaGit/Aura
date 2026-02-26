@@ -17,6 +17,7 @@ import {
   type CheckInItem,
   type HydrationDayTotal,
 } from "@/src/api/patient";
+import { EmptyState } from "@/src/components/EmptyState";
 import { InlineNotice } from "@/src/components/InlineNotice";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
@@ -532,11 +533,24 @@ export default function ProgressScreen() {
               <ActivityIndicator size="small" />
             </View>
           ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>
-                No check-ins yet. Your trends will appear after your first check-in.
-              </Text>
-            </View>
+            <EmptyState
+              variant="compact"
+              illustrationKey={isOffline ? "offline" : "progress"}
+              title={isOffline ? "Offline — showing saved info only" : "No check-ins yet"}
+              description={
+                isOffline
+                  ? "Connect to refresh progress data."
+                  : "Your trends will appear after your first check-in."
+              }
+              ctaLabel={isOffline ? undefined : "Start check-in"}
+              onCtaPress={
+                isOffline
+                  ? undefined
+                  : () => {
+                      router.push("/(tabs)/checkin");
+                    }
+              }
+            />
           )
         }
       />
@@ -637,18 +651,5 @@ const styles = StyleSheet.create({
   rowMeta: {
     fontSize: 13,
     color: "#4b5563",
-  },
-  emptyState: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    backgroundColor: "#ffffff",
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#6b7280",
-    lineHeight: 20,
   },
 });

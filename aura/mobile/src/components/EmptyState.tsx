@@ -7,6 +7,10 @@ import {
   type ImageSourcePropType,
 } from "react-native";
 
+import {
+  getIllustration,
+  type IllustrationKey,
+} from "@/src/assets/illustrations";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { useTokens } from "@/src/theme/tokens";
 
@@ -17,6 +21,7 @@ type EmptyStateProps = {
   description?: string;
   illustration?: ReactNode;
   imageSource?: ImageSourcePropType;
+  illustrationKey?: IllustrationKey;
   ctaLabel?: string;
   onCtaPress?: () => void;
   variant?: EmptyStateVariant;
@@ -27,6 +32,7 @@ export function EmptyState({
   description,
   illustration,
   imageSource,
+  illustrationKey,
   ctaLabel,
   onCtaPress,
   variant = "default",
@@ -34,6 +40,15 @@ export function EmptyState({
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isCompact = variant === "compact";
+  const resolvedImage = useMemo(() => {
+    if (imageSource) {
+      return imageSource;
+    }
+    if (illustrationKey) {
+      return getIllustration(illustrationKey);
+    }
+    return undefined;
+  }, [illustrationKey, imageSource]);
 
   return (
     <View
@@ -42,8 +57,14 @@ export function EmptyState({
       style={[styles.container, isCompact ? styles.compact : null]}
     >
       {illustration ? <View style={styles.illustrationWrap}>{illustration}</View> : null}
-      {!illustration && imageSource ? (
-        <Image source={imageSource} resizeMode="contain" style={styles.image} />
+      {!illustration && resolvedImage ? (
+        <Image
+          source={resolvedImage}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+          accessibilityLabel={`${title} illustration`}
+          style={styles.image}
+        />
       ) : null}
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
@@ -82,8 +103,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       marginBottom: tokens.spacing.xs,
     },
     image: {
-      width: 84,
-      height: 84,
+      width: "100%",
+      maxWidth: 300,
+      height: 170,
       marginBottom: tokens.spacing.xs,
     },
     title: {

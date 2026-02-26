@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
@@ -145,6 +146,14 @@ export default function HomeScreen() {
     patientId,
     pendingCountOverride: totalPendingUploads,
   });
+  const showCarePlanEmpty = useMemo(
+    () =>
+      planSummary.status === "none" &&
+      rehabSummary.status === "none" &&
+      promSummary.status === "none" &&
+      weeklyReportAvailable === "none",
+    [planSummary.status, promSummary.status, rehabSummary.status, weeklyReportAvailable]
+  );
 
   const reloadPendingCounts = useCallback(async (): Promise<void> => {
     if (!patientId) {
@@ -622,6 +631,14 @@ export default function HomeScreen() {
           />
         }
       >
+          {showCarePlanEmpty ? (
+            <EmptyState
+              variant="compact"
+              illustrationKey="weekly"
+              title="Care plan summary will appear here"
+              description="Once your plan and weekly report are available, this card will show key updates."
+            />
+          ) : null}
           <Text style={styles.detailLine}>
             Today&apos;s plan:{" "}
             {planSummary.status === "loading"
@@ -685,7 +702,12 @@ export default function HomeScreen() {
           {insightSummary.status === "loading" ? (
             <Text style={styles.detailLine}>Loading reviewed insights…</Text>
           ) : insightSummary.status === "none" ? (
-            <Text style={styles.detailLine}>No reviewed insights yet.</Text>
+            <EmptyState
+              variant="compact"
+              illustrationKey="today"
+              title="No reviewed insights yet"
+              description="Insights will appear after your care team reviews recent trends."
+            />
           ) : (
             <View style={styles.cardList}>
               {insightSummary.top.map((item) => (

@@ -1,7 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -17,17 +16,17 @@ import {
   type CheckInItem,
   type HydrationDayTotal,
 } from "@/src/api/patient";
+import { Banner, type BannerVariant } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
-import { InlineNotice } from "@/src/components/InlineNotice";
-import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
-import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { Screen } from "@/src/components/Screen";
+import { Section } from "@/src/components/Section";
+import { SkeletonBlock } from "@/src/components/Skeleton";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
+import { Row } from "@/src/components/Row";
 import { useAuth } from "@/src/state/auth";
-import {
-  getCachedCheckins,
-  setCachedCheckins,
-} from "@/src/state/checkinsCache";
+import { getCachedCheckins, setCachedCheckins } from "@/src/state/checkinsCache";
 import {
   getCachedHydrationRange,
   mergeCachedHydrationDayTotals,
@@ -37,25 +36,47 @@ import { useIsOffline } from "@/src/state/network";
 import { setSelectedCheckin } from "@/src/state/progressSelection";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
-import { addDaysISO, formatISOToHuman, todayISO } from "@/src/utils/date";
+import { useTokens } from "@/src/theme/tokens";
+import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
-import { computeSummary, parseCheckinTime } from "@/src/utils/progressStats";
+import { parseCheckinTime } from "@/src/utils/progressStats";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 type LoadSource = "live" | "cache" | "none";
-type WindowDays = 14 | 30;
+type RangeDays = 7 | 30 | 90;
+type PillVariant = "neutral" | "info" | "success" | "warning" | "danger";
 
 type NoticeState = {
-  variant: "info" | "warning" | "error";
+  variant: BannerVariant;
   title: string;
   message: string;
   actionLabel?: string;
   onAction?: () => void;
 };
 
-type HydrationSummary = {
-  avgDailyMl: number | null;
-  daysMeetingTarget: number;
+type KpiItem = {
+  key: string;
+  title: string;
+  value: string;
+  assessment: string;
+  variant: PillVariant;
+  helper?: string;
+};
+
+type TrendItem = {
+  key: string;
+  title: string;
+  deltaLabel: string;
+  assessment: string;
+  direction: "up" | "down" | "flat";
+  variant: PillVariant;
+};
+
+type TrendSplit = {
+  previous: number | null;
+  recent: number | null;
 };
 
 function toFriendlyProgressError(error: unknown): {
@@ -122,27 +143,38 @@ function toFriendlyProgressError(error: unknown): {
   };
 }
 
-function displayDate(item: CheckInItem): string {
-  if (item.date) {
-    return formatISOToHuman(item.date);
+function formatDateTitle(item: CheckInItem): string {
+  const source = item.date ?? item.createdAt;
+  if (!source) {
+    return "Unknown date";
   }
-  if (item.createdAt) {
-    return formatISOToHuman(item.createdAt);
+
+  const parsed = new Date(source);
+  if (!Number.isFinite(parsed.getTime())) {
+    return "Unknown date";
   }
-  return "Unknown date";
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(parsed);
 }
 
-function formatValue(value: number | null, suffix = ""): string {
+function formatValue(value: number | null, suffix = "", decimals = 1): string {
   if (value === null || !Number.isFinite(value)) {
     return "—";
   }
-  return `${value}${suffix}`;
+
+  const rounded = Number(value.toFixed(decimals));
+  return `${rounded}${suffix}`;
 }
 
 function sortByNewest(items: CheckInItem[]): CheckInItem[] {
   const sorted = [...items].sort((a, b) => parseCheckinTime(b) - parseCheckinTime(a));
   const seenIds = new Set<string>();
   const deduped: CheckInItem[] = [];
+
   for (const item of sorted) {
     if (seenIds.has(item.id)) {
       continue;
@@ -150,13 +182,178 @@ function sortByNewest(items: CheckInItem[]): CheckInItem[] {
     seenIds.add(item.id);
     deduped.push(item);
   }
+
   return deduped;
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) {
+    return null;
+  }
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return total / values.length;
+}
+
+function deriveAssessment(
+  value: number | null,
+  thresholds: { good: number; okay: number },
+  preferHigh = true
+): { label: string; variant: PillVariant } {
+  if (value === null || !Number.isFinite(value)) {
+    return { label: "No data yet", variant: "neutral" };
+  }
+
+  if (preferHigh) {
+    if (value >= thresholds.good) {
+      return { label: "Improving", variant: "success" };
+    }
+    if (value >= thresholds.okay) {
+      return { label: "Stable", variant: "info" };
+    }
+    return { label: "Needs attention", variant: "warning" };
+  }
+
+  if (value <= thresholds.good) {
+    return { label: "Improving", variant: "success" };
+  }
+  if (value <= thresholds.okay) {
+    return { label: "Stable", variant: "info" };
+  }
+  return { label: "Needs attention", variant: "warning" };
+}
+
+function computeTrendSplit(
+  items: CheckInItem[],
+  rangeDays: RangeDays,
+  selector: (item: CheckInItem) => number | null
+): TrendSplit {
+  const now = Date.now();
+  const windowStart = now - rangeDays * DAY_MS;
+  const midpoint = now - (rangeDays * DAY_MS) / 2;
+
+  const previousValues: number[] = [];
+  const recentValues: number[] = [];
+
+  for (const item of items) {
+    const ts = parseCheckinTime(item);
+    if (!Number.isFinite(ts) || ts < windowStart || ts > now) {
+      continue;
+    }
+
+    const value = selector(item);
+    if (value === null || !Number.isFinite(value)) {
+      continue;
+    }
+
+    if (ts < midpoint) {
+      previousValues.push(value);
+    } else {
+      recentValues.push(value);
+    }
+  }
+
+  return {
+    previous: average(previousValues),
+    recent: average(recentValues),
+  };
+}
+
+function evaluateTrend(
+  previous: number | null,
+  recent: number | null,
+  betterWhen: "higher" | "lower",
+  threshold: number,
+  unit = ""
+): TrendItem {
+  if (
+    previous === null ||
+    recent === null ||
+    !Number.isFinite(previous) ||
+    !Number.isFinite(recent)
+  ) {
+    return {
+      key: "",
+      title: "",
+      deltaLabel: "Not enough data",
+      assessment: "No data yet",
+      direction: "flat",
+      variant: "neutral",
+    };
+  }
+
+  const delta = recent - previous;
+  const absDelta = Math.abs(delta);
+  const rounded = Number(delta.toFixed(1));
+  const sign = rounded > 0 ? "+" : "";
+  const deltaLabel = `${sign}${rounded}${unit}`;
+
+  if (absDelta <= threshold) {
+    return {
+      key: "",
+      title: "",
+      deltaLabel,
+      assessment: "Stable",
+      direction: "flat",
+      variant: "info",
+    };
+  }
+
+  const improving = betterWhen === "higher" ? delta > 0 : delta < 0;
+
+  return {
+    key: "",
+    title: "",
+    deltaLabel,
+    assessment: improving ? "Improving" : "Needs attention",
+    direction: improving ? (betterWhen === "higher" ? "up" : "down") : betterWhen === "higher" ? "down" : "up",
+    variant: improving ? "success" : "warning",
+  };
+}
+
+function trendArrow(direction: "up" | "down" | "flat"): string {
+  if (direction === "up") {
+    return "↑";
+  }
+  if (direction === "down") {
+    return "↓";
+  }
+  return "→";
+}
+
+function hydrationAverage(
+  days: HydrationDayTotal[],
+  rangeDays: RangeDays
+): { avg: number | null; daysMeetingTarget: number; totalDays: number } {
+  const end = todayISO();
+  const from = addDaysISO(end, -(rangeDays - 1));
+
+  const filtered = days.filter(
+    (day) => Date.parse(day.date) >= Date.parse(from) && Date.parse(day.date) <= Date.parse(end)
+  );
+
+  if (filtered.length === 0) {
+    return {
+      avg: null,
+      daysMeetingTarget: 0,
+      totalDays: 0,
+    };
+  }
+
+  const totalMl = filtered.reduce((sum, day) => sum + day.totalMl, 0);
+  return {
+    avg: totalMl / filtered.length,
+    daysMeetingTarget: filtered.filter((day) => day.totalMl >= 2000).length,
+    totalDays: filtered.length,
+  };
 }
 
 export default function ProgressScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
   const {
     label: progressRefreshLabel,
     refreshLocal: refreshProgressStamp,
@@ -169,7 +366,7 @@ export default function ProgressScreen() {
   } = useLastError("progressLoad");
   const loadInFlightRef = useRef(false);
 
-  const [windowDays, setWindowDays] = useState<WindowDays>(14);
+  const [rangeDays, setRangeDays] = useState<RangeDays>(30);
   const [items, setItems] = useState<CheckInItem[]>([]);
   const [hydrationDays, setHydrationDays] = useState<HydrationDayTotal[]>([]);
   const [source, setSource] = useState<LoadSource>("none");
@@ -182,32 +379,181 @@ export default function ProgressScreen() {
     patientId,
     errorRecords: [progressLoadLastError],
   });
-  const historyItems = useMemo(() => items.slice(0, 30), [items]);
 
-  const summary14 = useMemo(() => computeSummary(items, 14), [items]);
-  const summary30 = useMemo(() => computeSummary(items, 30), [items]);
-  const activeSummary = windowDays === 14 ? summary14 : summary30;
-  const hydrationSummary = useMemo<HydrationSummary>(() => {
-    const end = todayISO();
-    const from = addDaysISO(end, -(windowDays - 1));
-    const filtered = hydrationDays.filter(
-      (day) => Date.parse(day.date) >= Date.parse(from) && Date.parse(day.date) <= Date.parse(end)
+  const filteredItems = useMemo(() => {
+    const now = Date.now();
+    const threshold = now - rangeDays * DAY_MS;
+    return items.filter((item) => {
+      const ts = parseCheckinTime(item);
+      return Number.isFinite(ts) && ts >= threshold;
+    });
+  }, [items, rangeDays]);
+
+  const hydrationStats = useMemo(
+    () => hydrationAverage(hydrationDays, rangeDays),
+    [hydrationDays, rangeDays]
+  );
+
+  const painAvg = useMemo(
+    () => average(filteredItems.map((item) => item.pain)),
+    [filteredItems]
+  );
+  const moodAvg = useMemo(
+    () => average(filteredItems.map((item) => item.mood)),
+    [filteredItems]
+  );
+  const exerciseAvgPct = useMemo(() => {
+    const values = filteredItems
+      .map((item) => item.adherence?.exercises)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
+      .map((value) => value * 100);
+    return average(values);
+  }, [filteredItems]);
+  const medicationPct = useMemo(() => {
+    const values = filteredItems
+      .map((item) => item.adherence?.medication)
+      .filter((value): value is boolean => typeof value === "boolean");
+    if (values.length === 0) {
+      return null;
+    }
+    const yesCount = values.filter(Boolean).length;
+    return (yesCount / values.length) * 100;
+  }, [filteredItems]);
+  const sleepAvgHours = useMemo(() => {
+    const values = filteredItems
+      .map((item) => item.sleep?.hours)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    return average(values);
+  }, [filteredItems]);
+
+  const trendItems = useMemo<TrendItem[]>(() => {
+    const painTrend = evaluateTrend(
+      computeTrendSplit(filteredItems, rangeDays, (item) => item.pain).previous,
+      computeTrendSplit(filteredItems, rangeDays, (item) => item.pain).recent,
+      "lower",
+      0.3,
+      ""
     );
-    if (filtered.length === 0) {
-      return {
-        avgDailyMl: null,
-        daysMeetingTarget: 0,
-      };
+    const moodTrend = evaluateTrend(
+      computeTrendSplit(filteredItems, rangeDays, (item) => item.mood).previous,
+      computeTrendSplit(filteredItems, rangeDays, (item) => item.mood).recent,
+      "higher",
+      0.2,
+      ""
+    );
+    const adherenceTrend = evaluateTrend(
+      computeTrendSplit(filteredItems, rangeDays, (item) => {
+        if (typeof item.adherence?.exercises !== "number") {
+          return null;
+        }
+        return item.adherence.exercises * 100;
+      }).previous,
+      computeTrendSplit(filteredItems, rangeDays, (item) => {
+        if (typeof item.adherence?.exercises !== "number") {
+          return null;
+        }
+        return item.adherence.exercises * 100;
+      }).recent,
+      "higher",
+      5,
+      "%"
+    );
+
+    return [
+      {
+        ...painTrend,
+        key: "pain",
+        title: "Pain",
+      },
+      {
+        ...moodTrend,
+        key: "mood",
+        title: "Mood",
+      },
+      {
+        ...adherenceTrend,
+        key: "adherence",
+        title: "Adherence",
+      },
+    ];
+  }, [filteredItems, rangeDays]);
+
+  const kpiItems = useMemo<KpiItem[]>(() => {
+    const painStatus = deriveAssessment(painAvg, { good: 4, okay: 6 }, false);
+    const moodStatus = deriveAssessment(moodAvg, { good: 4, okay: 3 }, true);
+    const adherenceStatus = deriveAssessment(exerciseAvgPct, { good: 75, okay: 50 }, true);
+    const medicationStatus = deriveAssessment(medicationPct, { good: 80, okay: 60 }, true);
+
+    const base: KpiItem[] = [
+      {
+        key: "pain",
+        title: "Pain",
+        value: formatValue(painAvg, "/10"),
+        assessment: painStatus.label,
+        variant: painStatus.variant,
+      },
+      {
+        key: "mood",
+        title: "Mood",
+        value: formatValue(moodAvg, "/5"),
+        assessment: moodStatus.label,
+        variant: moodStatus.variant,
+      },
+      {
+        key: "adherence",
+        title: "Exercise adherence",
+        value: formatValue(exerciseAvgPct, "%", 0),
+        assessment: adherenceStatus.label,
+        variant: adherenceStatus.variant,
+      },
+      {
+        key: "medication",
+        title: "Medication taken",
+        value: formatValue(medicationPct, "%", 0),
+        assessment: medicationStatus.label,
+        variant: medicationStatus.variant,
+      },
+    ];
+
+    if (sleepAvgHours !== null) {
+      const sleepStatus = deriveAssessment(sleepAvgHours, { good: 7, okay: 6 }, true);
+      base.push({
+        key: "sleep",
+        title: "Sleep",
+        value: formatValue(sleepAvgHours, "h"),
+        assessment: sleepStatus.label,
+        variant: sleepStatus.variant,
+      });
     }
 
-    const total = filtered.reduce((sum, day) => sum + day.totalMl, 0);
-    const avgDailyMl = Math.round((total / filtered.length) * 10) / 10;
-    const daysMeetingTarget = filtered.filter((day) => day.totalMl >= 2000).length;
-    return {
-      avgDailyMl,
-      daysMeetingTarget,
-    };
-  }, [hydrationDays, windowDays]);
+    if (hydrationStats.avg !== null) {
+      const hydrationStatus = deriveAssessment(
+        hydrationStats.avg,
+        { good: 1800, okay: 1400 },
+        true
+      );
+      base.push({
+        key: "hydration",
+        title: "Hydration",
+        value: formatValue(hydrationStats.avg, " ml", 0),
+        assessment: hydrationStatus.label,
+        variant: hydrationStatus.variant,
+        helper: `${hydrationStats.daysMeetingTarget}/${hydrationStats.totalDays} goal days`,
+      });
+    }
+
+    return base.slice(0, 6);
+  }, [exerciseAvgPct, hydrationStats, medicationPct, moodAvg, painAvg, sleepAvgHours]);
+
+  const subtitle = useMemo(() => {
+    if (isOffline) {
+      return "Offline — showing saved info.";
+    }
+    if (source === "cache") {
+      return "Showing saved data.";
+    }
+    return `Last updated ${progressRefreshLabel}`;
+  }, [isOffline, progressRefreshLabel, source]);
 
   // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
   const loadProgress = useCallback(
@@ -225,11 +571,15 @@ export default function ProgressScreen() {
 
       setNotice(null);
 
+      const hydrationFrom = addDaysISO(todayISO(), -89);
+      const hydrationTo = todayISO();
+
       if (isOffline) {
         const [cached, cachedHydration] = await Promise.all([
           getCachedCheckins(patientId),
-          getCachedHydrationRange(patientId, addDaysISO(todayISO(), -29), todayISO()),
+          getCachedHydrationRange(patientId, hydrationFrom, hydrationTo),
         ]);
+
         if (cached && cached.length > 0) {
           setItems(sortByNewest(cached));
           setSource("cache");
@@ -240,14 +590,13 @@ export default function ProgressScreen() {
         setNotice(null);
         setHydrationDays(cachedHydration?.days ?? []);
 
+        loadInFlightRef.current = false;
         setIsLoading(false);
         setIsRefreshing(false);
         return;
       }
 
       try {
-        const hydrationFrom = addDaysISO(todayISO(), -29);
-        const hydrationTo = todayISO();
         const [nextItems, hydrationRange] = await Promise.all([
           listCheckins(auth.token, { limit: 200 }),
           getHydrationRange(auth.token, {
@@ -276,9 +625,10 @@ export default function ProgressScreen() {
 
         const [cached, cachedHydration] = await Promise.all([
           getCachedCheckins(patientId),
-          getCachedHydrationRange(patientId, addDaysISO(todayISO(), -29), todayISO()),
+          getCachedHydrationRange(patientId, hydrationFrom, hydrationTo),
         ]);
         setHydrationDays(cachedHydration?.days ?? []);
+
         if (cached && cached.length > 0) {
           setItems(sortByNewest(cached));
           setSource("cache");
@@ -297,7 +647,7 @@ export default function ProgressScreen() {
           setItems([]);
           setSource("none");
           setNotice({
-            variant: "error",
+            variant: "warning",
             title: friendly.title,
             message: friendly.message,
             actionLabel: friendly.retryable ? "Retry" : undefined,
@@ -347,9 +697,12 @@ export default function ProgressScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Progress" scroll={false}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
+      <Screen scroll={false}>
+        <View style={styles.loadingWrap}>
+          <SkeletonBlock height={28} width="40%" />
+          <SkeletonBlock height={18} width="55%" />
+          <SkeletonBlock height={96} />
+          <SkeletonBlock height={96} />
         </View>
       </Screen>
     );
@@ -359,28 +712,27 @@ export default function ProgressScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // IMPORTANT: Keep summary/toggles/notices in ListHeaderComponent.
-  // Banner belongs in Screen.banner; do not duplicate in header/items.
   const listHeader = (
     <View style={styles.listHeader}>
-      <LastRefreshed value={progressRefreshLabel} />
-      <LastFailedAttempt
-        value={progressLoadErrorLabel}
-        title={progressLoadLastError?.title}
-        message={progressLoadLastError?.message}
-        onClear={progressLoadLastError ? clearProgressLoadError : undefined}
-      />
-
-      {source === "cache" && !isOffline ? (
-        <InlineNotice
-          variant="info"
-          title="Saved data"
-          message="Showing saved data while live refresh is unavailable."
-        />
-      ) : null}
+      <View style={styles.headerIntro}>
+        <Text style={styles.title}>Progress</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+        <View style={styles.headerPillRow}>
+          <StatusPill
+            label={`Range ${rangeDays}d`}
+            variant="neutral"
+          />
+          {trustStatus.kind === "syncing" ? (
+            <StatusPill
+              label={`Pending ${Math.max(0, trustStatus.pendingCount)}`}
+              variant="info"
+            />
+          ) : null}
+        </View>
+      </View>
 
       {notice ? (
-        <InlineNotice
+        <Banner
           variant={notice.variant}
           title={notice.title}
           message={notice.message}
@@ -389,85 +741,92 @@ export default function ProgressScreen() {
         />
       ) : null}
 
-      <View style={styles.toggleRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setWindowDays(14)}
-          style={({ pressed }) => [
-            styles.toggleChip,
-            windowDays === 14 ? styles.toggleChipActive : null,
-            pressed ? styles.toggleChipPressed : null,
-          ]}
-        >
-          <Text style={[styles.toggleText, windowDays === 14 ? styles.toggleTextActive : null]}>
-            14 days
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setWindowDays(30)}
-          style={({ pressed }) => [
-            styles.toggleChip,
-            windowDays === 30 ? styles.toggleChipActive : null,
-            pressed ? styles.toggleChipPressed : null,
-          ]}
-        >
-          <Text style={[styles.toggleText, windowDays === 30 ? styles.toggleTextActive : null]}>
-            30 days
-          </Text>
-        </Pressable>
-      </View>
+      {progressLoadLastError && !notice ? (
+        <Banner
+          variant="warning"
+          title="Last refresh issue"
+          message={`${progressLoadErrorLabel}. ${progressLoadLastError.message}`}
+          actionLabel="Clear"
+          onAction={() => {
+            void clearProgressLoadError();
+          }}
+        />
+      ) : null}
 
-      <View style={styles.summaryGrid}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Check-ins</Text>
-          <Text style={styles.summaryValue}>{activeSummary.checkinCount}</Text>
+      <Card variant="outlined">
+        <View style={styles.rangeSelector}>
+          {[7, 30, 90].map((range) => {
+            const selected = rangeDays === range;
+            return (
+              <Pressable
+                key={range}
+                accessibilityRole="button"
+                accessibilityLabel={`Show last ${range} days`}
+                onPress={() => setRangeDays(range as RangeDays)}
+                style={({ pressed }) => [
+                  styles.rangeChip,
+                  selected ? styles.rangeChipSelected : null,
+                  pressed ? styles.rangeChipPressed : null,
+                ]}
+              >
+                <Text
+                  style={[styles.rangeChipText, selected ? styles.rangeChipTextSelected : null]}
+                >
+                  {range} days
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Average pain</Text>
-          <Text style={styles.summaryValue}>{formatValue(activeSummary.avgPain, "/10")}</Text>
+      </Card>
+
+      <Section title="Key metrics" card>
+        {isLoading && items.length === 0 ? (
+          <View style={styles.kpiGrid}>
+            {[0, 1, 2, 3].map((key) => (
+              <SkeletonBlock key={key} height={94} style={styles.kpiTileSkeleton} />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.kpiGrid}>
+            {kpiItems.map((kpi) => (
+              <Card key={kpi.key} variant="outlined" style={styles.kpiTile}>
+                <View style={styles.kpiTileBody}>
+                  <Text style={styles.kpiTitle}>{kpi.title}</Text>
+                  <Text style={styles.kpiValue}>{kpi.value}</Text>
+                  <Text style={styles.kpiAssessment}>{kpi.assessment}</Text>
+                  <StatusPill label={kpi.assessment} variant={kpi.variant} />
+                  {kpi.helper ? <Text style={styles.kpiHelper}>{kpi.helper}</Text> : null}
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+      </Section>
+
+      <Section title="Trends" card>
+        <View style={styles.trendList}>
+          {trendItems.map((trend) => (
+            <View key={trend.key} style={styles.trendRow}>
+              <View style={styles.trendLeft}>
+                <Text style={styles.trendTitle}>{trend.title}</Text>
+                <Text style={styles.trendDelta}>
+                  {trendArrow(trend.direction)} {trend.deltaLabel}
+                </Text>
+              </View>
+              <StatusPill label={trend.assessment} variant={trend.variant} />
+            </View>
+          ))}
         </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Average mood</Text>
-          <Text style={styles.summaryValue}>{formatValue(activeSummary.avgMood, "/5")}</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Exercise adherence</Text>
-          <Text style={styles.summaryValue}>
-            {formatValue(activeSummary.avgExerciseAdherencePct, "%")}
-          </Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Medication taken</Text>
-          <Text style={styles.summaryValue}>{formatValue(activeSummary.medicationYesPct, "%")}</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Avg sleep (hrs)</Text>
-          <Text style={styles.summaryValue}>{formatValue(activeSummary.avgSleepHours)}</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Avg sleep quality</Text>
-          <Text style={styles.summaryValue}>
-            {formatValue(activeSummary.avgSleepQuality, "/5")}
-          </Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Avg hydration</Text>
-          <Text style={styles.summaryValue}>{formatValue(hydrationSummary.avgDailyMl, " ml")}</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Hydration goal days</Text>
-          <Text style={styles.summaryValue}>{hydrationSummary.daysMeetingTarget}</Text>
-        </View>
-      </View>
+      </Section>
 
       <Text style={styles.historyTitle}>Recent check-ins</Text>
+      {/* IMPORTANT: Header belongs in ListHeaderComponent only; do not duplicate in renderItem. */}
     </View>
   );
 
   return (
     <Screen
-      title="Progress"
       scroll={false}
       banner={
         <TrustBanner
@@ -479,7 +838,7 @@ export default function ProgressScreen() {
       }
     >
       <FlatList
-        data={historyItems}
+        data={filteredItems}
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl
@@ -510,39 +869,36 @@ export default function ProgressScreen() {
                 : null;
 
           return (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setSelectedCheckin(item);
-                router.push("/checkin-detail" as any);
-              }}
-              style={({ pressed }) => [styles.rowCard, pressed ? styles.rowCardPressed : null]}
-            >
-              <Text style={styles.rowDate}>{displayDate(item)}</Text>
-              <Text style={styles.rowMeta}>Pain {item.pain}/10</Text>
-              <Text style={styles.rowMeta}>Mood {item.mood}/5</Text>
-              <Text style={styles.rowMeta}>Exercises {exercisePct}</Text>
-              <Text style={styles.rowMeta}>Medication {medTaken}</Text>
-              {sleepSummary ? <Text style={styles.rowMeta}>Sleep {sleepSummary}</Text> : null}
-            </Pressable>
+            <View style={styles.historyRowWrap}>
+              <Row
+                title={formatDateTitle(item)}
+                subtitle={`Pain ${item.pain}/10 · Mood ${item.mood}/5 · Exercises ${exercisePct}${sleepSummary ? ` · Sleep ${sleepSummary}` : ""} · Medication ${medTaken}`}
+                onPress={() => {
+                  setSelectedCheckin(item);
+                  router.push("/checkin-detail" as any);
+                }}
+              />
+            </View>
           );
         }}
         ListEmptyComponent={
           isLoading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="small" />
+            <View style={styles.emptyLoadingWrap}>
+              {[0, 1, 2].map((key) => (
+                <SkeletonBlock key={key} height={72} style={styles.historySkeleton} />
+              ))}
             </View>
           ) : (
             <EmptyState
               variant="compact"
               illustrationKey={isOffline ? "offline" : "progress"}
-              title={isOffline ? "Offline — showing saved info only" : "No check-ins yet"}
+              title={isOffline ? "Offline — showing saved info" : "No check-ins in this range"}
               description={
                 isOffline
                   ? "Connect to refresh progress data."
-                  : "Your trends will appear after your first check-in."
+                  : "Try a different range or complete today’s check-in."
               }
-              ctaLabel={isOffline ? undefined : "Start check-in"}
+              ctaLabel={isOffline ? undefined : "Start today’s check-in"}
               onCtaPress={
                 isOffline
                   ? undefined
@@ -558,98 +914,160 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  listHeader: {
-    gap: 8,
-  },
-  centered: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 120,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 2,
-  },
-  toggleChip: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#ffffff",
-  },
-  toggleChipActive: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-  toggleChipPressed: {
-    opacity: 0.75,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  toggleTextActive: {
-    color: "#ffffff",
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  summaryCard: {
-    minWidth: "48%",
-    flexGrow: 1,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#f9fafb",
-    gap: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: "#4b5563",
-    fontWeight: "500",
-  },
-  summaryValue: {
-    fontSize: 20,
-    color: "#111827",
-    fontWeight: "700",
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-  },
-  listContent: {
-    gap: 8,
-    paddingBottom: 20,
-  },
-  rowCard: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#ffffff",
-    gap: 2,
-  },
-  rowCardPressed: {
-    opacity: 0.8,
-  },
-  rowDate: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 2,
-  },
-  rowMeta: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    loadingWrap: {
+      flex: 1,
+      justifyContent: "center",
+      gap: tokens.spacing.md,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+    },
+    headerIntro: {
+      gap: tokens.spacing.xs,
+    },
+    title: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.title.fontSize,
+      lineHeight: tokens.typography.title.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    subtitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    headerPillRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+      marginTop: tokens.spacing.xs,
+    },
+    rangeSelector: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    rangeChip: {
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+      paddingHorizontal: tokens.spacing.md,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    rangeChipSelected: {
+      borderColor: tokens.colors.accent,
+      backgroundColor: tokens.colors.accentTextOn,
+    },
+    rangeChipPressed: {
+      opacity: 0.82,
+    },
+    rangeChipText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    rangeChipTextSelected: {
+      color: tokens.colors.accent,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    kpiGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    kpiTile: {
+      width: "48%",
+      flexGrow: 1,
+      minHeight: 100,
+    },
+    kpiTileSkeleton: {
+      width: "48%",
+      flexGrow: 1,
+      minHeight: 94,
+      borderRadius: tokens.radius.md,
+    },
+    kpiTileBody: {
+      gap: tokens.spacing.xs,
+    },
+    kpiTitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    kpiValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    kpiAssessment: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    kpiHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    trendList: {
+      gap: tokens.spacing.sm,
+    },
+    trendRow: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    trendLeft: {
+      flex: 1,
+      gap: 2,
+    },
+    trendTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    trendDelta: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    historyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      marginTop: tokens.spacing.xs,
+    },
+    listContent: {
+      gap: tokens.spacing.sm,
+      paddingBottom: tokens.spacing.xl,
+    },
+    historyRowWrap: {
+      marginBottom: tokens.spacing.xs,
+    },
+    emptyLoadingWrap: {
+      gap: tokens.spacing.sm,
+    },
+    historySkeleton: {
+      borderRadius: tokens.radius.md,
+      minHeight: 72,
+    },
+  });
+}

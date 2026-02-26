@@ -380,8 +380,10 @@ export async function updateAlertStatus(
 }
 
 export async function markAlertSeen(_id: string): Promise<void> {
-  // TODO(server): replace local seen-store semantics with PATCH /clinician/alerts/:id/seen
-  // when backend alert documents provide seenAt/seenBy fields for clinician-scoped tracking.
+  await fetchJson<PatchAlertResponse>(`/clinician/alerts/${encodeURIComponent(_id)}/seen`, {
+    method: 'PATCH',
+    json: {},
+  });
 }
 
 export async function assignAlert(
@@ -390,16 +392,23 @@ export async function assignAlert(
   assignedToName?: string,
   force: boolean = false,
 ): Promise<AssignmentRecord> {
-  // TODO(server): replace local adapter with:
-  // PATCH /clinician/alerts/:id/assignment
-  // body: { assignedTo: string, assignedToName?: string, force?: boolean }
-  // If assigned to another clinician and force=false, backend should return 409 conflict.
-  void force;
+  const response = await fetchJson<PatchAlertResponse>(
+    `/clinician/alerts/${encodeURIComponent(alertId)}/assignment`,
+    {
+      method: 'PATCH',
+      json: {
+        assignedTo,
+        assignedToName,
+        force,
+      },
+    },
+  );
 
+  const serverAlert = response.alert;
   const assignment: AssignmentRecord = {
-    assignedTo,
-    assignedToName,
-    assignedAtISO: new Date().toISOString(),
+    assignedTo: serverAlert?.assignedTo ?? assignedTo,
+    assignedToName: serverAlert?.assignedToName ?? assignedToName,
+    assignedAtISO: serverAlert?.assignedAt ?? new Date().toISOString(),
   };
 
   setAssignment(alertId, assignment);
@@ -407,9 +416,12 @@ export async function assignAlert(
 }
 
 export async function unassignAlert(alertId: string): Promise<void> {
-  // TODO(server): replace local adapter with:
-  // PATCH /clinician/alerts/:id/assignment
-  // body: { assignedTo: null }
+  await fetchJson<PatchAlertResponse>(`/clinician/alerts/${encodeURIComponent(alertId)}/assignment`, {
+    method: 'PATCH',
+    json: {
+      assignedTo: null,
+    },
+  });
   removeAssignment(alertId);
 }
 
@@ -419,9 +431,6 @@ export async function takeoverAlert(
   assignedToName?: string,
   reason?: string,
 ): Promise<AssignmentRecord> {
-  // TODO(server): replace local adapter with:
-  // POST /clinician/alerts/:id/takeover
-  // body: { assignedTo: string, assignedToName?: string, reason?: string }
   void reason;
 
   return assignAlert(alertId, assignedTo, assignedToName, true);
@@ -439,15 +448,6 @@ export async function overrideAlertRisk(
   alertId: string,
   payload: OverrideAlertRiskPayload,
 ): Promise<RiskOverrideRecord | null> {
-  // TODO(server): replace local adapter with:
-  // PATCH /clinician/alerts/:id/risk-override
-  // body: {
-  //   riskFinal: "low"|"medium"|"high",
-  //   overrideReason: string (required if changed),
-  //   overriddenBy: string,
-  //   overriddenByName?: string
-  // }
-  // Backend should write an OVERRIDE_RISK care_event for audit history.
   const changed = isRiskChanged(payload.riskAuto, payload.riskFinal);
   const reason = payload.overrideReason?.trim() ?? '';
 
@@ -460,13 +460,27 @@ export async function overrideAlertRisk(
     return null;
   }
 
+  const response = await fetchJson<PatchAlertResponse>(
+    `/clinician/alerts/${encodeURIComponent(alertId)}/risk-override`,
+    {
+      method: 'PATCH',
+      json: {
+        riskFinal: payload.riskFinal,
+        overrideReason: reason || 'Confirmed auto risk.',
+        overriddenBy: payload.overriddenBy,
+        overriddenByName: payload.overriddenByName,
+      },
+    },
+  );
+
+  const serverAlert = response.alert;
   const record: RiskOverrideRecord = {
-    riskAuto: payload.riskAuto,
-    riskFinal: payload.riskFinal,
-    overrideReason: reason || 'Confirmed auto risk.',
-    overriddenAtISO: new Date().toISOString(),
-    overriddenBy: payload.overriddenBy,
-    overriddenByName: payload.overriddenByName,
+    riskAuto: serverAlert?.riskAuto ?? payload.riskAuto,
+    riskFinal: serverAlert?.riskFinal ?? payload.riskFinal,
+    overrideReason: serverAlert?.overrideReason ?? (reason || 'Confirmed auto risk.'),
+    overriddenAtISO: serverAlert?.overriddenAt ?? new Date().toISOString(),
+    overriddenBy: serverAlert?.overriddenBy ?? payload.overriddenBy,
+    overriddenByName: serverAlert?.overriddenByName ?? payload.overriddenByName,
   };
 
   setRiskOverride(alertId, record);

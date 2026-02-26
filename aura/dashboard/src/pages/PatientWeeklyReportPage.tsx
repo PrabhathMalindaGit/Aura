@@ -306,6 +306,19 @@ export function PatientWeeklyReportPage(): JSX.Element {
             </div>
           </Card>
 
+          <Card title="Wearables">
+            <div className="stack stack--1">
+              <p className="muted-text">Tracked days: {reportQuery.data.wearables.trackedDays}</p>
+              <p className="muted-text">
+                Avg steps: {numberOrDash(reportQuery.data.wearables.avgSteps)}
+              </p>
+              <p className="muted-text">
+                Avg active minutes: {numberOrDash(reportQuery.data.wearables.avgActiveMinutes)}
+              </p>
+              <p className="muted-text">Source: {reportQuery.data.wearables.source}</p>
+            </div>
+          </Card>
+
           <Card title="Medications">
             <div className="stack stack--1">
               <p className="muted-text">

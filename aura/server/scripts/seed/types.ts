@@ -7,6 +7,7 @@ export interface SeedSummary {
   appointmentRequests: number;
   hydrationLogs: number;
   nutritionLogs: number;
+  wearableDailies: number;
   medications: number;
   medicationSchedules: number;
   medicationLogs: number;
@@ -31,6 +32,7 @@ export interface ResetSummary {
   appointmentRequestsDeleted: number;
   hydrationLogsDeleted: number;
   nutritionLogsDeleted: number;
+  wearableDailiesDeleted: number;
   medicationsDeleted: number;
   medicationSchedulesDeleted: number;
   medicationLogsDeleted: number;

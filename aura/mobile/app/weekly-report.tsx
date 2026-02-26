@@ -132,6 +132,7 @@ function buildShareText(report: WeeklyReport): string {
     `Symptom photos: ${report.photos.uploadedThisWeek} uploaded (swelling ${report.photos.kinds.swelling}, wound ${report.photos.kinds.wound}, rash ${report.photos.kinds.rash}, other ${report.photos.kinds.other})`,
     `Hydration: tracked days ${report.hydration.trackedDays}, avg daily ${numberOrDash(report.hydration.avgDailyMl)} ml, total ${report.hydration.totalMl} ml, goal days ${report.hydration.daysMeetingTarget}/${report.hydration.trackedDays}`,
     `Nutrition: tracked days ${report.nutrition.trackedDays}, avg fruit/veg ${numberOrDash(report.nutrition.avgFruitVegServings)}, protein OK/high days ${report.nutrition.proteinOkHighDays}, anti-inflammatory days ${report.nutrition.antiInflammatoryDays}, regular meals days ${report.nutrition.regularMealsDays}`,
+    `Wearables: tracked days ${report.wearables?.trackedDays ?? 0}, avg steps ${numberOrDash(report.wearables?.avgSteps ?? null)}, avg active minutes ${numberOrDash(report.wearables?.avgActiveMinutes ?? null)} (source ${report.wearables?.source ?? "mock"})`,
     `Medications: scheduled ${report.medications.scheduledDoses}, taken ${report.medications.takenDoses}, skipped ${report.medications.skippedDoses}, adherence ${pctOrDash(report.medications.adherencePct)}`,
     `Exercise sessions: ${report.exercises.sessionCount}, duration ${report.exercises.totalDurationMinutes} min, completion ${report.exercises.completedExercises}/${report.exercises.totalExercises}`,
     `PROMs: due now ${report.proms.dueNowCount}, completed this week ${report.proms.completedThisWeekCount}`,
@@ -501,6 +502,18 @@ export default function WeeklyReportScreen() {
               <Text style={styles.metaText}>
                 Regular meals days: {report.nutrition.regularMealsDays}
               </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Wearables</Text>
+              <Text style={styles.metaText}>Tracked days: {report.wearables?.trackedDays ?? 0}</Text>
+              <Text style={styles.metaText}>
+                Avg steps: {numberOrDash(report.wearables?.avgSteps ?? null)}
+              </Text>
+              <Text style={styles.metaText}>
+                Avg active minutes: {numberOrDash(report.wearables?.avgActiveMinutes ?? null)}
+              </Text>
+              <Text style={styles.metaText}>Source: {report.wearables?.source ?? "mock"}</Text>
             </View>
 
             <View style={styles.card}>

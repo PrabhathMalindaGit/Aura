@@ -15,6 +15,7 @@ import NutritionLog from "../src/models/NutritionLog";
 import Patient from "../src/models/Patient";
 import PromInstance from "../src/models/PromInstance";
 import SymptomPhoto from "../src/models/SymptomPhoto";
+import WearableDaily from "../src/models/WearableDaily";
 import { signAuthToken } from "../src/utils/jwt";
 import { signPatientToken } from "../src/utils/patientJwt";
 
@@ -39,6 +40,7 @@ describe("weekly report routes", () => {
       CheckIn.deleteMany({}),
       ExerciseSession.deleteMany({}),
       HydrationLog.deleteMany({}),
+      WearableDaily.deleteMany({}),
       SymptomPhoto.deleteMany({}),
       NutritionLog.deleteMany({}),
       Medication.deleteMany({}),
@@ -213,6 +215,49 @@ describe("weekly report routes", () => {
         amountMl: 2300,
         source: "manual",
         createdAt: new Date("2026-02-24T10:00:00.000Z"),
+      },
+    ]);
+
+    await WearableDaily.insertMany([
+      {
+        patientId: "p1",
+        source: "mock",
+        date: "2026-02-23",
+        steps: 3200,
+        activeMinutes: 24,
+        restingHr: 78,
+      },
+      {
+        patientId: "p1",
+        source: "mock",
+        date: "2026-02-24",
+        steps: 2800,
+        activeMinutes: 18,
+        restingHr: 80,
+      },
+      {
+        patientId: "p1",
+        source: "mock",
+        date: "2026-02-27",
+        steps: 5400,
+        activeMinutes: 36,
+        restingHr: 72,
+      },
+      {
+        patientId: "p1",
+        source: "mock",
+        date: "2026-03-01",
+        steps: 4100,
+        activeMinutes: 28,
+        restingHr: 74,
+      },
+      {
+        patientId: "p2",
+        source: "mock",
+        date: "2026-02-24",
+        steps: 9000,
+        activeMinutes: 62,
+        restingHr: 64,
       },
     ]);
 
@@ -500,6 +545,7 @@ describe("weekly report routes", () => {
     expect(response.body).toHaveProperty("proms.dueNowCount");
     expect(response.body).toHaveProperty("safety.alertsCreatedThisWeek");
     expect(response.body).toHaveProperty("photos.uploadedThisWeek");
+    expect(response.body).toHaveProperty("wearables.avgSteps");
   });
 
   it("patient report endpoint remains scoped to req.patient.id", async () => {
@@ -581,6 +627,12 @@ describe("weekly report routes", () => {
       proteinOkHighDays: 1,
       antiInflammatoryDays: 3,
       regularMealsDays: 2,
+    });
+    expect(response.body.wearables).toMatchObject({
+      trackedDays: 4,
+      avgSteps: 3875,
+      avgActiveMinutes: 26.5,
+      source: "mock",
     });
     expect(response.body.medications).toMatchObject({
       scheduledDoses: 14,

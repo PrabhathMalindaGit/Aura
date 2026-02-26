@@ -83,7 +83,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Refreshed Scaffolding (Step 2.1)
 
 - Local-only timestamp storage is implemented in `src/state/refresh.ts`.
-- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `appointments`, `insights`, `caregiver`, `weeklyReport`, `photos`) to keep usage consistent.
+- Keys are typed (`home`, `chat`, `checkins`, `progress`, `exercisePlan`, `exerciseSessions`, `rehabPhases`, `proms`, `hydration`, `nutrition`, `medications`, `wearables`, `appointments`, `insights`, `caregiver`, `weeklyReport`, `photos`) to keep usage consistent.
 - Future data steps should call:
   - `setLastRefreshedNow("chat")` after successful chat-history load.
   - `setLastRefreshedNow("progress")` after successful check-ins/progress load.
@@ -93,7 +93,7 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 ## Last Error Scaffolding (Step 2.2)
 
 - Persistent local error records are implemented in `src/state/lastError.ts`.
-- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `appointmentsLoad`, `appointmentRequest`, `insightsLoad`, `caregiverLoad`, `caregiverLogin`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
+- Error keys are typed (`auth`, `checkinSubmit`, `chatSend`, `chatLoad`, `progressLoad`, `exercisePlanLoad`, `exerciseSessionSave`, `exerciseSessionsLoad`, `rehabPhasesLoad`, `promsLoad`, `promSubmit`, `hydrationLoad`, `hydrationLog`, `nutritionLoad`, `nutritionLog`, `medicationsLoad`, `medicationLog`, `wearablesLoad`, `wearablesSync`, `appointmentsLoad`, `appointmentRequest`, `insightsLoad`, `caregiverLoad`, `caregiverLogin`, `weeklyReportLoad`, `photosLoad`, `photoUpload`).
 - UI helper `src/components/LastFailedAttempt.tsx` renders:
   - relative failed-at label
   - optional friendly title/message
@@ -813,6 +813,43 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
    - open **Appointments**
    - verify cached slots/requests are visible
    - verify booking actions are blocked.
+
+## Step 17 Add-on #3: Wearables integration (stub/mock)
+
+- New patient route:
+  - `/wearables`
+- Demo Hub integration:
+  - quick action **Wearables**
+  - cached summary line with connector state and average steps.
+
+### Behavior
+
+- Mock connector only (no HealthKit/Google Fit native SDKs in this step).
+- **Mock sync last 7 days** generates deterministic daily rollups:
+  - steps
+  - active minutes
+  - optional resting HR.
+- Offline mode:
+  - mock sync batches queue locally
+  - cached summary remains visible
+  - use **Sync now** when online to upload pending batches.
+- Trust-under-failure keys:
+  - refresh key `wearables`
+  - error keys `wearablesLoad`, `wearablesSync`.
+
+### Step 17 Add-on #3 demo flow
+
+1. Open **Wearables** and enable **Mock wearable connected**.
+2. While online, tap **Mock sync last 7 days**.
+3. Verify summary updates (tracked days, average steps, active minutes).
+4. Turn offline and tap **Mock sync last 7 days** again:
+   - pending sync count increases
+   - UI shows saved local data.
+5. Turn online and tap **Sync now**:
+   - pending count clears
+   - summary refreshes from server.
+6. Open **Weekly report** and verify the wearables block appears.
+7. Open dashboard patient detail and verify **Wearables (last 7 days)** updates.
 
 ## How to Test Offline
 

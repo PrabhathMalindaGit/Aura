@@ -14,6 +14,7 @@ import Patient from "../../src/models/Patient";
 import PromInstance from "../../src/models/PromInstance";
 import PromTemplate from "../../src/models/PromTemplate";
 import User from "../../src/models/User";
+import WearableDaily from "../../src/models/WearableDaily";
 import {
   type BodyMapPainType,
   type BodyMapRegion,
@@ -49,6 +50,11 @@ interface HydrationSeedRow {
 }
 
 interface NutritionSeedRow {
+  patientId: string;
+  doc: Record<string, unknown>;
+}
+
+interface WearableSeedRow {
   patientId: string;
   doc: Record<string, unknown>;
 }
@@ -182,6 +188,7 @@ export async function resetDemoData(): Promise<ResetSummary> {
     medicationLogsDeleted,
     hydrationLogsDeleted,
     nutritionLogsDeleted,
+    wearableDailiesDeleted,
     careEventsDeleted,
     alertsDeleted,
     chatMessagesDeleted,
@@ -199,6 +206,7 @@ export async function resetDemoData(): Promise<ResetSummary> {
     MedicationLog.deleteMany({ demoTag: DEMO_TAG }),
     HydrationLog.deleteMany({ demoTag: DEMO_TAG }),
     NutritionLog.deleteMany({ demoTag: DEMO_TAG }),
+    WearableDaily.deleteMany({ demoTag: DEMO_TAG }),
     CareEvent.deleteMany({ demoTag: DEMO_TAG }),
     Alert.deleteMany({ demoTag: DEMO_TAG }),
     ChatMessage.deleteMany({ demoTag: DEMO_TAG }),
@@ -215,6 +223,7 @@ export async function resetDemoData(): Promise<ResetSummary> {
     appointmentRequestsDeleted: appointmentRequestsDeleted.deletedCount ?? 0,
     hydrationLogsDeleted: hydrationLogsDeleted.deletedCount ?? 0,
     nutritionLogsDeleted: nutritionLogsDeleted.deletedCount ?? 0,
+    wearableDailiesDeleted: wearableDailiesDeleted.deletedCount ?? 0,
     chatMessagesDeleted: chatMessagesDeleted.deletedCount ?? 0,
     alertsDeleted: alertsDeleted.deletedCount ?? 0,
     careEventsDeleted: careEventsDeleted.deletedCount ?? 0,
@@ -442,6 +451,62 @@ function buildNutritionRows(now: Date): NutritionSeedRow[] {
           appetite,
           notes,
           source: "manual",
+          demoTag: DEMO_TAG,
+          createdAt,
+          updatedAt: createdAt,
+        },
+      });
+    }
+  });
+
+  return rows;
+}
+
+function buildWearableRows(now: Date): WearableSeedRow[] {
+  const rows: WearableSeedRow[] = [];
+  const rng = mulberry32(RNG_SEED + 303);
+  const baseDay = utcDay(now);
+  const windowDays = 14;
+  const stepsBase = [6800, 5600, 4700];
+
+  DEMO_PATIENTS.forEach((patient, patientIndex) => {
+    for (let dayOffset = 0; dayOffset < windowDays; dayOffset += 1) {
+      if ((dayOffset + patientIndex) % 6 === 0) {
+        continue;
+      }
+
+      const day = addUtcDays(baseDay, -dayOffset);
+      const steps = clamp(
+        Math.round(
+          stepsBase[patientIndex % stepsBase.length] -
+            dayOffset * 120 +
+            ((dayOffset + patientIndex) % 5) * 360 +
+            (rng() * 700 - 350)
+        ),
+        2500,
+        9000
+      );
+      const activeMinutes = clamp(
+        Math.round(10 + steps / 220 + (rng() * 10 - 5)),
+        10,
+        60
+      );
+      const restingHr = clamp(
+        Math.round(84 - activeMinutes / 2 + patientIndex * 2 + (rng() * 8 - 4)),
+        55,
+        85
+      );
+      const createdAt = withUtcTime(day, 6 + patientIndex, (dayOffset * 9) % 60);
+
+      rows.push({
+        patientId: patient.patientId,
+        doc: {
+          patientId: patient.patientId,
+          source: "mock",
+          date: toDateKey(day),
+          steps,
+          activeMinutes,
+          restingHr,
           demoTag: DEMO_TAG,
           createdAt,
           updatedAt: createdAt,
@@ -1138,6 +1203,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
   const checkInRows = buildCheckInRows(now);
   const hydrationRows = buildHydrationRows(now);
   const nutritionRows = buildNutritionRows(now);
+  const wearableRows = buildWearableRows(now);
   const insertedCheckIns = await CheckIn.insertMany(checkInRows.map((row) => row.doc), {
     ordered: true,
   });
@@ -1145,6 +1211,9 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     ordered: true,
   });
   await NutritionLog.insertMany(nutritionRows.map((row) => row.doc), {
+    ordered: true,
+  });
+  await WearableDaily.insertMany(wearableRows.map((row) => row.doc), {
     ordered: true,
   });
   const checkInSourceIds = new Map<string, string>();
@@ -1212,6 +1281,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     appointmentRequests,
     hydrationLogs,
     nutritionLogs,
+    wearableDailies,
     medications,
     medicationSchedules,
     medicationLogs,
@@ -1228,6 +1298,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     AppointmentRequest.countDocuments({ demoTag: DEMO_TAG }),
     HydrationLog.countDocuments({ demoTag: DEMO_TAG }),
     NutritionLog.countDocuments({ demoTag: DEMO_TAG }),
+    WearableDaily.countDocuments({ demoTag: DEMO_TAG }),
     Medication.countDocuments({ demoTag: DEMO_TAG }),
     MedicationSchedule.countDocuments({ demoTag: DEMO_TAG }),
     MedicationLog.countDocuments({ demoTag: DEMO_TAG }),
@@ -1251,6 +1322,7 @@ export async function seedDemoData(options: SeedOptions = {}): Promise<SeedSumma
     appointmentRequests,
     hydrationLogs,
     nutritionLogs,
+    wearableDailies,
     medications,
     medicationSchedules,
     medicationLogs,

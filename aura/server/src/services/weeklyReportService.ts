@@ -8,6 +8,7 @@ import MedicationSchedule from "../models/MedicationSchedule";
 import NutritionLog from "../models/NutritionLog";
 import PromInstance from "../models/PromInstance";
 import SymptomPhoto from "../models/SymptomPhoto";
+import WearableDaily from "../models/WearableDaily";
 import { bodyMapRegionLabel, isBodyMapRegion } from "../constants/bodyMap";
 
 export type WeeklyReport = {
@@ -66,6 +67,12 @@ export type WeeklyReport = {
     proteinOkHighDays: number;
     antiInflammatoryDays: number;
     regularMealsDays: number;
+  };
+  wearables: {
+    trackedDays: number;
+    avgSteps: number | null;
+    avgActiveMinutes: number | null;
+    source: "mock" | "healthkit_stub" | "googlefit_stub";
   };
   medications: {
     scheduledDoses: number;
@@ -310,6 +317,9 @@ function buildHighlights(input: {
   nutritionAvgFruitVegServings: number | null;
   nutritionProteinOkHighDays: number;
   nutritionAntiInflammatoryDays: number;
+  wearablesTrackedDays: number;
+  wearablesAvgSteps: number | null;
+  wearablesAvgActiveMinutes: number | null;
   medicationScheduledDoses: number;
   medicationAdherencePct: number | null;
   topPainRegion: { label: string; count: number } | null;
@@ -383,6 +393,18 @@ function buildHighlights(input: {
         input.nutritionAntiInflammatoryDays === 1 ? "" : "s"
       }.`
     );
+  }
+
+  if (
+    input.wearablesTrackedDays >= 4 &&
+    input.wearablesAvgSteps !== null &&
+    input.wearablesAvgSteps < 3000
+  ) {
+    highlights.push("Activity was low on average this week.");
+  }
+
+  if (input.wearablesAvgActiveMinutes !== null && input.wearablesAvgActiveMinutes >= 30) {
+    highlights.push("You averaged 30+ active minutes on tracked days.");
   }
 
   if (
@@ -478,6 +500,7 @@ export async function generateWeeklyReport(options: {
     weekAlerts,
     weekHighRiskAlerts,
     hydrationRows,
+    wearableRows,
     symptomPhotos,
     nutritionRows,
     activeMedications,
@@ -539,6 +562,17 @@ export async function generateWeeklyReport(options: {
         },
       })
         .select({ date: 1, amountMl: 1 })
+        .lean(),
+      WearableDaily.find({
+        patientId,
+        source: "mock",
+        date: {
+          $gte: weekStart,
+          $lt: weekEnd,
+        },
+      })
+        .select({ date: 1, steps: 1, activeMinutes: 1, restingHr: 1, source: 1 })
+        .sort({ date: 1, updatedAt: -1 })
         .lean(),
       SymptomPhoto.find({
         patientId,
@@ -884,6 +918,40 @@ export async function generateWeeklyReport(options: {
     regularMealsDays,
   };
 
+  const wearablesLatestByDay = new Map<
+    string,
+    {
+      steps?: unknown;
+      activeMinutes?: unknown;
+      source?: unknown;
+    }
+  >();
+  for (const row of wearableRows) {
+    const date = getStringValue((row as { date?: unknown }).date);
+    if (!date || wearablesLatestByDay.has(date)) {
+      continue;
+    }
+    wearablesLatestByDay.set(date, row);
+  }
+  const wearablesEntries = [...wearablesLatestByDay.values()];
+  const wearableStepsValues = wearablesEntries
+    .map((row) => (typeof row.steps === "number" && Number.isFinite(row.steps) ? row.steps : null))
+    .filter((value): value is number => value !== null);
+  const wearableActiveValues = wearablesEntries
+    .map((row) =>
+      typeof row.activeMinutes === "number" && Number.isFinite(row.activeMinutes)
+        ? row.activeMinutes
+        : null
+    )
+    .filter((value): value is number => value !== null);
+
+  const wearablesSummary = {
+    trackedDays: wearablesEntries.length,
+    avgSteps: avg(wearableStepsValues),
+    avgActiveMinutes: avg(wearableActiveValues),
+    source: "mock" as const,
+  };
+
   const weekDates = expandWeekDates(weekStart);
   let scheduledDoses = 0;
   for (const date of weekDates) {
@@ -956,6 +1024,9 @@ export async function generateWeeklyReport(options: {
     nutritionAvgFruitVegServings: nutritionSummary.avgFruitVegServings,
     nutritionProteinOkHighDays: nutritionSummary.proteinOkHighDays,
     nutritionAntiInflammatoryDays: nutritionSummary.antiInflammatoryDays,
+    wearablesTrackedDays: wearablesSummary.trackedDays,
+    wearablesAvgSteps: wearablesSummary.avgSteps,
+    wearablesAvgActiveMinutes: wearablesSummary.avgActiveMinutes,
     medicationScheduledDoses: medicationsSummary.scheduledDoses,
     medicationAdherencePct: medicationsSummary.adherencePct,
     topPainRegion: bodyMapSummary.topRegions[0]
@@ -996,6 +1067,7 @@ export async function generateWeeklyReport(options: {
     photos: photosSummary,
     hydration: hydrationSummary,
     nutrition: nutritionSummary,
+    wearables: wearablesSummary,
     medications: medicationsSummary,
     exercises: exercisesSummary,
     proms: promsSummary,

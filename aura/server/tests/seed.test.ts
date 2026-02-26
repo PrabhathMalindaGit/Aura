@@ -17,6 +17,7 @@ import NutritionLog from "../src/models/NutritionLog";
 import PromInstance from "../src/models/PromInstance";
 import PromTemplate from "../src/models/PromTemplate";
 import User from "../src/models/User";
+import WearableDaily from "../src/models/WearableDaily";
 import { DEMO_TAG, resetDemoData, seedDemoData } from "../scripts/seed/lib";
 
 describe("seed demo data", () => {
@@ -43,6 +44,7 @@ describe("seed demo data", () => {
       AppointmentSlot.deleteMany({}),
       AppointmentRequest.deleteMany({}),
       NutritionLog.deleteMany({}),
+      WearableDaily.deleteMany({}),
       Medication.deleteMany({}),
       MedicationSchedule.deleteMany({}),
       MedicationLog.deleteMany({}),
@@ -68,6 +70,7 @@ describe("seed demo data", () => {
       appointmentRequests: 1,
       hydrationLogs: 65,
       nutritionLogs: 34,
+      wearableDailies: 35,
       medications: 4,
       medicationSchedules: 4,
       medicationLogs: 67,
@@ -151,6 +154,12 @@ describe("seed demo data", () => {
     });
     expect(checkinsWithBodyMapCount).toBeGreaterThan(0);
 
+    const wearableRowsCount = await WearableDaily.countDocuments({
+      demoTag: DEMO_TAG,
+      source: "mock",
+    });
+    expect(wearableRowsCount).toBeGreaterThan(0);
+
     const rehabPatients = await Patient.find({ demoTag: DEMO_TAG })
       .sort({ patientId: 1 })
       .lean();
@@ -185,6 +194,7 @@ describe("seed demo data", () => {
     expect(resetSummary.appointmentRequestsDeleted).toBe(1);
     expect(resetSummary.hydrationLogsDeleted).toBe(65);
     expect(resetSummary.nutritionLogsDeleted).toBe(34);
+    expect(resetSummary.wearableDailiesDeleted).toBe(35);
     expect(resetSummary.medicationsDeleted).toBe(4);
     expect(resetSummary.medicationSchedulesDeleted).toBe(4);
     expect(resetSummary.medicationLogsDeleted).toBe(67);

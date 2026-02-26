@@ -23,6 +23,7 @@ async function run(): Promise<void> {
       console.log(`AppointmentRequests deleted: ${resetSummary.appointmentRequestsDeleted}`);
       console.log(`HydrationLogs deleted: ${resetSummary.hydrationLogsDeleted}`);
       console.log(`NutritionLogs deleted: ${resetSummary.nutritionLogsDeleted}`);
+      console.log(`WearableDailies deleted: ${resetSummary.wearableDailiesDeleted}`);
       console.log(`Medications deleted: ${resetSummary.medicationsDeleted}`);
       console.log(`MedicationSchedules deleted: ${resetSummary.medicationSchedulesDeleted}`);
       console.log(`MedicationLogs deleted: ${resetSummary.medicationLogsDeleted}`);
@@ -45,6 +46,7 @@ async function run(): Promise<void> {
     console.log(`AppointmentRequests: ${summary.appointmentRequests}`);
     console.log(`HydrationLogs: ${summary.hydrationLogs}`);
     console.log(`NutritionLogs: ${summary.nutritionLogs}`);
+    console.log(`WearableDailies: ${summary.wearableDailies}`);
     console.log(`Medications: ${summary.medications}`);
     console.log(`MedicationSchedules: ${summary.medicationSchedules}`);
     console.log(`MedicationLogs: ${summary.medicationLogs}`);

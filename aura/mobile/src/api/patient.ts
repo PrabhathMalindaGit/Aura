@@ -445,6 +445,12 @@ export type WeeklyReport = {
     antiInflammatoryDays: number;
     regularMealsDays: number;
   };
+  wearables: {
+    trackedDays: number;
+    avgSteps: number | null;
+    avgActiveMinutes: number | null;
+    source: "mock" | "healthkit_stub" | "googlefit_stub";
+  };
   medications: {
     scheduledDoses: number;
     takenDoses: number;
@@ -942,6 +948,12 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       antiInflammatoryDays?: unknown;
       regularMealsDays?: unknown;
     };
+    wearables?: {
+      trackedDays?: unknown;
+      avgSteps?: unknown;
+      avgActiveMinutes?: unknown;
+      source?: unknown;
+    };
     medications?: {
       scheduledDoses?: unknown;
       takenDoses?: unknown;
@@ -1031,6 +1043,12 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
     toFiniteNumber(record.nutrition?.antiInflammatoryDays) ?? 0;
   const nutritionRegularMealsDays =
     toFiniteNumber(record.nutrition?.regularMealsDays) ?? 0;
+  const wearablesTrackedDays = toFiniteNumber(record.wearables?.trackedDays) ?? 0;
+  const wearablesSource =
+    record.wearables?.source === "healthkit_stub" ||
+    record.wearables?.source === "googlefit_stub"
+      ? record.wearables.source
+      : "mock";
   const medicationScheduledDoses =
     toFiniteNumber(record.medications?.scheduledDoses) ?? 0;
   const medicationTakenDoses = toFiniteNumber(record.medications?.takenDoses) ?? 0;
@@ -1150,6 +1168,12 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
       proteinOkHighDays: nutritionProteinOkHighDays,
       antiInflammatoryDays: nutritionAntiInflammatoryDays,
       regularMealsDays: nutritionRegularMealsDays,
+    },
+    wearables: {
+      trackedDays: wearablesTrackedDays,
+      avgSteps: toFiniteNumber(record.wearables?.avgSteps),
+      avgActiveMinutes: toFiniteNumber(record.wearables?.avgActiveMinutes),
+      source: wearablesSource,
     },
     medications: {
       scheduledDoses: medicationScheduledDoses,

@@ -25,6 +25,9 @@ import {
   type CheckinsRangeResponse,
   type HydrationRangeResponse,
   type NutritionRangeResponse,
+  type WearablesSummaryResponse,
+  type WearablesDailyResponse,
+  type WearableSource,
   type MedicationListResponse,
   type MedicationAdherenceRangeResponse,
   type AppointmentSlot,
@@ -598,6 +601,44 @@ export async function getPatientNutritionRange(
   });
   return fetchJson<NutritionRangeResponse>(
     `/clinician/patients/${encodeURIComponent(patientId)}/nutrition/range?${query.toString()}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function getPatientWearablesSummary(
+  patientId: string,
+  from: string,
+  to: string,
+  source: WearableSource = 'mock',
+): Promise<WearablesSummaryResponse> {
+  const query = new URLSearchParams({
+    from,
+    to,
+    source,
+  });
+  return fetchJson<WearablesSummaryResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/wearables/summary?${query.toString()}`,
+    {
+      method: 'GET',
+    },
+  );
+}
+
+export async function getPatientWearablesDaily(
+  patientId: string,
+  from: string,
+  to: string,
+  source: WearableSource = 'mock',
+): Promise<WearablesDailyResponse> {
+  const query = new URLSearchParams({
+    from,
+    to,
+    source,
+  });
+  return fetchJson<WearablesDailyResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/wearables/daily?${query.toString()}`,
     {
       method: 'GET',
     },

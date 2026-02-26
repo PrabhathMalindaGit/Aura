@@ -20,7 +20,10 @@ import { getCachedNutritionDay } from "@/src/state/nutritionCache";
 import { getCachedPhotosList } from "@/src/state/photosCache";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
+import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
+import { getCachedWearables } from "@/src/state/wearablesCache";
+import { getWearablesConnected } from "@/src/state/wearablesConnection";
 import { useLastError } from "@/src/state/lastError";
 import { formatNetworkReason, useNetwork } from "@/src/state/network";
 import { getPendingNutrition } from "@/src/state/pendingNutrition";
@@ -60,6 +63,16 @@ export default function HomeScreen() {
   const [nutritionTodayLogged, setNutritionTodayLogged] = useState<boolean | null>(null);
   const [pendingMedicationCount, setPendingMedicationCount] = useState(0);
   const [pendingPhotoCount, setPendingPhotoCount] = useState(0);
+  const [pendingWearablesCount, setPendingWearablesCount] = useState(0);
+  const [wearablesSummary, setWearablesSummary] = useState<{
+    connected: boolean;
+    avgSteps: number | null;
+    trackedDays: number;
+  }>({
+    connected: false,
+    avgSteps: null,
+    trackedDays: 0,
+  });
   const [appointmentSummary, setAppointmentSummary] = useState<{
     pendingCount: number;
     nextApprovedLabel: string;
@@ -124,6 +137,7 @@ export default function HomeScreen() {
   const hydrationRefresh = useLastRefreshed("hydration");
   const nutritionRefresh = useLastRefreshed("nutrition");
   const medicationsRefresh = useLastRefreshed("medications");
+  const wearablesRefresh = useLastRefreshed("wearables");
   const appointmentsRefresh = useLastRefreshed("appointments");
   const insightsRefresh = useLastRefreshed("insights");
   const photosRefresh = useLastRefreshed("photos");
@@ -148,6 +162,8 @@ export default function HomeScreen() {
   const nutritionLogError = useLastError("nutritionLog");
   const medicationsLoadError = useLastError("medicationsLoad");
   const medicationLogError = useLastError("medicationLog");
+  const wearablesLoadError = useLastError("wearablesLoad");
+  const wearablesSyncError = useLastError("wearablesSync");
   const appointmentsLoadError = useLastError("appointmentsLoad");
   const appointmentRequestError = useLastError("appointmentRequest");
   const insightsLoadError = useLastError("insightsLoad");
@@ -249,6 +265,16 @@ export default function HomeScreen() {
         title: medicationLogError.lastError?.title,
       },
       {
+        label: "Wearables load",
+        value: wearablesLoadError.label,
+        title: wearablesLoadError.lastError?.title,
+      },
+      {
+        label: "Wearables sync",
+        value: wearablesSyncError.label,
+        title: wearablesSyncError.lastError?.title,
+      },
+      {
         label: "Appointments load",
         value: appointmentsLoadError.label,
         title: appointmentsLoadError.lastError?.title,
@@ -324,6 +350,10 @@ export default function HomeScreen() {
       medicationsLoadError.lastError?.title,
       medicationLogError.label,
       medicationLogError.lastError?.title,
+      wearablesLoadError.label,
+      wearablesLoadError.lastError?.title,
+      wearablesSyncError.label,
+      wearablesSyncError.lastError?.title,
       appointmentsLoadError.label,
       appointmentsLoadError.lastError?.title,
       appointmentRequestError.label,
@@ -355,6 +385,7 @@ export default function HomeScreen() {
       hydrationRefresh.reload(),
       nutritionRefresh.reload(),
       medicationsRefresh.reload(),
+      wearablesRefresh.reload(),
       appointmentsRefresh.reload(),
       insightsRefresh.reload(),
       photosRefresh.reload(),
@@ -376,6 +407,8 @@ export default function HomeScreen() {
       nutritionLogError.reload(),
       medicationsLoadError.reload(),
       medicationLogError.reload(),
+      wearablesLoadError.reload(),
+      wearablesSyncError.reload(),
       appointmentsLoadError.reload(),
       appointmentRequestError.reload(),
       insightsLoadError.reload(),
@@ -395,6 +428,7 @@ export default function HomeScreen() {
       setPendingNutritionCount(0);
       setPendingMedicationCount(0);
       setPendingPhotoCount(0);
+      setPendingWearablesCount(0);
       return;
     }
     const pending = await getPending(patientId);
@@ -409,6 +443,8 @@ export default function HomeScreen() {
     setPendingMedicationCount(pendingMedication.length);
     const pendingPhotos = await getPendingPhotoUploads(patientId);
     setPendingPhotoCount(pendingPhotos.length);
+    const pendingWearables = await getPendingWearablesSync(patientId);
+    setPendingWearablesCount(pendingWearables.length);
   };
 
   const loadCopingUsage = useCallback(async (): Promise<void> => {
@@ -743,6 +779,46 @@ export default function HomeScreen() {
     let active = true;
 
     if (!patientId) {
+      setWearablesSummary({
+        connected: false,
+        avgSteps: null,
+        trackedDays: 0,
+      });
+      setPendingWearablesCount(0);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const [cached, connected, pendingWearables] = await Promise.all([
+        getCachedWearables(patientId),
+        getWearablesConnected(patientId),
+        getPendingWearablesSync(patientId),
+      ]);
+      if (!active) {
+        return;
+      }
+
+      setWearablesSummary({
+        connected,
+        avgSteps: cached?.summary?.avgSteps ?? null,
+        trackedDays:
+          cached?.summary?.trackedDays ??
+          (Array.isArray(cached?.last7Days) ? cached.last7Days.length : 0),
+      });
+      setPendingWearablesCount(pendingWearables.length);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, wearablesRefresh.lastRefreshedAt]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
       setAppointmentSummary({
         pendingCount: 0,
         nextApprovedLabel: "None",
@@ -811,7 +887,7 @@ export default function HomeScreen() {
         variant: "info",
         title: "Demo state reset",
         message:
-          "Cleared chat/progress/appointments/plan/hydration/nutrition/medications/photos/rehab/PROM/weekly-report caches, drafts, pending uploads, appointment reminders, last refreshed stamps, last failed attempts, and reminder prefs.",
+          "Cleared chat/progress/appointments/plan/hydration/nutrition/medications/wearables/photos/rehab/PROM/weekly-report caches, drafts, pending uploads, appointment reminders, last refreshed stamps, last failed attempts, and reminder prefs.",
       });
     } catch {
       setNotice({
@@ -827,7 +903,7 @@ export default function HomeScreen() {
   const confirmReset = () => {
     Alert.alert(
       "Reset demo state?",
-      "Clears cached chat, progress, appointments, hydration, nutrition, medications, photos, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, appointment reminders, last refreshed, last failed attempts, and reminder prefs.",
+      "Clears cached chat, progress, appointments, hydration, nutrition, medications, wearables, photos, plan, rehab journey, questionnaires, weekly reports, drafts, pending uploads, appointment reminders, last refreshed, last failed attempts, and reminder prefs.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -919,6 +995,11 @@ export default function HomeScreen() {
             compact
           />
           <LastRefreshed
+            label="Last refreshed (wearables)"
+            value={wearablesRefresh.label}
+            compact
+          />
+          <LastRefreshed
             label="Last refreshed (appointments)"
             value={appointmentsRefresh.label}
             compact
@@ -975,6 +1056,9 @@ export default function HomeScreen() {
             Pending medication logs: {pendingMedicationCount}
           </Text>
           <Text style={styles.statusDetail}>
+            Pending wearables sync: {pendingWearablesCount}
+          </Text>
+          <Text style={styles.statusDetail}>
             Appointment requests pending: {appointmentSummary.pendingCount}
           </Text>
           <Text style={styles.statusDetail}>
@@ -1013,6 +1097,14 @@ export default function HomeScreen() {
             {medicationTodaySummary
               ? `${medicationTodaySummary.taken}/${medicationTodaySummary.total} taken`
               : "Not cached"}
+          </Text>
+          <Text style={styles.statusDetail}>
+            Wearables:{" "}
+            {wearablesSummary.connected
+              ? wearablesSummary.trackedDays > 0
+                ? `Avg steps ${wearablesSummary.avgSteps ?? "—"} (${wearablesSummary.trackedDays}d)`
+                : "Connected (no cached data)"
+              : "Not connected"}
           </Text>
           <Text style={styles.statusDetail}>
             Phase:{" "}
@@ -1086,6 +1178,10 @@ export default function HomeScreen() {
           <PrimaryButton
             label="Medications"
             onPress={() => router.push("/medications" as never)}
+          />
+          <PrimaryButton
+            label="Wearables"
+            onPress={() => router.push("/wearables" as never)}
           />
           <PrimaryButton
             label="Appointments"

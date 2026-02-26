@@ -185,6 +185,38 @@ export interface NutritionRangeResponse {
   days: NutritionDay[];
 }
 
+export type WearableSource = 'mock' | 'healthkit_stub' | 'googlefit_stub';
+
+export interface WearableDailyDay {
+  date: string;
+  steps?: number;
+  activeMinutes?: number;
+  restingHr?: number;
+}
+
+export interface WearablesSummaryResponse {
+  ok: true;
+  patientId?: string;
+  source: WearableSource;
+  from: string;
+  to: string;
+  trackedDays: number;
+  avgSteps: number | null;
+  avgActiveMinutes: number | null;
+  avgRestingHr: number | null;
+  totalSteps: number;
+  totalActiveMinutes: number;
+}
+
+export interface WearablesDailyResponse {
+  ok: true;
+  patientId?: string;
+  source: WearableSource;
+  from: string;
+  to: string;
+  days: WearableDailyDay[];
+}
+
 export type MedicationType = 'medication' | 'supplement';
 export type MedicationDoseStatus = 'due' | 'taken' | 'skipped';
 
@@ -628,6 +660,12 @@ export interface WeeklyReportPayload {
     proteinOkHighDays: number;
     antiInflammatoryDays: number;
     regularMealsDays: number;
+  };
+  wearables: {
+    trackedDays: number;
+    avgSteps: number | null;
+    avgActiveMinutes: number | null;
+    source: WearableSource;
   };
   medications: {
     scheduledDoses: number;

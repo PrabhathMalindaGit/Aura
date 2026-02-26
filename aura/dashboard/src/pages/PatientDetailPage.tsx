@@ -23,6 +23,8 @@ import {
   getPatientExerciseSessions,
   getPatientHydrationRange,
   getPatientNutritionRange,
+  getPatientWearablesDaily,
+  getPatientWearablesSummary,
   getPatientProms,
   getRehabPhases,
   getPatientTrendsEndpointHint,
@@ -330,6 +332,28 @@ export function PatientDetailPage(): JSX.Element {
   const patientNutritionQuery = useQuery({
     queryKey: ['patient-nutrition', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () => getPatientNutritionRange(patientId ?? '', recentSleepFrom, recentSleepTo),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientWearablesSummaryQuery = useQuery({
+    queryKey: ['patient-wearables-summary', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: () =>
+      getPatientWearablesSummary(patientId ?? '', recentSleepFrom, recentSleepTo, 'mock'),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientWearablesDailyQuery = useQuery({
+    queryKey: ['patient-wearables-daily', patientId, recentSleepFrom, recentSleepTo],
+    queryFn: () =>
+      getPatientWearablesDaily(patientId ?? '', recentSleepFrom, recentSleepTo, 'mock'),
     enabled: Boolean(patientId),
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
@@ -645,6 +669,34 @@ export function PatientDetailPage(): JSX.Element {
       proteinOkHighDays,
     };
   }, [recentNutritionDays]);
+  const recentWearablesDays = useMemo(
+    () =>
+      (patientWearablesDailyQuery.data?.days ?? [])
+        .map((day) => ({
+          date: day.date,
+          steps: typeof day.steps === 'number' ? day.steps : null,
+          activeMinutes: typeof day.activeMinutes === 'number' ? day.activeMinutes : null,
+          restingHr: typeof day.restingHr === 'number' ? day.restingHr : null,
+        }))
+        .sort((left, right) => Date.parse(right.date) - Date.parse(left.date)),
+    [patientWearablesDailyQuery.data?.days],
+  );
+  const recentWearablesSummary = useMemo(
+    () => ({
+      trackedDays: patientWearablesSummaryQuery.data?.trackedDays ?? 0,
+      avgSteps: patientWearablesSummaryQuery.data?.avgSteps ?? null,
+      avgActiveMinutes: patientWearablesSummaryQuery.data?.avgActiveMinutes ?? null,
+      avgRestingHr: patientWearablesSummaryQuery.data?.avgRestingHr ?? null,
+      source: patientWearablesSummaryQuery.data?.source ?? 'mock',
+    }),
+    [
+      patientWearablesSummaryQuery.data?.avgActiveMinutes,
+      patientWearablesSummaryQuery.data?.avgRestingHr,
+      patientWearablesSummaryQuery.data?.avgSteps,
+      patientWearablesSummaryQuery.data?.source,
+      patientWearablesSummaryQuery.data?.trackedDays,
+    ],
+  );
   const recentMedicationDays = useMemo(
     () =>
       (patientMedicationAdherenceQuery.data?.days ?? [])
@@ -1177,6 +1229,18 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {patientWearablesSummaryQuery.error ? (
+        <AlertBanner variant="error" title="Could not load wearables summary">
+          {toUserMessage(patientWearablesSummaryQuery.error)}
+        </AlertBanner>
+      ) : null}
+
+      {patientWearablesDailyQuery.error ? (
+        <AlertBanner variant="error" title="Could not load wearables daily data">
+          {toUserMessage(patientWearablesDailyQuery.error)}
+        </AlertBanner>
+      ) : null}
+
       {patientMedicationAdherenceQuery.error ? (
         <AlertBanner variant="error" title="Could not load medication adherence">
           {toUserMessage(patientMedicationAdherenceQuery.error)}
@@ -1453,6 +1517,56 @@ export function PatientDetailPage(): JSX.Element {
                 </p>
               ))}
             </div>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title="Wearables (last 7 days)"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void Promise.all([
+                patientWearablesSummaryQuery.refetch(),
+                patientWearablesDailyQuery.refetch(),
+              ]);
+            }}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        {patientWearablesSummaryQuery.isLoading &&
+        patientWearablesDailyQuery.isLoading &&
+        recentWearablesDays.length === 0 ? (
+          <div className="patient-detail-skeleton-grid" aria-label="Wearables loading placeholder">
+            <Skeleton height={44} />
+            <Skeleton height={88} />
+          </div>
+        ) : recentWearablesSummary.trackedDays === 0 ? (
+          <p className="muted-text">No wearable data in the last 7 days.</p>
+        ) : (
+          <div className="stack stack--2">
+            <p className="muted-text">
+              Tracked days: <strong>{recentWearablesSummary.trackedDays}</strong> · Source:{' '}
+              <strong>{recentWearablesSummary.source}</strong>
+            </p>
+            <p className="muted-text">
+              Avg steps: <strong>{recentWearablesSummary.avgSteps ?? '—'}</strong> · Avg active minutes:{' '}
+              <strong>{recentWearablesSummary.avgActiveMinutes ?? '—'}</strong> · Avg resting HR:{' '}
+              <strong>{recentWearablesSummary.avgRestingHr ?? '—'}</strong>
+            </p>
+            {recentWearablesDays.length > 0 ? (
+              <div className="stack stack--1">
+                {recentWearablesDays.slice(0, 7).map((day) => (
+                  <p key={day.date} className="muted-text">
+                    {day.date}: {day.steps ?? '—'} steps · {day.activeMinutes ?? '—'} min
+                    {day.restingHr !== null ? ` · HR ${day.restingHr}` : ''}
+                  </p>
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
       </Card>

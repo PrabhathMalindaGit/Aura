@@ -110,6 +110,26 @@ curl -sS "http://localhost:3000/patient/nutrition/range?from=2026-02-17&to=2026-
   -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
+- Patient wearables mock bulk sync (daily rollups):
+```bash
+curl -sS -X POST http://localhost:3000/patient/wearables/daily/bulk \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"source":"mock","days":[{"date":"2026-02-23","steps":4200,"activeMinutes":28,"restingHr":74},{"date":"2026-02-24","steps":5100,"activeMinutes":33,"restingHr":72}]}'
+```
+
+- Patient wearables daily range:
+```bash
+curl -sS "http://localhost:3000/patient/wearables/daily?from=2026-02-17&to=2026-02-23&source=mock" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+- Patient wearables summary:
+```bash
+curl -sS "http://localhost:3000/patient/wearables/summary?from=2026-02-17&to=2026-02-23&source=mock" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
 - Patient medications list:
 ```bash
 curl -sS "http://localhost:3000/patient/medications" \
@@ -406,6 +426,18 @@ curl -sS "http://localhost:3000/clinician/patients/p1/hydration/range?from=2026-
 - Get clinician nutrition range for a patient:
 ```bash
 curl -sS "http://localhost:3000/clinician/patients/p1/nutrition/range?from=2026-02-17&to=2026-02-23" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician wearables daily range for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/wearables/daily?from=2026-02-17&to=2026-02-23&source=mock" \
+  -H "Authorization: Bearer <CLINICIAN_TOKEN>"
+```
+
+- Get clinician wearables summary for a patient:
+```bash
+curl -sS "http://localhost:3000/clinician/patients/p1/wearables/summary?from=2026-02-17&to=2026-02-23&source=mock" \
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 

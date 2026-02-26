@@ -191,6 +191,17 @@ localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
 4. In mobile, patient requests move from pending to approved/rejected after refresh.
 5. Approved requests show appointment details and local reminder scheduling on mobile.
 
+## Step 17 Add-on #3: Wearables (mock sync)
+
+1. In mobile, open **Wearables**, enable the mock connector, and run **Mock sync last 7 days**.
+2. In dashboard, open `/patients/p1`.
+3. Review **Wearables (last 7 days)**:
+   - tracked-day count
+   - average steps and active minutes
+   - recent day rows.
+4. Open `/patients/p1/weekly-report` and verify the **Wearables** block is present.
+5. For offline demo: queue mock sync batches offline in mobile, return online, run **Sync now**, then refresh dashboard.
+
 ## Notes
 
 - Legacy README preserved in `README_OLD.md`.

@@ -97,7 +97,16 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.AURA_API_BASE + '/clinician/alerts?status=' + $json.status + '&limit=' + $json.limit }}",
+        "url": "={{ $env.AURA_API_BASE + '/internal/n8n/alerts?status=' + $json.status + '&limit=' + $json.limit }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-aura-webhook-key",
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+            }
+          ]
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

@@ -25,7 +25,16 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/clinician/alerts?status=open' }}",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/internal/n8n/alerts?status=open' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-aura-webhook-key",
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+            }
+          ]
+        },
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

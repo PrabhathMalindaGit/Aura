@@ -7,6 +7,21 @@ This first n8n workflow receives `ALERT_CREATED` events from your Aura Node back
 - Docker is running.
 - n8n UI is reachable at `http://localhost:5678`.
 - Node backend is running at `http://localhost:3000`.
+- Set `AURA_WEBHOOK_KEY` in both Aura server and n8n environment.
+
+## Internal n8n API endpoints (webhook-key secured)
+For alert list/ack/resolve automation, workflows should call these endpoints instead of `/clinician/*`:
+
+- `GET /internal/n8n/alerts?status=open|acknowledged|resolved&limit=50`
+- `PATCH /internal/n8n/alerts/:id` with body `{ "status": "acknowledged" | "resolved" }`
+
+Required header on every request:
+
+- `x-aura-webhook-key: <AURA_WEBHOOK_KEY>`
+
+Notes:
+- These endpoints are intended for service-to-service automation only.
+- They do not accept clinician identity parameters.
 
 ## Step-by-step: Create the workflow (click-by-click)
 1. Open your browser and go to `http://localhost:5678`.

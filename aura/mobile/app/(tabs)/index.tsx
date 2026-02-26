@@ -14,6 +14,7 @@ import { Section } from "@/src/components/Section";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
+import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
 import { getCachedAppointmentRequests } from "@/src/state/appointmentsCache";
 import { getCachedCheckins } from "@/src/state/checkinsCache";
@@ -249,26 +250,6 @@ export default function HomeScreen() {
     patientId,
     pendingCountOverride: totalPendingUploads,
   });
-
-  const syncPill = useMemo(() => {
-    if (trustStatus.kind === "offline") {
-      return { label: "Offline", variant: "warning" as const };
-    }
-
-    if (trustStatus.kind === "serverDown") {
-      return { label: "Service unavailable", variant: "warning" as const };
-    }
-
-    if (trustStatus.kind === "syncing") {
-      const count = Math.max(0, trustStatus.pendingCount ?? totalPendingUploads);
-      return {
-        label: count > 0 ? `Pending ${count}` : "Syncing",
-        variant: "info" as const,
-      };
-    }
-
-    return { label: "Synced", variant: "success" as const };
-  }, [totalPendingUploads, trustStatus]);
 
   const lastCheckinLabel = useMemo(() => {
     if (checkinSummary.status === "loading") {
@@ -650,19 +631,23 @@ export default function HomeScreen() {
       </View>
 
       {/* Status strip */}
-      <View style={styles.statusStrip}>
-        <StatusPill
-          label={`Last check-in: ${lastCheckinLabel}`}
-          variant={
-            checkinSummary.completedToday
+      <TrustCues
+        status={trustStatus}
+        showLastUpdated={false}
+        showPending
+        showSavedLocalHint
+        extraPills={[
+          {
+            label: `Last check-in: ${lastCheckinLabel}`,
+            variant: checkinSummary.completedToday
               ? "success"
               : checkinSummary.lastDateISO
                 ? "info"
-                : "neutral"
-          }
-        />
-        <StatusPill label={syncPill.label} variant={syncPill.variant} />
-      </View>
+                : "neutral",
+          },
+        ]}
+        style={styles.statusStrip}
+      />
 
       {/* Primary card */}
       <Section

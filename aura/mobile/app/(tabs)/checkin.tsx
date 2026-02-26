@@ -15,13 +15,11 @@ import { isApiError } from "@/src/api/client";
 import {
   createCheckin,
   type CheckInCreatePayload,
-  type CheckInItem,
 } from "@/src/api/patient";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
-import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { FadeSlideIn } from "@/src/components/Motion";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
@@ -30,8 +28,8 @@ import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
+import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
-import { getCachedCheckins } from "@/src/state/checkinsCache";
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
@@ -46,7 +44,7 @@ import {
   type BodyMapPainType,
   type BodyMapRegion,
 } from "@/src/utils/bodyMapLabels";
-import { addDaysISO, formatISOToHuman, todayISO } from "@/src/utils/date";
+import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 
@@ -103,35 +101,6 @@ type CheckinDevParams = {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function resolveCheckInDateISO(item: CheckInItem): string | null {
-  if (typeof item.date === "string" && item.date.trim()) {
-    return item.date.slice(0, 10);
-  }
-
-  if (typeof item.createdAt === "string" && item.createdAt.trim()) {
-    return item.createdAt.slice(0, 10);
-  }
-
-  return null;
-}
-
-function parseCheckInTimestamp(item: CheckInItem): number {
-  if (typeof item.createdAt === "string" && item.createdAt.trim()) {
-    const parsed = Date.parse(item.createdAt);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  const dateISO = resolveCheckInDateISO(item);
-  if (!dateISO) {
-    return 0;
-  }
-
-  const parsed = Date.parse(`${dateISO}T00:00:00.000Z`);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function Stepper({
@@ -298,7 +267,6 @@ export default function CheckinScreen() {
   const [date] = useState(() => todayISO());
   const [activeStep, setActiveStep] = useState(0);
   const [addonsExpanded, setAddonsExpanded] = useState(false);
-  const [lastCheckinLabel, setLastCheckinLabel] = useState("—");
 
   const [pain, setPain] = useState(0);
   const [mood, setMood] = useState<number | null>(null);
@@ -338,58 +306,6 @@ export default function CheckinScreen() {
     }
     return params.devToken ?? "";
   }, [params.devToken]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadLastCheckin(): Promise<void> {
-      if (!patientId) {
-        setLastCheckinLabel("—");
-        return;
-      }
-
-      const cached = await getCachedCheckins(patientId);
-      if (!active) {
-        return;
-      }
-
-      if (!cached || cached.length === 0) {
-        setLastCheckinLabel("—");
-        return;
-      }
-
-      const latest = [...cached].sort(
-        (a, b) => parseCheckInTimestamp(b) - parseCheckInTimestamp(a)
-      )[0];
-      const latestDate = latest ? resolveCheckInDateISO(latest) : null;
-
-      if (!latestDate) {
-        setLastCheckinLabel("—");
-        return;
-      }
-
-      const today = todayISO();
-      const yesterday = addDaysISO(today, -1);
-
-      if (latestDate === today) {
-        setLastCheckinLabel("Today");
-        return;
-      }
-
-      if (latestDate === yesterday) {
-        setLastCheckinLabel("Yesterday");
-        return;
-      }
-
-      setLastCheckinLabel(formatISOToHuman(latestDate));
-    }
-
-    void loadLastCheckin();
-
-    return () => {
-      active = false;
-    };
-  }, [checkinsRefresh.lastRefreshedAt, patientId]);
 
   useEffect(() => {
     if (!__DEV__ || auth.status !== "signedIn") {
@@ -463,23 +379,6 @@ export default function CheckinScreen() {
     }
     return null;
   }, [activeStep, mood]);
-
-  const syncPill = useMemo(() => {
-    if (trustStatus.kind === "offline") {
-      return { label: "Offline", variant: "warning" as const };
-    }
-    if (trustStatus.kind === "serverDown") {
-      return { label: "Service unavailable", variant: "warning" as const };
-    }
-    if (trustStatus.kind === "syncing") {
-      const count = Math.max(0, trustStatus.pendingCount);
-      return {
-        label: count > 0 ? `Pending ${count}` : "Syncing",
-        variant: "info" as const,
-      };
-    }
-    return { label: "Synced", variant: "success" as const };
-  }, [trustStatus]);
 
   const isSuccessState = notice?.variant === "success";
   const isLastStep = activeStep === CHECKIN_STEPS.length - 1;
@@ -633,7 +532,6 @@ export default function CheckinScreen() {
         title: "Check-in complete",
         message: "Saved. Thank you for checking in.",
       });
-      setLastCheckinLabel("Today");
       resetForm();
     } catch (error) {
       const normalized = toCheckinError(error);
@@ -1141,11 +1039,14 @@ export default function CheckinScreen() {
           <View style={styles.headerBlock}>
             <Text style={styles.pageTitle}>Daily check-in</Text>
             <Text style={styles.pageSubtitle}>{friendlyDate}</Text>
-            <View style={styles.statusStrip}>
-              <StatusPill label={`Last check-in: ${lastCheckinLabel}`} variant="neutral" />
-              <StatusPill label={syncPill.label} variant={syncPill.variant} />
-            </View>
-            <LastRefreshed label="Last refreshed (check-ins)" value={checkinsRefresh.label} compact />
+            <TrustCues
+              status={trustStatus}
+              lastUpdatedLabel={checkinsRefresh.label}
+              showLastUpdated
+              showPending
+              showSavedLocalHint
+              style={styles.statusStrip}
+            />
             <LastFailedAttempt
               value={checkinError.label}
               title={checkinError.lastError?.title}

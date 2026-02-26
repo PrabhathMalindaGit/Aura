@@ -24,6 +24,7 @@ import { Section } from "@/src/components/Section";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
+import { TrustCues } from "@/src/components/TrustCues";
 import { Row } from "@/src/components/Row";
 import { useAuth } from "@/src/state/auth";
 import { getCachedCheckins, setCachedCheckins } from "@/src/state/checkinsCache";
@@ -546,14 +547,11 @@ export default function ProgressScreen() {
   }, [exerciseAvgPct, hydrationStats, medicationPct, moodAvg, painAvg, sleepAvgHours]);
 
   const subtitle = useMemo(() => {
-    if (isOffline) {
-      return "Offline — showing saved info.";
-    }
     if (source === "cache") {
-      return "Showing saved data.";
+      return "Showing saved trend data.";
     }
-    return `Last updated ${progressRefreshLabel}`;
-  }, [isOffline, progressRefreshLabel, source]);
+    return "Your recovery trends over time.";
+  }, [source]);
 
   // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
   const loadProgress = useCallback(
@@ -718,17 +716,16 @@ export default function ProgressScreen() {
         <Text style={styles.title}>Progress</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
         <View style={styles.headerPillRow}>
-          <StatusPill
-            label={`Range ${rangeDays}d`}
-            variant="neutral"
-          />
-          {trustStatus.kind === "syncing" ? (
-            <StatusPill
-              label={`Pending ${Math.max(0, trustStatus.pendingCount)}`}
-              variant="info"
-            />
-          ) : null}
+          <StatusPill label={`Range ${rangeDays}d`} variant="neutral" />
         </View>
+        <TrustCues
+          status={trustStatus}
+          lastUpdatedLabel={progressRefreshLabel}
+          showLastUpdated
+          showPending
+          showSavedLocalHint
+          style={styles.trustCueRow}
+        />
       </View>
 
       {notice ? (
@@ -942,6 +939,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
+      marginTop: tokens.spacing.xs,
+    },
+    trustCueRow: {
       marginTop: tokens.spacing.xs,
     },
     rangeSelector: {

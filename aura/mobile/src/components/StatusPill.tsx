@@ -3,11 +3,11 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-na
 
 import { useTokens } from "@/src/theme/tokens";
 
-type StatusVariant = "neutral" | "info" | "success" | "warning" | "danger";
+export type StatusPillVariant = "neutral" | "info" | "success" | "warning" | "danger";
 
 type StatusPillProps = {
   label: string;
-  variant?: StatusVariant;
+  variant?: StatusPillVariant;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -64,36 +64,35 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderColor: tokens.colors.border,
     },
     neutralText: {
-      color: tokens.colors.textMuted,
+      color: tokens.colors.text,
     },
     info: {
       backgroundColor: tokens.colors.accentTextOn,
       borderColor: tokens.colors.accent,
     },
     infoText: {
-      color: tokens.colors.accent,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.accent,
     },
     success: {
       backgroundColor: tokens.colors.successTextOn,
       borderColor: tokens.colors.success,
     },
     successText: {
-      color: tokens.colors.success,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.success,
     },
     warning: {
       backgroundColor: tokens.colors.warningTextOn,
       borderColor: tokens.colors.warning,
     },
     warningText: {
-      color: tokens.colors.warning,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.warning,
     },
     danger: {
       backgroundColor: tokens.colors.dangerTextOn,
       borderColor: tokens.colors.danger,
     },
     dangerText: {
-      color: tokens.colors.danger,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.danger,
     },
   });
 }
-

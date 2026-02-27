@@ -813,6 +813,12 @@ export default function SettingsScreen() {
             <View style={styles.devPanel}>
               <Text style={styles.devGroupTitle}>Demo data</Text>
               <SecondaryButton
+                label="UI Gallery"
+                onPress={() => {
+                  router.push("/dev-ui-gallery" as Href);
+                }}
+              />
+              <SecondaryButton
                 label={isResettingDemo ? "Resetting…" : "Reset demo state"}
                 loading={isResettingDemo}
                 disabled={!patientId || isResettingDemo}

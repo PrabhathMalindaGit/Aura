@@ -84,14 +84,14 @@ export function usePendingSyncCount(
   const reload = useCallback(async () => {
     const trimmedPatientId = patientId.trim();
     if (!enabled || !trimmedPatientId) {
-      setPendingCount(0);
+      setPendingCount((prev) => (prev === 0 ? prev : 0));
       return;
     }
     try {
       const total = await loadPendingSyncCount(trimmedPatientId);
-      setPendingCount(total);
+      setPendingCount((prev) => (prev === total ? prev : total));
     } catch {
-      setPendingCount(0);
+      setPendingCount((prev) => (prev === 0 ? prev : 0));
     }
   }, [enabled, patientId]);
 
@@ -117,6 +117,10 @@ export function useTrustStatus({
   serverDownWindowMs = SERVER_DOWN_WINDOW_MS,
 }: UseTrustStatusOptions): TrustStatus {
   const network = useNetwork();
+  const shouldTrackServerWindow = useMemo(
+    () => hasRecentServerFailure(errorRecords, Date.now(), serverDownWindowMs),
+    [errorRecords, serverDownWindowMs]
+  );
   const [now, setNow] = useState(() => Date.now());
   const shouldLoadPending =
     includePendingSync && typeof pendingCountOverride !== "number";
@@ -126,26 +130,30 @@ export function useTrustStatus({
   );
 
   useEffect(() => {
+    if (!network.isOnline || !shouldTrackServerWindow) {
+      return;
+    }
     const timer = setInterval(() => {
       setNow(Date.now());
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [network.isOnline, shouldTrackServerWindow]);
+
+  const pendingValue =
+    typeof pendingCountOverride === "number" &&
+    Number.isFinite(pendingCountOverride)
+      ? pendingCountOverride
+      : pendingFromStore;
+  const pendingCount = Math.max(0, Math.trunc(pendingValue));
+
+  const serverDown = useMemo(
+    () =>
+      network.isOnline &&
+      hasRecentServerFailure(errorRecords, now, serverDownWindowMs),
+    [errorRecords, network.isOnline, now, serverDownWindowMs]
+  );
 
   return useMemo(() => {
-    const pendingValue =
-      typeof pendingCountOverride === "number" &&
-      Number.isFinite(pendingCountOverride)
-        ? pendingCountOverride
-        : pendingFromStore;
-    const pendingCount = Math.max(
-      0,
-      Math.trunc(pendingValue)
-    );
-    const serverDown =
-      network.isOnline &&
-      hasRecentServerFailure(errorRecords, now, serverDownWindowMs);
-
     if (network.isOffline) {
       return {
         kind: "offline",
@@ -171,13 +179,5 @@ export function useTrustStatus({
       kind: "ok",
       pendingCount: 0,
     };
-  }, [
-    errorRecords,
-    network.isOffline,
-    network.isOnline,
-    now,
-    pendingCountOverride,
-    pendingFromStore,
-    serverDownWindowMs,
-  ]);
+  }, [network.isOffline, pendingCount, serverDown]);
 }

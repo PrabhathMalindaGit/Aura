@@ -55,15 +55,33 @@ function RootLayoutNav() {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isWeb = Platform.OS === "web";
+  const webViewportStyle = useMemo(
+    () => (isWeb ? ({ minHeight: "100vh" } as any) : null),
+    [isWeb]
+  );
+  const webShadowStyle = useMemo(
+    () =>
+      isWeb
+        ? ({
+            boxShadow:
+              tokens.scheme === "dark"
+                ? "0 24px 56px rgba(2, 6, 23, 0.58)"
+                : "0 22px 52px rgba(15, 23, 42, 0.18)",
+          } as any)
+        : null,
+    [isWeb, tokens.scheme]
+  );
 
   return (
     <AuthProvider>
       <CaregiverSessionProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           {isWeb ? (
-            <View style={styles.webBackdrop}>
-              <View style={styles.webFrame}>
-                <Slot />
+            <View style={[styles.webBackdrop, webViewportStyle]}>
+              <View style={[styles.webFrameOuter, webShadowStyle]}>
+                <View style={styles.webFrameInner}>
+                  <Slot />
+                </View>
               </View>
             </View>
           ) : (
@@ -90,16 +108,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       backgroundColor: tokens.colors.background,
       paddingVertical: tokens.spacing.md,
     },
-    webFrame: {
+    webFrameOuter: {
       flex: 1,
       width: "100%",
       maxWidth: tokens.layout.contentMaxWidth,
       borderRadius: tokens.layout.frameRadius,
       borderWidth: 1,
       borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.background,
+    },
+    webFrameInner: {
+      flex: 1,
+      borderRadius: tokens.layout.frameRadius,
       overflow: "hidden",
       backgroundColor: tokens.colors.background,
-      ...tokens.elevation.card,
     },
   });
 }

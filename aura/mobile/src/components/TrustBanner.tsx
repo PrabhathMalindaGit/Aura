@@ -51,7 +51,7 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
   }
 
   return (
-    <FadeSlideIn key={status.kind} visible reduceMotion={reduceMotion}>
+    <FadeSlideIn visible reduceMotion={reduceMotion}>
       <View
         testID={testID}
         accessible

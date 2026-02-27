@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 
 import type { CheckInItem } from "@/src/api/patient";
 import { Card } from "@/src/components/Card";
@@ -653,6 +654,7 @@ export default function HomeScreen() {
       <Section
         title="Today’s check-in"
         subtitle="One check-in keeps your recovery timeline clear."
+        left={<FontAwesome name="calendar-check-o" size={18} color={tokens.colors.textMuted} />}
         card
         right={
           <StatusPill
@@ -690,7 +692,12 @@ export default function HomeScreen() {
       </Section>
 
       {/* Secondary card: Today plan */}
-      <Section title="Today’s plan" subtitle="Preview your current exercise focus." card>
+      <Section
+        title="Today’s plan"
+        subtitle="Preview your current exercise focus."
+        left={<FontAwesome name="heartbeat" size={18} color={tokens.colors.textMuted} />}
+        card
+      >
         {planSummary.status === "loading" ? (
           <View style={styles.skeletonStack}>
             <SkeletonBlock height={14} width="58%" />
@@ -738,7 +745,12 @@ export default function HomeScreen() {
       </Section>
 
       {/* Secondary card: Insights */}
-      <Section title="Insights" subtitle="Clinician-reviewed highlights from recent trends." card>
+      <Section
+        title="Insights"
+        subtitle="Clinician-reviewed highlights from recent trends."
+        left={<FontAwesome name="lightbulb-o" size={18} color={tokens.colors.textMuted} />}
+        card
+      >
         {insightSummary.status === "loading" ? (
           <View style={styles.skeletonStack}>
             <SkeletonBlock height={14} width="50%" />
@@ -784,7 +796,10 @@ export default function HomeScreen() {
           style={({ pressed }) => [styles.compactPressable, pressed ? styles.compactPressed : null]}
         >
           <Card variant="outlined" padding={tokens.spacing.md} style={styles.compactCard}>
-            <Text style={styles.compactTitle}>Weekly report</Text>
+            <View style={styles.compactTitleRow}>
+              <FontAwesome name="file-text-o" size={16} color={tokens.colors.textMuted} />
+              <Text style={styles.compactTitle}>Weekly report</Text>
+            </View>
             {weeklySummary.status === "loading" ? (
               <View style={styles.skeletonStack}>
                 <SkeletonBlock height={12} width="85%" />
@@ -818,7 +833,10 @@ export default function HomeScreen() {
           style={({ pressed }) => [styles.compactPressable, pressed ? styles.compactPressed : null]}
         >
           <Card variant="outlined" padding={tokens.spacing.md} style={styles.compactCard}>
-            <Text style={styles.compactTitle}>Next appointment</Text>
+            <View style={styles.compactTitleRow}>
+              <FontAwesome name="calendar" size={16} color={tokens.colors.textMuted} />
+              <Text style={styles.compactTitle}>Next appointment</Text>
+            </View>
             {appointmentSummary.status === "loading" ? (
               <View style={styles.skeletonStack}>
                 <SkeletonBlock height={12} width="72%" />
@@ -843,6 +861,7 @@ export default function HomeScreen() {
       <Section
         title="Need support now?"
         subtitle="Open your safety plan anytime."
+        left={<FontAwesome name="shield" size={18} color={tokens.colors.textMuted} />}
         card
         cardVariant="outlined"
         right={<StatusPill label="Safety" variant="warning" />}
@@ -982,6 +1001,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    compactTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
     },
     compactBody: {
       gap: tokens.spacing.xs,

@@ -8,6 +8,7 @@ import { useTokens } from "@/src/theme/tokens";
 type SectionProps = {
   title: string;
   subtitle?: string;
+  left?: ReactNode;
   right?: ReactNode;
   heading?: boolean;
   card?: boolean;
@@ -18,6 +19,7 @@ type SectionProps = {
 export function Section({
   title,
   subtitle,
+  left,
   right,
   heading = true,
   card = false,
@@ -35,6 +37,7 @@ export function Section({
             <SectionTitle
               title={title}
               subtitle={subtitle}
+              left={left}
               right={right}
               isHeading={heading}
             />
@@ -47,7 +50,13 @@ export function Section({
 
   return (
     <View style={styles.section}>
-      <SectionTitle title={title} subtitle={subtitle} right={right} isHeading={heading} />
+      <SectionTitle
+        title={title}
+        subtitle={subtitle}
+        left={left}
+        right={right}
+        isHeading={heading}
+      />
       <View>{children}</View>
     </View>
   );

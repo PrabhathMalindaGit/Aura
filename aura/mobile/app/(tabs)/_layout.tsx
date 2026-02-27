@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { useAuth } from '@/src/state/auth';
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
@@ -19,8 +18,15 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const { status } = useAuth();
   const colorScheme = useColorScheme();
+  const [bootstrapped, setBootstrapped] = useState(false);
 
-  if (status === 'loading') {
+  useEffect(() => {
+    if (status !== 'loading') {
+      setBootstrapped(true);
+    }
+  }, [status]);
+
+  if (!bootstrapped && status === 'loading') {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" />
@@ -36,34 +42,13 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+        headerShown: false,
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
           tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open app information"
-                hitSlop={8}
-                style={styles.headerIconButton}
-              >
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
         }}
       />
       <Tabs.Screen
@@ -101,13 +86,6 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerIconButton: {
-    minWidth: 48,
-    minHeight: 48,
-    marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

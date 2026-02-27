@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
+  Platform,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -34,11 +35,12 @@ export function FadeSlideIn({
   const prefersReducedMotion = useReducedMotion();
   const shouldReduceMotion = reduceMotion ?? prefersReducedMotion;
   const resolvedDuration = getDuration(shouldReduceMotion, duration);
+  const shouldAnimateTranslate = !shouldReduceMotion && Platform.OS !== "web";
 
   const [shouldRender, setShouldRender] = useState(visible);
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const translateY = useRef(
-    new Animated.Value(visible || shouldReduceMotion ? 0 : slideDistance)
+    new Animated.Value(visible || !shouldAnimateTranslate ? 0 : slideDistance)
   ).current;
 
   useEffect(() => {
@@ -52,27 +54,39 @@ export function FadeSlideIn({
       }
 
       opacity.setValue(0);
-      translateY.setValue(slideDistance);
-      Animated.parallel([
+      if (shouldAnimateTranslate) {
+        translateY.setValue(slideDistance);
+      } else {
+        translateY.setValue(0);
+      }
+
+      const animations = [
         Animated.timing(opacity, {
           toValue: 1,
           duration: resolvedDuration,
           easing: motionEasing,
           useNativeDriver: true,
         }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: resolvedDuration,
-          easing: motionEasing,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      ];
+
+      if (shouldAnimateTranslate) {
+        animations.push(
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: resolvedDuration,
+            easing: motionEasing,
+            useNativeDriver: true,
+          })
+        );
+      }
+
+      Animated.parallel(animations).start();
       return;
     }
 
     if (resolvedDuration === 0) {
       opacity.setValue(0);
-      if (!shouldReduceMotion) {
+      if (shouldAnimateTranslate) {
         translateY.setValue(slideDistance);
       }
       if (unmountOnExit) {
@@ -81,20 +95,27 @@ export function FadeSlideIn({
       return;
     }
 
-    Animated.parallel([
+    const exitAnimations = [
       Animated.timing(opacity, {
         toValue: 0,
         duration: resolvedDuration,
         easing: motionEasing,
         useNativeDriver: true,
       }),
-      Animated.timing(translateY, {
-        toValue: shouldReduceMotion ? 0 : slideDistance,
-        duration: resolvedDuration,
-        easing: motionEasing,
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
+    ];
+
+    if (shouldAnimateTranslate) {
+      exitAnimations.push(
+        Animated.timing(translateY, {
+          toValue: slideDistance,
+          duration: resolvedDuration,
+          easing: motionEasing,
+          useNativeDriver: true,
+        })
+      );
+    }
+
+    Animated.parallel(exitAnimations).start(({ finished }) => {
       if (finished && unmountOnExit) {
         setShouldRender(false);
       }
@@ -102,7 +123,7 @@ export function FadeSlideIn({
   }, [
     opacity,
     resolvedDuration,
-    shouldReduceMotion,
+    shouldAnimateTranslate,
     slideDistance,
     translateY,
     unmountOnExit,
@@ -118,7 +139,7 @@ export function FadeSlideIn({
       style={[
         {
           opacity,
-          transform: shouldReduceMotion ? undefined : [{ translateY }],
+          transform: shouldAnimateTranslate ? [{ translateY }] : undefined,
         },
         style,
       ]}
@@ -132,7 +153,7 @@ export function getPressFeedbackStyle(
   reduceMotion: boolean,
   pressedOpacity = 0.84
 ): ViewStyle {
-  if (reduceMotion) {
+  if (reduceMotion || Platform.OS === "web") {
     return {
       opacity: pressedOpacity,
     };

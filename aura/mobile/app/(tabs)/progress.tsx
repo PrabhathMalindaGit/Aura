@@ -1,5 +1,6 @@
 import { Redirect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
   FlatList,
   Pressable,
@@ -319,6 +320,25 @@ function trendArrow(direction: "up" | "down" | "flat"): string {
     return "↓";
   }
   return "→";
+}
+
+function iconForKpi(key: string): React.ComponentProps<typeof FontAwesome>["name"] {
+  switch (key) {
+    case "pain":
+      return "medkit";
+    case "mood":
+      return "smile-o";
+    case "adherence":
+      return "check-square-o";
+    case "medication":
+      return "plus-square-o";
+    case "sleep":
+      return "moon-o";
+    case "hydration":
+      return "tint";
+    default:
+      return "circle-o";
+  }
 }
 
 function hydrationAverage(
@@ -789,7 +809,14 @@ export default function ProgressScreen() {
             {kpiItems.map((kpi) => (
               <Card key={kpi.key} variant="outlined" style={styles.kpiTile}>
                 <View style={styles.kpiTileBody}>
-                  <Text style={styles.kpiTitle}>{kpi.title}</Text>
+                  <View style={styles.kpiTitleRow}>
+                    <FontAwesome
+                      name={iconForKpi(kpi.key)}
+                      size={15}
+                      color={tokens.colors.textMuted}
+                    />
+                    <Text style={styles.kpiTitle}>{kpi.title}</Text>
+                  </View>
                   <Text style={styles.kpiValue}>{kpi.value}</Text>
                   <Text style={styles.kpiAssessment}>{kpi.assessment}</Text>
                   <StatusPill label={kpi.assessment} variant={kpi.variant} />
@@ -1000,6 +1027,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    kpiTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs + 2,
+      flexWrap: "nowrap",
     },
     kpiValue: {
       color: tokens.colors.text,

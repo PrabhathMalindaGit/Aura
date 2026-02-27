@@ -6,6 +6,7 @@ import { useTokens } from "@/src/theme/tokens";
 type SectionTitleProps = {
   title: string;
   subtitle?: string;
+  left?: ReactNode;
   right?: ReactNode;
   isHeading?: boolean;
 };
@@ -13,6 +14,7 @@ type SectionTitleProps = {
 export function SectionTitle({
   title,
   subtitle,
+  left,
   right,
   isHeading = true,
 }: SectionTitleProps) {
@@ -22,9 +24,12 @@ export function SectionTitle({
   return (
     <View style={styles.wrap}>
       <View style={styles.titleBlock}>
-        <Text accessibilityRole={isHeading ? "header" : undefined} style={styles.title}>
-          {title}
-        </Text>
+        <View style={styles.titleRow}>
+          {left ? <View style={styles.left}>{left}</View> : null}
+          <Text accessibilityRole={isHeading ? "header" : undefined} style={styles.title}>
+            {title}
+          </Text>
+        </View>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       {right ? <View style={styles.right}>{right}</View> : null}
@@ -44,6 +49,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     titleBlock: {
       flex: 1,
       gap: 2,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+    },
+    left: {
+      alignItems: "center",
+      justifyContent: "center",
     },
     title: {
       fontSize: tokens.typography.section.fontSize,

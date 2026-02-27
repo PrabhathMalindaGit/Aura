@@ -14,6 +14,7 @@ import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
+import { SmartImage } from "@/src/components/SmartImage";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
@@ -30,6 +31,10 @@ const ILLUSTRATION_KEYS: IllustrationKey[] = [
   "checkinSuccess",
   "syncing",
 ];
+
+const LOCAL_GALLERY_IMAGE = require("../src/assets/illustrations/ill_today.png");
+const REMOTE_PREVIEW_URI = "https://picsum.photos/seed/aura-smart-image/900/600";
+const BLURHASH_PREVIEW = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH";
 
 type SwatchProps = {
   label: string;
@@ -72,6 +77,7 @@ export default function DevUiGalleryScreen() {
   const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const [showMotionPreview, setShowMotionPreview] = useState(true);
+  const [showRemoteImagePreview, setShowRemoteImagePreview] = useState(false);
 
   if (!__DEV__) {
     return <Redirect href="/(tabs)" />;
@@ -142,6 +148,55 @@ export default function DevUiGalleryScreen() {
               <Text style={styles.iconItemLabel}>{key}</Text>
             </View>
           ))}
+        </View>
+      </Section>
+
+      <Section title="SmartImage preview" subtitle="Local, contain/cover, and optional remote blurhash" card>
+        <View style={styles.stackSm}>
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>cover</Text>
+            <SmartImage
+              source={LOCAL_GALLERY_IMAGE}
+              height={140}
+              contentFit="cover"
+              accessibilityLabel="SmartImage local cover preview"
+            />
+          </View>
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>contain</Text>
+            <SmartImage
+              source={LOCAL_GALLERY_IMAGE}
+              height={140}
+              contentFit="contain"
+              backgroundVariant="muted"
+              accessibilityLabel="SmartImage local contain preview"
+            />
+          </View>
+          <SecondaryButton
+            label={showRemoteImagePreview ? "Hide remote previews" : "Load remote previews"}
+            onPress={() => {
+              setShowRemoteImagePreview((current) => !current);
+            }}
+          />
+          {showRemoteImagePreview ? (
+            <View style={styles.stackXs}>
+              <Text style={styles.imageCaption}>remote URI</Text>
+              <SmartImage
+                source={REMOTE_PREVIEW_URI}
+                height={140}
+                contentFit="cover"
+                accessibilityLabel="SmartImage remote preview"
+              />
+              <Text style={styles.imageCaption}>placeholder blurhash</Text>
+              <SmartImage
+                source={`${REMOTE_PREVIEW_URI}?blurhash=1`}
+                height={140}
+                contentFit="cover"
+                placeholderBlurhash={BLURHASH_PREVIEW}
+                accessibilityLabel="SmartImage blurhash placeholder preview"
+              />
+            </View>
+          ) : null}
         </View>
       </Section>
 
@@ -267,7 +322,6 @@ export default function DevUiGalleryScreen() {
 
       <Section title="New wow components placeholders" subtitle="Future premium primitives" card>
         <View style={styles.stackSm}>
-          <PlaceholderCard title="SmartImage" subtitle="Coming soon · cached image with skeleton blur placeholder" />
           <PlaceholderCard title="Avatar" subtitle="Coming soon · photo + initials + presence ring" />
           <PlaceholderCard title="MediaCard" subtitle="Coming soon · thumbnail, metadata, and CTA row" />
           <PlaceholderCard title="TrackerTile" subtitle="Coming soon · icon, value, and trend delta" />
@@ -321,6 +375,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     textSamples: {
       gap: tokens.spacing.xs,
+    },
+    stackXs: {
+      gap: tokens.spacing.xs,
+    },
+    imageCaption: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
     },
     sampleTitle: {
       color: tokens.colors.text,

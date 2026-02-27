@@ -4,7 +4,7 @@ import { AppError, createAppError, isAppError } from '../utils/errors';
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_API_BASE_URL = 'http://localhost:3000';
 const JSON_CONTENT_TYPE = 'application/json';
-const CLINICIAN_TOKEN_STORAGE_KEYS = ['clinicianToken', 'aura_auth_token', 'aura_access_token'];
+const CLINICIAN_TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
 
 type QueryPrimitive = string | number | boolean | null | undefined;
 type QueryValue = QueryPrimitive | QueryPrimitive[];
@@ -20,7 +20,7 @@ export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
 
-function getStoredClinicianToken(): string | null {
+export function getStoredClinicianToken(): string | null {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
     return null;
   }

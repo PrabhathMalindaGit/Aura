@@ -2,9 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchJson } from './apiClient';
 import { createAppError, isRetryable } from '../utils/errors';
 
+function readAuthorizationHeader(init: RequestInit | undefined): string | null {
+  const headers = new Headers((init?.headers ?? {}) as HeadersInit);
+  return headers.get('Authorization');
+}
+
 describe('fetchJson', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    if (typeof window !== 'undefined') {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    }
   });
 
   afterEach(() => {
@@ -78,6 +87,72 @@ describe('fetchJson', () => {
     );
 
     await expect(fetchJson('/clinician/alerts')).rejects.toMatchObject({ kind: 'Parse' });
+  });
+
+  it('attaches Authorization from aura_access_token when header is missing', async () => {
+    window.localStorage.setItem('aura_access_token', 'ACCESS_TOKEN');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await fetchJson('/clinician/patients', { method: 'GET' });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(readAuthorizationHeader(init)).toBe('Bearer ACCESS_TOKEN');
+  });
+
+  it('prefers aura_access_token over legacy clinicianToken when both exist', async () => {
+    window.localStorage.setItem('clinicianToken', 'LEGACY_TOKEN');
+    window.localStorage.setItem('aura_access_token', 'ACCESS_TOKEN');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await fetchJson('/clinician/patients', { method: 'GET' });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(readAuthorizationHeader(init)).toBe('Bearer ACCESS_TOKEN');
+  });
+
+  it('falls back to clinicianToken when modern keys are missing', async () => {
+    window.localStorage.setItem('clinicianToken', 'LEGACY_TOKEN');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await fetchJson('/clinician/patients', { method: 'GET' });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(readAuthorizationHeader(init)).toBe('Bearer LEGACY_TOKEN');
+  });
+
+  it('does not override explicit Authorization header', async () => {
+    window.localStorage.setItem('aura_access_token', 'ACCESS_TOKEN');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await fetchJson('/clinician/patients', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer EXPLICIT_TOKEN',
+      },
+    });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(readAuthorizationHeader(init)).toBe('Bearer EXPLICIT_TOKEN');
   });
 });
 

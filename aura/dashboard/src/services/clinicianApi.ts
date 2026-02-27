@@ -16,7 +16,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { fetchJson, getApiBaseUrl } from './apiClient';
+import { fetchJson, getApiBaseUrl, getStoredClinicianToken } from './apiClient';
 import {
   type AlertContextResponse,
   type AlertContextResult,
@@ -79,7 +79,6 @@ const PATIENTS_QUERY_STALE_TIME_MS = 30_000;
 const DEFAULT_POLLING_INTERVAL_MS = 12_000;
 const TRENDS_ENDPOINT_HINT =
   'Trends endpoint not ready. Add GET /clinician/patients/:id/trends?days=14|30';
-const CLINICIAN_TOKEN_STORAGE_KEYS = ['clinicianToken', 'aura_auth_token', 'aura_access_token'];
 
 interface AlertPollingOptions {
   pollingEnabled?: boolean;
@@ -92,20 +91,6 @@ interface AlertMutationContext {
 
 function retryIfAllowed(failureCount: number, error: unknown): boolean {
   return failureCount < 2 && isRetryable(asAppError(error));
-}
-
-function getStoredClinicianToken(): string | null {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
-    return null;
-  }
-
-  for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
-    const value = window.localStorage.getItem(key);
-    if (value && value.trim()) {
-      return value.trim();
-    }
-  }
-  return null;
 }
 
 export const clinicianQueryKeys = {

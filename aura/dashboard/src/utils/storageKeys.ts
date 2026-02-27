@@ -5,7 +5,7 @@ export const CLINICIAN_ID_STORAGE_KEY = 'aura_clinician_id';
 export const CLINICIAN_NAME_STORAGE_KEY = 'aura_clinician_name';
 export const SESSION_SETTINGS_STORAGE_KEY = 'aura_session_settings_v1';
 
-const TOKEN_STORAGE_KEYS = ['aura_auth_token', 'aura_access_token', 'aura_refresh_token'];
+const TOKEN_STORAGE_KEYS = ['aura_auth_token', 'aura_access_token', 'aura_refresh_token', 'clinicianToken'];
 
 const DASHBOARD_SESSION_KEYS = [
   ASSIGNMENTS_STORAGE_KEY,

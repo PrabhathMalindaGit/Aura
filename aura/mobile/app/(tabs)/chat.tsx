@@ -26,6 +26,7 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SkeletonBlock } from "@/src/components/Skeleton";
+import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import { getCachedChat, setCachedChat } from "@/src/state/chatCache";
@@ -848,24 +849,57 @@ export default function ChatScreen() {
                 contentContainerStyle={styles.messageList}
                 renderItem={renderItem}
                 ListEmptyComponent={
-                  <EmptyState
-                    variant="compact"
-                    illustrationKey={isOffline ? "offline" : "chat"}
-                    title={isOffline ? "Offline — chat history unavailable" : "No messages yet"}
-                    description={
-                      isOffline
-                        ? "Connect to load conversation history."
-                        : "Start with a message below."
-                    }
-                    ctaLabel={isOffline ? undefined : "Send a message"}
-                    onCtaPress={
-                      isOffline
-                        ? undefined
-                        : () => {
-                            inputRef.current?.focus();
-                          }
-                    }
-                  />
+                  <View style={styles.emptyStateContent}>
+                    <EmptyState
+                      variant="compact"
+                      illustrationKey={isOffline ? "offline" : "chat"}
+                      title={isOffline ? "Offline — chat history unavailable" : "No messages yet"}
+                      description={
+                        isOffline
+                          ? "Connect to load conversation history."
+                          : "Start with a message below."
+                      }
+                      ctaLabel={isOffline ? undefined : "Send a message"}
+                      onCtaPress={
+                        isOffline
+                          ? undefined
+                          : () => {
+                              inputRef.current?.focus();
+                            }
+                      }
+                    />
+
+                    <View style={styles.emptyTips}>
+                      <TipCard
+                        tone="info"
+                        leading={{ type: "icon", icon: "chat", tone: "accent" }}
+                        title="Try a quick question"
+                        text="You can ask about exercises, pain, or scheduling."
+                        chips={["Exercises", "Pain", "Schedule"]}
+                        onPress={() => {
+                          setDraft("Can I do my exercises today?");
+                          inputRef.current?.focus();
+                        }}
+                        compact
+                      />
+                      <TipCard
+                        tone="safety"
+                        leading={{ type: "icon", icon: "coping", tone: "accent" }}
+                        title="Need a calming tool?"
+                        text="Open coping tools for guided breathing and grounding."
+                        actions={[
+                          {
+                            label: "Open Coping Tools",
+                            kind: "secondary",
+                            onPress: () => {
+                              router.push("/coping-tools" as never);
+                            },
+                          },
+                        ]}
+                        compact
+                      />
+                    </View>
+                  </View>
                 }
               />
             )}
@@ -963,6 +997,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingVertical: tokens.spacing.sm,
       paddingBottom: tokens.spacing.lg,
       gap: tokens.spacing.xs,
+    },
+    emptyStateContent: {
+      gap: tokens.spacing.md,
+    },
+    emptyTips: {
+      gap: tokens.spacing.sm,
     },
     messageGroup: {
       gap: tokens.spacing.xs,

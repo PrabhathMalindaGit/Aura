@@ -19,6 +19,7 @@ import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
 import { SmartImage } from "@/src/components/SmartImage";
 import { StatusPill } from "@/src/components/StatusPill";
+import { TipCard } from "@/src/components/TipCard";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
@@ -325,6 +326,48 @@ export default function DevUiGalleryScreen() {
             statusPill={{ text: "Good", tone: "success" }}
             variant="emphasis"
             actions={[{ label: "Open report", onPress: () => {}, kind: "primary" }]}
+          />
+        </View>
+      </Section>
+
+      <Section title="TipCard preview" subtitle="Assistant-style guidance cards for chat and support" card>
+        <View style={styles.mediaCardStack}>
+          <TipCard
+            tone="neutral"
+            leading={{ type: "icon", icon: "insights", tone: "accent" }}
+            title="Recovery tip"
+            text="Ask short, specific questions to get guidance you can act on today."
+            chips={["Exercises", "Pain"]}
+            onPress={() => {}}
+          />
+
+          <TipCard
+            tone="info"
+            leading={{ type: "thumbnail", source: LOCAL_GALLERY_IMAGE, fit: "cover" }}
+            title="Plan your next step"
+            text="Review your daily plan and continue with one focused task."
+            chips={["Plan", "Today", "Routine", "Reminder"]}
+            actions={[
+              { label: "Open plan", onPress: () => {}, kind: "primary" },
+              { label: "Later", onPress: () => {}, kind: "secondary" },
+            ]}
+          />
+
+          <TipCard
+            tone="warning"
+            compact
+            leading={{ type: "icon", icon: "warning", tone: "warning" }}
+            text="Something feels off? Share a short update so we can guide your next step."
+            actions={[{ label: "Ask now", onPress: () => {}, kind: "secondary" }]}
+          />
+
+          <TipCard
+            tone="safety"
+            leading={{ type: "icon", icon: "safety", tone: "accent" }}
+            title="Need support now?"
+            text="Open your coping tools for a quick guided reset."
+            chips={["Calm", "Breathing"]}
+            actions={[{ label: "Open coping tools", onPress: () => {}, kind: "primary" }]}
           />
         </View>
       </Section>

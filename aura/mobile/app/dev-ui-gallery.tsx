@@ -14,6 +14,7 @@ import { IconButton } from "@/src/components/IconButton";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
 import { SmartImage } from "@/src/components/SmartImage";
@@ -81,6 +82,13 @@ export default function DevUiGalleryScreen() {
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const [showMotionPreview, setShowMotionPreview] = useState(true);
   const [showRemoteImagePreview, setShowRemoteImagePreview] = useState(false);
+  const [rangeValue, setRangeValue] = useState<"7" | "30" | "90">("30");
+  const [modeValue, setModeValue] = useState<"daily" | "weekly" | "monthly">("weekly");
+  const [sizeValueSm, setSizeValueSm] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [sizeValueMd, setSizeValueMd] = useState<"daily" | "weekly" | "monthly">("monthly");
+  const [wrapValue, setWrapValue] = useState<"all" | "focus" | "recovery" | "caregiver">(
+    "focus",
+  );
 
   if (!__DEV__) {
     return <Redirect href="/(tabs)" />;
@@ -392,6 +400,86 @@ export default function DevUiGalleryScreen() {
         </View>
       </Section>
 
+      <Section title="SegmentedControl preview" subtitle="Tokenized segmented options with fallback rendering" card>
+        <View style={styles.stackSm}>
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>Range selector</Text>
+            <SegmentedControl
+              value={rangeValue}
+              options={[
+                { value: "7", label: "7" },
+                { value: "30", label: "30" },
+                { value: "90", label: "90" },
+              ]}
+              onChange={setRangeValue}
+              tone="primary"
+              accessibilityLabel="Range selector"
+            />
+          </View>
+
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>Mode selector with icons</Text>
+            <SegmentedControl
+              value={modeValue}
+              options={[
+                { value: "daily", label: "Daily", icon: "checkin" },
+                { value: "weekly", label: "Weekly", icon: "weekly" },
+                { value: "monthly", label: "Monthly", icon: "progress", disabled: true },
+              ]}
+              onChange={setModeValue}
+              tone="accent"
+              accessibilityLabel="Mode selector"
+            />
+          </View>
+
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>Size variants</Text>
+            <SegmentedControl
+              value={sizeValueSm}
+              size="sm"
+              options={[
+                { value: "daily", label: "Daily", icon: "checkin" },
+                { value: "weekly", label: "Weekly", icon: "weekly" },
+                { value: "monthly", label: "Monthly", icon: "progress" },
+              ]}
+              onChange={setSizeValueSm}
+              tone="accent"
+              accessibilityLabel="Small segmented control"
+            />
+            <SegmentedControl
+              value={sizeValueMd}
+              size="md"
+              options={[
+                { value: "daily", label: "Daily", icon: "checkin" },
+                { value: "weekly", label: "Weekly", icon: "weekly" },
+                { value: "monthly", label: "Monthly", icon: "progress" },
+              ]}
+              onChange={setSizeValueMd}
+              tone="primary"
+              accessibilityLabel="Medium segmented control"
+            />
+          </View>
+
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>Wrap enabled</Text>
+            <SegmentedControl
+              value={wrapValue}
+              allowWrap
+              fullWidth={false}
+              options={[
+                { value: "all", label: "All" },
+                { value: "focus", label: "Focus plan" },
+                { value: "recovery", label: "Recovery" },
+                { value: "caregiver", label: "Caregiver" },
+              ]}
+              onChange={setWrapValue}
+              tone="accent"
+              accessibilityLabel="Wrapped segmented control"
+            />
+          </View>
+        </View>
+      </Section>
+
       <Section title="Card / Section / Row" subtitle="Structural primitives and row behavior" card>
         <Card>
           <Text style={styles.inlineLabel}>Card default</Text>
@@ -514,7 +602,7 @@ export default function DevUiGalleryScreen() {
 
       <Section title="New wow components placeholders" subtitle="Future premium primitives" card>
         <View style={styles.stackSm}>
-          <PlaceholderCard title="SegmentedControl" subtitle="Coming soon · polished segmented range control" />
+          <PlaceholderCard title="CalendarHeatmap" subtitle="Coming soon · month-level adherence heatmap" />
         </View>
       </Section>
     </Screen>

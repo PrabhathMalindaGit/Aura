@@ -1,9 +1,7 @@
 import { Redirect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -20,10 +18,12 @@ import {
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { Row } from "@/src/components/Row";
@@ -45,6 +45,7 @@ import { parseCheckinTime } from "@/src/utils/progressStats";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MICRO_FALLBACK_SERIES = [0, 0, 0, 0, 0, 0, 0];
 
 type LoadSource = "live" | "cache" | "none";
 type RangeDays = 7 | 30 | 90;
@@ -196,6 +197,13 @@ function average(values: number[]): number | null {
   return total / values.length;
 }
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
 function deriveAssessment(
   value: number | null,
   thresholds: { good: number; okay: number },
@@ -322,25 +330,6 @@ function trendArrow(direction: "up" | "down" | "flat"): string {
   return "→";
 }
 
-function iconForKpi(key: string): React.ComponentProps<typeof FontAwesome>["name"] {
-  switch (key) {
-    case "pain":
-      return "medkit";
-    case "mood":
-      return "smile-o";
-    case "adherence":
-      return "check-square-o";
-    case "medication":
-      return "plus-square-o";
-    case "sleep":
-      return "moon-o";
-    case "hydration":
-      return "tint";
-    default:
-      return "circle-o";
-  }
-}
-
 function hydrationAverage(
   days: HydrationDayTotal[],
   rangeDays: RangeDays
@@ -414,6 +403,71 @@ export default function ProgressScreen() {
     () => hydrationAverage(hydrationDays, rangeDays),
     [hydrationDays, rangeDays]
   );
+  const last7Oldest = useMemo(() => {
+    const newestFirst = sortByNewest(filteredItems);
+    const latestWindow = newestFirst.slice(0, 7);
+    return [...latestWindow].reverse();
+  }, [filteredItems]);
+
+  const painSeries = useMemo(
+    () =>
+      last7Oldest
+        .map((item) => item.pain)
+        .filter((value): value is number => Number.isFinite(value)),
+    [last7Oldest]
+  );
+  const moodSeries = useMemo(
+    () =>
+      last7Oldest
+        .map((item) => item.mood)
+        .filter((value): value is number => Number.isFinite(value)),
+    [last7Oldest]
+  );
+  const adherenceSeries = useMemo(
+    () =>
+      last7Oldest
+        .map((item) => item.adherence?.exercises)
+        .filter(
+          (value): value is number => typeof value === "number" && Number.isFinite(value)
+        )
+        .map((value) => value * 100),
+    [last7Oldest]
+  );
+  const medsSeries = useMemo(
+    () =>
+      last7Oldest
+        .map((item) => item.adherence?.medication)
+        .filter((value): value is boolean => typeof value === "boolean")
+        .map((value) => (value ? 1 : 0)),
+    [last7Oldest]
+  );
+  const sleepSeries = useMemo(
+    () =>
+      last7Oldest
+        .map((item) => item.sleep?.hours)
+        .filter(
+          (value): value is number => typeof value === "number" && Number.isFinite(value)
+        ),
+    [last7Oldest]
+  );
+  const hydrationSeries = useMemo(() => {
+    const end = todayISO();
+    const from = addDaysISO(end, -(rangeDays - 1));
+    const fromTs = Date.parse(from);
+    const endTs = Date.parse(end);
+
+    const inRange = hydrationDays
+      .filter((day) => {
+        const ts = Date.parse(day.date);
+        return Number.isFinite(ts) && ts >= fromTs && ts <= endTs;
+      })
+      .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+
+    return inRange
+      .slice(-7)
+      .map((day) => day.totalMl)
+      .filter((value): value is number => Number.isFinite(value));
+  }, [hydrationDays, rangeDays]);
 
   const painAvg = useMemo(
     () => average(filteredItems.map((item) => item.pain)),
@@ -771,59 +825,96 @@ export default function ProgressScreen() {
       ) : null}
 
       <Card variant="outlined">
-        <View style={styles.rangeSelector}>
-          {[7, 30, 90].map((range) => {
-            const selected = rangeDays === range;
-            return (
-              <Pressable
-                key={range}
-                accessibilityRole="button"
-                accessibilityLabel={`Show last ${range} days`}
-                onPress={() => setRangeDays(range as RangeDays)}
-                style={({ pressed }) => [
-                  styles.rangeChip,
-                  selected ? styles.rangeChipSelected : null,
-                  pressed ? styles.rangeChipPressed : null,
-                ]}
-              >
-                <Text
-                  style={[styles.rangeChipText, selected ? styles.rangeChipTextSelected : null]}
-                >
-                  {range} days
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <SegmentedControl
+          value={String(rangeDays) as "7" | "30" | "90"}
+          options={[
+            { value: "7", label: "7d" },
+            { value: "30", label: "30d" },
+            { value: "90", label: "90d" },
+          ]}
+          onChange={(value) => setRangeDays(Number(value) as RangeDays)}
+          accessibilityLabel="Progress range selector"
+          tone="primary"
+        />
       </Card>
 
       <Section title="Key metrics" card>
         {isLoading && items.length === 0 ? (
           <View style={styles.kpiGrid}>
             {[0, 1, 2, 3].map((key) => (
-              <SkeletonBlock key={key} height={94} style={styles.kpiTileSkeleton} />
+              <SkeletonBlock key={key} height={110} style={styles.kpiTileSkeleton} />
             ))}
           </View>
         ) : (
           <View style={styles.kpiGrid}>
-            {kpiItems.map((kpi) => (
-              <Card key={kpi.key} variant="outlined" style={styles.kpiTile}>
-                <View style={styles.kpiTileBody}>
-                  <View style={styles.kpiTitleRow}>
-                    <FontAwesome
-                      name={iconForKpi(kpi.key)}
-                      size={15}
-                      color={tokens.colors.textMuted}
-                    />
-                    <Text style={styles.kpiTitle}>{kpi.title}</Text>
-                  </View>
-                  <Text style={styles.kpiValue}>{kpi.value}</Text>
-                  <Text style={styles.kpiAssessment}>{kpi.assessment}</Text>
-                  <StatusPill label={kpi.assessment} variant={kpi.variant} />
-                  {kpi.helper ? <Text style={styles.kpiHelper}>{kpi.helper}</Text> : null}
+            {kpiItems.map((kpi) => {
+              const mappedTone =
+                kpi.variant === "success"
+                  ? "success"
+                  : kpi.variant === "warning" || kpi.variant === "danger"
+                    ? "warning"
+                    : kpi.variant === "info"
+                      ? "accent"
+                      : "muted";
+
+              const mappedIcon =
+                kpi.key === "pain" || kpi.key === "mood"
+                  ? "checkin"
+                  : kpi.key === "adherence"
+                    ? "exercise"
+                    : kpi.key === "medication"
+                      ? "meds"
+                      : kpi.key === "sleep"
+                        ? "sleep"
+                        : kpi.key === "hydration"
+                          ? "hydration"
+                          : "progress";
+
+              const mappedMicro =
+                kpi.key === "pain"
+                  ? painSeries.length >= 2
+                    ? { type: "sparkline" as const, values: painSeries, tone: "warning" as const }
+                    : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
+                  : kpi.key === "mood"
+                    ? moodSeries.length >= 2
+                      ? { type: "sparkline" as const, values: moodSeries, tone: "success" as const }
+                      : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
+                    : kpi.key === "adherence"
+                      ? adherenceSeries.length >= 2
+                        ? { type: "bars" as const, values: adherenceSeries }
+                        : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
+                      : kpi.key === "medication"
+                        ? medsSeries.length >= 2
+                          ? {
+                              type: "ring" as const,
+                              progress: clamp01((medicationPct ?? 0) / 100),
+                            }
+                          : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
+                        : kpi.key === "sleep"
+                          ? sleepSeries.length >= 2
+                            ? { type: "sparkline" as const, values: sleepSeries, tone: "muted" as const }
+                            : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
+                          : hydrationSeries.length >= 2
+                            ? { type: "bars" as const, values: hydrationSeries }
+                            : { type: "dots" as const, values: MICRO_FALLBACK_SERIES };
+
+              const deltaLabel = kpi.helper
+                ? `${kpi.assessment} · ${kpi.helper}`
+                : `${kpi.assessment} · Last ${rangeDays}d`;
+
+              return (
+                <View key={kpi.key} style={styles.kpiTileWrap}>
+                  <TrackerTile
+                    icon={mappedIcon}
+                    label={kpi.title}
+                    value={kpi.value}
+                    delta={deltaLabel}
+                    tone={mappedTone}
+                    micro={mappedMicro}
+                  />
                 </View>
-              </Card>
-            ))}
+              );
+            })}
           </View>
         )}
       </Section>
@@ -971,85 +1062,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     trustCueRow: {
       marginTop: tokens.spacing.xs,
     },
-    rangeSelector: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.sm,
-    },
-    rangeChip: {
-      minHeight: 44,
-      borderRadius: tokens.radius.md,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surface,
-      paddingHorizontal: tokens.spacing.md,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    rangeChipSelected: {
-      borderColor: tokens.colors.accent,
-      backgroundColor: tokens.colors.accentTextOn,
-    },
-    rangeChipPressed: {
-      opacity: 0.82,
-    },
-    rangeChipText: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    rangeChipTextSelected: {
-      color: tokens.colors.accent,
-      fontWeight: tokens.typography.weights.semibold,
-    },
     kpiGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
-    kpiTile: {
+    kpiTileWrap: {
       width: "48%",
       flexGrow: 1,
-      minHeight: 100,
     },
     kpiTileSkeleton: {
       width: "48%",
       flexGrow: 1,
-      minHeight: 94,
+      minHeight: 110,
       borderRadius: tokens.radius.md,
-    },
-    kpiTileBody: {
-      gap: tokens.spacing.xs,
-    },
-    kpiTitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    kpiTitleRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: tokens.spacing.xs + 2,
-      flexWrap: "nowrap",
-    },
-    kpiValue: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    kpiAssessment: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    kpiHelper: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
     },
     trendList: {
       gap: tokens.spacing.sm,

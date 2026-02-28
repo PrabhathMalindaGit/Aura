@@ -8,6 +8,7 @@ import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { DomainIcon, DOMAIN_ICON_KEYS } from "@/src/components/IconSet";
+import { MediaCard } from "@/src/components/MediaCard";
 import { FadeSlideIn } from "@/src/components/Motion";
 import { IconButton } from "@/src/components/IconButton";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -17,6 +18,7 @@ import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
 import { SmartImage } from "@/src/components/SmartImage";
 import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
@@ -241,6 +243,155 @@ export default function DevUiGalleryScreen() {
         </View>
       </Section>
 
+      <Section title="MediaCard preview" subtitle="Premium media-first card variants" card>
+        <View style={styles.mediaCardStack}>
+          <MediaCard
+            leading={{
+              type: "thumbnail",
+              source: LOCAL_GALLERY_IMAGE,
+              fit: "cover",
+              bg: "surface",
+            }}
+            title="Today rehab session"
+            subtitle="Knee mobility routine with guided pacing and form checks."
+            chips={[
+              { text: "Today", tone: "info" },
+              { text: "25 min", tone: "muted" },
+              { text: "Low impact", tone: "success" },
+            ]}
+            statusPill={{ text: "Needs review", tone: "warning" }}
+            onPress={() => {}}
+            actions={[
+              { label: "Start", onPress: () => {}, kind: "primary" },
+              { label: "Later", onPress: () => {}, kind: "secondary" },
+            ]}
+          />
+
+          <MediaCard
+            leading={{
+              type: "avatar",
+              name: "Malinda Perera",
+              ring: "ok",
+            }}
+            title="Care team check-in"
+            subtitle="Clinician follow-up scheduled for this afternoon."
+            chips={[
+              { text: "Today", tone: "info" },
+              { text: "30 min", tone: "muted" },
+            ]}
+            rightAccessory={<StatusPill label="On track" variant="success" />}
+            onPress={() => {}}
+          />
+
+          <MediaCard
+            leading={{
+              type: "icon",
+              icon: "appointments",
+              tone: "accent",
+            }}
+            title="Upcoming appointment"
+            subtitle="Tele-rehab session with your clinician."
+            variant="compact"
+            showChevron
+            onPress={() => {}}
+          />
+
+          <MediaCard
+            leading={{
+              type: "thumbnail",
+              source: LOCAL_GALLERY_IMAGE,
+              fit: "contain",
+              bg: "muted",
+            }}
+            title="Weekly summary ready"
+            subtitle="Review your momentum and plan the next recovery block."
+            chips={[
+              { text: "Sleep", tone: "muted" },
+              { text: "Hydration", tone: "info" },
+              { text: "Mood", tone: "success" },
+              { text: "Pain", tone: "warning" },
+              { text: "PROM", tone: "muted" },
+              { text: "Wearables", tone: "info" },
+            ]}
+            maxChips={3}
+            statusPill={{ text: "Good", tone: "success" }}
+            variant="emphasis"
+            actions={[{ label: "Open report", onPress: () => {}, kind: "primary" }]}
+          />
+        </View>
+      </Section>
+
+      <Section title="TrackerTile preview" subtitle="Glanceable KPI tiles with micro visuals" card>
+        <View style={styles.mediaCardStack}>
+          <TrackerTile
+            icon="progress"
+            label="Pain"
+            value="6.2/10"
+            delta="↓ 0.4 vs last week"
+            tone="warning"
+            micro={{
+              type: "sparkline",
+              values: [7.4, 7.2, 6.9, 6.8, 6.6, 6.4, 6.2],
+              tone: "warning",
+            }}
+          />
+          <TrackerTile
+            icon="hydration"
+            label="Hydration"
+            value="1.6L"
+            delta="↑ 0.2L"
+            tone="accent"
+            micro={{
+              type: "bars",
+              values: [1.1, 1.0, 1.4, 1.2, 1.5, 1.3, 1.6],
+            }}
+          />
+          <TrackerTile
+            icon="sleep"
+            label="Sleep"
+            value="6.8h"
+            delta="Stable"
+            tone="success"
+            micro={{
+              type: "dots",
+              values: [6.6, 6.9, 6.8, 6.7, 6.9, 6.8, 6.8],
+            }}
+          />
+          <View style={styles.compactTilesRow}>
+            <View style={styles.compactTileItem}>
+              <TrackerTile
+                icon="exercise"
+                label="Adherence"
+                value="82%"
+                tone="primary"
+                variant="compact"
+                micro={{ type: "sparkline", values: [70, 72, 75, 78, 79, 80, 82] }}
+              />
+            </View>
+            <View style={styles.compactTileItem}>
+              <TrackerTile
+                icon="nutrition"
+                label="Nutrition"
+                value="Good"
+                tone="accent"
+                variant="compact"
+                micro={{ type: "ring", progress: 0.74 }}
+              />
+            </View>
+            <View style={styles.compactTileItem}>
+              <TrackerTile
+                icon="meds"
+                label="Meds"
+                value="6/7"
+                tone="success"
+                variant="compact"
+                micro={{ type: "dots", values: [1, 1, 1, 0, 1, 1, 1] }}
+              />
+            </View>
+          </View>
+        </View>
+      </Section>
+
       <Section title="Card / Section / Row" subtitle="Structural primitives and row behavior" card>
         <Card>
           <Text style={styles.inlineLabel}>Card default</Text>
@@ -363,8 +514,6 @@ export default function DevUiGalleryScreen() {
 
       <Section title="New wow components placeholders" subtitle="Future premium primitives" card>
         <View style={styles.stackSm}>
-          <PlaceholderCard title="MediaCard" subtitle="Coming soon · thumbnail, metadata, and CTA row" />
-          <PlaceholderCard title="TrackerTile" subtitle="Coming soon · icon, value, and trend delta" />
           <PlaceholderCard title="SegmentedControl" subtitle="Coming soon · polished segmented range control" />
         </View>
       </Section>
@@ -453,6 +602,18 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
+    },
+    mediaCardStack: {
+      gap: tokens.spacing.md,
+    },
+    compactTilesRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    compactTileItem: {
+      flexGrow: 1,
+      flexBasis: 200,
     },
     sampleTitle: {
       color: tokens.colors.text,

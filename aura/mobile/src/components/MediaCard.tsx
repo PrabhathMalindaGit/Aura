@@ -1,0 +1,421 @@
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { useMemo, type ReactNode } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { Avatar, type AvatarRingVariant } from "@/src/components/Avatar";
+import { Card } from "@/src/components/Card";
+import {
+  getPressFeedbackStyle,
+} from "@/src/components/Motion";
+import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { SmartImage, type SmartImageSource } from "@/src/components/SmartImage";
+import { StatusPill } from "@/src/components/StatusPill";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
+import { useTokens } from "@/src/theme/tokens";
+import {
+  DomainIcon,
+  type DomainIconKey,
+  type DomainIconTone,
+} from "@/src/components/IconSet";
+
+export type MediaCardLeading =
+  | {
+      type: "thumbnail";
+      source: SmartImageSource;
+      accessibilityLabel?: string;
+      fit?: "cover" | "contain";
+      bg?: "surface" | "muted";
+    }
+  | {
+      type: "avatar";
+      name?: string | null;
+      photoUrl?: string | null;
+      photoSource?: SmartImageSource | null;
+      ring?: AvatarRingVariant;
+      accessibilityLabel?: string;
+    }
+  | {
+      type: "icon";
+      icon: DomainIconKey;
+      tone?: DomainIconTone;
+      accessibilityLabel?: string;
+    };
+
+export type MediaCardChip = {
+  text: string;
+  tone?: "muted" | "info" | "success" | "warning" | "danger";
+};
+
+export type MediaCardAction = {
+  label: string;
+  onPress: () => void;
+  kind?: "primary" | "secondary";
+  disabled?: boolean;
+  testID?: string;
+};
+
+export type MediaCardProps = {
+  leading?: MediaCardLeading;
+  title: string;
+  subtitle?: string;
+  chips?: MediaCardChip[];
+  maxChips?: number;
+  statusPill?: { text: string; tone?: "info" | "success" | "warning" | "danger" };
+  onPress?: () => void;
+  rightAccessory?: ReactNode;
+  showChevron?: boolean;
+  actions?: MediaCardAction[];
+  variant?: "default" | "emphasis" | "compact";
+  testID?: string;
+};
+
+function resolveChipStyle(
+  tone: NonNullable<MediaCardChip["tone"]>,
+  tokens: ReturnType<typeof useTokens>,
+) {
+  if (tone === "info") {
+    return {
+      backgroundColor: tokens.colors.accentTextOn,
+      borderColor: tokens.colors.accent,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.accent,
+    };
+  }
+  if (tone === "success") {
+    return {
+      backgroundColor: tokens.colors.successTextOn,
+      borderColor: tokens.colors.success,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.success,
+    };
+  }
+  if (tone === "warning") {
+    return {
+      backgroundColor: tokens.colors.warningTextOn,
+      borderColor: tokens.colors.warning,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.warning,
+    };
+  }
+  if (tone === "danger") {
+    return {
+      backgroundColor: tokens.colors.dangerTextOn,
+      borderColor: tokens.colors.danger,
+      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.danger,
+    };
+  }
+  return {
+    backgroundColor: tokens.colors.surfaceElevated,
+    borderColor: tokens.colors.border,
+    color: tokens.colors.textMuted,
+  };
+}
+
+function buildVisibleChips(chips: MediaCardChip[], maxChips: number): MediaCardChip[] {
+  if (chips.length <= maxChips) {
+    return chips;
+  }
+  const safeMax = Math.max(1, maxChips);
+  const visibleBaseCount = Math.max(0, safeMax - 1);
+  const overflowCount = chips.length - visibleBaseCount;
+  const base = chips.slice(0, visibleBaseCount);
+  return [...base, { text: `+${overflowCount}`, tone: "muted" }];
+}
+
+export function MediaCard({
+  leading,
+  title,
+  subtitle,
+  chips = [],
+  maxChips = 3,
+  statusPill,
+  onPress,
+  rightAccessory,
+  showChevron = true,
+  actions = [],
+  variant = "default",
+  testID,
+}: MediaCardProps) {
+  const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
+  const isCompact = variant === "compact";
+  const isEmphasis = variant === "emphasis";
+  const leadingSize = isCompact ? 48 : 56;
+  const avatarSize = isCompact ? 40 : 44;
+  const iconSize = isCompact ? 22 : 24;
+  const resolvedPadding = isCompact ? tokens.spacing.md : tokens.spacing.lg;
+
+  const cardStyle = [
+    isEmphasis ? styles.cardEmphasis : null,
+    !isEmphasis && variant === "compact" ? styles.cardCompact : null,
+  ];
+
+  const visibleChips = useMemo(
+    () => buildVisibleChips(chips, Math.max(1, maxChips)),
+    [chips, maxChips],
+  );
+
+  const resolvedAccessory =
+    rightAccessory ?? (onPress && showChevron ? (
+      <MaterialCommunityIcons
+        accessibilityLabel="Open details"
+        accessible={false}
+        name="chevron-right"
+        size={20}
+        color={tokens.colors.textMuted}
+      />
+    ) : null);
+
+  const content = (
+    <View style={styles.content}>
+      <View style={styles.topRow}>
+        {leading ? (
+          <View style={styles.leadingWrap}>
+            {leading.type === "thumbnail" ? (
+              <SmartImage
+                source={leading.source}
+                width={leadingSize}
+                height={leadingSize}
+                radius={tokens.radius.md}
+                contentFit={leading.fit ?? "cover"}
+                backgroundVariant={leading.bg === "muted" ? "muted" : "surface"}
+                accessibilityLabel={leading.accessibilityLabel ?? `${title} thumbnail`}
+              />
+            ) : null}
+            {leading.type === "avatar" ? (
+              <Avatar
+                size={avatarSize}
+                name={leading.name}
+                photoUrl={leading.photoUrl}
+                photoSource={leading.photoSource}
+                ring={leading.ring}
+                accessibilityLabel={
+                  leading.accessibilityLabel ??
+                  (leading.name ? `Avatar for ${leading.name}` : "Avatar")
+                }
+              />
+            ) : null}
+            {leading.type === "icon" ? (
+              <View
+                style={[
+                  styles.iconCircle,
+                  {
+                    width: avatarSize,
+                    height: avatarSize,
+                    borderRadius: avatarSize / 2,
+                  },
+                ]}
+              >
+                <DomainIcon
+                  icon={leading.icon}
+                  tone={leading.tone ?? "muted"}
+                  size={iconSize}
+                  accessibilityLabel={leading.accessibilityLabel ?? `${leading.icon} icon`}
+                />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.mainContent}>
+          <View style={styles.titleRow}>
+            <Text allowFontScaling numberOfLines={2} style={styles.title}>
+              {title}
+            </Text>
+            {statusPill ? (
+              <StatusPill
+                label={statusPill.text}
+                variant={statusPill.tone ?? "info"}
+                style={styles.statusPill}
+              />
+            ) : null}
+          </View>
+          {subtitle ? (
+            <Text allowFontScaling numberOfLines={2} style={styles.subtitle}>
+              {subtitle}
+            </Text>
+          ) : null}
+          {visibleChips.length > 0 ? (
+            <View style={styles.chipsRow}>
+              {visibleChips.map((chip, index) => {
+                const tone = chip.tone ?? "muted";
+                const chipStyle = resolveChipStyle(tone, tokens);
+                return (
+                  <View
+                    key={`${chip.text}-${index}`}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: chipStyle.backgroundColor,
+                        borderColor: chipStyle.borderColor,
+                      },
+                    ]}
+                  >
+                    <Text allowFontScaling numberOfLines={1} style={[styles.chipText, { color: chipStyle.color }]}>
+                      {chip.text}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+
+        {resolvedAccessory ? <View style={styles.accessoryWrap}>{resolvedAccessory}</View> : null}
+      </View>
+
+      {actions.length > 0 ? (
+        <View style={styles.actionsRow}>
+          {actions.slice(0, 2).map((action, index, arr) => (
+            <View
+              key={`${action.label}-${index}`}
+              style={arr.length === 2 ? styles.actionFlex : undefined}
+            >
+              {action.kind === "secondary" ? (
+                <SecondaryButton
+                  label={action.label}
+                  disabled={action.disabled}
+                  accessibilityLabel={action.label}
+                  onPress={() => {
+                    action.onPress();
+                  }}
+                />
+              ) : (
+                <PrimaryButton
+                  label={action.label}
+                  disabled={action.disabled}
+                  accessibilityLabel={action.label}
+                  onPress={() => {
+                    action.onPress();
+                  }}
+                />
+              )}
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Card padding={0} style={cardStyle} accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`}>
+        <Pressable
+          testID={testID}
+          accessibilityRole="button"
+          accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`.trim()}
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.pressable,
+            { padding: resolvedPadding },
+            pressed ? getPressFeedbackStyle(reduceMotion, 0.9) : null,
+          ]}
+        >
+          {content}
+        </Pressable>
+      </Card>
+    );
+  }
+
+  return (
+    <View testID={testID}>
+      <Card
+        padding={resolvedPadding}
+        style={cardStyle}
+        accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`.trim()}
+      >
+        {content}
+      </Card>
+    </View>
+  );
+}
+
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    pressable: {
+      borderRadius: tokens.radius.lg,
+    },
+    cardCompact: {
+      backgroundColor: tokens.colors.surface,
+    },
+    cardEmphasis: {
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.accent,
+      ...tokens.elevation.card,
+    },
+    content: {
+      gap: tokens.spacing.md,
+    },
+    topRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: tokens.spacing.md,
+    },
+    leadingWrap: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    iconCircle: {
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+    },
+    mainContent: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: tokens.spacing.xs,
+    },
+    title: {
+      flex: 1,
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    subtitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    statusPill: {
+      alignSelf: "flex-start",
+    },
+    chipsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+      paddingTop: tokens.spacing.xs,
+    },
+    chip: {
+      minHeight: 24,
+      borderRadius: tokens.radius.xl,
+      borderWidth: 1,
+      paddingHorizontal: tokens.spacing.sm,
+      justifyContent: "center",
+    },
+    chipText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    accessoryWrap: {
+      paddingTop: 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    actionFlex: {
+      flex: 1,
+    },
+  });
+}

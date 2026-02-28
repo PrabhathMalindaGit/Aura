@@ -7,6 +7,8 @@ import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { DomainIcon, DOMAIN_ICON_KEYS } from "@/src/components/IconSet";
 import { MediaCard } from "@/src/components/MediaCard";
 import { FadeSlideIn } from "@/src/components/Motion";
@@ -523,6 +525,56 @@ export default function DevUiGalleryScreen() {
         </View>
       </Section>
 
+      <Section title="Stunning effects preview" subtitle="Hero gradient + glass overlay primitives" card>
+        <View style={styles.stackSm}>
+          <HeroHeader
+            title="Recovery Overview"
+            subtitle="Calm visual emphasis for key daily context"
+            left={<Avatar name="Malinda Perera" ring="ok" size={40} />}
+            rightActions={[
+              {
+                icon: "bell",
+                accessibilityLabel: "Notifications",
+                onPress: () => {},
+                tone: "accent",
+              },
+              {
+                icon: "dots-horizontal",
+                accessibilityLabel: "More options",
+                onPress: () => {},
+                tone: "muted",
+              },
+            ]}
+          >
+            <View style={styles.heroPillRow}>
+              <StatusPill label="Synced" variant="success" />
+              <StatusPill label="Plan ready" variant="info" />
+            </View>
+          </HeroHeader>
+
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>GlassPanel (iOS blur / fallback elsewhere)</Text>
+            <GlassPanel accessibilityLabel="Glass panel preview">
+              <Row title="Today plan" subtitle="Mobility + strength block" />
+              <SecondaryButton label="Open details" onPress={() => {}} />
+            </GlassPanel>
+          </View>
+
+          <View style={styles.stackXs}>
+            <Text style={styles.imageCaption}>GlassPanel (forced fallback)</Text>
+            <GlassPanel
+              forceFallback
+              fallbackVariant="surface"
+              fallbackOpacity={0.78}
+              accessibilityLabel="Glass panel forced fallback preview"
+            >
+              <Row title="Fallback mode" subtitle="Consistent readable panel without blur." />
+              <PrimaryButton label="Continue" onPress={() => {}} />
+            </GlassPanel>
+          </View>
+        </View>
+      </Section>
+
       <Section title="Card / Section / Row" subtitle="Structural primitives and row behavior" card>
         <Card>
           <Text style={styles.inlineLabel}>Card default</Text>
@@ -745,6 +797,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     compactTileItem: {
       flexGrow: 1,
       flexBasis: 200,
+    },
+    heroPillRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
     },
     sampleTitle: {
       color: tokens.colors.text,

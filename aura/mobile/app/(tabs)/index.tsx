@@ -1,19 +1,22 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 
 import type { CheckInItem } from "@/src/api/patient";
+import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
-import { IconButton } from "@/src/components/IconButton";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { DomainIcon } from "@/src/components/IconSet";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
@@ -120,23 +123,6 @@ function extractPatientPhotoUri(patient: unknown): string | null {
   return null;
 }
 
-function toInitials(name: string): string {
-  const parts = name
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "AU";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
 function resolveCheckInDateISO(item: CheckInItem): string | null {
   if (typeof item.date === "string" && item.date.trim()) {
     return item.date.slice(0, 10);
@@ -166,6 +152,14 @@ function parseCheckInTimestamp(item: CheckInItem): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function average(values: number[]): number | null {
+  if (values.length === 0) {
+    return null;
+  }
+
+  return values.reduce((sum, current) => sum + current, 0) / values.length;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
@@ -175,7 +169,6 @@ export default function HomeScreen() {
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
-  const patientInitials = useMemo(() => toInitials(patientLabel), [patientLabel]);
 
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
   const thisWeekStart = startOfWeekMondayISO(tzOffsetMinutes);
@@ -197,6 +190,7 @@ export default function HomeScreen() {
     lastDateISO: null,
     completedToday: false,
   });
+  const [recentCheckins, setRecentCheckins] = useState<CheckInItem[]>([]);
   const [planSummary, setPlanSummary] = useState<PlanSummary>({
     status: "loading",
     itemCount: 0,
@@ -279,6 +273,44 @@ export default function HomeScreen() {
     insightSummary.status === "loading" ||
     appointmentSummary.status === "loading";
 
+  const { painSeries, moodSeries, adherenceSeries, medsBoolSeries } = useMemo(() => {
+    const window = recentCheckins.slice(0, 7).reverse();
+
+    const pain = window
+      .map((item) => (typeof item.pain === "number" && Number.isFinite(item.pain) ? item.pain : null))
+      .filter((value): value is number => value !== null);
+    const mood = window
+      .map((item) => (typeof item.mood === "number" && Number.isFinite(item.mood) ? item.mood : null))
+      .filter((value): value is number => value !== null);
+    const adherence = window
+      .map((item) =>
+        typeof item.adherence?.exercises === "number" && Number.isFinite(item.adherence.exercises)
+          ? item.adherence.exercises * 100
+          : null
+      )
+      .filter((value): value is number => value !== null);
+    const meds = window
+      .map((item) =>
+        typeof item.adherence?.medication === "boolean" ? (item.adherence.medication ? 1 : 0) : null
+      )
+      .filter((value): value is 0 | 1 => value !== null);
+
+    return {
+      painSeries: pain,
+      moodSeries: mood,
+      adherenceSeries: adherence,
+      medsBoolSeries: meds,
+    };
+  }, [recentCheckins]);
+
+  const painAvg = useMemo(() => average(painSeries), [painSeries]);
+  const moodAvg = useMemo(() => average(moodSeries), [moodSeries]);
+  const adherenceAvg = useMemo(() => average(adherenceSeries), [adherenceSeries]);
+  const medsPct = useMemo(() => {
+    const medsAverage = average(medsBoolSeries);
+    return medsAverage === null ? null : medsAverage * 100;
+  }, [medsBoolSeries]);
+
   const reloadPendingCounts = useCallback(async (): Promise<void> => {
     if (!patientId) {
       setPendingSummary(EMPTY_PENDING);
@@ -330,6 +362,7 @@ export default function HomeScreen() {
         lastDateISO: null,
         completedToday: false,
       });
+      setRecentCheckins([]);
       return () => {
         active = false;
       };
@@ -342,6 +375,7 @@ export default function HomeScreen() {
       }
 
       if (!cached || cached.length === 0) {
+        setRecentCheckins([]);
         setCheckinSummary({
           status: "ready",
           lastDateISO: null,
@@ -361,6 +395,7 @@ export default function HomeScreen() {
         });
 
       if (withDates.length === 0) {
+        setRecentCheckins([]);
         setCheckinSummary({
           status: "ready",
           lastDateISO: null,
@@ -368,6 +403,24 @@ export default function HomeScreen() {
         });
         return;
       }
+
+      const seenKeys = new Set<string>();
+      const dedupedSortedItems = [...withDates]
+        .sort((left, right) => right.timestamp - left.timestamp)
+        .map((entry) => entry.item)
+        .filter((item, index) => {
+          const dateKey = resolveCheckInDateISO(item) ?? "unknown";
+          const key =
+            item.id && item.id.trim()
+              ? `id:${item.id}`
+              : `fallback:${dateKey}:${item.createdAt ?? "na"}:${index}`;
+          if (seenKeys.has(key)) {
+            return false;
+          }
+          seenKeys.add(key);
+          return true;
+        });
+      setRecentCheckins(dedupedSortedItems);
 
       const sorted = [...withDates].sort((left, right) => right.timestamp - left.timestamp);
       const completedToday = withDates.some((entry) => entry.dateISO === today);
@@ -608,28 +661,36 @@ export default function HomeScreen() {
       banner={<TrustBanner status={trustStatus} />}
     >
       {/* Header area */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerIdentity}>
-          {patientPhotoUri ? (
-            <Image source={{ uri: patientPhotoUri }} style={styles.avatarImage} />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarInitials}>{patientInitials}</Text>
-            </View>
-          )}
-          <View style={styles.headerCopy}>
-            <Text style={styles.headerTitle}>Today</Text>
-            <Text style={styles.headerSubtitle}>{friendlyDate}</Text>
-          </View>
-        </View>
-        <IconButton
-          accessibilityLabel="Open Safety"
-          label="!"
-          onPress={() => {
-            router.push("/safety" as never);
-          }}
-        />
-      </View>
+      <HeroHeader
+        title="Today"
+        subtitle={friendlyDate}
+        left={
+          <Avatar
+            size={44}
+            name={patientLabel}
+            photoUrl={patientPhotoUri ?? undefined}
+            ring={trustStatus.kind === "ok" ? "ok" : "attention"}
+          />
+        }
+        rightActions={[
+          {
+            icon: "safety",
+            onPress: () => {
+              router.push("/safety" as never);
+            },
+            accessibilityLabel: "Open Safety support",
+            tone: "warning",
+          },
+          {
+            icon: "settings",
+            onPress: () => {
+              router.push("/(tabs)/settings" as never);
+            },
+            accessibilityLabel: "Open Settings",
+            tone: "muted",
+          },
+        ]}
+      />
 
       {/* Status strip */}
       <TrustCues
@@ -650,11 +711,83 @@ export default function HomeScreen() {
         style={styles.statusStrip}
       />
 
+      {/* Tracker grid */}
+      <View style={styles.trackerGrid}>
+        <View style={styles.trackerCell}>
+          <TrackerTile
+            icon="checkin"
+            label="Pain"
+            value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
+            delta="Last 7 check-ins"
+            tone="warning"
+            micro={
+              painSeries.length >= 2
+                ? { type: "sparkline", values: painSeries, tone: "warning" }
+                : { type: "dots", values: [0, 0, 0] }
+            }
+            onPress={() => {
+              router.push("/(tabs)/progress" as never);
+            }}
+          />
+        </View>
+        <View style={styles.trackerCell}>
+          <TrackerTile
+            icon="checkin"
+            label="Mood"
+            value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
+            delta="Last 7 check-ins"
+            tone="success"
+            micro={
+              moodSeries.length >= 2
+                ? { type: "sparkline", values: moodSeries, tone: "success" }
+                : { type: "dots", values: [0, 0, 0] }
+            }
+            onPress={() => {
+              router.push("/(tabs)/progress" as never);
+            }}
+          />
+        </View>
+        <View style={styles.trackerCell}>
+          <TrackerTile
+            icon="exercise"
+            label="Adherence"
+            value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
+            delta="Exercises"
+            tone="accent"
+            micro={
+              adherenceSeries.length >= 2
+                ? { type: "bars", values: adherenceSeries }
+                : { type: "dots", values: [0, 0, 0] }
+            }
+            onPress={() => {
+              router.push("/(tabs)/progress" as never);
+            }}
+          />
+        </View>
+        <View style={styles.trackerCell}>
+          <TrackerTile
+            icon="meds"
+            label="Medication"
+            value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
+            delta="Taken"
+            tone="primary"
+            micro={
+              medsPct !== null
+                ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
+                : { type: "dots", values: [0, 0, 0] }
+            }
+            onPress={() => {
+              router.push("/(tabs)/progress" as never);
+            }}
+          />
+        </View>
+      </View>
+
       {/* Primary card */}
       <Section
         title="Today’s check-in"
         subtitle="One check-in keeps your recovery timeline clear."
-        left={<FontAwesome name="calendar-check-o" size={18} color={tokens.colors.textMuted} />}
+        left={<DomainIcon icon="checkin" size={18} tone="muted" accessibilityLabel="Check-in icon" />}
         card
         right={
           <StatusPill
@@ -695,7 +828,7 @@ export default function HomeScreen() {
       <Section
         title="Today’s plan"
         subtitle="Preview your current exercise focus."
-        left={<FontAwesome name="heartbeat" size={18} color={tokens.colors.textMuted} />}
+        left={<DomainIcon icon="exercise" size={18} tone="muted" accessibilityLabel="Exercise icon" />}
         card
       >
         {planSummary.status === "loading" ? (
@@ -748,7 +881,7 @@ export default function HomeScreen() {
       <Section
         title="Insights"
         subtitle="Clinician-reviewed highlights from recent trends."
-        left={<FontAwesome name="lightbulb-o" size={18} color={tokens.colors.textMuted} />}
+        left={<DomainIcon icon="insights" size={18} tone="muted" accessibilityLabel="Insights icon" />}
         card
       >
         {insightSummary.status === "loading" ? (
@@ -787,81 +920,66 @@ export default function HomeScreen() {
 
       {/* Two-column row */}
       <View style={styles.twoColumnRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open weekly report"
-          onPress={() => {
-            router.push("/weekly-report" as never);
-          }}
-          style={({ pressed }) => [styles.compactPressable, pressed ? styles.compactPressed : null]}
-        >
-          <Card variant="outlined" padding={tokens.spacing.md} style={styles.compactCard}>
-            <View style={styles.compactTitleRow}>
-              <FontAwesome name="file-text-o" size={16} color={tokens.colors.textMuted} />
-              <Text style={styles.compactTitle}>Weekly report</Text>
-            </View>
-            {weeklySummary.status === "loading" ? (
-              <View style={styles.skeletonStack}>
-                <SkeletonBlock height={12} width="85%" />
-                <SkeletonBlock height={12} width="55%" />
-              </View>
-            ) : weeklySummary.status === "none" ? (
-              <EmptyState
-                variant="compact"
-                illustrationKey="weekly"
-                title="No report yet"
-                description="Open the report screen to refresh this week’s summary."
-              />
-            ) : (
-              <View style={styles.compactBody}>
-                <Text style={styles.compactDescription}>{weeklySummary.headline}</Text>
-                <Text style={styles.compactMeta}>
-                  {weeklySummary.highlightsCount} highlight
-                  {weeklySummary.highlightsCount === 1 ? "" : "s"}
-                </Text>
-              </View>
-            )}
-          </Card>
-        </Pressable>
+        <View style={styles.twoColumnCell}>
+          <MediaCard
+            variant="compact"
+            leading={{ type: "icon", icon: "weekly", tone: "accent" }}
+            title="Weekly report"
+            subtitle={
+              weeklySummary.status === "available"
+                ? weeklySummary.headline
+                : weeklySummary.status === "loading"
+                  ? "Loading…"
+                  : "No report yet"
+            }
+            chips={
+              weeklySummary.status === "available"
+                ? [
+                    {
+                      text: `${weeklySummary.highlightsCount} highlight${
+                        weeklySummary.highlightsCount === 1 ? "" : "s"
+                      }`,
+                      tone: "muted",
+                    },
+                  ]
+                : weeklySummary.status === "none"
+                  ? [{ text: "Tap to view", tone: "muted" }]
+                  : undefined
+            }
+            onPress={() => {
+              router.push("/weekly-report" as never);
+            }}
+          />
+        </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open appointments"
-          onPress={() => {
-            router.push("/appointments" as never);
-          }}
-          style={({ pressed }) => [styles.compactPressable, pressed ? styles.compactPressed : null]}
-        >
-          <Card variant="outlined" padding={tokens.spacing.md} style={styles.compactCard}>
-            <View style={styles.compactTitleRow}>
-              <FontAwesome name="calendar" size={16} color={tokens.colors.textMuted} />
-              <Text style={styles.compactTitle}>Next appointment</Text>
-            </View>
-            {appointmentSummary.status === "loading" ? (
-              <View style={styles.skeletonStack}>
-                <SkeletonBlock height={12} width="72%" />
-                <SkeletonBlock height={12} width="48%" />
-              </View>
-            ) : (
-              <View style={styles.compactBody}>
-                <Text style={styles.compactDescription}>{appointmentSummary.nextApprovedLabel}</Text>
-                <Text style={styles.compactMeta}>
-                  Pending requests: {appointmentSummary.pendingCount}
-                </Text>
-                {!appointmentSummary.hasUpcoming ? (
-                  <Text style={styles.compactMeta}>No upcoming appointments</Text>
-                ) : null}
-              </View>
-            )}
-          </Card>
-        </Pressable>
+        <View style={styles.twoColumnCell}>
+          <MediaCard
+            variant="compact"
+            leading={{ type: "icon", icon: "appointments", tone: "accent" }}
+            title="Next appointment"
+            subtitle={
+              appointmentSummary.status === "loading"
+                ? "Loading…"
+                : appointmentSummary.nextApprovedLabel
+            }
+            chips={[
+              { text: `Pending ${appointmentSummary.pendingCount}`, tone: "muted" },
+              ...(appointmentSummary.hasUpcoming
+                ? []
+                : [{ text: "None upcoming", tone: "muted" as const }]),
+            ]}
+            onPress={() => {
+              router.push("/appointments" as never);
+            }}
+          />
+        </View>
       </View>
 
       {/* Safety shortcut card */}
       <Section
         title="Need support now?"
         subtitle="Open your safety plan anytime."
-        left={<FontAwesome name="shield" size={18} color={tokens.colors.textMuted} />}
+        left={<DomainIcon icon="safety" size={18} tone="muted" accessibilityLabel="Safety icon" />}
         card
         cardVariant="outlined"
         right={<StatusPill label="Safety" variant="warning" />}
@@ -890,61 +1008,19 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
     },
-    headerRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: tokens.spacing.md,
-    },
-    headerIdentity: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: tokens.spacing.md,
-    },
-    avatarImage: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surface,
-    },
-    avatarFallback: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surfaceElevated,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    avatarInitials: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    headerCopy: {
-      flex: 1,
-      gap: 2,
-    },
-    headerTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.title.fontSize,
-      lineHeight: tokens.typography.title.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    headerSubtitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-    },
     statusStrip: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerCell: {
+      width: "48%",
+      minWidth: 0,
     },
     actionStack: {
       gap: tokens.spacing.sm,
@@ -985,41 +1061,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       alignItems: "stretch",
     },
-    compactPressable: {
+    twoColumnCell: {
       flex: 1,
       minWidth: 0,
-    },
-    compactPressed: {
-      opacity: 0.85,
-    },
-    compactCard: {
-      height: "100%",
-      gap: tokens.spacing.sm,
-    },
-    compactTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    compactTitleRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: tokens.spacing.sm,
-    },
-    compactBody: {
-      gap: tokens.spacing.xs,
-    },
-    compactDescription: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-    },
-    compactMeta: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
     },
     skeletonStack: {
       gap: tokens.spacing.sm,

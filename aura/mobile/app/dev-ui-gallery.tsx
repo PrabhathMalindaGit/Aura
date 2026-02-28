@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { getIllustration, type IllustrationKey } from "@/src/assets/illustrations";
+import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -200,6 +201,46 @@ export default function DevUiGalleryScreen() {
         </View>
       </Section>
 
+      <Section title="Avatar preview" subtitle="Photo, initials, rings, and icon fallback" card>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatarItem}>
+            <Avatar
+              name="Malinda Perera"
+              photoSource={LOCAL_GALLERY_IMAGE}
+              size={56}
+              accessibilityLabel="Avatar photo preview"
+            />
+            <Text style={styles.avatarCaption}>Photo</Text>
+          </View>
+          <View style={styles.avatarItem}>
+            <Avatar name="Malinda Perera" size={40} />
+            <Text style={styles.avatarCaption}>Initials</Text>
+          </View>
+          <View style={styles.avatarItem}>
+            <Avatar name="Malinda Perera" ring="ok" size={40} />
+            <Text style={styles.avatarCaption}>Ring ok</Text>
+          </View>
+          <View style={styles.avatarItem}>
+            <Avatar name="Malinda Perera" ring="attention" size={40} />
+            <Text style={styles.avatarCaption}>Ring attention</Text>
+          </View>
+          <View style={styles.avatarItem}>
+            <Avatar name="Malinda Perera" ring="safety" size={40} />
+            <Text style={styles.avatarCaption}>Ring safety</Text>
+          </View>
+          <View style={styles.avatarItem}>
+            <Avatar fallback="icon" iconKey="caregiver" size={40} />
+            <Text style={styles.avatarCaption}>Icon fallback</Text>
+          </View>
+        </View>
+        <View style={styles.avatarSizes}>
+          <Avatar name="MP" size={32} ring="ok" />
+          <Avatar name="MP" size={40} ring="ok" />
+          <Avatar name="MP" size={56} ring="ok" />
+          <Text style={styles.avatarCaption}>Size QA: 32 / 40 / 56</Text>
+        </View>
+      </Section>
+
       <Section title="Card / Section / Row" subtitle="Structural primitives and row behavior" card>
         <Card>
           <Text style={styles.inlineLabel}>Card default</Text>
@@ -322,7 +363,6 @@ export default function DevUiGalleryScreen() {
 
       <Section title="New wow components placeholders" subtitle="Future premium primitives" card>
         <View style={styles.stackSm}>
-          <PlaceholderCard title="Avatar" subtitle="Coming soon · photo + initials + presence ring" />
           <PlaceholderCard title="MediaCard" subtitle="Coming soon · thumbnail, metadata, and CTA row" />
           <PlaceholderCard title="TrackerTile" subtitle="Coming soon · icon, value, and trend delta" />
           <PlaceholderCard title="SegmentedControl" subtitle="Coming soon · polished segmented range control" />
@@ -384,6 +424,35 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    avatarWrap: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    avatarItem: {
+      minWidth: 120,
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+      paddingVertical: tokens.spacing.sm,
+      paddingHorizontal: tokens.spacing.sm,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    avatarCaption: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+      textAlign: "center",
+    },
+    avatarSizes: {
+      flexDirection: "row",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
     },
     sampleTitle: {
       color: tokens.colors.text,

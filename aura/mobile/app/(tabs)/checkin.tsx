@@ -17,16 +17,22 @@ import {
   type CheckInCreatePayload,
 } from "@/src/api/patient";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
+import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { DomainIcon, type DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { FadeSlideIn } from "@/src/components/Motion";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
@@ -49,17 +55,24 @@ import { normalizeUnknownError } from "@/src/utils/errors";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
-const CHECKIN_STEPS = [
-  { key: "symptoms", label: "Symptoms", description: "Pain, mood and notes" },
+const CHECKIN_STEPS: Array<{
+  key: "symptoms" | "recovery" | "habits";
+  label: string;
+  description: string;
+  icon: DomainIconKey;
+}> = [
+  { key: "symptoms", label: "Symptoms", description: "Pain, mood and notes", icon: "checkin" },
   {
     key: "recovery",
     label: "Recovery",
     description: "Exercises and medication",
+    icon: "exercise",
   },
   {
     key: "habits",
     label: "Habits",
     description: "Daily routines and review",
+    icon: "sleep",
   },
 ] as const;
 
@@ -101,6 +114,28 @@ type CheckinDevParams = {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function extractPatientPhotoUri(patient: unknown): string | null {
+  if (!patient || typeof patient !== "object") {
+    return null;
+  }
+
+  const record = patient as Record<string, unknown>;
+  const candidates = [
+    record.photoUrl,
+    record.avatarUrl,
+    record.profilePhotoUrl,
+    record.imageUrl,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 function Stepper({
@@ -259,6 +294,8 @@ export default function CheckinScreen() {
   const checkinsRefresh = useLastRefreshed("checkins");
   const checkinError = useLastError("checkinSubmit");
   const patientId = auth.patient?.id ?? "";
+  const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
+  const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
   const trustStatus = useTrustStatus({
     patientId,
     errorRecords: [checkinError.lastError],
@@ -286,7 +323,7 @@ export default function CheckinScreen() {
   const friendlyDate = useMemo(
     () =>
       new Intl.DateTimeFormat(undefined, {
-        weekday: "long",
+        weekday: "short",
         month: "short",
         day: "numeric",
       }).format(new Date()),
@@ -382,6 +419,26 @@ export default function CheckinScreen() {
 
   const isSuccessState = notice?.variant === "success";
   const isLastStep = activeStep === CHECKIN_STEPS.length - 1;
+  const avatarRing = trustStatus.kind === "ok" ? "ok" : "attention";
+
+  const addonPreviewLabels = useMemo(() => {
+    const tags: string[] = [];
+    const hasSleep =
+      sleepHours !== null || sleepQuality !== null || sleepDisturbances !== null;
+    if (hasSleep) {
+      tags.push("Sleep");
+    }
+    if (selectedRegions.length > 0) {
+      tags.push("Body map");
+    }
+    if (notes.trim().length > 0) {
+      tags.push("Notes");
+    }
+    if (medication) {
+      tags.push("Meds");
+    }
+    return tags;
+  }, [medication, notes, selectedRegions.length, sleepDisturbances, sleepHours, sleepQuality]);
 
   const primaryDisabled = useMemo(() => {
     if (isSubmitting) {
@@ -554,24 +611,69 @@ export default function CheckinScreen() {
   };
 
   const renderSymptomsStep = () => (
-    <Card>
-      <View style={styles.sectionStack}>
-        <Text style={styles.sectionTitle}>Symptoms</Text>
-        <Stepper
-          label="Pain"
-          value={pain}
-          min={0}
-          max={10}
-          step={1}
-          valueFormatter={(value) => `${value}/10`}
-          onChange={(value) => {
-            setNotice(null);
-            setPain(value);
-          }}
-        />
+    <View style={styles.stepContentStack}>
+      <View style={styles.stepSummaryRow}>
+        <View style={styles.stepSummaryCell}>
+          <TrackerTile
+            icon="checkin"
+            label="Pain"
+            value={`${pain}/10`}
+            delta="Current"
+            tone="warning"
+            variant="compact"
+            micro={{ type: "sparkline", values: [Math.max(0, pain - 1), pain], tone: "warning" }}
+          />
+        </View>
+        <View style={styles.stepSummaryCell}>
+          <TrackerTile
+            icon="insights"
+            label="Mood"
+            value={mood === null ? "—" : `${mood}/5`}
+            delta="Current"
+            tone="success"
+            variant="compact"
+            micro={
+              mood === null
+                ? { type: "dots", values: [0, 0, 0] }
+                : { type: "sparkline", values: [Math.max(1, mood - 1), mood], tone: "success" }
+            }
+          />
+        </View>
+      </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Mood</Text>
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="checkin" tone="warning" size={18} accessibilityLabel="Pain icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Pain</Text>
+              <Text style={styles.helperText}>Rate your current pain level.</Text>
+            </View>
+          </View>
+          <Stepper
+            label="Pain"
+            value={pain}
+            min={0}
+            max={10}
+            step={1}
+            valueFormatter={(value) => `${value}/10`}
+            onChange={(value) => {
+              setNotice(null);
+              setPain(value);
+            }}
+          />
+        </View>
+      </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="insights" tone="success" size={18} accessibilityLabel="Mood icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Mood</Text>
+              <Text style={styles.helperText}>Select how you feel right now.</Text>
+            </View>
+          </View>
           <View style={styles.chipRow}>
             {[1, 2, 3, 4, 5].map((value) => {
               const selected = mood === value;
@@ -603,9 +705,17 @@ export default function CheckinScreen() {
             })}
           </View>
         </View>
+      </Card>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Notes (optional)</Text>
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="chat" tone="accent" size={18} accessibilityLabel="Notes icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Notes (optional)</Text>
+              <Text style={styles.helperText}>Keep this short and clinical.</Text>
+            </View>
+          </View>
           <TextInput
             value={notes}
             onChangeText={(value) => {
@@ -621,113 +731,298 @@ export default function CheckinScreen() {
           />
           <Text style={styles.helperText}>Tip: Avoid names or personal details.</Text>
         </View>
-      </View>
-    </Card>
+      </Card>
+    </View>
   );
 
   const renderRecoveryStep = () => (
-    <Card>
-      <View style={styles.sectionStack}>
-        <Text style={styles.sectionTitle}>Recovery</Text>
-        <Stepper
-          label="Exercises adherence"
-          value={exercisePercent}
-          min={0}
-          max={100}
-          step={10}
-          valueFormatter={(value) => `${value}%`}
-          onChange={(value) => {
-            setNotice(null);
-            setExercisePercent(value);
-          }}
-        />
-
-        <View style={styles.switchRow}>
-          <View style={styles.switchCopy}>
-            <Text style={styles.fieldLabel}>Medication taken</Text>
-            <Text style={styles.helperText}>As prescribed by your clinician.</Text>
-          </View>
-          <Switch
-            value={medication}
-            onValueChange={(value) => {
-              setNotice(null);
-              setMedication(value);
+    <View style={styles.stepContentStack}>
+      <View style={styles.stepSummaryRow}>
+        <View style={styles.stepSummaryCell}>
+          <TrackerTile
+            icon="exercise"
+            label="Adherence"
+            value={`${exercisePercent}%`}
+            delta="Exercises"
+            tone="accent"
+            variant="compact"
+            micro={{
+              type: "bars",
+              values: [Math.max(0, exercisePercent - 20), exercisePercent],
             }}
           />
         </View>
-
-        <Banner
-          variant="info"
-          title="How did exercises feel?"
-          message="Use Notes in Symptoms or optional details below for extra context."
-        />
+        <View style={styles.stepSummaryCell}>
+          <TrackerTile
+            icon="meds"
+            label="Medication"
+            value={medication ? "Taken" : "Not taken"}
+            delta="Today"
+            tone="primary"
+            variant="compact"
+            micro={{ type: "ring", progress: medication ? 1 : 0 }}
+          />
+        </View>
       </View>
-    </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="exercise" tone="accent" size={18} accessibilityLabel="Exercise icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Exercise adherence</Text>
+              <Text style={styles.helperText}>How much of your plan did you complete?</Text>
+            </View>
+          </View>
+          <Stepper
+            label="Exercises adherence"
+            value={exercisePercent}
+            min={0}
+            max={100}
+            step={10}
+            valueFormatter={(value) => `${value}%`}
+            onChange={(value) => {
+              setNotice(null);
+              setExercisePercent(value);
+            }}
+          />
+        </View>
+      </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="meds" tone="primary" size={18} accessibilityLabel="Medication icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Medication taken</Text>
+              <Text style={styles.helperText}>As prescribed by your clinician.</Text>
+            </View>
+          </View>
+          <View style={styles.switchRow}>
+            <View style={styles.switchCopy}>
+              <Text style={styles.fieldLabel}>Taken today</Text>
+              <Text style={styles.helperText}>Toggle if completed.</Text>
+            </View>
+            <Switch
+              value={medication}
+              onValueChange={(value) => {
+                setNotice(null);
+                setMedication(value);
+              }}
+            />
+          </View>
+        </View>
+      </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="exercise" tone="muted" size={18} accessibilityLabel="Recovery feedback icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>How did exercises feel?</Text>
+              <Text style={styles.helperText}>Use notes or add-ons for extra detail.</Text>
+            </View>
+          </View>
+          <Banner
+            variant="info"
+            title="Recovery feedback"
+            message="Use Notes in Symptoms or optional details below for extra context."
+          />
+        </View>
+      </Card>
+    </View>
   );
 
   const renderHabitsStep = () => (
-    <Card>
-      <View style={styles.sectionStack}>
-        <Text style={styles.sectionTitle}>Habits</Text>
-        <Text style={styles.helperText}>
-          Keep habits quick here. Open detailed logs when needed.
-        </Text>
-
-        <View style={styles.habitRowWrap}>
-          <StatusPill
-            label={sleepHours === null ? "Sleep not set" : `Sleep ${sleepHours.toFixed(1)}h`}
-            variant={sleepHours === null ? "neutral" : "info"}
-          />
-          <StatusPill
-            label={exercisePercent >= 70 ? "Recovery on track" : "Recovery needs attention"}
-            variant={exercisePercent >= 70 ? "success" : "warning"}
+    <View style={styles.stepContentStack}>
+      <View style={styles.stepSummaryRow}>
+        <View style={styles.stepSummaryCell}>
+          <TrackerTile
+            icon="sleep"
+            label="Sleep"
+            value={sleepHours === null ? "—" : `${sleepHours.toFixed(1)}h`}
+            delta="Current"
+            tone="accent"
+            variant="compact"
+            micro={
+              sleepHours === null
+                ? { type: "dots", values: [0, 0, 0] }
+                : { type: "sparkline", values: [Math.max(0, sleepHours - 1), sleepHours], tone: "accent" }
+            }
           />
         </View>
-
-        <Row
-          title="Hydration details"
-          subtitle="Open daily hydration log"
-          onPress={() => router.push("/hydration")}
-        />
-        <Row
-          title="Nutrition details"
-          subtitle="Open nutrition tracker"
-          onPress={() => router.push("/nutrition")}
-        />
-        <Row
-          title="Medication details"
-          subtitle="Open medications checklist"
-          onPress={() => router.push("/medications")}
-        />
+        <View style={styles.stepSummaryCell}>
+          <TrackerTile
+            icon="hydration"
+            label="Habits"
+            value={exercisePercent >= 70 ? "On track" : "Needs focus"}
+            delta="Daily rhythm"
+            tone={exercisePercent >= 70 ? "success" : "warning"}
+            variant="compact"
+            micro={{
+              type: "bars",
+              values: [40, 55, 60, Math.max(20, exercisePercent)],
+            }}
+          />
+        </View>
       </View>
-    </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="sleep" tone="accent" size={18} accessibilityLabel="Sleep icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Sleep summary</Text>
+              <Text style={styles.helperText}>Capture quick sleep context.</Text>
+            </View>
+          </View>
+          <View style={styles.habitRowWrap}>
+            <StatusPill
+              label={sleepHours === null ? "Sleep not set" : `Sleep ${sleepHours.toFixed(1)}h`}
+              variant={sleepHours === null ? "neutral" : "info"}
+            />
+            <StatusPill
+              label={exercisePercent >= 70 ? "Recovery on track" : "Recovery needs attention"}
+              variant={exercisePercent >= 70 ? "success" : "warning"}
+            />
+          </View>
+        </View>
+      </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="hydration" tone="accent" size={18} accessibilityLabel="Hydration icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Hydration quick entry</Text>
+              <Text style={styles.helperText}>Open daily hydration log.</Text>
+            </View>
+          </View>
+          <Row
+            title="Hydration details"
+            subtitle="Open daily hydration log"
+            onPress={() => router.push("/hydration")}
+          />
+        </View>
+      </Card>
+
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <View style={styles.cardHeaderRow}>
+            <DomainIcon icon="nutrition" tone="accent" size={18} accessibilityLabel="Nutrition icon" />
+            <View style={styles.cardHeaderCopy}>
+              <Text style={styles.sectionTitle}>Nutrition quick entry</Text>
+              <Text style={styles.helperText}>Open nutrition and medication trackers.</Text>
+            </View>
+          </View>
+          <Row
+            title="Nutrition details"
+            subtitle="Open nutrition tracker"
+            onPress={() => router.push("/nutrition")}
+          />
+          <Row
+            title="Medication details"
+            subtitle="Open medications checklist"
+            onPress={() => router.push("/medications")}
+          />
+        </View>
+      </Card>
+    </View>
   );
 
-  const renderAddonsAccordion = () => (
-    <Card variant="outlined">
-      <View style={styles.sectionStack}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Toggle optional details"
-          onPress={() => {
-            // Accordion layout motion stays native-only and is skipped with reduced motion.
-            runLayoutAnimationIfAllowed(reduceMotion);
-            setAddonsExpanded((current) => !current);
-          }}
-          style={({ pressed }) => [
-            styles.accordionHeader,
-            pressed ? styles.accordionHeaderPressed : null,
-          ]}
-        >
-          <View style={styles.accordionTitleWrap}>
-            <Text style={styles.sectionTitle}>More details (optional)</Text>
-            <Text style={styles.helperText}>Sleep, body map and add-on logs</Text>
-          </View>
-          <Text style={styles.accordionGlyph}>{addonsExpanded ? "−" : "+"}</Text>
-        </Pressable>
+  const renderAddonsAccordion = () => {
+    const preview = addonPreviewLabels.slice(0, 2);
+    const previewOverflow = Math.max(0, addonPreviewLabels.length - preview.length);
 
-        <FadeSlideIn visible={addonsExpanded} reduceMotion={reduceMotion}>
-          <View style={styles.addonsContent}>
+    return (
+      <Card variant="outlined">
+        <View style={styles.sectionStack}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle optional details"
+            onPress={() => {
+              // Accordion layout motion stays native-only and is skipped with reduced motion.
+              runLayoutAnimationIfAllowed(reduceMotion);
+              setAddonsExpanded((current) => !current);
+            }}
+            style={({ pressed }) => [
+              styles.accordionHeader,
+              pressed ? styles.accordionHeaderPressed : null,
+            ]}
+          >
+            <View style={styles.accordionTitleWrap}>
+              <View style={styles.accordionTitleRow}>
+                <DomainIcon icon="info" tone="accent" size={18} accessibilityLabel="Optional details icon" />
+                <Text style={styles.sectionTitle}>More details (optional)</Text>
+              </View>
+              <Text style={styles.helperText}>Sleep, body map and add-on logs</Text>
+              {preview.length > 0 ? (
+                <View style={styles.accordionPreviewRow}>
+                  {preview.map((label) => (
+                    <StatusPill key={label} label={label} variant="info" />
+                  ))}
+                  {previewOverflow > 0 ? (
+                    <StatusPill label={`+${previewOverflow}`} variant="neutral" />
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.accordionGlyph}>{addonsExpanded ? "−" : "+"}</Text>
+          </Pressable>
+
+          <FadeSlideIn visible={addonsExpanded} reduceMotion={reduceMotion}>
+            <View style={styles.addonsContent}>
+              <View style={styles.addonPreviewStack}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "sleep", tone: "accent" }}
+                  title="Sleep"
+                  subtitle={
+                    sleepHours === null ? "No details yet" : `${sleepHours.toFixed(1)}h recorded`
+                  }
+                  statusPill={{
+                    text: sleepHours === null ? "None" : "Added",
+                    tone: sleepHours === null ? "info" : "success",
+                  }}
+                  onPress={() => {
+                    if (!addonsExpanded) {
+                      runLayoutAnimationIfAllowed(reduceMotion);
+                      setAddonsExpanded(true);
+                    }
+                  }}
+                />
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "rehabJourney", tone: "accent" }}
+                  title="Body map"
+                  subtitle={
+                    selectedRegions.length > 0
+                      ? `${selectedRegions.length} region${selectedRegions.length === 1 ? "" : "s"} selected`
+                      : "No pain areas selected"
+                  }
+                  statusPill={{
+                    text: selectedRegions.length > 0 ? "Added" : "None",
+                    tone: selectedRegions.length > 0 ? "success" : "info",
+                  }}
+                  onPress={() => {
+                    if (!addonsExpanded) {
+                      runLayoutAnimationIfAllowed(reduceMotion);
+                      setAddonsExpanded(true);
+                    }
+                  }}
+                />
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "photos", tone: "accent" }}
+                  title="Photos and trackers"
+                  subtitle="Hydration, nutrition, meds, and symptom photos."
+                  chips={[
+                    { text: "Hydration", tone: "muted" },
+                    { text: "Photos", tone: "muted" },
+                  ]}
+                />
+              </View>
+
             <Card variant="outlined" style={styles.addonCard}>
               <View style={styles.sectionStack}>
                 <Text style={styles.fieldLabel}>Sleep details</Text>
@@ -995,11 +1290,12 @@ export default function CheckinScreen() {
                 />
               </View>
             </Card>
-          </View>
-        </FadeSlideIn>
-      </View>
-    </Card>
-  );
+            </View>
+          </FadeSlideIn>
+        </View>
+      </Card>
+    );
+  };
 
   const renderCurrentStep = () => {
     if (activeStep === 0) {
@@ -1036,9 +1332,37 @@ export default function CheckinScreen() {
           contentContainerStyle={styles.container}
         >
           {/* Header area */}
-          <View style={styles.headerBlock}>
-            <Text style={styles.pageTitle}>Daily check-in</Text>
-            <Text style={styles.pageSubtitle}>{friendlyDate}</Text>
+          <HeroHeader
+            variant="compact"
+            title="Check-in"
+            subtitle={friendlyDate}
+            left={
+              <Avatar
+                size={40}
+                name={patientLabel}
+                photoUrl={patientPhotoUri ?? undefined}
+                ring={avatarRing}
+              />
+            }
+            rightActions={[
+              {
+                icon: "safety",
+                onPress: () => {
+                  router.push("/safety" as never);
+                },
+                accessibilityLabel: "Open Safety support",
+                tone: "warning",
+              },
+              {
+                icon: "progress",
+                onPress: () => {
+                  router.push("/(tabs)/progress" as never);
+                },
+                accessibilityLabel: "Open Progress",
+                tone: "muted",
+              },
+            ]}
+          >
             <TrustCues
               status={trustStatus}
               lastUpdatedLabel={checkinsRefresh.label}
@@ -1047,14 +1371,15 @@ export default function CheckinScreen() {
               showSavedLocalHint
               style={styles.statusStrip}
             />
-            <LastFailedAttempt
-              value={checkinError.label}
-              title={checkinError.lastError?.title}
-              message={checkinError.lastError?.message}
-              onClear={checkinError.lastError ? checkinError.clear : undefined}
-              compact
-            />
-          </View>
+          </HeroHeader>
+
+          <LastFailedAttempt
+            value={checkinError.label}
+            title={checkinError.lastError?.title}
+            message={checkinError.lastError?.message}
+            onClear={checkinError.lastError ? checkinError.clear : undefined}
+            compact
+          />
 
           {validationMessage ? (
             <Banner
@@ -1077,14 +1402,6 @@ export default function CheckinScreen() {
                     }
                   : undefined
               }
-            />
-          ) : null}
-
-          {isOffline ? (
-            <Banner
-              variant="warning"
-              title="Connect to submit today’s check-in"
-              message="We need an online connection to run the safety check before submission."
             />
           ) : null}
 
@@ -1127,6 +1444,7 @@ export default function CheckinScreen() {
                   <View style={styles.stepperChipRow}>
                     {CHECKIN_STEPS.map((step, index) => {
                       const selected = index === activeStep;
+                      const completed = index < activeStep;
                       return (
                         <Pressable
                           key={step.key}
@@ -1139,17 +1457,23 @@ export default function CheckinScreen() {
                           style={({ pressed }) => [
                             styles.stepChip,
                             selected ? styles.stepChipSelected : null,
+                            completed ? styles.stepChipCompleted : null,
                             pressed ? styles.stepChipPressed : null,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.stepChipIndex,
-                              selected ? styles.stepChipIndexSelected : null,
-                            ]}
-                          >
-                            {index + 1}
-                          </Text>
+                          <View style={styles.stepChipIconWrap}>
+                            <DomainIcon
+                              icon={step.icon}
+                              tone={selected ? "accent" : completed ? "success" : "muted"}
+                              size={17}
+                              accessibilityLabel={`${step.label} step icon`}
+                            />
+                            {completed ? (
+                              <View style={styles.completedDot}>
+                                <Text style={styles.completedDotText}>✓</Text>
+                              </View>
+                            ) : null}
+                          </View>
                           <View style={styles.stepChipCopy}>
                             <Text
                               style={[
@@ -1168,6 +1492,7 @@ export default function CheckinScreen() {
                               {step.description}
                             </Text>
                           </View>
+                          {selected ? <View style={styles.stepChipUnderline} /> : null}
                         </Pressable>
                       );
                     })}
@@ -1186,7 +1511,21 @@ export default function CheckinScreen() {
 
         {!isSuccessState ? (
           <View style={styles.footerWrap}>
-            <View style={styles.footerInner}>
+            <GlassPanel
+              fallbackVariant="elevated"
+              fallbackOpacity={0.78}
+              style={styles.footerPanel}
+              accessibilityLabel="Check-in footer actions"
+            >
+              <View style={styles.footerInner}>
+                {isOffline ? (
+                  <Banner
+                    variant="warning"
+                    title="Connect to submit today’s check-in"
+                    message="Connect to submit today’s check-in."
+                  />
+                ) : null}
+
               {stepMessage ? <Text style={styles.footerHint}>{stepMessage}</Text> : null}
 
               {isLastStep ? (
@@ -1249,7 +1588,8 @@ export default function CheckinScreen() {
                   }}
                 />
               )}
-            </View>
+              </View>
+            </GlassPanel>
           </View>
         ) : null}
       </View>
@@ -1274,30 +1614,36 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: FOOTER_HEIGHT + tokens.spacing.xxxl,
     },
-    headerBlock: {
-      gap: tokens.spacing.xs,
-    },
-    pageTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.title.fontSize,
-      lineHeight: tokens.typography.title.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    pageSubtitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.regular,
-    },
     statusStrip: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
       marginTop: tokens.spacing.xs,
-      marginBottom: tokens.spacing.xs,
+      marginBottom: 0,
+    },
+    stepContentStack: {
+      gap: tokens.spacing.md,
+    },
+    stepSummaryRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+      flexWrap: "wrap",
+    },
+    stepSummaryCell: {
+      flex: 1,
+      minWidth: 0,
     },
     sectionStack: {
       gap: tokens.spacing.md,
+    },
+    cardHeaderRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: tokens.spacing.sm,
+    },
+    cardHeaderCopy: {
+      flex: 1,
+      gap: 2,
     },
     sectionTitle: {
       color: tokens.colors.text,
@@ -1396,36 +1742,49 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingVertical: tokens.spacing.sm,
       backgroundColor: tokens.colors.surface,
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       gap: tokens.spacing.sm,
+      minHeight: 44,
+      position: "relative",
     },
     stepChipSelected: {
       borderColor: tokens.colors.accent,
       backgroundColor: tokens.colors.accentTextOn,
     },
+    stepChipCompleted: {
+      borderColor: tokens.colors.success,
+    },
     stepChipPressed: {
       opacity: 0.86,
     },
-    stepChipIndex: {
+    stepChipIconWrap: {
       width: 24,
-      height: 24,
-      borderRadius: 12,
-      textAlign: "center",
-      textAlignVertical: "center",
-      overflow: "hidden",
-      backgroundColor: tokens.colors.surfaceElevated,
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: 24,
-      fontWeight: tokens.typography.weights.semibold,
+      minHeight: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      position: "relative",
     },
-    stepChipIndexSelected: {
-      backgroundColor: tokens.colors.accent,
-      color: tokens.colors.accentTextOn,
+    completedDot: {
+      position: "absolute",
+      right: -8,
+      top: -5,
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      backgroundColor: tokens.colors.success,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    completedDotText: {
+      color: tokens.colors.successTextOn,
+      fontSize: 9,
+      lineHeight: 10,
+      fontWeight: tokens.typography.weights.semibold,
     },
     stepChipCopy: {
       flex: 1,
       gap: 2,
+      paddingRight: tokens.spacing.sm,
     },
     stepChipTitle: {
       color: tokens.colors.text,
@@ -1444,6 +1803,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     stepChipSubtitleSelected: {
       color: tokens.colors.text,
     },
+    stepChipUnderline: {
+      position: "absolute",
+      left: tokens.spacing.md,
+      right: tokens.spacing.md,
+      bottom: 0,
+      height: 2,
+      borderRadius: 1,
+      backgroundColor: tokens.colors.accent,
+    },
     accordionHeader: {
       flexDirection: "row",
       alignItems: "center",
@@ -1457,6 +1825,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flex: 1,
       gap: 2,
     },
+    accordionTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    accordionPreviewRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+      marginTop: tokens.spacing.xs,
+    },
     accordionGlyph: {
       color: tokens.colors.textMuted,
       fontSize: 24,
@@ -1465,6 +1844,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     addonsContent: {
       gap: tokens.spacing.md,
+    },
+    addonPreviewStack: {
+      gap: tokens.spacing.sm,
     },
     addonCard: {
       backgroundColor: tokens.colors.surface,
@@ -1598,11 +1980,13 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       left: 0,
       right: 0,
       bottom: 0,
-      borderTopWidth: 1,
-      borderTopColor: tokens.colors.border,
-      backgroundColor: tokens.colors.background,
       paddingTop: tokens.spacing.sm,
       paddingBottom: tokens.spacing.sm,
+    },
+    footerPanel: {
+      borderRadius: tokens.radius.lg,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
     },
     footerInner: {
       gap: tokens.spacing.sm,

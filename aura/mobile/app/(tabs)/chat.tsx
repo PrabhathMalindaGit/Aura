@@ -1,6 +1,8 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -20,10 +22,13 @@ import {
   type ChatItem,
   type ChatSendResponse,
 } from "@/src/api/patient";
+import { Avatar } from "@/src/components/Avatar";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { EmptyState } from "@/src/components/EmptyState";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { DomainIcon, type DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
-import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { TipCard } from "@/src/components/TipCard";
@@ -66,13 +71,13 @@ const TIMESTAMP_GAP_MS = 30 * 60 * 1000;
 const TIMESTAMP_SENDER_CHANGE_GAP_MS = 10 * 60 * 1000;
 const COMPACT_GROUP_GAP_MS = 5 * 60 * 1000;
 
-const QUICK_PROMPTS = [
-  "Pain is worse today",
-  "Can I do my exercises?",
-  "I feel anxious",
-  "My sleep was bad",
-  "What should I do now?",
-] as const;
+type QuickAction = {
+  key: string;
+  label: string;
+  icon: DomainIconKey;
+  accessibilityLabel: string;
+  route: string;
+};
 
 function toLocalId(item: ChatItem, index: number): string {
   if (item.id) {
@@ -82,6 +87,28 @@ function toLocalId(item: ChatItem, index: number): string {
     return `${item.role}-${item.createdAt}-${index}`;
   }
   return `${item.role}-${index}-${item.text.slice(0, 12)}`;
+}
+
+function extractPatientPhotoUri(patient: unknown): string | null {
+  if (!patient || typeof patient !== "object") {
+    return null;
+  }
+
+  const record = patient as Record<string, unknown>;
+  const candidates = [
+    record.photoUrl,
+    record.avatarUrl,
+    record.profilePhotoUrl,
+    record.imageUrl,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 function toRenderable(items: ChatItem[]): MessageItem[] {
@@ -173,6 +200,24 @@ function isCompactGroup(items: MessageItem[], index: number): boolean {
   }
 
   return Math.abs(currentTs - previousTs) < COMPACT_GROUP_GAP_MS;
+}
+
+function isGroupStart(items: MessageItem[], index: number): boolean {
+  if (index === 0) {
+    return true;
+  }
+
+  const current = items[index];
+  const previous = items[index - 1];
+  if (!current || !previous) {
+    return true;
+  }
+
+  if (current.role !== previous.role) {
+    return true;
+  }
+
+  return !isCompactGroup(items, index);
 }
 
 function formatTimestampLabel(iso?: string): string | null {
@@ -303,6 +348,8 @@ export default function ChatScreen() {
   const lastUnsentMessageRef = useRef<string | null>(null);
 
   const patientId = auth.patient?.id ?? "";
+  const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
+  const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
   const trustStatus = useTrustStatus({
     patientId,
     errorRecords: [chatLoadLastError, chatSendLastError],
@@ -344,6 +391,107 @@ export default function ChatScreen() {
     }
     return null;
   }, [messages]);
+
+  const latestAssistantMessage = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const item = messages[index];
+      if (item?.role === "assistant") {
+        return item;
+      }
+    }
+    return null;
+  }, [messages]);
+
+  const patientMessageCount = useMemo(
+    () => messages.filter((item) => item.role === "patient").length,
+    [messages]
+  );
+
+  const inlineAssistantTip = useMemo(() => {
+    if (!latestAssistantMessage || patientMessageCount < 2) {
+      return null;
+    }
+
+    const text = latestAssistantMessage.text.toLowerCase();
+
+    if (text.includes("exercise") || text.includes("plan")) {
+      return {
+        targetLocalId: latestAssistantMessage.localId,
+        tone: "info" as const,
+        title: "Open today’s plan",
+        text: "Continue with your assigned exercises.",
+        actionLabel: "Open plan",
+        action: () => {
+          router.push("/exercise-plan" as never);
+        },
+        icon: "exercise" as const,
+      };
+    }
+
+    if (text.includes("check-in")) {
+      return {
+        targetLocalId: latestAssistantMessage.localId,
+        tone: "info" as const,
+        title: "Start today’s check-in",
+        text: "Keep your daily recovery timeline up to date.",
+        actionLabel: "Open check-in",
+        action: () => {
+          router.push("/(tabs)/checkin" as never);
+        },
+        icon: "checkin" as const,
+      };
+    }
+
+    if (text.includes("breathing") || text.includes("grounding")) {
+      return {
+        targetLocalId: latestAssistantMessage.localId,
+        tone: "safety" as const,
+        title: "Open coping tools",
+        text: "Use breathing or grounding guidance now.",
+        actionLabel: "Open coping tools",
+        action: () => {
+          router.push("/coping-tools" as never);
+        },
+        icon: "coping" as const,
+      };
+    }
+
+    return null;
+  }, [latestAssistantMessage, patientMessageCount, router]);
+
+  const quickActions = useMemo<QuickAction[]>(
+    () => [
+      {
+        key: "plan",
+        label: "Plan",
+        icon: "exercise",
+        accessibilityLabel: "Open plan",
+        route: "/exercise-plan",
+      },
+      {
+        key: "checkin",
+        label: "Check-in",
+        icon: "checkin",
+        accessibilityLabel: "Open check-in",
+        route: "/(tabs)/checkin",
+      },
+      {
+        key: "progress",
+        label: "Progress",
+        icon: "progress",
+        accessibilityLabel: "Open progress",
+        route: "/(tabs)/progress",
+      },
+      {
+        key: "coping",
+        label: "Coping",
+        icon: "coping",
+        accessibilityLabel: "Open coping tools",
+        route: "/coping-tools",
+      },
+    ],
+    []
+  );
 
   const persistRenderable = useCallback(
     (nextMessages: MessageItem[]) => {
@@ -610,55 +758,130 @@ export default function ChatScreen() {
       const timestampLabel = showTimestamp ? formatTimestampLabel(item.createdAt) : null;
 
       if (item.role === "system") {
+        const isSafetySystem = item.text.toLowerCase().includes("safety");
         return (
           <View style={[styles.messageGroup, compact ? styles.messageGroupCompact : null]}>
             {timestampLabel ? (
               <Text style={styles.timestampLabel}>{timestampLabel}</Text>
             ) : null}
-            <View style={styles.systemWrap}>
-              <Text style={styles.systemText}>{item.text}</Text>
-            </View>
+            <TipCard
+              compact
+              tone={isSafetySystem ? "safety" : "neutral"}
+              leading={{
+                type: "icon",
+                icon: isSafetySystem ? "safety" : "info",
+                tone: isSafetySystem ? "accent" : "muted",
+              }}
+              text={item.text}
+            />
           </View>
         );
       }
 
       const isPatient = item.role === "patient";
+      const showAssistantAvatar = !isPatient && isGroupStart(messages, index);
       const showSentLabel =
         isPatient && item.delivery === "sent" && item.localId === latestPatientLocalId;
+      const showInlineTip =
+        !isPatient &&
+        inlineAssistantTip !== null &&
+        item.localId === inlineAssistantTip.targetLocalId;
 
       return (
         <View style={[styles.messageGroup, compact ? styles.messageGroupCompact : null]}>
           {timestampLabel ? <Text style={styles.timestampLabel}>{timestampLabel}</Text> : null}
 
           <View style={[styles.messageRow, isPatient ? styles.rowPatient : styles.rowAssistant]}>
-            <View
-              style={[
-                styles.bubble,
-                isPatient ? styles.bubblePatient : styles.bubbleAssistant,
-              ]}
-            >
-              <Text
+            {!isPatient ? (
+              showAssistantAvatar ? (
+                <View style={styles.assistantAvatarWrap}>
+                  <Avatar
+                    size={28}
+                    name="Aura"
+                    fallback="icon"
+                    iconKey="chat"
+                    accessibilityLabel="Aura assistant avatar"
+                  />
+                </View>
+              ) : (
+                <View style={styles.assistantAvatarSpacer} />
+              )
+            ) : null}
+
+            <View style={[styles.bubbleWrap, isPatient ? styles.patientBubbleWrap : styles.assistantBubbleWrap]}>
+              <View
                 style={[
-                  styles.messageText,
-                  isPatient ? styles.messageTextPatient : styles.messageTextAssistant,
+                  styles.bubble,
+                  isPatient ? styles.bubblePatient : styles.bubbleAssistant,
                 ]}
               >
-                {item.text}
-              </Text>
+                <Text
+                  style={[
+                    styles.messageText,
+                    isPatient ? styles.messageTextPatient : styles.messageTextAssistant,
+                  ]}
+                >
+                  {item.text}
+                </Text>
+              </View>
+
+              {showInlineTip && inlineAssistantTip ? (
+                <TipCard
+                  compact
+                  tone={inlineAssistantTip.tone}
+                  leading={{
+                    type: "icon",
+                    icon: inlineAssistantTip.icon,
+                    tone: "accent",
+                  }}
+                  title={inlineAssistantTip.title}
+                  text={inlineAssistantTip.text}
+                  actions={[
+                    {
+                      label: inlineAssistantTip.actionLabel,
+                      kind: "secondary",
+                      onPress: inlineAssistantTip.action,
+                    },
+                  ]}
+                />
+              ) : null}
             </View>
           </View>
 
           {isPatient ? (
             <View style={[styles.deliveryMetaRow, isPatient ? styles.deliveryMetaRight : null]}>
               {item.delivery === "sending" ? (
-                <Text style={styles.deliveryText}>Sending…</Text>
+                <View style={styles.deliveryMetaItem}>
+                  <MaterialCommunityIcons
+                    name="clock-outline"
+                    size={12}
+                    color={tokens.colors.textMuted}
+                  />
+                  <Text style={styles.deliveryText}>Sending…</Text>
+                </View>
               ) : null}
 
-              {showSentLabel ? <Text style={styles.deliveryText}>Sent</Text> : null}
+              {showSentLabel ? (
+                <View style={styles.deliveryMetaItem}>
+                  <MaterialCommunityIcons
+                    name="check"
+                    size={12}
+                    color={tokens.colors.textMuted}
+                  />
+                  <Text style={styles.deliveryText}>Sent</Text>
+                </View>
+              ) : null}
 
               {item.delivery === "failed" ? (
                 <>
-                  <Text style={styles.deliveryFailedText}>Failed to send</Text>
+                  <View style={styles.deliveryMetaItem}>
+                    <MaterialCommunityIcons
+                      name="alert-circle-outline"
+                      size={12}
+                      color={tokens.colors.warning}
+                    />
+                    <Text style={styles.deliveryFailedText}>Failed to send</Text>
+                  </View>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Retry message"
@@ -679,7 +902,7 @@ export default function ChatScreen() {
         </View>
       );
     },
-    [handleSend, latestPatientLocalId, messages, styles]
+    [handleSend, inlineAssistantTip, latestPatientLocalId, messages, styles, tokens.colors.textMuted, tokens.colors.warning]
   );
 
   useEffect(() => {
@@ -758,8 +981,40 @@ export default function ChatScreen() {
 
   return (
     <Screen
-      title="Chat"
       scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Chat"
+          subtitle="Care team support"
+          left={
+            <Avatar
+              size={40}
+              name={patientLabel}
+              photoUrl={patientPhotoUri ?? undefined}
+              ring={trustStatus.kind === "ok" ? "ok" : "attention"}
+            />
+          }
+          rightActions={[
+            {
+              icon: "safety",
+              onPress: () => {
+                router.push("/safety" as never);
+              },
+              accessibilityLabel: "Open Safety support",
+              tone: "warning",
+            },
+            {
+              icon: "coping",
+              onPress: () => {
+                router.push("/coping-tools" as never);
+              },
+              accessibilityLabel: "Open coping tools",
+              tone: "accent",
+            },
+          ]}
+        />
+      }
       // Banner belongs in Screen.banner; do not duplicate inside list header/items.
       banner={
         <TrustBanner
@@ -777,14 +1032,6 @@ export default function ChatScreen() {
         <View style={styles.flex}>
           <View style={styles.metaArea}>
             <Text style={styles.metaText}>Last updated: {chatRefreshLabel}</Text>
-
-            {isSafetyChecking ? (
-              <Banner
-                variant="info"
-                title="Safety check in progress…"
-                message="Please wait a moment."
-              />
-            ) : null}
 
             {showingOfflineCache && !isOffline ? (
               <Banner
@@ -906,52 +1153,97 @@ export default function ChatScreen() {
           </View>
 
           <View style={styles.composerWrap}>
-            {!isSafetyChecking ? (
+            <GlassPanel
+              fallbackVariant="elevated"
+              fallbackOpacity={0.78}
+              style={styles.composerPanel}
+              accessibilityLabel="Chat composer panel"
+            >
+              {isSafetyChecking ? (
+                <Banner
+                  variant="info"
+                  title="Safety check in progress…"
+                  message="Please wait a moment."
+                />
+              ) : null}
+
+              {isOffline ? (
+                <Banner
+                  variant="warning"
+                  title="Offline — chat send is disabled"
+                  message="Reconnect to send messages."
+                />
+              ) : null}
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.promptRow}
+                contentContainerStyle={styles.quickActionsRow}
               >
-                {QUICK_PROMPTS.map((prompt) => (
+                {quickActions.map((action) => (
                   <Pressable
-                    key={prompt}
+                    key={action.key}
                     accessibilityRole="button"
-                    accessibilityLabel={`Use quick prompt: ${prompt}`}
+                    accessibilityLabel={action.accessibilityLabel}
                     onPress={() => {
-                      setDraft(prompt);
-                      inputRef.current?.focus();
+                      router.push(action.route as never);
                     }}
                     style={({ pressed }) => [
-                      styles.promptChip,
-                      pressed ? styles.promptChipPressed : null,
+                      styles.quickActionChip,
+                      pressed ? styles.quickActionChipPressed : null,
                     ]}
                   >
-                    <Text style={styles.promptChipText}>{prompt}</Text>
+                    <DomainIcon
+                      icon={action.icon}
+                      tone="accent"
+                      size={16}
+                      accessibilityLabel={`${action.label} icon`}
+                    />
+                    <Text style={styles.quickActionChipText}>{action.label}</Text>
                   </Pressable>
                 ))}
               </ScrollView>
-            ) : null}
 
-            <TextInput
-              ref={inputRef}
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Type your message..."
-              multiline
-              maxLength={1000}
-              style={styles.input}
-              editable={!isSending}
-              textAlignVertical="top"
-            />
+              <View style={styles.inputRow}>
+                <TextInput
+                  ref={inputRef}
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Type your message..."
+                  accessibilityLabel="Message input"
+                  multiline
+                  maxLength={1000}
+                  style={styles.input}
+                  editable={!isSending}
+                  textAlignVertical="top"
+                />
 
-            <PrimaryButton
-              label={isSending ? "Sending…" : "Send"}
-              loading={isSending}
-              disabled={isSendDisabled}
-              onPress={() => {
-                void handleSend();
-              }}
-            />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isSending ? "Sending message" : "Send message"}
+                  accessibilityState={{ disabled: isSendDisabled }}
+                  disabled={isSendDisabled}
+                  onPress={() => {
+                    void handleSend();
+                  }}
+                  style={({ pressed }) => [
+                    styles.sendButton,
+                    isSendDisabled ? styles.sendButtonDisabled : null,
+                    pressed && !isSendDisabled ? styles.sendButtonPressed : null,
+                  ]}
+                >
+                  {isSending ? (
+                    <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="send"
+                      size={18}
+                      color={tokens.colors.primaryTextOn}
+                    />
+                  )}
+                </Pressable>
+              </View>
+            </GlassPanel>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -1027,9 +1319,32 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     rowAssistant: {
       justifyContent: "flex-start",
+      alignItems: "flex-start",
+    },
+    assistantAvatarWrap: {
+      width: 34,
+      paddingTop: 2,
+      marginRight: tokens.spacing.xs,
+      alignItems: "flex-start",
+    },
+    assistantAvatarSpacer: {
+      width: 34,
+      marginRight: tokens.spacing.xs,
+    },
+    bubbleWrap: {
+      gap: tokens.spacing.xs,
+      minWidth: 0,
+    },
+    patientBubbleWrap: {
+      maxWidth: "84%",
+      alignItems: "flex-end",
+    },
+    assistantBubbleWrap: {
+      flex: 1,
+      alignItems: "flex-start",
     },
     bubble: {
-      maxWidth: "84%",
+      maxWidth: "100%",
       borderRadius: tokens.radius.lg,
       paddingHorizontal: tokens.spacing.md,
       paddingVertical: tokens.spacing.sm + 2,
@@ -1053,28 +1368,16 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     messageTextAssistant: {
       color: tokens.colors.text,
     },
-    systemWrap: {
-      alignSelf: "center",
-      maxWidth: "90%",
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surfaceElevated,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
-    },
-    systemText: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      textAlign: "center",
-      fontWeight: tokens.typography.weights.medium,
-    },
     deliveryMetaRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: tokens.spacing.sm,
       marginTop: 2,
+    },
+    deliveryMetaItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
     },
     deliveryMetaRight: {
       justifyContent: "flex-end",
@@ -1108,15 +1411,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderTopColor: tokens.colors.border,
       paddingTop: tokens.spacing.sm,
       paddingBottom: tokens.spacing.xs,
-      gap: tokens.spacing.sm,
       backgroundColor: tokens.colors.background,
     },
-    promptRow: {
+    composerPanel: {
+      gap: tokens.spacing.sm,
+    },
+    quickActionsRow: {
       gap: tokens.spacing.sm,
       paddingRight: tokens.spacing.sm,
     },
-    promptChip: {
-      minHeight: 40,
+    quickActionChip: {
+      minHeight: 44,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.xl,
@@ -1124,17 +1429,25 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingHorizontal: tokens.spacing.md,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: tokens.spacing.xs,
     },
-    promptChipPressed: {
+    quickActionChipPressed: {
       opacity: 0.82,
     },
-    promptChipText: {
+    quickActionChipText: {
       color: tokens.colors.text,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
     },
+    inputRow: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: tokens.spacing.sm,
+    },
     input: {
+      flex: 1,
       minHeight: 64,
       maxHeight: 140,
       borderWidth: 1,
@@ -1146,6 +1459,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.text,
       backgroundColor: tokens.colors.surface,
+    },
+    sendButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.primary,
+    },
+    sendButtonDisabled: {
+      opacity: 0.5,
+    },
+    sendButtonPressed: {
+      opacity: 0.88,
     },
   });
 }

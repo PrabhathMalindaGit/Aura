@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Image,
   Linking,
-  Pressable,
   StyleSheet,
   Switch,
   Text,
@@ -13,9 +11,12 @@ import {
 import { useRouter, type Href } from "expo-router";
 
 import { Banner } from "@/src/components/Banner";
+import { Avatar } from "@/src/components/Avatar";
+import { DomainIcon } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { FadeSlideIn } from "@/src/components/Motion";
-import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { MediaCard } from "@/src/components/MediaCard";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
@@ -127,23 +128,6 @@ function extractPatientPhotoUri(patient: unknown): string | null {
   return null;
 }
 
-function toInitials(name: string): string {
-  const parts = name
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "AU";
-  }
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
 function getRehabPhaseLabel(patient: unknown): string {
   if (!patient || typeof patient !== "object") {
     return "Rehab phase not set";
@@ -234,7 +218,6 @@ export default function SettingsScreen() {
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientId = auth.patient?.id ?? "";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
-  const patientInitials = useMemo(() => toInitials(patientName), [patientName]);
   const rehabPhaseLabel = useMemo(() => getRehabPhaseLabel(auth.patient), [auth.patient]);
   const caregiverInfo = useMemo(() => getCaregiverLabel(auth.patient), [auth.patient]);
 
@@ -595,51 +578,105 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen title="Settings" scroll contentContainerStyle={styles.container}>
-      <Section title="Account / Profile" card>
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarWrap}>
-            {patientPhotoUri ? (
-              <Image source={{ uri: patientPhotoUri }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarInitials}>{patientInitials}</Text>
-            )}
-          </View>
-          <View style={styles.profileCopy}>
-            <Text style={styles.profileName}>{patientName}</Text>
-            <Text style={styles.profileMeta}>{rehabPhaseLabel}</Text>
-            <StatusPill label={auth.status === "signedIn" ? "Signed in" : auth.status} />
-          </View>
-        </View>
-
-        <View style={styles.stack}>
-          <Row
-            title="Care team"
-            subtitle="Message your care team"
-            onPress={() => router.push("/(tabs)/chat")}
-          />
-          <Row
-            title="Profile details"
-            subtitle={`Patient ID: ${patientId || "Unavailable"}`}
-            accessory="none"
-          />
-        </View>
-
-        <PrimaryButton
-          label={isSigningOut ? "Signing out…" : "Log out"}
-          loading={isSigningOut}
-          disabled={isSigningOut}
-          onPress={confirmSignOut}
+    <Screen
+      scroll
+      contentContainerStyle={styles.container}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Settings"
+          subtitle={patientName ? `Hi, ${patientName}` : "Account & preferences"}
+          left={
+            <Avatar
+              size={44}
+              name={patientName ?? "Patient"}
+              photoUrl={patientPhotoUri ?? undefined}
+              ring={network.isOffline ? "attention" : "none"}
+            />
+          }
+          rightActions={[
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety" as never);
+              },
+            },
+          ]}
         />
+      }
+    >
+      <View style={styles.heroSpacing}>
+        <Section
+          title="Account / Profile"
+          card
+          left={<DomainIcon icon="login" tone="muted" accessibilityLabel="Account section icon" />}
+        >
+          <MediaCard
+            leading={{
+              type: "avatar",
+              name: patientName,
+              photoUrl: patientPhotoUri,
+              ring: network.isOffline ? "attention" : "none",
+            }}
+            title={patientName}
+            subtitle={rehabPhaseLabel ?? `Patient ID: ${patientId || "Unavailable"}`}
+            chips={[
+              {
+                text: auth.status === "signedIn" ? "Signed in" : auth.status,
+                tone: "muted",
+              },
+              {
+                text: reminderEnabled ? "Reminders on" : "Reminders off",
+                tone: "muted",
+              },
+              {
+                text: caregiverInfo.value === "Off" ? "Caregiver off" : "Caregiver on",
+                tone: "muted",
+              },
+            ]}
+            actions={[
+              {
+                label: isSigningOut ? "Signing out…" : "Log out",
+                kind: "secondary",
+                onPress: confirmSignOut,
+                disabled: isSigningOut,
+              },
+              {
+                label: "Open Safety",
+                kind: "primary",
+                onPress: () => {
+                  router.push("/safety" as never);
+                },
+              },
+            ]}
+          />
 
-        {logoutError ? (
-          <Banner variant="warning" title="Logout failed" message={logoutError} />
-        ) : null}
-      </Section>
+          <View style={styles.stack}>
+            <Row
+              title="Care team"
+              subtitle="Message your care team"
+              leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Care team icon" />}
+              onPress={() => router.push("/(tabs)/chat")}
+            />
+            <Row
+              title="Profile details"
+              subtitle={`Patient ID: ${patientId || "Unavailable"}`}
+              leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="Profile details icon" />}
+              accessory="none"
+            />
+          </View>
+
+          {logoutError ? (
+            <Banner variant="warning" title="Logout failed" message={logoutError} />
+          ) : null}
+        </Section>
 
       <Section
         title="Reminders"
         card
+        left={<DomainIcon icon="weekly" tone="muted" accessibilityLabel="Reminders section icon" />}
         right={
           <StatusPill
             label={reminderEnabled ? "On" : "Off"}
@@ -651,6 +688,7 @@ export default function SettingsScreen() {
           <Row
             title="Daily reminders"
             subtitle={reminderEnabled ? "Enabled" : "Disabled"}
+            leftIcon={<DomainIcon icon="weekly" tone="accent" accessibilityLabel="Daily reminders icon" />}
             right={
               <Switch
                 value={reminderEnabled}
@@ -664,6 +702,7 @@ export default function SettingsScreen() {
           <Row
             title="Reminder time"
             subtitle={reminderEnabled ? "Update your daily reminder time" : "Turn reminders on first"}
+            leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="Reminder time icon" />}
             right={<Text style={styles.rowValue}>{reminderEnabled ? timePreview : "Off"}</Text>}
             accessory="none"
           />
@@ -700,6 +739,14 @@ export default function SettingsScreen() {
           <Banner variant="warning" title="Invalid time" message={timeValidationError} />
         ) : null}
 
+        {reminderEnabled && !timeValidationError ? (
+          <Banner
+            variant="info"
+            title="Reminder active"
+            message={`Daily reminder set for ${timePreview}.`}
+          />
+        ) : null}
+
         {reminderPermissionError.lastError ? (
           <Banner
             variant="warning"
@@ -712,22 +759,27 @@ export default function SettingsScreen() {
           />
         ) : null}
 
-        <LastFailedAttempt
-          label="Last reminder permission issue"
-          value={reminderPermissionError.label}
-          title={reminderPermissionError.lastError?.title}
-          message={reminderPermissionError.lastError?.message}
-          onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
-          compact
-        />
-        <LastFailedAttempt
-          label="Last reminder scheduling issue"
-          value={reminderScheduleError.label}
-          title={reminderScheduleError.lastError?.title}
-          message={reminderScheduleError.lastError?.message}
-          onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
-          compact
-        />
+        {reminderPermissionError.lastError || reminderScheduleError.lastError ? (
+          <View style={styles.diagnosticsCard}>
+            <Text style={styles.diagnosticsTitle}>Reminder diagnostics</Text>
+            <LastFailedAttempt
+              label="Last reminder permission issue"
+              value={reminderPermissionError.label}
+              title={reminderPermissionError.lastError?.title}
+              message={reminderPermissionError.lastError?.message}
+              onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
+              compact
+            />
+            <LastFailedAttempt
+              label="Last reminder scheduling issue"
+              value={reminderScheduleError.label}
+              title={reminderScheduleError.lastError?.title}
+              message={reminderScheduleError.lastError?.message}
+              onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
+              compact
+            />
+          </View>
+        ) : null}
 
         {reminderNotice ? (
           <Banner
@@ -740,10 +792,25 @@ export default function SettingsScreen() {
         ) : null}
       </Section>
 
-      <Section title="Caregiver" card>
+      <Section
+        title="Caregiver"
+        card
+        left={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver section icon" />}
+      >
+        <MediaCard
+          variant="compact"
+          leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
+          title="Caregiver access"
+          subtitle="Share weekly report and progress"
+          chips={[{ text: caregiverInfo.value === "Off" ? "Off" : "On", tone: "muted" }]}
+          onPress={() => {
+            router.push("/caregiver-invite" as Href);
+          }}
+        />
         <Row
           title="Caregiver access"
           subtitle={caregiverInfo.subtitle}
+          leftIcon={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver access icon" />}
           right={<Text style={styles.rowValue}>{caregiverInfo.value}</Text>}
           onPress={() => {
             router.push("/caregiver-invite" as Href);
@@ -751,11 +818,31 @@ export default function SettingsScreen() {
         />
       </Section>
 
-      <Section title="Support & Safety plan" card>
+      <Section
+        title="Support & Safety plan"
+        card
+        left={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Support and safety section icon" />}
+      >
+        <MediaCard
+          variant="compact"
+          leading={{ type: "icon", icon: "safety", tone: "warning" }}
+          title="Safety support"
+          subtitle="Breathing and grounding tools"
+          actions={[
+            {
+              label: "Open Safety",
+              kind: "primary",
+              onPress: () => {
+                router.push("/safety" as never);
+              },
+            },
+          ]}
+        />
         <View style={styles.stack}>
           <Row
             title="Safety plan"
             subtitle="Open guided support steps"
+            leftIcon={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Safety plan icon" />}
             onPress={() => {
               router.push("/safety" as never);
             }}
@@ -763,6 +850,7 @@ export default function SettingsScreen() {
           <Row
             title="Contact clinic"
             subtitle="Send a message to your care team"
+            leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Contact clinic icon" />}
             onPress={() => {
               router.push("/(tabs)/chat");
             }}
@@ -770,6 +858,7 @@ export default function SettingsScreen() {
           <Row
             title="Emergency help"
             subtitle="If urgent, contact local emergency services"
+            leftIcon={<DomainIcon icon="warning" tone="warning" accessibilityLabel="Emergency help icon" />}
             accessory="none"
           />
         </View>
@@ -778,15 +867,21 @@ export default function SettingsScreen() {
         </Text>
       </Section>
 
-      <Section title="App info" card>
+      <Section
+        title="App info"
+        card
+        left={<DomainIcon icon="info" tone="muted" accessibilityLabel="App info section icon" />}
+      >
         <View style={styles.stack}>
           <Row
             title="About Aura"
             subtitle="Recovery tracking and support"
+            leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="About Aura icon" />}
             accessory="none"
           />
           <Row
             title="Version"
+            leftIcon={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Version icon" />}
             right={<Text style={styles.rowValue}>Mobile preview</Text>}
             accessory="none"
           />
@@ -800,11 +895,13 @@ export default function SettingsScreen() {
           subtitle="Dev builds only"
           card
           cardVariant="outlined"
+          left={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Developer mode section icon" />}
           right={<StatusPill label={isDeveloperExpanded ? "Open" : "Collapsed"} />}
         >
           <Row
             title="Developer Mode"
             subtitle="Dev builds only"
+            leftIcon={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Developer mode icon" />}
             onPress={toggleDeveloperMode}
             right={<Text style={styles.rowValue}>{isDeveloperExpanded ? "Hide" : "Show"}</Text>}
           />
@@ -965,6 +1062,7 @@ export default function SettingsScreen() {
           ) : null}
         </Section>
       ) : null}
+      </View>
     </Screen>
   );
 }
@@ -975,6 +1073,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.xs,
       paddingBottom: tokens.spacing.xl,
     },
+    heroSpacing: {
+      gap: 0,
+    },
     stack: {
       gap: tokens.spacing.sm,
     },
@@ -983,55 +1084,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
-    },
-    profileHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: tokens.spacing.md,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      backgroundColor: tokens.colors.surfaceElevated,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.md,
-    },
-    avatarWrap: {
-      width: 54,
-      height: 54,
-      borderRadius: 27,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surface,
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-    },
-    avatarImage: {
-      width: "100%",
-      height: "100%",
-    },
-    avatarInitials: {
-      color: tokens.colors.accent,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    profileCopy: {
-      flex: 1,
-      gap: 2,
-      alignItems: "flex-start",
-    },
-    profileName: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    profileMeta: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      marginBottom: tokens.spacing.xs,
     },
     timeRow: {
       flexDirection: "row",
@@ -1057,6 +1109,23 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.text,
       backgroundColor: tokens.colors.surface,
+    },
+    diagnosticsCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    diagnosticsTitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.2,
     },
     supportNote: {
       color: tokens.colors.textMuted,

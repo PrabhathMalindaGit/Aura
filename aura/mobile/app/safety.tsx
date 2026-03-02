@@ -10,12 +10,17 @@ import {
 } from "react-native";
 
 import { Banner } from "@/src/components/Banner";
+import { Avatar } from "@/src/components/Avatar";
+import { DomainIcon } from "@/src/components/IconSet";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
-import { StatusPill } from "@/src/components/StatusPill";
+import { TipCard } from "@/src/components/TipCard";
 import {
   EMERGENCY_NUMBER_PLACEHOLDER,
   SUPPORT_PHONE_PLACEHOLDER,
@@ -165,56 +170,120 @@ export default function SafetyScreen() {
   }
 
   return (
-    <Screen scroll contentContainerStyle={styles.container}>
-      <View style={styles.headerBlock}>
-        <Text style={styles.title}>Safety support</Text>
-        <Text style={styles.subtitle}>You&apos;re not alone. Let&apos;s take the next step together.</Text>
-        <View style={styles.pillRow}>
-          <StatusPill label="Support active" variant="warning" />
-          {alertId ? <StatusPill label="Care team notified" variant="info" /> : null}
-        </View>
-      </View>
+    <Screen
+      scroll
+      contentContainerStyle={styles.container}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Safety support"
+          subtitle="Support active · Let’s take the next step together"
+          left={<Avatar size={40} name="Aura" fallback="icon" iconKey="safety" ring="safety" />}
+          rightActions={[
+            {
+              icon: "home",
+              tone: "muted",
+              accessibilityLabel: "Back to Home",
+              onPress: goHome,
+            },
+          ]}
+        />
+      }
+    >
+      <MediaCard
+        leading={{
+          type: "thumbnail",
+          source: require("../src/assets/illustrations/ill_safety.png"),
+          fit: "contain",
+          bg: "muted",
+        }}
+        title="Support is active"
+        subtitle="You’re not alone. Choose one option below and go at your own pace."
+        chips={[
+          { text: "Support active", tone: "warning" as const },
+          ...(alertId ? [{ text: "Care team notified", tone: "info" as const }] : []),
+          ...(isOffline ? [{ text: "Offline", tone: "muted" as const }] : []),
+        ].slice(0, 3)}
+      />
 
-      <Section title="What’s happening" card>
-        <View style={styles.bulletList}>
-          <Text style={styles.bulletItem}>• We noticed signals that you may need extra support right now.</Text>
-          <Text style={styles.bulletItem}>• This screen gives you quick tools and clear next steps.</Text>
-          <Text style={styles.bulletItem}>• Use any option below and move at your own pace.</Text>
-        </View>
-
-        {visibleReasons.length > 0 ? (
-          <View style={styles.reasonBlock}>
-            <Text style={styles.reasonHeading}>What we noticed</Text>
-            <View style={styles.pillRow}>
-              {visibleReasons.map((reason) => (
-                <StatusPill key={reason} label={reason} variant="info" />
-              ))}
-            </View>
-            {remainingReasonCount > 0 ? (
-              <Text style={styles.reasonMeta}>+{remainingReasonCount} more signal(s)</Text>
-            ) : null}
-          </View>
-        ) : null}
-      </Section>
+      <TipCard
+        tone="neutral"
+        leading={{ type: "icon", icon: "info", tone: "muted" }}
+        title="What’s happening"
+        text="We noticed signals that you may need extra support right now. This screen offers quick tools and clear next steps."
+        chips={[
+          ...visibleReasons,
+          ...(remainingReasonCount > 0 ? [`+${remainingReasonCount} more`] : []),
+        ].slice(0, 3)}
+      />
 
       <Section
-        title="Try a quick tool now"
+        title="Quick actions"
         subtitle="Use one now, then reassess how you feel."
         card
       >
-        <View style={styles.actionStack}>
-          <PrimaryButton
-            label="Breathing (2 min)"
-            onPress={() => {
-              router.push("/breathing");
-            }}
-          />
-          <SecondaryButton
-            label="Grounding (5–4–3–2–1)"
-            onPress={() => {
-              router.push("/grounding");
-            }}
-          />
+        <View style={styles.actionGrid}>
+          <View style={styles.actionTileWrap}>
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "coping", tone: "accent" }}
+              title="Breathing"
+              subtitle="2 minutes"
+              chips={[{ text: "Calm", tone: "muted" }]}
+              showChevron={false}
+              onPress={() => {
+                router.push("/breathing");
+              }}
+            />
+          </View>
+          <View style={styles.actionTileWrap}>
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "coping", tone: "accent" }}
+              title="Grounding"
+              subtitle="5–4–3–2–1"
+              chips={[{ text: "Focus", tone: "muted" }]}
+              showChevron={false}
+              onPress={() => {
+                router.push("/grounding");
+              }}
+            />
+          </View>
+          <View style={styles.actionTileWrap}>
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "chat", tone: "primary" }}
+              title="Message care team"
+              subtitle="Open chat"
+              showChevron={false}
+              onPress={() => {
+                router.push("/(tabs)/chat");
+              }}
+            />
+          </View>
+          <View style={styles.actionTileWrap}>
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "appointments", tone: "muted" }}
+              title="Call clinic"
+              subtitle={
+                clinicNumberConfigured ? "Use your support line" : "Not configured"
+              }
+              chips={
+                clinicNumberConfigured
+                  ? [{ text: "Available", tone: "info" }]
+                  : [{ text: "Unavailable", tone: "muted" }]
+              }
+              showChevron={clinicNumberConfigured}
+              onPress={
+                clinicNumberConfigured
+                  ? () => {
+                      void openPhoneDialer(SUPPORT_PHONE_PLACEHOLDER);
+                    }
+                  : undefined
+              }
+            />
+          </View>
         </View>
       </Section>
 
@@ -231,6 +300,7 @@ export default function SafetyScreen() {
           <Row
             title="Message your care team"
             subtitle="Open chat with your clinic"
+            leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Message care team icon" />}
             onPress={() => {
               router.push("/(tabs)/chat");
             }}
@@ -239,6 +309,7 @@ export default function SafetyScreen() {
           <Row
             title="Contact caregiver"
             subtitle="Reach out to someone you trust"
+            leftIcon={<DomainIcon icon="caregiver" tone="muted" accessibilityLabel="Contact caregiver icon" />}
             accessory="none"
           />
 
@@ -249,6 +320,7 @@ export default function SafetyScreen() {
                 ? "Use your clinic support line"
                 : "Clinic phone is not configured in this demo"
             }
+            leftIcon={<DomainIcon icon="appointments" tone="muted" accessibilityLabel="Call clinic icon" />}
             onPress={
               clinicNumberConfigured
                 ? () => {
@@ -267,24 +339,32 @@ export default function SafetyScreen() {
       </Section>
 
       <Section title="Your safety plan" card>
-        <View style={styles.planList}>
+        <View style={styles.planCard}>
           {SAFETY_PLAN_STEPS.map((step) => (
-            <Text key={step} style={styles.planItem}>
-              • {step}
-            </Text>
+            <View key={step} style={styles.planRow}>
+              <DomainIcon icon="success" tone="success" size={16} accessibilityLabel="Safety step icon" />
+              <Text style={styles.planItem}>{step}</Text>
+            </View>
           ))}
         </View>
       </Section>
 
-      <View style={styles.footerActions}>
-        <PrimaryButton label="Back to Home" onPress={goHome} />
-        <SecondaryButton
-          label="Go to chat"
-          onPress={() => {
-            router.push("/(tabs)/chat");
-          }}
-        />
-      </View>
+      <GlassPanel
+        style={styles.footerPanel}
+        fallbackVariant="elevated"
+        fallbackOpacity={0.78}
+        accessibilityLabel="Safety footer actions"
+      >
+        <View style={styles.footerActions}>
+          <PrimaryButton label="Back to Home" onPress={goHome} />
+          <SecondaryButton
+            label="Go to chat"
+            onPress={() => {
+              router.push("/(tabs)/chat");
+            }}
+          />
+        </View>
+      </GlassPanel>
     </Screen>
   );
 }
@@ -300,51 +380,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
     },
-    headerBlock: {
-      gap: tokens.spacing.xs,
-    },
-    title: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.title.fontSize,
-      lineHeight: tokens.typography.title.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    subtitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-    },
-    pillRow: {
+    actionGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
-      marginTop: tokens.spacing.xs,
     },
-    bulletList: {
-      gap: tokens.spacing.xs,
-    },
-    bulletItem: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-    },
-    reasonBlock: {
-      gap: tokens.spacing.xs,
-      marginTop: tokens.spacing.xs,
-    },
-    reasonHeading: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    reasonMeta: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-    },
-    actionStack: {
-      gap: tokens.spacing.sm,
+    actionTileWrap: {
+      width: "48%",
+      minWidth: 0,
     },
     stack: {
       gap: tokens.spacing.sm,
@@ -355,13 +398,29 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.caption.lineHeight,
       marginTop: tokens.spacing.xs,
     },
-    planList: {
+    planCard: {
+      borderRadius: tokens.radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
       gap: tokens.spacing.xs,
     },
+    planRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: tokens.spacing.sm,
+    },
     planItem: {
+      flex: 1,
       color: tokens.colors.text,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
+    },
+    footerPanel: {
+      marginTop: tokens.spacing.sm,
+      borderRadius: tokens.radius.lg,
     },
     footerActions: {
       gap: tokens.spacing.sm,

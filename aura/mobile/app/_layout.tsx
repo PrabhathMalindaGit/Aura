@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Slot } from 'expo-router';
+import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
@@ -9,7 +9,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import "@/src/services/notificationsInit";
-import { AuthProvider } from '@/src/state/auth';
+import { AuthProvider, useAuth } from '@/src/state/auth';
 import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
 import { useTokens } from '@/src/theme/tokens';
 
@@ -72,6 +72,7 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
     <AuthProvider>
       <CaregiverSessionProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <RootRouteGuard />
           {isWeb ? (
             <View style={[styles.webBackdrop, webViewportStyle]}>
               <View style={[styles.webFrameOuter, webShadowStyle]}>
@@ -99,6 +100,28 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
       </CaregiverSessionProvider>
     </AuthProvider>
   );
+}
+
+function RootRouteGuard() {
+  const { status } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const rootSegment = segments[0];
+  const inTabs = rootSegment === "(tabs)";
+  const inAuth = rootSegment === "(auth)";
+
+  useEffect(() => {
+    if (status === "signedOut" && inTabs) {
+      router.replace("/(auth)/login");
+      return;
+    }
+
+    if (status === "signedIn" && inAuth) {
+      router.replace("/(tabs)");
+    }
+  }, [inAuth, inTabs, router, status]);
+
+  return null;
 }
 
 function createStyles(tokens: ReturnType<typeof useTokens>) {

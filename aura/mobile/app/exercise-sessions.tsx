@@ -228,7 +228,6 @@ export default function ExerciseSessionsScreen() {
       clearSessionsLoadError,
       isOffline,
       loadPending,
-      loadInFlightRef,
       patientId,
       refreshSessionsLocal,
       setSessionsLoadError,

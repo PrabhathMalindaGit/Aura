@@ -140,10 +140,13 @@ export function useLastRefreshed(key: RefreshKey): {
     return formatRelativeFromNow(lastRefreshedAt);
   }, [lastRefreshedAt, tick]);
 
-  return {
-    lastRefreshedAt,
-    label,
-    refreshLocal,
-    reload,
-  };
+  return useMemo(
+    () => ({
+      lastRefreshedAt,
+      label,
+      refreshLocal,
+      reload,
+    }),
+    [label, lastRefreshedAt, refreshLocal, reload]
+  );
 }

@@ -200,8 +200,11 @@ export function useLastError(key: ErrorKey): {
 
   const clear = useCallback(async () => {
     await clearLastError(key);
-    setLastErrorSafe(null);
-  }, [key, setLastErrorSafe]);
+    if (!mountedRef.current) {
+      return;
+    }
+    setLastErrorState((previous) => (previous === null ? previous : null));
+  }, [key]);
 
   useEffect(() => {
     let active = true;
@@ -232,11 +235,14 @@ export function useLastError(key: ErrorKey): {
     return formatRelativeFromNow(lastError.at);
   }, [lastError, tick]);
 
-  return {
-    lastError,
-    label,
-    setLocalError,
-    clear,
-    reload,
-  };
+  return useMemo(
+    () => ({
+      lastError,
+      label,
+      setLocalError,
+      clear,
+      reload,
+    }),
+    [clear, label, lastError, reload, setLocalError]
+  );
 }

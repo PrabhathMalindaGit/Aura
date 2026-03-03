@@ -4,8 +4,10 @@ import { Platform } from "react-native";
 
 import { logger } from "@/src/utils/logger";
 
-export const CAREGIVER_TOKEN_KEY = "aura:caregiverToken:v1";
-const CAREGIVER_PROFILE_KEY = "aura:caregiverProfile:v1";
+export const CAREGIVER_TOKEN_KEY = "aura_caregiverToken_v1";
+const LEGACY_CAREGIVER_TOKEN_KEY = "aura:caregiverToken:v1";
+const CAREGIVER_PROFILE_KEY = "aura_caregiverProfile_v1";
+const LEGACY_CAREGIVER_PROFILE_KEY = "aura:caregiverProfile:v1";
 
 export type StoredCaregiverProfile = {
   id: string;
@@ -47,6 +49,25 @@ async function getWebValue(key: string): Promise<string | null> {
     });
     return null;
   }
+}
+
+async function getWebValueWithMigration(
+  key: string,
+  legacyKey: string | null
+): Promise<string | null> {
+  const current = await getWebValue(key);
+  if (current || !legacyKey) {
+    return current;
+  }
+
+  const legacy = await getWebValue(legacyKey);
+  if (!legacy) {
+    return null;
+  }
+
+  await setWebValue(key, legacy);
+  await clearWebValue(legacyKey);
+  return legacy;
 }
 
 async function setWebValue(key: string, value: string): Promise<void> {
@@ -104,6 +125,25 @@ async function getSecureValue(key: string): Promise<string | null> {
   }
 }
 
+async function getSecureValueWithMigration(
+  key: string,
+  legacyKey: string | null
+): Promise<string | null> {
+  const current = await getSecureValue(key);
+  if (current || !legacyKey) {
+    return current;
+  }
+
+  const legacy = await getSecureValue(legacyKey);
+  if (!legacy) {
+    return null;
+  }
+
+  await setSecureValue(key, legacy);
+  await clearSecureValue(legacyKey);
+  return legacy;
+}
+
 async function setSecureValue(key: string, value: string): Promise<void> {
   try {
     await SecureStore.setItemAsync(key, value);
@@ -126,27 +166,49 @@ async function clearSecureValue(key: string): Promise<void> {
   }
 }
 
-async function getStoredValue(key: string): Promise<string | null> {
+async function getStoredValue(
+  key: string,
+  legacyKey: string | null = null
+): Promise<string | null> {
   if (Platform.OS === "web") {
-    return getWebValue(key);
+    return getWebValueWithMigration(key, legacyKey);
   }
-  return getSecureValue(key);
+  return getSecureValueWithMigration(key, legacyKey);
 }
 
-async function setStoredValue(key: string, value: string): Promise<void> {
+async function setStoredValue(
+  key: string,
+  value: string,
+  legacyKey: string | null = null
+): Promise<void> {
   if (Platform.OS === "web") {
     await setWebValue(key, value);
+    if (legacyKey) {
+      await clearWebValue(legacyKey);
+    }
     return;
   }
   await setSecureValue(key, value);
+  if (legacyKey) {
+    await clearSecureValue(legacyKey);
+  }
 }
 
-async function clearStoredValue(key: string): Promise<void> {
+async function clearStoredValue(
+  key: string,
+  legacyKey: string | null = null
+): Promise<void> {
   if (Platform.OS === "web") {
-    await clearWebValue(key);
+    await Promise.all([
+      clearWebValue(key),
+      legacyKey ? clearWebValue(legacyKey) : Promise.resolve(),
+    ]);
     return;
   }
-  await clearSecureValue(key);
+  await Promise.all([
+    clearSecureValue(key),
+    legacyKey ? clearSecureValue(legacyKey) : Promise.resolve(),
+  ]);
 }
 
 function normalizeProfile(value: unknown): StoredCaregiverProfile | null {
@@ -169,19 +231,19 @@ function normalizeProfile(value: unknown): StoredCaregiverProfile | null {
 }
 
 export async function getCaregiverToken(): Promise<string | null> {
-  return getStoredValue(CAREGIVER_TOKEN_KEY);
+  return getStoredValue(CAREGIVER_TOKEN_KEY, LEGACY_CAREGIVER_TOKEN_KEY);
 }
 
 export async function setCaregiverToken(token: string): Promise<void> {
-  await setStoredValue(CAREGIVER_TOKEN_KEY, token);
+  await setStoredValue(CAREGIVER_TOKEN_KEY, token, LEGACY_CAREGIVER_TOKEN_KEY);
 }
 
 export async function clearCaregiverToken(): Promise<void> {
-  await clearStoredValue(CAREGIVER_TOKEN_KEY);
+  await clearStoredValue(CAREGIVER_TOKEN_KEY, LEGACY_CAREGIVER_TOKEN_KEY);
 }
 
 export async function getCaregiverProfile(): Promise<StoredCaregiverProfile | null> {
-  const raw = await getStoredValue(CAREGIVER_PROFILE_KEY);
+  const raw = await getStoredValue(CAREGIVER_PROFILE_KEY, LEGACY_CAREGIVER_PROFILE_KEY);
   if (!raw) {
     return null;
   }
@@ -200,11 +262,15 @@ export async function setCaregiverProfile(
   if (!normalized) {
     return;
   }
-  await setStoredValue(CAREGIVER_PROFILE_KEY, JSON.stringify(normalized));
+  await setStoredValue(
+    CAREGIVER_PROFILE_KEY,
+    JSON.stringify(normalized),
+    LEGACY_CAREGIVER_PROFILE_KEY
+  );
 }
 
 export async function clearCaregiverProfile(): Promise<void> {
-  await clearStoredValue(CAREGIVER_PROFILE_KEY);
+  await clearStoredValue(CAREGIVER_PROFILE_KEY, LEGACY_CAREGIVER_PROFILE_KEY);
 }
 
 export async function clearCaregiverSessionStorage(): Promise<void> {

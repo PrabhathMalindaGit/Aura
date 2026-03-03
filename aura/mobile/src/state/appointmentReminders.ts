@@ -1,9 +1,23 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 
 type ReminderMap = Record<string, string>;
 
 const PREFIX = "aura:appointmentReminders:v1:";
+const isExpoGo = Constants.appOwnership === "expo";
+type NotificationsModule = typeof import("expo-notifications");
+
+async function getNotifications(): Promise<NotificationsModule | null> {
+  if (Platform.OS === "web" || isExpoGo) {
+    return null;
+  }
+  try {
+    return await import("expo-notifications");
+  } catch {
+    return null;
+  }
+}
 
 function storageKey(patientId: string): string {
   return `${PREFIX}${patientId}`;
@@ -80,10 +94,13 @@ export async function clearReminderForRequest(
   const map = await getAllRemindersForPatient(patientId);
   const existing = map[requestId];
   if (existing) {
-    try {
-      await Notifications.cancelScheduledNotificationAsync(existing);
-    } catch {
-      // no-op: best effort cleanup
+    const notifications = await getNotifications();
+    if (notifications) {
+      try {
+        await notifications.cancelScheduledNotificationAsync(existing);
+      } catch {
+        // no-op: best effort cleanup
+      }
     }
   }
   delete map[requestId];
@@ -95,12 +112,15 @@ export async function clearAllRemindersForPatient(patientId: string): Promise<vo
     return;
   }
   const map = await getAllRemindersForPatient(patientId);
+  const notifications = await getNotifications();
   await Promise.all(
     Object.values(map).map(async (notificationId) => {
-      try {
-        await Notifications.cancelScheduledNotificationAsync(notificationId);
-      } catch {
-        // no-op: best effort cleanup
+      if (notifications) {
+        try {
+          await notifications.cancelScheduledNotificationAsync(notificationId);
+        } catch {
+          // no-op: best effort cleanup
+        }
       }
     })
   );

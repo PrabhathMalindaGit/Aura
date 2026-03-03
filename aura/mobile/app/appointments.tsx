@@ -1,11 +1,12 @@
 import { Redirect, useRouter } from "expo-router";
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -85,6 +86,19 @@ type EmptyListItem = {
 type ListItem = SlotGroupListItem | RequestListItem | EmptyListItem;
 
 const REMINDER_LEAD_MS = 15 * 60 * 1000;
+const isExpoGo = Constants.appOwnership === "expo";
+type NotificationsModule = typeof import("expo-notifications");
+
+async function getNotifications(): Promise<NotificationsModule | null> {
+  if (Platform.OS === "web" || isExpoGo) {
+    return null;
+  }
+  try {
+    return await import("expo-notifications");
+  } catch {
+    return null;
+  }
+}
 
 function toFriendlyError(error: unknown, title: string): {
   title: string;
@@ -234,24 +248,33 @@ async function scheduleAppointmentReminder(startsAtISO: string): Promise<string 
     return null;
   }
 
-  const currentPermissions = await Notifications.getPermissionsAsync();
-  const granted = currentPermissions.granted
-    ? true
-    : (await Notifications.requestPermissionsAsync()).granted;
-  if (!granted) {
+  const notifications = await getNotifications();
+  if (!notifications) {
     return null;
   }
 
-  return Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Upcoming appointment",
-      body: "Your Aura session starts in 15 minutes.",
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: new Date(triggerAtMs),
-    },
-  });
+  try {
+    const currentPermissions = await notifications.getPermissionsAsync();
+    const granted = currentPermissions.granted
+      ? true
+      : (await notifications.requestPermissionsAsync()).granted;
+    if (!granted) {
+      return null;
+    }
+
+    return notifications.scheduleNotificationAsync({
+      content: {
+        title: "Upcoming appointment",
+        body: "Your Aura session starts in 15 minutes.",
+      },
+      trigger: {
+        type: notifications.SchedulableTriggerInputTypes.DATE,
+        date: new Date(triggerAtMs),
+      },
+    });
+  } catch {
+    return null;
+  }
 }
 
 export default function AppointmentsScreen() {

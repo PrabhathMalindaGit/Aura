@@ -1,8 +1,11 @@
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 const REMINDER_TITLE = "Aura check-in";
 const REMINDER_BODY = "How are you feeling today? Tap to complete your check-in.";
+const isExpoGo = Constants.appOwnership === "expo";
+
+type NotificationsModule = typeof import("expo-notifications");
 
 type ReminderPermissionStatus = "granted" | "denied" | "undetermined";
 
@@ -20,45 +23,77 @@ function clampMinute(minute: number): number {
   return Math.min(59, Math.max(0, Math.floor(minute)));
 }
 
-function toPermissionStatus(
-  status: Notifications.NotificationPermissionsStatus
-): ReminderPermissionStatus {
-  if (status.granted) {
+async function getNotifications(): Promise<NotificationsModule | null> {
+  if (Platform.OS === "web" || isExpoGo) {
+    return null;
+  }
+  try {
+    return await import("expo-notifications");
+  } catch {
+    return null;
+  }
+}
+
+function toPermissionStatus(status: {
+  granted?: boolean;
+  canAskAgain?: boolean;
+} | null): ReminderPermissionStatus {
+  if (status?.granted) {
     return "granted";
   }
-  if (!status.canAskAgain) {
+  if (status && !status.canAskAgain) {
     return "denied";
   }
   return "undetermined";
 }
 
 export async function getPermissionStatus(): Promise<ReminderPermissionStatus> {
-  const permissions = await Notifications.getPermissionsAsync();
-  return toPermissionStatus(permissions);
+  const notifications = await getNotifications();
+  if (!notifications) {
+    return "denied";
+  }
+  try {
+    const permissions = await notifications.getPermissionsAsync();
+    return toPermissionStatus(permissions);
+  } catch {
+    return "denied";
+  }
 }
 
 export async function requestPermission(): Promise<"granted" | "denied"> {
-  const permissions = await Notifications.requestPermissionsAsync();
-  return permissions.granted ? "granted" : "denied";
+  const notifications = await getNotifications();
+  if (!notifications) {
+    return "denied";
+  }
+  try {
+    const permissions = await notifications.requestPermissionsAsync();
+    return permissions.granted ? "granted" : "denied";
+  } catch {
+    return "denied";
+  }
 }
 
 export async function scheduleDailyReminder(options: {
   hour: number;
   minute: number;
   channelId?: "reminders";
-}): Promise<string> {
+}): Promise<string | null> {
   const hour = clampHour(options.hour);
   const minute = clampMinute(options.minute);
   const channelId = options.channelId ?? "reminders";
+  const notifications = await getNotifications();
+  if (!notifications) {
+    return null;
+  }
 
   try {
-    const identifier = await Notifications.scheduleNotificationAsync({
+    const identifier = await notifications.scheduleNotificationAsync({
       content: {
         title: REMINDER_TITLE,
         body: REMINDER_BODY,
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        type: notifications.SchedulableTriggerInputTypes.DAILY,
         hour,
         minute,
         ...(Platform.OS === "android" ? { channelId } : {}),
@@ -66,7 +101,7 @@ export async function scheduleDailyReminder(options: {
     });
     return identifier;
   } catch {
-    throw new Error("Could not schedule daily reminder.");
+    return null;
   }
 }
 
@@ -74,12 +109,24 @@ export async function cancelReminder(notificationId: string): Promise<void> {
   if (!notificationId.trim()) {
     return;
   }
-  await Notifications.cancelScheduledNotificationAsync(notificationId);
+  const notifications = await getNotifications();
+  if (!notifications) {
+    return;
+  }
+  try {
+    await notifications.cancelScheduledNotificationAsync(notificationId);
+  } catch {
+    // no-op: unsupported environments should not crash reminder settings.
+  }
 }
 
 export async function sendTestNotificationNow(): Promise<void> {
+  const notifications = await getNotifications();
+  if (!notifications) {
+    return;
+  }
   try {
-    await Notifications.scheduleNotificationAsync({
+    await notifications.scheduleNotificationAsync({
       content: {
         title: REMINDER_TITLE,
         body: REMINDER_BODY,
@@ -87,13 +134,21 @@ export async function sendTestNotificationNow(): Promise<void> {
       trigger: null,
     });
   } catch {
-    throw new Error("Could not send test notification.");
+    // no-op: this helper is diagnostic and should never crash app runtime.
   }
 }
 
 export async function listScheduledRemindersCount(): Promise<number> {
-  const all = await Notifications.getAllScheduledNotificationsAsync();
-  return all.length;
+  const notifications = await getNotifications();
+  if (!notifications) {
+    return 0;
+  }
+  try {
+    const all = await notifications.getAllScheduledNotificationsAsync();
+    return all.length;
+  } catch {
+    return 0;
+  }
 }
 
 export function sanitizeReminderTime(hour: number, minute: number): {

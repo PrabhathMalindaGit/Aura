@@ -10,7 +10,8 @@
     "web": "node scripts/expo-start.mjs --web",
     "web:guardrails": "node scripts/web-stability-check.mjs",
     "a11y:smoke": "node scripts/a11y-smoke-check.mjs",
-    "qa:web": "npx tsc -p tsconfig.json --noEmit && npm run web:guardrails && npm run a11y:smoke"
+    "qa:web": "npx tsc -p tsconfig.json --noEmit && npm run web:guardrails && npm run a11y:smoke",
+    "qa:web:boot": "npm run web"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

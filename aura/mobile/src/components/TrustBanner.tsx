@@ -51,7 +51,7 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
   }
 
   return (
-    <FadeSlideIn visible reduceMotion={reduceMotion}>
+    <FadeSlideIn visible reduceMotion={reduceMotion} slideDistance={0}>
       <View
         testID={testID}
         accessible
@@ -67,6 +67,7 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Retry loading data"
+            accessibilityState={{ disabled: false }}
             onPress={onRetry}
             style={({ pressed }) => [
               styles.retryButton,

@@ -63,6 +63,8 @@ export function GlassPanel({
           <BlurView intensity={intensity} tint={tint} style={StyleSheet.absoluteFill} />
           <View
             pointerEvents="none"
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
             style={[
               StyleSheet.absoluteFillObject,
               {
@@ -75,6 +77,8 @@ export function GlassPanel({
       ) : (
         <View
           pointerEvents="none"
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
           style={[
             StyleSheet.absoluteFillObject,
             {

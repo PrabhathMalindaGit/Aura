@@ -10,6 +10,7 @@ type IconButtonProps = {
   label?: string;
   onPress: () => void;
   disabled?: boolean;
+  busy?: boolean;
   accessibilityLabel: string;
   testID?: string;
 };
@@ -19,6 +20,7 @@ export function IconButton({
   label = "•",
   onPress,
   disabled = false,
+  busy = false,
   accessibilityLabel,
   testID,
 }: IconButtonProps) {
@@ -26,15 +28,25 @@ export function IconButton({
   const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
+  const resolvedAccessibilityLabel =
+    accessibilityLabel && accessibilityLabel.trim().length > 0
+      ? accessibilityLabel
+      : "Button";
+
+  if (__DEV__ && (!accessibilityLabel || !accessibilityLabel.trim())) {
+    // eslint-disable-next-line no-console
+    console.warn("IconButton requires a non-empty accessibilityLabel.");
+  }
+
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled }}
+      accessibilityLabel={resolvedAccessibilityLabel}
+      accessibilityState={{ disabled, busy: busy || undefined }}
       disabled={disabled}
       onPress={onPress}
-      hitSlop={8}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={({ pressed }) => [
         styles.button,
         disabled ? styles.disabled : null,
@@ -42,7 +54,13 @@ export function IconButton({
       ]}
     >
       {icon ? (
-        <View style={styles.iconWrap}>{icon}</View>
+        <View
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          style={styles.iconWrap}
+        >
+          {icon}
+        </View>
       ) : (
         <Text style={styles.fallbackIcon}>{label}</Text>
       )}

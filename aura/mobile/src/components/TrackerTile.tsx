@@ -26,6 +26,7 @@ export type TrackerTileProps = {
   micro?: TrackerMicro;
   variant?: TrackerTileVariant;
   onPress?: () => void;
+  disabled?: boolean;
   testID?: string;
 };
 
@@ -97,6 +98,7 @@ export function TrackerTile({
   micro,
   variant = "default",
   onPress,
+  disabled = false,
   testID,
 }: TrackerTileProps) {
   const tokens = useTokens();
@@ -209,9 +211,8 @@ export function TrackerTile({
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        accessibilityRole="image"
-        accessible
-        accessibilityLabel="Progress ring"
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
       >
         <Circle
           cx={size / 2}
@@ -241,7 +242,11 @@ export function TrackerTile({
     <View style={styles.content}>
       <View style={styles.headerRow}>
         <View style={styles.iconLabelRow}>
-          <View style={styles.iconWrap}>
+          <View
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            style={styles.iconWrap}
+          >
             <DomainIcon icon={icon} tone={tone} size={iconSize} accessibilityLabel={`${label} icon`} />
           </View>
           <Text allowFontScaling numberOfLines={1} style={styles.label}>
@@ -258,7 +263,13 @@ export function TrackerTile({
         <Text allowFontScaling numberOfLines={1} style={styles.delta}>
           {deltaText}
         </Text>
-        <View style={styles.microWrap}>{microVisual}</View>
+        <View
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          style={styles.microWrap}
+        >
+          {microVisual}
+        </View>
       </View>
     </View>
   );
@@ -269,12 +280,15 @@ export function TrackerTile({
         <Card padding={0}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${label}, ${value}${delta ? `, ${delta}` : ""}`}
+            accessibilityLabel={`${label}: ${value}${delta ? `, ${delta}` : ""}`}
+            accessibilityState={{ disabled }}
+            disabled={disabled}
             onPress={onPress}
             style={({ pressed }) => [
               styles.pressable,
+              disabled ? styles.disabled : null,
               { padding: containerPadding },
-              pressed ? getPressFeedbackStyle(reduceMotion, 0.9) : null,
+              pressed && !disabled ? getPressFeedbackStyle(reduceMotion, 0.9) : null,
             ]}
           >
             {content}
@@ -297,6 +311,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     pressable: {
       borderRadius: tokens.radius.lg,
+      minHeight: 44,
+    },
+    disabled: {
+      opacity: 0.6,
     },
     content: {
       gap: tokens.spacing.sm,

@@ -78,7 +78,11 @@ export function HeroHeader({
         {left ? <View style={styles.leftWrap}>{left}</View> : null}
 
         <View style={styles.titleWrap}>
-          <Text allowFontScaling style={[styles.title, isCompact ? styles.titleCompact : null]}>
+          <Text
+            allowFontScaling
+            accessibilityRole="header"
+            style={[styles.title, isCompact ? styles.titleCompact : null]}
+          >
             {title}
           </Text>
           {subtitle ? (
@@ -96,7 +100,9 @@ export function HeroHeader({
                 testID={action.testID}
                 accessibilityRole="button"
                 accessibilityLabel={action.accessibilityLabel}
+                accessibilityState={{ disabled: false }}
                 onPress={action.onPress}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 style={({ pressed }) => [
                   styles.actionButton,
                   {
@@ -110,24 +116,34 @@ export function HeroHeader({
                 ]}
               >
                 {isSpecialActionIcon(action.icon) ? (
-                  <MaterialCommunityIcons
-                    name={mapSpecialIcon(action.icon)}
-                    size={19}
-                    color={
-                      action.tone === "accent"
-                        ? tokens.colors.accent
-                        : action.tone === "primary"
-                          ? tokens.colors.primary
-                          : tokens.colors.textMuted
-                    }
-                  />
+                  <View
+                    accessible={false}
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    <MaterialCommunityIcons
+                      name={mapSpecialIcon(action.icon)}
+                      size={19}
+                      color={
+                        action.tone === "accent"
+                          ? tokens.colors.accent
+                          : action.tone === "primary"
+                            ? tokens.colors.primary
+                            : tokens.colors.textMuted
+                      }
+                    />
+                  </View>
                 ) : (
-                  <DomainIcon
-                    icon={action.icon}
-                    tone={action.tone ?? "muted"}
-                    size={19}
-                    accessibilityLabel={`${action.icon} icon`}
-                  />
+                  <View
+                    accessible={false}
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    <DomainIcon
+                      icon={action.icon}
+                      tone={action.tone ?? "muted"}
+                      size={19}
+                      accessibilityLabel={`${action.icon} icon`}
+                    />
+                  </View>
                 )}
               </Pressable>
             ))}

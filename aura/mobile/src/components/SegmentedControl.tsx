@@ -90,6 +90,7 @@ export function SegmentedControl<T extends string>({
       <View
         testID={testID}
         accessible
+        accessibilityRole="tablist"
         accessibilityLabel={accessibilityLabel ?? "Segmented control"}
         style={[
           styles.nativeWrap,
@@ -125,6 +126,7 @@ export function SegmentedControl<T extends string>({
     <View
       testID={testID}
       accessible
+      accessibilityRole="tablist"
       accessibilityLabel={accessibilityLabel ?? "Segmented control"}
       style={[
         styles.container,
@@ -155,6 +157,7 @@ export function SegmentedControl<T extends string>({
               }
               onChange(option.value);
             }}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             style={({ pressed }) => [
               styles.segment,
               !allowWrap ? styles.segmentFlex : null,
@@ -168,13 +171,19 @@ export function SegmentedControl<T extends string>({
             ]}
           >
             {option.icon ? (
-              <DomainIcon
-                icon={option.icon}
-                size={iconSize}
-                tone={isSelected ? "text" : "muted"}
-                accessibilityLabel={`${option.label} icon`}
-                style={styles.segmentIcon}
-              />
+              <View
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                style={styles.segmentIconWrap}
+              >
+                <DomainIcon
+                  icon={option.icon}
+                  size={iconSize}
+                  tone={isSelected ? "text" : "muted"}
+                  accessibilityLabel={`${option.label} icon`}
+                  style={styles.segmentIcon}
+                />
+              </View>
             ) : null}
             <Text
               allowFontScaling
@@ -229,6 +238,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     segmentIcon: {
       marginRight: tokens.spacing.xs,
+    },
+    segmentIconWrap: {
+      justifyContent: "center",
+      alignItems: "center",
     },
     segmentLabel: {
       fontSize: tokens.typography.body.fontSize,

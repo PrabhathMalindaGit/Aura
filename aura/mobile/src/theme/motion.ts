@@ -26,21 +26,25 @@ export function getDuration(
   reduceMotion: boolean,
   duration: number
 ): number {
-  return reduceMotion ? 0 : duration;
+  if (reduceMotion) {
+    return 0;
+  }
+  return Math.max(0, duration);
 }
 
 export function runLayoutAnimationIfAllowed(
   reduceMotion: boolean,
   duration = motionDurations.medium
 ): void {
-  if (reduceMotion || Platform.OS === "web") {
+  if (Platform.OS === "web") {
     return;
   }
 
   prepareLayoutAnimationForAndroid();
+  const resolvedDuration = getDuration(reduceMotion, duration);
 
   LayoutAnimation.configureNext({
-    duration,
+    duration: resolvedDuration,
     create: {
       type: LayoutAnimation.Types.easeInEaseOut,
       property: LayoutAnimation.Properties.opacity,

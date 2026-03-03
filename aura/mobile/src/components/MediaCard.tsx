@@ -158,19 +158,23 @@ export function MediaCard({
   const resolvedAccessory =
     rightAccessory ?? (onPress && showChevron ? (
       <MaterialCommunityIcons
-        accessibilityLabel="Open details"
         accessible={false}
+        importantForAccessibility="no-hide-descendants"
         name="chevron-right"
         size={20}
         color={tokens.colors.textMuted}
       />
     ) : null);
 
-  const content = (
-    <View style={styles.content}>
+  const topContent = (
+    <View style={styles.topContent}>
       <View style={styles.topRow}>
         {leading ? (
-          <View style={styles.leadingWrap}>
+          <View
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            style={styles.leadingWrap}
+          >
             {leading.type === "thumbnail" ? (
               <SmartImage
                 source={leading.source}
@@ -180,6 +184,7 @@ export function MediaCard({
                 contentFit={leading.fit ?? "cover"}
                 backgroundVariant={leading.bg === "muted" ? "muted" : "surface"}
                 accessibilityLabel={leading.accessibilityLabel ?? `${title} thumbnail`}
+                accessible={false}
               />
             ) : null}
             {leading.type === "avatar" ? (
@@ -226,6 +231,8 @@ export function MediaCard({
               <StatusPill
                 label={statusPill.text}
                 variant={statusPill.tone ?? "info"}
+                accessible
+                accessibilityLabel={`Status: ${statusPill.text}`}
                 style={styles.statusPill}
               />
             ) : null}
@@ -263,56 +270,78 @@ export function MediaCard({
 
         {resolvedAccessory ? <View style={styles.accessoryWrap}>{resolvedAccessory}</View> : null}
       </View>
+    </View>
+  );
 
-      {actions.length > 0 ? (
-        <View style={styles.actionsRow}>
-          {actions.slice(0, 2).map((action, index, arr) => (
-            <View
-              key={`${action.label}-${index}`}
-              style={arr.length === 2 ? styles.actionFlex : undefined}
-            >
-              {action.kind === "secondary" ? (
-                <SecondaryButton
-                  label={action.label}
-                  disabled={action.disabled}
-                  accessibilityLabel={action.label}
-                  onPress={() => {
-                    action.onPress();
-                  }}
-                />
-              ) : (
-                <PrimaryButton
-                  label={action.label}
-                  disabled={action.disabled}
-                  accessibilityLabel={action.label}
-                  onPress={() => {
-                    action.onPress();
-                  }}
-                />
-              )}
-            </View>
-          ))}
-        </View>
-      ) : null}
+  const actionsContent =
+    actions.length > 0 ? (
+      <View style={styles.actionsRow}>
+        {actions.slice(0, 2).map((action, index, arr) => (
+          <View
+            key={`${action.label}-${index}`}
+            style={arr.length === 2 ? styles.actionFlex : undefined}
+          >
+            {action.kind === "secondary" ? (
+              <SecondaryButton
+                testID={action.testID}
+                label={action.label}
+                disabled={action.disabled}
+                accessibilityLabel={action.label}
+                onPress={() => {
+                  action.onPress();
+                }}
+              />
+            ) : (
+              <PrimaryButton
+                testID={action.testID}
+                label={action.label}
+                disabled={action.disabled}
+                accessibilityLabel={action.label}
+                onPress={() => {
+                  action.onPress();
+                }}
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    ) : null;
+
+  const content = (
+    <View style={styles.content}>
+      {topContent}
+      {actionsContent}
     </View>
   );
 
   if (onPress) {
     return (
-      <Card padding={0} style={cardStyle} accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`}>
-        <Pressable
-          testID={testID}
-          accessibilityRole="button"
-          accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`.trim()}
-          onPress={onPress}
-          style={({ pressed }) => [
-            styles.pressable,
-            { padding: resolvedPadding },
-            pressed ? getPressFeedbackStyle(reduceMotion, 0.9) : null,
-          ]}
-        >
-          {content}
-        </Pressable>
+      <Card
+        padding={0}
+        style={cardStyle}
+        accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`}
+      >
+        <View style={styles.contentWrap}>
+          <Pressable
+            testID={testID}
+            accessibilityRole="button"
+            accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`.trim()}
+            accessibilityState={{ disabled: false }}
+            onPress={onPress}
+            style={({ pressed }) => [
+              styles.pressable,
+              { padding: resolvedPadding },
+              pressed ? getPressFeedbackStyle(reduceMotion, 0.9) : null,
+            ]}
+          >
+            {topContent}
+          </Pressable>
+          {actionsContent ? (
+            <View style={[styles.actionsWrap, { paddingHorizontal: resolvedPadding, paddingBottom: resolvedPadding }]}>
+              {actionsContent}
+            </View>
+          ) : null}
+        </View>
       </Card>
     );
   }
@@ -334,6 +363,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     pressable: {
       borderRadius: tokens.radius.lg,
+      minHeight: 44,
+    },
+    contentWrap: {
+      gap: tokens.spacing.sm,
     },
     cardCompact: {
       backgroundColor: tokens.colors.surface,
@@ -344,6 +377,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       ...tokens.elevation.card,
     },
     content: {
+      gap: tokens.spacing.md,
+    },
+    topContent: {
       gap: tokens.spacing.md,
     },
     topRow: {
@@ -413,6 +449,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
+    },
+    actionsWrap: {
+      paddingTop: 0,
     },
     actionFlex: {
       flex: 1,

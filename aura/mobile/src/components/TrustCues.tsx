@@ -125,6 +125,8 @@ export function TrustCues({
               key={`${item.label}-${item.variant ?? "neutral"}`}
               label={item.label}
               variant={item.variant ?? "neutral"}
+              accessible
+              accessibilityLabel={`Status: ${item.label}`}
             />
           ))}
         </View>

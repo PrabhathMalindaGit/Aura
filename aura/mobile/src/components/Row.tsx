@@ -15,6 +15,7 @@ type RowProps = {
   onPress?: () => void;
   disabled?: boolean;
   accessory?: AccessoryMode;
+  accessibilityLabel?: string;
   testID?: string;
 };
 
@@ -26,6 +27,7 @@ export function Row({
   onPress,
   disabled = false,
   accessory,
+  accessibilityLabel,
   testID,
 }: RowProps) {
   const tokens = useTokens();
@@ -34,12 +36,21 @@ export function Row({
   const isPressable = Boolean(onPress) && !disabled;
   const resolvedAccessory: AccessoryMode =
     accessory ?? (onPress ? "chevron" : "none");
-  const accessibilityLabel = subtitle ? `${title}. ${subtitle}` : title;
+  const resolvedAccessibilityLabel =
+    accessibilityLabel ?? (subtitle ? `${title}. ${subtitle}` : title);
 
   const content = (
     <View style={styles.content}>
       <View style={styles.leftBlock}>
-        {leftIcon ? <View style={styles.iconWrap}>{leftIcon}</View> : null}
+        {leftIcon ? (
+          <View
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            style={styles.iconWrap}
+          >
+            {leftIcon}
+          </View>
+        ) : null}
         <View style={styles.textWrap}>
           <Text style={[styles.title, disabled ? styles.disabledText : null]}>{title}</Text>
           {subtitle ? (
@@ -59,8 +70,9 @@ export function Row({
   if (!onPress) {
     return (
       <View
+        accessible
         style={[styles.base, disabled ? styles.disabled : null]}
-        accessibilityLabel={accessibilityLabel}
+        accessibilityLabel={resolvedAccessibilityLabel}
         testID={testID}
       >
         {content}
@@ -72,10 +84,10 @@ export function Row({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={resolvedAccessibilityLabel}
       accessibilityState={{ disabled }}
       disabled={!isPressable}
-      hitSlop={8}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,

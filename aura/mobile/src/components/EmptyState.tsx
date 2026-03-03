@@ -25,6 +25,8 @@ type EmptyStateProps = {
   ctaLabel?: string;
   onCtaPress?: () => void;
   variant?: EmptyStateVariant;
+  illustrationAccessibilityLabel?: string;
+  decorativeIllustration?: boolean;
 };
 
 export function EmptyState({
@@ -36,6 +38,8 @@ export function EmptyState({
   ctaLabel,
   onCtaPress,
   variant = "default",
+  illustrationAccessibilityLabel,
+  decorativeIllustration = false,
 }: EmptyStateProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -61,12 +65,23 @@ export function EmptyState({
         <Image
           source={resolvedImage}
           resizeMode="contain"
+          accessible={!decorativeIllustration}
+          accessibilityRole={decorativeIllustration ? undefined : "image"}
           accessibilityIgnoresInvertColors
-          accessibilityLabel={`${title} illustration`}
+          accessibilityLabel={
+            decorativeIllustration
+              ? undefined
+              : illustrationAccessibilityLabel ?? `${title} illustration`
+          }
+          importantForAccessibility={
+            decorativeIllustration ? "no-hide-descendants" : "auto"
+          }
           style={styles.image}
         />
       ) : null}
-      <Text style={styles.title}>{title}</Text>
+      <Text accessibilityRole="header" style={styles.title}>
+        {title}
+      </Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
       {ctaLabel && onCtaPress ? (
         <PrimaryButton

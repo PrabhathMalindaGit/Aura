@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { DomainIcon } from "@/src/components/IconSet";
+import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 
 export type SmartImageSource = number | { uri: string } | string;
@@ -30,6 +31,7 @@ export type SmartImageProps = {
   imageStyle?: StyleProp<ImageStyle>;
   backgroundVariant?: "surface" | "surfaceElevated" | "muted";
   accessibilityLabel?: string;
+  accessible?: boolean;
   testID?: string;
 };
 
@@ -62,9 +64,11 @@ export function SmartImage({
   imageStyle,
   backgroundVariant = "surface",
   accessibilityLabel,
+  accessible = true,
   testID,
 }: SmartImageProps) {
   const tokens = useTokens();
+  const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const resolvedRadius = radius ?? tokens.radius.lg;
@@ -91,6 +95,8 @@ export function SmartImage({
     return undefined;
   }, [placeholderBlurhash, placeholderThumbhash]);
 
+  const resolvedTransitionMs = reduceMotion ? 0 : transitionMs;
+
   return (
     <View
       testID={testID}
@@ -106,7 +112,12 @@ export function SmartImage({
       ]}
     >
       {showFallbackPlaceholder ? (
-        <View pointerEvents="none" style={styles.placeholderLayer}>
+        <View
+          pointerEvents="none"
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          style={styles.placeholderLayer}
+        >
           <DomainIcon
             icon="photos"
             size={24}
@@ -116,14 +127,15 @@ export function SmartImage({
         </View>
       ) : null}
       <ExpoImage
-        accessible
-        accessibilityRole="image"
-        accessibilityLabel={accessibilityLabel ?? "Image"}
+        accessible={accessible}
+        accessibilityRole={accessible ? "image" : undefined}
+        accessibilityLabel={accessible ? accessibilityLabel ?? "Image" : undefined}
+        importantForAccessibility={accessible ? "auto" : "no-hide-descendants"}
         source={normalizedSource}
         placeholder={placeholder}
         contentFit={contentFit as ImageContentFit}
         contentPosition={contentPosition as never}
-        transition={transitionMs}
+        transition={resolvedTransitionMs}
         cachePolicy={cachePolicy}
         style={[styles.image, imageStyle]}
       />

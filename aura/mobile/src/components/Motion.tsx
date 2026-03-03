@@ -36,6 +36,7 @@ export function FadeSlideIn({
   const shouldReduceMotion = reduceMotion ?? prefersReducedMotion;
   const resolvedDuration = getDuration(shouldReduceMotion, duration);
   const shouldAnimateTranslate = !shouldReduceMotion && Platform.OS !== "web";
+  const useNativeDriver = Platform.OS !== "web";
 
   const [shouldRender, setShouldRender] = useState(visible);
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
@@ -65,7 +66,7 @@ export function FadeSlideIn({
           toValue: 1,
           duration: resolvedDuration,
           easing: motionEasing,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
       ];
 
@@ -75,7 +76,7 @@ export function FadeSlideIn({
             toValue: 0,
             duration: resolvedDuration,
             easing: motionEasing,
-            useNativeDriver: true,
+            useNativeDriver,
           })
         );
       }
@@ -100,7 +101,7 @@ export function FadeSlideIn({
         toValue: 0,
         duration: resolvedDuration,
         easing: motionEasing,
-        useNativeDriver: true,
+        useNativeDriver,
       }),
     ];
 
@@ -110,7 +111,7 @@ export function FadeSlideIn({
           toValue: slideDistance,
           duration: resolvedDuration,
           easing: motionEasing,
-          useNativeDriver: true,
+          useNativeDriver,
         })
       );
     }
@@ -127,6 +128,7 @@ export function FadeSlideIn({
     slideDistance,
     translateY,
     unmountOnExit,
+    useNativeDriver,
     visible,
   ]);
 

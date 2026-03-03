@@ -9,36 +9,47 @@ export function useReducedMotion(): boolean {
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    let active = true;
+    let mounted = true;
     let subscription: MotionSubscription = null;
 
-    // If reduceMotion is true, avoid animated height/spring transitions; prefer instant updates.
-    if (typeof AccessibilityInfo?.isReduceMotionEnabled === "function") {
-      void AccessibilityInfo.isReduceMotionEnabled()
-        .then((enabled) => {
-          if (active) {
-            setReduceMotion(Boolean(enabled));
-          }
-        })
-        .catch(() => {
-          if (active) {
-            setReduceMotion(false);
-          }
-        });
-    }
-
-    const handler = (enabled: boolean) => {
-      if (active) {
+    const setSafely = (enabled: boolean) => {
+      if (mounted) {
         setReduceMotion(Boolean(enabled));
       }
     };
 
-    if (typeof AccessibilityInfo?.addEventListener === "function") {
-      subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", handler);
+    if (!AccessibilityInfo) {
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const readInitialPreference = async () => {
+      try {
+        if (typeof AccessibilityInfo.isReduceMotionEnabled === "function") {
+          const enabled = await AccessibilityInfo.isReduceMotionEnabled();
+          setSafely(Boolean(enabled));
+        }
+      } catch {
+        setSafely(false);
+      }
+    };
+
+    void readInitialPreference();
+
+    if (typeof AccessibilityInfo.addEventListener === "function") {
+      try {
+        subscription = AccessibilityInfo.addEventListener(
+          "reduceMotionChanged",
+          setSafely
+        );
+      } catch {
+        subscription = null;
+      }
     }
 
     return () => {
-      active = false;
+      mounted = false;
       if (subscription && typeof subscription.remove === "function") {
         subscription.remove();
       }
@@ -47,4 +58,3 @@ export function useReducedMotion(): boolean {
 
   return reduceMotion;
 }
-

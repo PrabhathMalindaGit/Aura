@@ -16,6 +16,7 @@ type ScreenProps = {
   scroll?: boolean;
   header?: ReactNode;
   banner?: ReactNode;
+  accessibilityLabel?: string;
   testID?: string;
   maxWidth?: number;
   contentContainerStyle?: StyleProp<ViewStyle>;
@@ -28,6 +29,7 @@ export function Screen({
   scroll = true,
   header,
   banner,
+  accessibilityLabel,
   testID,
   maxWidth,
   contentContainerStyle,
@@ -48,7 +50,13 @@ export function Screen({
 
   if (scroll) {
     return (
-      <SafeAreaView style={styles.safeArea} testID={testID} edges={["top", "bottom"]}>
+      <SafeAreaView
+        accessible={Boolean(accessibilityLabel)}
+        accessibilityLabel={accessibilityLabel}
+        style={styles.safeArea}
+        testID={testID}
+        edges={["top", "bottom"]}
+      >
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -65,7 +73,13 @@ export function Screen({
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} testID={testID} edges={["top", "bottom"]}>
+    <SafeAreaView
+      accessible={Boolean(accessibilityLabel)}
+      accessibilityLabel={accessibilityLabel}
+      style={styles.safeArea}
+      testID={testID}
+      edges={["top", "bottom"]}
+    >
       <View style={[styles.nonScrollContainer, maxWidth ? styles.centered : null]}>
         <View style={[styles.fill, widthStyle, containerStyle]}>
           {title ? <Text style={styles.title}>{title}</Text> : null}

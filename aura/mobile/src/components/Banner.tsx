@@ -13,6 +13,7 @@ type BannerProps = {
   variant?: BannerVariant;
   actionLabel?: string;
   onAction?: () => void;
+  actionDisabled?: boolean;
 };
 
 export function Banner({
@@ -21,6 +22,7 @@ export function Banner({
   variant = "info",
   actionLabel,
   onAction,
+  actionDisabled = false,
 }: BannerProps) {
   const tokens = useTokens();
   const reduceMotion = useReducedMotion();
@@ -39,6 +41,8 @@ export function Banner({
     <FadeSlideIn visible reduceMotion={reduceMotion}>
       <View
         accessible
+        accessibilityRole="alert"
+        accessibilityLiveRegion="polite"
         accessibilityLabel={message ? `${title}. ${message}` : title}
         style={[styles.container, toneStyle]}
       >
@@ -50,10 +54,13 @@ export function Banner({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={actionLabel}
+            accessibilityState={{ disabled: actionDisabled }}
+            disabled={actionDisabled}
             onPress={onAction}
             style={({ pressed }) => [
               styles.actionButton,
-              pressed ? styles.actionButtonPressed : null,
+              actionDisabled ? styles.actionButtonDisabled : null,
+              pressed && !actionDisabled ? styles.actionButtonPressed : null,
             ]}
           >
             <Text style={styles.actionText}>{actionLabel}</Text>
@@ -103,6 +110,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     actionButtonPressed: {
       opacity: 0.82,
+    },
+    actionButtonDisabled: {
+      opacity: 0.55,
     },
     actionText: {
       color: tokens.colors.accent,

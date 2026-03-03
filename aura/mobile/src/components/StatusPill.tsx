@@ -9,9 +9,17 @@ type StatusPillProps = {
   label: string;
   variant?: StatusPillVariant;
   style?: StyleProp<ViewStyle>;
+  accessible?: boolean;
+  accessibilityLabel?: string;
 };
 
-export function StatusPill({ label, variant = "neutral", style }: StatusPillProps) {
+export function StatusPill({
+  label,
+  variant = "neutral",
+  style,
+  accessible = false,
+  accessibilityLabel,
+}: StatusPillProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
@@ -38,7 +46,14 @@ export function StatusPill({ label, variant = "neutral", style }: StatusPillProp
             : styles.neutralText;
 
   return (
-    <View style={[styles.base, variantStyle, style]}>
+    <View
+      accessible={accessible}
+      accessibilityLabel={
+        accessible ? accessibilityLabel ?? `Status: ${label}` : undefined
+      }
+      accessibilityRole={accessible ? "text" : undefined}
+      style={[styles.base, variantStyle, style]}
+    >
       <Text style={[styles.label, textStyle]}>{label}</Text>
     </View>
   );

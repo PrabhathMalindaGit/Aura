@@ -11,6 +11,7 @@ type PrimaryButtonProps = {
   disabled?: boolean;
   loading?: boolean;
   accessibilityLabel?: string;
+  testID?: string;
 };
 
 export function PrimaryButton({
@@ -19,6 +20,7 @@ export function PrimaryButton({
   disabled = false,
   loading = false,
   accessibilityLabel,
+  testID,
 }: PrimaryButtonProps) {
   const tokens = useTokens();
   const reduceMotion = useReducedMotion();
@@ -28,14 +30,17 @@ export function PrimaryButton({
 
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={resolvedLabel}
+      accessibilityHint={loading ? "Loading" : undefined}
       accessibilityState={{
         disabled: isDisabled,
         busy: loading || undefined,
       }}
       disabled={isDisabled}
       onPress={onPress}
+      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       style={({ pressed }) => [
         styles.button,
         isDisabled ? styles.buttonDisabled : null,

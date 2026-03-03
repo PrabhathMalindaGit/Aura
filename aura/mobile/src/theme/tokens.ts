@@ -1,5 +1,11 @@
 import { useMemo } from "react";
-import { useColorScheme, type ColorSchemeName, type TextStyle, type ViewStyle } from "react-native";
+import {
+  Platform,
+  useColorScheme,
+  type ColorSchemeName,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 
 export type ColorTokens = {
   background: string;
@@ -171,64 +177,41 @@ const darkColors: ColorTokens = {
   overlay: "rgba(2, 6, 23, 0.62)",
 };
 
-const lightElevation: ElevationTokens = {
-  none: {},
-  sm: {
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  card: {
-    shadowColor: "#0f172a",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-};
+function createElevationTokens(scheme: "light" | "dark", isWeb: boolean): ElevationTokens {
+  const shadowColor =
+    scheme === "dark" ? "rgba(2, 6, 23, 0.58)" : "rgba(15, 23, 42, 0.18)";
 
-const darkElevation: ElevationTokens = {
-  none: {},
-  sm: {
-    shadowColor: "#020617",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.45,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: "#020617",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.55,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  card: {
-    shadowColor: "#020617",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.48,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-};
+  const smShadow = `0px 1px 3px ${shadowColor}`;
+  const mdShadow = `0px 3px 8px ${shadowColor}`;
+  const cardShadow = `0px 2px 6px ${shadowColor}`;
+
+  if (isWeb) {
+    return {
+      none: {},
+      sm: { boxShadow: smShadow } as ViewStyle,
+      md: { boxShadow: mdShadow } as ViewStyle,
+      card: { boxShadow: cardShadow } as ViewStyle,
+    };
+  }
+
+  return {
+    none: {},
+    sm: { elevation: 1, boxShadow: smShadow } as ViewStyle,
+    md: { elevation: 3, boxShadow: mdShadow } as ViewStyle,
+    card: { elevation: 2, boxShadow: cardShadow } as ViewStyle,
+  };
+}
 
 function buildTokens(scheme: "light" | "dark"): ThemeTokens {
+  const isWeb = Platform.OS === "web";
+
   return {
     scheme,
     colors: scheme === "dark" ? darkColors : lightColors,
     typography,
     spacing,
     radius,
-    elevation: scheme === "dark" ? darkElevation : lightElevation,
+    elevation: createElevationTokens(scheme, isWeb),
     layout,
   };
 }

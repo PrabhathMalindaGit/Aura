@@ -15,7 +15,8 @@
     "env:web": "cp .env.web .env && rm -f .env.local && echo 'Using WEB env (.env -> localhost)'",
     "env:device": "cp .env.device .env.local && echo 'Using DEVICE env (.env.local -> 192.168.1.240)'",
     "dev:web": "npm run env:web && npm run qa:web:boot",
-    "dev:device": "npm run env:device && npx expo start --tunnel --clear --port 8082"
+    "dev:device": "npm run env:device && npx expo start --tunnel --clear --port 8082",
+    "dev:device:lan": "npm run env:device && AURA_DEV_PORT=8082 node scripts/expo-start.mjs --lan --clear"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

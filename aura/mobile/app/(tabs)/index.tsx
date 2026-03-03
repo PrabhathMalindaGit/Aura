@@ -787,7 +787,16 @@ export default function HomeScreen() {
       <Section
         title="Today’s check-in"
         subtitle="One check-in keeps your recovery timeline clear."
-        left={<DomainIcon icon="checkin" size={18} tone="muted" accessibilityLabel="Check-in icon" />}
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="checkin"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Check-in icon"
+            />
+          </View>
+        }
         card
         right={
           <StatusPill
@@ -828,7 +837,16 @@ export default function HomeScreen() {
       <Section
         title="Today’s plan"
         subtitle="Preview your current exercise focus."
-        left={<DomainIcon icon="exercise" size={18} tone="muted" accessibilityLabel="Exercise icon" />}
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="exercise"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Exercise icon"
+            />
+          </View>
+        }
         card
       >
         {planSummary.status === "loading" ? (
@@ -881,7 +899,16 @@ export default function HomeScreen() {
       <Section
         title="Insights"
         subtitle="Clinician-reviewed highlights from recent trends."
-        left={<DomainIcon icon="insights" size={18} tone="muted" accessibilityLabel="Insights icon" />}
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="insights"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Insights icon"
+            />
+          </View>
+        }
         card
       >
         {insightSummary.status === "loading" ? (
@@ -979,7 +1006,16 @@ export default function HomeScreen() {
       <Section
         title="Need support now?"
         subtitle="Open your safety plan anytime."
-        left={<DomainIcon icon="safety" size={18} tone="muted" accessibilityLabel="Safety icon" />}
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="safety"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Safety icon"
+            />
+          </View>
+        }
         card
         cardVariant="outlined"
         right={<StatusPill label="Safety" variant="warning" />}

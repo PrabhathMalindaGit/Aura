@@ -22,6 +22,44 @@ type TrustCuesProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+export function getTrustCueA11yLabel(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "Status";
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower === "offline") {
+    return "Status: Offline";
+  }
+  if (lower === "service down") {
+    return "Status: Service unavailable";
+  }
+  if (lower === "syncing") {
+    return "Status: Syncing";
+  }
+  if (lower === "saved locally") {
+    return "Status: Saved locally";
+  }
+  if (lower === "synced") {
+    return "Status: Synced";
+  }
+  if (lower === "not updated") {
+    return "Last updated: Not available";
+  }
+  if (lower.startsWith("updated ")) {
+    return `Last updated: ${trimmed.slice("Updated ".length)}`;
+  }
+
+  const pendingMatch = /^pending\s+(\d+)$/i.exec(trimmed);
+  if (pendingMatch) {
+    const count = Number(pendingMatch[1] ?? "0");
+    return `Status: ${count} item${count === 1 ? "" : "s"} pending upload`;
+  }
+
+  return `Status: ${trimmed}`;
+}
+
 function toUpdatedLabel(label: string): string {
   if (!label || label === "Never") {
     return "Not updated";
@@ -119,14 +157,18 @@ export function TrustCues({
   return (
     <View style={[styles.wrap, style]}>
       {pills.length > 0 ? (
-        <View style={styles.row}>
+        <View
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={pills.map((item) => getTrustCueA11yLabel(item.label)).join(". ")}
+          style={styles.row}
+        >
           {pills.map((item) => (
             <StatusPill
               key={`${item.label}-${item.variant ?? "neutral"}`}
               label={item.label}
               variant={item.variant ?? "neutral"}
-              accessible
-              accessibilityLabel={`Status: ${item.label}`}
+              accessible={false}
             />
           ))}
         </View>

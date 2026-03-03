@@ -884,13 +884,21 @@ export default function ChatScreen() {
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Retry message"
+                    accessibilityLabel="Retry sending message"
+                    accessibilityState={{ disabled: isSending || isSafetyChecking }}
+                    disabled={isSending || isSafetyChecking}
                     onPress={() => {
                       void handleSend(item.text, item.localId);
                     }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={({ pressed }) => [
                       styles.retryInlineButton,
-                      pressed ? styles.retryInlineButtonPressed : null,
+                      (isSending || isSafetyChecking)
+                        ? styles.retryInlineButtonDisabled
+                        : null,
+                      pressed && !(isSending || isSafetyChecking)
+                        ? styles.retryInlineButtonPressed
+                        : null,
                     ]}
                   >
                     <Text style={styles.retryInlineText}>Retry</Text>
@@ -1185,20 +1193,28 @@ export default function ChatScreen() {
                     key={action.key}
                     accessibilityRole="button"
                     accessibilityLabel={action.accessibilityLabel}
+                    accessibilityState={{ disabled: false }}
                     onPress={() => {
                       router.push(action.route as never);
                     }}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     style={({ pressed }) => [
                       styles.quickActionChip,
                       pressed ? styles.quickActionChipPressed : null,
                     ]}
                   >
-                    <DomainIcon
-                      icon={action.icon}
-                      tone="accent"
-                      size={16}
-                      accessibilityLabel={`${action.label} icon`}
-                    />
+                    <View
+                      accessible={false}
+                      importantForAccessibility="no-hide-descendants"
+                      style={styles.quickActionIconWrap}
+                    >
+                      <DomainIcon
+                        icon={action.icon}
+                        tone="accent"
+                        size={16}
+                        accessibilityLabel={`${action.label} icon`}
+                      />
+                    </View>
                     <Text style={styles.quickActionChipText}>{action.label}</Text>
                   </Pressable>
                 ))}
@@ -1221,11 +1237,12 @@ export default function ChatScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={isSending ? "Sending message" : "Send message"}
-                  accessibilityState={{ disabled: isSendDisabled }}
+                  accessibilityState={{ disabled: isSendDisabled, busy: isSending || undefined }}
                   disabled={isSendDisabled}
                   onPress={() => {
                     void handleSend();
                   }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={({ pressed }) => [
                     styles.sendButton,
                     isSendDisabled ? styles.sendButtonDisabled : null,
@@ -1235,11 +1252,16 @@ export default function ChatScreen() {
                   {isSending ? (
                     <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
                   ) : (
-                    <MaterialCommunityIcons
-                      name="send"
-                      size={18}
-                      color={tokens.colors.primaryTextOn}
-                    />
+                    <View
+                      accessible={false}
+                      importantForAccessibility="no-hide-descendants"
+                    >
+                      <MaterialCommunityIcons
+                        name="send"
+                        size={18}
+                        color={tokens.colors.primaryTextOn}
+                      />
+                    </View>
                   )}
                 </Pressable>
               </View>
@@ -1395,10 +1417,16 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     retryInlineButton: {
-      paddingVertical: 2,
+      minHeight: 44,
+      paddingHorizontal: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
     },
     retryInlineButtonPressed: {
       opacity: 0.8,
+    },
+    retryInlineButtonDisabled: {
+      opacity: 0.5,
     },
     retryInlineText: {
       color: tokens.colors.accent,
@@ -1441,6 +1469,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
     },
+    quickActionIconWrap: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
     inputRow: {
       flexDirection: "row",
       alignItems: "flex-end",
@@ -1461,9 +1493,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       backgroundColor: tokens.colors.surface,
     },
     sendButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: tokens.colors.primary,

@@ -787,7 +787,9 @@ export default function ProgressScreen() {
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.headerIntro}>
-        <Text style={styles.title}>Progress</Text>
+        <Text accessibilityRole="header" style={styles.title}>
+          Progress
+        </Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
         <View style={styles.headerPillRow}>
           <StatusPill label={`Range ${rangeDays}d`} variant="neutral" />
@@ -935,7 +937,9 @@ export default function ProgressScreen() {
         </View>
       </Section>
 
-      <Text style={styles.historyTitle}>Recent check-ins</Text>
+      <Text accessibilityRole="header" style={styles.historyTitle}>
+        Recent check-ins
+      </Text>
       {/* IMPORTANT: Header belongs in ListHeaderComponent only; do not duplicate in renderItem. */}
     </View>
   );

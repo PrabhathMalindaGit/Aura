@@ -665,7 +665,7 @@ export default function SymptomPhotosScreen() {
           return (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${item.kind} photo from ${item.date}${item.pending ? ", pending sync" : ""}`}
+              accessibilityLabel={`${item.kind} photo from ${item.date}. Status: ${item.pending ? "Pending upload" : "Uploaded"}.`}
               style={({ pressed }) => [styles.tilePressable, pressed ? styles.tilePressed : null]}
               onPress={() => {
                 if (item.pending) {
@@ -702,6 +702,7 @@ export default function SymptomPhotosScreen() {
                   <StatusPill
                     label={item.pending ? "Pending" : "Uploaded"}
                     variant={item.pending ? "warning" : "success"}
+                    accessible={false}
                   />
                 </View>
               </View>

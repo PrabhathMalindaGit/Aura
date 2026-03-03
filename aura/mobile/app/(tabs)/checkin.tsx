@@ -952,17 +952,28 @@ export default function CheckinScreen() {
           >
             <View style={styles.accordionTitleWrap}>
               <View style={styles.accordionTitleRow}>
-                <DomainIcon icon="info" tone="accent" size={18} accessibilityLabel="Optional details icon" />
+                <View accessible={false} importantForAccessibility="no">
+                  <DomainIcon
+                    icon="info"
+                    tone="accent"
+                    size={18}
+                    accessibilityLabel="Optional details icon"
+                  />
+                </View>
                 <Text style={styles.sectionTitle}>More details (optional)</Text>
               </View>
               <Text style={styles.helperText}>Sleep, body map and add-on logs</Text>
               {preview.length > 0 ? (
                 <View style={styles.accordionPreviewRow}>
                   {preview.map((label) => (
-                    <StatusPill key={label} label={label} variant="info" />
+                    <StatusPill key={label} label={label} variant="info" accessible={false} />
                   ))}
                   {previewOverflow > 0 ? (
-                    <StatusPill label={`+${previewOverflow}`} variant="neutral" />
+                    <StatusPill
+                      label={`+${previewOverflow}`}
+                      variant="neutral"
+                      accessible={false}
+                    />
                   ) : null}
                 </View>
               ) : null}
@@ -1462,12 +1473,14 @@ export default function CheckinScreen() {
                           ]}
                         >
                           <View style={styles.stepChipIconWrap}>
-                            <DomainIcon
-                              icon={step.icon}
-                              tone={selected ? "accent" : completed ? "success" : "muted"}
-                              size={17}
-                              accessibilityLabel={`${step.label} step icon`}
-                            />
+                            <View accessible={false} importantForAccessibility="no">
+                              <DomainIcon
+                                icon={step.icon}
+                                tone={selected ? "accent" : completed ? "success" : "muted"}
+                                size={17}
+                                accessibilityLabel={`${step.label} step icon`}
+                              />
+                            </View>
                             {completed ? (
                               <View style={styles.completedDot}>
                                 <Text style={styles.completedDotText}>✓</Text>

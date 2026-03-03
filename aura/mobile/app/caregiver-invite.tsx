@@ -337,6 +337,7 @@ export default function CaregiverInviteScreen() {
                   <StatusPill
                     label={showDevDiagnostics ? "Open" : "Closed"}
                     variant="neutral"
+                    accessible={false}
                   />
                 </Pressable>
                 {showDevDiagnostics ? (

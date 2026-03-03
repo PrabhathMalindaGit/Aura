@@ -185,7 +185,11 @@ export default function CaregiverLoginScreen() {
                 ]}
               >
                 <Text style={styles.devTitle}>Diagnostics (dev)</Text>
-                <StatusPill label={showDevDiagnostics ? "Open" : "Closed"} variant="neutral" />
+                <StatusPill
+                  label={showDevDiagnostics ? "Open" : "Closed"}
+                  variant="neutral"
+                  accessible={false}
+                />
               </Pressable>
               {showDevDiagnostics ? (
                 <LastFailedAttempt

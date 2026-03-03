@@ -394,6 +394,7 @@ export default function CaregiverHomeScreen() {
                   <StatusPill
                     label={showDevDiagnostics ? "Open" : "Closed"}
                     variant="neutral"
+                    accessible={false}
                   />
                 </Pressable>
                 {showDevDiagnostics ? (

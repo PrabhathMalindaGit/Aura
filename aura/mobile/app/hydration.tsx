@@ -530,10 +530,12 @@ export default function HydrationScreen() {
               style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
             >
               <View style={styles.diagTitleRow}>
-                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <View accessible={false} importantForAccessibility="no">
+                  <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                </View>
                 <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
               </View>
-              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" accessible={false} />
             </Pressable>
             {showDiagnostics ? (
               <View style={styles.diagContent}>

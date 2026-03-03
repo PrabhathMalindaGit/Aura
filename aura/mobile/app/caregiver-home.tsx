@@ -1,6 +1,13 @@
 import { Redirect, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
@@ -9,12 +16,17 @@ import {
   getCaregiverWeeklyReport,
   type CaregiverSummary,
 } from "@/src/api/caregiver";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useCaregiverSession } from "@/src/state/caregiverSession";
 import {
   getCachedCaregiverData,
@@ -25,6 +37,7 @@ import {
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { startOfWeekMondayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -103,8 +116,27 @@ function formatPercent(value: number | undefined): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function mapNoticeVariant(
+  variant: NoticeState["variant"],
+): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
+
 export default function CaregiverHomeScreen() {
   const router = useRouter();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
   const caregiverSession = useCaregiverSession();
   const isOffline = useIsOffline();
   const caregiverRefresh = useLastRefreshed("caregiver");
@@ -116,6 +148,7 @@ export default function CaregiverHomeScreen() {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
 
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
   const thisWeekStart = useMemo(
@@ -259,9 +292,72 @@ export default function CaregiverHomeScreen() {
     void loadCaregiverData("initial");
   }, [caregiverSession.status, loadCaregiverData]);
 
+  const handleSignOut = useCallback(() => {
+    void caregiverSession.signOut().then(() => {
+      router.replace("/caregiver-login" as Href);
+    });
+  }, [caregiverSession, router]);
+
+  const patientName =
+    summary?.patient.displayName ?? caregiverSession.patient?.displayName ?? "Patient";
+  const patientIdentifier = summary?.patient.id ?? caregiverSession.patient?.id ?? "—";
+
+  const lastCheckin = summary?.lastCheckin;
+  const adherencePctNumber =
+    typeof lastCheckin?.adherence?.exercises === "number"
+      ? Math.round(lastCheckin.adherence.exercises * 100)
+      : null;
+  const medsTaken = lastCheckin?.medsToday?.taken;
+  const medsScheduled = lastCheckin?.medsToday?.scheduled;
+  const medsProgress =
+    typeof medsTaken === "number" && typeof medsScheduled === "number" && medsScheduled > 0
+      ? clamp01(medsTaken / medsScheduled)
+      : 0;
+
+  const weeklyPreviewChips = weeklyHighlights
+    .filter((item) => item.trim().length > 0)
+    .slice(0, 2)
+    .map((item) => ({ text: item, tone: "muted" as const }));
+
+  const header = (
+    <HeroHeader
+      variant="compact"
+      title="Caregiver"
+      subtitle={patientName ? `Patient · ${patientName}` : "Read-only view"}
+      left={
+        <Avatar
+          size={40}
+          name={patientName}
+          fallback="initials"
+          ring={isOffline ? "attention" : "none"}
+        />
+      }
+      rightActions={[
+        {
+          icon: "weekly",
+          tone: "accent",
+          accessibilityLabel: "Open weekly report",
+          onPress: () => router.push("/caregiver-weekly-report" as Href),
+        },
+        {
+          icon: "settings",
+          tone: "muted",
+          accessibilityLabel: "Sign out caregiver",
+          onPress: handleSignOut,
+        },
+        {
+          icon: "safety",
+          tone: "warning",
+          accessibilityLabel: "Open Safety support",
+          onPress: () => router.push("/safety" as Href),
+        },
+      ]}
+    />
+  );
+
   if (caregiverSession.status === "loading") {
     return (
-      <Screen title="Caregiver">
+      <Screen scroll={false} header={header}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -274,160 +370,226 @@ export default function CaregiverHomeScreen() {
   }
 
   return (
-    <Screen title="Caregiver">
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed value={caregiverRefresh.label} />
-        <LastFailedAttempt
-          value={caregiverLoadError.label}
-          title={caregiverLoadError.lastError?.title}
-          message={caregiverLoadError.lastError?.message}
-          onClear={caregiverLoadError.lastError ? caregiverLoadError.clear : undefined}
-        />
+    <Screen scroll={false} header={header}>
+      <FlatList
+        data={[]}
+        renderItem={() => null}
+        keyExtractor={(_, index) => String(index)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.content}>
+            {__DEV__ ? (
+              <View style={styles.devCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle diagnostics"
+                  onPress={() => setShowDevDiagnostics((value) => !value)}
+                  style={({ pressed }) => [
+                    styles.devRow,
+                    pressed ? styles.devRowPressed : null,
+                  ]}
+                >
+                  <Text style={styles.devTitle}>Diagnostics (dev)</Text>
+                  <StatusPill
+                    label={showDevDiagnostics ? "Open" : "Closed"}
+                    variant="neutral"
+                  />
+                </Pressable>
+                {showDevDiagnostics ? (
+                  <View style={styles.devDetails}>
+                    <LastRefreshed value={caregiverRefresh.label} />
+                    <LastFailedAttempt
+                      value={caregiverLoadError.label}
+                      title={caregiverLoadError.lastError?.title}
+                      message={caregiverLoadError.lastError?.message}
+                      onClear={caregiverLoadError.lastError ? caregiverLoadError.clear : undefined}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
+            {notice ? (
+              <Banner
+                variant={mapNoticeVariant(notice.variant)}
+                title={notice.title}
+                message={notice.message}
+                actionLabel={notice.actionLabel}
+                onAction={notice.onAction}
+              />
+            ) : null}
 
-        <Section title="Patient">
-          <Text style={styles.primaryText}>
-            {summary?.patient.displayName ?? caregiverSession.patient?.displayName ?? "Patient"}
-          </Text>
-          <Text style={styles.secondaryText}>
-            ID: {summary?.patient.id ?? caregiverSession.patient?.id ?? "—"}
-          </Text>
-        </Section>
+            <MediaCard
+              leading={{
+                type: "avatar",
+                name: patientName,
+                ring: isOffline ? "attention" : "none",
+              }}
+              title={patientName}
+              subtitle={`ID: ${patientIdentifier}`}
+              chips={[{ text: "Read-only", tone: "muted" }]}
+            />
 
-        <Section title="Status">
-          {summary?.lastCheckin ? (
-            <View style={styles.statusCard}>
-              <Text style={styles.primaryText}>Last check-in: {summary.lastCheckin.date}</Text>
-              <Text style={styles.secondaryText}>Pain: {summary.lastCheckin.pain}/10</Text>
-              <Text style={styles.secondaryText}>Mood: {summary.lastCheckin.mood}/5</Text>
-              <Text style={styles.secondaryText}>
-                Exercise adherence: {formatPercent(summary.lastCheckin.adherence?.exercises)}
-              </Text>
-              {summary.lastCheckin.sleep?.hours !== undefined ? (
-                <Text style={styles.secondaryText}>
-                  Sleep: {summary.lastCheckin.sleep.hours}h
-                  {summary.lastCheckin.sleep.quality !== undefined
-                    ? ` (quality ${summary.lastCheckin.sleep.quality}/5)`
-                    : ""}
-                </Text>
-              ) : null}
-              {summary.lastCheckin.hydrationTodayMl !== undefined ? (
-                <Text style={styles.secondaryText}>
-                  Hydration: {summary.lastCheckin.hydrationTodayMl} ml
-                </Text>
-              ) : null}
-              {summary.lastCheckin.nutritionToday ? (
-                <Text style={styles.secondaryText}>
-                  Nutrition: protein {summary.lastCheckin.nutritionToday.protein ?? "—"}, fruit/veg{" "}
-                  {summary.lastCheckin.nutritionToday.fruitVegServings ?? "—"}
-                </Text>
-              ) : null}
-              {summary.lastCheckin.medsToday ? (
-                <Text style={styles.secondaryText}>
-                  Medications: {summary.lastCheckin.medsToday.taken}/
-                  {summary.lastCheckin.medsToday.scheduled} taken
-                </Text>
-              ) : null}
+            <View style={styles.trackerGrid}>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="checkin"
+                  label="Pain"
+                  value={lastCheckin ? `${lastCheckin.pain}/10` : "—"}
+                  delta="Latest check-in"
+                  tone="warning"
+                  micro={{ type: "dots", values: [0.2, 0.4, 0.6, 0.8, 0.7, 0.5, 0.6] }}
+                />
+              </View>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="insights"
+                  label="Mood"
+                  value={lastCheckin ? `${lastCheckin.mood}/5` : "—"}
+                  delta="Latest check-in"
+                  tone="success"
+                  micro={{ type: "dots", values: [0.5, 0.6, 0.7, 0.65, 0.75, 0.7, 0.72] }}
+                />
+              </View>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="exercise"
+                  label="Adherence"
+                  value={adherencePctNumber === null ? "—" : `${adherencePctNumber}%`}
+                  delta="Exercise"
+                  tone="accent"
+                  micro={{ type: "ring", progress: clamp01((adherencePctNumber ?? 0) / 100) }}
+                />
+              </View>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="meds"
+                  label="Meds"
+                  value={
+                    typeof medsTaken === "number" && typeof medsScheduled === "number"
+                      ? `${medsTaken}/${medsScheduled}`
+                      : "—"
+                  }
+                  delta="Today"
+                  tone="primary"
+                  micro={{ type: "ring", progress: medsProgress }}
+                />
+              </View>
             </View>
-          ) : (
-            <Text style={styles.secondaryText}>No check-in snapshot available yet.</Text>
-          )}
-        </Section>
 
-        <Section title="Safety">
-          <View style={styles.statusCard}>
-            <Text style={styles.secondaryText}>
-              Open alerts: {summary?.safety.openAlertsCount ?? 0}
-            </Text>
-            <Text style={styles.secondaryText}>
-              High-risk alerts (14d): {summary?.safety.highRiskAlerts14d ?? 0}
-            </Text>
-            <Text style={styles.noteText}>If you’re concerned, contact the clinic.</Text>
+            <MediaCard
+              leading={{ type: "icon", icon: "weekly", tone: "accent" }}
+              title={weeklyHeadline || "Weekly report"}
+              subtitle={weeklyHighlights[0] ?? "No preview yet."}
+              chips={weeklyPreviewChips}
+              onPress={() => router.push("/caregiver-weekly-report" as Href)}
+            />
+
+            <MediaCard
+              leading={{ type: "icon", icon: "safety", tone: "warning" }}
+              title="Safety"
+              subtitle={`Open alerts: ${summary?.safety.openAlertsCount ?? 0} · High-risk (14d): ${summary?.safety.highRiskAlerts14d ?? 0}`}
+              chips={[{ text: "Contact clinic if concerned", tone: "muted" }]}
+            />
+
+            <View style={styles.actionsCard}>
+              <Text style={styles.actionsTitle}>Actions</Text>
+              <View style={styles.actionsRow}>
+                <View style={styles.actionButtonWrap}>
+                  <PrimaryButton
+                    label={isRefreshing ? "Refreshing…" : "Refresh"}
+                    disabled={isRefreshing || isOffline}
+                    onPress={() => {
+                      void loadCaregiverData("refresh");
+                    }}
+                  />
+                </View>
+                <View style={styles.actionButtonWrap}>
+                  <SecondaryButton label="Sign out" onPress={handleSignOut} />
+                </View>
+              </View>
+            </View>
           </View>
-        </Section>
-
-        <Section title="Weekly report preview">
-          {weeklyHeadline ? (
-            <View style={styles.statusCard}>
-              <Text style={styles.primaryText}>{weeklyHeadline}</Text>
-              {weeklyHighlights.map((item) => (
-                <Text key={item} style={styles.secondaryText}>
-                  • {item}
-                </Text>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.secondaryText}>No weekly report preview yet.</Text>
-          )}
-          <PrimaryButton
-            label="Open weekly report"
-            onPress={() => {
-              router.push("/caregiver-weekly-report" as Href);
-            }}
-          />
-        </Section>
-
-        <Section title="Actions">
-          <PrimaryButton
-            label={isRefreshing ? "Refreshing…" : "Refresh"}
-            disabled={isRefreshing || isOffline}
-            onPress={() => {
-              void loadCaregiverData("refresh");
-            }}
-          />
-          <PrimaryButton
-            label="Sign out"
-            onPress={() => {
-              void caregiverSession.signOut().then(() => {
-                router.replace("/caregiver-login" as Href);
-              });
-            }}
-          />
-        </Section>
-      </ScrollView>
+        }
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusCard: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    padding: 12,
-    gap: 6,
-  },
-  primaryText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  secondaryText: {
-    fontSize: 13,
-    color: "#374151",
-    lineHeight: 19,
-  },
-  noteText: {
-    fontSize: 12,
-    color: "#4b5563",
-    marginTop: 2,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    listContent: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    content: {
+      gap: tokens.spacing.md,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      flexGrow: 1,
+      minWidth: 150,
+    },
+    actionsCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    actionsTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    actionsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    actionButtonWrap: {
+      flex: 1,
+      minWidth: 140,
+    },
+    devCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    devRow: {
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+      borderRadius: tokens.radius.md,
+    },
+    devRowPressed: {
+      opacity: 0.86,
+    },
+    devTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    devDetails: {
+      gap: tokens.spacing.sm,
+    },
+  });
+}

@@ -1,6 +1,13 @@
-import { Redirect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Redirect, useRouter, type Href } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
@@ -10,14 +17,18 @@ import {
   revokeCaregiverInvite,
   type CaregiverInviteItem,
 } from "@/src/api/caregiver";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
+import { useTokens } from "@/src/theme/tokens";
 import { formatISOToHuman } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -87,7 +98,20 @@ function toFriendlyError(error: unknown, title: string): {
   };
 }
 
+function mapNoticeVariant(
+  variant: NoticeState["variant"],
+): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
+
 export default function CaregiverInviteScreen() {
+  const router = useRouter();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
   const auth = useAuth();
   const isOffline = useIsOffline();
   const caregiverLoadError = useLastError("caregiverLoad");
@@ -98,6 +122,7 @@ export default function CaregiverInviteScreen() {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [generatedExpiresAt, setGeneratedExpiresAt] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
 
   const loadInvites = useCallback(async () => {
     if (!auth.token || auth.status !== "signedIn") {
@@ -229,9 +254,32 @@ export default function CaregiverInviteScreen() {
     }
   };
 
+  const header = (
+    <HeroHeader
+      variant="compact"
+      title="Caregiver access"
+      subtitle="Share read-only access"
+      left={<Avatar size={40} name="Caregiver" fallback="icon" iconKey="caregiver" />}
+      rightActions={[
+        {
+          icon: "settings",
+          tone: "muted",
+          accessibilityLabel: "Back to settings",
+          onPress: () => router.push("/(tabs)/settings" as Href),
+        },
+        {
+          icon: "safety",
+          tone: "warning",
+          accessibilityLabel: "Open Safety support",
+          onPress: () => router.push("/safety" as Href),
+        },
+      ]}
+    />
+  );
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Caregiver access">
+      <Screen scroll={false} header={header}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -244,129 +292,198 @@ export default function CaregiverInviteScreen() {
   }
 
   return (
-    <Screen title="Caregiver access">
-      <ScrollView contentContainerStyle={styles.container}>
-        <Section title="Create invite code">
-          <Text style={styles.helper}>
-            Invite codes are temporary and tied to your account only.
-          </Text>
-          <PrimaryButton
-            label={isSubmitting ? "Creating…" : "Generate caregiver invite"}
-            disabled={isSubmitting}
-            onPress={() => {
-              void handleGenerate();
-            }}
+    <Screen scroll={false} header={header}>
+      <FlatList
+        data={isLoading ? [] : invites}
+        keyExtractor={(item) => item.inviteId}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <MediaCard
+            leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
+            title={`•••• ${item.codeHint}`}
+            subtitle={`Expires: ${formatISOToHuman(item.expiresAt)}`}
+            chips={
+              item.usedAt
+                ? [{ text: `Used: ${formatISOToHuman(item.usedAt)}`, tone: "muted" }]
+                : [{ text: "Active", tone: "muted" }]
+            }
+            actions={[
+              {
+                label: "Revoke",
+                kind: "secondary",
+                disabled: isSubmitting,
+                onPress: () => {
+                  void handleRevoke(item.inviteId);
+                },
+              },
+            ]}
           />
-
-          {generatedCode ? (
-            <View style={styles.codeCard}>
-              <Text style={styles.codeLabel}>Code (shown once)</Text>
-              <Text style={styles.codeValue}>{generatedCode}</Text>
-              <Text style={styles.codeMeta}>
-                Expires: {generatedExpiresAt ? formatISOToHuman(generatedExpiresAt) : "—"}
-              </Text>
-            </View>
-          ) : null}
-        </Section>
-
-        <Section title="Active invites">
-          {isLoading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="small" />
-            </View>
-          ) : invites.length === 0 ? (
-            <Text style={styles.helper}>No active invites.</Text>
-          ) : (
-            invites.map((invite) => (
-              <View key={invite.inviteId} style={styles.inviteRow}>
-                <View style={styles.inviteMeta}>
-                  <Text style={styles.inviteCodeHint}>•••• {invite.codeHint}</Text>
-                  <Text style={styles.helper}>
-                    Expires: {formatISOToHuman(invite.expiresAt)}
-                  </Text>
-                  {invite.usedAt ? (
-                    <Text style={styles.helper}>Used: {formatISOToHuman(invite.usedAt)}</Text>
-                  ) : null}
-                </View>
-                <PrimaryButton
-                  label="Revoke"
-                  disabled={isSubmitting}
-                  onPress={() => {
-                    void handleRevoke(invite.inviteId);
-                  }}
-                />
+        )}
+        ListHeaderComponent={
+          <View style={styles.content}>
+            {__DEV__ ? (
+              <View style={styles.devCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle diagnostics"
+                  onPress={() => setShowDevDiagnostics((value) => !value)}
+                  style={({ pressed }) => [
+                    styles.devRow,
+                    pressed ? styles.devRowPressed : null,
+                  ]}
+                >
+                  <Text style={styles.devTitle}>Diagnostics (dev)</Text>
+                  <StatusPill
+                    label={showDevDiagnostics ? "Open" : "Closed"}
+                    variant="neutral"
+                  />
+                </Pressable>
+                {showDevDiagnostics ? (
+                  <LastFailedAttempt
+                    value={caregiverLoadError.label}
+                    title={caregiverLoadError.lastError?.title}
+                    message={caregiverLoadError.lastError?.message}
+                    onClear={caregiverLoadError.lastError ? caregiverLoadError.clear : undefined}
+                  />
+                ) : null}
               </View>
-            ))
-          )}
-        </Section>
+            ) : null}
 
-        <LastFailedAttempt
-          value={caregiverLoadError.label}
-          title={caregiverLoadError.lastError?.title}
-          message={caregiverLoadError.lastError?.message}
-          onClear={caregiverLoadError.lastError ? caregiverLoadError.clear : undefined}
-        />
+            {notice ? (
+              <Banner
+                variant={mapNoticeVariant(notice.variant)}
+                title={notice.title}
+                message={notice.message}
+              />
+            ) : null}
 
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-      </ScrollView>
+            <MediaCard
+              variant="emphasis"
+              leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
+              title="Create invite code"
+              subtitle="Invite codes are temporary and tied to your account."
+              chips={[
+                { text: "Read-only", tone: "muted" },
+                { text: "Temporary", tone: "muted" },
+              ]}
+              actions={[
+                {
+                  label: isSubmitting ? "Creating…" : "Generate caregiver invite",
+                  onPress: () => {
+                    void handleGenerate();
+                  },
+                  disabled: isSubmitting,
+                  kind: "primary",
+                },
+              ]}
+            />
+
+            {generatedCode ? (
+              <View style={styles.generatedCard}>
+                <Text style={styles.generatedLabel}>Code (shown once)</Text>
+                <Text selectable style={styles.generatedValue}>
+                  {generatedCode}
+                </Text>
+                <Text style={styles.generatedMeta}>
+                  Expires: {generatedExpiresAt ? formatISOToHuman(generatedExpiresAt) : "—"}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.sectionTitle}>Active invites</Text>
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            {isLoading ? (
+              <ActivityIndicator size="small" />
+            ) : (
+              <Banner variant="info" title="No active invites" message="Create an invite to grant caregiver access." />
+            )}
+          </View>
+        }
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 100,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  helper: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  codeCard: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    padding: 12,
-    gap: 4,
-  },
-  codeLabel: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  codeValue: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    letterSpacing: 1.2,
-  },
-  codeMeta: {
-    fontSize: 12,
-    color: "#4b5563",
-  },
-  inviteRow: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    padding: 10,
-    gap: 10,
-  },
-  inviteMeta: {
-    gap: 2,
-  },
-  inviteCodeHint: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    listContent: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    content: {
+      gap: tokens.spacing.md,
+    },
+    emptyWrap: {
+      minHeight: 120,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      marginTop: tokens.spacing.xs,
+    },
+    generatedCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.xs,
+    },
+    generatedLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    generatedValue: {
+      color: tokens.colors.text,
+      fontSize: 24,
+      lineHeight: 30,
+      fontWeight: tokens.typography.weights.semibold,
+      letterSpacing: 1,
+    },
+    generatedMeta: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    devCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    devRow: {
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+      borderRadius: tokens.radius.md,
+    },
+    devRowPressed: {
+      opacity: 0.86,
+    },
+    devTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+  });
+}

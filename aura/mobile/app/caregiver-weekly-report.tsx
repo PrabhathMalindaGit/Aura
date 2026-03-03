@@ -1,17 +1,30 @@
-import { Redirect, type Href } from "expo-router";
+import { Redirect, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
 import { getCaregiverWeeklyReport } from "@/src/api/caregiver";
 import type { WeeklyReport } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useCaregiverSession } from "@/src/state/caregiverSession";
 import {
   getCachedCaregiverData,
@@ -21,6 +34,7 @@ import {
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, startOfWeekMondayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -102,7 +116,27 @@ function pctOrDash(value: number | null): string {
   return value === null ? "—" : `${value}%`;
 }
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function mapNoticeVariant(
+  variant: NoticeState["variant"],
+): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
+
 export default function CaregiverWeeklyReportScreen() {
+  const router = useRouter();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+
   const caregiverSession = useCaregiverSession();
   const isOffline = useIsOffline();
   const caregiverRefresh = useLastRefreshed("caregiver");
@@ -113,6 +147,7 @@ export default function CaregiverWeeklyReportScreen() {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
 
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
   const thisWeekStart = useMemo(
@@ -249,9 +284,32 @@ export default function CaregiverWeeklyReportScreen() {
     void loadReport("initial");
   }, [caregiverSession.status, loadReport, selectedWeek]);
 
+  const header = (
+    <HeroHeader
+      variant="compact"
+      title="Weekly report"
+      subtitle={selectedWeek === "this" ? "This week" : "Last week"}
+      left={<Avatar size={40} name="Weekly report" fallback="icon" iconKey="weekly" />}
+      rightActions={[
+        {
+          icon: "home",
+          tone: "muted",
+          accessibilityLabel: "Back to caregiver home",
+          onPress: () => router.replace("/caregiver-home" as Href),
+        },
+        {
+          icon: "safety",
+          tone: "warning",
+          accessibilityLabel: "Open Safety support",
+          onPress: () => router.push("/safety" as Href),
+        },
+      ]}
+    />
+  );
+
   if (caregiverSession.status === "loading") {
     return (
-      <Screen title="Caregiver weekly report">
+      <Screen scroll={false} header={header}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -263,132 +321,214 @@ export default function CaregiverWeeklyReportScreen() {
     return <Redirect href={"/caregiver-login" as Href} />;
   }
 
+  const exerciseProgress =
+    report && report.exercises.totalExercises > 0
+      ? clamp01(report.exercises.completedExercises / report.exercises.totalExercises)
+      : 0;
+  const medicationProgress = clamp01((report?.medications.adherencePct ?? 0) / 100);
+
   return (
-    <Screen title="Caregiver weekly report">
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed value={caregiverRefresh.label} />
-        <LastFailedAttempt
-          value={caregiverLoadError.label}
-          title={caregiverLoadError.lastError?.title}
-          message={caregiverLoadError.lastError?.message}
-          onClear={caregiverLoadError.lastError ? caregiverLoadError.clear : undefined}
-        />
+    <Screen scroll={false} header={header}>
+      <FlatList
+        data={[]}
+        renderItem={() => null}
+        keyExtractor={(_, index) => String(index)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.content}>
+            {__DEV__ ? (
+              <View style={styles.devCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle diagnostics"
+                  onPress={() => setShowDevDiagnostics((value) => !value)}
+                  style={({ pressed }) => [
+                    styles.devRow,
+                    pressed ? styles.devRowPressed : null,
+                  ]}
+                >
+                  <Text style={styles.devTitle}>Diagnostics (dev)</Text>
+                  <StatusPill
+                    label={showDevDiagnostics ? "Open" : "Closed"}
+                    variant="neutral"
+                  />
+                </Pressable>
+                {showDevDiagnostics ? (
+                  <View style={styles.devDetails}>
+                    <LastRefreshed value={caregiverRefresh.label} />
+                    <LastFailedAttempt
+                      value={caregiverLoadError.label}
+                      title={caregiverLoadError.lastError?.title}
+                      message={caregiverLoadError.lastError?.message}
+                      onClear={caregiverLoadError.lastError ? caregiverLoadError.clear : undefined}
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
-        <View style={styles.selectorRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.selectorButton,
-              selectedWeek === "this" ? styles.selectorSelected : null,
-              pressed ? styles.selectorPressed : null,
-            ]}
-            onPress={() => setSelectedWeek("this")}
-          >
-            <Text
-              style={selectedWeek === "this" ? styles.selectorTextSelected : styles.selectorText}
-            >
-              This week
-            </Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.selectorButton,
-              selectedWeek === "last" ? styles.selectorSelected : null,
-              pressed ? styles.selectorPressed : null,
-            ]}
-            onPress={() => setSelectedWeek("last")}
-          >
-            <Text
-              style={selectedWeek === "last" ? styles.selectorTextSelected : styles.selectorText}
-            >
-              Last week
-            </Text>
-          </Pressable>
-        </View>
+            <SegmentedControl
+              value={selectedWeek}
+              onChange={setSelectedWeek}
+              options={[
+                { value: "this", label: "This week", icon: "weekly" },
+                { value: "last", label: "Last week", icon: "weekly" },
+              ]}
+              accessibilityLabel="Weekly report selector"
+              tone="accent"
+            />
 
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
+            {notice ? (
+              <Banner
+                variant={mapNoticeVariant(notice.variant)}
+                title={notice.title}
+                message={notice.message}
+                actionLabel={notice.actionLabel}
+                onAction={notice.onAction}
+              />
+            ) : null}
 
-        {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
+            {isLoading ? (
+              <View style={styles.centeredBlock}>
+                <ActivityIndicator size="small" />
+              </View>
+            ) : report ? (
+              <>
+                <MediaCard
+                  variant="emphasis"
+                  leading={{ type: "icon", icon: "weekly", tone: "accent" }}
+                  title={report.summary.headline}
+                  subtitle={report.summary.highlights[0] ?? "No highlights yet."}
+                  chips={report.summary.highlights.slice(0, 2).map((item) => ({
+                    text: item,
+                    tone: "muted" as const,
+                  }))}
+                />
+
+                <View style={styles.trackerGrid}>
+                  <View style={styles.trackerTileWrap}>
+                    <TrackerTile
+                      icon="checkin"
+                      label="Pain avg"
+                      value={numberOrDash(report.checkins.avgPain)}
+                      delta="This week"
+                      tone="warning"
+                      micro={{ type: "dots", values: [0.6, 0.7, 0.5, 0.55, 0.6, 0.58, 0.62] }}
+                    />
+                  </View>
+                  <View style={styles.trackerTileWrap}>
+                    <TrackerTile
+                      icon="insights"
+                      label="Mood avg"
+                      value={numberOrDash(report.checkins.avgMood)}
+                      delta="This week"
+                      tone="success"
+                      micro={{ type: "dots", values: [0.6, 0.62, 0.64, 0.68, 0.66, 0.7, 0.72] }}
+                    />
+                  </View>
+                  <View style={styles.trackerTileWrap}>
+                    <TrackerTile
+                      icon="exercise"
+                      label="Exercise"
+                      value={`${report.exercises.completedExercises}/${report.exercises.totalExercises}`}
+                      delta="Completed"
+                      tone="accent"
+                      micro={{ type: "ring", progress: exerciseProgress }}
+                    />
+                  </View>
+                  <View style={styles.trackerTileWrap}>
+                    <TrackerTile
+                      icon="meds"
+                      label="Meds"
+                      value={pctOrDash(report.medications.adherencePct)}
+                      delta="Adherence"
+                      tone="primary"
+                      micro={{ type: "ring", progress: medicationProgress }}
+                    />
+                  </View>
+                </View>
+
+                <MediaCard
+                  leading={{ type: "icon", icon: "checkin", tone: "muted" }}
+                  title="Check-ins"
+                  subtitle={`Count: ${report.checkins.count} · Avg pain: ${numberOrDash(report.checkins.avgPain)} · Avg mood: ${numberOrDash(report.checkins.avgMood)}`}
+                  chips={[
+                    { text: `${report.checkins.count} logs`, tone: "muted" },
+                    {
+                      text: `Adherence ${pctOrDash(report.checkins.avgExercisesPct)}`,
+                      tone: "muted",
+                    },
+                  ]}
+                />
+
+                <MediaCard
+                  leading={{ type: "icon", icon: "safety", tone: "warning" }}
+                  title="Safety"
+                  subtitle={`Opened alerts: ${report.safety.alertsCreatedThisWeek} · High-risk: ${report.safety.highRiskAlertsThisWeek}`}
+                  chips={[{ text: "Weekly alert view", tone: "muted" }]}
+                />
+
+                <MediaCard
+                  leading={{ type: "icon", icon: "proms", tone: "accent" }}
+                  title="Questionnaires"
+                  subtitle={`Due now: ${report.proms.dueNowCount} · Completed: ${report.proms.completedThisWeekCount}`}
+                  chips={
+                    report.proms.latestCompleted
+                      ? [
+                          {
+                            text: `${report.proms.latestCompleted.normalized}/100 ${report.proms.latestCompleted.bandLabel}`,
+                            tone: "muted",
+                          },
+                        ]
+                      : [{ text: "No score yet", tone: "muted" }]
+                  }
+                />
+
+                <MediaCard
+                  leading={{ type: "icon", icon: "exercise", tone: "accent" }}
+                  title="Exercises"
+                  subtitle={`Sessions: ${report.exercises.sessionCount} · Avg pain during: ${numberOrDash(report.exercises.avgPainDuring)}`}
+                  chips={[
+                    {
+                      text: `${report.exercises.completedExercises}/${report.exercises.totalExercises} completed`,
+                      tone: "muted",
+                    },
+                    {
+                      text: `${report.exercises.totalDurationMinutes} min total`,
+                      tone: "muted",
+                    },
+                  ]}
+                />
+
+                <MediaCard
+                  leading={{ type: "icon", icon: "hydration", tone: "primary" }}
+                  title="Habits"
+                  subtitle={`Hydration avg: ${numberOrDash(report.hydration.avgDailyMl)} ml · Fruit/veg avg: ${numberOrDash(report.nutrition.avgFruitVegServings)}`}
+                  chips={[
+                    {
+                      text: `Medication ${pctOrDash(report.medications.adherencePct)}`,
+                      tone: "muted",
+                    },
+                    {
+                      text: `Hydration target ${report.hydration.targetMl} ml`,
+                      tone: "muted",
+                    },
+                  ]}
+                />
+              </>
+            ) : (
+              <Banner
+                variant="info"
+                title="No report"
+                message="No weekly report is available for this week yet."
+              />
+            )}
           </View>
-        ) : report ? (
-          <>
-            <Section title="Summary">
-              <Text style={styles.headline}>{report.summary.headline}</Text>
-              {report.summary.highlights.map((item) => (
-                <Text key={item} style={styles.line}>
-                  • {item}
-                </Text>
-              ))}
-            </Section>
+        }
+      />
 
-            <Section title="Check-ins">
-              <Text style={styles.line}>Count: {report.checkins.count}</Text>
-              <Text style={styles.line}>Average pain: {numberOrDash(report.checkins.avgPain)}</Text>
-              <Text style={styles.line}>Average mood: {numberOrDash(report.checkins.avgMood)}</Text>
-            </Section>
-
-            <Section title="Safety">
-              <Text style={styles.line}>
-                Opened alerts this week: {report.safety.alertsCreatedThisWeek}
-              </Text>
-              <Text style={styles.line}>
-                High-risk alerts this week: {report.safety.highRiskAlertsThisWeek}
-              </Text>
-            </Section>
-
-            <Section title="Questionnaires">
-              <Text style={styles.line}>Due now: {report.proms.dueNowCount}</Text>
-              <Text style={styles.line}>
-                Completed this week: {report.proms.completedThisWeekCount}
-              </Text>
-              {report.proms.latestCompleted ? (
-                <Text style={styles.line}>
-                  Latest score: {report.proms.latestCompleted.normalized}/100 (
-                  {report.proms.latestCompleted.bandLabel})
-                </Text>
-              ) : null}
-            </Section>
-
-            <Section title="Exercises">
-              <Text style={styles.line}>Sessions: {report.exercises.sessionCount}</Text>
-              <Text style={styles.line}>
-                Completed exercises: {report.exercises.completedExercises}/
-                {report.exercises.totalExercises}
-              </Text>
-              <Text style={styles.line}>
-                Average pain during exercise: {numberOrDash(report.exercises.avgPainDuring)}
-              </Text>
-            </Section>
-
-            <Section title="Hydration / Nutrition / Medications">
-              <Text style={styles.line}>
-                Hydration avg daily: {numberOrDash(report.hydration.avgDailyMl)} ml
-              </Text>
-              <Text style={styles.line}>
-                Nutrition avg fruit/veg: {numberOrDash(report.nutrition.avgFruitVegServings)}
-              </Text>
-              <Text style={styles.line}>
-                Medication adherence: {pctOrDash(report.medications.adherencePct)}
-              </Text>
-            </Section>
-          </>
-        ) : (
-          <InlineNotice
-            variant="info"
-            title="No report"
-            message="No weekly report is available for this week yet."
-          />
-        )}
-
+      <GlassPanel style={styles.footerPanel}>
         <PrimaryButton
           label={isRefreshing ? "Refreshing…" : "Refresh"}
           disabled={isRefreshing || isOffline}
@@ -396,59 +536,70 @@ export default function CaregiverWeeklyReportScreen() {
             void loadReport("refresh");
           }}
         />
-      </ScrollView>
+      </GlassPanel>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 120,
-  },
-  selectorRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  selectorButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-  selectorSelected: {
-    borderColor: "#111827",
-    backgroundColor: "#111827",
-  },
-  selectorPressed: {
-    opacity: 0.8,
-  },
-  selectorText: {
-    color: "#111827",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  selectorTextSelected: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  headline: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-    marginBottom: 4,
-  },
-  line: {
-    fontSize: 13,
-    color: "#374151",
-    lineHeight: 19,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    listContent: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    content: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.md,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    centeredBlock: {
+      minHeight: 120,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      flexGrow: 1,
+      minWidth: 150,
+    },
+    footerPanel: {
+      marginTop: tokens.spacing.sm,
+    },
+    devCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    devRow: {
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+      borderRadius: tokens.radius.md,
+    },
+    devRowPressed: {
+      opacity: 0.86,
+    },
+    devTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    devDetails: {
+      gap: tokens.spacing.sm,
+    },
+  });
+}

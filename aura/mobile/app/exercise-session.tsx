@@ -21,12 +21,20 @@ import {
   type ExerciseSessionExercisePayload,
   type TodayPlanResponse,
 } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedExercisePlan,
@@ -36,6 +44,7 @@ import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { addPending } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type RunnerExercise = {
@@ -70,6 +79,10 @@ type FeedbackState = {
   painDuring: number;
   note: string;
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -191,6 +204,8 @@ export default function ExerciseSessionScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const exerciseSessionsRefresh = useLastRefreshed("exerciseSessions");
   const saveSessionError = useLastError("exerciseSessionSave");
 
@@ -205,11 +220,22 @@ export default function ExerciseSessionScreen() {
   const [queuedLocalId, setQueuedLocalId] = useState<string | null>(null);
   const [feedbackState, setFeedbackState] = useState<FeedbackState | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const completedCount = useMemo(
     () => sessionExercises.filter((item) => item.completed).length,
     [sessionExercises]
   );
+
+  const averagePain = useMemo(() => {
+    const values = sessionExercises
+      .map((item) => item.painDuring)
+      .filter((value): value is number => typeof value === "number");
+    if (values.length === 0) {
+      return null;
+    }
+    return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+  }, [sessionExercises]);
 
   useEffect(() => {
     if (sessionStartedAtMs === null) {
@@ -297,6 +323,24 @@ export default function ExerciseSessionScreen() {
       painDuring: typeof target.painDuring === "number" ? target.painDuring : 0,
       note: target.note ?? "",
     });
+  }
+
+  function undoCompletion(index: number): void {
+    setSessionExercises((previous) =>
+      previous.map((item, itemIndex) => {
+        if (itemIndex !== index) {
+          return item;
+        }
+        return {
+          ...item,
+          completed: false,
+          difficulty: undefined,
+          painDuring: undefined,
+          note: undefined,
+          completedAt: undefined,
+        };
+      })
+    );
   }
 
   function applyFeedback(mode: "save" | "skip"): void {
@@ -469,7 +513,10 @@ export default function ExerciseSessionScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Exercise session">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Exercise session" subtitle="Runner" />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -484,7 +531,35 @@ export default function ExerciseSessionScreen() {
   const plan = planResponse?.plan ?? null;
 
   return (
-    <Screen title="Exercise session">
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Exercise session"
+          subtitle={`${completedCount}/${sessionExercises.length} completed · ${formatDuration(elapsedSeconds)}`}
+          left={<Avatar size={40} name="Exercise" fallback="icon" iconKey="exercise" />}
+          rightActions={[
+            {
+              icon: "exercise",
+              tone: "accent",
+              accessibilityLabel: "Open plan",
+              onPress: () => {
+                router.push("/exercise-plan");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
+        />
+      }
+    >
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
@@ -496,17 +571,48 @@ export default function ExerciseSessionScreen() {
           />
         }
       >
-        <LastRefreshed label="Last session save" value={exerciseSessionsRefresh.label} />
-        <LastFailedAttempt
-          value={saveSessionError.label}
-          title={saveSessionError.lastError?.title}
-          message={saveSessionError.lastError?.message}
-          onClear={saveSessionError.lastError ? saveSessionError.clear : undefined}
-        />
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed label="Last session save" value={exerciseSessionsRefresh.label} compact />
+                <LastFailedAttempt
+                  value={saveSessionError.label}
+                  title={saveSessionError.lastError?.title}
+                  message={saveSessionError.lastError?.message}
+                  onClear={saveSessionError.lastError ? saveSessionError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="If you finish now, this session will be saved locally and queued."
+          />
+        ) : null}
 
         {notice ? (
-          <InlineNotice
-            variant={notice.variant}
+          <Banner
+            variant={toBannerVariant(notice.variant)}
             title={notice.title}
             message={notice.message}
             actionLabel={notice.actionLabel}
@@ -519,54 +625,151 @@ export default function ExerciseSessionScreen() {
             <ActivityIndicator size="small" />
           </View>
         ) : !plan ? (
-          <Section title="Today’s plan">
+          <Card variant="outlined" padding={tokens.spacing.md}>
             <Text style={styles.emptyText}>
               No plan assigned yet. Ask your clinician to assign one before starting a session.
             </Text>
-            <PrimaryButton
+            <SecondaryButton
               label="Back to plan"
               onPress={() => {
                 router.replace("/exercise-plan");
               }}
             />
-          </Section>
+          </Card>
         ) : (
           <>
-            <Section title="Session timer">
-              <Text style={styles.timerValue}>{formatDuration(elapsedSeconds)}</Text>
-              <Text style={styles.timerSubtext}>
-                Completed exercises: {completedCount}/{sessionExercises.length}
-              </Text>
-            </Section>
-
-            <Section title={plan.title}>
-              <View style={styles.exerciseList}>
-                {sessionExercises.map((item, index) => (
-                  <View
-                    key={`${item.itemKey}-${index}`}
-                    style={[
-                      styles.exerciseCard,
-                      item.completed ? styles.exerciseCardDone : null,
-                    ]}
-                  >
-                    <Text style={styles.exerciseName}>{item.nameSnapshot}</Text>
-                    <Text style={styles.exerciseDose}>{formatPlanDose(item)}</Text>
-                    <Text style={styles.exerciseInstructions}>{item.instructions}</Text>
-                    {item.completed ? (
-                      <Text style={styles.feedbackSummary}>
-                        {item.difficulty ? `Difficulty: ${item.difficulty} · ` : ""}
-                        {typeof item.painDuring === "number" ? `Pain: ${item.painDuring}/5` : "No feedback"}
-                      </Text>
-                    ) : null}
-                    <PrimaryButton
-                      label={item.completed ? "Edit feedback" : "Mark done"}
-                      onPress={() => openFeedback(index)}
-                    />
-                  </View>
-                ))}
+            <View style={styles.trackerGrid}>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="weekly"
+                  label="Elapsed"
+                  value={formatDuration(elapsedSeconds)}
+                  delta="Timer"
+                  tone="accent"
+                  micro={{ type: "dots", values: [elapsedSeconds, 0, 0, 0, 0, 0, 0] }}
+                />
               </View>
-            </Section>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="success"
+                  label="Completed"
+                  value={`${completedCount}/${sessionExercises.length}`}
+                  delta="Exercises"
+                  tone="success"
+                  micro={{
+                    type: "ring",
+                    progress:
+                      sessionExercises.length > 0
+                        ? Math.max(0, Math.min(1, completedCount / sessionExercises.length))
+                        : 0,
+                  }}
+                />
+              </View>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="insights"
+                  label="Difficulty"
+                  value={
+                    sessionExercises.find((item) => item.completed && item.difficulty)?.difficulty ?? "—"
+                  }
+                  delta="Latest"
+                  tone="primary"
+                  micro={{
+                    type: "dots",
+                    values: sessionExercises
+                      .slice(0, 7)
+                      .map((item) =>
+                        item.difficulty === "hard" ? 3 : item.difficulty === "ok" ? 2 : item.difficulty === "easy" ? 1 : 0
+                      ),
+                  }}
+                />
+              </View>
+              <View style={styles.trackerTileWrap}>
+                <TrackerTile
+                  icon="warning"
+                  label="Pain"
+                  value={averagePain !== null ? `${averagePain}/5` : "—"}
+                  delta="Average"
+                  tone="warning"
+                  micro={{
+                    type: "sparkline",
+                    values: sessionExercises
+                      .slice(0, 7)
+                      .map((item) => item.painDuring ?? 0),
+                    tone: "warning",
+                  }}
+                />
+              </View>
+            </View>
 
+            <Text style={styles.planTitle}>{plan.title}</Text>
+            <View style={styles.exerciseList}>
+              {sessionExercises.map((item, index) => (
+                <MediaCard
+                  key={`${item.itemKey}-${index}`}
+                  leading={{ type: "icon", icon: "exercise", tone: item.completed ? "success" : "accent" }}
+                  title={item.nameSnapshot}
+                  subtitle={item.instructions}
+                  chips={[
+                    ...(formatPlanDose(item) ? [{ text: formatPlanDose(item), tone: "muted" as const }] : []),
+                    ...(item.completed
+                      ? [{ text: "Done", tone: "success" as const }]
+                      : [{ text: "In progress", tone: "info" as const }]),
+                    ...(item.completed && !item.difficulty && typeof item.painDuring !== "number"
+                      ? [{ text: "Needs feedback", tone: "warning" as const }]
+                      : []),
+                  ].slice(0, 3)}
+                  statusPill={{
+                    text: item.completed ? "Done" : "In progress",
+                    tone: item.completed ? "success" : "info",
+                  }}
+                  actions={
+                    item.completed
+                      ? [
+                          {
+                            label: "Edit feedback",
+                            kind: "primary",
+                            onPress: () => openFeedback(index),
+                          },
+                          {
+                            label: "Undo",
+                            kind: "secondary",
+                            onPress: () => undoCompletion(index),
+                          },
+                        ]
+                      : [
+                          {
+                            label: "Mark done",
+                            kind: "primary",
+                            onPress: () => openFeedback(index),
+                          },
+                        ]
+                  }
+                />
+              ))}
+            </View>
+          </>
+        )}
+      </ScrollView>
+
+      <GlassPanel style={styles.footerPanel}>
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="If you finish now, it will be saved locally and submitted later."
+          />
+        ) : null}
+        <View style={styles.footerButtons}>
+          <View style={styles.footerButtonWrap}>
+            <SecondaryButton
+              label="View sessions"
+              onPress={() => {
+                router.replace("/exercise-sessions");
+              }}
+            />
+          </View>
+          <View style={styles.footerButtonWrap}>
             <PrimaryButton
               label={
                 queuedLocalId
@@ -581,9 +784,9 @@ export default function ExerciseSessionScreen() {
                 void finishSession();
               }}
             />
-          </>
-        )}
-      </ScrollView>
+          </View>
+        </View>
+      </GlassPanel>
 
       <Modal
         visible={Boolean(feedbackState)}
@@ -599,6 +802,8 @@ export default function ExerciseSessionScreen() {
               {(["easy", "ok", "hard"] as const).map((difficulty) => (
                 <Pressable
                   key={difficulty}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set difficulty ${difficulty}`}
                   onPress={() =>
                     setFeedbackState((current) =>
                       current
@@ -612,15 +817,13 @@ export default function ExerciseSessionScreen() {
                   style={({ pressed }) => [
                     styles.choiceChip,
                     feedbackState?.difficulty === difficulty ? styles.choiceChipActive : null,
-                    pressed ? styles.choiceChipPressed : null,
+                    pressed ? styles.pressed : null,
                   ]}
                 >
                   <Text
                     style={[
                       styles.choiceChipText,
-                      feedbackState?.difficulty === difficulty
-                        ? styles.choiceChipTextActive
-                        : null,
+                      feedbackState?.difficulty === difficulty ? styles.choiceChipTextActive : null,
                     ]}
                   >
                     {difficulty.toUpperCase()}
@@ -632,6 +835,8 @@ export default function ExerciseSessionScreen() {
             <Text style={styles.modalLabel}>Pain during (0-5)</Text>
             <View style={styles.painRow}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Decrease pain value"
                 onPress={() =>
                   setFeedbackState((current) =>
                     current
@@ -639,12 +844,14 @@ export default function ExerciseSessionScreen() {
                       : current
                   )
                 }
-                style={styles.painStepper}
+                style={({ pressed }) => [styles.painStepper, pressed ? styles.pressed : null]}
               >
                 <Text style={styles.painStepperText}>−</Text>
               </Pressable>
               <Text style={styles.painValue}>{feedbackState?.painDuring ?? 0}</Text>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Increase pain value"
                 onPress={() =>
                   setFeedbackState((current) =>
                     current
@@ -652,7 +859,7 @@ export default function ExerciseSessionScreen() {
                       : current
                   )
                 }
-                style={styles.painStepper}
+                style={({ pressed }) => [styles.painStepper, pressed ? styles.pressed : null]}
               >
                 <Text style={styles.painStepperText}>+</Text>
               </Pressable>
@@ -672,6 +879,7 @@ export default function ExerciseSessionScreen() {
                 )
               }
               placeholder="Short note (optional)"
+              placeholderTextColor={tokens.colors.textMuted}
               multiline
               numberOfLines={3}
               maxLength={280}
@@ -679,18 +887,9 @@ export default function ExerciseSessionScreen() {
             />
 
             <View style={styles.modalActions}>
-              <PrimaryButton
-                label="Cancel"
-                onPress={() => setFeedbackState(null)}
-              />
-              <PrimaryButton
-                label="Skip"
-                onPress={() => applyFeedback("skip")}
-              />
-              <PrimaryButton
-                label="Save"
-                onPress={() => applyFeedback("save")}
-              />
+              <SecondaryButton label="Cancel" onPress={() => setFeedbackState(null)} />
+              <SecondaryButton label="Skip" onPress={() => applyFeedback("skip")} />
+              <PrimaryButton label="Save" onPress={() => applyFeedback("save")} />
             </View>
           </View>
         </View>
@@ -699,159 +898,176 @@ export default function ExerciseSessionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 10,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 120,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 15,
-    color: "#374151",
-    lineHeight: 22,
-    marginBottom: 8,
-  },
-  timerValue: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  timerSubtext: {
-    fontSize: 14,
-    color: "#4b5563",
-  },
-  exerciseList: {
-    gap: 10,
-  },
-  exerciseCard: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    backgroundColor: "#ffffff",
-    padding: 12,
-    gap: 6,
-  },
-  exerciseCardDone: {
-    borderColor: "#86efac",
-    backgroundColor: "#f0fdf4",
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  exerciseDose: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  exerciseInstructions: {
-    fontSize: 14,
-    color: "#1f2937",
-    lineHeight: 20,
-  },
-  feedbackSummary: {
-    fontSize: 13,
-    color: "#065f46",
-    fontWeight: "500",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.32)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 420,
-    borderRadius: 12,
-    backgroundColor: "#ffffff",
-    padding: 14,
-    gap: 10,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  modalLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
-  },
-  choiceRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  choiceChip: {
-    minHeight: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ffffff",
-  },
-  choiceChipActive: {
-    borderColor: "#111827",
-    backgroundColor: "#111827",
-  },
-  choiceChipPressed: {
-    opacity: 0.8,
-  },
-  choiceChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  choiceChipTextActive: {
-    color: "#ffffff",
-  },
-  painRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  painStepper: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ffffff",
-  },
-  painStepperText: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  painValue: {
-    minWidth: 28,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  noteInput: {
-    minHeight: 80,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlignVertical: "top",
-    color: "#111827",
-    backgroundColor: "#ffffff",
-    fontSize: 14,
-  },
-  modalActions: {
-    gap: 8,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxxl,
+    },
+    centered: {
+      minHeight: 120,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    emptyText: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.textMuted,
+      marginBottom: tokens.spacing.sm,
+    },
+    planTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    exerciseList: {
+      gap: tokens.spacing.md,
+    },
+    footerPanel: {
+      marginTop: tokens.spacing.sm,
+    },
+    footerButtons: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+      marginTop: tokens.spacing.sm,
+    },
+    footerButtonWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: tokens.colors.overlay,
+      justifyContent: "center",
+      alignItems: "center",
+      padding: tokens.spacing.lg,
+    },
+    modalCard: {
+      width: "100%",
+      maxWidth: 420,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      padding: tokens.spacing.lg,
+      gap: tokens.spacing.sm,
+    },
+    modalTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    modalLabel: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    choiceRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    choiceChip: {
+      minHeight: 44,
+      borderRadius: tokens.radius.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      paddingHorizontal: tokens.spacing.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    choiceChipActive: {
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primary,
+    },
+    choiceChipText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    choiceChipTextActive: {
+      color: tokens.colors.primaryTextOn,
+    },
+    painRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+    },
+    painStepper: {
+      width: 44,
+      height: 44,
+      borderRadius: tokens.radius.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    painStepperText: {
+      fontSize: 20,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    painValue: {
+      minWidth: 28,
+      textAlign: "center",
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    noteInput: {
+      minHeight: 88,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.sm,
+      paddingHorizontal: tokens.spacing.sm + 2,
+      paddingVertical: tokens.spacing.sm,
+      textAlignVertical: "top",
+      color: tokens.colors.text,
+      backgroundColor: tokens.colors.surface,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    modalActions: {
+      gap: tokens.spacing.sm,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

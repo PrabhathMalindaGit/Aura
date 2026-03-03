@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -16,16 +17,23 @@ import {
   listExerciseSessions,
   type ExerciseSessionListItem,
 } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
-import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { MediaCard } from "@/src/components/MediaCard";
 import { Screen } from "@/src/components/Screen";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { getPending, removePending, type PendingExerciseSession } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { formatISOToHuman } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -36,6 +44,10 @@ type NoticeState = {
   actionLabel?: string;
   onAction?: () => void;
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 function toFriendlyError(error: unknown, title: string): {
   title: string;
@@ -111,6 +123,8 @@ export default function ExerciseSessionsScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const sessionsRefresh = useLastRefreshed("exerciseSessions");
   const sessionsLoadError = useLastError("exerciseSessionsLoad");
   const saveSessionError = useLastError("exerciseSessionSave");
@@ -122,6 +136,7 @@ export default function ExerciseSessionsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmittingPending, setIsSubmittingPending] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const pendingCount = pending.length;
 
@@ -287,9 +302,198 @@ export default function ExerciseSessionsScreen() {
     return `${pendingCount} pending upload${pendingCount === 1 ? "" : "s"}.`;
   }, [pendingCount]);
 
+  const avgDurationSeconds = useMemo(() => {
+    if (sessions.length === 0) {
+      return null;
+    }
+    return Math.round(
+      sessions.reduce((sum, item) => sum + item.durationSeconds, 0) / sessions.length
+    );
+  }, [sessions]);
+
+  const listHeader = useMemo(() => {
+    const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+
+    return (
+      <View style={styles.listHeader}>
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed value={sessionsRefresh.label} compact />
+                <LastFailedAttempt
+                  label="Last load issue"
+                  value={sessionsLoadError.label}
+                  title={sessionsLoadError.lastError?.title}
+                  message={sessionsLoadError.lastError?.message}
+                  onClear={sessionsLoadError.lastError ? sessionsLoadError.clear : undefined}
+                  compact
+                />
+                <LastFailedAttempt
+                  label="Last session save issue"
+                  value={saveSessionError.label}
+                  title={saveSessionError.lastError?.title}
+                  message={saveSessionError.lastError?.message}
+                  onClear={saveSessionError.lastError ? saveSessionError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Offline — pending sessions are safe locally. Connect to load or submit."
+          />
+        ) : null}
+
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
+            message={notice.message}
+            actionLabel={notice.actionLabel}
+            onAction={notice.onAction}
+          />
+        ) : null}
+
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCardWrap}>
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "exercise", tone: "accent" }}
+              title="Start a session"
+              subtitle="Log exercise completion"
+              chips={[{ text: `${sessions.length} recent`, tone: "muted" }]}
+              onPress={() => {
+                router.push("/exercise-session");
+              }}
+            />
+          </View>
+          <View style={styles.summaryCardWrap}>
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "warning", tone: "warning" }}
+              title={`Pending ${pendingCount}`}
+              subtitle={pendingSummary}
+              chips={[{ text: isOffline ? "Offline" : "Ready", tone: isOffline ? "warning" : "success" }]}
+              actions={[
+                {
+                  label: isSubmittingPending ? "Submitting…" : "Submit pending",
+                  kind: "primary",
+                  disabled: pendingCount === 0 || isSubmittingPending || isOffline,
+                  onPress: () => {
+                    void submitPending();
+                  },
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="weekly"
+              label="Recent"
+              value={`${sessions.length}`}
+              delta="Sessions"
+              tone="accent"
+              micro={{ type: "dots", values: [sessions.length, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="warning"
+              label="Pending"
+              value={`${pendingCount}`}
+              delta="Uploads"
+              tone="warning"
+              micro={{ type: "dots", values: [pendingCount, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="exercise"
+              label="Avg duration"
+              value={avgDurationSeconds !== null ? formatDuration(avgDurationSeconds) : "—"}
+              delta="Recent sessions"
+              tone="primary"
+              micro={{
+                type: "bars",
+                values: sessions.slice(0, 7).map((item) => item.durationSeconds),
+              }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="progress"
+              label="Sync state"
+              value={isOffline ? "Offline" : "Online"}
+              delta="Connection"
+              tone={isOffline ? "warning" : "success"}
+              micro={{ type: "dots", values: [isOffline ? 0 : 1, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }, [
+    avgDurationSeconds,
+    isOffline,
+    isSubmittingPending,
+    notice,
+    pendingCount,
+    pendingSummary,
+    router,
+    saveSessionError.clear,
+    saveSessionError.label,
+    saveSessionError.lastError?.message,
+    saveSessionError.lastError?.title,
+    sessions,
+    sessionsLoadError.clear,
+    sessionsLoadError.label,
+    sessionsLoadError.lastError?.message,
+    sessionsLoadError.lastError?.title,
+    sessionsRefresh.label,
+    showDiagnostics,
+    styles.diagContent,
+    styles.diagTitle,
+    styles.diagTitleRow,
+    styles.diagToggle,
+    styles.listHeader,
+    styles.pressed,
+    styles.summaryCardWrap,
+    styles.summaryRow,
+    styles.trackerGrid,
+    styles.trackerTileWrap,
+    submitPending,
+    tokens.spacing.md,
+  ]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Exercise sessions">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Exercise sessions" subtitle="Recent sessions" />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -302,125 +506,153 @@ export default function ExerciseSessionsScreen() {
   }
 
   return (
-    <Screen title="Exercise sessions">
-      <View style={styles.container}>
-        <LastRefreshed value={sessionsRefresh.label} />
-        <LastFailedAttempt
-          value={sessionsLoadError.label}
-          title={sessionsLoadError.lastError?.title}
-          message={sessionsLoadError.lastError?.message}
-          onClear={sessionsLoadError.lastError ? sessionsLoadError.clear : undefined}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Exercise sessions"
+          subtitle={pendingCount ? `Pending ${pendingCount} · Recent ${sessions.length}` : `Recent ${sessions.length}`}
+          left={
+            <Avatar
+              size={40}
+              name={auth.patient?.displayName ?? auth.patient?.id ?? "Patient"}
+              fallback="icon"
+              iconKey="exercise"
+            />
+          }
+          rightActions={[
+            {
+              icon: "exercise",
+              tone: "accent",
+              accessibilityLabel: "Start exercise session",
+              onPress: () => {
+                router.push("/exercise-session");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
         />
-        <LastFailedAttempt
-          label="Last session save issue"
-          value={saveSessionError.label}
-          title={saveSessionError.lastError?.title}
-          message={saveSessionError.lastError?.message}
-          onClear={saveSessionError.lastError ? saveSessionError.clear : undefined}
-        />
-
-        <View style={styles.pendingCard}>
-          <Text style={styles.pendingTitle}>Pending uploads: {pendingSummary}</Text>
-          <PrimaryButton
-            label={isSubmittingPending ? "Submitting…" : "Submit pending"}
-            loading={isSubmittingPending}
-            disabled={pendingCount === 0 || isSubmittingPending || isOffline}
+      }
+    >
+      <FlatList
+        data={sessions}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.container}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="small" />
+            </View>
+          ) : (
+            <Card variant="outlined" padding={tokens.spacing.md}>
+              <Text style={styles.emptyText}>Start a session from Today’s plan to see it here.</Text>
+            </Card>
+          )
+        }
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        renderItem={({ item }) => (
+          <MediaCard
+            leading={{ type: "icon", icon: "exercise", tone: "accent" }}
+            title={formatISOToHuman(item.startedAt)}
+            subtitle={`${formatDuration(item.durationSeconds)} · ${item.completedCount}/${item.exerciseCount} done`}
+            chips={[
+              ...(typeof item.avgPainDuring === "number"
+                ? [{ text: `Pain ${item.avgPainDuring}/5`, tone: "warning" as const }]
+                : [{ text: "Pain —", tone: "muted" as const }]),
+            ]}
+            statusPill={{ text: "Saved", tone: "info" }}
             onPress={() => {
-              void submitPending();
+              router.push({
+                pathname: "/exercise-session-detail",
+                params: { id: item.id },
+              });
             }}
           />
-        </View>
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — pending sessions are safe locally. Connect to load or submit."
-          />
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
-
-        {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-          </View>
-        ) : sessions.length === 0 ? (
-          <InlineNotice
-            variant="info"
-            title="No sessions yet"
-            message="Start a session from Today’s plan to see it here."
-          />
-        ) : (
-          <FlatList
-            data={sessions}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={() => {
-                  void loadSessions("refresh");
-                }}
-              />
-            }
-            renderItem={({ item }) => (
-              <PrimaryButton
-                label={`${formatISOToHuman(item.startedAt)} · ${formatDuration(
-                  item.durationSeconds
-                )} · ${item.completedCount}/${item.exerciseCount} done${
-                  typeof item.avgPainDuring === "number"
-                    ? ` · pain ${item.avgPainDuring}/5`
-                    : ""
-                }`}
-                onPress={() => {
-                  router.push({
-                    pathname: "/exercise-session-detail",
-                    params: { id: item.id },
-                  });
-                }}
-              />
-            )}
-            contentContainerStyle={styles.list}
-          />
         )}
-      </View>
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              void loadSessions("refresh");
+            }}
+          />
+        }
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    gap: 10,
-  },
-  centered: {
-    minHeight: 120,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pendingCard: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    backgroundColor: "#ffffff",
-    padding: 12,
-    gap: 8,
-  },
-  pendingTitle: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "600",
-  },
-  list: {
-    gap: 8,
-    paddingBottom: 16,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.md,
+    },
+    listSeparator: {
+      height: tokens.spacing.md,
+    },
+    centered: {
+      minHeight: 120,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    emptyText: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    summaryRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.md,
+    },
+    summaryCardWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

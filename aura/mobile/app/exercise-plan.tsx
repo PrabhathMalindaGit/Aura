@@ -1,11 +1,11 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Linking,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,12 +17,17 @@ import {
   type ExercisePlanItem,
   type TodayPlanResponse,
 } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
-import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { MediaCard } from "@/src/components/MediaCard";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedExercisePlan,
@@ -31,6 +36,7 @@ import {
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { formatISOToHuman } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -45,6 +51,10 @@ type PlanNotice = {
 };
 
 const DAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function toBannerVariant(variant: PlanNotice["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 function toFriendlyError(error: unknown): {
   title: string;
@@ -131,10 +141,50 @@ function formatDose(item: ExercisePlanItem): string {
   return parts.join(" · ");
 }
 
+function estimateMinutes(items: ExercisePlanItem[]): number | null {
+  if (items.length === 0) {
+    return null;
+  }
+
+  const totalSeconds = items.reduce((sum, item) => {
+    const sets = Math.max(1, item.sets ?? 1);
+    const reps = Math.max(0, item.reps ?? 0);
+    const hold = Math.max(0, item.holdSeconds ?? 0);
+    const rest = Math.max(0, item.restSeconds ?? 0);
+    const repWorkSeconds = reps * 3;
+    return sum + sets * (repWorkSeconds + hold) + Math.max(0, sets - 1) * rest;
+  }, 0);
+
+  return Math.max(1, Math.round(totalSeconds / 60));
+}
+
+function summarizeIntensity(items: ExercisePlanItem[]): string {
+  const counts = items.reduce(
+    (acc, item) => {
+      const value = item.intensity;
+      if (value === "easy" || value === "moderate" || value === "hard") {
+        acc[value] += 1;
+      }
+      return acc;
+    },
+    { easy: 0, moderate: 0, hard: 0 }
+  );
+
+  if (counts.hard > counts.moderate && counts.hard > counts.easy) {
+    return "Hard";
+  }
+  if (counts.moderate > 0 || counts.easy > 0) {
+    return counts.moderate >= counts.easy ? "Moderate" : "Easy";
+  }
+  return "—";
+}
+
 export default function ExercisePlanScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const exercisePlanRefresh = useLastRefreshed("exercisePlan");
   const exercisePlanError = useLastError("exercisePlanLoad");
 
@@ -144,6 +194,7 @@ export default function ExercisePlanScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<PlanNotice | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const loadPlan = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -266,9 +317,191 @@ export default function ExercisePlanScreen() {
     await Linking.openURL(trimmed);
   };
 
+  const plan = response?.plan ?? null;
+  const items = plan?.items ?? [];
+  const dayLabel =
+    response && response.dayOfWeek >= 0 && response.dayOfWeek <= 6
+      ? DAY_LABELS[response.dayOfWeek]
+      : null;
+
+  const estimatedMinutes = useMemo(() => estimateMinutes(items), [items]);
+  const intensityLabel = useMemo(() => summarizeIntensity(items), [items]);
+
+  const listHeader = useMemo(() => {
+    const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+    return (
+      <View style={styles.listHeader}>
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed value={exercisePlanRefresh.label} compact />
+                <LastFailedAttempt
+                  value={exercisePlanError.label}
+                  title={exercisePlanError.lastError?.title}
+                  message={exercisePlanError.lastError?.message}
+                  onClear={exercisePlanError.lastError ? exercisePlanError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Offline — showing saved plan."
+          />
+        ) : null}
+
+        {source === "cache" && !isOffline ? (
+          <Banner
+            variant="info"
+            title="Saved data"
+            message="Showing saved plan while live refresh is unavailable."
+          />
+        ) : null}
+
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
+            message={notice.message}
+            actionLabel={notice.actionLabel}
+            onAction={notice.onAction}
+          />
+        ) : null}
+
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="exercise"
+              label="Exercises"
+              value={`${items.length}`}
+              delta="Today"
+              tone="accent"
+              micro={{ type: "dots", values: [items.length, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="weekly"
+              label="Estimated time"
+              value={estimatedMinutes !== null ? `${estimatedMinutes} min` : "—"}
+              delta="Approx"
+              tone="primary"
+              micro={{ type: "dots", values: [estimatedMinutes ?? 0, 1, 2, 3, 4, 5, 6] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="insights"
+              label="Difficulty"
+              value={intensityLabel}
+              delta="Plan intensity"
+              tone="warning"
+              micro={{ type: "dots", values: [intensityLabel === "Hard" ? 3 : intensityLabel === "Moderate" ? 2 : intensityLabel === "Easy" ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="progress"
+              label="Status"
+              value={source === "live" ? "Live" : source === "cache" ? "Saved" : "None"}
+              delta="Data source"
+              tone={source === "live" ? "success" : source === "cache" ? "warning" : "muted"}
+              micro={{ type: "dots", values: [source === "live" ? 2 : source === "cache" ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+        </View>
+
+        <MediaCard
+          leading={{ type: "icon", icon: "exercise", tone: "accent" }}
+          title="Start today’s session"
+          subtitle="Log completion and how it felt"
+          chips={[
+            { text: isOffline ? "Offline mode" : "Ready", tone: isOffline ? "warning" : "success" },
+            { text: `${items.length} exercises`, tone: "muted" },
+          ]}
+          actions={[
+            {
+              label: "Start session",
+              kind: "primary",
+              onPress: () => {
+                router.push("/exercise-session");
+              },
+            },
+            {
+              label: "View sessions",
+              kind: "secondary",
+              onPress: () => {
+                router.push("/exercise-sessions");
+              },
+            },
+          ]}
+        />
+
+        {plan ? (
+          <Text style={styles.metaText}>
+            {dayLabel ? `${dayLabel} · ` : ""}
+            {response?.date ? formatISOToHuman(response.date) : "--"}
+            {" · "}
+            Version {plan.version} · Updated {formatISOToHuman(plan.updatedAt)}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }, [
+    dayLabel,
+    estimatedMinutes,
+    exercisePlanError.clear,
+    exercisePlanError.label,
+    exercisePlanError.lastError?.message,
+    exercisePlanError.lastError?.title,
+    exercisePlanRefresh.label,
+    intensityLabel,
+    isOffline,
+    items.length,
+    notice,
+    plan,
+    response?.date,
+    router,
+    showDiagnostics,
+    source,
+    styles.diagContent,
+    styles.diagTitle,
+    styles.diagTitleRow,
+    styles.diagToggle,
+    styles.listHeader,
+    styles.metaText,
+    styles.pressed,
+    styles.trackerGrid,
+    styles.trackerTileWrap,
+    tokens.spacing.md,
+  ]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Today’s plan">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Today’s plan" subtitle="Plan overview" />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -280,16 +513,101 @@ export default function ExercisePlanScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  const plan = response?.plan ?? null;
-  const dayLabel =
-    response && response.dayOfWeek >= 0 && response.dayOfWeek <= 6
-      ? DAY_LABELS[response.dayOfWeek]
-      : null;
-
   return (
-    <Screen title="Today’s plan">
-      <ScrollView
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Today’s plan"
+          subtitle={source === "live" ? "Up to date" : source === "cache" ? "Saved plan" : "Plan overview"}
+          left={
+            <Avatar
+              size={40}
+              name={auth.patient?.displayName ?? auth.patient?.id ?? "Patient"}
+              fallback="icon"
+              iconKey="exercise"
+              ring={isOffline ? "attention" : "none"}
+            />
+          }
+          rightActions={[
+            {
+              icon: "progress",
+              tone: "muted",
+              accessibilityLabel: "Open Progress",
+              onPress: () => {
+                router.push("/(tabs)/progress");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
+        />
+      }
+    >
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.key}
         contentContainerStyle={styles.container}
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="small" />
+            </View>
+          ) : (
+            <Card variant="outlined" padding={tokens.spacing.md}>
+              <Text style={styles.emptyText}>
+                No plan assigned yet. Your clinician will add one soon.
+              </Text>
+            </Card>
+          )
+        }
+        renderItem={({ item }) => {
+          const chips = [
+            ...(formatDose(item) ? [{ text: formatDose(item), tone: "muted" as const }] : []),
+            ...(item.intensity ? [{ text: item.intensity, tone: "info" as const }] : []),
+            ...(item.contraindications?.length
+              ? [{ text: `Caution ${item.contraindications.length}`, tone: "warning" as const }]
+              : []),
+          ].slice(0, 3);
+
+          return (
+            <MediaCard
+              leading={{ type: "icon", icon: "exercise", tone: "accent" }}
+              title={item.name}
+              subtitle={item.instructions}
+              chips={chips}
+              actions={[
+                {
+                  label: "Start",
+                  kind: "primary",
+                  onPress: () => {
+                    router.push("/exercise-session");
+                  },
+                },
+                ...(item.videoUrl
+                  ? [
+                      {
+                        label: "Open video",
+                        kind: "secondary" as const,
+                        onPress: () => {
+                          void openVideo(item.videoUrl ?? "");
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          );
+        }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -298,180 +616,77 @@ export default function ExercisePlanScreen() {
             }}
           />
         }
-      >
-        <LastRefreshed value={exercisePlanRefresh.label} />
-        <LastFailedAttempt
-          value={exercisePlanError.label}
-          title={exercisePlanError.lastError?.title}
-          message={exercisePlanError.lastError?.message}
-          onClear={exercisePlanError.lastError ? exercisePlanError.clear : undefined}
-        />
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — showing saved plan."
-          />
-        ) : null}
-
-        {source === "cache" && !isOffline ? (
-          <InlineNotice
-            variant="info"
-            title="Saved data"
-            message="Showing saved plan while live refresh is unavailable."
-          />
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
-
-        {isLoading && !response ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-          </View>
-        ) : !plan ? (
-          <Section title="Today’s plan">
-            <Text style={styles.emptyText}>
-              No plan assigned yet. Your clinician will add one soon.
-            </Text>
-          </Section>
-        ) : (
-          <Section title={plan.title}>
-            <Text style={styles.metaText}>
-              {dayLabel ? `${dayLabel} · ` : ""}
-              {response?.date ? formatISOToHuman(response.date) : "--"}
-            </Text>
-            <Text style={styles.metaText}>
-              Version {plan.version} · Updated {formatISOToHuman(plan.updatedAt)}
-            </Text>
-
-            <View style={styles.actionsRow}>
-              <PrimaryButton
-                label="Start session"
-                onPress={() => {
-                  router.push("/exercise-session");
-                }}
-              />
-              <PrimaryButton
-                label="View sessions"
-                onPress={() => {
-                  router.push("/exercise-sessions");
-                }}
-              />
-            </View>
-
-            <View style={styles.itemList}>
-              {plan.items.map((item) => (
-                <View key={item.key} style={styles.itemCard}>
-                  <Text style={styles.itemTitle}>{item.name}</Text>
-                  {formatDose(item) ? (
-                    <Text style={styles.itemDose}>{formatDose(item)}</Text>
-                  ) : null}
-                  <Text style={styles.itemInstructions}>{item.instructions}</Text>
-                  {item.videoUrl ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => {
-                        void openVideo(item.videoUrl ?? "");
-                      }}
-                      style={({ pressed }) => [
-                        styles.videoButton,
-                        pressed ? styles.videoButtonPressed : null,
-                      ]}
-                    >
-                      <Text style={styles.videoButtonText}>Open video</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          </Section>
-        )}
-
-        <Text style={styles.footerNote}>
-          If pain increases sharply, stop and contact your clinician.
-        </Text>
-      </ScrollView>
+        ListFooterComponent={<Text style={styles.footerNote}>If pain increases sharply, stop and contact your clinician.</Text>}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  centered: {
-    minHeight: 120,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 15,
-    color: "#374151",
-    lineHeight: 22,
-  },
-  metaText: {
-    fontSize: 13,
-    color: "#4b5563",
-    marginBottom: 4,
-  },
-  itemList: {
-    gap: 10,
-  },
-  actionsRow: {
-    gap: 8,
-    marginBottom: 4,
-  },
-  itemCard: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    padding: 12,
-    gap: 6,
-    backgroundColor: "#ffffff",
-  },
-  itemTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  itemDose: {
-    fontSize: 13,
-    color: "#1f2937",
-    fontWeight: "500",
-  },
-  itemInstructions: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#374151",
-  },
-  videoButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: "#e5e7eb",
-  },
-  videoButtonPressed: {
-    opacity: 0.75,
-  },
-  videoButtonText: {
-    fontSize: 13,
-    color: "#1f2937",
-    fontWeight: "600",
-  },
-  footerNote: {
-    fontSize: 13,
-    color: "#6b7280",
-    lineHeight: 19,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.md,
+    },
+    listSeparator: {
+      height: tokens.spacing.md,
+    },
+    centered: {
+      minHeight: 120,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    emptyText: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    metaText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    footerNote: {
+      marginTop: tokens.spacing.md,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

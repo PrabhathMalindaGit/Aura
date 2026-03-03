@@ -39,6 +39,34 @@ function getOfflineSignal(): boolean {
   return false;
 }
 
+function hasDOMException(): boolean {
+  return typeof (globalThis as { DOMException?: unknown }).DOMException !== "undefined";
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  const candidate = error as { name?: unknown; message?: unknown } | null;
+  const name = typeof candidate?.name === "string" ? candidate.name : "";
+  const message = String(candidate?.message ?? "");
+
+  if (name === "AbortError") {
+    return true;
+  }
+  if (message.toLowerCase().includes("aborted")) {
+    return true;
+  }
+  if (hasDOMException()) {
+    const DOMEx = (globalThis as { DOMException?: unknown }).DOMException;
+    try {
+      if (typeof DOMEx === "function" && error instanceof (DOMEx as new (...args: never[]) => object)) {
+        return true;
+      }
+    } catch {
+      // no-op: guard against invalid global constructors.
+    }
+  }
+  return false;
+}
+
 function buildApiError(error: ApiError): ApiError {
   return error;
 }
@@ -166,7 +194,7 @@ export async function apiFetchJson<T>(
       throw error;
     }
 
-    if (error instanceof DOMException && error.name === "AbortError") {
+    if (isAbortLikeError(error)) {
       throw buildApiError({
         title: "Timed out",
         message: "The request timed out. Please try again.",

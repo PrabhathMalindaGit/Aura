@@ -5,7 +5,10 @@ import { Platform } from "react-native";
 import { logger } from "@/src/utils/logger";
 
 export const TOKEN_KEY = "aura_patientToken_v1";
-const LEGACY_TOKEN_KEY = "aura:patientToken:v1";
+
+function sanitizeSecureStoreKey(key: string): string {
+  return key.replace(/[^A-Za-z0-9._-]/g, "_");
+}
 
 function getWebLocalStorage(): Storage | null {
   if (typeof globalThis === "undefined") {
@@ -96,23 +99,9 @@ async function getWebToken(): Promise<string | null> {
     return current;
   }
 
-  const legacy = await getWebValueFromAsyncStorage(LEGACY_TOKEN_KEY);
-  if (legacy) {
-    await setWebValue(TOKEN_KEY, legacy);
-    await removeWebValue(LEGACY_TOKEN_KEY);
-    return legacy;
-  }
-
   const localCurrent = getWebValueFromLocalStorage(TOKEN_KEY);
   if (localCurrent) {
     return localCurrent;
-  }
-
-  const localLegacy = getWebValueFromLocalStorage(LEGACY_TOKEN_KEY);
-  if (localLegacy) {
-    await setWebValue(TOKEN_KEY, localLegacy);
-    await removeWebValue(LEGACY_TOKEN_KEY);
-    return localLegacy;
   }
 
   return null;
@@ -120,19 +109,19 @@ async function getWebToken(): Promise<string | null> {
 
 async function setWebToken(token: string): Promise<void> {
   await setWebValue(TOKEN_KEY, token);
-  await removeWebValue(LEGACY_TOKEN_KEY);
 }
 
 async function clearWebToken(): Promise<void> {
-  await Promise.all([removeWebValue(TOKEN_KEY), removeWebValue(LEGACY_TOKEN_KEY)]);
+  await removeWebValue(TOKEN_KEY);
 }
 
 async function getSecureValue(key: string): Promise<string | null> {
+  const safeKey = sanitizeSecureStoreKey(key);
   try {
-    return await SecureStore.getItemAsync(key);
+    return await SecureStore.getItemAsync(safeKey);
   } catch (error) {
     logger.warn("SecureStore read failed", {
-      key,
+      key: safeKey,
       message: error instanceof Error ? error.message : String(error),
     });
     return null;
@@ -140,22 +129,24 @@ async function getSecureValue(key: string): Promise<string | null> {
 }
 
 async function setSecureValue(key: string, value: string): Promise<void> {
+  const safeKey = sanitizeSecureStoreKey(key);
   try {
-    await SecureStore.setItemAsync(key, value);
+    await SecureStore.setItemAsync(safeKey, value);
   } catch (error) {
     logger.warn("SecureStore write failed", {
-      key,
+      key: safeKey,
       message: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
 async function deleteSecureValue(key: string): Promise<void> {
+  const safeKey = sanitizeSecureStoreKey(key);
   try {
-    await SecureStore.deleteItemAsync(key);
+    await SecureStore.deleteItemAsync(safeKey);
   } catch (error) {
     logger.warn("SecureStore delete failed", {
-      key,
+      key: safeKey,
       message: error instanceof Error ? error.message : String(error),
     });
   }
@@ -166,19 +157,7 @@ export async function getToken(): Promise<string | null> {
     return getWebToken();
   }
 
-  const current = await getSecureValue(TOKEN_KEY);
-  if (current) {
-    return current;
-  }
-
-  const legacy = await getSecureValue(LEGACY_TOKEN_KEY);
-  if (!legacy) {
-    return null;
-  }
-
-  await setSecureValue(TOKEN_KEY, legacy);
-  await deleteSecureValue(LEGACY_TOKEN_KEY);
-  return legacy;
+  return getSecureValue(TOKEN_KEY);
 }
 
 export async function setToken(token: string): Promise<void> {
@@ -188,7 +167,6 @@ export async function setToken(token: string): Promise<void> {
   }
 
   await setSecureValue(TOKEN_KEY, token);
-  await deleteSecureValue(LEGACY_TOKEN_KEY);
 }
 
 export async function clearToken(): Promise<void> {
@@ -197,5 +175,5 @@ export async function clearToken(): Promise<void> {
     return;
   }
 
-  await Promise.all([deleteSecureValue(TOKEN_KEY), deleteSecureValue(LEGACY_TOKEN_KEY)]);
+  await deleteSecureValue(TOKEN_KEY);
 }

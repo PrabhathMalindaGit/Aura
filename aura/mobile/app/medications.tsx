@@ -1,9 +1,9 @@
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -20,12 +20,17 @@ import {
   type MedicationLogPayload,
   type MedicationTodayResponse,
 } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
-import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { MediaCard } from "@/src/components/MediaCard";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedMedicationToday,
@@ -44,6 +49,7 @@ import {
   type PendingMedicationLog,
 } from "@/src/state/pendingMedicationLogs";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -52,6 +58,10 @@ type NoticeState = {
   title: string;
   message: string;
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 function toFriendlyMedicationError(error: unknown, title: string): {
   title: string;
@@ -212,23 +222,14 @@ function applyDoseUpdate(
   };
 }
 
-function statusStyle(status: MedicationDose["status"]) {
+function toDosePillVariant(status: MedicationDose["status"]): "neutral" | "success" | "warning" {
   if (status === "taken") {
-    return {
-      backgroundColor: "#dcfce7",
-      color: "#166534",
-    };
+    return "success";
   }
   if (status === "skipped") {
-    return {
-      backgroundColor: "#fee2e2",
-      color: "#991b1b",
-    };
+    return "warning";
   }
-  return {
-    backgroundColor: "#e5e7eb",
-    color: "#374151",
-  };
+  return "neutral";
 }
 
 function formatTimeLabel(value: string): string {
@@ -245,7 +246,10 @@ function formatTimeLabel(value: string): string {
 
 export default function MedicationsScreen() {
   const auth = useAuth();
+  const router = useRouter();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const medicationsRefresh = useLastRefreshed("medications");
   const medicationsLoadError = useLastError("medicationsLoad");
   const medicationLogError = useLastError("medicationLog");
@@ -261,6 +265,7 @@ export default function MedicationsScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeDoseKey, setActiveDoseKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const pendingCount = pendingLogs.length;
   const takenCount = useMemo(
@@ -276,6 +281,7 @@ export default function MedicationsScreen() {
       todayChecklist?.items.reduce((sum, item) => sum + item.doses.length, 0) ?? 0,
     [todayChecklist]
   );
+  const doseProgress = totalDoses > 0 ? Math.max(0, Math.min(1, takenCount / totalDoses)) : 0;
 
   const reloadPending = useCallback(async () => {
     if (!patientId) {
@@ -558,9 +564,188 @@ export default function MedicationsScreen() {
     reloadPending,
   ]);
 
+  const listHeader = useMemo(() => {
+    const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+
+    return (
+      <View style={styles.listHeader}>
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed value={medicationsRefresh.label} compact />
+                <LastFailedAttempt
+                  label="Last load failure"
+                  value={medicationsLoadError.label}
+                  title={medicationsLoadError.lastError?.title}
+                  message={medicationsLoadError.lastError?.message}
+                  onClear={medicationsLoadError.lastError ? medicationsLoadError.clear : undefined}
+                  compact
+                />
+                <LastFailedAttempt
+                  label="Last log failure"
+                  value={medicationLogError.label}
+                  title={medicationLogError.lastError?.title}
+                  message={medicationLogError.lastError?.message}
+                  onClear={medicationLogError.lastError ? medicationLogError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Dose updates are queued locally and marked pending."
+          />
+        ) : null}
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
+            message={notice.message}
+          />
+        ) : null}
+
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="meds"
+              label="Taken"
+              value={`${takenCount}/${totalDoses}`}
+              delta="Today's doses"
+              tone="success"
+              micro={{ type: "ring", progress: doseProgress }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="warning"
+              label="Pending"
+              value={`${pendingCount}`}
+              delta="Awaiting sync"
+              tone="warning"
+              micro={{ type: "dots", values: [pendingCount, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="info"
+              label="Today"
+              value={today}
+              delta="Checklist date"
+              tone="muted"
+              micro={{ type: "dots", values: [1, 2, 3, 4, 5, 6, 7] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="progress"
+              label="Sync"
+              value={isOffline ? "Offline" : "Ready"}
+              delta="Medication logs"
+              tone={isOffline ? "warning" : "accent"}
+              micro={{ type: "dots", values: [pendingCount, takenCount, totalDoses, 0, 0, 0, 0] }}
+            />
+          </View>
+        </View>
+
+        {pendingCount > 0 ? (
+          <MediaCard
+            leading={{ type: "icon", icon: "warning", tone: "warning" }}
+            title="Pending sync"
+            subtitle={`${pendingCount} medication log${pendingCount === 1 ? "" : "s"} waiting`}
+            actions={[
+              {
+                label: isSyncing ? "Syncing..." : "Sync now",
+                kind: "primary",
+                disabled: isOffline || isSyncing,
+                onPress: () => {
+                  void syncPending();
+                },
+              },
+            ]}
+          />
+        ) : null}
+
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.noteCard}>
+            <Text style={styles.noteTitle}>Optional note for next dose log</Text>
+            <TextInput
+              value={noteDraft}
+              onChangeText={(value) => setNoteDraft(value.slice(0, 280))}
+              multiline
+              maxLength={280}
+              placeholder="Optional short note"
+              placeholderTextColor={tokens.colors.textMuted}
+              style={styles.noteInput}
+            />
+            <Text style={styles.metaText}>{noteDraft.length}/280</Text>
+          </View>
+        </Card>
+      </View>
+    );
+  }, [
+    doseProgress,
+    isOffline,
+    isSyncing,
+    medicationLogError.clear,
+    medicationLogError.label,
+    medicationLogError.lastError?.message,
+    medicationLogError.lastError?.title,
+    medicationsLoadError.clear,
+    medicationsLoadError.label,
+    medicationsLoadError.lastError?.message,
+    medicationsLoadError.lastError?.title,
+    medicationsRefresh.label,
+    notice,
+    noteDraft,
+    pendingCount,
+    setNoteDraft,
+    showDiagnostics,
+    styles.diagContent,
+    styles.diagTitle,
+    styles.diagTitleRow,
+    styles.diagToggle,
+    styles.listHeader,
+    styles.metaText,
+    styles.noteCard,
+    styles.noteInput,
+    styles.noteTitle,
+    styles.pressed,
+    styles.trackerGrid,
+    styles.trackerTileWrap,
+    syncPending,
+    takenCount,
+    today,
+    tokens.colors.textMuted,
+    tokens.spacing.md,
+    totalDoses,
+  ]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Medications">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Medications" subtitle="Daily checklist" />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -573,229 +758,288 @@ export default function MedicationsScreen() {
   }
 
   return (
-    <Screen title="Medications">
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed value={medicationsRefresh.label} />
-        <LastFailedAttempt
-          value={medicationsLoadError.label}
-          title={medicationsLoadError.lastError?.title}
-          message={medicationsLoadError.lastError?.message}
-          onClear={medicationsLoadError.lastError ? medicationsLoadError.clear : undefined}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Medications"
+          subtitle={`Taken ${takenCount}/${totalDoses} · Pending ${pendingCount}`}
+          left={<Avatar size={40} name="Medications" fallback="icon" iconKey="meds" />}
+          rightActions={[
+            {
+              icon: "progress",
+              tone: "accent",
+              accessibilityLabel: "Open Progress",
+              onPress: () => {
+                router.push("/(tabs)/progress");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
         />
-        <LastFailedAttempt
-          value={medicationLogError.label}
-          title={medicationLogError.lastError?.title}
-          message={medicationLogError.lastError?.message}
-          onClear={medicationLogError.lastError ? medicationLogError.clear : undefined}
-        />
-
-        <Section title="Today">
-          <Text style={styles.bodyText}>Date: {today}</Text>
-          <Text style={styles.bodyText}>Taken: {takenCount} / {totalDoses}</Text>
-          <Text style={styles.bodyText}>Pending sync: {pendingCount}</Text>
-          {pendingCount > 0 ? (
-            <PrimaryButton
-              label={isSyncing ? "Syncing..." : "Sync now"}
-              loading={isSyncing}
-              disabled={isOffline || isSyncing}
-              onPress={() => {
-                void syncPending();
-              }}
-            />
-          ) : null}
-        </Section>
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Dose updates are queued locally and marked pending."
-          />
-        ) : null}
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-
-        <Section title="Optional note for next dose log">
-          <TextInput
-            value={noteDraft}
-            onChangeText={(value) => setNoteDraft(value.slice(0, 280))}
-            multiline
-            maxLength={280}
-            placeholder="Optional short note"
-            style={styles.noteInput}
-          />
-          <Text style={styles.metaText}>{noteDraft.length}/280</Text>
-        </Section>
-
-        <Section title="Today checklist">
-          {isLoading ? (
+      }
+    >
+      <FlatList
+        data={todayChecklist?.items ?? []}
+        keyExtractor={(item) => item.medicationId}
+        contentContainerStyle={styles.container}
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
-          ) : !todayChecklist || todayChecklist.items.length === 0 ? (
-            <Text style={styles.metaText}>No active medications scheduled for today.</Text>
           ) : (
-            <View style={styles.stack}>
-              {todayChecklist.items.map((item) => (
-                <View key={item.medicationId} style={styles.card}>
-                  <Text style={styles.cardTitle}>
-                    {item.name} ({item.type})
-                  </Text>
-                  {item.instructions ? (
-                    <Text style={styles.metaText}>Instructions: {item.instructions}</Text>
-                  ) : null}
+            <Card variant="outlined" padding={tokens.spacing.md}>
+              <Text style={styles.metaText}>No active medications scheduled for today.</Text>
+            </Card>
+          )
+        }
+        renderItem={({ item }) => {
+          const pendingDoseCount = item.doses.filter((dose) => dose.pending).length;
+          const takenDoseCount = item.doses.filter((dose) => dose.status === "taken").length;
+          const dueDoseCount = item.doses.filter((dose) => dose.status === "due").length;
+          const allTaken = item.doses.length > 0 && takenDoseCount === item.doses.length;
 
-                  {item.doses.length === 0 ? (
-                    <Text style={styles.metaText}>No doses due for this date.</Text>
-                  ) : (
-                    <View style={styles.stack}>
-                      {item.doses.map((dose) => {
-                        const key = `${item.medicationId}:${dose.time}`;
-                        const statusChip = statusStyle(dose.status);
-                        return (
-                          <View key={key} style={styles.doseRow}>
-                            <View style={styles.doseMain}>
-                              <Text style={styles.bodyText}>{formatTimeLabel(dose.time)}</Text>
-                              <Text
-                                style={[
-                                  styles.statusChip,
-                                  { backgroundColor: statusChip.backgroundColor, color: statusChip.color },
-                                ]}
-                              >
-                                {dose.status.toUpperCase()}
-                                {dose.pending ? " (PENDING)" : ""}
-                              </Text>
-                            </View>
-                            <View style={styles.actionRow}>
-                              <Pressable
-                                style={styles.actionButton}
-                                disabled={activeDoseKey === key}
-                                onPress={() => {
-                                  void handleDoseAction({
-                                    medicationId: item.medicationId,
-                                    date: today,
-                                    time: dose.time,
-                                    status: "taken",
-                                  });
-                                }}
-                              >
-                                <Text style={styles.actionButtonText}>Taken</Text>
-                              </Pressable>
-                              <Pressable
-                                style={[styles.actionButton, styles.actionButtonSecondary]}
-                                disabled={activeDoseKey === key}
-                                onPress={() => {
-                                  void handleDoseAction({
-                                    medicationId: item.medicationId,
-                                    date: today,
-                                    time: dose.time,
-                                    status: "skipped",
-                                  });
-                                }}
-                              >
-                                <Text style={styles.actionButtonText}>Skipped</Text>
-                              </Pressable>
-                            </View>
+          return (
+            <View style={styles.medicationItem}>
+              <MediaCard
+                leading={{ type: "icon", icon: "meds", tone: pendingDoseCount > 0 ? "warning" : "accent" }}
+                title={`${item.name} (${item.type})`}
+                subtitle={item.instructions ? `Instructions: ${item.instructions}` : "Today's schedule"}
+                chips={[
+                  { text: `${item.doses.length} dose(s)`, tone: "muted" },
+                  ...(pendingDoseCount > 0
+                    ? [{ text: "Pending", tone: "warning" as const }]
+                    : []),
+                  ...(dueDoseCount > 0 ? [{ text: "Due", tone: "info" as const }] : []),
+                ]}
+                statusPill={
+                  pendingDoseCount > 0
+                    ? { text: "Pending", tone: "warning" }
+                    : allTaken
+                      ? { text: "Done", tone: "success" }
+                      : { text: "Due", tone: "info" }
+                }
+              />
+              <Card variant="outlined" padding={tokens.spacing.md}>
+                {item.doses.length === 0 ? (
+                  <Text style={styles.metaText}>No doses due for this date.</Text>
+                ) : (
+                  <View style={styles.doseList}>
+                    {item.doses.map((dose) => {
+                      const key = `${item.medicationId}:${dose.time}`;
+                      const isBusy = activeDoseKey === key;
+                      return (
+                        <View key={key} style={styles.doseRow}>
+                          <View style={styles.doseMain}>
+                            <Text style={styles.doseTime}>{formatTimeLabel(dose.time)}</Text>
+                            <StatusPill
+                              label={`${dose.status.toUpperCase()}${dose.pending ? " (PENDING)" : ""}`}
+                              variant={toDosePillVariant(dose.status)}
+                            />
                           </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              ))}
+                          <View style={styles.actionRow}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Mark ${item.name} dose at ${formatTimeLabel(dose.time)} as taken`}
+                              disabled={isBusy}
+                              onPress={() => {
+                                void handleDoseAction({
+                                  medicationId: item.medicationId,
+                                  date: today,
+                                  time: dose.time,
+                                  status: "taken",
+                                });
+                              }}
+                              style={({ pressed }) => [
+                                styles.actionButton,
+                                isBusy ? styles.actionButtonDisabled : null,
+                                pressed ? styles.pressed : null,
+                              ]}
+                            >
+                              <Text style={styles.actionButtonText}>Taken</Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={`Mark ${item.name} dose at ${formatTimeLabel(dose.time)} as skipped`}
+                              disabled={isBusy}
+                              onPress={() => {
+                                void handleDoseAction({
+                                  medicationId: item.medicationId,
+                                  date: today,
+                                  time: dose.time,
+                                  status: "skipped",
+                                });
+                              }}
+                              style={({ pressed }) => [
+                                styles.actionButtonSecondary,
+                                isBusy ? styles.actionButtonDisabled : null,
+                                pressed ? styles.pressed : null,
+                              ]}
+                            >
+                              <Text style={styles.actionButtonSecondaryText}>Skipped</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </Card>
             </View>
-          )}
-        </Section>
-      </ScrollView>
+          );
+        }}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 100,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stack: {
-    gap: 8,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    backgroundColor: "#fff",
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  bodyText: {
-    fontSize: 14,
-    color: "#111827",
-  },
-  metaText: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  noteInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    minHeight: 80,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    textAlignVertical: "top",
-    fontSize: 14,
-    color: "#111827",
-    backgroundColor: "#fff",
-  },
-  doseRow: {
-    gap: 8,
-  },
-  doseMain: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  statusChip: {
-    fontSize: 11,
-    fontWeight: "700",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: "#111827",
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  actionButtonSecondary: {
-    backgroundColor: "#374151",
-  },
-  actionButtonText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.md,
+    },
+    listSeparator: {
+      height: tokens.spacing.md,
+    },
+    centered: {
+      minHeight: 100,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    metaText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    noteCard: {
+      gap: tokens.spacing.xs,
+    },
+    noteTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    noteInput: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      minHeight: 88,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm + 2,
+      textAlignVertical: "top",
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.text,
+      backgroundColor: tokens.colors.surface,
+    },
+    medicationItem: {
+      gap: tokens.spacing.sm,
+    },
+    doseList: {
+      gap: tokens.spacing.sm,
+    },
+    doseRow: {
+      gap: tokens.spacing.sm,
+    },
+    doseMain: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    doseTime: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    actionButton: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.md,
+    },
+    actionButtonSecondary: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.md,
+    },
+    actionButtonDisabled: {
+      opacity: 0.55,
+    },
+    actionButtonText: {
+      color: tokens.colors.primaryTextOn,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    actionButtonSecondaryText: {
+      color: tokens.colors.accent,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

@@ -1,9 +1,9 @@
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -20,12 +20,19 @@ import {
   type NutritionLogPayload,
 } from "@/src/api/patient";
 import { isApiError, type ApiError } from "@/src/api/client";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedNutritionDay,
@@ -43,6 +50,7 @@ import {
   type PendingNutritionEntry,
 } from "@/src/state/pendingNutrition";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -66,6 +74,10 @@ type SummaryState = {
   avgFruitVegServings: number | null;
   proteinOkHighDays: number;
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 function toFriendlyNutritionError(error: unknown, title: string): {
   title: string;
@@ -202,7 +214,10 @@ function formatTime(iso: string): string {
 
 export default function NutritionScreen() {
   const auth = useAuth();
+  const router = useRouter();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const nutritionRefresh = useLastRefreshed("nutrition");
   const nutritionLoadError = useLastError("nutritionLoad");
   const nutritionLogError = useLastError("nutritionLog");
@@ -219,6 +234,7 @@ export default function NutritionScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const today = useMemo(() => todayISO(), []);
   const rangeFrom = useMemo(() => addDaysISO(today, -6), [today]);
@@ -234,6 +250,9 @@ export default function NutritionScreen() {
     }
     return todayEntry;
   }, [todayEntry, todayPending]);
+  const trackedRatio = Math.max(0, Math.min(1, summary.trackedDays / 7));
+  const todayLoggedRatio = currentEntry ? 1 : 0;
+  const pendingCount = pendingEntries.length;
 
   const reloadPending = useCallback(async () => {
     if (!patientId) {
@@ -504,9 +523,379 @@ export default function NutritionScreen() {
     reloadPending,
   ]);
 
+  const listHeader = useMemo(() => {
+    const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+
+    return (
+      <View style={styles.listHeader}>
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed value={nutritionRefresh.label} compact />
+                <LastFailedAttempt
+                  label="Last load failure"
+                  value={nutritionLoadError.label}
+                  title={nutritionLoadError.lastError?.title}
+                  message={nutritionLoadError.lastError?.message}
+                  onClear={nutritionLoadError.lastError ? nutritionLoadError.clear : undefined}
+                  compact
+                />
+                <LastFailedAttempt
+                  label="Last log failure"
+                  value={nutritionLogError.label}
+                  title={nutritionLogError.lastError?.title}
+                  message={nutritionLogError.lastError?.message}
+                  onClear={nutritionLogError.lastError ? nutritionLogError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Nutrition logs are queued locally and marked pending."
+          />
+        ) : null}
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
+            message={notice.message}
+          />
+        ) : null}
+
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="nutrition"
+              label="Today logged"
+              value={currentEntry ? "Yes" : "No"}
+              delta="Daily log"
+              tone={currentEntry ? "success" : "muted"}
+              micro={{ type: "ring", progress: todayLoggedRatio }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="warning"
+              label="Pending"
+              value={`${pendingCount}`}
+              delta="Awaiting sync"
+              tone="warning"
+              micro={{ type: "dots", values: [pendingCount, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="progress"
+              label="Tracked days"
+              value={`${summary.trackedDays}/7`}
+              delta="Last week"
+              tone="accent"
+              micro={{ type: "ring", progress: trackedRatio }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="nutrition"
+              label="Avg fruit/veg"
+              value={summary.avgFruitVegServings !== null ? `${summary.avgFruitVegServings}` : "—"}
+              delta="Servings/day"
+              tone="primary"
+              micro={{ type: "dots", values: [summary.trackedDays, summary.proteinOkHighDays, 1, 2, 3, 4, 5] }}
+            />
+          </View>
+        </View>
+
+        <MediaCard
+          leading={{ type: "icon", icon: "nutrition", tone: "accent" }}
+          title={`Today · ${today}`}
+          subtitle={
+            currentEntry
+              ? `Saved at ${formatTime(currentEntry.createdAt)}${currentEntry.pending ? " (Pending sync)" : ""}`
+              : "No log yet for today."
+          }
+          chips={[
+            { text: pendingCount > 0 ? `Pending ${pendingCount}` : "No pending", tone: pendingCount > 0 ? "warning" : "muted" },
+          ]}
+        />
+
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.formCard}>
+            <Text style={styles.label}>Protein adequacy</Text>
+            <View style={styles.chipRow}>
+              {(["low", "ok", "high"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Protein ${option}`}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    form.protein === option ? styles.chipSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  onPress={() => setForm((prev) => ({ ...prev, protein: option }))}
+                >
+                  <Text style={form.protein === option ? styles.chipTextSelected : styles.chipText}>
+                    {option.toUpperCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Fruit/veg servings</Text>
+            <View style={styles.stepperRow}>
+              <View style={styles.stepperButtonWrap}>
+                <SecondaryButton
+                  label="-"
+                  disabled={form.fruitVegServings <= 0}
+                  onPress={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fruitVegServings: Math.max(0, prev.fruitVegServings - 1),
+                    }))
+                  }
+                />
+              </View>
+              <Text style={styles.stepperValue}>{form.fruitVegServings}</Text>
+              <View style={styles.stepperButtonWrap}>
+                <SecondaryButton
+                  label="+"
+                  disabled={form.fruitVegServings >= 6}
+                  onPress={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      fruitVegServings: Math.min(6, prev.fruitVegServings + 1),
+                    }))
+                  }
+                />
+              </View>
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.label}>Anti-inflammatory focus</Text>
+              <Switch
+                value={form.antiInflammatoryFocus}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, antiInflammatoryFocus: value }))
+                }
+              />
+            </View>
+
+            <Text style={styles.label}>Meal regularity</Text>
+            <View style={styles.chipRow}>
+              {(["irregular", "mostly", "regular"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Meal regularity ${option}`}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    form.mealRegularity === option ? styles.chipSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  onPress={() =>
+                    setForm((prev) => ({ ...prev, mealRegularity: option }))
+                  }
+                >
+                  <Text
+                    style={
+                      form.mealRegularity === option ? styles.chipTextSelected : styles.chipText
+                    }
+                  >
+                    {option}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Appetite (optional)</Text>
+            <View style={styles.chipRow}>
+              {(["low", "normal", "high"] as const).map((option) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Appetite ${option}`}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    form.appetite === option ? styles.chipSelected : null,
+                    pressed ? styles.pressed : null,
+                  ]}
+                  onPress={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      appetite: prev.appetite === option ? null : option,
+                    }))
+                  }
+                >
+                  <Text style={form.appetite === option ? styles.chipTextSelected : styles.chipText}>
+                    {option}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Notes (optional)</Text>
+            <TextInput
+              value={form.notes}
+              onChangeText={(value) =>
+                setForm((prev) => ({ ...prev, notes: value.slice(0, 280) }))
+              }
+              multiline
+              maxLength={280}
+              placeholder="Optional short note"
+              placeholderTextColor={tokens.colors.textMuted}
+              style={styles.notesInput}
+            />
+            <Text style={styles.metaText}>{form.notes.length}/280</Text>
+
+            <PrimaryButton
+              label={isSaving ? "Saving..." : "Save today"}
+              loading={isSaving}
+              disabled={isSaving}
+              onPress={() => {
+                void handleSaveToday();
+              }}
+            />
+            <SecondaryButton
+              label="Clear"
+              onPress={() => {
+                setForm(toFormState(null));
+              }}
+            />
+            {pendingCount > 0 ? (
+              <PrimaryButton
+                label={isSyncing ? "Syncing..." : "Sync now"}
+                loading={isSyncing}
+                disabled={isOffline || isSyncing}
+                onPress={() => {
+                  void handleSyncPending();
+                }}
+              />
+            ) : null}
+          </View>
+        </Card>
+
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryTileWrap}>
+              <TrackerTile
+                icon="progress"
+                label="Tracked days"
+                value={`${summary.trackedDays}`}
+                delta="Last 7 days"
+                tone="accent"
+                micro={{ type: "ring", progress: trackedRatio }}
+                variant="compact"
+              />
+            </View>
+            <View style={styles.summaryTileWrap}>
+              <TrackerTile
+                icon="nutrition"
+                label="Avg fruit/veg"
+                value={summary.avgFruitVegServings !== null ? `${summary.avgFruitVegServings}` : "—"}
+                delta="Servings/day"
+                tone="primary"
+                micro={{ type: "dots", values: [1, 2, 3, 4, 5, 6, summary.trackedDays] }}
+                variant="compact"
+              />
+            </View>
+            <View style={styles.summaryTileWrap}>
+              <TrackerTile
+                icon="success"
+                label="Protein OK/high"
+                value={`${summary.proteinOkHighDays}`}
+                delta="Last 7 days"
+                tone="success"
+                micro={{ type: "bars", values: [summary.proteinOkHighDays, summary.trackedDays, 2, 3, 4, 1, 5] }}
+                variant="compact"
+              />
+            </View>
+          </View>
+        </Card>
+      </View>
+    );
+  }, [
+    currentEntry,
+    form.antiInflammatoryFocus,
+    form.appetite,
+    form.fruitVegServings,
+    form.mealRegularity,
+    form.notes,
+    form.protein,
+    handleSaveToday,
+    handleSyncPending,
+    isOffline,
+    isSaving,
+    isSyncing,
+    notice,
+    nutritionLoadError.clear,
+    nutritionLoadError.label,
+    nutritionLoadError.lastError?.message,
+    nutritionLoadError.lastError?.title,
+    nutritionLogError.clear,
+    nutritionLogError.label,
+    nutritionLogError.lastError?.message,
+    nutritionLogError.lastError?.title,
+    nutritionRefresh.label,
+    pendingCount,
+    showDiagnostics,
+    styles.chip,
+    styles.chipRow,
+    styles.chipSelected,
+    styles.chipText,
+    styles.chipTextSelected,
+    styles.diagContent,
+    styles.diagTitle,
+    styles.diagTitleRow,
+    styles.diagToggle,
+    styles.formCard,
+    styles.label,
+    styles.listHeader,
+    styles.metaText,
+    styles.notesInput,
+    styles.pressed,
+    styles.stepperButtonWrap,
+    styles.stepperRow,
+    styles.stepperValue,
+    styles.summaryGrid,
+    styles.summaryTileWrap,
+    styles.switchRow,
+    summary.avgFruitVegServings,
+    summary.proteinOkHighDays,
+    summary.trackedDays,
+    tokens.colors.textMuted,
+    tokens.spacing.md,
+    today,
+    todayLoggedRatio,
+    trackedRatio,
+  ]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Nutrition">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Nutrition" subtitle="Quick daily log" />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -519,304 +908,189 @@ export default function NutritionScreen() {
   }
 
   return (
-    <Screen title="Nutrition">
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed value={nutritionRefresh.label} />
-        <LastFailedAttempt
-          value={nutritionLoadError.label}
-          title={nutritionLoadError.lastError?.title}
-          message={nutritionLoadError.lastError?.message}
-          onClear={nutritionLoadError.lastError ? nutritionLoadError.clear : undefined}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Nutrition"
+          subtitle="Quick daily log"
+          left={<Avatar size={40} name="Nutrition" fallback="icon" iconKey="nutrition" />}
+          rightActions={[
+            {
+              icon: "progress",
+              tone: "accent",
+              accessibilityLabel: "Open Progress",
+              onPress: () => {
+                router.push("/(tabs)/progress");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
         />
-        <LastFailedAttempt
-          value={nutritionLogError.label}
-          title={nutritionLogError.lastError?.title}
-          message={nutritionLogError.lastError?.message}
-          onClear={nutritionLogError.lastError ? nutritionLogError.clear : undefined}
-        />
-
-        <Section title="Today">
-          <Text style={styles.bodyText}>Date: {today}</Text>
-          <Text style={styles.bodyText}>Pending sync: {pendingEntries.length}</Text>
-          {currentEntry ? (
-            <Text style={styles.metaText}>
-              Saved at {formatTime(currentEntry.createdAt)} {currentEntry.pending ? "(Pending sync)" : ""}
-            </Text>
-          ) : (
-            <Text style={styles.metaText}>No log yet for today.</Text>
-          )}
-        </Section>
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Nutrition logs are queued locally and marked pending."
-          />
-        ) : null}
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-
-        <Section title="Quick daily log">
-          <Text style={styles.label}>Protein adequacy</Text>
-          <View style={styles.chipRow}>
-            {(["low", "ok", "high"] as const).map((option) => (
-              <Pressable
-                key={option}
-                style={[
-                  styles.chip,
-                  form.protein === option ? styles.chipSelected : null,
-                ]}
-                onPress={() => setForm((prev) => ({ ...prev, protein: option }))}
-              >
-                <Text
-                  style={
-                    form.protein === option ? styles.chipTextSelected : styles.chipText
-                  }
-                >
-                  {option.toUpperCase()}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Fruit/veg servings</Text>
-          <View style={styles.stepperRow}>
-            <PrimaryButton
-              label="-"
-              disabled={form.fruitVegServings <= 0}
-              onPress={() =>
-                setForm((prev) => ({
-                  ...prev,
-                  fruitVegServings: Math.max(0, prev.fruitVegServings - 1),
-                }))
-              }
-            />
-            <Text style={styles.stepperValue}>{form.fruitVegServings}</Text>
-            <PrimaryButton
-              label="+"
-              disabled={form.fruitVegServings >= 6}
-              onPress={() =>
-                setForm((prev) => ({
-                  ...prev,
-                  fruitVegServings: Math.min(6, prev.fruitVegServings + 1),
-                }))
-              }
-            />
-          </View>
-
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Anti-inflammatory focus</Text>
-            <Switch
-              value={form.antiInflammatoryFocus}
-              onValueChange={(value) =>
-                setForm((prev) => ({ ...prev, antiInflammatoryFocus: value }))
-              }
-            />
-          </View>
-
-          <Text style={styles.label}>Meal regularity</Text>
-          <View style={styles.chipRow}>
-            {(["irregular", "mostly", "regular"] as const).map((option) => (
-              <Pressable
-                key={option}
-                style={[
-                  styles.chip,
-                  form.mealRegularity === option ? styles.chipSelected : null,
-                ]}
-                onPress={() =>
-                  setForm((prev) => ({ ...prev, mealRegularity: option }))
-                }
-              >
-                <Text
-                  style={
-                    form.mealRegularity === option
-                      ? styles.chipTextSelected
-                      : styles.chipText
-                  }
-                >
-                  {option}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Appetite (optional)</Text>
-          <View style={styles.chipRow}>
-            {(["low", "normal", "high"] as const).map((option) => (
-              <Pressable
-                key={option}
-                style={[
-                  styles.chip,
-                  form.appetite === option ? styles.chipSelected : null,
-                ]}
-                onPress={() =>
-                  setForm((prev) => ({
-                    ...prev,
-                    appetite: prev.appetite === option ? null : option,
-                  }))
-                }
-              >
-                <Text
-                  style={
-                    form.appetite === option ? styles.chipTextSelected : styles.chipText
-                  }
-                >
-                  {option}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={styles.label}>Notes (optional)</Text>
-          <TextInput
-            value={form.notes}
-            onChangeText={(value) =>
-              setForm((prev) => ({ ...prev, notes: value.slice(0, 280) }))
-            }
-            multiline
-            maxLength={280}
-            placeholder="Optional short note"
-            style={styles.notesInput}
-          />
-          <Text style={styles.metaText}>{form.notes.length}/280</Text>
-
-          <PrimaryButton
-            label={isSaving ? "Saving..." : "Save today"}
-            loading={isSaving}
-            disabled={isSaving}
-            onPress={() => {
-              void handleSaveToday();
-            }}
-          />
-          <PrimaryButton
-            label="Clear"
-            onPress={() => {
-              setForm(toFormState(null));
-            }}
-          />
-          {pendingEntries.length > 0 ? (
-            <PrimaryButton
-              label={isSyncing ? "Syncing..." : "Sync now"}
-              loading={isSyncing}
-              disabled={isOffline || isSyncing}
-              onPress={() => {
-                void handleSyncPending();
-              }}
-            />
-          ) : null}
-        </Section>
-
-        <Section title="Recent summary (7 days)">
-          {isLoading ? (
+      }
+    >
+      <FlatList
+        data={[]}
+        renderItem={() => null}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={
+          isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
-          ) : summary.trackedDays === 0 ? (
-            <Text style={styles.metaText}>No nutrition logs in the last 7 days.</Text>
-          ) : (
-            <View style={styles.stack}>
-              <Text style={styles.bodyText}>Tracked days: {summary.trackedDays}</Text>
-              <Text style={styles.bodyText}>
-                Avg fruit/veg servings: {summary.avgFruitVegServings ?? "—"}
-              </Text>
-              <Text style={styles.bodyText}>
-                Protein OK/high days: {summary.proteinOkHighDays}
-              </Text>
-            </View>
-          )}
-        </Section>
-      </ScrollView>
+          ) : null
+        }
+        keyExtractor={(_item, index) => `nutrition-${index}`}
+        contentContainerStyle={styles.container}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 100,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stack: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 8,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: "#fff",
-  },
-  chipSelected: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-  chipText: {
-    color: "#111827",
-    fontWeight: "600",
-  },
-  chipTextSelected: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  stepperRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
-  },
-  stepperValue: {
-    minWidth: 40,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  switchRow: {
-    marginBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  notesInput: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    minHeight: 88,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    textAlignVertical: "top",
-    fontSize: 14,
-    color: "#111827",
-    backgroundColor: "#fff",
-  },
-  bodyText: {
-    fontSize: 14,
-    color: "#111827",
-  },
-  metaText: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+    },
+    centered: {
+      minHeight: 100,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    summaryGrid: {
+      gap: tokens.spacing.sm,
+    },
+    summaryTileWrap: {
+      width: "100%",
+      minWidth: 0,
+    },
+    formCard: {
+      gap: tokens.spacing.sm,
+    },
+    label: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
+    },
+    chip: {
+      minHeight: 44,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: 999,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      backgroundColor: tokens.colors.surfaceElevated,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    chipSelected: {
+      backgroundColor: tokens.colors.primary,
+      borderColor: tokens.colors.primary,
+    },
+    chipText: {
+      color: tokens.colors.text,
+      fontWeight: tokens.typography.weights.semibold,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    chipTextSelected: {
+      color: tokens.colors.primaryTextOn,
+      fontWeight: tokens.typography.weights.semibold,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    stepperRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
+    },
+    stepperButtonWrap: {
+      flex: 1,
+    },
+    stepperValue: {
+      minWidth: 52,
+      textAlign: "center",
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    switchRow: {
+      marginBottom: tokens.spacing.xs,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.md,
+    },
+    notesInput: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      minHeight: 92,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm + 2,
+      textAlignVertical: "top",
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.text,
+      backgroundColor: tokens.colors.surface,
+    },
+    metaText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

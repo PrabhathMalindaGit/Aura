@@ -1,6 +1,6 @@
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
@@ -12,12 +12,18 @@ import {
   type WearableSource,
   type WearablesSummary,
 } from "@/src/api/wearables";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
@@ -37,6 +43,7 @@ import {
   getWearablesConnected,
   setWearablesConnected,
 } from "@/src/state/wearablesConnection";
+import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -45,6 +52,10 @@ type NoticeState = {
   title: string;
   message: string;
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 const SOURCE: WearableSource = "mock";
 
@@ -220,7 +231,10 @@ function mergePendingIntoDays(
 
 export default function WearablesScreen() {
   const auth = useAuth();
+  const router = useRouter();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const wearablesRefresh = useLastRefreshed("wearables");
   const wearablesLoadError = useLastError("wearablesLoad");
   const wearablesSyncError = useLastError("wearablesSync");
@@ -239,6 +253,7 @@ export default function WearablesScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMockSyncing, setIsMockSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const pendingCount = pending.length;
   const mergedDays = useMemo(() => mergePendingIntoDays(last7Days, pending), [last7Days, pending]);
@@ -551,75 +566,94 @@ export default function WearablesScreen() {
     wearablesSyncError,
   ]);
 
-  if (auth.status === "loading") {
+  const listHeader = useMemo(() => {
+    const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+
     return (
-      <Screen title="Wearables">
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
-      </Screen>
-    );
-  }
-
-  if (auth.status === "signedOut") {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  return (
-    <Screen title="Wearables">
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed value={wearablesRefresh.label} />
-        <LastFailedAttempt
-          value={wearablesLoadError.label}
-          title={wearablesLoadError.lastError?.title}
-          message={wearablesLoadError.lastError?.message}
-          onClear={wearablesLoadError.lastError ? wearablesLoadError.clear : undefined}
-        />
-        <LastFailedAttempt
-          value={wearablesSyncError.label}
-          title={wearablesSyncError.lastError?.title}
-          message={wearablesSyncError.lastError?.message}
-          onClear={wearablesSyncError.lastError ? wearablesSyncError.clear : undefined}
-        />
+      <View style={styles.listHeader}>
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed value={wearablesRefresh.label} compact />
+                <LastFailedAttempt
+                  label="Last load failure"
+                  value={wearablesLoadError.label}
+                  title={wearablesLoadError.lastError?.title}
+                  message={wearablesLoadError.lastError?.message}
+                  onClear={wearablesLoadError.lastError ? wearablesLoadError.clear : undefined}
+                  compact
+                />
+                <LastFailedAttempt
+                  label="Last sync failure"
+                  value={wearablesSyncError.label}
+                  title={wearablesSyncError.lastError?.title}
+                  message={wearablesSyncError.lastError?.message}
+                  onClear={wearablesSyncError.lastError ? wearablesSyncError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
 
         {isOffline ? (
-          <InlineNotice
+          <Banner
             variant="warning"
             title="Offline"
             message="Offline — showing saved wearable data."
           />
         ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
             title={notice.title}
             message={notice.message}
           />
         ) : null}
 
-        <Section title="Connector">
-          <Text style={styles.subtle}>This is a demo connector (mock data).</Text>
-          <Text style={styles.stat}>
-            Connection: {connected ? "Mock wearable connected" : "Not connected"}
-          </Text>
-          <Text style={styles.stat}>Pending sync: {pendingCount}</Text>
-          <Text style={styles.stat}>Last sync: {formatTimestamp(lastSyncAt)}</Text>
+        <MediaCard
+          leading={{ type: "icon", icon: "wearables", tone: connected ? "accent" : "muted" }}
+          title={connected ? "Mock wearable connected" : "Not connected"}
+          subtitle={`Pending sync: ${pendingCount} · Last sync: ${formatTimestamp(lastSyncAt)}`}
+          chips={[
+            { text: connected ? "Connected" : "Disconnected", tone: connected ? "success" : "muted" },
+            ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
+          ]}
+          actions={[
+            {
+              label: connected ? "Disconnect" : "Connect",
+              kind: "secondary",
+              onPress: () => {
+                void handleToggleConnected();
+              },
+            },
+            {
+              label: isMockSyncing ? "Syncing..." : "Mock sync",
+              kind: "primary",
+              disabled: !connected || isMockSyncing || isSyncing,
+              onPress: () => {
+                void handleMockSync();
+              },
+            },
+          ]}
+        />
 
-          <PrimaryButton
-            label={connected ? "Disconnect mock wearable" : "Connect mock wearable"}
-            onPress={() => {
-              void handleToggleConnected();
-            }}
-          />
-          <PrimaryButton
-            label={isMockSyncing ? "Syncing..." : "Mock sync last 7 days"}
-            loading={isMockSyncing}
-            disabled={!connected || isMockSyncing || isSyncing}
-            onPress={() => {
-              void handleMockSync();
-            }}
-          />
+        <View style={styles.connectorActions}>
           {connected && pendingCount > 0 && !isOffline ? (
             <PrimaryButton
               label={isSyncing ? "Syncing pending..." : "Sync now"}
@@ -638,100 +672,237 @@ export default function WearablesScreen() {
               void fetchLive();
             }}
           />
-        </Section>
+        </View>
 
-        <Section title="Summary">
-          {isLoading ? (
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="weekly"
+              label="Tracked days"
+              value={`${displayedSummary?.trackedDays ?? 0}`}
+              delta="Last 7 days"
+              tone="accent"
+              micro={{
+                type: "ring",
+                progress:
+                  displayedSummary && displayedSummary.trackedDays > 0
+                    ? Math.max(0, Math.min(1, displayedSummary.trackedDays / 7))
+                    : 0,
+              }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="wearables"
+              label="Avg steps"
+              value={numberOrDash(displayedSummary?.avgSteps ?? null)}
+              delta="Daily average"
+              tone="primary"
+              micro={{ type: "bars", values: mergedDays.map((day) => day.steps ?? 0).slice(-7) }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="exercise"
+              label="Avg active"
+              value={numberOrDash(displayedSummary?.avgActiveMinutes ?? null)}
+              delta="Minutes/day"
+              tone="success"
+              micro={{ type: "bars", values: mergedDays.map((day) => day.activeMinutes ?? 0).slice(-7) }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="info"
+              label="Avg resting HR"
+              value={numberOrDash(displayedSummary?.avgRestingHr ?? null)}
+              delta="Beats/min"
+              tone="muted"
+              micro={{
+                type: "dots",
+                values: mergedDays.map((day) => day.restingHr ?? 0).slice(-7),
+              }}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }, [
+    connected,
+    displayedSummary,
+    fetchLive,
+    handleMockSync,
+    handleSyncPending,
+    handleToggleConnected,
+    isLoading,
+    isMockSyncing,
+    isOffline,
+    isSyncing,
+    lastSyncAt,
+    mergedDays,
+    notice,
+    pendingCount,
+    setShowDiagnostics,
+    showDiagnostics,
+    styles.connectorActions,
+    styles.diagContent,
+    styles.diagTitle,
+    styles.diagTitleRow,
+    styles.diagToggle,
+    styles.listHeader,
+    styles.pressed,
+    styles.trackerGrid,
+    styles.trackerTileWrap,
+    tokens.spacing.md,
+    wearablesLoadError.clear,
+    wearablesLoadError.label,
+    wearablesLoadError.lastError?.message,
+    wearablesLoadError.lastError?.title,
+    wearablesRefresh.label,
+    wearablesSyncError.clear,
+    wearablesSyncError.label,
+    wearablesSyncError.lastError?.message,
+    wearablesSyncError.lastError?.title,
+  ]);
+
+  if (auth.status === "loading") {
+    return (
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Wearables" subtitle="Daily rollups" />}
+      >
+        <View style={styles.centered}>
+          <ActivityIndicator size="small" />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (auth.status === "signedOut") {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  return (
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Wearables"
+          subtitle={connected ? "Connected · Daily rollups" : "Not connected"}
+          left={<Avatar size={40} name="Wearables" fallback="icon" iconKey="wearables" />}
+          rightActions={[
+            {
+              icon: "progress",
+              tone: "accent",
+              accessibilityLabel: "Open Progress",
+              onPress: () => {
+                router.push("/(tabs)/progress");
+              },
+            },
+            {
+              icon: "settings",
+              tone: "muted",
+              accessibilityLabel: "Open Settings",
+              onPress: () => {
+                router.push("/(tabs)/settings");
+              },
+            },
+          ]}
+        />
+      }
+    >
+      <FlatList
+        data={[...mergedDays].reverse()}
+        keyExtractor={(day) => day.date}
+        contentContainerStyle={styles.container}
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
-          ) : !connected ? (
-            <Text style={styles.subtle}>Connect mock wearable to start syncing data.</Text>
-          ) : !displayedSummary ? (
-            <Text style={styles.subtle}>
-              No wearable data yet. Run a mock sync to populate this summary.
-            </Text>
           ) : (
-            <View style={styles.stack}>
-              <Text style={styles.stat}>Tracked days: {displayedSummary.trackedDays}</Text>
-              <Text style={styles.stat}>Avg steps: {numberOrDash(displayedSummary.avgSteps)}</Text>
-              <Text style={styles.stat}>
-                Avg active minutes: {numberOrDash(displayedSummary.avgActiveMinutes)}
-              </Text>
-              <Text style={styles.stat}>
-                Avg resting HR: {numberOrDash(displayedSummary.avgRestingHr)}
-              </Text>
-              <Text style={styles.stat}>Total steps: {displayedSummary.totalSteps}</Text>
-              <Text style={styles.stat}>
-                Total active minutes: {displayedSummary.totalActiveMinutes}
-              </Text>
-            </View>
-          )}
-        </Section>
-
-        <Section title="Last 7 days">
-          {mergedDays.length === 0 ? (
-            <Text style={styles.subtle}>No tracked days yet.</Text>
-          ) : (
-            <View style={styles.stack}>
-              {mergedDays
-                .slice()
-                .reverse()
-                .map((day) => (
-                  <View key={day.date} style={styles.dayRow}>
-                    <Text style={styles.dayDate}>{formatDayLabel(day.date)}</Text>
-                    <Text style={styles.dayValue}>
-                      {day.steps ?? 0} steps • {day.activeMinutes ?? 0} min
-                      {typeof day.restingHr === "number" ? ` • HR ${day.restingHr}` : ""}
-                    </Text>
-                  </View>
-                ))}
-            </View>
-          )}
-        </Section>
-      </ScrollView>
+            <Card variant="outlined" padding={tokens.spacing.md}>
+              <Text style={styles.subtle}>No tracked days yet.</Text>
+            </Card>
+          )
+        }
+        renderItem={({ item }) => (
+          <MediaCard
+            leading={{ type: "icon", icon: "wearables", tone: "accent" }}
+            title={formatDayLabel(item.date)}
+            subtitle={`${item.steps ?? 0} steps · ${item.activeMinutes ?? 0} min${typeof item.restingHr === "number" ? ` · HR ${item.restingHr}` : ""}`}
+            chips={[
+              { text: "Daily rollup", tone: "muted" },
+              ...(pendingCount > 0 ? [{ text: "Pending sync", tone: "warning" as const }] : []),
+            ]}
+            statusPill={pendingCount > 0 ? { text: "Pending", tone: "warning" } : { text: "Saved", tone: "info" }}
+          />
+        )}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 28,
-  },
-  centered: {
-    minHeight: 72,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  subtle: {
-    color: "#4b5563",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  stack: {
-    gap: 8,
-  },
-  stat: {
-    color: "#111827",
-    fontSize: 14,
-  },
-  dayRow: {
-    borderWidth: 1,
-    borderColor: "#d0d7de",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 4,
-    backgroundColor: "#fff",
-  },
-  dayDate: {
-    color: "#111827",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  dayValue: {
-    color: "#374151",
-    fontSize: 13,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.md,
+    },
+    listSeparator: {
+      height: tokens.spacing.md,
+    },
+    centered: {
+      minHeight: 72,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    subtle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    connectorActions: {
+      gap: tokens.spacing.sm,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

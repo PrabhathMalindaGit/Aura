@@ -1,4 +1,4 @@
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,12 +18,19 @@ import {
   type HydrationEntry,
 } from "@/src/api/patient";
 import { isApiError, type ApiError } from "@/src/api/client";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedHydrationDay,
@@ -39,6 +46,7 @@ import {
   type PendingHydrationEntry,
 } from "@/src/state/pendingHydration";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -54,6 +62,10 @@ type TodayState = {
   targetMl: number;
   entries: HydrationEntry[];
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
 
 function toFriendlyHydrationError(error: unknown, title: string): {
   title: string;
@@ -136,7 +148,10 @@ function toPendingHydrationEntry(entry: PendingHydrationEntry): HydrationEntry {
 
 export default function HydrationScreen() {
   const auth = useAuth();
+  const router = useRouter();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const hydrationRefresh = useLastRefreshed("hydration");
   const hydrationLoadError = useLastError("hydrationLoad");
   const hydrationLogError = useLastError("hydrationLog");
@@ -146,6 +161,7 @@ export default function HydrationScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const patientId = auth.patient?.id ?? "";
   const today = useMemo(() => todayISO(), []);
@@ -176,6 +192,18 @@ export default function HydrationScreen() {
 
   const targetMl = todayState?.targetMl ?? 2000;
   const progressPercent = Math.min(100, Math.round((totalTodayMl / targetMl) * 100));
+  const progressRatio = targetMl > 0 ? Math.max(0, Math.min(1, totalTodayMl / targetMl)) : 0;
+
+  const recentAmountSeries = useMemo(
+    () =>
+      mergedEntries
+        .slice()
+        .reverse()
+        .slice(-7)
+        .map((entry) => entry.amountMl)
+        .filter((value) => Number.isFinite(value)),
+    [mergedEntries]
+  );
 
   const persistTodaySnapshot = useCallback(
     async (nextState: TodayState, merged: HydrationEntry[]) => {
@@ -486,9 +514,186 @@ export default function HydrationScreen() {
     [auth.token, isOffline, loadToday, patientId, reloadPending]
   );
 
+  const listHeader = useMemo(() => {
+    const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
+
+    return (
+      <View style={styles.listHeader}>
+        {__DEV__ ? (
+          <Card variant="outlined" padding={tokens.spacing.md}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Toggle diagnostics"
+              onPress={() => {
+                setShowDiagnostics((current) => !current);
+              }}
+              style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+            >
+              <View style={styles.diagTitleRow}>
+                <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+                <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+              </View>
+              <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+            </Pressable>
+            {showDiagnostics ? (
+              <View style={styles.diagContent}>
+                <LastRefreshed value={hydrationRefresh.label} compact />
+                <LastFailedAttempt
+                  label="Last load failure"
+                  value={hydrationLoadError.label}
+                  title={hydrationLoadError.lastError?.title}
+                  message={hydrationLoadError.lastError?.message}
+                  onClear={hydrationLoadError.lastError ? hydrationLoadError.clear : undefined}
+                  compact
+                />
+                <LastFailedAttempt
+                  label="Last log failure"
+                  value={hydrationLogError.label}
+                  title={hydrationLogError.lastError?.title}
+                  message={hydrationLogError.lastError?.message}
+                  onClear={hydrationLogError.lastError ? hydrationLogError.clear : undefined}
+                  compact
+                />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Hydration taps are stored locally and marked pending."
+          />
+        ) : null}
+
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
+            message={notice.message}
+          />
+        ) : null}
+
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="hydration"
+              label="Today"
+              value={`${totalTodayMl} ml`}
+              delta="Current intake"
+              tone="accent"
+              micro={{ type: "ring", progress: progressRatio }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="hydration"
+              label="Goal"
+              value={`${targetMl} ml`}
+              delta="Target"
+              tone="primary"
+              micro={
+                recentAmountSeries.length >= 2
+                  ? { type: "bars", values: recentAmountSeries }
+                  : { type: "dots", values: [0, 0, 0, 0, 0, 0, 0] }
+              }
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="progress"
+              label="Progress"
+              value={`${progressPercent}%`}
+              delta="Toward daily target"
+              tone="success"
+              micro={{ type: "ring", progress: progressRatio }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="warning"
+              label="Pending"
+              value={`${pendingEntries.length}`}
+              delta="Awaiting sync"
+              tone="warning"
+              micro={{ type: "dots", values: [pendingEntries.length, 0, 0, 0, 0, 0, 0] }}
+            />
+          </View>
+        </View>
+
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.quickAddCard}>
+            <Text style={styles.cardTitle}>Quick add</Text>
+            <View style={styles.quickAddRow}>
+              {[250, 500, 750].map((amount) => (
+                <View key={`add-${amount}`} style={styles.quickButtonWrap}>
+                  <SecondaryButton
+                    label={`+${amount}`}
+                    onPress={() => {
+                      void handleQuickAdd(amount);
+                    }}
+                  />
+                </View>
+              ))}
+            </View>
+            {pendingEntries.length > 0 ? (
+              <PrimaryButton
+                label={isSyncing ? "Syncing..." : "Sync now"}
+                loading={isSyncing}
+                disabled={isOffline || isSyncing}
+                onPress={() => {
+                  void handleSyncPending();
+                }}
+              />
+            ) : null}
+          </View>
+        </Card>
+      </View>
+    );
+  }, [
+    handleQuickAdd,
+    handleSyncPending,
+    hydrationLoadError.clear,
+    hydrationLoadError.label,
+    hydrationLoadError.lastError?.message,
+    hydrationLoadError.lastError?.title,
+    hydrationLogError.clear,
+    hydrationLogError.label,
+    hydrationLogError.lastError?.message,
+    hydrationLogError.lastError?.title,
+    hydrationRefresh.label,
+    isOffline,
+    isSyncing,
+    notice,
+    pendingEntries.length,
+    progressPercent,
+    progressRatio,
+    recentAmountSeries,
+    showDiagnostics,
+    styles.cardTitle,
+    styles.diagContent,
+    styles.diagTitle,
+    styles.diagTitleRow,
+    styles.diagToggle,
+    styles.listHeader,
+    styles.pressed,
+    styles.quickAddCard,
+    styles.quickAddRow,
+    styles.quickButtonWrap,
+    styles.trackerGrid,
+    styles.trackerTileWrap,
+    targetMl,
+    tokens.spacing.md,
+    totalTodayMl,
+  ]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Hydration">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Hydration" subtitle="Track water intake" />}
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -501,185 +706,156 @@ export default function HydrationScreen() {
   }
 
   return (
-    <Screen title="Hydration">
-      <View style={styles.container}>
-        <LastRefreshed value={hydrationRefresh.label} />
-        <LastFailedAttempt
-          value={hydrationLoadError.label}
-          title={hydrationLoadError.lastError?.title}
-          message={hydrationLoadError.lastError?.message}
-          onClear={hydrationLoadError.lastError ? hydrationLoadError.clear : undefined}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Hydration"
+          subtitle="Track water intake"
+          left={<Avatar size={40} name="Hydration" fallback="icon" iconKey="hydration" />}
+          rightActions={[
+            {
+              icon: "progress",
+              tone: "accent",
+              accessibilityLabel: "Open Progress",
+              onPress: () => {
+                router.push("/(tabs)/progress");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
         />
-        <LastFailedAttempt
-          value={hydrationLogError.label}
-          title={hydrationLogError.lastError?.title}
-          message={hydrationLogError.lastError?.message}
-          onClear={hydrationLogError.lastError ? hydrationLogError.clear : undefined}
-        />
-
-        <Section title="Today">
-          <Text style={styles.bigValue}>{totalTodayMl} ml</Text>
-          <Text style={styles.subText}>
-            Target {targetMl} ml · {progressPercent}%
-          </Text>
-          <Text style={styles.subText}>Pending sync: {pendingEntries.length}</Text>
-        </Section>
-
-        <Section title="Quick add">
-          <View style={styles.quickActions}>
-            {[250, 500, 750].map((amount) => (
-              <PrimaryButton
-                key={`add-${amount}`}
-                label={`+${amount} ml`}
-                onPress={() => {
-                  void handleQuickAdd(amount);
-                }}
-              />
-            ))}
-          </View>
-          {pendingEntries.length > 0 ? (
-            <PrimaryButton
-              label={isSyncing ? "Syncing..." : "Sync now"}
-              loading={isSyncing}
-              disabled={isOffline || isSyncing}
-              onPress={() => {
-                void handleSyncPending();
-              }}
-            />
-          ) : null}
-        </Section>
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Hydration taps are stored locally and marked pending."
+      }
+    >
+      <FlatList
+        data={mergedEntries}
+        keyExtractor={(entry) => `${entry.id}:${entry.pending ? "pending" : "saved"}`}
+        renderItem={({ item }) => (
+          <MediaCard
+            leading={{ type: "icon", icon: "hydration", tone: item.pending ? "warning" : "muted" }}
+            title={`${item.amountMl} ml`}
+            subtitle={formatTime(item.createdAt)}
+            chips={[{ text: item.pending ? "Pending sync" : "Saved", tone: item.pending ? "warning" : "muted" }]}
+            statusPill={{ text: item.pending ? "Pending" : "Saved", tone: item.pending ? "warning" : "info" }}
+            actions={[
+              {
+                label: "Remove",
+                kind: "secondary",
+                onPress: () => {
+                  Alert.alert("Remove entry?", "This action cannot be undone.", [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Remove",
+                      style: "destructive",
+                      onPress: () => {
+                        void handleDeleteEntry(item);
+                      },
+                    },
+                  ]);
+                },
+              },
+            ]}
           />
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-
-        <Section title="Entries">
-          {isLoading ? (
+        )}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
-          ) : mergedEntries.length === 0 ? (
-            <Text style={styles.subText}>No hydration entries yet for today.</Text>
           ) : (
-            <FlatList
-              data={mergedEntries}
-              keyExtractor={(entry) => `${entry.id}:${entry.pending ? "pending" : "saved"}`}
-              scrollEnabled={false}
-              contentContainerStyle={styles.entriesList}
-              renderItem={({ item }) => (
-                <View style={styles.entryRow}>
-                  <View>
-                    <Text style={styles.entryAmount}>
-                      {item.amountMl} ml {item.pending ? "(Pending)" : ""}
-                    </Text>
-                    <Text style={styles.entryTime}>{formatTime(item.createdAt)}</Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      Alert.alert(
-                        "Remove entry?",
-                        "This action cannot be undone.",
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Remove",
-                            style: "destructive",
-                            onPress: () => {
-                              void handleDeleteEntry(item);
-                            },
-                          },
-                        ]
-                      );
-                    }}
-                    style={({ pressed }) => [
-                      styles.deleteButton,
-                      pressed ? styles.deleteButtonPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.deleteButtonText}>Remove</Text>
-                  </Pressable>
-                </View>
-              )}
-            />
-          )}
-        </Section>
-      </View>
+            <Card variant="outlined" padding={tokens.spacing.md}>
+              <Text style={styles.subText}>No hydration entries yet for today.</Text>
+            </Card>
+          )
+        }
+        ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        contentContainerStyle={styles.container}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 80,
-  },
-  bigValue: {
-    fontSize: 28,
-    fontWeight: "700",
-  },
-  subText: {
-    color: "#4b5563",
-    fontSize: 13,
-  },
-  quickActions: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  entriesList: {
-    gap: 8,
-  },
-  entryRow: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  entryAmount: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  entryTime: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginTop: 2,
-  },
-  deleteButton: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  deleteButtonPressed: {
-    opacity: 0.8,
-  },
-  deleteButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#374151",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingBottom: tokens.spacing.xxxl,
+      gap: tokens.spacing.md,
+    },
+    listHeader: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.md,
+    },
+    listSeparator: {
+      height: tokens.spacing.md,
+    },
+    centered: {
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 96,
+    },
+    subText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    trackerGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    trackerTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    quickAddCard: {
+      gap: tokens.spacing.md,
+    },
+    quickAddRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    quickButtonWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    cardTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    diagToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.84,
+    },
+  });
+}

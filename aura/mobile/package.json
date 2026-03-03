@@ -11,7 +11,11 @@
     "web:guardrails": "node scripts/web-stability-check.mjs",
     "a11y:smoke": "node scripts/a11y-smoke-check.mjs",
     "qa:web": "npx tsc -p tsconfig.json --noEmit && npm run web:guardrails && npm run a11y:smoke",
-    "qa:web:boot": "npm run web"
+    "qa:web:boot": "npm run web",
+    "env:web": "cp .env.web .env && rm -f .env.local && echo 'Using WEB env (.env -> localhost)'",
+    "env:device": "cp .env.device .env.local && echo 'Using DEVICE env (.env.local -> 192.168.1.240)'",
+    "dev:web": "npm run env:web && npm run qa:web:boot",
+    "dev:device": "npm run env:device && npx expo start --tunnel --clear --port 8082"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

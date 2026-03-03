@@ -17,22 +17,24 @@ import {
   type PromAnswer,
   type PromInstance,
 } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
-import {
-  getCachedPromInstance,
-  setCachedPromInstance,
-} from "@/src/state/promsCache";
-import {
-  clearPromDraft,
-  getPromDraft,
-  setPromDraft,
-} from "@/src/state/promDrafts";
+import { getCachedPromInstance, setCachedPromInstance } from "@/src/state/promsCache";
+import { clearPromDraft, getPromDraft, setPromDraft } from "@/src/state/promDrafts";
 import { addPendingPromSubmission } from "@/src/state/pendingPromSubmissions";
+import { useTokens } from "@/src/theme/tokens";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -119,12 +121,25 @@ function normalizedPromId(value: string | string[] | undefined): string {
   return "";
 }
 
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
+
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
 export default function PromFillScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ promId?: string | string[] }>();
   const promId = normalizedPromId(params.promId);
   const auth = useAuth();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const promsLoadError = useLastError("promsLoad");
   const promSubmitError = useLastError("promSubmit");
 
@@ -157,9 +172,7 @@ export default function PromFillScreen() {
       setAnswersMap(savedDraft.answers);
     } else if (cachedInstance?.answers?.length) {
       setAnswersMap(
-        Object.fromEntries(
-          cachedInstance.answers.map((answer) => [answer.questionId, answer.value])
-        )
+        Object.fromEntries(cachedInstance.answers.map((answer) => [answer.questionId, answer.value])),
       );
     }
 
@@ -186,9 +199,7 @@ export default function PromFillScreen() {
       setInstance(live);
       await setCachedPromInstance(patientId, live);
       if (!savedDraft && live.answers.length > 0) {
-        setAnswersMap(
-          Object.fromEntries(live.answers.map((answer) => [answer.questionId, answer.value]))
-        );
+        setAnswersMap(Object.fromEntries(live.answers.map((answer) => [answer.questionId, answer.value])));
       }
       await promsLoadError.clear();
     } catch (error) {
@@ -237,7 +248,7 @@ export default function PromFillScreen() {
       }
       void loadInstance();
       return undefined;
-    }, [auth.status, loadInstance])
+    }, [auth.status, loadInstance]),
   );
 
   const questions = instance?.questions ?? [];
@@ -252,8 +263,9 @@ export default function PromFillScreen() {
     return `${safeIndex + 1} of ${questions.length}`;
   }, [currentQuestion, questions.length, safeIndex]);
 
-  const canMoveNext =
-    currentQuestion !== null && typeof currentValue === "number";
+  const progressRatio = questions.length > 0 ? clamp01((safeIndex + 1) / questions.length) : 0;
+
+  const canMoveNext = currentQuestion !== null && typeof currentValue === "number";
 
   const setAnswer = async (questionId: string, value: number): Promise<void> => {
     const nextMap = {
@@ -272,7 +284,7 @@ export default function PromFillScreen() {
     }
 
     const missingRequired = instance.questions.some(
-      (question) => question.required && typeof answersMap[question.id] !== "number"
+      (question) => question.required && typeof answersMap[question.id] !== "number",
     );
     if (missingRequired) {
       setNotice({
@@ -360,8 +372,8 @@ export default function PromFillScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Questionnaire">
-        <View style={styles.centered}>
+      <Screen scroll={false}>
+        <View style={styles.centeredFull}>
           <ActivityIndicator size="small" />
         </View>
       </Screen>
@@ -374,103 +386,232 @@ export default function PromFillScreen() {
 
   if (!promId) {
     return (
-      <Screen title="Questionnaire">
-        <InlineNotice
-          variant="error"
-          title="Invalid questionnaire"
-          message="Questionnaire ID is missing."
-          actionLabel="Back"
-          onAction={() => router.replace("/proms" as never)}
-        />
+      <Screen
+        scroll={false}
+        header={
+          <HeroHeader
+            variant="compact"
+            title="Questionnaire"
+            subtitle="Questionnaire ID missing"
+            left={<Avatar size={40} name="Aura" fallback="icon" iconKey="proms" ring="attention" />}
+            rightActions={[
+              {
+                icon: "home",
+                tone: "muted",
+                accessibilityLabel: "Back to questionnaires",
+                onPress: () => {
+                  router.replace("/proms" as never);
+                },
+              },
+            ]}
+          />
+        }
+      >
+        <View style={styles.staticBody}>
+          <Banner
+            variant="danger"
+            title="Invalid questionnaire"
+            message="Questionnaire ID is missing."
+          />
+          <SecondaryButton
+            label="Back"
+            onPress={() => {
+              router.replace("/proms" as never);
+            }}
+          />
+        </View>
       </Screen>
     );
   }
 
+  const showWizardFooter =
+    Boolean(instance) && instance?.status !== "completed" && Boolean(currentQuestion);
+
   return (
-    <Screen title="Questionnaire">
-      <ScrollView contentContainerStyle={styles.container}>
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
-
-        {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-          </View>
-        ) : !instance ? (
-          <InlineNotice
-            variant="warning"
-            title="Questionnaire unavailable"
-            message="Open this questionnaire while online first, then you can continue offline."
-            actionLabel="Back"
-            onAction={() => router.replace("/proms" as never)}
-          />
-        ) : instance.status === "completed" ? (
-          <View style={styles.completedContainer}>
-            <Text style={styles.completedTitle}>Already submitted</Text>
-            <Text style={styles.completedMessage}>
-              This questionnaire is already completed.
-            </Text>
-            <PrimaryButton
-              label="Back to questionnaires"
-              onPress={() => {
-                router.replace("/proms" as never);
-              }}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title={instance?.title ?? "Questionnaire"}
+          subtitle={`Progress · ${progressLabel}`}
+          left={
+            <Avatar
+              size={40}
+              name={auth.patient?.displayName ?? "Aura"}
+              fallback="icon"
+              iconKey="proms"
+              ring={isOffline ? "attention" : "none"}
             />
-          </View>
-        ) : currentQuestion ? (
-          <View style={styles.stack}>
-            <Text style={styles.metaText}>{instance.title}</Text>
-            <Text style={styles.metaText}>Progress: {progressLabel}</Text>
+          }
+          rightActions={[
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety" as never);
+              },
+            },
+            {
+              icon: "home",
+              tone: "muted",
+              accessibilityLabel: "Back to questionnaires",
+              onPress: () => {
+                router.replace("/proms" as never);
+              },
+            },
+          ]}
+        />
+      }
+    >
+      <View style={styles.body}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {notice ? (
+            <Banner
+              variant={toBannerVariant(notice.variant)}
+              title={notice.title}
+              message={notice.message}
+              actionLabel={notice.actionLabel}
+              onAction={notice.onAction}
+            />
+          ) : null}
 
-            <View style={styles.questionCard}>
-              <Text style={styles.questionText}>{currentQuestion.text}</Text>
-              <View style={styles.optionsRow}>
-                {Array.from(
-                  { length: currentQuestion.max - currentQuestion.min + 1 },
-                  (_, index) => currentQuestion.min + index
-                ).map((value) => {
-                  const selected = currentValue === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      style={({ pressed }) => [
-                        styles.optionButton,
-                        selected ? styles.optionButtonSelected : null,
-                        pressed ? styles.optionButtonPressed : null,
-                      ]}
-                      onPress={() => {
-                        void setAnswer(currentQuestion.id, value);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          selected ? styles.optionTextSelected : null,
-                        ]}
-                      >
-                        {value}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {(currentQuestion.labels?.minLabel || currentQuestion.labels?.maxLabel) ? (
-                <View style={styles.labelsRow}>
-                  <Text style={styles.labelText}>{currentQuestion.labels?.minLabel ?? ""}</Text>
-                  <Text style={styles.labelText}>{currentQuestion.labels?.maxLabel ?? ""}</Text>
-                </View>
-              ) : null}
+          {isLoading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="small" />
             </View>
+          ) : !instance ? (
+            <View style={styles.stack}>
+              <Banner
+                variant="warning"
+                title="Questionnaire unavailable"
+                message="Open this questionnaire while online first, then you can continue offline."
+              />
+              <SecondaryButton
+                label="Back"
+                onPress={() => {
+                  router.replace("/proms" as never);
+                }}
+              />
+            </View>
+          ) : instance.status === "completed" ? (
+            <Card variant="outlined" padding={tokens.spacing.lg}>
+              <View style={styles.completedContainer}>
+                <Text style={styles.completedTitle}>Already submitted</Text>
+                <Text style={styles.completedMessage}>This questionnaire is already completed.</Text>
+                <PrimaryButton
+                  label="Back to questionnaires"
+                  onPress={() => {
+                    router.replace("/proms" as never);
+                  }}
+                />
+              </View>
+            </Card>
+          ) : currentQuestion ? (
+            <View style={styles.stack}>
+              <View style={styles.progressCardWrap}>
+                <TrackerTile
+                  icon="proms"
+                  tone="accent"
+                  label="Progress"
+                  value={`${safeIndex + 1}/${questions.length}`}
+                  delta={instance.title}
+                  micro={{ type: "ring", progress: progressRatio }}
+                  variant="compact"
+                />
+              </View>
 
-            <View style={styles.actionsRow}>
-              <PrimaryButton
+              <View style={styles.pillRow}>
+                <StatusPill label={isOffline ? "Offline" : "Online"} variant={isOffline ? "warning" : "neutral"} />
+                {currentQuestion.required ? <StatusPill label="Required" variant="warning" /> : null}
+              </View>
+
+              <Card variant="outlined" padding={tokens.spacing.md}>
+                <View style={styles.questionCardContent}>
+                  <Text style={styles.questionText}>{currentQuestion.text}</Text>
+
+                  <View style={styles.optionsRow}>
+                    {Array.from(
+                      { length: currentQuestion.max - currentQuestion.min + 1 },
+                      (_, index) => currentQuestion.min + index,
+                    ).map((value) => {
+                      const selected = currentValue === value;
+                      return (
+                        <Pressable
+                          key={value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Answer ${value}`}
+                          accessibilityState={{ selected }}
+                          style={({ pressed }) => [
+                            styles.optionButton,
+                            selected ? styles.optionButtonSelected : null,
+                            pressed ? styles.optionButtonPressed : null,
+                          ]}
+                          onPress={() => {
+                            void setAnswer(currentQuestion.id, value);
+                          }}
+                        >
+                          <Text style={[styles.optionText, selected ? styles.optionTextSelected : null]}>
+                            {value}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {currentQuestion.labels?.minLabel || currentQuestion.labels?.maxLabel ? (
+                    <View style={styles.labelsRow}>
+                      <View style={styles.labelSide}>
+                        <DomainIcon icon="info" tone="muted" size={14} accessibilityLabel="Minimum label icon" />
+                        <Text style={styles.labelText}>{currentQuestion.labels?.minLabel ?? ""}</Text>
+                      </View>
+                      <View style={[styles.labelSide, styles.labelSideEnd]}>
+                        <Text style={styles.labelText}>{currentQuestion.labels?.maxLabel ?? ""}</Text>
+                        <DomainIcon icon="info" tone="muted" size={14} accessibilityLabel="Maximum label icon" />
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </Card>
+            </View>
+          ) : (
+            <View style={styles.stack}>
+              <Banner
+                variant="danger"
+                title="No questions available"
+                message="This questionnaire has no questions configured."
+              />
+              <SecondaryButton
+                label="Back"
+                onPress={() => {
+                  router.replace("/proms" as never);
+                }}
+              />
+            </View>
+          )}
+        </ScrollView>
+
+        {showWizardFooter ? (
+          <GlassPanel
+            style={styles.footerPanel}
+            fallbackVariant="elevated"
+            fallbackOpacity={0.78}
+            accessibilityLabel="Questionnaire actions"
+          >
+            {isOffline ? (
+              <Banner
+                variant="warning"
+                title="Offline"
+                message="If you submit now, it will be saved and sent later."
+              />
+            ) : null}
+            <View style={styles.footerButtons}>
+              <SecondaryButton
                 label="Back"
                 disabled={safeIndex === 0 || isSubmitting}
                 onPress={() => {
@@ -496,112 +637,130 @@ export default function PromFillScreen() {
                 />
               )}
             </View>
-          </View>
-        ) : (
-          <InlineNotice
-            variant="error"
-            title="No questions available"
-            message="This questionnaire has no questions configured."
-            actionLabel="Back"
-            onAction={() => router.replace("/proms" as never)}
-          />
-        )}
-      </ScrollView>
+          </GlassPanel>
+        ) : null}
+      </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 140,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stack: {
-    gap: 12,
-  },
-  metaText: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  questionCard: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 12,
-    backgroundColor: "#ffffff",
-    padding: 14,
-    gap: 12,
-  },
-  questionText: {
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  optionsRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  optionButton: {
-    minWidth: 44,
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f8fafc",
-    paddingHorizontal: 12,
-  },
-  optionButtonSelected: {
-    borderColor: "#2563eb",
-    backgroundColor: "#dbeafe",
-  },
-  optionButtonPressed: {
-    opacity: 0.8,
-  },
-  optionText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#1f2937",
-  },
-  optionTextSelected: {
-    color: "#1d4ed8",
-  },
-  labelsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  labelText: {
-    flex: 1,
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  completedContainer: {
-    gap: 10,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    backgroundColor: "#ffffff",
-  },
-  completedTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  completedMessage: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    centeredFull: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    staticBody: {
+      flex: 1,
+      gap: tokens.spacing.md,
+      justifyContent: "center",
+    },
+    body: {
+      flex: 1,
+      gap: tokens.spacing.sm,
+    },
+    scrollContent: {
+      paddingBottom: tokens.spacing.lg,
+      gap: tokens.spacing.md,
+    },
+    centered: {
+      minHeight: 180,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stack: {
+      gap: tokens.spacing.md,
+    },
+    progressCardWrap: {
+      minWidth: 0,
+    },
+    pillRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    questionCardContent: {
+      gap: tokens.spacing.md,
+    },
+    questionText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    optionsRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+      flexWrap: "wrap",
+    },
+    optionButton: {
+      minWidth: 44,
+      minHeight: 44,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+    },
+    optionButtonSelected: {
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primary,
+    },
+    optionButtonPressed: {
+      opacity: 0.84,
+    },
+    optionText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    optionTextSelected: {
+      color: tokens.colors.primaryTextOn,
+    },
+    labelsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    labelSide: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.xs,
+    },
+    labelSideEnd: {
+      justifyContent: "flex-end",
+    },
+    labelText: {
+      flexShrink: 1,
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    completedContainer: {
+      gap: tokens.spacing.sm,
+    },
+    completedTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    completedMessage: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    footerPanel: {
+      borderRadius: tokens.radius.lg,
+    },
+    footerButtons: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+  });
+}

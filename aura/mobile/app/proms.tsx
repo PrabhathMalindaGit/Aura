@@ -1,10 +1,10 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -19,17 +19,20 @@ import {
   type PromDueCard,
   type PromHistoryRow,
 } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
+import { EmptyState } from "@/src/components/EmptyState";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
-import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { MediaCard, type MediaCardChip } from "@/src/components/MediaCard";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/state/auth";
-import {
-  getCachedProms,
-  setCachedProms,
-} from "@/src/state/promsCache";
+import { getCachedProms, setCachedProms } from "@/src/state/promsCache";
 import {
   getPendingPromSubmissions,
   removePendingPromSubmission,
@@ -38,6 +41,7 @@ import {
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -47,6 +51,14 @@ type NoticeState = {
   actionLabel?: string;
   onAction?: () => void;
 };
+
+type SegmentValue = "due" | "completed" | "all";
+
+type ListItem =
+  | { type: "section"; key: string; label: string; icon: "warning" | "success" | "info" }
+  | { type: "due"; item: PromDueCard }
+  | { type: "history"; item: PromHistoryRow }
+  | { type: "empty"; key: string; title: string; description: string; illustration: "today" | "progress" | "offline" };
 
 function formatDateTime(value?: string | null): string {
   if (!value) {
@@ -125,15 +137,22 @@ function toFriendlyError(error: unknown, title: string): {
   };
 }
 
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  return variant === "error" ? "danger" : variant;
+}
+
 export default function PromsScreen() {
   const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const promsRefresh = useLastRefreshed("proms");
   const promsLoadError = useLastError("promsLoad");
   const promSubmitError = useLastError("promSubmit");
 
   const patientId = auth.patient?.id ?? "";
+  const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const [due, setDue] = useState<PromDueCard[]>([]);
   const [history, setHistory] = useState<PromHistoryRow[]>([]);
   const [pending, setPending] = useState<PendingPromSubmission[]>([]);
@@ -141,6 +160,8 @@ export default function PromsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmittingPending, setIsSubmittingPending] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [segment, setSegment] = useState<SegmentValue>("due");
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const loadPending = useCallback(async () => {
     if (!patientId) {
@@ -250,14 +271,7 @@ export default function PromsScreen() {
         setIsRefreshing(false);
       }
     },
-    [
-      auth.token,
-      isOffline,
-      loadPending,
-      patientId,
-      promsLoadError,
-      promsRefresh,
-    ]
+    [auth.token, isOffline, loadPending, patientId, promsLoadError, promsRefresh],
   );
 
   useFocusEffect(
@@ -267,7 +281,7 @@ export default function PromsScreen() {
       }
       void loadProms("initial");
       return undefined;
-    }, [auth.status, loadProms])
+    }, [auth.status, loadProms]),
   );
 
   const submitPending = useCallback(async () => {
@@ -342,10 +356,93 @@ export default function PromsScreen() {
     router,
   ]);
 
+  const listData = useMemo<ListItem[]>(() => {
+    if (isLoading) {
+      return [];
+    }
+
+    if (segment === "due") {
+      if (due.length === 0) {
+        return [
+          {
+            type: "empty",
+            key: "empty-due",
+            title: "No questionnaires due",
+            description: "You’re all caught up for now.",
+            illustration: "today",
+          },
+        ];
+      }
+      return [
+        { type: "section", key: "s-due", label: "Due", icon: "warning" },
+        ...due.map((item) => ({ type: "due", item }) as const),
+      ];
+    }
+
+    if (segment === "completed") {
+      if (history.length === 0) {
+        return [
+          {
+            type: "empty",
+            key: "empty-completed",
+            title: "No completed questionnaires yet",
+            description: "Completed forms will appear here.",
+            illustration: "progress",
+          },
+        ];
+      }
+      return [
+        { type: "section", key: "s-completed", label: "Completed", icon: "success" },
+        ...history.map((item) => ({ type: "history", item }) as const),
+      ];
+    }
+
+    if (due.length === 0 && history.length === 0) {
+      return [
+        {
+          type: "empty",
+          key: "empty-all",
+          title: "No questionnaires available",
+          description: "Check back later for new assignments.",
+          illustration: isOffline ? "offline" : "today",
+        },
+      ];
+    }
+
+    const items: ListItem[] = [];
+    items.push({ type: "section", key: "s-all-due", label: "Due", icon: "warning" });
+    if (due.length > 0) {
+      items.push(...due.map((item) => ({ type: "due" as const, item })));
+    } else {
+      items.push({
+        type: "empty",
+        key: "empty-all-due",
+        title: "No due questionnaires",
+        description: "You’re all caught up for now.",
+        illustration: "today",
+      });
+    }
+
+    items.push({ type: "section", key: "s-all-completed", label: "Completed", icon: "success" });
+    if (history.length > 0) {
+      items.push(...history.map((item) => ({ type: "history" as const, item })));
+    } else {
+      items.push({
+        type: "empty",
+        key: "empty-all-completed",
+        title: "No completed questionnaires",
+        description: "Completed forms will appear here.",
+        illustration: "progress",
+      });
+    }
+
+    return items;
+  }, [due, history, isLoading, isOffline, segment]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Questionnaires">
-        <View style={styles.centered}>
+      <Screen scroll={false}>
+        <View style={styles.centeredFull}>
           <ActivityIndicator size="small" />
         </View>
       </Screen>
@@ -356,10 +453,148 @@ export default function PromsScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  const listHeader = (
+    <View style={styles.headerStack}>
+      {__DEV__ ? (
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Toggle diagnostics"
+            onPress={() => {
+              setShowDiagnostics((current) => !current);
+            }}
+            style={({ pressed }) => [styles.diagToggle, pressed ? styles.pressed : null]}
+          >
+            <View style={styles.diagTitleRow}>
+              <DomainIcon icon="info" tone="muted" accessibilityLabel="Diagnostics icon" />
+              <Text style={styles.diagTitle}>Diagnostics (dev)</Text>
+            </View>
+            <StatusPill label={showDiagnostics ? "Open" : "Closed"} variant="neutral" />
+          </Pressable>
+          {showDiagnostics ? (
+            <View style={styles.diagContent}>
+              <LastRefreshed value={promsRefresh.label} compact />
+              <LastFailedAttempt
+                value={promsLoadError.label}
+                title={promsLoadError.lastError?.title}
+                message={promsLoadError.lastError?.message}
+                onClear={promsLoadError.lastError ? promsLoadError.clear : undefined}
+                compact
+              />
+              <LastFailedAttempt
+                label="Last submit issue"
+                value={promSubmitError.label}
+                title={promSubmitError.lastError?.title}
+                message={promSubmitError.lastError?.message}
+                onClear={promSubmitError.lastError ? promSubmitError.clear : undefined}
+                compact
+              />
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {isOffline ? (
+        <Banner
+          variant="warning"
+          title="Offline"
+          message="Offline — showing saved questionnaires when available."
+        />
+      ) : null}
+
+      {notice ? (
+        <Banner
+          variant={toBannerVariant(notice.variant)}
+          title={notice.title}
+          message={notice.message}
+          actionLabel={notice.actionLabel}
+          onAction={notice.onAction}
+        />
+      ) : null}
+
+      <SegmentedControl
+        value={segment}
+        onChange={setSegment}
+        options={[
+          { value: "due", label: "Due", icon: "warning" },
+          { value: "completed", label: "Completed", icon: "success" },
+          { value: "all", label: "All", icon: "info" },
+        ]}
+        accessibilityLabel="Questionnaires filter"
+      />
+
+      <MediaCard
+        variant="compact"
+        leading={{ type: "icon", icon: "proms", tone: "accent" }}
+        title={`Pending uploads: ${pending.length}`}
+        subtitle={pending.length > 0 ? "We’ll send when online." : "No pending uploads."}
+        chips={[
+          ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
+          ...(pending.length > 0
+            ? [{ text: "Needs sync", tone: "info" as const }]
+            : [{ text: "All clear", tone: "success" as const }]),
+        ].slice(0, 3)}
+        actions={[
+          {
+            label: isSubmittingPending ? "Submitting…" : "Submit pending",
+            kind: "primary",
+            disabled: pending.length === 0 || isSubmittingPending || isOffline,
+            onPress: () => {
+              void submitPending();
+            },
+          },
+          {
+            label: "Refresh",
+            kind: "secondary",
+            disabled: isLoading,
+            onPress: () => {
+              void loadProms("refresh");
+            },
+          },
+        ]}
+        showChevron={false}
+      />
+    </View>
+  );
+
   return (
-    <Screen title="Questionnaires">
-      <ScrollView
-        contentContainerStyle={styles.container}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Questionnaires"
+          subtitle="Complete assigned forms"
+          left={<Avatar size={40} name={patientName} fallback="icon" iconKey="proms" ring={isOffline ? "attention" : "none"} />}
+          rightActions={[
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety" as never);
+              },
+            },
+            {
+              icon: "progress",
+              tone: "muted",
+              accessibilityLabel: "Open Progress",
+              onPress: () => {
+                router.push("/(tabs)/progress" as never);
+              },
+            },
+          ]}
+        />
+      }
+    >
+      <FlatList
+        data={listData}
+        keyExtractor={(item) => {
+          if (item.type === "section" || item.type === "empty") {
+            return item.key;
+          }
+          return item.type === "due" ? `due:${item.item.id}` : `history:${item.item.id}`;
+        }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -368,152 +603,143 @@ export default function PromsScreen() {
             }}
           />
         }
-      >
-        <LastRefreshed value={promsRefresh.label} />
-        <LastFailedAttempt
-          value={promsLoadError.label}
-          title={promsLoadError.lastError?.title}
-          message={promsLoadError.lastError?.message}
-          onClear={promsLoadError.lastError ? promsLoadError.clear : undefined}
-        />
-        <LastFailedAttempt
-          label="Last submit issue"
-          value={promSubmitError.label}
-          title={promSubmitError.lastError?.title}
-          message={promSubmitError.lastError?.message}
-          onClear={promSubmitError.lastError ? promSubmitError.clear : undefined}
-        />
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={listHeader}
+        renderItem={({ item }) => {
+          if (item.type === "section") {
+            return (
+              <View style={styles.sectionRow}>
+                <DomainIcon icon={item.icon} tone={item.icon === "success" ? "success" : item.icon === "warning" ? "warning" : "muted"} accessibilityLabel={`${item.label} section`} />
+                <Text style={styles.sectionText}>{item.label}</Text>
+              </View>
+            );
+          }
 
-        <Section title="Pending submissions">
-          <Text style={styles.metaText}>
-            Pending uploads: {pending.length}
-          </Text>
-          <PrimaryButton
-            label={isSubmittingPending ? "Submitting…" : "Submit pending"}
-            loading={isSubmittingPending}
-            disabled={pending.length === 0 || isSubmittingPending || isOffline}
-            onPress={() => {
-              void submitPending();
-            }}
-          />
-        </Section>
+          if (item.type === "empty") {
+            return (
+              <View style={styles.itemWrap}>
+                <EmptyState
+                  variant="compact"
+                  illustrationKey={item.illustration}
+                  title={item.title}
+                  description={item.description}
+                />
+              </View>
+            );
+          }
 
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — showing saved questionnaires when available."
-          />
-        ) : null}
+          if (item.type === "due") {
+            return (
+              <View style={styles.itemWrap}>
+                <MediaCard
+                  leading={{ type: "icon", icon: "proms", tone: "accent" }}
+                  title={item.item.title}
+                  subtitle={`Due: ${formatDateTime(item.item.dueAt)}`}
+                  statusPill={{ text: "Due", tone: "warning" }}
+                  chips={[{ text: "Assigned", tone: "warning" }]}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/prom-fill" as never,
+                      params: { promId: item.item.id },
+                    });
+                  }}
+                />
+              </View>
+            );
+          }
 
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
+          const historyChips: MediaCardChip[] = item.item.score
+            ? [{ text: `${item.item.score.normalized} (${item.item.score.bandLabel})`, tone: "info" }]
+            : [{ text: "Score —", tone: "muted" }];
 
-        {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-          </View>
-        ) : (
-          <>
-            <Section title="Due">
-              {due.length === 0 ? (
-                <Text style={styles.metaText}>No questionnaires due.</Text>
-              ) : (
-                <View style={styles.list}>
-                  {due.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      style={({ pressed }) => [
-                        styles.card,
-                        pressed ? styles.cardPressed : null,
-                      ]}
-                      onPress={() => {
-                        router.push({
-                          pathname: "/prom-fill" as never,
-                          params: { promId: item.id },
-                        });
-                      }}
-                    >
-                      <Text style={styles.cardTitle}>{item.title}</Text>
-                      <Text style={styles.cardMeta}>Due: {formatDateTime(item.dueAt)}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </Section>
-
-            <Section title="Completed">
-              {history.length === 0 ? (
-                <Text style={styles.metaText}>No completed questionnaires yet.</Text>
-              ) : (
-                <View style={styles.list}>
-                  {history.map((item) => (
-                    <View key={item.id} style={styles.card}>
-                      <Text style={styles.cardTitle}>{item.title}</Text>
-                      <Text style={styles.cardMeta}>
-                        Completed: {formatDateTime(item.completedAt)}
-                      </Text>
-                      <Text style={styles.cardMeta}>
-                        Score:{" "}
-                        {item.score
-                          ? `${item.score.normalized} (${item.score.bandLabel})`
-                          : "--"}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </Section>
-          </>
-        )}
-      </ScrollView>
+          return (
+            <View style={styles.itemWrap}>
+              <MediaCard
+                leading={{ type: "icon", icon: "success", tone: "success" }}
+                title={item.item.title}
+                subtitle={`Completed: ${formatDateTime(item.item.completedAt)}`}
+                statusPill={{ text: "Completed", tone: "success" }}
+                chips={historyChips}
+                showChevron={false}
+              />
+            </View>
+          );
+        }}
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.centered}>
+              <ActivityIndicator size="small" />
+            </View>
+          ) : null
+        }
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 120,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  metaText: {
-    fontSize: 13,
-    color: "#4b5563",
-    lineHeight: 18,
-  },
-  list: {
-    gap: 10,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: "#ffffff",
-    gap: 4,
-  },
-  cardPressed: {
-    opacity: 0.85,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  cardMeta: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    centeredFull: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    centered: {
+      minHeight: 140,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    listContent: {
+      paddingBottom: tokens.spacing.xl,
+      gap: tokens.spacing.sm,
+    },
+    headerStack: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.md,
+    },
+    itemWrap: {
+      marginBottom: tokens.spacing.sm,
+    },
+    sectionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
+      marginTop: tokens.spacing.sm,
+    },
+    sectionText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    diagToggle: {
+      minHeight: 44,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    diagTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+    },
+    diagTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    diagContent: {
+      marginTop: tokens.spacing.sm,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tokens.colors.border,
+      paddingTop: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    pressed: {
+      opacity: 0.85,
+    },
+  });
+}

@@ -129,7 +129,7 @@ export default function SymptomPhotoViewScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Photo">
+      <Screen title="Photo" scroll={false}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -154,7 +154,7 @@ export default function SymptomPhotoViewScreen() {
   const displayCreatedAt = isPending ? pendingCreatedAt : meta?.createdAt;
 
   return (
-    <Screen title="Photo">
+    <Screen title="Photo" scroll={false}>
       <ScrollView contentContainerStyle={styles.container}>
         {notice ? (
           <InlineNotice

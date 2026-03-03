@@ -561,7 +561,7 @@ export default function SymptomPhotosScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Symptom photos">
+      <Screen title="Symptom photos" scroll={false}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -574,7 +574,7 @@ export default function SymptomPhotosScreen() {
   }
 
   return (
-    <Screen title="Symptom photos">
+    <Screen title="Symptom photos" scroll={false}>
       <ScrollView contentContainerStyle={styles.container}>
         <LastRefreshed label="Last refreshed" value={photosRefresh.label} />
         <LastFailedAttempt

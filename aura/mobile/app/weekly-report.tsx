@@ -307,7 +307,7 @@ export default function WeeklyReportScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Weekly report">
+      <Screen title="Weekly report" scroll={false}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -320,7 +320,7 @@ export default function WeeklyReportScreen() {
   }
 
   return (
-    <Screen title="Weekly report">
+    <Screen title="Weekly report" scroll={false}>
       <ScrollView contentContainerStyle={styles.container}>
         <LastRefreshed value={weeklyRefresh.label} />
         <LastFailedAttempt

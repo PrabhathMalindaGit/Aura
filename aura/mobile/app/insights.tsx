@@ -231,7 +231,7 @@ export default function InsightsScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Insights">
+      <Screen title="Insights" scroll={false}>
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -244,7 +244,7 @@ export default function InsightsScreen() {
   }
 
   return (
-    <Screen title="Insights">
+    <Screen title="Insights" scroll={false}>
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={

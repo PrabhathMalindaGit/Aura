@@ -1,9 +1,8 @@
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
+  FlatList,
   Share,
   StyleSheet,
   Text,
@@ -13,11 +12,18 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
 import { getWeeklyReport, type WeeklyReport } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { EmptyState } from "@/src/components/EmptyState";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard, type MediaCardProps } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
@@ -26,6 +32,7 @@ import {
   setCachedWeeklyReport,
 } from "@/src/state/weeklyReportCache";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, startOfWeekMondayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -111,6 +118,20 @@ function pctOrDash(value: number | null): string {
   return value === null ? "—" : `${value}%`;
 }
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
+
 function buildShareText(report: WeeklyReport): string {
   const lines: string[] = [
     `Aura Weekly Report (${report.period.weekStart} to ${report.period.weekEnd})`,
@@ -146,10 +167,13 @@ function buildShareText(report: WeeklyReport): string {
 }
 
 export default function WeeklyReportScreen() {
+  const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
   const weeklyRefresh = useLastRefreshed("weeklyReport");
   const weeklyLoadError = useLastError("weeklyReportLoad");
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const patientId = auth.patient?.id ?? "";
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
@@ -167,6 +191,7 @@ export default function WeeklyReportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
 
   const activeWeekStart = selectedWeek === "this" ? thisWeekStart : lastWeekStart;
 
@@ -305,9 +330,170 @@ export default function WeeklyReportScreen() {
     }
   }, [report]);
 
+  const cards = useMemo<Array<MediaCardProps & { key: string }>>(() => {
+    if (!report) {
+      return [];
+    }
+
+    return [
+      {
+        key: "checkins",
+        leading: { type: "icon", icon: "checkin", tone: "accent" },
+        title: "Check-ins",
+        subtitle: `${report.checkins.count} entries this week · notes ${report.checkins.notesCount}`,
+        chips: [
+          { text: `Pain ${numberOrDash(report.checkins.avgPain)}` },
+          { text: `Mood ${numberOrDash(report.checkins.avgMood)}` },
+          { text: `Exercise ${pctOrDash(report.checkins.avgExercisesPct)}` },
+        ],
+      },
+      {
+        key: "pain-areas",
+        leading: { type: "icon", icon: "checkin", tone: "warning" },
+        title: "Top pain areas",
+        subtitle:
+          report.bodyMap.topRegions.length > 0
+            ? report.bodyMap.topRegions
+                .slice(0, 2)
+                .map((entry) => `${entry.label} (${entry.count})`)
+                .join(" · ")
+            : "No localized pain areas logged.",
+        chips:
+          report.bodyMap.topRegions.length > 0
+            ? report.bodyMap.topRegions.slice(0, 3).map((entry) => ({
+                text: `${entry.label} ${entry.avgIntensity ?? "—"}/10`,
+                tone: "muted" as const,
+              }))
+            : undefined,
+      },
+      {
+        key: "sleep",
+        leading: { type: "icon", icon: "sleep", tone: "muted" },
+        title: "Sleep",
+        subtitle: `Tracked nights ${report.sleep.trackedNights}`,
+        chips: [
+          { text: `Avg hours ${numberOrDash(report.sleep.avgHours)}` },
+          { text: `Quality ${numberOrDash(report.sleep.avgQuality)}` },
+        ],
+      },
+      {
+        key: "photos",
+        leading: { type: "icon", icon: "photos", tone: "accent" },
+        title: "Symptom photos",
+        subtitle: `${report.photos.uploadedThisWeek} uploaded this week`,
+        chips: [
+          { text: `Swelling ${report.photos.kinds.swelling}` },
+          { text: `Wound ${report.photos.kinds.wound}` },
+          { text: `Rash ${report.photos.kinds.rash}` },
+        ],
+      },
+      {
+        key: "hydration",
+        leading: { type: "icon", icon: "hydration", tone: "accent" },
+        title: "Hydration",
+        subtitle: `${report.hydration.totalMl} ml this week · target ${report.hydration.targetMl} ml/day`,
+        chips: [
+          { text: `Tracked ${report.hydration.trackedDays}` },
+          { text: `Avg ${numberOrDash(report.hydration.avgDailyMl)} ml` },
+          {
+            text: `Goal days ${report.hydration.daysMeetingTarget}/${report.hydration.trackedDays}`,
+          },
+        ],
+      },
+      {
+        key: "nutrition",
+        leading: { type: "icon", icon: "nutrition", tone: "muted" },
+        title: "Nutrition",
+        subtitle: `Tracked ${report.nutrition.trackedDays} days`,
+        chips: [
+          { text: `Fruit/veg ${numberOrDash(report.nutrition.avgFruitVegServings)}` },
+          { text: `Protein OK/high ${report.nutrition.proteinOkHighDays}` },
+          { text: `Anti-inflammatory ${report.nutrition.antiInflammatoryDays}` },
+        ],
+      },
+      {
+        key: "wearables",
+        leading: { type: "icon", icon: "wearables", tone: "muted" },
+        title: "Wearables",
+        subtitle: `Source ${report.wearables?.source ?? "mock"} · tracked ${report.wearables?.trackedDays ?? 0} days`,
+        chips: [
+          { text: `Steps ${numberOrDash(report.wearables?.avgSteps ?? null)}` },
+          {
+            text: `Active ${numberOrDash(report.wearables?.avgActiveMinutes ?? null)} min`,
+          },
+        ],
+      },
+      {
+        key: "medications",
+        leading: { type: "icon", icon: "meds", tone: "accent" },
+        title: "Medications",
+        subtitle: `${report.medications.takenDoses}/${report.medications.scheduledDoses} taken`,
+        chips: [
+          { text: `Taken ${report.medications.takenDoses}`, tone: "success" },
+          { text: `Skipped ${report.medications.skippedDoses}`, tone: "warning" },
+          { text: `Adherence ${pctOrDash(report.medications.adherencePct)}` },
+        ],
+      },
+      {
+        key: "exercises",
+        leading: { type: "icon", icon: "exercise", tone: "accent" },
+        title: "Exercise sessions",
+        subtitle: `${report.exercises.sessionCount} sessions · ${report.exercises.totalDurationMinutes} min total`,
+        chips: [
+          {
+            text: `Completed ${report.exercises.completedExercises}/${report.exercises.totalExercises}`,
+          },
+          { text: `Pain ${numberOrDash(report.exercises.avgPainDuring)}` },
+          {
+            text: `Hard ${report.exercises.difficulty.hard}`,
+            tone: report.exercises.difficulty.hard > 0 ? "warning" : "muted",
+          },
+        ],
+      },
+      {
+        key: "proms",
+        leading: { type: "icon", icon: "proms", tone: "muted" },
+        title: "Questionnaires",
+        subtitle: `${report.proms.completedThisWeekCount} completed this week`,
+        chips: [
+          { text: `Due now ${report.proms.dueNowCount}` },
+          {
+            text: report.proms.latestCompleted
+              ? `${report.proms.latestCompleted.normalized} (${report.proms.latestCompleted.bandLabel})`
+              : "Latest —",
+          },
+        ],
+      },
+      {
+        key: "safety",
+        leading: { type: "icon", icon: "safety", tone: "warning" },
+        title: "Safety",
+        subtitle: `${report.safety.alertsCreatedThisWeek} alerts this week`,
+        chips: [
+          { text: `High-risk ${report.safety.highRiskAlertsThisWeek}` },
+          { text: `${report.period.weekStart} → ${report.period.weekEnd}` },
+        ],
+        statusPill:
+          report.safety.highRiskAlertsThisWeek > 0
+            ? { text: "Needs review", tone: "warning" }
+            : { text: "Stable", tone: "success" },
+      },
+    ];
+  }, [report]);
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Weekly report" scroll={false}>
+      <Screen
+        scroll={false}
+        header={
+          <HeroHeader
+            variant="compact"
+            title="Weekly report"
+            subtitle="Loading"
+            left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="weekly" />}
+          />
+        }
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -319,342 +505,333 @@ export default function WeeklyReportScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  const selectedWeekLabel = selectedWeek === "this" ? "This week" : "Last week";
+  const headerSubtitle = report
+    ? `${report.period.weekStart} to ${report.period.weekEnd}`
+    : selectedWeekLabel;
+
   return (
-    <Screen title="Weekly report" scroll={false}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed value={weeklyRefresh.label} />
-        <LastFailedAttempt
-          value={weeklyLoadError.label}
-          title={weeklyLoadError.lastError?.title}
-          message={weeklyLoadError.lastError?.message}
-          onClear={weeklyLoadError.lastError ? weeklyLoadError.clear : undefined}
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Weekly report"
+          subtitle={headerSubtitle}
+          left={
+            <Avatar
+              size={40}
+              name={auth.patient?.displayName ?? "Patient"}
+              fallback="icon"
+              iconKey="weekly"
+              ring={isOffline ? "attention" : "none"}
+            />
+          }
+          rightActions={[
+            {
+              icon: "home",
+              tone: "muted",
+              accessibilityLabel: "Back to Home",
+              onPress: () => router.push("/(tabs)" as never),
+            },
+            {
+              icon: "progress",
+              tone: "muted",
+              accessibilityLabel: "Open Progress",
+              onPress: () => router.push("/(tabs)/progress" as never),
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => router.push("/safety" as never),
+            },
+          ]}
         />
-
-        <View style={styles.selectorRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.selectorButton,
-              selectedWeek === "this" ? styles.selectorButtonSelected : null,
-              pressed ? styles.selectorButtonPressed : null,
-            ]}
-            onPress={() => {
-              setSelectedWeek("this");
-            }}
-          >
-            <Text
-              style={
-                selectedWeek === "this"
-                  ? styles.selectorTextSelected
-                  : styles.selectorText
-              }
-            >
-              This week
-            </Text>
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.selectorButton,
-              selectedWeek === "last" ? styles.selectorButtonSelected : null,
-              pressed ? styles.selectorButtonPressed : null,
-            ]}
-            onPress={() => {
-              setSelectedWeek("last");
-            }}
-          >
-            <Text
-              style={
-                selectedWeek === "last"
-                  ? styles.selectorTextSelected
-                  : styles.selectorText
-              }
-            >
-              Last week
-            </Text>
-          </Pressable>
-        </View>
-
-        <PrimaryButton
-          label={isRefreshing ? "Refreshing..." : "Refresh report"}
-          loading={isRefreshing}
-          disabled={isRefreshing}
-          onPress={() => {
-            void loadReport("refresh");
-          }}
-        />
-
-        <PrimaryButton
-          label="Share report"
-          disabled={!report}
-          onPress={() => {
-            void shareReport();
-          }}
-        />
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — showing cached report when available."
+      }
+    >
+      <FlatList
+        data={cards}
+        keyExtractor={(item) => item.key}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <MediaCard
+            leading={item.leading}
+            title={item.title}
+            subtitle={item.subtitle}
+            chips={item.chips}
+            statusPill={item.statusPill}
           />
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
-
-        {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-          </View>
-        ) : !report ? (
-          <InlineNotice
-            variant="info"
-            title="No report available"
-            message="Connect online and refresh to load this weekly report."
-          />
-        ) : (
-          <View style={styles.stack}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Summary</Text>
-              <Text style={styles.bodyText}>{report.summary.headline}</Text>
-              <Text style={styles.subTitle}>Highlights</Text>
-              {report.summary.highlights.map((item) => (
-                <Text key={item} style={styles.bulletText}>{`• ${item}`}</Text>
-              ))}
-              <Text style={styles.subTitle}>Next steps</Text>
-              {report.summary.nextSteps.map((item) => (
-                <Text key={item} style={styles.bulletText}>{`• ${item}`}</Text>
-              ))}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Check-ins</Text>
-              <Text style={styles.metaText}>Count: {report.checkins.count}</Text>
-              <Text style={styles.metaText}>Average pain: {numberOrDash(report.checkins.avgPain)}</Text>
-              <Text style={styles.metaText}>Average mood: {numberOrDash(report.checkins.avgMood)}</Text>
-              <Text style={styles.metaText}>Exercise adherence: {pctOrDash(report.checkins.avgExercisesPct)}</Text>
-              <Text style={styles.metaText}>Medication yes: {pctOrDash(report.checkins.medicationYesPct)}</Text>
-              <Text style={styles.metaText}>Notes logged: {report.checkins.notesCount}</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Top pain areas</Text>
-              {report.bodyMap.topRegions.length === 0 ? (
-                <Text style={styles.metaText}>No localized pain areas recorded this week.</Text>
-              ) : (
-                report.bodyMap.topRegions.map((entry) => (
-                  <Text key={`${entry.region}-${entry.count}`} style={styles.metaText}>
-                    {entry.label}: {entry.count} {entry.count === 1 ? "entry" : "entries"}
-                    {entry.avgIntensity !== null
-                      ? ` · avg intensity ${numberOrDash(entry.avgIntensity)}/10`
-                      : ""}
-                  </Text>
-                ))
-              )}
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Sleep</Text>
-              <Text style={styles.metaText}>Tracked nights: {report.sleep.trackedNights}</Text>
-              <Text style={styles.metaText}>Average hours: {numberOrDash(report.sleep.avgHours)}</Text>
-              <Text style={styles.metaText}>Average quality: {numberOrDash(report.sleep.avgQuality)}</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Symptom photos</Text>
-              <Text style={styles.metaText}>
-                Uploaded this week: {report.photos.uploadedThisWeek}
-              </Text>
-              <Text style={styles.metaText}>Swelling: {report.photos.kinds.swelling}</Text>
-              <Text style={styles.metaText}>Wound: {report.photos.kinds.wound}</Text>
-              <Text style={styles.metaText}>Rash: {report.photos.kinds.rash}</Text>
-              <Text style={styles.metaText}>Other: {report.photos.kinds.other}</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Hydration</Text>
-              <Text style={styles.metaText}>Tracked days: {report.hydration.trackedDays}</Text>
-              <Text style={styles.metaText}>Average daily: {numberOrDash(report.hydration.avgDailyMl)} ml</Text>
-              <Text style={styles.metaText}>Total: {report.hydration.totalMl} ml</Text>
-              <Text style={styles.metaText}>
-                Goal days: {report.hydration.daysMeetingTarget}/{report.hydration.trackedDays} (target {report.hydration.targetMl} ml)
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Nutrition</Text>
-              <Text style={styles.metaText}>Tracked days: {report.nutrition.trackedDays}</Text>
-              <Text style={styles.metaText}>
-                Avg fruit/veg servings: {numberOrDash(report.nutrition.avgFruitVegServings)}
-              </Text>
-              <Text style={styles.metaText}>
-                Protein OK/high days: {report.nutrition.proteinOkHighDays}
-              </Text>
-              <Text style={styles.metaText}>
-                Anti-inflammatory days: {report.nutrition.antiInflammatoryDays}
-              </Text>
-              <Text style={styles.metaText}>
-                Regular meals days: {report.nutrition.regularMealsDays}
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Wearables</Text>
-              <Text style={styles.metaText}>Tracked days: {report.wearables?.trackedDays ?? 0}</Text>
-              <Text style={styles.metaText}>
-                Avg steps: {numberOrDash(report.wearables?.avgSteps ?? null)}
-              </Text>
-              <Text style={styles.metaText}>
-                Avg active minutes: {numberOrDash(report.wearables?.avgActiveMinutes ?? null)}
-              </Text>
-              <Text style={styles.metaText}>Source: {report.wearables?.source ?? "mock"}</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Medications</Text>
-              <Text style={styles.metaText}>
-                Scheduled doses: {report.medications.scheduledDoses}
-              </Text>
-              <Text style={styles.metaText}>
-                Taken doses: {report.medications.takenDoses}
-              </Text>
-              <Text style={styles.metaText}>
-                Skipped doses: {report.medications.skippedDoses}
-              </Text>
-              <Text style={styles.metaText}>
-                Adherence: {pctOrDash(report.medications.adherencePct)}
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Exercise sessions</Text>
-              <Text style={styles.metaText}>Sessions: {report.exercises.sessionCount}</Text>
-              <Text style={styles.metaText}>Total duration: {report.exercises.totalDurationMinutes} min</Text>
-              <Text style={styles.metaText}>
-                Completion: {report.exercises.completedExercises}/{report.exercises.totalExercises}
-              </Text>
-              <Text style={styles.metaText}>
-                Average pain during: {numberOrDash(report.exercises.avgPainDuring)}
-              </Text>
-              <Text style={styles.metaText}>
-                Difficulty: easy {report.exercises.difficulty.easy}, ok {report.exercises.difficulty.ok}, hard {report.exercises.difficulty.hard}
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Questionnaires (PROMs)</Text>
-              <Text style={styles.metaText}>Due now: {report.proms.dueNowCount}</Text>
-              <Text style={styles.metaText}>
-                Completed this week: {report.proms.completedThisWeekCount}
-              </Text>
-              <Text style={styles.metaText}>
-                Latest: {report.proms.latestCompleted
-                  ? `${report.proms.latestCompleted.normalized} (${report.proms.latestCompleted.bandLabel})`
-                  : "—"}
-              </Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Safety</Text>
-              <Text style={styles.metaText}>
-                Alerts created this week: {report.safety.alertsCreatedThisWeek}
-              </Text>
-              <Text style={styles.metaText}>
-                High-risk alerts this week: {report.safety.highRiskAlertsThisWeek}
-              </Text>
-              <Text style={styles.metaText}>
-                Period: {report.period.weekStart} to {report.period.weekEnd}
-              </Text>
-            </View>
-          </View>
         )}
-      </ScrollView>
+        ListHeaderComponent={
+          <View style={styles.stack}>
+            {__DEV__ ? (
+              <View style={styles.devBlock}>
+                <SecondaryButton
+                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
+                  onPress={() => {
+                    setShowDevDiagnostics((current) => !current);
+                  }}
+                />
+                {showDevDiagnostics ? (
+                  <View style={styles.devMetaWrap}>
+                    <LastRefreshed value={weeklyRefresh.label} compact />
+                    <LastFailedAttempt
+                      value={weeklyLoadError.label}
+                      title={weeklyLoadError.lastError?.title}
+                      message={weeklyLoadError.lastError?.message}
+                      onClear={weeklyLoadError.lastError ? weeklyLoadError.clear : undefined}
+                      compact
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            <SegmentedControl
+              value={selectedWeek}
+              options={[
+                { value: "this", label: "This week", icon: "weekly" },
+                { value: "last", label: "Last week", icon: "weekly" },
+              ]}
+              onChange={(nextValue) => {
+                setSelectedWeek(nextValue);
+              }}
+              accessibilityLabel="Weekly report range"
+            />
+
+            <View style={styles.actionRow}>
+              <View style={styles.actionButtonWrap}>
+                <PrimaryButton
+                  label={isRefreshing ? "Refreshing..." : "Refresh report"}
+                  loading={isRefreshing}
+                  disabled={isRefreshing}
+                  onPress={() => {
+                    void loadReport("refresh");
+                  }}
+                />
+              </View>
+              <View style={styles.actionButtonWrap}>
+                <SecondaryButton
+                  label="Share report"
+                  disabled={!report}
+                  onPress={() => {
+                    void shareReport();
+                  }}
+                />
+              </View>
+            </View>
+
+            {isOffline ? (
+              <Banner
+                variant="warning"
+                title="Offline"
+                message="Offline — showing cached report when available."
+              />
+            ) : null}
+
+            {notice ? (
+              <Banner
+                variant={toBannerVariant(notice.variant)}
+                title={notice.title}
+                message={notice.message}
+                actionLabel={notice.actionLabel}
+                onAction={notice.onAction}
+              />
+            ) : null}
+
+            {isLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="small" />
+              </View>
+            ) : null}
+
+            {!isLoading && !report ? (
+              <EmptyState
+                illustrationKey="weekly"
+                title="No report available"
+                description="Connect online and refresh to load this weekly report."
+                ctaLabel="Retry"
+                onCtaPress={() => {
+                  void loadReport("refresh");
+                }}
+              />
+            ) : null}
+
+            {report ? (
+              <>
+                <MediaCard
+                  variant="emphasis"
+                  leading={{ type: "icon", icon: "weekly", tone: "accent" }}
+                  title={report.summary.headline || "This week at a glance"}
+                  subtitle={`${report.period.weekStart} to ${report.period.weekEnd}`}
+                  chips={[
+                    ...report.summary.highlights.slice(0, 2).map((item) => ({
+                      text: item,
+                      tone: "muted" as const,
+                    })),
+                    {
+                      text: `${report.checkins.count} check-ins`,
+                      tone: "info" as const,
+                    },
+                  ]}
+                />
+
+                <View style={styles.metricGrid}>
+                  <View style={styles.metricTileWrap}>
+                    <TrackerTile
+                      icon="checkin"
+                      label="Pain avg"
+                      value={
+                        report.checkins.avgPain !== null
+                          ? `${report.checkins.avgPain.toFixed(1)}/10`
+                          : "—"
+                      }
+                      delta="Weekly"
+                      tone="warning"
+                      micro={{ type: "dots", values: [0.4, 0.6, 0.5, 0.7, 0.55, 0.52, 0.6] }}
+                    />
+                  </View>
+                  <View style={styles.metricTileWrap}>
+                    <TrackerTile
+                      icon="checkin"
+                      label="Mood avg"
+                      value={
+                        report.checkins.avgMood !== null
+                          ? `${report.checkins.avgMood.toFixed(1)}/5`
+                          : "—"
+                      }
+                      delta="Weekly"
+                      tone="success"
+                      micro={{ type: "dots", values: [0.45, 0.5, 0.55, 0.52, 0.6, 0.65, 0.62] }}
+                    />
+                  </View>
+                  <View style={styles.metricTileWrap}>
+                    <TrackerTile
+                      icon="exercise"
+                      label="Exercise"
+                      value={pctOrDash(report.checkins.avgExercisesPct)}
+                      delta="Adherence"
+                      tone="accent"
+                      micro={{
+                        type: "ring",
+                        progress: clamp01((report.checkins.avgExercisesPct ?? 0) / 100),
+                      }}
+                    />
+                  </View>
+                  <View style={styles.metricTileWrap}>
+                    <TrackerTile
+                      icon="meds"
+                      label="Medication"
+                      value={pctOrDash(report.medications.adherencePct)}
+                      delta="Taken"
+                      tone="primary"
+                      micro={{
+                        type: "ring",
+                        progress: clamp01((report.medications.adherencePct ?? 0) / 100),
+                      }}
+                    />
+                  </View>
+                </View>
+
+                {report.summary.nextSteps.length > 0 ? (
+                  <View style={styles.nextStepsWrap}>
+                    <Text style={styles.nextStepsTitle}>Next steps</Text>
+                    <View style={styles.nextStepsRow}>
+                      {report.summary.nextSteps.slice(0, 3).map((step, index) => (
+                        <View key={`${step}-${index}`} style={styles.nextStepChip}>
+                          <Text numberOfLines={1} style={styles.nextStepText}>
+                            {step}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+          </View>
+        }
+        ListFooterComponent={<View style={styles.bottomSpacer} />}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 28,
-  },
-  centered: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 120,
-  },
-  selectorRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  selectorButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#d0d7de",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-  selectorButtonSelected: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-  selectorButtonPressed: {
-    opacity: 0.85,
-  },
-  selectorText: {
-    color: "#111827",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  selectorTextSelected: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  stack: {
-    gap: 12,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: "#d0d7de",
-    borderRadius: 12,
-    padding: 12,
-    gap: 6,
-    backgroundColor: "#fff",
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  subTitle: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  bodyText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#1f2937",
-  },
-  bulletText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#374151",
-  },
-  metaText: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    stack: {
+      gap: tokens.spacing.md,
+    },
+    centered: {
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 120,
+    },
+    devBlock: {
+      gap: tokens.spacing.sm,
+      padding: tokens.spacing.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    devMetaWrap: {
+      gap: tokens.spacing.xs,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    actionButtonWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    metricGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    metricTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+    nextStepsWrap: {
+      gap: tokens.spacing.xs,
+    },
+    nextStepsTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    nextStepsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    nextStepChip: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: 999,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.sm,
+      paddingVertical: 6,
+      maxWidth: "100%",
+    },
+    nextStepText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    bottomSpacer: {
+      height: tokens.spacing.md,
+    },
+  });
+}

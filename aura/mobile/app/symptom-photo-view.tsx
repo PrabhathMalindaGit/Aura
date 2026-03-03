@@ -1,21 +1,35 @@
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { getPhotoMeta, type SymptomPhotoKind, type SymptomPhotoMeta } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
+import { SmartImage } from "@/src/components/SmartImage";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
+import { useTokens } from "@/src/theme/tokens";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
   title: string;
   message: string;
 };
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
 
 function kindLabel(kind: SymptomPhotoKind): string {
   if (kind === "swelling") {
@@ -52,8 +66,27 @@ function mimeToExtension(mimeType: string): string {
   return "jpg";
 }
 
+function formatFileSize(value?: number): string {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  if (!value || value <= 0) {
+    return "0 B";
+  }
+  if (value >= 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (value >= 1024) {
+    return `${Math.round(value / 1024)} KB`;
+  }
+  return `${value} B`;
+}
+
 export default function SymptomPhotoViewScreen() {
   const auth = useAuth();
+  const router = useRouter();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const params = useLocalSearchParams<{
     id?: string;
     mode?: string;
@@ -129,7 +162,17 @@ export default function SymptomPhotoViewScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Photo" scroll={false}>
+      <Screen
+        scroll={false}
+        header={
+          <HeroHeader
+            variant="compact"
+            title="Photo"
+            subtitle="Loading"
+            left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="photos" />}
+          />
+        }
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -154,11 +197,35 @@ export default function SymptomPhotoViewScreen() {
   const displayCreatedAt = isPending ? pendingCreatedAt : meta?.createdAt;
 
   return (
-    <Screen title="Photo" scroll={false}>
-      <ScrollView contentContainerStyle={styles.container}>
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Photo"
+          subtitle={displayDate !== "Unknown" ? displayDate : "Symptom photo"}
+          left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="photos" />}
+          rightActions={[
+            {
+              icon: "chevron-left",
+              tone: "muted",
+              accessibilityLabel: "Go back",
+              onPress: () => router.back(),
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => router.push("/safety" as never),
+            },
+          ]}
+        />
+      }
+    >
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {notice ? (
-          <InlineNotice
-            variant={notice.variant}
+          <Banner
+            variant={toBannerVariant(notice.variant)}
             title={notice.title}
             message={notice.message}
           />
@@ -169,78 +236,132 @@ export default function SymptomPhotoViewScreen() {
             <ActivityIndicator size="small" />
           </View>
         ) : imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.image} />
+          <SmartImage
+            source={{ uri: imageUri }}
+            height={300}
+            radius={tokens.radius.xl}
+            contentFit="contain"
+            backgroundVariant="muted"
+            accessibilityLabel="Symptom photo"
+          />
         ) : (
-          <InlineNotice
+          <Banner
             variant="warning"
             title="No image"
             message="This image is unavailable."
           />
         )}
 
-        <View style={styles.metaCard}>
-          <Text style={styles.metaTitle}>{kindLabel(displayKind)}</Text>
-          <Text style={styles.metaLine}>Date: {displayDate}</Text>
-          {displayCreatedAt ? (
-            <Text style={styles.metaLine}>
-              Saved: {new Date(displayCreatedAt).toLocaleString()}
-            </Text>
-          ) : null}
-          {displayNote ? <Text style={styles.metaLine}>Note: {displayNote}</Text> : null}
-          {isPending ? (
-            <Text style={styles.pendingLabel}>Pending sync</Text>
-          ) : null}
-          {!isPending ? (
-            <PrimaryButton
-              label="Reload"
-              onPress={() => {
-                void loadRemote();
-              }}
-              disabled={isLoading}
-            />
-          ) : null}
+        <View style={styles.statusRow}>
+          <StatusPill
+            label={isPending ? "Pending sync" : "Uploaded"}
+            variant={isPending ? "warning" : "success"}
+          />
+          <StatusPill label={kindLabel(displayKind)} variant="info" />
         </View>
+
+        <View style={styles.metricGrid}>
+          <View style={styles.metricTileWrap}>
+            <TrackerTile
+              icon="photos"
+              label="Status"
+              value={isPending ? "Pending" : "Uploaded"}
+              delta="Upload"
+              tone={isPending ? "warning" : "success"}
+              micro={{ type: "dots", values: [0.4, 0.5, 0.6, isPending ? 0.35 : 0.8] }}
+            />
+          </View>
+          <View style={styles.metricTileWrap}>
+            <TrackerTile
+              icon="checkin"
+              label="Type"
+              value={kindLabel(displayKind)}
+              delta="Symptom"
+              tone="accent"
+              micro={{ type: "dots", values: [0.45, 0.5, 0.55, 0.58] }}
+            />
+          </View>
+          <View style={styles.metricTileWrap}>
+            <TrackerTile
+              icon="weekly"
+              label="Date"
+              value={displayDate}
+              delta="Recorded"
+              tone="muted"
+              micro={{ type: "dots", values: [0.5, 0.5, 0.5, 0.5] }}
+            />
+          </View>
+          <View style={styles.metricTileWrap}>
+            <TrackerTile
+              icon="info"
+              label="File size"
+              value={formatFileSize(meta?.sizeBytes)}
+              delta="Image"
+              tone="muted"
+              micro={{ type: "dots", values: [0.45, 0.52, 0.54, 0.6] }}
+            />
+          </View>
+        </View>
+
+        <MediaCard
+          leading={{ type: "icon", icon: "info", tone: "muted" }}
+          title="Details"
+          subtitle={
+            displayCreatedAt
+              ? `Saved ${new Date(displayCreatedAt).toLocaleString()}`
+              : "Saved time unavailable"
+          }
+          chips={[
+            { text: `Date ${displayDate}`, tone: "muted" },
+            { text: kindLabel(displayKind), tone: "muted" },
+            { text: isPending ? "Pending sync" : "Uploaded", tone: isPending ? "warning" : "success" },
+          ]}
+        />
+
+        <MediaCard
+          leading={{ type: "icon", icon: "chat", tone: "muted" }}
+          title="Notes"
+          subtitle={displayNote ?? "No notes provided"}
+        />
+
+        {!isPending ? (
+          <PrimaryButton
+            label="Reload"
+            onPress={() => {
+              void loadRemote();
+            }}
+            disabled={isLoading}
+          />
+        ) : null}
       </ScrollView>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 140,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: 320,
-    borderRadius: 12,
-    backgroundColor: "#e5e7eb",
-  },
-  metaCard: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 12,
-    padding: 12,
-    gap: 6,
-    backgroundColor: "#fff",
-  },
-  metaTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  metaLine: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  pendingLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#b45309",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    centered: {
+      minHeight: 140,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    statusRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    metricGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    metricTileWrap: {
+      width: "48%",
+      minWidth: 0,
+    },
+  });
+}

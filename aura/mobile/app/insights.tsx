@@ -1,9 +1,9 @@
-import { Redirect } from "expo-router";
-import { useCallback, useState } from "react";
+import { Redirect, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -12,17 +12,23 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
 import { getApprovedInsights, type ApprovedInsight } from "@/src/api/patient";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { EmptyState } from "@/src/components/EmptyState";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { useAuth } from "@/src/state/auth";
 import { getCachedInsights, setCachedInsights } from "@/src/state/insightsCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { formatISOToHuman } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -115,11 +121,40 @@ function categoryLabel(category: ApprovedInsight["category"]): string {
   return "Habits";
 }
 
+function categoryIcon(category: ApprovedInsight["category"]) {
+  if (category === "questionnaires") {
+    return "proms" as const;
+  }
+  if (category === "recovery") {
+    return "exercise" as const;
+  }
+  if (category === "adherence") {
+    return "checkin" as const;
+  }
+  if (category === "safety") {
+    return "safety" as const;
+  }
+  if (category === "symptoms") {
+    return "insights" as const;
+  }
+  return "nutrition" as const;
+}
+
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
+
 export default function InsightsScreen() {
+  const router = useRouter();
   const auth = useAuth();
   const isOffline = useIsOffline();
   const insightsRefresh = useLastRefreshed("insights");
   const insightsLoadError = useLastError("insightsLoad");
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const patientId = auth.patient?.id ?? "";
   const [items, setItems] = useState<ApprovedInsight[]>([]);
@@ -127,6 +162,8 @@ export default function InsightsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
+  const [segment, setSegment] = useState<"approved" | "priority">("approved");
 
   const loadInsights = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -229,9 +266,28 @@ export default function InsightsScreen() {
     }, [auth.status, loadInsights])
   );
 
+  const filteredItems = useMemo(() => {
+    if (segment === "priority") {
+      return items.filter((insight) => insight.priority >= 2);
+    }
+    return items;
+  }, [items, segment]);
+
+  const latestItem = items[0];
+
   if (auth.status === "loading") {
     return (
-      <Screen title="Insights" scroll={false}>
+      <Screen
+        scroll={false}
+        header={
+          <HeroHeader
+            variant="compact"
+            title="Insights"
+            subtitle="Loading"
+            left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="insights" />}
+          />
+        }
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -244,8 +300,49 @@ export default function InsightsScreen() {
   }
 
   return (
-    <Screen title="Insights" scroll={false}>
-      <ScrollView
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Insights"
+          subtitle={
+            source === "live"
+              ? "Clinician-approved guidance"
+              : source === "cache"
+                ? "Saved approved guidance"
+                : "Guidance"
+          }
+          left={
+            <Avatar
+              size={40}
+              name={auth.patient?.displayName ?? "Patient"}
+              fallback="icon"
+              iconKey="insights"
+              ring={isOffline ? "attention" : "none"}
+            />
+          }
+          rightActions={[
+            {
+              icon: "home",
+              tone: "muted",
+              accessibilityLabel: "Back to Home",
+              onPress: () => router.push("/(tabs)" as never),
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => router.push("/safety" as never),
+            },
+          ]}
+        />
+      }
+    >
+      <FlatList
+        data={filteredItems}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
         refreshControl={
           <RefreshControl
@@ -255,123 +352,183 @@ export default function InsightsScreen() {
             }}
           />
         }
-      >
-        <LastRefreshed value={insightsRefresh.label} />
-        <LastFailedAttempt
-          value={insightsLoadError.label}
-          title={insightsLoadError.lastError?.title}
-          message={insightsLoadError.lastError?.message}
-          onClear={insightsLoadError.lastError ? insightsLoadError.clear : undefined}
-        />
-
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — showing saved approved insights when available."
+        renderItem={({ item }) => (
+          <MediaCard
+            leading={{ type: "icon", icon: categoryIcon(item.category), tone: "accent" }}
+            title={item.title}
+            subtitle={item.message}
+            chips={[
+              { text: categoryLabel(item.category), tone: "muted" },
+              {
+                text: `Confidence ${item.confidence}`,
+                tone: item.confidence === "high" ? "success" : "info",
+              },
+              { text: formatISOToHuman(item.createdAt), tone: "muted" },
+            ]}
+            statusPill={{
+              text: item.priority >= 3 ? "Priority" : "Approved",
+              tone: item.priority >= 3 ? "warning" : "success",
+            }}
           />
-        ) : null}
-
-        {source === "cache" && !isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Showing saved data"
-            message="Live refresh failed, so this screen is using cached approved insights."
-          />
-        ) : null}
-
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-            actionLabel={notice.actionLabel}
-            onAction={notice.onAction}
-          />
-        ) : null}
-
-        <Section title="Approved insight cards">
-          {isLoading ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="small" />
-            </View>
-          ) : items.length === 0 ? (
-            <Text style={styles.mutedText}>No reviewed insights yet.</Text>
-          ) : (
-            items.map((insight) => (
-              <View key={insight.id} style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.category}>{categoryLabel(insight.category)}</Text>
-                  <Text style={styles.meta}>Priority {insight.priority}</Text>
-                </View>
-                <Text style={styles.title}>{insight.title}</Text>
-                <Text style={styles.message}>{insight.message}</Text>
-                <Text style={styles.meta}>
-                  Confidence: {insight.confidence} · Created {formatISOToHuman(insight.createdAt)}
-                </Text>
+        )}
+        ListHeaderComponent={
+          <View style={styles.stack}>
+            {__DEV__ ? (
+              <View style={styles.devBlock}>
+                <SecondaryButton
+                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
+                  onPress={() => {
+                    setShowDevDiagnostics((current) => !current);
+                  }}
+                />
+                {showDevDiagnostics ? (
+                  <View style={styles.devMetaWrap}>
+                    <LastRefreshed value={insightsRefresh.label} compact />
+                    <LastFailedAttempt
+                      value={insightsLoadError.label}
+                      title={insightsLoadError.lastError?.title}
+                      message={insightsLoadError.lastError?.message}
+                      onClear={insightsLoadError.lastError ? insightsLoadError.clear : undefined}
+                      compact
+                    />
+                  </View>
+                ) : null}
               </View>
-            ))
-          )}
-        </Section>
+            ) : null}
 
-        <PrimaryButton
-          label="Refresh insights"
-          disabled={isRefreshing}
-          onPress={() => {
-            void loadInsights("refresh");
-          }}
-        />
-      </ScrollView>
+            {isOffline ? (
+              <Banner
+                variant="warning"
+                title="Offline"
+                message="Offline — showing saved approved insights when available."
+              />
+            ) : null}
+
+            {source === "cache" && !isOffline ? (
+              <Banner
+                variant="warning"
+                title="Showing saved data"
+                message="Live refresh failed, so this screen is using cached approved insights."
+              />
+            ) : null}
+
+            {notice ? (
+              <Banner
+                variant={toBannerVariant(notice.variant)}
+                title={notice.title}
+                message={notice.message}
+                actionLabel={notice.actionLabel}
+                onAction={notice.onAction}
+              />
+            ) : null}
+
+            <SegmentedControl
+              value={segment}
+              onChange={(next) => {
+                setSegment(next);
+              }}
+              options={[
+                { value: "approved", label: "Approved", icon: "insights" },
+                { value: "priority", label: "Priority", icon: "warning" },
+              ]}
+              accessibilityLabel="Insights filter"
+            />
+
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCol}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "success", tone: "success" }}
+                  title={`${items.length}`}
+                  subtitle="Approved insights"
+                  onPress={() => {
+                    setSegment("approved");
+                  }}
+                />
+              </View>
+              <View style={styles.summaryCol}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "weekly", tone: "muted" }}
+                  title={latestItem ? formatISOToHuman(latestItem.createdAt) : "—"}
+                  subtitle="Last updated"
+                />
+              </View>
+            </View>
+
+            {isLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="small" />
+              </View>
+            ) : null}
+          </View>
+        }
+        ListEmptyComponent={
+          isLoading ? null : (
+            <EmptyState
+              illustrationKey="today"
+              title={segment === "priority" ? "No priority insights" : "No reviewed insights"}
+              description="Refresh when online to check for new clinician-reviewed guidance."
+              ctaLabel="Refresh insights"
+              onCtaPress={() => {
+                void loadInsights("refresh");
+              }}
+            />
+          )
+        }
+        ListFooterComponent={
+          <View style={styles.footer}>
+            <PrimaryButton
+              label="Refresh insights"
+              disabled={isRefreshing}
+              loading={isRefreshing}
+              onPress={() => {
+                void loadInsights("refresh");
+              }}
+            />
+          </View>
+        }
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 120,
-  },
-  mutedText: {
-    fontSize: 13,
-    color: "#6b7280",
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: "#fff",
-    gap: 6,
-    marginBottom: 10,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  category: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  message: {
-    fontSize: 14,
-    color: "#374151",
-    lineHeight: 20,
-  },
-  meta: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    stack: {
+      gap: tokens.spacing.md,
+    },
+    centered: {
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 120,
+    },
+    devBlock: {
+      gap: tokens.spacing.sm,
+      padding: tokens.spacing.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    devMetaWrap: {
+      gap: tokens.spacing.xs,
+    },
+    summaryRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    summaryCol: {
+      flex: 1,
+      minWidth: 0,
+    },
+    footer: {
+      paddingTop: tokens.spacing.xs,
+      paddingBottom: tokens.spacing.md,
+    },
+  });
+}

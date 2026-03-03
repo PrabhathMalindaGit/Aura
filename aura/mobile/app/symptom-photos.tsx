@@ -5,9 +5,8 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,12 +22,19 @@ import {
   type SymptomPhotoKind,
 } from "@/src/api/patient";
 import { isApiError, type ApiError } from "@/src/api/client";
-import { InlineNotice } from "@/src/components/InlineNotice";
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { EmptyState } from "@/src/components/EmptyState";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { SmartImage } from "@/src/components/SmartImage";
+import { StatusPill } from "@/src/components/StatusPill";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
@@ -45,6 +51,7 @@ import {
   setCachedPhotosList,
 } from "@/src/state/photosCache";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
@@ -197,6 +204,13 @@ function formatDateTime(value: string): string {
   });
 }
 
+function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
+  if (variant === "error") {
+    return "danger";
+  }
+  return variant;
+}
+
 async function pickFromCamera(): Promise<DraftPhoto | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
@@ -251,6 +265,8 @@ export default function SymptomPhotosScreen() {
   const photosRefresh = useLastRefreshed("photos");
   const photosLoadError = useLastError("photosLoad");
   const photoUploadError = useLastError("photoUpload");
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   const patientId = auth.patient?.id ?? "";
   const [serverItems, setServerItems] = useState<SymptomPhotoItem[]>([]);
@@ -260,6 +276,8 @@ export default function SymptomPhotosScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
+  const [segment, setSegment] = useState<"all" | "pending" | "uploaded">("all");
 
   const mergedItems = useMemo<CombinedPhotoItem[]>(() => {
     const pending = pendingItems.map((entry) => toPendingItem(entry));
@@ -272,6 +290,16 @@ export default function SymptomPhotosScreen() {
       (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)
     );
   }, [pendingItems, serverItems]);
+
+  const filteredItems = useMemo(() => {
+    if (segment === "pending") {
+      return mergedItems.filter((item) => item.pending);
+    }
+    if (segment === "uploaded") {
+      return mergedItems.filter((item) => !item.pending);
+    }
+    return mergedItems;
+  }, [mergedItems, segment]);
 
   const reloadPending = useCallback(async () => {
     if (!patientId) {
@@ -561,7 +589,17 @@ export default function SymptomPhotosScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Symptom photos" scroll={false}>
+      <Screen
+        scroll={false}
+        header={
+          <HeroHeader
+            variant="compact"
+            title="Symptom photos"
+            subtitle="Loading"
+            left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="photos" />}
+          />
+        }
+      >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
         </View>
@@ -574,287 +612,453 @@ export default function SymptomPhotosScreen() {
   }
 
   return (
-    <Screen title="Symptom photos" scroll={false}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <LastRefreshed label="Last refreshed" value={photosRefresh.label} />
-        <LastFailedAttempt
-          label="Last photo load failure"
-          value={photosLoadError.label}
-          title={photosLoadError.lastError?.title}
-          message={photosLoadError.lastError?.message}
-          compact
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Symptom photos"
+          subtitle={`${mergedItems.length} photos · ${pendingItems.length} pending`}
+          left={
+            <Avatar
+              size={40}
+              name={auth.patient?.displayName ?? "Patient"}
+              fallback="icon"
+              iconKey="photos"
+              ring={isOffline ? "attention" : "none"}
+            />
+          }
+          rightActions={[
+            {
+              icon: "photos",
+              tone: "accent",
+              accessibilityLabel: "Add photo",
+              onPress: openPickMenu,
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => router.push("/safety" as never),
+            },
+          ]}
         />
-        <LastFailedAttempt
-          label="Last photo upload failure"
-          value={photoUploadError.label}
-          title={photoUploadError.lastError?.title}
-          message={photoUploadError.lastError?.message}
-          compact
-        />
+      }
+    >
+      <FlatList
+        data={filteredItems}
+        numColumns={3}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}
+        keyExtractor={(item) => (item.pending ? `pending-${item.localId}` : item.id)}
+        columnWrapperStyle={styles.gridRow}
+        renderItem={({ item }) => {
+          const imageSource = item.pending
+            ? { uri: item.localFileUri ?? "" }
+            : ({
+                uri: `${API_BASE}/patient/photos/${encodeURIComponent(item.id)}/file`,
+                headers: auth.token
+                  ? { Authorization: `Bearer ${auth.token}` }
+                  : undefined,
+              } as unknown as { uri: string });
 
-        {isOffline ? (
-          <InlineNotice
-            variant="warning"
-            title="Offline"
-            message="Offline — new photos are saved locally and marked pending."
-          />
-        ) : null}
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${item.kind} photo from ${item.date}${item.pending ? ", pending sync" : ""}`}
+              style={({ pressed }) => [styles.tilePressable, pressed ? styles.tilePressed : null]}
+              onPress={() => {
+                if (item.pending) {
+                  router.push({
+                    pathname: "/symptom-photo-view" as never,
+                    params: {
+                      mode: "pending",
+                      localFileUri: item.localFileUri ?? "",
+                      date: item.date,
+                      kind: item.kind,
+                      note: item.note ?? "",
+                      createdAt: item.createdAt,
+                    },
+                  });
+                  return;
+                }
 
-        {notice ? (
-          <InlineNotice
-            variant={notice.variant}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-
-        <Section title="Actions">
-          <Text style={styles.metaText}>Pending uploads: {pendingItems.length}</Text>
-          <PrimaryButton
-            label="Add photo"
-            onPress={openPickMenu}
-            disabled={isSaving || isSyncing}
-          />
-          <PrimaryButton
-            label={isSyncing ? "Syncing..." : "Sync now"}
-            loading={isSyncing}
-            disabled={isOffline || isSyncing || pendingItems.length === 0}
-            onPress={() => {
-              void syncPending();
-            }}
-          />
-        </Section>
-
-        {draftPhoto ? (
-          <Section title="New photo">
-            <Image source={{ uri: draftPhoto.uri }} style={styles.previewImage} />
-            <Text style={styles.metaText}>Date: {draftPhoto.date}</Text>
-
-            <View style={styles.kindRow}>
-              {KIND_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.key}
-                  style={({ pressed }) => [
-                    styles.kindChip,
-                    draftPhoto.kind === option.key ? styles.kindChipActive : null,
-                    pressed ? styles.kindChipPressed : null,
-                  ]}
+                router.push({
+                  pathname: "/symptom-photo-view" as never,
+                  params: { id: item.id },
+                });
+              }}
+            >
+              <View style={styles.tileImageWrap}>
+                <SmartImage
+                  source={imageSource}
+                  height={112}
+                  radius={tokens.radius.md}
+                  contentFit="cover"
+                  backgroundVariant="muted"
+                  accessibilityLabel={`${item.kind} photo`}
+                />
+                <View style={styles.tileStatusWrap}>
+                  <StatusPill
+                    label={item.pending ? "Pending" : "Uploaded"}
+                    variant={item.pending ? "warning" : "success"}
+                  />
+                </View>
+              </View>
+              <Text numberOfLines={1} style={styles.tileTitle}>
+                {item.kind.charAt(0).toUpperCase() + item.kind.slice(1)}
+              </Text>
+              <Text numberOfLines={1} style={styles.tileMeta}>
+                {formatDateTime(item.createdAt)}
+              </Text>
+            </Pressable>
+          );
+        }}
+        ListHeaderComponent={
+          <View style={styles.stack}>
+            {__DEV__ ? (
+              <View style={styles.devBlock}>
+                <SecondaryButton
+                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
                   onPress={() => {
-                    setDraftPhoto((current) =>
-                      current ? { ...current, kind: option.key } : current
-                    );
+                    setShowDevDiagnostics((current) => !current);
                   }}
-                >
-                  <Text
-                    style={
-                      draftPhoto.kind === option.key
-                        ? styles.kindChipTextActive
-                        : styles.kindChipText
-                    }
-                  >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              ))}
+                />
+                {showDevDiagnostics ? (
+                  <View style={styles.devMetaWrap}>
+                    <LastRefreshed label="Last refreshed" value={photosRefresh.label} compact />
+                    <LastFailedAttempt
+                      label="Last photo load failure"
+                      value={photosLoadError.label}
+                      title={photosLoadError.lastError?.title}
+                      message={photosLoadError.lastError?.message}
+                      compact
+                    />
+                    <LastFailedAttempt
+                      label="Last photo upload failure"
+                      value={photoUploadError.label}
+                      title={photoUploadError.lastError?.title}
+                      message={photoUploadError.lastError?.message}
+                      compact
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {isOffline ? (
+              <Banner
+                variant="warning"
+                title="Offline"
+                message="Offline — new photos are saved locally and marked pending."
+              />
+            ) : null}
+
+            {notice ? (
+              <Banner
+                variant={toBannerVariant(notice.variant)}
+                title={notice.title}
+                message={notice.message}
+              />
+            ) : null}
+
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCol}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "photos", tone: "accent" }}
+                  title={`${mergedItems.length}`}
+                  subtitle="Total photos"
+                />
+              </View>
+              <View style={styles.summaryCol}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "warning", tone: "warning" }}
+                  title={`${pendingItems.length}`}
+                  subtitle="Pending uploads"
+                />
+              </View>
             </View>
 
-            <TextInput
-              style={styles.noteInput}
-              multiline
-              maxLength={280}
-              placeholder="Optional note (max 280)"
-              value={draftPhoto.note}
-              onChangeText={(value) => {
-                setDraftPhoto((current) =>
-                  current ? { ...current, note: value } : current
-                );
+            <SegmentedControl
+              value={segment}
+              onChange={(next) => {
+                setSegment(next);
               }}
+              options={[
+                { value: "all", label: "All", icon: "photos" },
+                { value: "pending", label: "Pending", icon: "warning" },
+                { value: "uploaded", label: "Uploaded", icon: "success" },
+              ]}
+              accessibilityLabel="Photo filter"
             />
 
-            <PrimaryButton
-              label={isSaving ? "Saving..." : "Save photo"}
-              loading={isSaving}
-              disabled={isSaving}
-              onPress={() => {
-                void saveDraft();
-              }}
-            />
-            <PrimaryButton
-              label="Discard"
-              disabled={isSaving}
-              onPress={() => {
-                setDraftPhoto(null);
-              }}
-            />
-          </Section>
-        ) : null}
+            <View style={styles.actionRow}>
+              <View style={styles.actionCol}>
+                <PrimaryButton
+                  label="Add photo"
+                  onPress={openPickMenu}
+                  disabled={isSaving || isSyncing}
+                />
+              </View>
+              <View style={styles.actionCol}>
+                <SecondaryButton
+                  label={isSyncing ? "Syncing..." : "Sync now"}
+                  loading={isSyncing}
+                  disabled={isOffline || isSyncing || pendingItems.length === 0}
+                  onPress={() => {
+                    void syncPending();
+                  }}
+                />
+              </View>
+            </View>
 
-        <Section title="Recent photos">
-          {isLoading ? (
+            {draftPhoto ? (
+              <View style={styles.draftCard}>
+                <Text style={styles.draftTitle}>New photo</Text>
+                <SmartImage
+                  source={{ uri: draftPhoto.uri }}
+                  height={220}
+                  radius={tokens.radius.lg}
+                  contentFit="cover"
+                  backgroundVariant="muted"
+                  accessibilityLabel="Selected symptom photo"
+                />
+
+                <Text style={styles.draftMeta}>Date: {draftPhoto.date}</Text>
+
+                <View style={styles.kindRow}>
+                  {KIND_OPTIONS.map((option) => {
+                    const isActive = draftPhoto.kind === option.key;
+                    return (
+                      <Pressable
+                        key={option.key}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Set kind ${option.label}`}
+                        onPress={() => {
+                          setDraftPhoto((current) =>
+                            current ? { ...current, kind: option.key } : current
+                          );
+                        }}
+                        style={({ pressed }) => [
+                          styles.kindChip,
+                          isActive ? styles.kindChipActive : null,
+                          pressed ? styles.kindChipPressed : null,
+                        ]}
+                      >
+                        <Text style={isActive ? styles.kindChipTextActive : styles.kindChipText}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <TextInput
+                  style={styles.noteInput}
+                  multiline
+                  maxLength={280}
+                  placeholder="Optional note (max 280)"
+                  placeholderTextColor={tokens.colors.textMuted}
+                  value={draftPhoto.note}
+                  onChangeText={(value) => {
+                    setDraftPhoto((current) =>
+                      current ? { ...current, note: value } : current
+                    );
+                  }}
+                />
+
+                <View style={styles.actionRow}>
+                  <View style={styles.actionCol}>
+                    <PrimaryButton
+                      label={isSaving ? "Saving..." : "Save photo"}
+                      loading={isSaving}
+                      disabled={isSaving}
+                      onPress={() => {
+                        void saveDraft();
+                      }}
+                    />
+                  </View>
+                  <View style={styles.actionCol}>
+                    <SecondaryButton
+                      label="Discard"
+                      disabled={isSaving}
+                      onPress={() => {
+                        setDraftPhoto(null);
+                      }}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        }
+        ListEmptyComponent={
+          isLoading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
-          ) : mergedItems.length === 0 ? (
-            <Text style={styles.metaText}>
-              No symptom photos yet. Add one to start tracking.
-            </Text>
           ) : (
-            mergedItems.map((item) => {
-              const key = item.pending ? `pending-${item.localId}` : item.id;
-              const source = item.pending
-                ? { uri: item.localFileUri ?? "" }
-                : ({
-                    uri: `${API_BASE}/patient/photos/${encodeURIComponent(item.id)}/file`,
-                    headers: auth.token
-                      ? { Authorization: `Bearer ${auth.token}` }
-                      : undefined,
-                  } as any);
-
-              return (
-                <Pressable
-                  key={key}
-                  style={({ pressed }) => [
-                    styles.photoRow,
-                    pressed ? styles.photoRowPressed : null,
-                  ]}
-                  onPress={() => {
-                    if (item.pending) {
-                      router.push({
-                        pathname: "/symptom-photo-view" as never,
-                        params: {
-                          mode: "pending",
-                          localFileUri: item.localFileUri ?? "",
-                          date: item.date,
-                          kind: item.kind,
-                          note: item.note ?? "",
-                          createdAt: item.createdAt,
-                        },
-                      });
-                      return;
-                    }
-
-                    router.push({
-                      pathname: "/symptom-photo-view" as never,
-                      params: { id: item.id },
-                    });
-                  }}
-                >
-                  <Image source={source} style={styles.thumbnail} />
-                  <View style={styles.photoMeta}>
-                    <Text style={styles.photoTitle}>
-                      {item.kind.charAt(0).toUpperCase() + item.kind.slice(1)}
-                    </Text>
-                    <Text style={styles.metaText}>Date: {item.date}</Text>
-                    <Text style={styles.metaText}>{formatDateTime(item.createdAt)}</Text>
-                    {item.notePreview ? (
-                      <Text style={styles.metaText}>{item.notePreview}</Text>
-                    ) : null}
-                    {item.pending ? (
-                      <Text style={styles.pendingLabel}>Pending sync</Text>
-                    ) : null}
-                  </View>
-                </Pressable>
-              );
-            })
-          )}
-        </Section>
-      </ScrollView>
+            <EmptyState
+              illustrationKey="progress"
+              title="No symptom photos"
+              description="Add one to start a visual timeline."
+              ctaLabel="Add photo"
+              onCtaPress={openPickMenu}
+            />
+          )
+        }
+        ListFooterComponent={<View style={styles.bottomSpacer} />}
+      />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 100,
-  },
-  metaText: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  previewImage: {
-    width: "100%",
-    height: 220,
-    borderRadius: 12,
-    backgroundColor: "#e5e7eb",
-  },
-  kindRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  kindChip: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#fff",
-  },
-  kindChipActive: {
-    borderColor: "#111827",
-    backgroundColor: "#111827",
-  },
-  kindChipPressed: {
-    opacity: 0.9,
-  },
-  kindChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  kindChipTextActive: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  noteInput: {
-    minHeight: 90,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlignVertical: "top",
-    backgroundColor: "#fff",
-  },
-  photoRow: {
-    flexDirection: "row",
-    gap: 10,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
-    padding: 10,
-    backgroundColor: "#fff",
-    marginBottom: 8,
-  },
-  photoRowPressed: {
-    opacity: 0.9,
-  },
-  thumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
-    backgroundColor: "#e5e7eb",
-  },
-  photoMeta: {
-    flex: 1,
-    gap: 2,
-  },
-  photoTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  pendingLabel: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#b45309",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxl,
+    },
+    stack: {
+      gap: tokens.spacing.md,
+    },
+    centered: {
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 120,
+    },
+    devBlock: {
+      gap: tokens.spacing.sm,
+      padding: tokens.spacing.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    devMetaWrap: {
+      gap: tokens.spacing.xs,
+    },
+    summaryRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    summaryCol: {
+      flex: 1,
+      minWidth: 0,
+    },
+    actionRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    actionCol: {
+      flex: 1,
+      minWidth: 0,
+    },
+    draftCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    draftTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    draftMeta: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    kindRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    kindChip: {
+      minHeight: 40,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: 999,
+      paddingHorizontal: tokens.spacing.sm + 2,
+      paddingVertical: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.surfaceElevated,
+    },
+    kindChipActive: {
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primary,
+    },
+    kindChipPressed: {
+      opacity: 0.88,
+    },
+    kindChipText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    kindChipTextActive: {
+      color: tokens.colors.primaryTextOn,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    noteInput: {
+      minHeight: 100,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.sm,
+      textAlignVertical: "top",
+      backgroundColor: tokens.colors.surfaceElevated,
+      color: tokens.colors.text,
+    },
+    gridRow: {
+      gap: tokens.spacing.sm,
+    },
+    tilePressable: {
+      flex: 1,
+      minWidth: 0,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.xs,
+      gap: tokens.spacing.xs,
+      marginBottom: tokens.spacing.sm,
+    },
+    tilePressed: {
+      opacity: 0.9,
+    },
+    tileImageWrap: {
+      position: "relative",
+    },
+    tileStatusWrap: {
+      position: "absolute",
+      top: tokens.spacing.xs,
+      left: tokens.spacing.xs,
+    },
+    tileTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    tileMeta: {
+      color: tokens.colors.textMuted,
+      fontSize: 11,
+      lineHeight: 14,
+    },
+    bottomSpacer: {
+      height: tokens.spacing.md,
+    },
+  });
+}

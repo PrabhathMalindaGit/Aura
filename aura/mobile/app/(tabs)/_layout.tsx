@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Redirect, Tabs } from 'expo-router';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -18,21 +17,7 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const { status } = useAuth();
   const colorScheme = useColorScheme();
-  const [bootstrapped, setBootstrapped] = useState(false);
-
-  useEffect(() => {
-    if (status !== 'loading') {
-      setBootstrapped(true);
-    }
-  }, [status]);
-
-  if (!bootstrapped && status === 'loading') {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" />
-      </View>
-    );
-  }
+  const isAuthLoading = status === 'loading';
 
   if (status === 'signedOut') {
     return <Redirect href="/(auth)/login" />;
@@ -43,6 +28,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
+        tabBarStyle: isAuthLoading ? { display: 'none' } : undefined,
       }}>
       <Tabs.Screen
         name="index"
@@ -82,11 +68,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

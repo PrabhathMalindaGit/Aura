@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { formatRelativeFromNow } from "@/src/utils/date";
 
@@ -98,6 +98,27 @@ function parseStoredRecord(raw: string | null): LastErrorRecord | null {
   }
 }
 
+function isSameLastError(
+  left: LastErrorRecord | null,
+  right: LastErrorRecord | null
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.key === right.key &&
+    left.title === right.title &&
+    left.message === right.message &&
+    left.kind === right.kind &&
+    left.retryable === right.retryable &&
+    left.at === right.at &&
+    left.detail === right.detail
+  );
+}
+
 export async function getLastError(key: ErrorKey): Promise<LastErrorRecord | null> {
   try {
     const raw = await AsyncStorage.getItem(storageKey(key));
@@ -138,11 +159,27 @@ export function useLastError(key: ErrorKey): {
 } {
   const [lastError, setLastErrorState] = useState<LastErrorRecord | null>(null);
   const [tick, setTick] = useState(() => Date.now());
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const setLastErrorSafe = useCallback((value: LastErrorRecord | null) => {
+    if (!mountedRef.current) {
+      return;
+    }
+    setLastErrorState((previous) =>
+      isSameLastError(previous, value) ? previous : value
+    );
+  }, []);
 
   const reload = useCallback(async () => {
     const stored = await getLastError(key);
-    setLastErrorState(stored);
-  }, [key]);
+    setLastErrorSafe(stored);
+  }, [key, setLastErrorSafe]);
 
   const setLocalError = useCallback(
     async (partial: Omit<LastErrorRecord, "at" | "key"> & { detail?: string }) => {
@@ -156,19 +193,30 @@ export function useLastError(key: ErrorKey): {
         detail: partial.detail,
       };
       await setLastError(record);
-      setLastErrorState(record);
+      setLastErrorSafe(record);
     },
-    [key]
+    [key, setLastErrorSafe]
   );
 
   const clear = useCallback(async () => {
     await clearLastError(key);
-    setLastErrorState(null);
-  }, [key]);
+    setLastErrorSafe(null);
+  }, [key, setLastErrorSafe]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let active = true;
+    void getLastError(key).then((stored) => {
+      if (!active || !mountedRef.current) {
+        return;
+      }
+      setLastErrorState((previous) =>
+        isSameLastError(previous, stored) ? previous : stored
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [key]);
 
   useEffect(() => {
     const timer = setInterval(() => {

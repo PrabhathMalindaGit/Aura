@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { formatRelativeFromNow } from "@/src/utils/date";
 
@@ -88,20 +88,43 @@ export function useLastRefreshed(key: RefreshKey): {
 } {
   const [lastRefreshedAt, setLastRefreshedAtState] = useState<number | null>(null);
   const [tick, setTick] = useState(() => Date.now());
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const setLastRefreshedSafe = useCallback((value: number | null) => {
+    if (!mountedRef.current) {
+      return;
+    }
+    setLastRefreshedAtState((previous) => (previous === value ? previous : value));
+  }, []);
 
   const reload = useCallback(async () => {
     const stored = await getLastRefreshed(key);
-    setLastRefreshedAtState(stored);
-  }, [key]);
+    setLastRefreshedSafe(stored);
+  }, [key, setLastRefreshedSafe]);
 
   const refreshLocal = useCallback(async () => {
     const ts = await setLastRefreshedNow(key);
-    setLastRefreshedAtState(ts);
-  }, [key]);
+    setLastRefreshedSafe(ts);
+  }, [key, setLastRefreshedSafe]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let active = true;
+    void getLastRefreshed(key).then((stored) => {
+      if (!active || !mountedRef.current) {
+        return;
+      }
+      setLastRefreshedAtState((previous) => (previous === stored ? previous : stored));
+    });
+    return () => {
+      active = false;
+    };
+  }, [key]);
 
   useEffect(() => {
     const timer = setInterval(() => {

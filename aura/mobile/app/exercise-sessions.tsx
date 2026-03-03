@@ -1,5 +1,5 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -125,9 +125,22 @@ export default function ExerciseSessionsScreen() {
   const isOffline = useIsOffline();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
-  const sessionsRefresh = useLastRefreshed("exerciseSessions");
-  const sessionsLoadError = useLastError("exerciseSessionsLoad");
-  const saveSessionError = useLastError("exerciseSessionSave");
+  const {
+    label: sessionsRefreshLabel,
+    refreshLocal: refreshSessionsLocal,
+  } = useLastRefreshed("exerciseSessions");
+  const {
+    lastError: sessionsLoadLastError,
+    label: sessionsLoadLabel,
+    setLocalError: setSessionsLoadError,
+    clear: clearSessionsLoadError,
+  } = useLastError("exerciseSessionsLoad");
+  const {
+    lastError: saveSessionLastError,
+    label: saveSessionLabel,
+    setLocalError: setSaveSessionError,
+    clear: clearSaveSessionError,
+  } = useLastError("exerciseSessionSave");
 
   const patientId = auth.patient?.id ?? "";
   const [sessions, setSessions] = useState<ExerciseSessionListItem[]>([]);
@@ -137,6 +150,7 @@ export default function ExerciseSessionsScreen() {
   const [isSubmittingPending, setIsSubmittingPending] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const loadInFlightRef = useRef(false);
 
   const pendingCount = pending.length;
 
@@ -154,6 +168,10 @@ export default function ExerciseSessionsScreen() {
       if (!auth.token || !patientId) {
         return;
       }
+      if (loadInFlightRef.current) {
+        return;
+      }
+      loadInFlightRef.current = true;
 
       if (mode === "refresh") {
         setIsRefreshing(true);
@@ -178,11 +196,11 @@ export default function ExerciseSessionsScreen() {
       try {
         const response = await listExerciseSessions(auth.token, 30);
         setSessions(response);
-        await sessionsRefresh.refreshLocal();
-        await sessionsLoadError.clear();
+        await refreshSessionsLocal();
+        await clearSessionsLoadError();
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t load sessions");
-        await sessionsLoadError.setLocalError({
+        await setSessionsLoadError({
           title: friendly.title,
           message: friendly.message,
           kind: friendly.kind,
@@ -200,17 +218,20 @@ export default function ExerciseSessionsScreen() {
             : undefined,
         });
       } finally {
+        loadInFlightRef.current = false;
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
     [
       auth.token,
+      clearSessionsLoadError,
       isOffline,
       loadPending,
+      loadInFlightRef,
       patientId,
-      sessionsLoadError,
-      sessionsRefresh,
+      refreshSessionsLocal,
+      setSessionsLoadError,
     ]
   );
 
@@ -253,7 +274,7 @@ export default function ExerciseSessionsScreen() {
         submitted += 1;
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t submit pending sessions");
-        await saveSessionError.setLocalError({
+        await setSaveSessionError({
           title: friendly.title,
           message: friendly.message,
           kind: friendly.kind,
@@ -273,8 +294,8 @@ export default function ExerciseSessionsScreen() {
       }
     }
 
-    await saveSessionError.clear();
-    await sessionsRefresh.refreshLocal();
+    await clearSaveSessionError();
+    await refreshSessionsLocal();
     await loadPending();
     await loadSessions("refresh");
     setNotice({
@@ -285,14 +306,15 @@ export default function ExerciseSessionsScreen() {
     setIsSubmittingPending(false);
   }, [
     auth.token,
+    clearSaveSessionError,
     isOffline,
     loadPending,
     loadSessions,
     patientId,
     pending,
+    refreshSessionsLocal,
     router,
-    saveSessionError,
-    sessionsRefresh,
+    setSaveSessionError,
   ]);
 
   const pendingSummary = useMemo(() => {
@@ -336,21 +358,21 @@ export default function ExerciseSessionsScreen() {
             </Pressable>
             {showDiagnostics ? (
               <View style={styles.diagContent}>
-                <LastRefreshed value={sessionsRefresh.label} compact />
+                <LastRefreshed value={sessionsRefreshLabel} compact />
                 <LastFailedAttempt
                   label="Last load issue"
-                  value={sessionsLoadError.label}
-                  title={sessionsLoadError.lastError?.title}
-                  message={sessionsLoadError.lastError?.message}
-                  onClear={sessionsLoadError.lastError ? sessionsLoadError.clear : undefined}
+                  value={sessionsLoadLabel}
+                  title={sessionsLoadLastError?.title}
+                  message={sessionsLoadLastError?.message}
+                  onClear={sessionsLoadLastError ? clearSessionsLoadError : undefined}
                   compact
                 />
                 <LastFailedAttempt
                   label="Last session save issue"
-                  value={saveSessionError.label}
-                  title={saveSessionError.lastError?.title}
-                  message={saveSessionError.lastError?.message}
-                  onClear={saveSessionError.lastError ? saveSessionError.clear : undefined}
+                  value={saveSessionLabel}
+                  title={saveSessionLastError?.title}
+                  message={saveSessionLastError?.message}
+                  onClear={saveSessionLastError ? clearSaveSessionError : undefined}
                   compact
                 />
               </View>
@@ -465,16 +487,16 @@ export default function ExerciseSessionsScreen() {
     pendingCount,
     pendingSummary,
     router,
-    saveSessionError.clear,
-    saveSessionError.label,
-    saveSessionError.lastError?.message,
-    saveSessionError.lastError?.title,
+    clearSaveSessionError,
+    clearSessionsLoadError,
+    saveSessionLabel,
+    saveSessionLastError?.message,
+    saveSessionLastError?.title,
     sessions,
-    sessionsLoadError.clear,
-    sessionsLoadError.label,
-    sessionsLoadError.lastError?.message,
-    sessionsLoadError.lastError?.title,
-    sessionsRefresh.label,
+    sessionsLoadLabel,
+    sessionsLoadLastError?.message,
+    sessionsLoadLastError?.title,
+    sessionsRefreshLabel,
     showDiagnostics,
     styles.diagContent,
     styles.diagTitle,

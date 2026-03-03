@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
   Platform,
+  StyleSheet,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -39,6 +40,7 @@ export function FadeSlideIn({
   const useNativeDriver = Platform.OS !== "web";
 
   const [shouldRender, setShouldRender] = useState(visible);
+  const warnedNullTransformRef = useRef(false);
   const opacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
   const translateY = useRef(
     new Animated.Value(visible || !shouldAnimateTranslate ? 0 : slideDistance)
@@ -136,16 +138,35 @@ export function FadeSlideIn({
     return null;
   }
 
+  const flattenedStyle = StyleSheet.flatten(style);
+  if (
+    __DEV__ &&
+    Platform.OS !== "web" &&
+    flattenedStyle?.transform === null &&
+    !warnedNullTransformRef.current
+  ) {
+    warnedNullTransformRef.current = true;
+    console.warn(
+      "[FadeSlideIn] Received style with transform: null; ignoring invalid transform."
+    );
+  }
+  const { transform: _ignoredTransform, ...restFlattenedStyle } =
+    flattenedStyle ?? {};
+  const safeExistingTransform = Array.isArray(flattenedStyle?.transform)
+    ? flattenedStyle.transform.filter(Boolean)
+    : [];
+  const baseTransform = shouldAnimateTranslate ? [{ translateY }] : [];
+  const mergedTransform = [...baseTransform, ...safeExistingTransform];
+  const animatedStyle = [
+    restFlattenedStyle,
+    {
+      opacity,
+      ...(mergedTransform.length > 0 ? { transform: mergedTransform } : {}),
+    },
+  ];
+
   return (
-    <Animated.View
-      style={[
-        {
-          opacity,
-          transform: shouldAnimateTranslate ? [{ translateY }] : undefined,
-        },
-        style,
-      ]}
-    >
+    <Animated.View style={animatedStyle}>
       {children}
     </Animated.View>
   );

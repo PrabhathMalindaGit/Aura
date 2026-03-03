@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -43,14 +43,10 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
+  return <RootLayoutNav fontsLoaded={loaded} />;
 }
 
-function RootLayoutNav() {
+function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
   const colorScheme = useColorScheme();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -81,12 +77,22 @@ function RootLayoutNav() {
               <View style={[styles.webFrameOuter, webShadowStyle]}>
                 <View style={styles.webFrameInner}>
                   <Slot />
+                  {!fontsLoaded ? (
+                    <View pointerEvents="none" style={styles.loadingOverlay}>
+                      <ActivityIndicator size="small" />
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </View>
           ) : (
             <View style={styles.root}>
               <Slot />
+              {!fontsLoaded ? (
+                <View pointerEvents="none" style={styles.loadingOverlay}>
+                  <ActivityIndicator size="small" />
+                </View>
+              ) : null}
             </View>
           )}
         </ThemeProvider>
@@ -99,6 +105,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     root: {
       flex: 1,
+    },
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.background,
     },
     webBackdrop: {
       flex: 1,

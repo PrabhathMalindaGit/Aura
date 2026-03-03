@@ -79,3 +79,9 @@
   - Replace `shadow*` usage with `boxShadow` on web-facing styles.
 - Blur not updating:
   - Ensure BlurView/GlassPanel is mounted after dynamic list content.
+
+## 6) A11Y Smoke Check
+
+- Run `npm run a11y:smoke` before merge.
+- Requirement: `FAIL: 0` is mandatory.
+- `WARN` items are advisory, but should be reviewed and resolved when practical.

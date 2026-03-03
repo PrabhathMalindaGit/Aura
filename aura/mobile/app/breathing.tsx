@@ -2,16 +2,24 @@ import { Redirect, useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   formatLastUsed,
@@ -20,6 +28,7 @@ import {
   type CopingUsage,
 } from "@/src/state/copingUsage";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
+import { useTokens } from "@/src/theme/tokens";
 
 type BreathingPhase = "inhale" | "hold" | "exhale";
 type RunState = "idle" | "running" | "paused" | "done";
@@ -61,6 +70,8 @@ function formatSeconds(seconds: number): string {
 export default function BreathingScreen() {
   const auth = useAuth();
   const router = useRouter();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const reduceMotionEnabled = useReducedMotion();
   const pulseScale = useRef(new Animated.Value(1)).current;
 
@@ -192,21 +203,24 @@ export default function BreathingScreen() {
     setTimer(buildIdleState(durationMinutes));
   };
 
-  const animatedCardStyle = useMemo(
+  const animatedDialStyle = useMemo(
     () => [
-      styles.instructionCard,
+      styles.dialCard,
       !reduceMotionEnabled && timer.runState === "running"
         ? {
             transform: [{ scale: pulseScale }],
           }
         : null,
     ],
-    [pulseScale, reduceMotionEnabled, timer.runState]
+    [pulseScale, reduceMotionEnabled, timer.runState, styles.dialCard]
   );
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Breathing">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Breathing" subtitle="Loading" />}
+      >
         <View style={styles.centered}>
           <Text style={styles.muted}>Loading…</Text>
         </View>
@@ -218,203 +232,280 @@ export default function BreathingScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  const ringSize = 196;
+  const ringStroke = 10;
+  const radius = (ringSize - ringStroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(1, completionPct / 100));
+  const dashOffset = circumference * (1 - progress);
+
   return (
-    <Screen title="Breathing">
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Breathing"
+          subtitle={
+            timer.runState === "running"
+              ? `${currentInstruction} · ${formatSeconds(timer.totalRemaining)}`
+              : timer.runState === "paused"
+                ? `Paused · ${formatSeconds(timer.totalRemaining)}`
+                : timer.runState === "done"
+                  ? "Done · Nice work"
+                  : "Choose a duration"
+          }
+          left={<Avatar size={40} name={auth.patient?.displayName ?? auth.patient?.id ?? "Aura"} fallback="icon" iconKey="coping" />}
+          rightActions={[
+            {
+              icon: "coping",
+              tone: "muted",
+              accessibilityLabel: "Back to coping tools",
+              onPress: () => {
+                router.push("/coping-tools");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
+        />
+      }
+    >
       <ScrollView contentContainerStyle={styles.container}>
-        <Section title="Session setup">
-          <Text style={styles.muted}>Choose a duration and follow the prompts.</Text>
-          <View style={styles.durationRow}>
-            {[1, 3, 5].map((minutes) => {
-              const selected = durationMinutes === minutes;
-              return (
-                <Pressable
-                  key={minutes}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${minutes} minute breathing session`}
-                  disabled={!canChangeDuration}
-                  onPress={() => {
-                    if (!canChangeDuration) {
-                      return;
-                    }
-                    const nextDuration = minutes as DurationMinutes;
-                    setDurationMinutes(nextDuration);
-                    setCountedCompletion(false);
-                    setTimer(buildIdleState(nextDuration));
-                  }}
-                  style={({ pressed }) => [
-                    styles.durationChip,
-                    selected ? styles.durationChipSelected : null,
-                    !canChangeDuration ? styles.durationChipDisabled : null,
-                    pressed && canChangeDuration ? styles.durationChipPressed : null,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.durationChipLabel,
-                      selected ? styles.durationChipLabelSelected : null,
-                    ]}
-                  >
-                    {minutes} min
-                  </Text>
-                </Pressable>
-              );
-            })}
+        {reduceMotionEnabled ? (
+          <Banner
+            variant="info"
+            title="Reduced motion"
+            message="Reduced motion is enabled. Pulse animation is disabled."
+          />
+        ) : null}
+
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.setupCard}>
+            <Text style={styles.setupTitle}>Session setup</Text>
+            <Text style={styles.muted}>Choose a duration and follow the prompts.</Text>
+            <SegmentedControl
+              value={String(durationMinutes) as "1" | "3" | "5"}
+              options={[
+                { value: "1", label: "1 min", disabled: !canChangeDuration },
+                { value: "3", label: "3 min", disabled: !canChangeDuration },
+                { value: "5", label: "5 min", disabled: !canChangeDuration },
+              ]}
+              onChange={(value) => {
+                if (!canChangeDuration) {
+                  return;
+                }
+                const nextDuration = Number(value) as DurationMinutes;
+                setDurationMinutes(nextDuration);
+                setCountedCompletion(false);
+                setTimer(buildIdleState(nextDuration));
+              }}
+              accessibilityLabel="Breathing duration"
+            />
           </View>
-        </Section>
+        </Card>
 
-        <Section title="Guided breathing">
-          <Animated.View style={animatedCardStyle}>
-            <Text style={styles.instruction}>{currentInstruction}</Text>
-            <Text style={styles.countdown}>
-              {timer.runState === "done" ? "Complete" : `${timer.phaseRemaining}s`}
-            </Text>
-            <Text style={styles.remainingLabel}>
-              Total remaining: {formatSeconds(timer.totalRemaining)}
-            </Text>
-            <Text style={styles.remainingLabel}>Progress: {completionPct}%</Text>
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <Animated.View style={animatedDialStyle}>
+            <Svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
+              <Circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={radius}
+                stroke={tokens.colors.border}
+                strokeWidth={ringStroke}
+                fill="none"
+              />
+              <Circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={radius}
+                stroke={tokens.colors.accent}
+                strokeWidth={ringStroke}
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={dashOffset}
+                transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+              />
+            </Svg>
+            <View style={styles.dialCenter}>
+              <Text style={styles.instruction}>{currentInstruction}</Text>
+              <Text style={styles.countdown}>
+                {timer.runState === "done" ? "Complete" : `${timer.phaseRemaining}s`}
+              </Text>
+              <Text style={styles.remainingLabel}>{formatSeconds(timer.totalRemaining)}</Text>
+            </View>
           </Animated.View>
-          {reduceMotionEnabled ? (
-            <Text style={styles.muted}>Reduced motion is enabled.</Text>
-          ) : null}
-        </Section>
+          <Text style={styles.progressLabel}>Progress: {completionPct}%</Text>
+        </Card>
 
-        <Section title="Controls">
-          {timer.runState === "running" ? (
-            <>
+        <MediaCard
+          leading={{ type: "icon", icon: "coping", tone: "accent" }}
+          title="Usage"
+          subtitle={`Used ${usage.count} time${usage.count === 1 ? "" : "s"} · Last used ${formatLastUsed(usage.lastUsedAt)}`}
+        />
+
+        <View style={styles.trackerWrap}>
+          <TrackerTile
+            icon="weekly"
+            label="Remaining"
+            value={formatSeconds(timer.totalRemaining)}
+            delta="Session"
+            tone="muted"
+            micro={{ type: "dots", values: [timer.totalRemaining, 0, 0, 0, 0, 0, 0] }}
+          />
+        </View>
+      </ScrollView>
+
+      <GlassPanel style={styles.footerPanel}>
+        {timer.runState === "done" ? (
+          <Banner variant="info" title="Done" message="Nice work." />
+        ) : null}
+
+        {timer.runState === "running" ? (
+          <View style={styles.footerButtons}>
+            <View style={styles.footerButtonWrap}>
               <PrimaryButton
                 label="Pause"
                 onPress={pause}
                 accessibilityLabel="Pause breathing session"
               />
-              <PrimaryButton
+            </View>
+            <View style={styles.footerButtonWrap}>
+              <SecondaryButton
                 label="Stop"
                 onPress={stop}
                 accessibilityLabel="Stop breathing session"
               />
-            </>
-          ) : timer.runState === "paused" ? (
-            <>
+            </View>
+          </View>
+        ) : timer.runState === "paused" ? (
+          <View style={styles.footerButtons}>
+            <View style={styles.footerButtonWrap}>
               <PrimaryButton
                 label="Resume"
                 onPress={start}
                 accessibilityLabel="Resume breathing session"
               />
-              <PrimaryButton
+            </View>
+            <View style={styles.footerButtonWrap}>
+              <SecondaryButton
                 label="Stop"
                 onPress={stop}
                 accessibilityLabel="Stop breathing session"
               />
-            </>
-          ) : timer.runState === "done" ? (
-            <>
-              <Text style={styles.doneText}>Done — nice work.</Text>
+            </View>
+          </View>
+        ) : timer.runState === "done" ? (
+          <View style={styles.footerButtons}>
+            <View style={styles.footerButtonWrap}>
               <PrimaryButton
                 label="Start again"
                 onPress={start}
                 accessibilityLabel="Start another breathing session"
               />
-              <PrimaryButton
+            </View>
+            <View style={styles.footerButtonWrap}>
+              <SecondaryButton
                 label="Back to tools"
                 onPress={() => router.push("/coping-tools" as never)}
                 accessibilityLabel="Back to coping tools"
               />
-            </>
-          ) : (
-            <PrimaryButton
-              label="Start"
-              onPress={start}
-              accessibilityLabel="Start breathing session"
-            />
-          )}
-        </Section>
-
-        <Section title="Usage">
-          <Text style={styles.muted}>
-            Used {usage.count} time{usage.count === 1 ? "" : "s"}
-          </Text>
-          <Text style={styles.muted}>Last used: {formatLastUsed(usage.lastUsedAt)}</Text>
-        </Section>
-      </ScrollView>
+            </View>
+          </View>
+        ) : (
+          <PrimaryButton
+            label="Start"
+            onPress={start}
+            accessibilityLabel="Start breathing session"
+          />
+        )}
+      </GlassPanel>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 140,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  muted: {
-    fontSize: 13,
-    color: "#6b7280",
-  },
-  durationRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  durationChip: {
-    minWidth: 88,
-    minHeight: 44,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ffffff",
-  },
-  durationChipSelected: {
-    backgroundColor: "#111827",
-    borderColor: "#111827",
-  },
-  durationChipDisabled: {
-    opacity: 0.55,
-  },
-  durationChipPressed: {
-    opacity: 0.8,
-  },
-  durationChipLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  durationChipLabelSelected: {
-    color: "#ffffff",
-  },
-  instructionCard: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 14,
-    backgroundColor: "#f9fafb",
-    paddingVertical: 22,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    gap: 8,
-  },
-  instruction: {
-    fontSize: 36,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  countdown: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1f2937",
-  },
-  remainingLabel: {
-    fontSize: 14,
-    color: "#4b5563",
-  },
-  doneText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 4,
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxxl,
+    },
+    centered: {
+      minHeight: 140,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    muted: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    setupCard: {
+      gap: tokens.spacing.sm,
+    },
+    setupTitle: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    dialCard: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: tokens.spacing.md,
+    },
+    dialCenter: {
+      position: "absolute",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: tokens.spacing.xs,
+    },
+    instruction: {
+      fontSize: 30,
+      lineHeight: 36,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    countdown: {
+      fontSize: 26,
+      lineHeight: 32,
+      fontWeight: tokens.typography.weights.semibold,
+      color: tokens.colors.text,
+    },
+    remainingLabel: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    progressLabel: {
+      marginTop: tokens.spacing.sm,
+      textAlign: "center",
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    trackerWrap: {
+      marginBottom: tokens.spacing.sm,
+    },
+    footerPanel: {
+      marginTop: tokens.spacing.sm,
+    },
+    footerButtons: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+      marginTop: tokens.spacing.sm,
+    },
+    footerButtonWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+  });
+}

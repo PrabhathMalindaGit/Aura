@@ -8,9 +8,17 @@ import {
   View,
 } from "react-native";
 
+import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { GlassPanel } from "@/src/components/GlassPanel";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
-import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
+import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
   formatLastUsed,
@@ -18,6 +26,7 @@ import {
   incrementUsage,
   type CopingUsage,
 } from "@/src/state/copingUsage";
+import { useTokens } from "@/src/theme/tokens";
 
 type GroundingStep = {
   title: string;
@@ -57,9 +66,18 @@ function buildBlankAnswers(): string[][] {
   return STEPS.map((step) => Array.from({ length: step.count }, () => ""));
 }
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, value));
+}
+
 export default function GroundingScreen() {
   const auth = useAuth();
   const router = useRouter();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<string[][]>(buildBlankAnswers);
   const [isComplete, setIsComplete] = useState(false);
@@ -125,7 +143,10 @@ export default function GroundingScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Grounding">
+      <Screen
+        scroll={false}
+        header={<HeroHeader variant="compact" title="Grounding" subtitle="Loading" />}
+      >
         <View style={styles.centered}>
           <Text style={styles.muted}>Loading…</Text>
         </View>
@@ -139,130 +160,260 @@ export default function GroundingScreen() {
 
   if (isComplete) {
     return (
-      <Screen title="Grounding">
-        <View style={styles.doneContainer}>
-          <Text style={styles.doneTitle}>Done</Text>
-          <Text style={styles.doneText}>
-            Nice work. You can return to tools whenever you&apos;re ready.
-          </Text>
-          <PrimaryButton
-            label="Back to tools"
-            onPress={() => router.push("/coping-tools" as never)}
-            accessibilityLabel="Back to coping tools"
+      <Screen
+        scroll={false}
+        header={
+          <HeroHeader
+            variant="compact"
+            title="Grounding"
+            subtitle="Done"
+            left={<Avatar size={40} name={auth.patient?.displayName ?? auth.patient?.id ?? "Aura"} fallback="icon" iconKey="coping" />}
+            rightActions={[
+              {
+                icon: "coping",
+                tone: "muted",
+                accessibilityLabel: "Back to coping tools",
+                onPress: () => {
+                  router.push("/coping-tools");
+                },
+              },
+              {
+                icon: "safety",
+                tone: "warning",
+                accessibilityLabel: "Open Safety support",
+                onPress: () => {
+                  router.push("/safety");
+                },
+              },
+            ]}
           />
-          <PrimaryButton
-            label="Start again"
-            onPress={restart}
-            accessibilityLabel="Start grounding again"
+        }
+      >
+        <ScrollView contentContainerStyle={styles.container}>
+          <MediaCard
+            leading={{ type: "icon", icon: "coping", tone: "success" }}
+            title="Done"
+            subtitle="Nice work. Return to tools whenever you're ready."
+            chips={[
+              { text: `Used ${usage.count}`, tone: "muted" },
+              { text: `Last used ${formatLastUsed(usage.lastUsedAt)}`, tone: "muted" },
+            ]}
           />
-          <Text style={styles.muted}>
-            Used {usage.count} time{usage.count === 1 ? "" : "s"} • Last used{" "}
-            {formatLastUsed(usage.lastUsedAt)}
-          </Text>
-        </View>
+
+          <View style={styles.doneTrackerRow}>
+            <View style={styles.doneTrackerWrap}>
+              <TrackerTile
+                icon="coping"
+                label="Grounding"
+                value={`${usage.count}`}
+                delta="Total sessions"
+                tone="success"
+                micro={{ type: "ring", progress: clamp01(usage.count / 7) }}
+                variant="compact"
+              />
+            </View>
+            <View style={styles.doneTrackerWrap}>
+              <TrackerTile
+                icon="weekly"
+                label="Last used"
+                value={formatLastUsed(usage.lastUsedAt)}
+                delta="Recent"
+                tone="muted"
+                micro={{ type: "dots", values: [usage.lastUsedAt ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+                variant="compact"
+              />
+            </View>
+          </View>
+
+          <View style={styles.doneButtons}>
+            <PrimaryButton
+              label="Back to tools"
+              onPress={() => router.push("/coping-tools" as never)}
+              accessibilityLabel="Back to coping tools"
+            />
+            <SecondaryButton
+              label="Start again"
+              onPress={restart}
+              accessibilityLabel="Start grounding again"
+            />
+          </View>
+        </ScrollView>
       </Screen>
     );
   }
 
   return (
-    <Screen title="Grounding">
+    <Screen
+      scroll={false}
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Grounding"
+          subtitle={`Step ${stepIndex + 1} of ${STEPS.length}`}
+          left={<Avatar size={40} name={auth.patient?.displayName ?? auth.patient?.id ?? "Aura"} fallback="icon" iconKey="coping" />}
+          rightActions={[
+            {
+              icon: "coping",
+              tone: "muted",
+              accessibilityLabel: "Back to coping tools",
+              onPress: () => {
+                router.push("/coping-tools");
+              },
+            },
+            {
+              icon: "safety",
+              tone: "warning",
+              accessibilityLabel: "Open Safety support",
+              onPress: () => {
+                router.push("/safety");
+              },
+            },
+          ]}
+        />
+      }
+    >
       <ScrollView contentContainerStyle={styles.container}>
-        <Section title="5-4-3-2-1 senses">
-          <Text style={styles.description}>
-            Name things you notice right now. Take your time.
-          </Text>
-          <Text style={styles.progress}>{progressLabel}</Text>
-        </Section>
-
-        <Section title={currentStep.title}>
-          <Text style={styles.muted}>{currentStep.prompt}</Text>
-          {currentInputs.map((value, index) => (
-            <TextInput
-              key={`${stepIndex}-${index}`}
-              value={value}
-              onChangeText={(text) => setItemValue(index, text)}
-              placeholder={`Item ${index + 1} (optional)`}
-              style={styles.input}
-              accessibilityLabel={`${currentStep.title} item ${index + 1}`}
-              multiline
-              maxLength={120}
+        <View style={styles.progressRow}>
+          <View style={styles.progressTileWrap}>
+            <TrackerTile
+              icon="progress"
+              label="Progress"
+              value={`${stepIndex + 1}/${STEPS.length}`}
+              delta={progressLabel}
+              tone="accent"
+              micro={{ type: "ring", progress: clamp01((stepIndex + 1) / STEPS.length) }}
+              variant="compact"
             />
-          ))}
-        </Section>
+          </View>
+          <View style={styles.progressPillWrap}>
+            <StatusPill label="Offline ready" variant="neutral" />
+          </View>
+        </View>
 
-        <Section title="Actions">
-          <PrimaryButton
-            label={stepIndex === STEPS.length - 1 ? "Finish" : "Next"}
-            onPress={goNext}
-            accessibilityLabel={
-              stepIndex === STEPS.length - 1 ? "Finish grounding" : "Next grounding step"
-            }
-          />
-          <PrimaryButton
-            label="Skip"
-            onPress={goNext}
-            accessibilityLabel="Skip this grounding step"
-          />
-          <PrimaryButton
-            label="Back"
-            onPress={goBack}
-            disabled={stepIndex === 0}
-            accessibilityLabel="Previous grounding step"
-          />
-        </Section>
+        <MediaCard
+          leading={{ type: "icon", icon: "coping", tone: "accent" }}
+          title={currentStep.title}
+          subtitle={currentStep.prompt}
+          chips={[{ text: `${currentStep.count} items`, tone: "muted" }]}
+        />
+
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.inputCard}>
+            {currentInputs.map((value, index) => (
+              <TextInput
+                key={`${stepIndex}-${index}`}
+                value={value}
+                onChangeText={(text) => setItemValue(index, text)}
+                placeholder={`Item ${index + 1} (optional)`}
+                placeholderTextColor={tokens.colors.textMuted}
+                style={styles.input}
+                accessibilityLabel={`${currentStep.title} item ${index + 1}`}
+                multiline
+                maxLength={120}
+              />
+            ))}
+          </View>
+        </Card>
       </ScrollView>
+
+      <GlassPanel style={styles.footerPanel}>
+        <View style={styles.footerButtons}>
+          <View style={styles.footerButtonWrap}>
+            <SecondaryButton
+              label="Back"
+              onPress={goBack}
+              disabled={stepIndex === 0}
+              accessibilityLabel="Previous grounding step"
+            />
+          </View>
+          <View style={styles.footerButtonWrap}>
+            <SecondaryButton
+              label="Skip"
+              onPress={goNext}
+              accessibilityLabel="Skip this grounding step"
+            />
+          </View>
+          <View style={styles.footerButtonWrap}>
+            <PrimaryButton
+              label={stepIndex === STEPS.length - 1 ? "Finish" : "Next"}
+              onPress={goNext}
+              accessibilityLabel={
+                stepIndex === STEPS.length - 1 ? "Finish grounding" : "Next grounding step"
+              }
+            />
+          </View>
+        </View>
+      </GlassPanel>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-    paddingBottom: 24,
-  },
-  centered: {
-    minHeight: 140,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  doneContainer: {
-    flex: 1,
-    gap: 12,
-    justifyContent: "center",
-  },
-  doneTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  doneText: {
-    fontSize: 15,
-    color: "#374151",
-    lineHeight: 22,
-  },
-  description: {
-    fontSize: 14,
-    color: "#374151",
-    lineHeight: 20,
-  },
-  progress: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
-  },
-  muted: {
-    fontSize: 13,
-    color: "#6b7280",
-  },
-  input: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    backgroundColor: "#fff",
-    textAlignVertical: "top",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xxxxl,
+    },
+    centered: {
+      minHeight: 140,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    muted: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    progressRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.md,
+      alignItems: "center",
+    },
+    progressTileWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    progressPillWrap: {
+      alignSelf: "flex-start",
+    },
+    inputCard: {
+      gap: tokens.spacing.sm,
+    },
+    input: {
+      minHeight: 52,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm + 2,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      backgroundColor: tokens.colors.surface,
+      color: tokens.colors.text,
+      textAlignVertical: "top",
+    },
+    footerPanel: {
+      marginTop: tokens.spacing.sm,
+    },
+    footerButtons: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+      marginTop: tokens.spacing.sm,
+    },
+    footerButtonWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    doneTrackerRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.md,
+    },
+    doneTrackerWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    doneButtons: {
+      gap: tokens.spacing.sm,
+    },
+  });
+}

@@ -65,6 +65,7 @@ import { hasRiskOverride } from '../utils/risk';
 import { isAlertSeenForUi, isAlertUnseenForUi } from '../utils/seen';
 import { isAfterWithinDays } from '../utils/time';
 import { toErrorView } from '../utils/errorView';
+import { cn } from '../utils/cn';
 
 const POLLING_INTERVAL_MS = 12_000;
 const SEEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -796,7 +797,10 @@ export function AlertsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <section className="alerts-summary-strip" aria-label="Alerts overview">
+      <section
+        className={cn('alerts-summary-strip', allClear && 'alerts-summary-strip--all-clear')}
+        aria-label="Alerts overview"
+      >
         {allClear ? (
           <div className="alerts-all-clear" role="status" aria-live="polite">
             <div className="alerts-all-clear__heading">
@@ -809,6 +813,7 @@ export function AlertsPage(): JSX.Element {
             <div className="alerts-all-clear__footer">
               <p className="alerts-all-clear__meta">Monitoring active · Last updated {formatLastUpdated(connection.lastSuccessAt)}</p>
               <Button
+                className="alerts-all-clear__refresh"
                 variant="secondary"
                 size="sm"
                 onClick={() => {
@@ -837,7 +842,7 @@ export function AlertsPage(): JSX.Element {
         className="alerts-workspace-card"
         title="Alerts queue"
         action={
-          <Button variant="secondary" onClick={openAlertsExportModal}>
+          <Button className="alerts-workspace-card__export" variant="secondary" onClick={openAlertsExportModal}>
             Export CSV
           </Button>
         }
@@ -847,7 +852,9 @@ export function AlertsPage(): JSX.Element {
             <p className="alerts-queue-intro">
               Start with open alerts, then narrow with workflow filters to focus ownership and follow-up.
             </p>
-            <StatusTabs value={status} onChange={setStatus} />
+            <div className="alerts-status-tabs-wrap">
+              <StatusTabs value={status} onChange={setStatus} />
+            </div>
           </div>
 
           <FiltersBar
@@ -923,6 +930,7 @@ export function AlertsPage(): JSX.Element {
             </p>
             <div className="alerts-empty-state__actions">
               <Button
+                className="alerts-empty-state__refresh"
                 variant="secondary"
                 size="sm"
                 onClick={() => {

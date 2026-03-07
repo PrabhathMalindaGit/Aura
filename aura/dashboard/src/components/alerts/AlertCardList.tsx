@@ -94,8 +94,8 @@ export function AlertCardList({
                   <strong className="alerts-card-list__patient patient-id-text">
                     Patient {alert.patientId}
                   </strong>
-                  <span className="muted-text">Alert {alert._id}</span>
-                  <span className="muted-text">
+                  <span className="muted-text alerts-card-list__meta-line">Alert {alert._id}</span>
+                  <span className="muted-text alerts-card-list__meta-line">
                     Created{' '}
                     <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
                       {formatRelativeTime(alert.createdAt)}
@@ -104,13 +104,13 @@ export function AlertCardList({
                 </div>
                 <div className="alerts-card-list__top-badges">
                   {unseen ? (
-                    <Badge variant="new" icon aria-label="Unseen alert">
+                    <Badge className="alerts-unseen-badge" variant="new" icon aria-label="Unseen alert">
                       Unseen
                     </Badge>
                   ) : (
-                    <span className="alerts-seen">Seen</span>
+                    <span className="alerts-seen alerts-seen--quiet">Seen</span>
                   )}
-                  <Badge variant={statusBadgeVariant(alert.status)} icon>
+                  <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
                     {alert.status}
                   </Badge>
                 </div>
@@ -141,18 +141,21 @@ export function AlertCardList({
                 ) : null}
 
                 <div className="alerts-card-list__meta">
-                  <span className="alerts-source-pill">
+                  <span className="alerts-source-pill alerts-source-pill--row">
                     {alert.source.type} • {alert.source.sourceId}
                   </span>
-                  <Badge variant={riskBadgeVariant(effectiveRisk)}>{formatRiskLabel(effectiveRisk)}</Badge>
+                  <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
+                    {formatRiskLabel(effectiveRisk)}
+                  </Badge>
                   <OverrideChip alert={alert} />
                   <AssignmentChip alert={alert} clinicianId={clinicianId} />
                 </div>
 
                 <div className="alerts-card-list__notification">
-                  <NotificationStatusBadge status={alert.notificationStatus} />
+                  <NotificationStatusBadge className="alerts-notification-badge" status={alert.notificationStatus} />
                   {showRetry ? (
                     <Button
+                      className="alerts-notification-retry"
                       variant="ghost"
                       disabled={!NOTIFICATION_RETRY_ENABLED}
                       title={!NOTIFICATION_RETRY_ENABLED ? 'Retry requires backend endpoint' : undefined}
@@ -165,6 +168,7 @@ export function AlertCardList({
 
               <div className="alerts-actions alerts-actions--stack alerts-card-list__actions">
                 <Button
+                  className="alerts-actions__open"
                   variant="ghost"
                   data-testid={`alert-open-${alert._id}`}
                   onClick={(event) => onOpen(alert, event.currentTarget)}
@@ -173,6 +177,7 @@ export function AlertCardList({
                   Open
                 </Button>
                 <Button
+                  className="alerts-actions__ack"
                   variant="secondary"
                   disabled={alert.status !== 'open' || mutationPending || assignedToOther}
                   onClick={() => onAcknowledge(alert)}
@@ -181,6 +186,7 @@ export function AlertCardList({
                   Ack
                 </Button>
                 <Button
+                  className="alerts-actions__resolve"
                   variant="danger"
                   disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
                   onClick={() => onResolve(alert)}

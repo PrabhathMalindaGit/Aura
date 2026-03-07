@@ -82,16 +82,36 @@ export function AlertsTable({
       <table className="alerts-table">
         <thead>
           <tr>
-            <th scope="col">Unseen</th>
-            <th scope="col">Created</th>
-            <th scope="col">Patient</th>
-            <th scope="col">Reason</th>
-            <th scope="col">Source</th>
-            <th scope="col">Risk</th>
-            <th scope="col">Status</th>
-            <th scope="col">Assignment</th>
-            <th scope="col">Notification</th>
-            <th scope="col">Actions</th>
+            <th scope="col" className="alerts-table__head alerts-table__head--unseen">
+              Unseen
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--created">
+              Created
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--patient">
+              Patient
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--reason">
+              Reason
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--source">
+              Source
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--risk">
+              Risk
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--status">
+              Status
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--assignment">
+              Assignment
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--notification">
+              Notification
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--actions">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -112,6 +132,7 @@ export function AlertsTable({
                   'alerts-table__row',
                   unseen && 'alerts-table__row--unseen',
                   effectiveRisk === 'high' && 'alerts-table__row--high-risk',
+                  assignedToOther && 'alerts-table__row--assigned-other',
                   highlightedAlertIds.includes(alert._id) && 'alert-arrived',
                 )}
                 onClick={(event) => onOpen(alert, event.currentTarget)}
@@ -141,55 +162,56 @@ export function AlertsTable({
                 }}
                 aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}
               >
-                <td>
+                <td className="alerts-table__cell alerts-table__cell--unseen">
                   {unseen ? (
-                    <Badge variant="new" icon aria-label="Unseen alert">
+                    <Badge className="alerts-unseen-badge" variant="new" icon aria-label="Unseen alert">
                       Unseen
                     </Badge>
                   ) : (
-                    <span className="alerts-seen">Seen</span>
+                    <span className="alerts-seen alerts-seen--quiet">Seen</span>
                   )}
                 </td>
-                <td>
-                  <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
+                <td className="alerts-table__cell alerts-table__cell--created">
+                  <time className="alerts-table__created-time" dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
                     {formatRelativeTime(alert.createdAt)}
                   </time>
                 </td>
-                <td>
+                <td className="alerts-table__cell alerts-table__cell--patient">
                   <div className="alerts-patient-cell">
                     <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
                     <span className="alerts-patient-cell__meta">Alert {alert._id}</span>
                   </div>
                 </td>
-                <td className="alerts-table__reason" title={reasonText}>
+                <td className="alerts-table__cell alerts-table__cell--reason alerts-table__reason" title={reasonText}>
                   {reasonText}
                 </td>
-                <td>
-                  <span className="alerts-source-pill">
+                <td className="alerts-table__cell alerts-table__cell--source">
+                  <span className="alerts-source-pill alerts-source-pill--row">
                     {alert.source.type} • {alert.source.sourceId}
                   </span>
                 </td>
-                <td>
+                <td className="alerts-table__cell alerts-table__cell--risk">
                   <div className="alerts-risk-cell">
-                    <Badge variant={riskBadgeVariant(effectiveRisk)}>
+                    <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
                       {formatRiskLabel(effectiveRisk)}
                     </Badge>
                     <OverrideChip alert={alert} />
                   </div>
                 </td>
-                <td>
-                  <Badge variant={statusBadgeVariant(alert.status)} icon>
+                <td className="alerts-table__cell alerts-table__cell--status">
+                  <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
                     {alert.status}
                   </Badge>
                 </td>
-                <td>
+                <td className="alerts-table__cell alerts-table__cell--assignment">
                   <AssignmentChip alert={alert} clinicianId={clinicianId} />
                 </td>
-                <td>
+                <td className="alerts-table__cell alerts-table__cell--notification">
                   <div className="alerts-notification-cell">
-                    <NotificationStatusBadge status={alert.notificationStatus} />
+                    <NotificationStatusBadge className="alerts-notification-badge" status={alert.notificationStatus} />
                     {showRetry ? (
                       <Button
+                        className="alerts-notification-retry"
                         variant="ghost"
                         disabled={!NOTIFICATION_RETRY_ENABLED}
                         title={!NOTIFICATION_RETRY_ENABLED ? 'Retry requires backend endpoint' : undefined}
@@ -203,12 +225,13 @@ export function AlertsTable({
                     ) : null}
                   </div>
                 </td>
-                <td>
+                <td className="alerts-table__cell alerts-table__cell--actions">
                   <div
                     className="alerts-actions"
                     onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
                   >
                     <Button
+                      className="alerts-actions__open"
                       variant="ghost"
                       data-testid={`alert-open-${alert._id}`}
                       onClick={(event) => {
@@ -219,6 +242,7 @@ export function AlertsTable({
                       Open
                     </Button>
                     <Button
+                      className="alerts-actions__ack"
                       variant="secondary"
                       disabled={alert.status !== 'open' || mutationPending || assignedToOther}
                       onClick={(event) => {
@@ -229,6 +253,7 @@ export function AlertsTable({
                       Ack
                     </Button>
                     <Button
+                      className="alerts-actions__resolve"
                       variant="danger"
                       disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
                       onClick={(event) => {

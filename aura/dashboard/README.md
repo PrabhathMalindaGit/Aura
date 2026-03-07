@@ -45,19 +45,27 @@ npm run e2e:live
 
 Live E2E runs only when `LIVE_E2E=1` is set by the script and skips early if backend health is unreachable.
 
-## Dev auth helper for clinician APIs
-If backend clinician RBAC is enabled, set a bearer token in localStorage for dashboard API calls.
+## Clinician auth bootstrap
+Dashboard routes are now auth-gated.
 
-1) Get token:
+1) Open the dashboard and sign in at `/login`.
+2) Use seeded demo credentials:
+   - `clinician1@example.com` / `devpass123`
+3) After successful sign-in, dashboard routes (`/alerts`, `/patients`, etc.) load normally.
+
+If a session expires or token becomes stale, the app clears invalid auth tokens and routes back to `/login` with a recovery message.
+
+### Optional manual token helper (fallback)
+If you still need token injection for debugging:
+
 ```bash
 curl -sS -X POST http://localhost:3000/auth/clinician/login \
   -H "Content-Type: application/json" \
   -d '{"email":"clinician1@example.com","password":"devpass123"}'
 ```
 
-2) In browser devtools console:
 ```js
-localStorage.setItem('clinicianToken', '<TOKEN_FROM_LOGIN>');
+localStorage.setItem('aura_access_token', '<TOKEN_FROM_LOGIN>');
 ```
 
 ## Exercise plan editor demo path

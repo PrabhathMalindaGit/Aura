@@ -29,10 +29,10 @@ export function SessionEndedPage(): JSX.Element {
           <div className="inline-actions">
             <Button
               onClick={() => {
-                navigate('/alerts', { replace: true });
+                navigate('/login', { replace: true, state: { reason: 'expired' } });
               }}
             >
-              Start new session
+              Sign in again
             </Button>
           </div>
         </div>

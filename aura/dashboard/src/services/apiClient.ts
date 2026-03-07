@@ -6,6 +6,9 @@ const DEFAULT_API_BASE_URL = 'http://localhost:3000';
 const JSON_CONTENT_TYPE = 'application/json';
 const CLINICIAN_TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
 const TOKEN_EXPIRY_SKEW_SECONDS = 15;
+const AUTH_REQUIRED_EVENT = 'aura:auth-required';
+
+export type AuthRequiredReason = 'missing' | 'expired';
 
 type QueryPrimitive = string | number | boolean | null | undefined;
 type QueryValue = QueryPrimitive | QueryPrimitive[];
@@ -21,9 +24,9 @@ export function getApiBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL;
 }
 
-export function getStoredClinicianToken(): string | null {
+function getBrowserStorages(): Storage[] {
   if (typeof window === 'undefined') {
-    return null;
+    return [];
   }
 
   const storages: Storage[] = [];
@@ -33,28 +36,97 @@ export function getStoredClinicianToken(): string | null {
   if (typeof window.sessionStorage !== 'undefined') {
     storages.push(window.sessionStorage);
   }
+  return storages;
+}
 
+function decodeJwtExp(value: string): number | null {
+  const sections = value.split('.');
+  if (sections.length < 2) {
+    return null;
+  }
+
+  try {
+    const base64 = sections[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+function emitAuthRequired(reason: AuthRequiredReason): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<AuthRequiredReason>(AUTH_REQUIRED_EVENT, {
+      detail: reason,
+    }),
+  );
+}
+
+export function subscribeAuthRequired(listener: (reason: AuthRequiredReason) => void): () => void {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handler = (event: Event): void => {
+    const customEvent = event as CustomEvent<AuthRequiredReason>;
+    listener(customEvent.detail ?? 'expired');
+  };
+
+  window.addEventListener(AUTH_REQUIRED_EVENT, handler as EventListener);
+  return () => {
+    window.removeEventListener(AUTH_REQUIRED_EVENT, handler as EventListener);
+  };
+}
+
+export function clearStoredClinicianTokens(options: { emitEvent?: boolean; reason?: AuthRequiredReason } = {}): void {
+  const storages = getBrowserStorages();
+  if (storages.length === 0) {
+    return;
+  }
+
+  for (const storage of storages) {
+    for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
+      storage.removeItem(key);
+    }
+  }
+
+  if (options.emitEvent) {
+    emitAuthRequired(options.reason ?? 'expired');
+  }
+}
+
+export function setStoredClinicianToken(token: string): void {
+  const normalized = token.trim();
+  if (!normalized) {
+    return;
+  }
+
+  const storages = getBrowserStorages();
+  if (storages.length === 0) {
+    return;
+  }
+
+  for (const storage of storages) {
+    for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
+      storage.removeItem(key);
+    }
+  }
+
+  storages[0].setItem('aura_access_token', normalized);
+}
+
+export function getStoredClinicianToken(): string | null {
+  const storages = getBrowserStorages();
   if (storages.length === 0) {
     return null;
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-
-  const decodeJwtExp = (value: string): number | null => {
-    const sections = value.split('.');
-    if (sections.length < 2) {
-      return null;
-    }
-
-    try {
-      const base64 = sections[1].replace(/-/g, '+').replace(/_/g, '/');
-      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
-      const payload = JSON.parse(atob(padded)) as { exp?: unknown };
-      return typeof payload.exp === 'number' ? payload.exp : null;
-    } catch {
-      return null;
-    }
-  };
 
   for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
     for (const storage of storages) {
@@ -248,6 +320,13 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
     }
   } catch (error) {
     const appError = mapUnknownToAppError(error);
+    if (
+      appError.kind === 'HTTP' &&
+      (appError.status === 401 || appError.status === 403) &&
+      endpointPath.startsWith('/clinician/')
+    ) {
+      clearStoredClinicianTokens({ emitEvent: true, reason: 'expired' });
+    }
     markError(endpointPath, appError);
     throw appError;
   } finally {

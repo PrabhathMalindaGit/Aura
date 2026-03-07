@@ -7,10 +7,12 @@ import { OfflineBanner } from '../components/system/OfflineBanner';
 import { Sidebar } from '../components/nav/Sidebar';
 import { IconButton } from '../components/ui/IconButton';
 import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 import { Inset } from '../components/ui/Inset';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useSidebarMode } from '../hooks/useSidebarMode';
 import { useConnectionStatus } from '../services/connection';
+import { subscribeAuthRequired } from '../services/apiClient';
 import {
   createSessionTimeoutManager,
   type SessionTimeoutManager,
@@ -65,6 +67,16 @@ export function AppShell(): JSX.Element {
     [navigate],
   );
 
+  const handleSignOut = useCallback(() => {
+    clearDashboardSessionData();
+    setMobileNavOpen(false);
+    setSessionWarning(null);
+    navigate('/login', {
+      replace: true,
+      state: { reason: 'signedOut' },
+    });
+  }, [navigate]);
+
   useEffect(() => {
     const manager = createSessionTimeoutManager({
       config: getSessionSettings(),
@@ -101,6 +113,20 @@ export function AppShell(): JSX.Element {
       setMobileNavOpen(false);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    return subscribeAuthRequired((reason) => {
+      setMobileNavOpen(false);
+      setSessionWarning(null);
+      navigate('/login', {
+        replace: true,
+        state: {
+          reason,
+          from: `${pathname}`,
+        },
+      });
+    });
+  }, [navigate, pathname]);
 
   const pageTitle = useMemo(() => {
     if (pathname.startsWith('/patients/')) {
@@ -162,6 +188,9 @@ export function AppShell(): JSX.Element {
             <span className="topbar__updated" aria-live="polite">
               Last updated: {formatLastUpdated(connection.lastSuccessAt)}
             </span>
+            <Button variant="secondary" size="sm" onClick={handleSignOut}>
+              Sign out
+            </Button>
           </div>
         </header>
 

@@ -31,6 +31,7 @@ function renderShell(settings?: Partial<SessionSettings>): void {
     <MemoryRouter initialEntries={['/alerts']}>
       <Routes>
         <Route path="/session-ended" element={<SessionEndedPage />} />
+        <Route path="/login" element={<div>Login workspace</div>} />
         <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/alerts" replace />} />
           <Route path="alerts" element={<div>Alerts workspace</div>} />
@@ -108,8 +109,8 @@ describe('AppShell session timeout behavior', () => {
     expect(window.localStorage.getItem('preserve_me')).toBe('yes');
     expect(window.localStorage.getItem(getSessionSettingsStorageKey())).not.toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start new session' }));
-    expect(screen.getByText('Alerts workspace')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in again' }));
+    expect(screen.getByText('Login workspace')).toBeInTheDocument();
   });
 
   it('absolute timeout warning appears even with activity', () => {

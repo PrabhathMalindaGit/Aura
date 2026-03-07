@@ -103,6 +103,10 @@ export async function installMockApi(
     requestLog: [],
   };
 
+  await page.addInitScript(() => {
+    window.localStorage.setItem('aura_access_token', 'MOCKED_E2E_TOKEN');
+  });
+
   await page.route('**/clinician/**', async (route) => {
     const request = route.request();
     const method = request.method();

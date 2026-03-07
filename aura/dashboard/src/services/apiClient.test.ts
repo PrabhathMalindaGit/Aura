@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchJson } from './apiClient';
+import { fetchJson, subscribeAuthRequired } from './apiClient';
 import { createAppError, isRetryable } from '../utils/errors';
 
 function readAuthorizationHeader(init: RequestInit | undefined): string | null {
@@ -196,6 +196,29 @@ describe('fetchJson', () => {
 
     const init = fetchMock.mock.calls[0]?.[1];
     expect(readAuthorizationHeader(init)).toBe('Bearer EXPLICIT_TOKEN');
+  });
+
+  it('clears tokens and emits auth-required event on clinician 401 response', async () => {
+    window.localStorage.setItem('aura_access_token', 'ACCESS_TOKEN');
+    const reasons: string[] = [];
+    const unsubscribe = subscribeAuthRequired((reason) => {
+      reasons.push(reason);
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: false, error: 'UNAUTHORIZED' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(fetchJson('/clinician/alerts')).rejects.toMatchObject({
+      kind: 'HTTP',
+      status: 401,
+    });
+
+    unsubscribe();
+    expect(window.localStorage.getItem('aura_access_token')).toBeNull();
+    expect(reasons).toContain('expired');
   });
 });
 

@@ -22,6 +22,27 @@ test('Live smoke page validates reachable backend', async ({ page, request }) =>
     return;
   }
 
+  const loginResponse = await request.post(`${apiBaseUrl}/auth/clinician/login`, {
+    data: {
+      email: 'clinician1@example.com',
+      password: 'devpass123',
+    },
+  });
+  if (!loginResponse.ok()) {
+    test.skip(true, `Clinician login failed (${loginResponse.status()}) at ${apiBaseUrl}/auth/clinician/login.`);
+    return;
+  }
+
+  const loginPayload = (await loginResponse.json()) as { token?: string };
+  if (!loginPayload.token) {
+    test.skip(true, 'Clinician login response did not include token.');
+    return;
+  }
+
+  await page.addInitScript((token: string) => {
+    window.localStorage.setItem('aura_access_token', token);
+  }, loginPayload.token);
+
   await page.goto('/smoke');
   await page.getByTestId('smoke-run').click();
 

@@ -1894,6 +1894,42 @@ time,
   padding: var(--space-xl);
 }
 
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-xl);
+}
+
+.login-card {
+  width: min(30rem, 100%);
+}
+
+.login-form {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.login-field {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.login-field span {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.login-field input {
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-md);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
 .patients-page-header {
   display: grid;
   gap: var(--space-xs);

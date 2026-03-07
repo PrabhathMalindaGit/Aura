@@ -1,6 +1,6 @@
 import { formatDateKey, formatMedication, formatMoodValue, formatPainValue, formatPercent, formatNumber } from '../../utils/format';
 import type { TrendSummaryMetrics } from '../../utils/trends';
-import { Badge } from '../ui/Badge';
+import { cn } from '../../utils/cn';
 
 interface PatientSummaryCardsProps {
   metrics: TrendSummaryMetrics;
@@ -16,12 +16,9 @@ interface SummaryCardProps {
 
 function SummaryCard({ label, value, tone = 'default', caption }: SummaryCardProps): JSX.Element {
   return (
-    <article className="patient-summary-card glass-card">
+    <article className={cn('patient-summary-card glass-card', `patient-summary-card--${tone}`)}>
       <p className="patient-summary-card__label">{label}</p>
-      <div className="patient-summary-card__value-row">
-        <strong className="patient-summary-card__value">{value}</strong>
-        <Badge variant={tone}>{label}</Badge>
-      </div>
+      <strong className="patient-summary-card__value">{value}</strong>
       {caption ? <p className="patient-summary-card__caption">{caption}</p> : null}
     </article>
   );

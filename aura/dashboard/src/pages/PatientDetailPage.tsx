@@ -1089,65 +1089,81 @@ export function PatientDetailPage(): JSX.Element {
   const patientDisplayName = patientContext?.displayName?.trim() || patientId;
 
   return (
-    <div className="page-stack">
+    <div className="page-stack patient-detail-page">
       <Card
+        className="patient-detail-hero-card"
         title={
           <div className="patient-detail-title">
             <Link to="/patients" className="patient-detail-back-link">
               Back to patients
             </Link>
-            <span className="patient-detail-title__text">Patient {patientDisplayName}</span>
-            {patientDisplayName !== patientId ? <span className="patient-id-text">ID: {patientId}</span> : null}
-            {patientContext?.status ? (
-              <Badge variant={statusBadgeVariant(patientContext.status)} icon>
-                {statusLabel(patientContext.status)}
-              </Badge>
-            ) : null}
+            <div className="patient-detail-title__context">
+              <p className="patient-detail-title__eyebrow">Patient review</p>
+              <div className="patient-detail-title__row">
+                <span className="patient-detail-title__text">Patient {patientDisplayName}</span>
+                {patientContext?.status ? (
+                  <Badge variant={statusBadgeVariant(patientContext.status)} icon>
+                    {statusLabel(patientContext.status)}
+                  </Badge>
+                ) : null}
+                {patientDisplayName !== patientId ? <span className="patient-id-text">ID: {patientId}</span> : null}
+              </div>
+              <p className="patient-detail-title__subtitle">
+                Review current status, recent check-ins, alerts, and adherence before follow-up.
+              </p>
+            </div>
           </div>
         }
         action={
-          <div className="patient-detail-actions">
-            <Tabs
-              tabs={[
-                { id: '14', label: '14 days' },
-                { id: '30', label: '30 days' },
-              ]}
-              value={String(selectedDays)}
-              getTabTestId={(tabId) => `days-toggle-${tabId}`}
-              onValueChange={(value) => {
-                const nextDays = value === '30' ? '30' : '14';
-                setSearchParams((current) => {
-                  const next = new URLSearchParams(current);
-                  next.set('days', nextDays);
-                  return next;
-                });
-              }}
-            />
-            <Button
-              variant="secondary"
-              onClick={() => {
-                void Promise.all([trendsQuery.refetch(), patientAlertsQuery.refetch()]);
-              }}
-            >
-              Refresh
-            </Button>
-            <Button variant="secondary" onClick={openPatientExportModal}>
-              Export CSV
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                navigate(`/patients/${patientId}/plan`);
-              }}
-            >
-              Exercise Plan
-            </Button>
+          <div className="patient-detail-header-actions">
+            <div className="patient-detail-window-tabs">
+              <Tabs
+                tabs={[
+                  { id: '14', label: '14 days' },
+                  { id: '30', label: '30 days' },
+                ]}
+                value={String(selectedDays)}
+                getTabTestId={(tabId) => `days-toggle-${tabId}`}
+                onValueChange={(value) => {
+                  const nextDays = value === '30' ? '30' : '14';
+                  setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('days', nextDays);
+                    return next;
+                  });
+                }}
+              />
+            </div>
+            <div className="patient-detail-actions">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void Promise.all([trendsQuery.refetch(), patientAlertsQuery.refetch()]);
+                }}
+              >
+                Refresh
+              </Button>
+              <Button variant="secondary" onClick={openPatientExportModal}>
+                Export CSV
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  navigate(`/patients/${patientId}/plan`);
+                }}
+              >
+                Exercise Plan
+              </Button>
+            </div>
           </div>
         }
       >
         <div className="patient-detail-meta">
           <Badge variant={connection.online ? 'success' : 'danger'} icon>
             {connection.online ? 'Online' : 'Offline'}
+          </Badge>
+          <Badge variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
+            {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
           </Badge>
           <span className="muted-text">Last updated: {formatLastUpdated(connection.lastSuccessAt)}</span>
         </div>
@@ -1283,9 +1299,81 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+      <section className="patient-detail-summary-shell" aria-label="Patient summary">
+        <div className="patient-detail-section-header patient-detail-section-header--summary">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Snapshot</p>
+            <h2 className="patient-detail-section-title">Current status summary</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Core recovery metrics for the selected {selectedDays}-day review window.
+          </p>
+        </div>
+        <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+      </section>
 
-      <Card
+      <section className="patient-detail-section-block patient-detail-section-block--primary">
+        <div className="patient-detail-section-header">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Clinical review</p>
+            <h2 className="patient-detail-section-title">Trends and alert context</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Start with trajectory and recent safety events before drilling into daily details.
+          </p>
+        </div>
+
+        {showTrendsLoading ? (
+          <Card title="Trend charts">
+            <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
+              <Skeleton height={260} />
+              <Skeleton height={260} />
+              <Skeleton height={260} />
+            </div>
+          </Card>
+        ) : hasTrendData ? (
+          <TrendCharts points={normalizedTrends} onSelectDate={handleDaySelect} />
+        ) : (
+          <Card title="Trend charts">
+            <EmptyState
+              title="No check-ins yet for this patient"
+              description="Trend charts will appear once check-ins are available for the selected window."
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    void trendsQuery.refetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              }
+            />
+          </Card>
+        )}
+
+        <RecentAlertsPanel
+          alerts={patientAlerts}
+          seenAlertMap={seenAlertMap}
+          mutationPending={updateAlertMutation.isPending}
+          onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+          onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+          onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+        />
+      </section>
+
+      <section className="patient-detail-section-block">
+        <div className="patient-detail-section-header">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Check-in detail</p>
+            <h2 className="patient-detail-section-title">Recent symptom signals</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Sleep, body map, and photos from the last 7 days.
+          </p>
+        </div>
+        <div className="patient-detail-section-grid patient-detail-section-grid--signals">
+          <Card
         title="Sleep (recent)"
         action={
           <Button
@@ -1325,9 +1413,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Body map (recent)"
         action={
           <Button
@@ -1371,9 +1459,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Symptom photos (recent)"
         action={
           <Button
@@ -1404,17 +1492,8 @@ export function PatientDetailPage(): JSX.Element {
             </p>
             <div className="stack stack--1">
               {recentPhotos.slice(0, 5).map((photo) => (
-                <div
-                  key={photo.id}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <p className="muted-text" style={{ margin: 0 }}>
+                <div key={photo.id} className="patient-detail-photo-row">
+                  <p className="muted-text patient-detail-photo-row__text">
                     {photo.date}: {photo.kind}
                     {photo.notePreview ? ` · ${photo.notePreview}` : ''}
                   </p>
@@ -1433,9 +1512,22 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
+        </div>
+      </section>
 
-      <Card
+      <section className="patient-detail-section-block">
+        <div className="patient-detail-section-header">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Habits and adherence</p>
+            <h2 className="patient-detail-section-title">Daily support signals</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Hydration, nutrition, wearables, and medication trends for adherence review.
+          </p>
+        </div>
+        <div className="patient-detail-section-grid patient-detail-section-grid--habits">
+          <Card
         title="Hydration (last 7 days)"
         action={
           <Button
@@ -1473,9 +1565,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Nutrition (last 7 days)"
         action={
           <Button
@@ -1519,9 +1611,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Wearables (last 7 days)"
         action={
           <Button
@@ -1569,9 +1661,9 @@ export function PatientDetailPage(): JSX.Element {
             ) : null}
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Medication adherence (last 7 days)"
         action={
           <Button
@@ -1615,9 +1707,22 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
+        </div>
+      </section>
 
-      <Card
+      <section className="patient-detail-section-block">
+        <div className="patient-detail-section-header">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Care operations</p>
+            <h2 className="patient-detail-section-title">Plan, review, and follow-up</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Keep care plans, PROMs, insights, and sessions aligned for the next clinician action.
+          </p>
+        </div>
+        <div className="patient-detail-section-grid patient-detail-section-grid--workflow">
+          <Card
         title="Rehab phase"
         action={
           <div className="patient-detail-actions">
@@ -1709,9 +1814,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Questionnaires (PROMs)"
         action={
           <Button
@@ -1823,9 +1928,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Insight cards"
         action={
           <div className="patient-detail-actions">
@@ -1935,9 +2040,9 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
         )}
-      </Card>
+          </Card>
 
-      <Card title="Weekly report">
+          <Card title="Weekly report">
         <div className="stack stack--2">
           <p className="muted-text">
             View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and next steps.
@@ -1961,9 +2066,9 @@ export function PatientDetailPage(): JSX.Element {
             </Button>
           </div>
         </div>
-      </Card>
+          </Card>
 
-      <Card
+          <Card
         title="Exercise sessions"
         action={
           <div className="patient-detail-actions">
@@ -2024,45 +2129,9 @@ export function PatientDetailPage(): JSX.Element {
             ))}
           </div>
         )}
-      </Card>
-
-      {showTrendsLoading ? (
-        <Card title="Trend charts">
-          <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
-            <Skeleton height={260} />
-            <Skeleton height={260} />
-            <Skeleton height={260} />
-          </div>
-        </Card>
-      ) : hasTrendData ? (
-        <TrendCharts points={normalizedTrends} onSelectDate={handleDaySelect} />
-      ) : (
-        <Card title="Trend charts">
-          <EmptyState
-            title="No check-ins yet for this patient"
-            description="Trend charts will appear once check-ins are available for the selected window."
-            action={
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  void trendsQuery.refetch();
-                }}
-              >
-                Retry
-              </Button>
-            }
-          />
-        </Card>
-      )}
-
-      <RecentAlertsPanel
-        alerts={patientAlerts}
-        seenAlertMap={seenAlertMap}
-        mutationPending={updateAlertMutation.isPending}
-        onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-        onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-        onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
-      />
+          </Card>
+        </div>
+      </section>
 
       <ExportCsvModal
         open={patientExportOpen}

@@ -317,7 +317,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $input.first().json ?? {};\nconst nested = result.result && typeof result.result === 'object' ? result.result : result;\nconst messageIdRaw = nested?.message_id ?? nested?.messageId ?? nested?.providerMessageId;\nconst providerMessageId = messageIdRaw !== undefined && messageIdRaw !== null ? String(messageIdRaw) : undefined;\n\nlet notificationError;\nif (typeof result.error === 'string') {\n  notificationError = result.error;\n} else if (result.error && typeof result.error === 'object') {\n  const errorObject = result.error;\n  if (typeof errorObject.message === 'string') {\n    notificationError = errorObject.message;\n  } else {\n    notificationError = JSON.stringify(errorObject).slice(0, 300);\n  }\n}\n\nconst notificationStatus = notificationError ? 'failed' : 'sent';\n\nreturn [{\n  json: {\n    notificationStatus,\n    ...(providerMessageId ? { providerMessageId } : {}),\n    ...(notificationError ? { notificationError } : {})\n  }\n}];"
+        "jsCode": "const result = $input.first().json ?? {};\nconst nested = result.result && typeof result.result === 'object' ? result.result : result;\nconst messageIdRaw = nested?.message_id ?? nested?.messageId ?? nested?.providerMessageId;\nconst providerMessageId = messageIdRaw !== undefined && messageIdRaw !== null ? String(messageIdRaw) : undefined;\n\nlet notificationError;\nif (typeof result.error === 'string') {\n  notificationError = result.error;\n} else if (result.error && typeof result.error === 'object') {\n  const errorObject = result.error;\n  if (typeof errorObject.message === 'string') {\n    notificationError = errorObject.message;\n  } else {\n    notificationError = JSON.stringify(errorObject).slice(0, 300);\n  }\n}\n\nlet webhook = {};\ntry {\n  webhook = $('Webhook').first().json.body ?? {};\n} catch {\n  webhook = {};\n}\n\nconst alertId = typeof webhook.alertId === 'string' ? webhook.alertId : '';\nconst timestamp =\n  typeof webhook.timestamp === 'string' ? webhook.timestamp : new Date().toISOString();\nconst notificationStatus = notificationError ? 'failed' : 'sent';\n\nreturn [{\n  json: {\n    alertId,\n    timestamp,\n    notificationStatus,\n    ...(providerMessageId ? { providerMessageId } : {}),\n    ...(notificationError ? { notificationError } : {})\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -330,7 +330,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { notificationStatus: 'skipped' } }];"
+        "jsCode": "let webhook = {};\ntry {\n  webhook = $('Webhook').first().json.body ?? {};\n} catch {\n  webhook = {};\n}\n\nreturn [{\n  json: {\n    alertId: typeof webhook.alertId === 'string' ? webhook.alertId : '',\n    timestamp:\n      typeof webhook.timestamp === 'string' ? webhook.timestamp : new Date().toISOString(),\n    notificationStatus: 'skipped'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -343,7 +343,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhook = $('Webhook').first().json.body ?? {};\nconst status = $input.first().json ?? {};\nconst targetChat = ($env.TELEGRAM_CLINICIAN_CHAT_ID ?? '').toString().trim();\n\nconst payload = {\n  alertId: webhook.alertId ?? '',\n  channel: 'telegram',\n  status: status.notificationStatus ?? 'skipped',\n  timestamp: webhook.timestamp ?? new Date().toISOString(),\n  ...(targetChat ? { target: `telegram:${targetChat}` } : {}),\n  ...(status.providerMessageId ? { providerMessageId: status.providerMessageId } : {}),\n  ...(status.notificationError ? { error: status.notificationError } : {}),\n  meta: { workflow: '01' }\n};\n\nreturn [{ json: payload }];"
+        "jsCode": "const status = $input.first().json ?? {};\n\nlet webhook = {};\ntry {\n  webhook = $('Webhook').first().json.body ?? {};\n} catch {\n  webhook = {};\n}\n\nconst alertId =\n  typeof status.alertId === 'string' && status.alertId\n    ? status.alertId\n    : typeof webhook.alertId === 'string'\n      ? webhook.alertId\n      : '';\n\nconst timestamp =\n  typeof status.timestamp === 'string' && status.timestamp\n    ? status.timestamp\n    : typeof webhook.timestamp === 'string'\n      ? webhook.timestamp\n      : new Date().toISOString();\n\nconst rawStatus =\n  typeof status.notificationStatus === 'string' ? status.notificationStatus : 'attempted';\nconst allowed = ['attempted', 'sent', 'failed', 'skipped'];\nconst notificationStatus = allowed.includes(rawStatus) ? rawStatus : 'attempted';\n\nconst payload = {\n  alertId,\n  channel: 'telegram',\n  status: notificationStatus,\n  timestamp,\n  ...(status.providerMessageId ? { providerMessageId: status.providerMessageId } : {}),\n  ...(status.notificationError ? { error: status.notificationError } : {}),\n  meta: { workflow: '01' }\n};\n\nreturn [{ json: payload }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -357,13 +357,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/events/notification-status' }}",
+        "url": "http://host.docker.internal:3000/events/notification-status",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "x-aura-webhook-key",
-              "value": "={{$env.AURA_WEBHOOK_KEY || 'dev_aura_webhook_key'}}"
+              "value": "dev_aura_webhook_key"
             }
           ]
         },

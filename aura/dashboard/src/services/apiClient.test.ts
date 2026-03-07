@@ -7,6 +7,16 @@ function readAuthorizationHeader(init: RequestInit | undefined): string | null {
   return headers.get('Authorization');
 }
 
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildTokenWithExp(exp: number): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(JSON.stringify({ exp }));
+  return `${header}.${payload}.signature`;
+}
+
 describe('fetchJson', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -133,6 +143,39 @@ describe('fetchJson', () => {
 
     const init = fetchMock.mock.calls[0]?.[1];
     expect(readAuthorizationHeader(init)).toBe('Bearer LEGACY_TOKEN');
+  });
+
+  it('falls back to sessionStorage token when localStorage is empty', async () => {
+    window.sessionStorage.setItem('aura_auth_token', 'SESSION_TOKEN');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await fetchJson('/clinician/patients', { method: 'GET' });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(readAuthorizationHeader(init)).toBe('Bearer SESSION_TOKEN');
+  });
+
+  it('skips expired modern token and falls back to clinicianToken', async () => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    window.localStorage.setItem('aura_access_token', buildTokenWithExp(nowSeconds - 60));
+    window.localStorage.setItem('clinicianToken', 'LEGACY_TOKEN');
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await fetchJson('/clinician/patients', { method: 'GET' });
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(readAuthorizationHeader(init)).toBe('Bearer LEGACY_TOKEN');
+    expect(window.localStorage.getItem('aura_access_token')).toBeNull();
   });
 
   it('does not override explicit Authorization header', async () => {

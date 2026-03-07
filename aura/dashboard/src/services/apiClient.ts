@@ -5,6 +5,7 @@ const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_API_BASE_URL = 'http://localhost:3000';
 const JSON_CONTENT_TYPE = 'application/json';
 const CLINICIAN_TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
+const TOKEN_EXPIRY_SKEW_SECONDS = 15;
 
 type QueryPrimitive = string | number | boolean | null | undefined;
 type QueryValue = QueryPrimitive | QueryPrimitive[];
@@ -21,14 +22,56 @@ export function getApiBaseUrl(): string {
 }
 
 export function getStoredClinicianToken(): string | null {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+  if (typeof window === 'undefined') {
     return null;
   }
 
+  const storages: Storage[] = [];
+  if (typeof window.localStorage !== 'undefined') {
+    storages.push(window.localStorage);
+  }
+  if (typeof window.sessionStorage !== 'undefined') {
+    storages.push(window.sessionStorage);
+  }
+
+  if (storages.length === 0) {
+    return null;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  const decodeJwtExp = (value: string): number | null => {
+    const sections = value.split('.');
+    if (sections.length < 2) {
+      return null;
+    }
+
+    try {
+      const base64 = sections[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+      return typeof payload.exp === 'number' ? payload.exp : null;
+    } catch {
+      return null;
+    }
+  };
+
   for (const key of CLINICIAN_TOKEN_STORAGE_KEYS) {
-    const value = window.localStorage.getItem(key);
-    if (value && value.trim()) {
-      return value.trim();
+    for (const storage of storages) {
+      const value = storage.getItem(key);
+      if (!value || !value.trim()) {
+        continue;
+      }
+
+      const trimmed = value.trim();
+      const exp = decodeJwtExp(trimmed);
+
+      if (exp !== null && exp <= nowSeconds + TOKEN_EXPIRY_SKEW_SECONDS) {
+        storage.removeItem(key);
+        continue;
+      }
+
+      return trimmed;
     }
   }
 

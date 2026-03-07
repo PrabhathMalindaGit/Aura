@@ -7,6 +7,8 @@ _CRISIS_KEYWORDS = [
     "kill myself",
     "self harm",
     "end my life",
+    "feel unsafe",
+    "need urgent help",
     "can't breathe",
     "cannot breathe",
     "chest pain",

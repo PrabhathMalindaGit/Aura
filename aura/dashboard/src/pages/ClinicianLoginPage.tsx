@@ -27,6 +27,18 @@ interface ClinicianLoginResponse {
   };
 }
 
+function reasonLabel(reason: LoginReason | undefined): string {
+  if (reason === 'expired') {
+    return 'Session expired';
+  }
+
+  if (reason === 'signedOut') {
+    return 'Signed out';
+  }
+
+  return 'Sign in required';
+}
+
 function reasonMessage(reason: LoginReason | undefined): string {
   if (reason === 'expired') {
     return 'Your clinician session expired. Sign in again to continue.';
@@ -136,64 +148,79 @@ export function ClinicianLoginPage(): JSX.Element {
   }
 
   return (
-    <div className="login-page">
-      <Card className="login-card" title="Clinician sign in">
-        <div className="page-stack">
-          <p className="muted-text">{reasonMessage(state.reason)}</p>
+    <div className="auth-entry-page login-page">
+      <div className="auth-entry-shell">
+        <section className="auth-entry-intro" aria-label="Clinician dashboard access">
+          <p className="auth-entry-intro__eyebrow">Aura platform</p>
+          <h1 className="auth-entry-intro__title">Aura Clinician Dashboard</h1>
+          <p className="auth-entry-intro__subtitle">
+            Secure access for clinician review, triage, and patient monitoring.
+          </p>
+        </section>
 
-          {error ? (
-            <AlertBanner variant="error" title="Sign-in failed">
-              {error}
-            </AlertBanner>
-          ) : null}
+        <Card className="login-card auth-surface-card" title="Clinician sign in">
+          <div className="page-stack login-card__stack">
+            <section className="login-context" aria-live="polite">
+              <span className="login-context__state">{reasonLabel(state.reason)}</span>
+              <p className="login-context__message">{reasonMessage(state.reason)}</p>
+            </section>
 
-          <form className="login-form" onSubmit={(event) => void handleSubmit(event)}>
-            <label className="login-field" htmlFor="login-email">
-              <span>Email</span>
-              <input
-                id="login-email"
-                type="email"
-                value={email}
-                autoComplete="username"
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="clinician@example.com"
-                required
-              />
-            </label>
+            {error ? (
+              <AlertBanner className="login-error-banner" variant="error" title="Sign-in failed">
+                {error}
+              </AlertBanner>
+            ) : null}
 
-            <label className="login-field" htmlFor="login-password">
-              <span>Password</span>
-              <input
-                id="login-password"
-                type="password"
-                value={password}
-                autoComplete="current-password"
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </label>
+            <form className="login-form" onSubmit={(event) => void handleSubmit(event)}>
+              <label className="login-field" htmlFor="login-email">
+                <span>Email</span>
+                <input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  autoComplete="username"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="clinician@example.com"
+                  required
+                />
+              </label>
 
-            <div className="inline-actions">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Signing in...' : 'Sign in'}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setEmail(DEMO_EMAIL);
-                  setPassword(DEMO_PASSWORD);
-                }}
-              >
-                Use demo credentials
-              </Button>
-            </div>
-          </form>
+              <label className="login-field" htmlFor="login-password">
+                <span>Password</span>
+                <input
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  autoComplete="current-password"
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </label>
 
-          <p className="muted-text">Backend login endpoint: POST /auth/clinician/login</p>
-        </div>
-      </Card>
+              <div className="inline-actions login-actions">
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Signing in...' : 'Sign in'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setEmail(DEMO_EMAIL);
+                    setPassword(DEMO_PASSWORD);
+                  }}
+                >
+                  Use demo credentials
+                </Button>
+              </div>
+            </form>
+
+            <p className="muted-text login-support-note">
+              Backend login endpoint: POST /auth/clinician/login
+            </p>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -21,22 +21,34 @@ export function SessionEndedPage(): JSX.Element {
   const state = (location.state ?? {}) as SessionEndedLocationState;
 
   return (
-    <div className="session-ended-page">
-      <Card title="Session ended">
-        <div className="page-stack">
-          <p>{messageForReason(state.reason)}</p>
-          <p className="muted-text">For patient safety, unattended sessions auto-lock.</p>
-          <div className="inline-actions">
-            <Button
-              onClick={() => {
-                navigate('/login', { replace: true, state: { reason: 'expired' } });
-              }}
-            >
-              Sign in again
-            </Button>
+    <div className="auth-entry-page session-ended-page">
+      <div className="auth-entry-shell">
+        <section className="auth-entry-intro" aria-label="Clinician session ended">
+          <p className="auth-entry-intro__eyebrow">Aura platform</p>
+          <h1 className="auth-entry-intro__title">Session ended</h1>
+          <p className="auth-entry-intro__subtitle">
+            For patient safety, unattended clinician sessions are automatically locked.
+          </p>
+        </section>
+
+        <Card className="auth-surface-card session-ended-card" title="Sign in required">
+          <div className="page-stack">
+            <p className="session-ended-card__message">{messageForReason(state.reason)}</p>
+            <p className="muted-text session-ended-card__note">
+              Your dashboard context is protected until you authenticate again.
+            </p>
+            <div className="inline-actions session-ended-card__actions">
+              <Button
+                onClick={() => {
+                  navigate('/login', { replace: true, state: { reason: 'expired' } });
+                }}
+              >
+                Sign in again
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

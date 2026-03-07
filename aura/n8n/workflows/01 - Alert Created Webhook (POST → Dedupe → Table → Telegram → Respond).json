@@ -363,7 +363,7 @@
           "parameters": [
             {
               "name": "x-aura-webhook-key",
-              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+              "value": "={{$env.AURA_WEBHOOK_KEY || 'dev_aura_webhook_key'}}"
             }
           ]
         },

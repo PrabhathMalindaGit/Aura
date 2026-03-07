@@ -29,7 +29,9 @@ export const env = {
   N8N_WEBHOOK_ALERT:
     process.env.N8N_WEBHOOK_ALERT || "http://localhost:5678/webhook/alert-created",
   N8N_RETRY_WEBHOOK_URL: process.env.N8N_RETRY_WEBHOOK_URL || "",
-  AURA_WEBHOOK_KEY: process.env.AURA_WEBHOOK_KEY || "",
+  AURA_WEBHOOK_KEY:
+    process.env.AURA_WEBHOOK_KEY ||
+    (nodeEnv === "production" ? "" : "dev_aura_webhook_key"),
   AURA_INTERNAL_KEY: process.env.AURA_INTERNAL_KEY || "",
   JWT_SECRET:
     process.env.JWT_SECRET ||

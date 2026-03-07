@@ -45,22 +45,22 @@
   --radius-lg: 18px;
 
   /* Elevation (exactly 3 levels: background, card, popover) */
-  --shadow-1: 0 1px 2px hsl(218 35% 18% / 0.08), 0 4px 10px hsl(218 35% 18% / 0.06);
-  --shadow-2: 0 8px 24px hsl(218 35% 18% / 0.14);
+  --shadow-1: 0 1px 2px hsl(216 26% 15% / 0.05), 0 8px 24px hsl(216 34% 24% / 0.08);
+  --shadow-2: 0 2px 8px hsl(216 30% 20% / 0.08), 0 18px 38px hsl(216 34% 20% / 0.15);
 
   /* Semantic color tokens (HSL triplets only) */
-  --background: 210 23% 96%;
+  --background: 208 30% 97%;
   --foreground: 220 34% 14%;
-  --muted: 210 23% 92%;
-  --muted-foreground: 216 14% 34%;
+  --muted: 210 28% 93%;
+  --muted-foreground: 216 16% 37%;
   --card: 0 0% 100%;
   --card-foreground: 220 34% 14%;
-  --popover: 210 29% 99%;
+  --popover: 210 30% 99%;
   --popover-foreground: 220 34% 14%;
-  --border: 214 18% 72%;
-  --input: 214 18% 72%;
-  --ring: 206 84% 43%;
-  --ring-offset: 210 23% 96%;
+  --border: 214 22% 80%;
+  --input: 214 22% 80%;
+  --ring: 204 84% 44%;
+  --ring-offset: 208 30% 97%;
 
   --primary: 204 88% 36%;
   --primary-foreground: 0 0% 100%;
@@ -144,12 +144,12 @@
   --glass-blur-desktop: 14px;
   --glass-blur-mobile: 8px;
   --glass-blur: var(--glass-blur-desktop);
-  --glass-alpha-card: 0.72;
-  --glass-alpha-popover: 0.78;
+  --glass-alpha-card: 0.82;
+  --glass-alpha-popover: 0.86;
   --glass-alpha-overlay: 0.48;
-  --glass-border-alpha: 0.35;
-  --glass-border-alpha-strong: 0.45;
-  --glass-highlight-alpha: 0.14;
+  --glass-border-alpha: 0.24;
+  --glass-border-alpha-strong: 0.34;
+  --glass-highlight-alpha: 0.1;
 
   /* Legacy aliases for existing class styles */
   --color-bg: hsl(var(--background));
@@ -206,25 +206,25 @@
 
 .dark {
   /* Level 0 surface */
-  --background: 222 30% 10%;
+  --background: 222 28% 10%;
   --foreground: 210 24% 95%;
-  --muted: 222 20% 15%;
+  --muted: 222 19% 16%;
   --muted-foreground: 216 18% 72%;
 
   /* Level 1 surface */
-  --card: 222 24% 14%;
+  --card: 223 23% 14%;
   --card-foreground: 210 24% 95%;
 
   /* Level 2 surface */
   --popover: 222 22% 18%;
   --popover-foreground: 210 24% 96%;
 
-  --border: 218 18% 32%;
-  --input: 218 18% 32%;
-  --ring: 202 95% 64%;
-  --ring-offset: 222 30% 10%;
+  --border: 218 20% 36%;
+  --input: 218 20% 36%;
+  --ring: 202 92% 66%;
+  --ring-offset: 222 28% 10%;
 
-  --primary: 202 94% 62%;
+  --primary: 202 92% 64%;
   --primary-foreground: 222 47% 11%;
   --danger: 0 84% 67%;
   --danger-foreground: 0 0% 100%;
@@ -279,12 +279,12 @@
   );
 
   /* Keep depth definition subtle in dark surfaces */
-  --shadow-1: 0 8px 24px hsl(222 56% 3% / 0.24);
-  --shadow-2: 0 16px 40px hsl(222 56% 3% / 0.32);
+  --shadow-1: 0 1px 0 hsl(210 20% 92% / 0.04), 0 10px 26px hsl(222 56% 3% / 0.34);
+  --shadow-2: 0 2px 10px hsl(222 56% 3% / 0.28), 0 20px 44px hsl(222 56% 2% / 0.44);
 
-  --glass-alpha-card: 0.64;
-  --glass-alpha-popover: 0.7;
+  --glass-alpha-card: 0.74;
+  --glass-alpha-popover: 0.78;
   --glass-alpha-overlay: 0.6;
-  --glass-border-alpha: 0.55;
-  --glass-border-alpha-strong: 0.64;
+  --glass-border-alpha: 0.42;
+  --glass-border-alpha-strong: 0.52;
 }

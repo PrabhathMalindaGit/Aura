@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -46,21 +46,63 @@ export function SettingsPage(): JSX.Element {
     setSessionNotice('Session security settings updated.');
   }
 
+  const themeSummaryLabel = useMemo(() => {
+    if (themeMode === 'system') {
+      return 'System';
+    }
+    if (themeMode === 'light') {
+      return 'Light';
+    }
+    return 'Dark';
+  }, [themeMode]);
+
+  const sessionSummaryLabel = sessionSettings.enabled
+    ? `${sessionSettings.idleMinutes}m idle · ${sessionSettings.absoluteHours}h max`
+    : 'Auto-logout off';
+
+  const identitySummaryLabel = clinicianName.trim() || clinicianId.trim() || 'Not configured';
+
   return (
-    <div className="page-stack">
+    <div className="page-stack settings-page">
       <Section
-        className="dashboard-page-header"
+        className="dashboard-page-header settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Manage display preferences, clinician identity, and session security for this dashboard."
+        subtitle="Manage clinician preferences, appearance, and session security in one place."
+        meta={
+          <span className="settings-page__meta" aria-live="polite">
+            <span className="settings-page__meta-pill settings-page__meta-pill--count">
+              {themeSummaryLabel} mode
+            </span>
+            <span className="settings-page__meta-pill">{sessionSummaryLabel}</span>
+          </span>
+        }
       />
 
-      <Card title="Clinician Preferences">
-        <div className="settings-list">
-          <fieldset className="setting-item setting-item--field theme-mode-fieldset">
+      <section className="settings-summary-strip" aria-label="Settings summary">
+        <article className="settings-summary-strip__item">
+          <p className="settings-summary-strip__label">Appearance</p>
+          <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
+        </article>
+        <article className="settings-summary-strip__item">
+          <p className="settings-summary-strip__label">Session security</p>
+          <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
+        </article>
+        <article className="settings-summary-strip__item">
+          <p className="settings-summary-strip__label">Identity</p>
+          <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
+        </article>
+      </section>
+
+      <Card className="settings-group-card settings-group-card--preferences" title="Appearance & preferences">
+        <div className="settings-group-card__intro">
+          Configure workspace preferences for display behavior and warning cues.
+        </div>
+        <div className="settings-list settings-list--refined">
+          <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
             <legend>
-              <strong>Theme</strong>
-              <small>System follows your OS preference.</small>
+              <strong>Theme mode</strong>
+              <small>System follows your OS preference by default.</small>
             </legend>
             <div className="theme-mode-group" role="radiogroup" aria-label="Theme mode">
               <label className="theme-mode-option" htmlFor="theme-mode-system">
@@ -119,7 +161,7 @@ export function SettingsPage(): JSX.Element {
             </div>
           </fieldset>
 
-          <label className="setting-item" htmlFor="offline-warning-toggle">
+          <label className="setting-item setting-item--toggle" htmlFor="offline-warning-toggle">
             <span>
               <strong>Offline warning banner</strong>
               <small>Show a warning when API connection drops.</small>
@@ -132,7 +174,7 @@ export function SettingsPage(): JSX.Element {
             />
           </label>
 
-          <label className="setting-item" htmlFor="compact-table-toggle">
+          <label className="setting-item setting-item--toggle" htmlFor="compact-table-toggle">
             <span>
               <strong>Compact table mode</strong>
               <small>Reduce vertical spacing for denser patient lists.</small>
@@ -146,21 +188,24 @@ export function SettingsPage(): JSX.Element {
           </label>
         </div>
 
-        <div className="inline-actions">
+        <div className="inline-actions settings-actions settings-actions--primary">
           <Button>Save Preferences</Button>
           <Button variant="secondary">Reset</Button>
         </div>
 
         {themeNotice ? (
-          <p className="muted-text" role="status" aria-live="polite">
+          <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
             {themeNotice}
           </p>
         ) : null}
       </Card>
 
-      <Card title="Session Security">
-        <div className="settings-list">
-          <label className="setting-item" htmlFor="idle-timeout-enabled-toggle">
+      <Card className="settings-group-card settings-group-card--security" title="Session & security">
+        <div className="settings-group-card__intro">
+          Session controls are enforced locally in this browser to protect patient context during clinician workflows.
+        </div>
+        <div className="settings-list settings-list--refined">
+          <label className="setting-item setting-item--toggle" htmlFor="idle-timeout-enabled-toggle">
             <span>
               <strong>Enable idle auto-logout</strong>
               <small>Lock unattended sessions for patient safety.</small>
@@ -215,7 +260,7 @@ export function SettingsPage(): JSX.Element {
           </label>
         </div>
 
-        <div className="inline-actions">
+        <div className="inline-actions settings-actions">
           <Button
             variant="secondary"
             onClick={() => {
@@ -229,14 +274,17 @@ export function SettingsPage(): JSX.Element {
         </div>
 
         {sessionNotice ? (
-          <p className="muted-text" role="status" aria-live="polite">
+          <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
             {sessionNotice}
           </p>
         ) : null}
       </Card>
 
-      <Card title="My Clinician Identity">
-        <div className="settings-list">
+      <Card className="settings-group-card settings-group-card--identity" title="Clinician identity">
+        <div className="settings-group-card__intro">
+          Set the identity shown for assignment ownership and review actions on this device.
+        </div>
+        <div className="settings-list settings-list--refined">
           <label className="setting-item setting-item--field" htmlFor="clinician-id-input">
             <span>
               <strong>My Clinician ID</strong>
@@ -268,7 +316,7 @@ export function SettingsPage(): JSX.Element {
           </label>
         </div>
 
-        <div className="inline-actions">
+        <div className="inline-actions settings-actions settings-actions--primary">
           <Button
             onClick={() => {
               setClinicianIdentity(clinicianId, clinicianName);
@@ -293,14 +341,14 @@ export function SettingsPage(): JSX.Element {
         </div>
 
         {identityNotice ? (
-          <p className="muted-text" role="status" aria-live="polite">
+          <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
             {identityNotice}
           </p>
         ) : null}
       </Card>
 
-      <AlertBanner variant="info" title="Security note">
-        Session settings are stored locally in this browser and take effect immediately.
+      <AlertBanner className="settings-guidance-banner" variant="info" title="Security guidance">
+        Session settings are stored locally in this browser and take effect immediately for this clinician workspace.
       </AlertBanner>
     </div>
   );

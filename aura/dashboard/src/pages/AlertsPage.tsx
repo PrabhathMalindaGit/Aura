@@ -4,8 +4,6 @@ import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
 import { AlertDetailDrawer } from '../components/alerts/AlertDetailDrawer';
 import { AlertsTable } from '../components/alerts/AlertsTable';
-import { BentoCard } from '../components/overview/BentoCard';
-import { BentoGrid } from '../components/overview/BentoGrid';
 import { KpiRow } from '../components/overview/KpiRow';
 import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import {
@@ -17,6 +15,7 @@ import {
 import { StatusTabs } from '../components/alerts/StatusTabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
@@ -743,9 +742,10 @@ export function AlertsPage(): JSX.Element {
   const queueCountLabel = `${visibleAlerts.length} ${status} alert${
     visibleAlerts.length === 1 ? '' : 's'
   } in view`;
+  const updatedAtLabel = `Updated ${formatLastUpdated(connection.lastSuccessAt)}`;
 
   return (
-    <Stack className="page-stack" gap="6">
+    <Stack className="page-stack alerts-page" gap="5">
       {/*
         Acceptance test plan summary:
         1) Open /alerts and verify queue renders.
@@ -756,11 +756,16 @@ export function AlertsPage(): JSX.Element {
         6) Verify search/source/time filters and mobile card layout.
       */}
       <Section
-        className="dashboard-page-header"
+        className="dashboard-page-header alerts-page__header"
         eyebrow="Safety operations"
-        title="Alert triage queue"
+        title="Alerts"
         subtitle="Review patient safety alerts, confirm ownership, and close escalations with context."
-        meta={queueCountLabel}
+        meta={
+          <span className="alerts-page__meta" aria-live="polite">
+            <span className="alerts-page__meta-pill alerts-page__meta-pill--count">{queueCountLabel}</span>
+            <span className="alerts-page__meta-pill">{updatedAtLabel}</span>
+          </span>
+        }
       />
 
       {staleErrorBannerVisible ? (
@@ -791,195 +796,182 @@ export function AlertsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <BentoGrid className="alerts-bento">
-        <BentoCard
-          className="alerts-overview-card"
-          title="Overview"
-          gradient={allClear ? 'success' : 'primary'}
-          colSpan={6}
-          rowSpan={1}
-          size="lg"
-        >
-          {allClear ? (
-            <div className="alerts-all-clear" role="status" aria-live="polite">
-              <div className="alerts-all-clear__heading">
-                <span className="alerts-all-clear__icon" aria-hidden="true">
-                  ✓
-                </span>
-                <p className="alerts-all-clear__title">All clear</p>
-              </div>
-              <p className="alerts-all-clear__summary">No open alerts need action right now.</p>
-              <div className="alerts-all-clear__footer">
-                <p className="alerts-all-clear__meta">
-                  Monitoring active · Last updated {formatLastUpdated(connection.lastSuccessAt)}
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    void alertsQuery.refetch();
-                  }}
-                  disabled={alertsQuery.isFetching}
-                >
-                  {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
-                </Button>
-              </div>
+      <section className="alerts-summary-strip" aria-label="Alerts overview">
+        {allClear ? (
+          <div className="alerts-all-clear" role="status" aria-live="polite">
+            <div className="alerts-all-clear__heading">
+              <span className="alerts-all-clear__icon" aria-hidden="true">
+                ✓
+              </span>
+              <p className="alerts-all-clear__title">All clear</p>
             </div>
-          ) : (
-            <>
+            <p className="alerts-all-clear__summary">No open alerts need attention right now.</p>
+            <div className="alerts-all-clear__footer">
+              <p className="alerts-all-clear__meta">Monitoring active · Last updated {formatLastUpdated(connection.lastSuccessAt)}</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void alertsQuery.refetch();
+                }}
+                disabled={alertsQuery.isFetching}
+              >
+                {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="alerts-summary-strip__header">
+              <h3 className="alerts-summary-strip__title">Overview</h3>
               <p className="alerts-overview-note">
-                Open workload, first-review visibility, ownership, and notification delivery at a glance.
+                Open workload, first-review visibility, ownership, and delivery issues at a glance.
               </p>
-              <KpiRow summary={alertKpis} loading={overviewLoading} />
-            </>
-          )}
-        </BentoCard>
+            </div>
+            <KpiRow summary={alertKpis} loading={overviewLoading} />
+          </>
+        )}
+      </section>
 
-        <BentoCard
-          className="alerts-queue-card"
-          title="Alerts Queue"
-          action={
-            <Button variant="secondary" onClick={openAlertsExportModal}>
-              Export CSV
-            </Button>
-          }
-          colSpan={6}
-          rowSpan={3}
-          size="xl"
-        >
-          <Stack gap="4">
+      <Card
+        className="alerts-workspace-card"
+        title="Alerts queue"
+        action={
+          <Button variant="secondary" onClick={openAlertsExportModal}>
+            Export CSV
+          </Button>
+        }
+      >
+        <div className="alerts-workspace-card__controls">
+          <div className="alerts-workspace-card__heading-row">
             <p className="alerts-queue-intro">
-              Start with open alerts, then narrow with workflow filters to focus assignments and follow-up.
+              Start with open alerts, then narrow with workflow filters to focus ownership and follow-up.
             </p>
             <StatusTabs value={status} onChange={setStatus} />
+          </div>
 
-            <FiltersBar
-              status={status}
-              searchValue={searchValue}
-              sourceFilter={sourceFilter}
-              timeRange={timeRange}
-              sortOrder={sortOrder}
-              unseenOnly={unseenOnly}
-              unseenCount={unseenCount}
-              assignedToMeOnly={assignedToMeOnly}
-              unassignedOnly={unassignedOnly}
-              overriddenOnly={overriddenOnly}
-              refreshing={alertsQuery.isFetching}
-              onSearchValueChange={setSearchValue}
-              onSourceFilterChange={setSourceFilter}
-              onTimeRangeChange={setTimeRange}
-              onSortOrderChange={setSortOrder}
-              onUnseenOnlyChange={setUnseenOnly}
-              onAssignedToMeOnlyChange={(value) => {
-                setAssignedToMeOnly(value);
-                if (value) {
-                  setUnassignedOnly(false);
-                }
-              }}
-              onUnassignedOnlyChange={(value) => {
-                setUnassignedOnly(value);
-                if (value) {
-                  setAssignedToMeOnly(false);
-                }
-              }}
-              onOverriddenOnlyChange={setOverriddenOnly}
-              onRefresh={() => {
-                void alertsQuery.refetch();
-              }}
-            />
-          </Stack>
+          <FiltersBar
+            status={status}
+            searchValue={searchValue}
+            sourceFilter={sourceFilter}
+            timeRange={timeRange}
+            sortOrder={sortOrder}
+            unseenOnly={unseenOnly}
+            unseenCount={unseenCount}
+            assignedToMeOnly={assignedToMeOnly}
+            unassignedOnly={unassignedOnly}
+            overriddenOnly={overriddenOnly}
+            refreshing={alertsQuery.isFetching}
+            onSearchValueChange={setSearchValue}
+            onSourceFilterChange={setSourceFilter}
+            onTimeRangeChange={setTimeRange}
+            onSortOrderChange={setSortOrder}
+            onUnseenOnlyChange={setUnseenOnly}
+            onAssignedToMeOnlyChange={(value) => {
+              setAssignedToMeOnly(value);
+              if (value) {
+                setUnassignedOnly(false);
+              }
+            }}
+            onUnassignedOnlyChange={(value) => {
+              setUnassignedOnly(value);
+              if (value) {
+                setAssignedToMeOnly(false);
+              }
+            }}
+            onOverriddenOnlyChange={setOverriddenOnly}
+            onRefresh={() => {
+              void alertsQuery.refetch();
+            }}
+          />
+        </div>
 
-          {showInitialLoading ? (
-            <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
-              <Skeleton height={72} />
-              <Skeleton height={72} />
-              <Skeleton height={72} />
-              <Skeleton height={72} />
+        {showInitialLoading ? (
+          <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
+            <Skeleton height={72} />
+            <Skeleton height={72} />
+            <Skeleton height={72} />
+            <Skeleton height={72} />
+          </div>
+        ) : blockingErrorVisible && errorView ? (
+          <StatusPanel
+            variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
+            title="Unable to load alerts"
+            description={errorView.description}
+            actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+            details={troubleshootingDetails}
+          />
+        ) : blockingOfflineVisible ? (
+          <StatusPanel
+            variant="info"
+            title="Offline"
+            description="No cached alerts are available yet. Reconnect and retry."
+            actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+            details={troubleshootingDetails}
+          />
+        ) : status === 'open' && sourceAlerts.length === 0 ? (
+          <div className="alerts-empty-state" role="status" aria-live="polite">
+            <div className="alerts-empty-state__title-row">
+              <span className="alerts-empty-state__icon" aria-hidden="true">
+                ✓
+              </span>
+              <h3 className="alerts-empty-state__title">All clear</h3>
             </div>
-          ) : blockingErrorVisible && errorView ? (
-            <StatusPanel
-              variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
-              title="Unable to load alerts"
-              description={errorView.description}
-              actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
-              details={troubleshootingDetails}
-            />
-          ) : blockingOfflineVisible ? (
-            <StatusPanel
-              variant="info"
-              title="Offline"
-              description="No cached alerts are available yet. Reconnect and retry."
-              actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
-              details={troubleshootingDetails}
-            />
-          ) : status === 'open' && sourceAlerts.length === 0 ? (
-            <div className="alerts-empty-state" role="status" aria-live="polite">
-              <div className="alerts-empty-state__title-row">
-                <span className="alerts-empty-state__icon" aria-hidden="true">
-                  ✓
-                </span>
-                <h3 className="alerts-empty-state__title">All clear</h3>
-              </div>
-              <p className="alerts-empty-state__description">No open alerts need attention right now.</p>
-              <p className="alerts-empty-state__meta">
-                System monitoring is active. Last updated {formatLastUpdated(connection.lastSuccessAt)}.
-              </p>
-              <div className="alerts-empty-state__actions">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    void alertsQuery.refetch();
-                  }}
-                  disabled={alertsQuery.isFetching}
-                >
-                  {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
-                </Button>
-              </div>
+            <p className="alerts-empty-state__description">No open alerts need attention right now.</p>
+            <p className="alerts-empty-state__meta">
+              System monitoring is active. Last updated {formatLastUpdated(connection.lastSuccessAt)}.
+            </p>
+            <div className="alerts-empty-state__actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void alertsQuery.refetch();
+                }}
+                disabled={alertsQuery.isFetching}
+              >
+                {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
+              </Button>
             </div>
-          ) : sourceAlerts.length === 0 ? (
-            <StatusPanel
-              variant="empty"
-              title={`No ${status} alerts`}
-              description="Alerts in this queue will appear here as they are updated."
-            />
-          ) : visibleAlerts.length === 0 ? (
-            <StatusPanel
-              variant="empty"
-              title="No results"
-              description="Try clearing filters or searching by patient ID."
-            />
-          ) : isMobileLayout ? (
-            <AlertCardList
-              alerts={visibleAlerts}
-              seenAlertMap={seenAlertMap}
-              highlightedAlertIds={highlightedAlertIds}
-              clinicianId={clinicianId}
-              mutationPending={updateAlertMutation.isPending}
-              assignmentPending={assignments.assignmentBusy}
-              onOpen={openAlert}
-              onAssignToMe={handleAssignToMe}
-              onTakeOver={handleTakeOver}
-              onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-              onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-            />
-          ) : (
-            <AlertsTable
-              alerts={visibleAlerts}
-              seenAlertMap={seenAlertMap}
-              highlightedAlertIds={highlightedAlertIds}
-              clinicianId={clinicianId}
-              mutationPending={updateAlertMutation.isPending}
-              assignmentPending={assignments.assignmentBusy}
-              onOpen={openAlert}
-              onAssignToMe={handleAssignToMe}
-              onTakeOver={handleTakeOver}
-              onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-              onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-            />
-          )}
-        </BentoCard>
-      </BentoGrid>
+          </div>
+        ) : sourceAlerts.length === 0 ? (
+          <StatusPanel
+            variant="empty"
+            title={`No ${status} alerts`}
+            description="Alerts in this queue will appear here as they are updated."
+          />
+        ) : visibleAlerts.length === 0 ? (
+          <StatusPanel variant="empty" title="No results" description="Try clearing filters or searching by patient ID." />
+        ) : isMobileLayout ? (
+          <AlertCardList
+            alerts={visibleAlerts}
+            seenAlertMap={seenAlertMap}
+            highlightedAlertIds={highlightedAlertIds}
+            clinicianId={clinicianId}
+            mutationPending={updateAlertMutation.isPending}
+            assignmentPending={assignments.assignmentBusy}
+            onOpen={openAlert}
+            onAssignToMe={handleAssignToMe}
+            onTakeOver={handleTakeOver}
+            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+          />
+        ) : (
+          <AlertsTable
+            alerts={visibleAlerts}
+            seenAlertMap={seenAlertMap}
+            highlightedAlertIds={highlightedAlertIds}
+            clinicianId={clinicianId}
+            mutationPending={updateAlertMutation.isPending}
+            assignmentPending={assignments.assignmentBusy}
+            onOpen={openAlert}
+            onAssignToMe={handleAssignToMe}
+            onTakeOver={handleTakeOver}
+            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+          />
+        )}
+      </Card>
 
       <ExportCsvModal
         open={alertsExportOpen}

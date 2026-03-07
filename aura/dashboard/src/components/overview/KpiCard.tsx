@@ -14,7 +14,7 @@ interface KpiCardProps {
 
 export function KpiCard({ label, value, helper, tone, loading = false }: KpiCardProps): JSX.Element {
   return (
-    <BentoCard className="kpi-card" size="sm" colSpan={1} rowSpan={1} gradient={tone}>
+    <BentoCard className="kpi-card" size="xs" colSpan={1} rowSpan={1} gradient={tone}>
       <div className="kpi-card__stack">
         <p className="kpi-card__label">{label}</p>
         {loading ? (

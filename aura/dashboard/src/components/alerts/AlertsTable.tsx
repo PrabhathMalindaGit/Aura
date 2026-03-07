@@ -110,6 +110,8 @@ export function AlertsTable({
                 tabIndex={0}
                 className={cn(
                   'alerts-table__row',
+                  unseen && 'alerts-table__row--unseen',
+                  effectiveRisk === 'high' && 'alerts-table__row--high-risk',
                   highlightedAlertIds.includes(alert._id) && 'alert-arrived',
                 )}
                 onClick={(event) => onOpen(alert, event.currentTarget)}
@@ -154,7 +156,10 @@ export function AlertsTable({
                   </time>
                 </td>
                 <td>
-                  <span className="patient-id-text">{alert.patientId}</span>
+                  <div className="alerts-patient-cell">
+                    <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
+                    <span className="alerts-patient-cell__meta">Alert {alert._id}</span>
+                  </div>
                 </td>
                 <td className="alerts-table__reason" title={reasonText}>
                   {reasonText}

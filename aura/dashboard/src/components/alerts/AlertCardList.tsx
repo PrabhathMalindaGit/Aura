@@ -81,6 +81,8 @@ export function AlertCardList({
             title={null}
             className={cn(
               'alerts-card-list__card',
+              unseen && 'alerts-card-list__card--unseen',
+              effectiveRisk === 'high' && 'alerts-card-list__card--high-risk',
               highlightedAlertIds.includes(alert._id) && 'alert-arrived',
             )}
             aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}
@@ -93,6 +95,12 @@ export function AlertCardList({
                     Patient {alert.patientId}
                   </strong>
                   <span className="muted-text">Alert {alert._id}</span>
+                  <span className="muted-text">
+                    Created{' '}
+                    <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
+                      {formatRelativeTime(alert.createdAt)}
+                    </time>
+                  </span>
                 </div>
                 <div className="alerts-card-list__top-badges">
                   {unseen ? (
@@ -152,12 +160,6 @@ export function AlertCardList({
                       Retry
                     </Button>
                   ) : null}
-                  <span className="muted-text">
-                    Created{' '}
-                    <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
-                      {formatRelativeTime(alert.createdAt)}
-                    </time>
-                  </span>
                 </div>
               </div>
 

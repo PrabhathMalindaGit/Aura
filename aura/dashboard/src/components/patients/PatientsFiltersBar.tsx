@@ -74,6 +74,7 @@ export function PatientsFiltersBar({
 
             <div className="patients-filters__compact-actions">
               <Button
+                className="patients-filters__open"
                 variant="secondary"
                 onClick={() => setFiltersDrawerOpen(true)}
                 disabled={disabled}
@@ -81,7 +82,7 @@ export function PatientsFiltersBar({
               >
                 Filters
               </Button>
-              <Button variant="ghost" onClick={onReset} disabled={disabled}>
+              <Button className="patients-filters__reset" variant="ghost" onClick={onReset} disabled={disabled}>
                 Reset filters
               </Button>
             </div>
@@ -99,6 +100,7 @@ export function PatientsFiltersBar({
                 Close
               </Button>
               <Button
+                className="patients-filters__reset"
                 variant="ghost"
                 onClick={() => {
                   const reset = defaultPatientFilters();
@@ -316,7 +318,7 @@ export function PatientsFiltersBar({
               </select>
             </label>
 
-            <Button variant="ghost" onClick={onReset} disabled={disabled}>
+            <Button className="patients-filters__reset" variant="ghost" onClick={onReset} disabled={disabled}>
               Reset filters
             </Button>
           </div>

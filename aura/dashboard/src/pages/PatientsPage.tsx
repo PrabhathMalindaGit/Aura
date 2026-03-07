@@ -107,7 +107,7 @@ export function PatientsPage(): JSX.Element {
             <span className="patients-page__meta-pill patients-page__meta-pill--count">
               {visiblePatients.length} in view
             </span>
-            <span className="patients-page__meta-pill">Updated {updatedAtLabel}</span>
+            <span className="patients-page__meta-pill patients-page__meta-pill--updated">Updated {updatedAtLabel}</span>
           </span>
         }
       />
@@ -129,19 +129,19 @@ export function PatientsPage(): JSX.Element {
       ) : null}
 
       <section className="patients-summary-strip" aria-label="Patient roster summary">
-        <article className="patients-summary-strip__item">
+        <article className="patients-summary-strip__item patients-summary-strip__item--total">
           <p className="patients-summary-strip__label">Total</p>
           <p className="patients-summary-strip__value">{rosterSummary.total}</p>
         </article>
-        <article className="patients-summary-strip__item">
+        <article className="patients-summary-strip__item patients-summary-strip__item--active">
           <p className="patients-summary-strip__label">Active</p>
           <p className="patients-summary-strip__value">{rosterSummary.active}</p>
         </article>
-        <article className="patients-summary-strip__item">
+        <article className="patients-summary-strip__item patients-summary-strip__item--on-hold">
           <p className="patients-summary-strip__label">On hold</p>
           <p className="patients-summary-strip__value">{rosterSummary.onHold}</p>
         </article>
-        <article className="patients-summary-strip__item">
+        <article className="patients-summary-strip__item patients-summary-strip__item--discharged">
           <p className="patients-summary-strip__label">Discharged</p>
           <p className="patients-summary-strip__value">{rosterSummary.discharged}</p>
         </article>
@@ -156,6 +156,7 @@ export function PatientsPage(): JSX.Element {
         title="Patients"
         action={
           <Button
+            className="patients-workspace-card__refresh"
             variant="secondary"
             onClick={() => {
               void patientsQuery.refetch();
@@ -167,25 +168,27 @@ export function PatientsPage(): JSX.Element {
         }
       >
         <Stack gap="4">
-          <p className="patients-queue-intro">
-            Start with open-alert and activity filters to prioritize who needs follow-up first.
-          </p>
-          <PatientsFiltersBar
-            filters={filters}
-            onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
-            onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
-            onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-              setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
-            }
-            onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-              setFilters((current) => ({ ...current, missedCheckinsOnly }))
-            }
-            onRecentlyActiveChange={(recentlyActive) =>
-              setFilters((current) => ({ ...current, recentlyActive }))
-            }
-            onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-            onReset={() => setFilters(defaultPatientFilters())}
-          />
+          <div className="patients-workspace-card__controls">
+            <p className="patients-queue-intro">
+              Start with open-alert and activity filters to prioritize who needs follow-up first.
+            </p>
+            <PatientsFiltersBar
+              filters={filters}
+              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+              onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
+                setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
+              }
+              onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
+                setFilters((current) => ({ ...current, missedCheckinsOnly }))
+              }
+              onRecentlyActiveChange={(recentlyActive) =>
+                setFilters((current) => ({ ...current, recentlyActive }))
+              }
+              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
+              onReset={() => setFilters(defaultPatientFilters())}
+            />
+          </div>
 
           {showInitialLoading ? (
             <div className="patients-skeleton" aria-label="Patients loading placeholder">
@@ -244,7 +247,7 @@ export function PatientsPage(): JSX.Element {
               actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
             />
           ) : allPatients.length === 0 ? (
-            <div className="patients-empty-state" role="status" aria-live="polite">
+            <div className="patients-empty-state patients-empty-state--clear" role="status" aria-live="polite">
               <div className="patients-empty-state__title-row">
                 <span className="patients-empty-state__icon" aria-hidden="true">
                   ✓
@@ -257,7 +260,7 @@ export function PatientsPage(): JSX.Element {
               <p className="patients-empty-state__meta">Last updated {updatedAtLabel}</p>
             </div>
           ) : visiblePatients.length === 0 ? (
-            <div className="patients-empty-state" role="status" aria-live="polite">
+            <div className="patients-empty-state patients-empty-state--filtered" role="status" aria-live="polite">
               <div className="patients-empty-state__title-row">
                 <span className="patients-empty-state__icon" aria-hidden="true">
                   ⌕
@@ -268,7 +271,12 @@ export function PatientsPage(): JSX.Element {
                 Try adjusting filters or searching by a different patient ID.
               </p>
               <div className="patients-empty-state__actions">
-                <Button variant="secondary" size="sm" onClick={() => setFilters(defaultPatientFilters())}>
+                <Button
+                  className="patients-empty-state__reset"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setFilters(defaultPatientFilters())}
+                >
                   Reset filters
                 </Button>
               </div>

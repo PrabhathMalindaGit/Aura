@@ -29,6 +29,14 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
         const displayName = getPatientDisplayName(patient);
         const openAlertCount = patient.openAlertCount ?? 0;
         const hasOpenAlertCount = hasOpenAlerts(patient);
+        const painSeverity =
+          typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
+            ? patient.lastPain >= 7
+              ? 'high'
+              : patient.lastPain >= 4
+                ? 'mid'
+                : 'low'
+            : 'none';
         const initials = displayName
           .split(/\s+/)
           .filter(Boolean)
@@ -45,36 +53,42 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
                 <span className="patients-card-list__avatar" aria-hidden="true">
                   {initials}
                 </span>
-                <span>{displayName}</span>
+                <span className="patients-card-list__name">{displayName}</span>
               </span>
             }
           >
             <div className="patients-card-list__body">
-              <p className="patient-id-text">ID: {patient.id}</p>
+              <p className="patient-id-text patients-card-list__id">ID: {patient.id}</p>
               <div className="patients-card-list__badges">
-                <PatientStatusBadge status={status} />
+                <PatientStatusBadge className="patients-status-badge" status={status} />
                 {missedCheckin ? (
-                  <Badge variant="warning" icon>
+                  <Badge className="patients-card-list__missed-badge" variant="warning" icon>
                     Missed check-in
                   </Badge>
                 ) : null}
-                <Badge variant={hasOpenAlertCount ? 'danger' : 'default'}>
+                <Badge
+                  className={`patients-card-list__alerts-badge${hasOpenAlertCount ? ' patients-card-list__alerts-badge--active' : ''}`}
+                  variant={hasOpenAlertCount ? 'danger' : 'default'}
+                >
                   {openAlertCount} open alerts
                 </Badge>
               </div>
 
-              <p>
-                <strong>Last check-in:</strong>{' '}
-                <time dateTime={patient.lastCheckinAt} title={formatDateTime(patient.lastCheckinAt)}>
+              <p className="patients-card-list__meta-line">
+                <strong className="patients-card-list__meta-label">Last check-in:</strong>{' '}
+                <time className="patients-card-list__checkin-time" dateTime={patient.lastCheckinAt} title={formatDateTime(patient.lastCheckinAt)}>
                   {formatRelativeDate(patient.lastCheckinAt)}
                 </time>
               </p>
-              <p>
-                <strong>Last 7d pain:</strong> {asPainText(patient.lastPain)}
+              <p className="patients-card-list__meta-line">
+                <strong className="patients-card-list__meta-label">Last 7d pain:</strong>{' '}
+                <span className={`patients-card-list__pain-value patients-card-list__pain-value--${painSeverity}`}>
+                  {asPainText(patient.lastPain)}
+                </span>
               </p>
 
               <div className="patients-card-list__actions">
-                <Button variant="secondary" fullWidth onClick={() => onOpenPatient(patient.id)}>
+                <Button className="patients-card-list__view" variant="secondary" fullWidth onClick={() => onOpenPatient(patient.id)}>
                   View
                 </Button>
                 <PatientStatusMenu currentStatus={status} />

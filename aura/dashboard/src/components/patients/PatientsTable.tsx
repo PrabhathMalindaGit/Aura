@@ -42,12 +42,24 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
       <table className="patients-table">
         <thead>
           <tr>
-            <th scope="col">Patient</th>
-            <th scope="col">Status</th>
-            <th scope="col">Last check-in</th>
-            <th scope="col">Open alerts</th>
-            <th scope="col">Last 7d pain</th>
-            <th scope="col">Actions</th>
+            <th scope="col" className="patients-table__head patients-table__head--patient">
+              Patient
+            </th>
+            <th scope="col" className="patients-table__head patients-table__head--status">
+              Status
+            </th>
+            <th scope="col" className="patients-table__head patients-table__head--checkin">
+              Last check-in
+            </th>
+            <th scope="col" className="patients-table__head patients-table__head--alerts">
+              Open alerts
+            </th>
+            <th scope="col" className="patients-table__head patients-table__head--pain">
+              Last 7d pain
+            </th>
+            <th scope="col" className="patients-table__head patients-table__head--actions">
+              Actions
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -58,6 +70,14 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
             const missedCheckin = isMissedCheckin(patient);
             const openAlertCount = patient.openAlertCount ?? 0;
             const hasOpenAlertCount = hasOpenAlerts(patient);
+            const painSeverity =
+              typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
+                ? patient.lastPain >= 7
+                  ? 'high'
+                  : patient.lastPain >= 4
+                    ? 'mid'
+                    : 'low'
+                : 'none';
             const initials = displayName
               .split(/\s+/)
               .filter(Boolean)
@@ -70,7 +90,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                 key={patient.id}
                 data-row-index={index}
                 tabIndex={0}
-                className={`patients-table__row${hasOpenAlertCount ? ' patients-table__row--attention' : ''}`}
+                className={`patients-table__row${hasOpenAlertCount ? ' patients-table__row--attention' : ''}${missedCheckin ? ' patients-table__row--missed' : ''}`}
                 onClick={() => onOpenPatient(patient.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
@@ -90,46 +110,58 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                 }}
                 aria-label={`Patient ${displayName}`}
               >
-                <td>
+                <td className="patients-table__cell patients-table__cell--patient">
                   <div className="patients-table__patient">
                     <span className="patients-table__avatar" aria-hidden="true">
                       {initials}
                     </span>
                     <div className="patients-table__patient-text">
-                      <strong className={showIdSubline ? undefined : 'patient-id-text'}>{displayName}</strong>
-                      {showIdSubline ? <span className="patient-id-text">ID: {patient.id}</span> : null}
+                      <strong className={showIdSubline ? 'patients-table__patient-name' : 'patient-id-text patients-table__patient-name'}>
+                        {displayName}
+                      </strong>
+                      {showIdSubline ? <span className="patient-id-text patients-table__patient-id">ID: {patient.id}</span> : null}
                     </div>
                   </div>
                 </td>
-                <td>
-                  <PatientStatusBadge status={status} />
+                <td className="patients-table__cell patients-table__cell--status">
+                  <PatientStatusBadge className="patients-status-badge" status={status} />
                 </td>
-                <td>
+                <td className="patients-table__cell patients-table__cell--checkin">
                   <div className="patients-table__checkin">
-                    <time dateTime={patient.lastCheckinAt} title={formatDateTime(patient.lastCheckinAt)}>
+                    <time
+                      className="patients-table__checkin-time"
+                      dateTime={patient.lastCheckinAt}
+                      title={formatDateTime(patient.lastCheckinAt)}
+                    >
                       {formatRelativeDate(patient.lastCheckinAt)}
                     </time>
                     {missedCheckin ? (
-                      <Badge variant="warning" icon>
+                      <Badge className="patients-table__missed-badge" variant="warning" icon>
                         Missed check-in
                       </Badge>
                     ) : null}
                   </div>
                 </td>
-                <td>
-                  <Badge variant={hasOpenAlertCount ? 'danger' : 'default'}>
+                <td className="patients-table__cell patients-table__cell--alerts">
+                  <Badge
+                    className={`patients-table__alerts-badge${hasOpenAlertCount ? ' patients-table__alerts-badge--active' : ''}`}
+                    variant={hasOpenAlertCount ? 'danger' : 'default'}
+                  >
                     {openAlertCount} open
                   </Badge>
                 </td>
-                <td>
-                  <span className="patients-table__pain-value">{asPainText(patient.lastPain)}</span>
+                <td className="patients-table__cell patients-table__cell--pain">
+                  <span className={`patients-table__pain-value patients-table__pain-value--${painSeverity}`}>
+                    {asPainText(patient.lastPain)}
+                  </span>
                 </td>
-                <td>
+                <td className="patients-table__cell patients-table__cell--actions">
                   <div
                     className="patients-table__actions"
                     onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
                   >
                     <Button
+                      className="patients-table__view"
                       variant="ghost"
                       onClick={(event) => {
                         event.stopPropagation();

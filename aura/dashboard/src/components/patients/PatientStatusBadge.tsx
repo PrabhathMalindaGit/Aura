@@ -3,6 +3,7 @@ import { Badge } from '../ui/Badge';
 
 interface PatientStatusBadgeProps {
   status: PatientSummary['status'];
+  className?: string;
 }
 
 function toBadgeVariant(status: PatientStatus): 'default' | 'success' | 'warning' | 'danger' {
@@ -45,11 +46,16 @@ function toStatusLabel(status: PatientStatus): string {
   return 'Active';
 }
 
-export function PatientStatusBadge({ status }: PatientStatusBadgeProps): JSX.Element {
+export function PatientStatusBadge({ status, className }: PatientStatusBadgeProps): JSX.Element {
   const normalized = normalizeStatus(status);
 
   return (
-    <Badge variant={toBadgeVariant(normalized)} icon aria-label={`Patient status ${toStatusLabel(normalized)}`}>
+    <Badge
+      className={className}
+      variant={toBadgeVariant(normalized)}
+      icon
+      aria-label={`Patient status ${toStatusLabel(normalized)}`}
+    >
       {toStatusLabel(normalized)}
     </Badge>
   );

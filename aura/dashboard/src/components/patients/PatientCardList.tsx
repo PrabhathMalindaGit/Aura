@@ -26,9 +26,29 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
       {patients.map((patient) => {
         const status = getPatientStatus(patient);
         const missedCheckin = isMissedCheckin(patient);
+        const displayName = getPatientDisplayName(patient);
+        const openAlertCount = patient.openAlertCount ?? 0;
+        const hasOpenAlertCount = hasOpenAlerts(patient);
+        const initials = displayName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase() ?? '')
+          .join('') || 'P';
 
         return (
-          <Card key={patient.id} title={getPatientDisplayName(patient)}>
+          <Card
+            key={patient.id}
+            className={hasOpenAlertCount ? 'patients-card-list__card patients-card-list__card--attention' : 'patients-card-list__card'}
+            title={
+              <span className="patients-card-list__title">
+                <span className="patients-card-list__avatar" aria-hidden="true">
+                  {initials}
+                </span>
+                <span>{displayName}</span>
+              </span>
+            }
+          >
             <div className="patients-card-list__body">
               <p className="patient-id-text">ID: {patient.id}</p>
               <div className="patients-card-list__badges">
@@ -38,8 +58,8 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
                     Missed check-in
                   </Badge>
                 ) : null}
-                <Badge variant={hasOpenAlerts(patient) ? 'danger' : 'default'}>
-                  Open alerts: {patient.openAlertCount ?? 0}
+                <Badge variant={hasOpenAlertCount ? 'danger' : 'default'}>
+                  {openAlertCount} open alerts
                 </Badge>
               </div>
 

@@ -56,13 +56,21 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
             const showIdSubline = Boolean(patient.displayName && patient.displayName.trim().length > 0);
             const status = getPatientStatus(patient);
             const missedCheckin = isMissedCheckin(patient);
+            const openAlertCount = patient.openAlertCount ?? 0;
+            const hasOpenAlertCount = hasOpenAlerts(patient);
+            const initials = displayName
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((part) => part[0]?.toUpperCase() ?? '')
+              .join('') || 'P';
 
             return (
               <tr
                 key={patient.id}
                 data-row-index={index}
                 tabIndex={0}
-                className="patients-table__row"
+                className={`patients-table__row${hasOpenAlertCount ? ' patients-table__row--attention' : ''}`}
                 onClick={() => onOpenPatient(patient.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
@@ -84,8 +92,13 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
               >
                 <td>
                   <div className="patients-table__patient">
-                    <strong className={showIdSubline ? undefined : 'patient-id-text'}>{displayName}</strong>
-                    {showIdSubline ? <span className="patient-id-text">ID: {patient.id}</span> : null}
+                    <span className="patients-table__avatar" aria-hidden="true">
+                      {initials}
+                    </span>
+                    <div className="patients-table__patient-text">
+                      <strong className={showIdSubline ? undefined : 'patient-id-text'}>{displayName}</strong>
+                      {showIdSubline ? <span className="patient-id-text">ID: {patient.id}</span> : null}
+                    </div>
                   </div>
                 </td>
                 <td>
@@ -104,11 +117,13 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                   </div>
                 </td>
                 <td>
-                  <Badge variant={hasOpenAlerts(patient) ? 'danger' : 'default'}>
-                    {patient.openAlertCount ?? 0}
+                  <Badge variant={hasOpenAlertCount ? 'danger' : 'default'}>
+                    {openAlertCount} open
                   </Badge>
                 </td>
-                <td>{asPainText(patient.lastPain)}</td>
+                <td>
+                  <span className="patients-table__pain-value">{asPainText(patient.lastPain)}</span>
+                </td>
                 <td>
                   <div
                     className="patients-table__actions"

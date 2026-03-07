@@ -6,6 +6,7 @@ import { PatientsTable } from '../components/patients/PatientsTable';
 import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
 import { AlertBanner } from '../components/ui/AlertBanner';
+import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -37,6 +38,31 @@ export function PatientsPage(): JSX.Element {
 
   const allPatients = useMemo(() => patientsQuery.data ?? [], [patientsQuery.data]);
   const visiblePatients = useMemo(() => applyPatientFilters(allPatients, filters), [allPatients, filters]);
+  const rosterSummary = useMemo(() => {
+    const summary = {
+      total: allPatients.length,
+      active: 0,
+      onHold: 0,
+      discharged: 0,
+      openAlerts: 0,
+    };
+
+    allPatients.forEach((patient) => {
+      if (patient.status === 'active') {
+        summary.active += 1;
+      } else if (patient.status === 'on_hold') {
+        summary.onHold += 1;
+      } else if (patient.status === 'discharged') {
+        summary.discharged += 1;
+      }
+
+      if ((patient.openAlertCount ?? 0) > 0) {
+        summary.openAlerts += 1;
+      }
+    });
+
+    return summary;
+  }, [allPatients]);
 
   const showInitialLoading = patientsQuery.isLoading && allPatients.length === 0;
   const endpointMissing = Boolean(patientsQuery.error) && isEndpointMissing(patientsQuery.error);
@@ -45,6 +71,12 @@ export function PatientsPage(): JSX.Element {
   const staleErrorBannerVisible = Boolean(genericError && staleDataAvailable);
   const blockingOfflineVisible = !connection.online && !staleDataAvailable && !patientsQuery.error;
   const errorView = genericError ? toErrorView(genericError) : null;
+  const updatedAtLabel = connection.lastSuccessAt
+    ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '--';
 
   const retryPatients = useCallback((): void => {
     void patientsQuery.refetch();
@@ -64,13 +96,20 @@ export function PatientsPage(): JSX.Element {
   }, [retryPatients]);
 
   return (
-    <Stack className="page-stack" gap="6">
+    <Stack className="page-stack patients-page" gap="5">
       <Section
         className="dashboard-page-header patients-page-header"
         eyebrow="Patient panel"
         title="Patients"
-        subtitle="Sort and filter by risk, last check-in, and status."
-        meta={`${visiblePatients.length} in view`}
+        subtitle="Review patient status, recent activity, and alert burden before opening detail."
+        meta={
+          <span className="patients-page__meta" aria-live="polite">
+            <span className="patients-page__meta-pill patients-page__meta-pill--count">
+              {visiblePatients.length} in view
+            </span>
+            <span className="patients-page__meta-pill">Updated {updatedAtLabel}</span>
+          </span>
+        }
       />
 
       {staleErrorBannerVisible ? (
@@ -89,8 +128,48 @@ export function PatientsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card title="Patients">
+      <section className="patients-summary-strip" aria-label="Patient roster summary">
+        <article className="patients-summary-strip__item">
+          <p className="patients-summary-strip__label">Total</p>
+          <p className="patients-summary-strip__value">{rosterSummary.total}</p>
+        </article>
+        <article className="patients-summary-strip__item">
+          <p className="patients-summary-strip__label">Active</p>
+          <p className="patients-summary-strip__value">{rosterSummary.active}</p>
+        </article>
+        <article className="patients-summary-strip__item">
+          <p className="patients-summary-strip__label">On hold</p>
+          <p className="patients-summary-strip__value">{rosterSummary.onHold}</p>
+        </article>
+        <article className="patients-summary-strip__item">
+          <p className="patients-summary-strip__label">Discharged</p>
+          <p className="patients-summary-strip__value">{rosterSummary.discharged}</p>
+        </article>
+        <article className="patients-summary-strip__item patients-summary-strip__item--attention">
+          <p className="patients-summary-strip__label">With open alerts</p>
+          <p className="patients-summary-strip__value">{rosterSummary.openAlerts}</p>
+        </article>
+      </section>
+
+      <Card
+        className="patients-workspace-card"
+        title="Patients"
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void patientsQuery.refetch();
+            }}
+            disabled={patientsQuery.isFetching}
+          >
+            {patientsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        }
+      >
         <Stack gap="4">
+          <p className="patients-queue-intro">
+            Start with open-alert and activity filters to prioritize who needs follow-up first.
+          </p>
           <PatientsFiltersBar
             filters={filters}
             onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
@@ -165,17 +244,35 @@ export function PatientsPage(): JSX.Element {
               actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
             />
           ) : allPatients.length === 0 ? (
-            <StatusPanel
-              variant="empty"
-              title="No patients found"
-              description="Once check-ins or alerts exist, patients will appear here."
-            />
+            <div className="patients-empty-state" role="status" aria-live="polite">
+              <div className="patients-empty-state__title-row">
+                <span className="patients-empty-state__icon" aria-hidden="true">
+                  ✓
+                </span>
+                <h3 className="patients-empty-state__title">Roster clear</h3>
+              </div>
+              <p className="patients-empty-state__description">
+                No patients are available yet. They will appear here after check-ins or alerts are recorded.
+              </p>
+              <p className="patients-empty-state__meta">Last updated {updatedAtLabel}</p>
+            </div>
           ) : visiblePatients.length === 0 ? (
-            <StatusPanel
-              variant="empty"
-              title="No results"
-              description="Try clearing filters or searching by patient ID."
-            />
+            <div className="patients-empty-state" role="status" aria-live="polite">
+              <div className="patients-empty-state__title-row">
+                <span className="patients-empty-state__icon" aria-hidden="true">
+                  ⌕
+                </span>
+                <h3 className="patients-empty-state__title">No matching patients</h3>
+              </div>
+              <p className="patients-empty-state__description">
+                Try adjusting filters or searching by a different patient ID.
+              </p>
+              <div className="patients-empty-state__actions">
+                <Button variant="secondary" size="sm" onClick={() => setFilters(defaultPatientFilters())}>
+                  Reset filters
+                </Button>
+              </div>
+            </div>
           ) : isMobileLayout ? (
             <PatientCardList
               patients={visiblePatients}

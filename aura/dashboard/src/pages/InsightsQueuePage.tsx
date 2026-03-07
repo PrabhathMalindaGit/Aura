@@ -6,7 +6,6 @@ import { AlertBanner } from '../components/ui/AlertBanner';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { listInsightsQueue, reviewInsight } from '../services/clinicianApi';
@@ -41,6 +40,17 @@ function confidenceVariant(value: string): 'default' | 'success' | 'warning' | '
   return 'default';
 }
 
+function formatQueueUpdatedAt(timestamp: number): string {
+  if (!timestamp) {
+    return '--';
+  }
+
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function InsightsQueuePage(): JSX.Element {
   const [isSubmittingId, setIsSubmittingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,6 +64,8 @@ export function InsightsQueuePage(): JSX.Element {
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
   });
+  const pendingCount = queueQuery.data?.length ?? 0;
+  const updatedAtLabel = formatQueueUpdatedAt(queueQuery.dataUpdatedAt);
 
   async function handleReview(insightId: string, status: 'approved' | 'rejected'): Promise<void> {
     setErrorMessage(null);
@@ -71,23 +83,49 @@ export function InsightsQueuePage(): JSX.Element {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack insights-page">
       <Section
-        className="dashboard-page-header"
+        className="dashboard-page-header insights-page-header"
         eyebrow="Clinical review"
-        title="Insights queue"
-        subtitle="Review pending insight suggestions before they are visible to patients."
+        title="Insights"
+        subtitle="Review pending insight suggestions and decide whether to surface them in clinician workflow."
+        meta={
+          <span className="insights-page__meta" aria-live="polite">
+            <span className="insights-page__meta-pill insights-page__meta-pill--count">
+              {pendingCount} pending
+            </span>
+            <span className="insights-page__meta-pill">Updated {updatedAtLabel}</span>
+          </span>
+        }
         actions={
           <Button
             variant="secondary"
+            disabled={queueQuery.isFetching}
             onClick={() => {
               void queueQuery.refetch();
             }}
           >
-            Refresh
+            {queueQuery.isFetching ? 'Refreshing…' : 'Refresh'}
           </Button>
         }
       />
+
+      <section className="insights-summary-strip" aria-label="Insights queue summary">
+        <article className="insights-summary-strip__item">
+          <p className="insights-summary-strip__label">Pending suggestions</p>
+          <p className="insights-summary-strip__value">{pendingCount}</p>
+        </article>
+        <article className="insights-summary-strip__item">
+          <p className="insights-summary-strip__label">Queue status</p>
+          <p className="insights-summary-strip__value">
+            {pendingCount === 0 ? 'Clear' : 'Needs review'}
+          </p>
+        </article>
+        <article className="insights-summary-strip__item">
+          <p className="insights-summary-strip__label">Last refresh</p>
+          <p className="insights-summary-strip__value">{updatedAtLabel}</p>
+        </article>
+      </section>
 
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not update insight">
@@ -102,7 +140,7 @@ export function InsightsQueuePage(): JSX.Element {
       ) : null}
 
       {queueQuery.error ? (
-        <div className="patient-detail-error-state">
+        <div className="insights-page__error">
           <AlertBanner variant="error" title="Could not load insight queue">
             {toUserMessage(queueQuery.error)}
           </AlertBanner>
@@ -117,21 +155,56 @@ export function InsightsQueuePage(): JSX.Element {
         </div>
       ) : null}
 
-      <Card title="Pending suggestions">
-        {queueQuery.isLoading && (queueQuery.data?.length ?? 0) === 0 ? (
+      <Card className="insights-workspace-card" title="Pending suggestions">
+        <p className="insights-queue-intro">
+          Prioritize clinically relevant suggestions, then approve or reject each recommendation.
+        </p>
+
+        {queueQuery.isLoading && pendingCount === 0 ? (
           <div className="patient-detail-skeleton-grid" aria-label="Insights queue loading placeholder">
             <Skeleton height={52} />
             <Skeleton height={72} />
             <Skeleton height={72} />
           </div>
-        ) : (queueQuery.data?.length ?? 0) === 0 ? (
-          <EmptyState title="No pending insights" description="Queue is clear right now." />
+        ) : pendingCount === 0 ? (
+          <div className="insights-empty-state" role="status" aria-live="polite">
+            <div className="insights-empty-state__title-row">
+              <span className="insights-empty-state__icon" aria-hidden="true">
+                ✓
+              </span>
+              <h3 className="insights-empty-state__title">No pending insights</h3>
+            </div>
+            <p className="insights-empty-state__description">
+              The queue is clear right now. New suggestions will appear here after analysis.
+            </p>
+            <div className="insights-empty-state__footer">
+              <p className="insights-empty-state__meta">Last updated {updatedAtLabel}</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={queueQuery.isFetching}
+                onClick={() => {
+                  void queueQuery.refetch();
+                }}
+              >
+                Refresh queue
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="stack stack--2">
             {(queueQuery.data ?? []).map((item) => (
               <div key={item.id} className="insights-queue__item">
                 <div className="insights-queue__item-head">
-                  <p className="insights-queue__title">{item.title}</p>
+                  <div className="insights-queue__item-main">
+                    <p className="insights-queue__title">{item.title}</p>
+                    <p className="insights-queue__patient">
+                      Patient:{' '}
+                      <Link to={`/patients/${item.patientId}`}>
+                        {item.patientDisplayName?.trim() || item.patientId}
+                      </Link>
+                    </p>
+                  </div>
                   <div className="insights-queue__badges">
                     <Badge variant="default">{categoryLabel(item.category)}</Badge>
                     <Badge variant={confidenceVariant(item.confidence)}>
@@ -144,11 +217,10 @@ export function InsightsQueuePage(): JSX.Element {
                   {item.message}
                 </p>
                 <p className="muted-text insights-queue__meta">
-                  Patient:{' '}
-                  <Link to={`/patients/${item.patientId}`}>
-                    {item.patientDisplayName?.trim() || item.patientId}
-                  </Link>{' '}
-                  · Window: {item.windowDays} days
+                  <span className="insights-queue__meta-chip">Window {item.windowDays} days</span>
+                  <span className="insights-queue__meta-chip">
+                    Created {new Date(item.createdAt).toLocaleString()}
+                  </span>
                 </p>
                 <div className="insights-queue__actions">
                   <Button

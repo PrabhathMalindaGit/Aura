@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { Section } from '../components/ui/Section';
 import {
   getClinicianId,
   getClinicianName,
@@ -47,6 +48,13 @@ export function SettingsPage(): JSX.Element {
 
   return (
     <div className="page-stack">
+      <Section
+        className="dashboard-page-header"
+        eyebrow="Workspace"
+        title="Settings"
+        subtitle="Manage display preferences, clinician identity, and session security for this dashboard."
+      />
+
       <Card title="Clinician Preferences">
         <div className="settings-list">
           <fieldset className="setting-item setting-item--field theme-mode-fieldset">

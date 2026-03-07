@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { listInsightsQueue, reviewInsight } from '../services/clinicianApi';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
@@ -71,9 +72,12 @@ export function InsightsQueuePage(): JSX.Element {
 
   return (
     <div className="page-stack">
-      <Card
+      <Section
+        className="dashboard-page-header"
+        eyebrow="Clinical review"
         title="Insights queue"
-        action={
+        subtitle="Review pending insight suggestions before they are visible to patients."
+        actions={
           <Button
             variant="secondary"
             onClick={() => {
@@ -83,11 +87,7 @@ export function InsightsQueuePage(): JSX.Element {
             Refresh
           </Button>
         }
-      >
-        <p className="muted-text">
-          Review pending insight suggestions before they are visible to patients.
-        </p>
-      </Card>
+      />
 
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not update insight">

@@ -17,6 +17,7 @@ import {
 import { StatusTabs } from '../components/alerts/StatusTabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
+import { Section } from '../components/ui/Section';
 import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -754,17 +755,13 @@ export function AlertsPage(): JSX.Element {
         5) Simulate offline and verify non-blocking banner while existing data remains.
         6) Verify search/source/time filters and mobile card layout.
       */}
-      <header className="alerts-page-header-block">
-        <div className="alerts-page-header-block__copy">
-          <h2 className="alerts-page-header-block__title">Alert triage queue</h2>
-          <p className="alerts-page-header-block__subtitle">
-            Review patient safety alerts, confirm ownership, and close escalations with context.
-          </p>
-        </div>
-        <p className="alerts-page-header-block__meta" aria-live="polite">
-          {queueCountLabel}
-        </p>
-      </header>
+      <Section
+        className="dashboard-page-header"
+        eyebrow="Safety operations"
+        title="Alert triage queue"
+        subtitle="Review patient safety alerts, confirm ownership, and close escalations with context."
+        meta={queueCountLabel}
+      />
 
       {staleErrorBannerVisible ? (
         <AlertBanner

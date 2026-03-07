@@ -1869,17 +1869,8 @@ export function PatientDetailPage(): JSX.Element {
               ) : (
                 <div className="stack stack--2">
                   {patientPendingInsights.map((insight) => (
-                    <div
-                      key={insight.id}
-                      style={{
-                        border: '1px solid var(--color-border-muted)',
-                        borderRadius: '0.75rem',
-                        padding: '0.75rem',
-                        display: 'grid',
-                        gap: '0.4rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    <div key={insight.id} className="patient-insight-item">
+                      <div className="patient-insight-item__badges">
                         <Badge variant="default">{insightCategoryLabel(insight.category)}</Badge>
                         <Badge variant={insightConfidenceVariant(insight.confidence)}>
                           {insight.confidence}
@@ -1887,10 +1878,10 @@ export function PatientDetailPage(): JSX.Element {
                         <Badge variant="default">P{insight.priority}</Badge>
                       </div>
                       <strong>{insight.title}</strong>
-                      <p className="muted-text" style={{ margin: 0 }}>
+                      <p className="muted-text patient-insight-item__message">
                         {insight.message}
                       </p>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div className="patient-insight-item__actions">
                         <Button
                           variant="primary"
                           size="sm"
@@ -1925,17 +1916,8 @@ export function PatientDetailPage(): JSX.Element {
               ) : (
                 <div className="stack stack--2">
                   {patientApprovedInsights.map((insight) => (
-                    <div
-                      key={insight.id}
-                      style={{
-                        border: '1px solid var(--color-border-muted)',
-                        borderRadius: '0.75rem',
-                        padding: '0.75rem',
-                        display: 'grid',
-                        gap: '0.35rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    <div key={insight.id} className="patient-insight-item">
+                      <div className="patient-insight-item__badges">
                         <Badge variant="default">{insightCategoryLabel(insight.category)}</Badge>
                         <Badge variant={insightConfidenceVariant(insight.confidence)}>
                           {insight.confidence}
@@ -1943,7 +1925,7 @@ export function PatientDetailPage(): JSX.Element {
                         <Badge variant="default">P{insight.priority}</Badge>
                       </div>
                       <strong>{insight.title}</strong>
-                      <p className="muted-text" style={{ margin: 0 }}>
+                      <p className="muted-text patient-insight-item__message">
                         {insight.message}
                       </p>
                     </div>

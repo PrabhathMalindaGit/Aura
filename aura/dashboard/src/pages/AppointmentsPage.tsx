@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Section } from '../components/ui/Section';
 import {
   createAppointmentSlot,
   listAppointmentRequests,
@@ -125,9 +126,12 @@ export function AppointmentsPage(): JSX.Element {
 
   return (
     <div className="page-stack">
-      <Card
+      <Section
+        className="dashboard-page-header"
+        eyebrow="Care coordination"
         title="Appointments"
-        action={
+        subtitle="Manage tele-rehab slots and review patient booking requests."
+        actions={
           <Button
             variant="secondary"
             onClick={() => {
@@ -137,11 +141,7 @@ export function AppointmentsPage(): JSX.Element {
             Refresh
           </Button>
         }
-      >
-        <p className="muted-text">
-          Manage tele-rehab slots and review patient booking requests.
-        </p>
-      </Card>
+      />
 
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not complete action">
@@ -196,7 +196,7 @@ export function AppointmentsPage(): JSX.Element {
 
       <Card title="Slots">
         <div className="stack stack--2">
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="appointments-filter-group">
             <Button
               variant={slotStatus === 'available' ? 'primary' : 'secondary'}
               size="sm"
@@ -226,27 +226,18 @@ export function AppointmentsPage(): JSX.Element {
           ) : (
             <div className="stack stack--2">
               {(slotsQuery.data ?? []).map((slot) => (
-                <div
-                  key={slot.slotId}
-                  style={{
-                    border: '1px solid var(--color-border-muted)',
-                    borderRadius: '0.75rem',
-                    padding: '0.75rem',
-                    display: 'grid',
-                    gap: '0.4rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <p style={{ margin: 0, fontWeight: 600 }}>{formatDateTime(slot.startsAt)}</p>
+                <div key={slot.slotId} className="appointments-item">
+                  <div className="appointments-item__header">
+                    <p className="appointments-item__title">{formatDateTime(slot.startsAt)}</p>
                     <Badge variant={toStatusVariant(slot.status ?? 'available')}>
                       {(slot.status ?? 'available').toUpperCase()}
                     </Badge>
                   </div>
-                  <p className="muted-text" style={{ margin: 0 }}>
+                  <p className="muted-text appointments-item__meta">
                     Ends: {formatDateTime(slot.endsAt)}
                   </p>
                   {slot.meetingLink ? (
-                    <p className="muted-text" style={{ margin: 0 }}>
+                    <p className="muted-text appointments-item__meta">
                       Link: {slot.meetingLink}
                     </p>
                   ) : null}
@@ -259,7 +250,7 @@ export function AppointmentsPage(): JSX.Element {
 
       <Card title="Requests">
         <div className="stack stack--2">
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="appointments-filter-group">
             {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
               <Button
                 key={status}
@@ -285,32 +276,21 @@ export function AppointmentsPage(): JSX.Element {
           ) : (
             <div className="stack stack--2">
               {(requestsQuery.data ?? []).map((item) => (
-                <div
-                  key={item.requestId}
-                  style={{
-                    border: '1px solid var(--color-border-muted)',
-                    borderRadius: '0.75rem',
-                    padding: '0.75rem',
-                    display: 'grid',
-                    gap: '0.45rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <p style={{ margin: 0, fontWeight: 600 }}>
-                      {formatDateTime(item.startsAt)}
-                    </p>
+                <div key={item.requestId} className="appointments-item">
+                  <div className="appointments-item__header">
+                    <p className="appointments-item__title">{formatDateTime(item.startsAt)}</p>
                     <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
                   </div>
-                  <p className="muted-text" style={{ margin: 0 }}>
+                  <p className="muted-text appointments-item__meta">
                     Patient: {item.patientId} · Ends: {formatDateTime(item.endsAt)}
                   </p>
                   {item.note ? (
-                    <p className="muted-text" style={{ margin: 0 }}>
+                    <p className="muted-text appointments-item__meta">
                       Note: {item.note}
                     </p>
                   ) : null}
                   {item.status === 'pending' ? (
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div className="appointments-item__actions">
                       <Button
                         size="sm"
                         variant="primary"

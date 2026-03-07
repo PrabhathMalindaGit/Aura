@@ -66,9 +66,11 @@ export function PatientsPage(): JSX.Element {
   return (
     <Stack className="page-stack" gap="6">
       <Section
-        className="patients-page-header"
+        className="dashboard-page-header patients-page-header"
+        eyebrow="Patient panel"
         title="Patients"
         subtitle="Sort and filter by risk, last check-in, and status."
+        meta={`${visiblePatients.length} in view`}
       />
 
       {staleErrorBannerVisible ? (

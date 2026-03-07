@@ -178,6 +178,7 @@
   --nav-active-bg: var(--gradient-primary);
 
   --font-family-base: var(--font-sans);
+  --font-size-xs: var(--text-xs);
   --font-size-sm: var(--text-sm);
   --font-size-md: var(--text-base);
   --font-size-lg: var(--text-lg);

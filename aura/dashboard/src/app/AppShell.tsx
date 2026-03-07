@@ -182,15 +182,17 @@ export function AppShell(): JSX.Element {
             </div>
           </div>
           <div className="topbar__status">
-            <Badge variant={connection.online ? 'success' : 'danger'} icon>
-              {connection.online ? 'Online' : 'Offline'}
-            </Badge>
-            <span className="topbar__updated" aria-live="polite">
-              Last updated: {formatLastUpdated(connection.lastSuccessAt)}
-            </span>
-            <Button className="topbar__signout" variant="secondary" size="sm" onClick={handleSignOut}>
-              Sign out
-            </Button>
+            <div className="topbar__status-cluster">
+              <Badge variant={connection.online ? 'success' : 'danger'} icon>
+                {connection.online ? 'Online' : 'Offline'}
+              </Badge>
+              <span className="topbar__updated" aria-live="polite">
+                Last updated: {formatLastUpdated(connection.lastSuccessAt)}
+              </span>
+              <Button className="topbar__signout" variant="secondary" size="sm" onClick={handleSignOut}>
+                Sign out
+              </Button>
+            </div>
           </div>
         </header>
 

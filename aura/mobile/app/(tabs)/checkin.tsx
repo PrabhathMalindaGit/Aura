@@ -1401,13 +1401,15 @@ export default function CheckinScreen() {
             />
           </HeroHeader>
 
-          <LastFailedAttempt
-            value={checkinError.label}
-            title={checkinError.lastError?.title}
-            message={checkinError.lastError?.message}
-            onClear={checkinError.lastError ? checkinError.clear : undefined}
-            compact
-          />
+          {checkinError.lastError ? (
+            <LastFailedAttempt
+              value={checkinError.label}
+              title={checkinError.lastError.title}
+              message={checkinError.lastError.message}
+              onClear={checkinError.clear}
+              compact
+            />
+          ) : null}
 
           {validationMessage ? (
             <Banner

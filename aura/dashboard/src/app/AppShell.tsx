@@ -176,7 +176,7 @@ export function AppShell(): JSX.Element {
                 ☰
               </IconButton>
             ) : null}
-            <div>
+            <div className="topbar__title-group">
               <h1 className="topbar__title">Aura Clinician Dashboard</h1>
               <p className="topbar__subtitle">{pageTitle}</p>
             </div>
@@ -188,7 +188,7 @@ export function AppShell(): JSX.Element {
             <span className="topbar__updated" aria-live="polite">
               Last updated: {formatLastUpdated(connection.lastSuccessAt)}
             </span>
-            <Button variant="secondary" size="sm" onClick={handleSignOut}>
+            <Button className="topbar__signout" variant="secondary" size="sm" onClick={handleSignOut}>
               Sign out
             </Button>
           </div>

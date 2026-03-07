@@ -1,4 +1,7 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { useTokens } from "@/src/theme/tokens";
 
 type LastFailedAttemptProps = {
   label?: string;
@@ -17,6 +20,8 @@ export function LastFailedAttempt({
   onClear,
   compact = false,
 }: LastFailedAttemptProps) {
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const hasDetails = Boolean(title || message) && value !== "Never";
 
   return (
@@ -34,6 +39,7 @@ export function LastFailedAttempt({
           {onClear ? (
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Clear failed attempt details"
               onPress={onClear}
               style={({ pressed }) => [
                 styles.clearButton,
@@ -49,44 +55,56 @@ export function LastFailedAttempt({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingVertical: 4,
-    gap: 4,
-  },
-  compactContainer: {
-    paddingVertical: 2,
-    gap: 3,
-  },
-  primary: {
-    fontSize: 13,
-    color: "#4b5563",
-  },
-  compactPrimary: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  detailText: {
-    flex: 1,
-    fontSize: 12,
-    color: "#7f1d1d",
-  },
-  clearButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  clearButtonPressed: {
-    opacity: 0.75,
-  },
-  clearText: {
-    fontSize: 12,
-    color: "#b91c1c",
-    fontWeight: "600",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      paddingVertical: tokens.spacing.xs,
+      gap: tokens.spacing.xs,
+    },
+    compactContainer: {
+      paddingVertical: tokens.spacing.xs - 1,
+      gap: tokens.spacing.xs - 1,
+    },
+    primary: {
+      color: tokens.colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    compactPrimary: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    detailRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    detailText: {
+      flex: 1,
+      color: tokens.colors.danger,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    clearButton: {
+      minHeight: 44,
+      borderRadius: tokens.radius.sm,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      paddingHorizontal: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.surface,
+    },
+    clearButtonPressed: {
+      opacity: 0.82,
+    },
+    clearText: {
+      color: tokens.colors.danger,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+  });
+}

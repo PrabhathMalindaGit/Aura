@@ -129,19 +129,10 @@ export function InsightsQueuePage(): JSX.Element {
         ) : (
           <div className="stack stack--2">
             {(queueQuery.data ?? []).map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  border: '1px solid var(--color-border-muted)',
-                  borderRadius: '0.75rem',
-                  padding: '0.75rem',
-                  display: 'grid',
-                  gap: '0.5rem',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <p style={{ margin: 0, fontWeight: 600 }}>{item.title}</p>
-                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+              <div key={item.id} className="insights-queue__item">
+                <div className="insights-queue__item-head">
+                  <p className="insights-queue__title">{item.title}</p>
+                  <div className="insights-queue__badges">
                     <Badge variant="default">{categoryLabel(item.category)}</Badge>
                     <Badge variant={confidenceVariant(item.confidence)}>
                       {item.confidence}
@@ -149,17 +140,17 @@ export function InsightsQueuePage(): JSX.Element {
                     <Badge variant="default">P{item.priority}</Badge>
                   </div>
                 </div>
-                <p className="muted-text" style={{ margin: 0 }}>
+                <p className="muted-text insights-queue__message">
                   {item.message}
                 </p>
-                <p className="muted-text" style={{ margin: 0 }}>
+                <p className="muted-text insights-queue__meta">
                   Patient:{' '}
                   <Link to={`/patients/${item.patientId}`}>
                     {item.patientDisplayName?.trim() || item.patientId}
                   </Link>{' '}
                   · Window: {item.windowDays} days
                 </p>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div className="insights-queue__actions">
                   <Button
                     variant="primary"
                     size="sm"

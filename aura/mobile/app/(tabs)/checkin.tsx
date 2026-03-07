@@ -560,37 +560,21 @@ export default function CheckinScreen() {
 
     setNotice(null);
     setIsSubmitting(true);
-
+    let response: Awaited<ReturnType<typeof createCheckin>> | null = null;
     try {
-      const response = await createCheckin(auth.token, payload);
-      await checkinError.clear();
-      await checkinsRefresh.refreshLocal();
-
-      if (response.risk?.level === "high") {
-        const reasonCodes = response.risk.reasonCodes ?? [];
-        const routeParams: Record<string, string> = {};
-        if (response.alertId) {
-          routeParams.alertId = response.alertId;
-        }
-        if (reasonCodes.length > 0) {
-          routeParams.reasonCodes = reasonCodes.join(",");
-        }
-
-        router.push({
-          pathname: "/safety",
-          params: routeParams,
+      response = await createCheckin(auth.token, payload);
+    } catch (error) {
+      if (isApiError(error) && error.status === 409) {
+        await Promise.allSettled([checkinError.clear(), checkinsRefresh.refreshLocal()]);
+        setNotice({
+          variant: "info",
+          title: "Already submitted",
+          message: "Today’s check-in is already saved.",
+          retryable: false,
         });
-        resetForm();
         return;
       }
 
-      setNotice({
-        variant: "success",
-        title: "Check-in complete",
-        message: "Saved. Thank you for checking in.",
-      });
-      resetForm();
-    } catch (error) {
       const normalized = toCheckinError(error);
       await checkinError.setLocalError({
         title: normalized.title ?? "Couldn’t submit",
@@ -605,9 +589,42 @@ export default function CheckinScreen() {
         message: normalized.message,
         retryable: normalized.retryable,
       });
+      return;
     } finally {
       setIsSubmitting(false);
     }
+
+    // Submission already succeeded remotely; local bookkeeping should never flip UX to failure.
+    await Promise.allSettled([checkinError.clear(), checkinsRefresh.refreshLocal()]);
+
+    if (!response) {
+      return;
+    }
+
+    if (response.risk?.level === "high") {
+      const reasonCodes = response.risk.reasonCodes ?? [];
+      const routeParams: Record<string, string> = {};
+      if (response.alertId) {
+        routeParams.alertId = response.alertId;
+      }
+      if (reasonCodes.length > 0) {
+        routeParams.reasonCodes = reasonCodes.join(",");
+      }
+
+      router.push({
+        pathname: "/safety",
+        params: routeParams,
+      });
+      resetForm();
+      return;
+    }
+
+    setNotice({
+      variant: "success",
+      title: "Check-in complete",
+      message: "Saved. Thank you for checking in.",
+    });
+    resetForm();
   };
 
   const renderSymptomsStep = () => (

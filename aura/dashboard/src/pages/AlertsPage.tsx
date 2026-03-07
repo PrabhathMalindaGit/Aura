@@ -261,6 +261,8 @@ export function AlertsPage(): JSX.Element {
   const updateAlertMutation = useUpdateAlertStatus();
   const assignments = useAssignment({ clinicianId, clinicianName });
   const overrides = useRiskOverride({ clinicianId, clinicianName });
+  const applyAlertAssignments = assignments.applyAlertAssignments;
+  const applyAlertOverrides = overrides.applyAlertOverrides;
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -323,6 +325,47 @@ export function AlertsPage(): JSX.Element {
     setOverriddenOnly(false);
   }, [status]);
 
+  const collectAlertsForExport = useCallback(
+    async (statusesToInclude: AlertStatus[]): Promise<AlertItem[]> => {
+      const collections = await Promise.all(statusesToInclude.map((statusItem) => listAlerts(statusItem)));
+
+      return collections.flatMap((statusAlerts, index) => {
+        const statusItem = statusesToInclude[index];
+        const enhanced = applyAlertOverrides(applyAlertAssignments(statusAlerts));
+
+        const filtered = filterAlerts(enhanced, {
+          searchValue,
+          sourceFilter,
+          timeRange,
+          unseenOnly,
+          assignedToMeOnly,
+          unassignedOnly,
+          overriddenOnly,
+          clinicianId,
+          seenAlertMap,
+          status: statusItem,
+          skipTimeRange: true,
+        });
+
+        return filterAlertsForExportByRange(filtered, alertsExportRange);
+      });
+    },
+    [
+      alertsExportRange,
+      applyAlertAssignments,
+      applyAlertOverrides,
+      assignedToMeOnly,
+      clinicianId,
+      overriddenOnly,
+      searchValue,
+      seenAlertMap,
+      sourceFilter,
+      timeRange,
+      unassignedOnly,
+      unseenOnly,
+    ],
+  );
+
   useEffect(() => {
     if (!alertsExportOpen) {
       return;
@@ -372,11 +415,9 @@ export function AlertsPage(): JSX.Element {
     alertsExportOpen,
     alertsExportRange,
     alertsExportRangeError,
-    assignedToMeOnly,
-    assignments.applyAlertAssignments,
+    collectAlertsForExport,
     clinicianId,
     overriddenOnly,
-    overrides.applyAlertOverrides,
     searchValue,
     seenAlertMap,
     selectedAlertsExportStatuses,
@@ -387,8 +428,8 @@ export function AlertsPage(): JSX.Element {
   ]);
 
   const sourceAlerts = useMemo(
-    () => overrides.applyAlertOverrides(assignments.applyAlertAssignments(alertsQuery.data ?? [])),
-    [alertsQuery.data, assignments.applyAlertAssignments, overrides.applyAlertOverrides],
+    () => applyAlertOverrides(applyAlertAssignments(alertsQuery.data ?? [])),
+    [alertsQuery.data, applyAlertAssignments, applyAlertOverrides],
   );
 
   useEffect(() => {
@@ -449,14 +490,8 @@ export function AlertsPage(): JSX.Element {
     }
 
     const cachedOpenAlerts = queryClient.getQueryData<AlertItem[]>(clinicianQueryKeys.alerts('open')) ?? [];
-    return overrides.applyAlertOverrides(assignments.applyAlertAssignments(cachedOpenAlerts));
-  }, [
-    assignments.applyAlertAssignments,
-    overrides.applyAlertOverrides,
-    queryClient,
-    sourceAlerts,
-    status,
-  ]);
+    return applyAlertOverrides(applyAlertAssignments(cachedOpenAlerts));
+  }, [applyAlertAssignments, applyAlertOverrides, queryClient, sourceAlerts, status]);
 
   const visibleAlerts = useMemo(() => {
     const filtered = filterAlerts(sourceAlerts, {
@@ -541,31 +576,6 @@ export function AlertsPage(): JSX.Element {
     window.addEventListener(RETRY_EVENT, onRetry);
     return () => window.removeEventListener(RETRY_EVENT, onRetry);
   }, [retryAlerts]);
-
-  async function collectAlertsForExport(statusesToInclude: AlertStatus[]): Promise<AlertItem[]> {
-    const collections = await Promise.all(statusesToInclude.map((statusItem) => listAlerts(statusItem)));
-
-    return collections.flatMap((statusAlerts, index) => {
-      const statusItem = statusesToInclude[index];
-      const enhanced = overrides.applyAlertOverrides(assignments.applyAlertAssignments(statusAlerts));
-
-      const filtered = filterAlerts(enhanced, {
-        searchValue,
-        sourceFilter,
-        timeRange,
-        unseenOnly,
-        assignedToMeOnly,
-        unassignedOnly,
-        overriddenOnly,
-        clinicianId,
-        seenAlertMap,
-        status: statusItem,
-        skipTimeRange: true,
-      });
-
-      return filterAlertsForExportByRange(filtered, alertsExportRange);
-    });
-  }
 
   function markSeen(alert: AlertItem): void {
     if (alert.status !== 'open') {

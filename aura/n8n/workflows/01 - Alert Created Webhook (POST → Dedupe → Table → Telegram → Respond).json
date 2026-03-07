@@ -314,6 +314,73 @@
       ],
       "id": "0959f198-2a34-46df-baad-d339d612eb88",
       "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json ?? {};\nconst nested = result.result && typeof result.result === 'object' ? result.result : result;\nconst messageIdRaw = nested?.message_id ?? nested?.messageId ?? nested?.providerMessageId;\nconst providerMessageId = messageIdRaw !== undefined && messageIdRaw !== null ? String(messageIdRaw) : undefined;\n\nlet notificationError;\nif (typeof result.error === 'string') {\n  notificationError = result.error;\n} else if (result.error && typeof result.error === 'object') {\n  const errorObject = result.error;\n  if (typeof errorObject.message === 'string') {\n    notificationError = errorObject.message;\n  } else {\n    notificationError = JSON.stringify(errorObject).slice(0, 300);\n  }\n}\n\nconst notificationStatus = notificationError ? 'failed' : 'sent';\n\nreturn [{\n  json: {\n    notificationStatus,\n    ...(providerMessageId ? { providerMessageId } : {}),\n    ...(notificationError ? { notificationError } : {})\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1112,
+        184
+      ],
+      "id": "78b5f6dd-5f60-4ecf-aad3-d6b3f20aa74f",
+      "name": "Mark Telegram Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { notificationStatus: 'skipped' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        888,
+        352
+      ],
+      "id": "458f4e8f-3fac-4fcb-8f6d-53db95accf3e",
+      "name": "Mark Telegram Skipped"
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $('Webhook').first().json.body ?? {};\nconst status = $input.first().json ?? {};\nconst targetChat = ($env.TELEGRAM_CLINICIAN_CHAT_ID ?? '').toString().trim();\n\nconst payload = {\n  alertId: webhook.alertId ?? '',\n  channel: 'telegram',\n  status: status.notificationStatus ?? 'skipped',\n  timestamp: webhook.timestamp ?? new Date().toISOString(),\n  ...(targetChat ? { target: `telegram:${targetChat}` } : {}),\n  ...(status.providerMessageId ? { providerMessageId: status.providerMessageId } : {}),\n  ...(status.notificationError ? { error: status.notificationError } : {}),\n  meta: { workflow: '01' }\n};\n\nreturn [{ json: payload }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1336,
+        264
+      ],
+      "id": "94fbf551-33fd-4b8c-90ba-0966e7d80714",
+      "name": "Build Notification Callback Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/events/notification-status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-aura-webhook-key",
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        264
+      ],
+      "id": "aca81b9e-d8ff-4583-9182-8504a150f8b6",
+      "name": "Post Notification Status",
+      "continueOnFail": true
     }
   ],
   "pinData": {},
@@ -413,7 +480,7 @@
         ],
         [
           {
-            "node": "Build Success Response",
+            "node": "Mark Telegram Skipped",
             "type": "main",
             "index": 0
           }
@@ -424,7 +491,7 @@
       "main": [
         [
           {
-            "node": "Build Success Response",
+            "node": "Mark Telegram Result",
             "type": "main",
             "index": 0
           }
@@ -436,6 +503,50 @@
         [
           {
             "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Telegram Result": {
+      "main": [
+        [
+          {
+            "node": "Build Notification Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Telegram Skipped": {
+      "main": [
+        [
+          {
+            "node": "Build Notification Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Notification Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Post Notification Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Notification Status": {
+      "main": [
+        [
+          {
+            "node": "Build Success Response",
             "type": "main",
             "index": 0
           }

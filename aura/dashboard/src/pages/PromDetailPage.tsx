@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
@@ -29,7 +29,7 @@ export function PromDetailPage(): JSX.Element {
 
   const resolvedPromId = promId?.trim() ?? '';
 
-  const loadDetail = async (): Promise<void> => {
+  const loadDetail = useCallback(async (): Promise<void> => {
     if (!resolvedPromId) {
       return;
     }
@@ -44,11 +44,11 @@ export function PromDetailPage(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [resolvedPromId]);
 
   useEffect(() => {
     void loadDetail();
-  }, [resolvedPromId]);
+  }, [loadDetail]);
 
   return (
     <div className="page-stack">

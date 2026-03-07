@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
@@ -23,7 +23,7 @@ export function ExerciseSessionDetailPage(): JSX.Element {
   const resolvedPatientId = patientId?.trim() ?? '';
   const resolvedSessionId = sessionId?.trim() ?? '';
 
-  const loadDetail = async (): Promise<void> => {
+  const loadDetail = useCallback(async (): Promise<void> => {
     if (!resolvedSessionId) {
       return;
     }
@@ -38,11 +38,11 @@ export function ExerciseSessionDetailPage(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [resolvedSessionId]);
 
   useEffect(() => {
     void loadDetail();
-  }, [resolvedSessionId]);
+  }, [loadDetail]);
 
   return (
     <div className="page-stack">

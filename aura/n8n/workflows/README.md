@@ -1,8 +1,12 @@
 # n8n Workflows
 
+## Source of truth
+- Canonical workflow exports for Aura are in `/Users/University/Final Project/aura/n8n/workflows/`.
+- Legacy snapshots under `/Users/University/Final Project/aura/n8n_workflows/` are not the import target for active environments.
+
 ## Workflow Files
 - `01 - Alert Created Webhook (POST → Dedupe → Table → Telegram → Respond).json`
-  Receives `POST /webhook/alert-created`, deduplicates by `alertId`, writes new alerts to the Alerts Data Table, optionally sends Telegram, and responds with JSON.
+  Receives `POST /webhook/alert-created`, deduplicates by `alertId`, writes new alerts to the Alerts Data Table, optionally sends Telegram, posts delivery status callback to Aura backend (`POST /events/notification-status`), and responds with JSON.
 - `02 - List Alerts Proxy (GET → Aura API → Respond).json`
   Exposes `GET /webhook/alerts`, validates request context/auth rules, proxies to Aura backend clinician alerts endpoint, and returns JSON.
 - `05 - Error Trigger → Telegram (throttled).json`
@@ -21,3 +25,11 @@
 
 ## Note
 Filenames are for git organization; n8n uses the internal workflow name after import.
+
+## Callback verification
+Run this check after workflow export updates:
+
+```bash
+cd "/Users/University/Final Project/aura"
+rg -n "/events/notification-status" "n8n/workflows/01 - Alert Created Webhook (POST → Dedupe → Table → Telegram → Respond).json"
+```

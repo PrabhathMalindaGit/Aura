@@ -67,7 +67,7 @@ export function AppShell(): JSX.Element {
 
   useEffect(() => {
     const manager = createSessionTimeoutManager({
-      config: sessionSettings,
+      config: getSessionSettings(),
       onWarningChange: setSessionWarning,
       onLogout: handleSessionLogout,
     });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
@@ -23,7 +23,7 @@ export function PatientExerciseSessionsPage(): JSX.Element {
 
   const resolvedPatientId = patientId?.trim() ?? '';
 
-  const loadSessions = async (): Promise<void> => {
+  const loadSessions = useCallback(async (): Promise<void> => {
     if (!resolvedPatientId) {
       return;
     }
@@ -37,11 +37,11 @@ export function PatientExerciseSessionsPage(): JSX.Element {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [resolvedPatientId]);
 
   useEffect(() => {
     void loadSessions();
-  }, [resolvedPatientId]);
+  }, [loadSessions]);
 
   const summary = useMemo(() => {
     if (sessions.length === 0) {

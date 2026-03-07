@@ -1,5 +1,10 @@
 # Aura n8n Setup — Workflow 01 (Alert Webhook)
 
+## Canonical export path
+- Canonical workflow JSON exports are maintained in:
+  - `/Users/University/Final Project/aura/n8n/workflows/`
+- Legacy snapshots in `/Users/University/Final Project/aura/n8n_workflows/` are reference-only and should not be used for active imports.
+
 ## What this workflow does
 This first n8n workflow receives `ALERT_CREATED` events from your Aura Node backend, immediately returns HTTP `200` so the backend knows the webhook was received, and makes the full payload easy to inspect inside n8n Executions for debugging and verification.
 

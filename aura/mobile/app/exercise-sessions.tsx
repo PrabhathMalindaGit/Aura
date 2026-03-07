@@ -179,21 +179,19 @@ export default function ExerciseSessionsScreen() {
         setIsLoading(true);
       }
 
-      setNotice(null);
-      await loadPending();
-
-      if (isOffline) {
-        setNotice({
-          variant: "warning",
-          title: "Offline",
-          message: "Offline — pending uploads are shown. Connect to load recent sessions.",
-        });
-        setIsLoading(false);
-        setIsRefreshing(false);
-        return;
-      }
-
       try {
+        setNotice(null);
+        await loadPending();
+
+        if (isOffline) {
+          setNotice({
+            variant: "warning",
+            title: "Offline",
+            message: "Offline — pending uploads are shown. Connect to load recent sessions.",
+          });
+          return;
+        }
+
         const response = await listExerciseSessions(auth.token, 30);
         setSessions(response);
         await refreshSessionsLocal();

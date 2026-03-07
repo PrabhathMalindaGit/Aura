@@ -1102,11 +1102,13 @@ export function PatientDetailPage(): JSX.Element {
               <div className="patient-detail-title__row">
                 <span className="patient-detail-title__text">Patient {patientDisplayName}</span>
                 {patientContext?.status ? (
-                  <Badge variant={statusBadgeVariant(patientContext.status)} icon>
+                  <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
                     {statusLabel(patientContext.status)}
                   </Badge>
                 ) : null}
-                {patientDisplayName !== patientId ? <span className="patient-id-text">ID: {patientId}</span> : null}
+                {patientDisplayName !== patientId ? (
+                  <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
+                ) : null}
               </div>
               <p className="patient-detail-title__subtitle">
                 Review current status, recent check-ins, alerts, and adherence before follow-up.
@@ -1136,6 +1138,7 @@ export function PatientDetailPage(): JSX.Element {
             </div>
             <div className="patient-detail-actions">
               <Button
+                className="patient-detail-actions__refresh"
                 variant="secondary"
                 onClick={() => {
                   void Promise.all([trendsQuery.refetch(), patientAlertsQuery.refetch()]);
@@ -1143,10 +1146,11 @@ export function PatientDetailPage(): JSX.Element {
               >
                 Refresh
               </Button>
-              <Button variant="secondary" onClick={openPatientExportModal}>
+              <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
                 Export CSV
               </Button>
               <Button
+                className="patient-detail-actions__plan"
                 variant="secondary"
                 onClick={() => {
                   navigate(`/patients/${patientId}/plan`);
@@ -1159,13 +1163,15 @@ export function PatientDetailPage(): JSX.Element {
         }
       >
         <div className="patient-detail-meta">
-          <Badge variant={connection.online ? 'success' : 'danger'} icon>
+          <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
             {connection.online ? 'Online' : 'Offline'}
           </Badge>
-          <Badge variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
+          <Badge className="patient-detail-meta__alerts" variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
             {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
           </Badge>
-          <span className="muted-text">Last updated: {formatLastUpdated(connection.lastSuccessAt)}</span>
+          <span className="muted-text patient-detail-meta__updated">
+            Last updated: {formatLastUpdated(connection.lastSuccessAt)}
+          </span>
         </div>
       </Card>
 
@@ -1362,7 +1368,7 @@ export function PatientDetailPage(): JSX.Element {
         />
       </section>
 
-      <section className="patient-detail-section-block">
+      <section className="patient-detail-section-block patient-detail-section-block--signals">
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Check-in detail</p>
@@ -1374,6 +1380,7 @@ export function PatientDetailPage(): JSX.Element {
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--signals">
           <Card
+        className="patient-detail-panel patient-detail-panel--signal"
         title="Sleep (recent)"
         action={
           <Button
@@ -1416,6 +1423,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--signal"
         title="Body map (recent)"
         action={
           <Button
@@ -1462,6 +1470,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--signal"
         title="Symptom photos (recent)"
         action={
           <Button
@@ -1516,7 +1525,7 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </section>
 
-      <section className="patient-detail-section-block">
+      <section className="patient-detail-section-block patient-detail-section-block--habits">
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Habits and adherence</p>
@@ -1528,6 +1537,7 @@ export function PatientDetailPage(): JSX.Element {
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--habits">
           <Card
+        className="patient-detail-panel patient-detail-panel--habit"
         title="Hydration (last 7 days)"
         action={
           <Button
@@ -1568,6 +1578,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--habit"
         title="Nutrition (last 7 days)"
         action={
           <Button
@@ -1614,6 +1625,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--habit"
         title="Wearables (last 7 days)"
         action={
           <Button
@@ -1664,6 +1676,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--habit"
         title="Medication adherence (last 7 days)"
         action={
           <Button
@@ -1711,7 +1724,7 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </section>
 
-      <section className="patient-detail-section-block">
+      <section className="patient-detail-section-block patient-detail-section-block--operations">
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Care operations</p>
@@ -1723,6 +1736,7 @@ export function PatientDetailPage(): JSX.Element {
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--workflow">
           <Card
+        className="patient-detail-panel patient-detail-panel--operations-primary"
         title="Rehab phase"
         action={
           <div className="patient-detail-actions">
@@ -1817,6 +1831,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--operations-primary"
         title="Questionnaires (PROMs)"
         action={
           <Button
@@ -1931,6 +1946,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--operations-primary"
         title="Insight cards"
         action={
           <div className="patient-detail-actions">
@@ -2042,7 +2058,7 @@ export function PatientDetailPage(): JSX.Element {
         )}
           </Card>
 
-          <Card title="Weekly report">
+          <Card className="patient-detail-panel patient-detail-panel--operations-secondary" title="Weekly report">
         <div className="stack stack--2">
           <p className="muted-text">
             View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and next steps.
@@ -2069,6 +2085,7 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
 
           <Card
+        className="patient-detail-panel patient-detail-panel--operations-secondary"
         title="Exercise sessions"
         action={
           <div className="patient-detail-actions">

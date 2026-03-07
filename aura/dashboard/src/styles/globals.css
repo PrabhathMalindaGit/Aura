@@ -4179,19 +4179,24 @@ time,
 }
 
 .patient-detail-page {
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .patient-detail-hero-card {
-  border-color: hsl(var(--border) / 0.8);
+  border-color: hsl(var(--border) / 0.56);
+  background: linear-gradient(165deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
+  box-shadow: var(--shadow-1), inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .patient-detail-hero-card .card__header {
   align-items: flex-start;
+  border-bottom-color: hsl(var(--border) / 0.42);
+  padding: var(--space-4) var(--space-5);
 }
 
 .patient-detail-hero-card .card__body {
-  padding-top: var(--space-3);
+  padding-top: var(--space-4);
+  padding-inline: var(--space-5);
 }
 
 .patient-detail-title {
@@ -4204,15 +4209,15 @@ time,
 
 .patient-detail-title__context {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .patient-detail-title__eyebrow {
   margin: 0;
   color: hsl(var(--muted-foreground));
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: var(--font-medium);
 }
@@ -4220,22 +4225,32 @@ time,
 .patient-detail-title__row {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .patient-detail-title__text {
-  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+  font-size: clamp(1.18rem, 1.9vw, 1.45rem);
   font-weight: var(--font-semibold);
   letter-spacing: var(--tracking-tight);
   line-height: var(--leading-tight);
+}
+
+.patient-detail-title__status.badge {
+  border-color: hsl(var(--border) / 0.42);
+}
+
+.patient-detail-title__id {
+  border-color: hsl(var(--border) / 0.56);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--muted) / 0.4));
 }
 
 .patient-detail-title__subtitle {
   margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: var(--text-sm);
-  max-width: 72ch;
+  line-height: 1.48;
+  max-width: 76ch;
 }
 
 .patient-id-text {
@@ -4254,18 +4269,19 @@ time,
 .patient-detail-back-link {
   color: hsl(var(--primary));
   text-decoration: none;
-  border: 1px solid hsl(var(--border) / 0.78);
+  border: 1px solid hsl(var(--border) / 0.54);
   border-radius: var(--radius-sm);
   min-height: 2rem;
   display: inline-flex;
   align-items: center;
   padding: 0 var(--space-3);
-  background: hsl(var(--muted) / 0.5);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--muted) / 0.45));
   font-size: var(--text-sm);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
 }
 
 .patient-detail-back-link:hover {
-  background: hsl(var(--muted) / 0.74);
+  background: hsl(var(--muted) / 0.64);
 }
 
 .patient-detail-header-actions {
@@ -4274,16 +4290,34 @@ time,
   justify-items: end;
 }
 
+.patient-detail-window-tabs {
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.4));
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
 .patient-detail-window-tabs .tabs {
-  border-color: hsl(var(--border) / 0.78);
-  background: hsl(var(--muted) / 0.44);
+  border-color: hsl(var(--border) / 0.52);
+  background: hsl(var(--muted) / 0.34);
 }
 
 .patient-detail-actions {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-sm);
   flex-wrap: wrap;
+}
+
+.patient-detail-actions .btn {
+  min-height: 40px;
+}
+
+.patient-detail-actions__refresh.btn,
+.patient-detail-actions__export.btn,
+.patient-detail-actions__plan.btn {
+  min-width: 7.25rem;
 }
 
 .patient-detail-meta {
@@ -4291,11 +4325,26 @@ time,
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.3));
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.patient-detail-meta__status.badge,
+.patient-detail-meta__alerts.badge {
+  border-color: hsl(var(--border) / 0.4);
 }
 
 .patient-detail-meta .muted-text {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-feature-settings: var(--nums);
+  letter-spacing: 0.01em;
+}
+
+.patient-detail-meta__updated {
+  color: hsl(var(--muted-foreground));
 }
 
 .patient-detail-error-state {
@@ -4306,12 +4355,56 @@ time,
 .patient-detail-summary-shell,
 .patient-detail-section-block {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--card) / 0.88));
+  box-shadow: var(--shadow-1), inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.patient-detail-section-block {
+  position: relative;
+}
+
+.patient-detail-section-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--space-4);
+  right: var(--space-4);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border) / 0.42), transparent);
+  pointer-events: none;
+}
+
+.patient-detail-section-block--primary {
+  border-color: hsl(var(--primary) / 0.34);
+  background: linear-gradient(
+    165deg,
+    hsl(var(--primary) / 0.08) 0%,
+    hsl(var(--card) / 0.94) 42%,
+    hsl(var(--card) / 0.88) 100%
+  );
+}
+
+.patient-detail-section-block--signals {
+  border-color: hsl(var(--chart-mood) / 0.28);
+}
+
+.patient-detail-section-block--habits {
+  border-color: hsl(var(--success) / 0.28);
+}
+
+.patient-detail-section-block--operations {
+  border-color: hsl(var(--warning) / 0.26);
 }
 
 .patient-detail-section-header {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid hsl(var(--border) / 0.42);
 }
 
 .patient-detail-section-heading {
@@ -4330,7 +4423,7 @@ time,
 
 .patient-detail-section-title {
   margin: 0;
-  font-size: clamp(1.02rem, 1.45vw, 1.2rem);
+  font-size: clamp(1.06rem, 1.5vw, 1.24rem);
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tight);
 }
@@ -4339,6 +4432,7 @@ time,
   margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .patient-detail-section-grid {
@@ -4359,7 +4453,7 @@ time,
 .patient-detail-section-grid > .card .card__title {
   font-size: var(--text-sm);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: hsl(var(--muted-foreground));
 }
 
@@ -4374,14 +4468,15 @@ time,
 }
 
 .patient-summary-card {
-  border: 1px solid hsl(var(--border) / 0.76);
+  border: 1px solid hsl(var(--border) / 0.52);
   border-radius: var(--radius-md);
-  background: hsl(var(--card));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
   padding: var(--space-3);
   display: grid;
   gap: var(--space-2);
   align-content: start;
-  min-height: 7rem;
+  min-height: 6.5rem;
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .patient-summary-card.glass-card {
@@ -4411,7 +4506,7 @@ time,
 }
 
 .patient-summary-card__value {
-  font-size: clamp(1.2rem, 1.7vw, 1.45rem);
+  font-size: clamp(1.24rem, 1.8vw, 1.5rem);
   line-height: 1.15;
   letter-spacing: var(--tracking-tight);
 }
@@ -4448,6 +4543,43 @@ time,
   );
 }
 
+.patient-summary-card--pain .patient-summary-card__value {
+  color: hsl(var(--danger));
+}
+
+.patient-summary-card--mood .patient-summary-card__value {
+  color: hsl(var(--chart-mood));
+}
+
+.patient-summary-card--adherence .patient-summary-card__value {
+  color: hsl(var(--success));
+}
+
+.patient-summary-card--open-alerts .patient-summary-card__value {
+  color: hsl(var(--danger));
+}
+
+.patient-summary-card--last-checkin .patient-summary-card__value {
+  font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+}
+
+.patient-summary-card--avg-pain .patient-summary-card__value {
+  color: hsl(var(--warning));
+}
+
+.patient-detail-panel {
+  border-color: hsl(var(--border) / 0.46);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--card) / 0.9));
+}
+
+.patient-detail-panel .card__header {
+  border-bottom-color: hsl(var(--border) / 0.4);
+}
+
+.patient-detail-panel--operations-secondary {
+  background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.28));
+}
+
 .patient-detail-photo-row {
   display: flex;
   justify-content: space-between;
@@ -4467,14 +4599,15 @@ time,
 
 .patient-sessions-item {
   width: 100%;
-  border: 1px solid hsl(var(--border) / 0.76);
+  border: 1px solid hsl(var(--border) / 0.5);
   border-radius: var(--radius-md);
-  background: hsl(var(--card));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
   padding: var(--space-3);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-3);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .patient-sessions-item:hover {
@@ -4491,14 +4624,13 @@ time,
 }
 
 .patient-detail-summary-shell {
-  border: 1px solid hsl(var(--border) / 0.76);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  background: hsl(var(--card) / 0.92);
-}
-
-.patient-detail-section-block--primary {
-  gap: var(--space-4);
+  border-color: hsl(var(--primary) / 0.28);
+  background: linear-gradient(
+    165deg,
+    hsl(var(--primary) / 0.07) 0%,
+    hsl(var(--card) / 0.95) 40%,
+    hsl(var(--card) / 0.88) 100%
+  );
 }
 
 .patient-detail-section-block--primary .trend-charts-stack {
@@ -4527,18 +4659,58 @@ time,
   }
 }
 
+@media (min-width: 1180px) {
+  .patient-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .patient-detail-section-grid--workflow .patient-detail-panel--operations-secondary {
+    grid-column: 1 / -1;
+  }
+}
+
 .dark .patient-detail-hero-card,
 .dark .patient-detail-summary-shell {
-  background: hsl(var(--card) / 0.9);
-  border-color: hsl(var(--border) / 0.62);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.78));
+  border-color: hsl(var(--border) / 0.44);
 }
 
 .dark .patient-detail-back-link {
-  background: hsl(var(--muted) / 0.58);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.36));
+}
+
+.dark .patient-detail-title__id {
+  border-color: hsl(var(--border) / 0.4);
+}
+
+.dark .patient-detail-window-tabs {
+  border-color: hsl(var(--border) / 0.4);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.72), hsl(var(--muted) / 0.22));
+}
+
+.dark .patient-detail-meta {
+  border-color: hsl(var(--border) / 0.4);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.76), hsl(var(--muted) / 0.18));
+}
+
+.dark .patient-detail-section-block {
+  border-color: hsl(var(--border) / 0.42);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.72));
+}
+
+.dark .patient-detail-section-block--primary {
+  border-color: hsl(var(--primary) / 0.28);
+  background: linear-gradient(
+    165deg,
+    hsl(var(--primary) / 0.2) 0%,
+    hsl(var(--card) / 0.84) 40%,
+    hsl(var(--card) / 0.72) 100%
+  );
 }
 
 .dark .patient-summary-card {
-  border-color: hsl(var(--border) / 0.64);
+  border-color: hsl(var(--border) / 0.42);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.76));
 }
 
 .dark .patient-summary-card--danger {
@@ -4566,19 +4738,61 @@ time,
 }
 
 .dark .patient-sessions-item {
-  background: hsl(var(--card) / 0.92);
-  border-color: hsl(var(--border) / 0.64);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.74));
+  border-color: hsl(var(--border) / 0.44);
+}
+
+.dark .latest-trend-badges {
+  border-color: hsl(var(--border) / 0.42);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.74));
+}
+
+.dark .latest-trend-badge {
+  border-color: hsl(var(--border) / 0.42);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.76));
+}
+
+.dark .trend-chart-card {
+  border-color: hsl(var(--border) / 0.42);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.74));
+}
+
+.dark .trend-chart__canvas {
+  border-color: hsl(var(--border) / 0.4);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.78), hsl(var(--muted) / 0.22));
+}
+
+.dark .trend-chart__canvas .recharts-cartesian-grid line {
+  stroke: hsl(var(--border) / 0.36);
+}
+
+.dark .trend-chart__canvas .recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--muted-foreground));
+}
+
+.dark .trend-chart__canvas .recharts-default-tooltip {
+  border-color: hsl(var(--border) / 0.5) !important;
+  background: hsl(var(--popover) / 0.9) !important;
+}
+
+.dark .trend-access-list__item {
+  border-color: hsl(var(--border) / 0.44);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.74));
 }
 
 .dark .recent-alert-list__item,
 .dark .day-detail-alert-list__item {
-  border-color: hsl(var(--border) / 0.62);
-  background: hsl(var(--card) / 0.9);
+  border-color: hsl(var(--border) / 0.44);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.74));
 }
 
 .dark .day-detail-section {
-  border-color: hsl(var(--border) / 0.62);
-  background: hsl(var(--muted) / 0.32);
+  border-color: hsl(var(--border) / 0.44);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.2));
+}
+
+.dark .recent-alert-list__seen {
+  color: hsl(var(--muted-foreground));
 }
 
 .smoke-page {
@@ -4660,17 +4874,39 @@ time,
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
+  border: 1px solid hsl(var(--border) / 0.46);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--card) / 0.9));
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .latest-trend-badge {
   min-height: 4.75rem;
-  border: 1px solid hsl(var(--border) / 0.7);
+  border: 1px solid hsl(var(--border) / 0.46);
   border-radius: var(--radius-md);
-  background: hsl(var(--card));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
   padding: var(--space-3);
   display: grid;
   gap: var(--space-1);
   align-content: center;
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.latest-trend-badge--pain {
+  border-color: hsl(var(--chart-pain) / 0.36);
+}
+
+.latest-trend-badge--mood {
+  border-color: hsl(var(--chart-mood) / 0.36);
+}
+
+.latest-trend-badge--exercise {
+  border-color: hsl(var(--chart-adherence) / 0.34);
+}
+
+.latest-trend-badge--medication {
+  border-color: hsl(var(--warning) / 0.34);
 }
 
 .latest-trend-badge__label {
@@ -4681,9 +4917,10 @@ time,
 
 .latest-trend-badge__value {
   margin: 0;
-  font-size: var(--text-base);
+  font-size: clamp(0.96rem, 1.2vw, 1.06rem);
   font-weight: var(--font-semibold);
   font-feature-settings: var(--nums);
+  letter-spacing: -0.01em;
 }
 
 .trend-charts-grid {
@@ -4695,6 +4932,9 @@ time,
 
 .trend-chart-card {
   min-width: 0;
+  border-color: hsl(var(--border) / 0.46);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
+  box-shadow: var(--shadow-1), inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .trend-chart-card .card__body {
@@ -4704,6 +4944,15 @@ time,
 .trend-chart__title {
   display: grid;
   gap: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+
+.trend-chart__title span {
+  letter-spacing: -0.01em;
+}
+
+.trend-chart__title small {
+  letter-spacing: 0.02em;
 }
 
 .trend-chart__canvas {
@@ -4711,6 +4960,26 @@ time,
   min-width: 0;
   min-height: var(--chart-height);
   height: var(--chart-height);
+  border: 1px solid hsl(var(--border) / 0.44);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.28));
+}
+
+.trend-chart__canvas .recharts-cartesian-grid line {
+  stroke: hsl(var(--border) / 0.42);
+}
+
+.trend-chart__canvas .recharts-cartesian-axis-tick-value {
+  fill: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+
+.trend-chart__canvas .recharts-default-tooltip {
+  border-radius: var(--radius-sm) !important;
+  border-color: hsl(var(--border) / 0.56) !important;
+  background: hsl(var(--popover) / 0.96) !important;
+  box-shadow: var(--shadow-2);
 }
 
 .trend-access-list {
@@ -4726,10 +4995,11 @@ time,
   justify-content: space-between;
   align-items: center;
   gap: var(--space-3);
-  border: 1px solid hsl(var(--border) / 0.75);
+  border: 1px solid hsl(var(--border) / 0.48);
   border-radius: var(--radius-md);
-  background: hsl(var(--card));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
   padding: var(--space-2) var(--space-3);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .trend-access-list__text {
@@ -4767,19 +5037,20 @@ time,
 }
 
 .recent-alert-list__item {
-  border: 1px solid hsl(var(--border) / 0.76);
+  border: 1px solid hsl(var(--border) / 0.48);
   border-radius: var(--radius-md);
-  background: hsl(var(--card));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
   padding: var(--space-3);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-3);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .recent-alert-list__body {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-sm);
 }
 
 .recent-alert-list__body p {
@@ -4789,6 +5060,18 @@ time,
 .recent-alert-list__body strong {
   font-size: var(--text-sm);
   letter-spacing: 0.01em;
+}
+
+.recent-alert-list__id {
+  color: hsl(var(--foreground));
+}
+
+.recent-alert-list__reason {
+  color: hsl(var(--foreground));
+}
+
+.recent-alert-list__date {
+  font-size: var(--text-xs);
 }
 
 .recent-alert-list__meta {
@@ -4815,18 +5098,37 @@ time,
   min-width: 7rem;
 }
 
+.recent-alert-list__seen {
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+.recent-alert-list__status.badge {
+  border-color: hsl(var(--border) / 0.44);
+}
+
+.recent-alert-list__ack.btn {
+  border-color: hsl(var(--status-ack) / 0.28);
+  background: hsl(var(--status-ack) / 0.1);
+}
+
+.recent-alert-list__resolve.btn {
+  box-shadow: 0 4px 10px hsl(var(--danger) / 0.2), inset 0 1px 0 hsl(var(--danger-foreground) / 0.14);
+}
+
 .day-detail-stack {
   display: grid;
   gap: var(--space-3);
 }
 
 .day-detail-section {
-  border: 1px solid hsl(var(--border) / 0.76);
+  border: 1px solid hsl(var(--border) / 0.48);
   border-radius: var(--radius-md);
-  background: hsl(var(--muted) / 0.36);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.26));
   padding: var(--space-3);
   display: grid;
   gap: var(--space-2);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .day-detail-section h3 {
@@ -4878,10 +5180,22 @@ time,
   display: flex;
   justify-content: space-between;
   gap: var(--space-2);
-  border: 1px solid hsl(var(--border) / 0.72);
+  border: 1px solid hsl(var(--border) / 0.48);
   border-radius: var(--radius-sm);
   padding: var(--space-2);
-  background: hsl(var(--card));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
+}
+
+.day-detail-alert-list__id {
+  color: hsl(var(--foreground));
+}
+
+.day-detail-alert-list__reason {
+  font-size: var(--text-sm);
+}
+
+.day-detail-alert-list__status.badge {
+  border-color: hsl(var(--border) / 0.44);
 }
 
 .alerts-status-tabs {

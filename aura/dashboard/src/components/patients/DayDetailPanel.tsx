@@ -106,11 +106,11 @@ export function DayDetailPanel({
                   <li key={alert._id} className="day-detail-alert-list__item">
                     <div>
                       <p>
-                        <strong>{alert._id}</strong>
+                        <strong className="day-detail-alert-list__id">{alert._id}</strong>
                       </p>
-                      <p className="muted-text">{reasonText(alert.reason)}</p>
+                      <p className="muted-text day-detail-alert-list__reason">{reasonText(alert.reason)}</p>
                     </div>
-                    <Badge variant={statusBadgeVariant(alert.status)} icon>
+                    <Badge className="day-detail-alert-list__status" variant={statusBadgeVariant(alert.status)} icon>
                       {alert.status}
                     </Badge>
                   </li>

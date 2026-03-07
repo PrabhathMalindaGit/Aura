@@ -47,6 +47,7 @@ export function RecentAlertsPanel({
 
   return (
     <Card
+      className="patient-detail-recent-alerts-card"
       title="Recent alerts"
       action={
         alerts.length > 5 && onViewAll ? (
@@ -70,26 +71,27 @@ export function RecentAlertsPanel({
               <li key={alert._id} className="recent-alert-list__item">
                 <div className="recent-alert-list__body">
                   <p>
-                    <strong>{alert._id}</strong>
+                    <strong className="recent-alert-list__id">{alert._id}</strong>
                   </p>
-                  <p className="muted-text">{reasonText(alert.reason)}</p>
-                  <p className="muted-text">Date: {formatDateKey(toDateKey(alert.createdAt))}</p>
+                  <p className="muted-text recent-alert-list__reason">{reasonText(alert.reason)}</p>
+                  <p className="muted-text recent-alert-list__date">Date: {formatDateKey(toDateKey(alert.createdAt))}</p>
                 </div>
                 <div className="recent-alert-list__meta">
                   <div className="recent-alert-list__badges">
                     {unseen ? (
-                      <Badge variant="new" icon aria-label="Unseen alert">
+                      <Badge className="recent-alert-list__unseen" variant="new" icon aria-label="Unseen alert">
                         Unseen
                       </Badge>
                     ) : (
-                      <span className="alerts-seen">Seen</span>
+                      <span className="alerts-seen recent-alert-list__seen">Seen</span>
                     )}
-                    <Badge variant={statusBadgeVariant(alert.status)} icon>
+                    <Badge className="recent-alert-list__status" variant={statusBadgeVariant(alert.status)} icon>
                       {alert.status}
                     </Badge>
                   </div>
                   <div className="recent-alert-list__actions">
                     <Button
+                      className="recent-alert-list__ack"
                       variant="secondary"
                       disabled={alert.status !== 'open' || mutationPending}
                       onClick={() => onAcknowledge(alert)}
@@ -97,6 +99,7 @@ export function RecentAlertsPanel({
                       Acknowledge
                     </Button>
                     <Button
+                      className="recent-alert-list__resolve"
                       variant="danger"
                       disabled={alert.status === 'resolved' || mutationPending}
                       onClick={() => onResolve(alert)}

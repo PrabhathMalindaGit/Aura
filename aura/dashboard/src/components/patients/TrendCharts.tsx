@@ -215,7 +215,7 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
               <small className="muted-text">Mood score</small>
             </div>
           }
-          className="trend-chart-card"
+          className="trend-chart-card trend-chart-card--mood"
         >
           <div className="trend-chart__canvas" role="img" aria-label="Mood trend line chart">
             {renderResponsiveChart(
@@ -287,7 +287,7 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
               <small className="muted-text">Exercises (%) and medication</small>
             </div>
           }
-          className="trend-chart-card"
+          className="trend-chart-card trend-chart-card--adherence"
         >
           <div className="trend-chart__canvas" role="img" aria-label="Adherence trend chart">
             {renderResponsiveChart(
@@ -380,6 +380,7 @@ export function TrendCharts({ points, onSelectDate }: TrendChartsProps): JSX.Ele
       </div>
 
       <Card
+        className="trend-chart-card trend-chart-card--drilldown"
         title={
           <div className="trend-chart__title">
             <span>Day drilldown</span>

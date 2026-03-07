@@ -66,6 +66,11 @@ export function InsightsQueuePage(): JSX.Element {
   });
   const pendingCount = queueQuery.data?.length ?? 0;
   const updatedAtLabel = formatQueueUpdatedAt(queueQuery.dataUpdatedAt);
+  const queueStatusLabel = pendingCount === 0 ? 'Clear' : 'Needs review';
+  const queueStatusHint =
+    pendingCount === 0
+      ? 'Monitoring remains active across patient safety signals.'
+      : 'Review suggestions to confirm what should surface in clinician workflow.';
 
   async function handleReview(insightId: string, status: 'approved' | 'rejected'): Promise<void> {
     setErrorMessage(null);
@@ -94,7 +99,18 @@ export function InsightsQueuePage(): JSX.Element {
             <span className="insights-page__meta-pill insights-page__meta-pill--count">
               {pendingCount} pending
             </span>
-            <span className="insights-page__meta-pill">Updated {updatedAtLabel}</span>
+            <span
+              className={`insights-page__meta-pill insights-page__meta-pill--status ${
+                pendingCount === 0
+                  ? 'insights-page__meta-pill--status-clear'
+                  : 'insights-page__meta-pill--status-attention'
+              }`}
+            >
+              {pendingCount === 0 ? 'Monitoring active' : 'Queue needs review'}
+            </span>
+            <span className="insights-page__meta-pill insights-page__meta-pill--updated">
+              Updated {updatedAtLabel}
+            </span>
           </span>
         }
         actions={
@@ -111,17 +127,24 @@ export function InsightsQueuePage(): JSX.Element {
       />
 
       <section className="insights-summary-strip" aria-label="Insights queue summary">
-        <article className="insights-summary-strip__item">
+        <article className="insights-summary-strip__item insights-summary-strip__item--pending">
           <p className="insights-summary-strip__label">Pending suggestions</p>
           <p className="insights-summary-strip__value">{pendingCount}</p>
         </article>
-        <article className="insights-summary-strip__item">
+        <article className="insights-summary-strip__item insights-summary-strip__item--status">
           <p className="insights-summary-strip__label">Queue status</p>
-          <p className="insights-summary-strip__value">
-            {pendingCount === 0 ? 'Clear' : 'Needs review'}
+          <p
+            className={`insights-summary-strip__value ${
+              pendingCount === 0
+                ? 'insights-summary-strip__value--clear'
+                : 'insights-summary-strip__value--attention'
+            }`}
+          >
+            {queueStatusLabel}
           </p>
+          <p className="insights-summary-strip__hint">{queueStatusHint}</p>
         </article>
-        <article className="insights-summary-strip__item">
+        <article className="insights-summary-strip__item insights-summary-strip__item--updated">
           <p className="insights-summary-strip__label">Last refresh</p>
           <p className="insights-summary-strip__value">{updatedAtLabel}</p>
         </article>
@@ -155,9 +178,17 @@ export function InsightsQueuePage(): JSX.Element {
         </div>
       ) : null}
 
-      <Card className="insights-workspace-card" title="Pending suggestions">
+      <Card
+        className="insights-workspace-card"
+        title={
+          <span className="insights-workspace-card__title">
+            Pending suggestions
+            <span className="insights-workspace-card__title-count">{pendingCount}</span>
+          </span>
+        }
+      >
         <p className="insights-queue-intro">
-          Prioritize clinically relevant suggestions, then approve or reject each recommendation.
+          Review clinically meaningful suggestions, then approve or reject with patient context.
         </p>
 
         {queueQuery.isLoading && pendingCount === 0 ? (
@@ -172,13 +203,18 @@ export function InsightsQueuePage(): JSX.Element {
               <span className="insights-empty-state__icon" aria-hidden="true">
                 ✓
               </span>
-              <h3 className="insights-empty-state__title">No pending insights</h3>
+              <h3 className="insights-empty-state__title">No pending insights right now</h3>
             </div>
             <p className="insights-empty-state__description">
-              The queue is clear right now. New suggestions will appear here after analysis.
+              The queue is clear. New clinical suggestions will appear here as new signals are processed.
             </p>
             <div className="insights-empty-state__footer">
-              <p className="insights-empty-state__meta">Last updated {updatedAtLabel}</p>
+              <div className="insights-empty-state__meta-group">
+                <p className="insights-empty-state__meta">Last updated {updatedAtLabel}</p>
+                <p className="insights-empty-state__meta insights-empty-state__meta--quiet">
+                  Monitoring remains active.
+                </p>
+              </div>
               <Button
                 variant="secondary"
                 size="sm"
@@ -192,38 +228,47 @@ export function InsightsQueuePage(): JSX.Element {
             </div>
           </div>
         ) : (
-          <div className="stack stack--2">
+          <div className="stack stack--2 insights-queue-list">
             {(queueQuery.data ?? []).map((item) => (
               <div key={item.id} className="insights-queue__item">
                 <div className="insights-queue__item-head">
                   <div className="insights-queue__item-main">
+                    <p className="insights-queue__eyebrow">Clinical suggestion</p>
                     <p className="insights-queue__title">{item.title}</p>
                     <p className="insights-queue__patient">
-                      Patient:{' '}
+                      <span className="insights-queue__patient-label">Patient</span>
                       <Link to={`/patients/${item.patientId}`}>
                         {item.patientDisplayName?.trim() || item.patientId}
                       </Link>
                     </p>
                   </div>
                   <div className="insights-queue__badges">
-                    <Badge variant="default">{categoryLabel(item.category)}</Badge>
-                    <Badge variant={confidenceVariant(item.confidence)}>
+                    <Badge className="insights-queue__badge insights-queue__badge--category" variant="neutral">
+                      {categoryLabel(item.category)}
+                    </Badge>
+                    <Badge
+                      className="insights-queue__badge insights-queue__badge--confidence"
+                      variant={confidenceVariant(item.confidence)}
+                    >
                       {item.confidence}
                     </Badge>
-                    <Badge variant="default">P{item.priority}</Badge>
+                    <Badge className="insights-queue__badge insights-queue__badge--priority" variant="default">
+                      P{item.priority}
+                    </Badge>
                   </div>
                 </div>
-                <p className="muted-text insights-queue__message">
-                  {item.message}
-                </p>
-                <p className="muted-text insights-queue__meta">
-                  <span className="insights-queue__meta-chip">Window {item.windowDays} days</span>
+                <p className="muted-text insights-queue__message">{item.message}</p>
+                <div className="muted-text insights-queue__meta" aria-label="Insight metadata">
+                  <span className="insights-queue__meta-chip insights-queue__meta-chip--window">
+                    Window {item.windowDays} days
+                  </span>
                   <span className="insights-queue__meta-chip">
                     Created {new Date(item.createdAt).toLocaleString()}
                   </span>
-                </p>
+                </div>
                 <div className="insights-queue__actions">
                   <Button
+                    className="insights-queue__action insights-queue__action--approve"
                     variant="primary"
                     size="sm"
                     disabled={isSubmittingId !== null}
@@ -234,7 +279,8 @@ export function InsightsQueuePage(): JSX.Element {
                     {isSubmittingId === `${item.id}:approved` ? 'Approving…' : 'Approve'}
                   </Button>
                   <Button
-                    variant="secondary"
+                    className="insights-queue__action insights-queue__action--reject"
+                    variant="ghost"
                     size="sm"
                     disabled={isSubmittingId !== null}
                     onClick={() => {

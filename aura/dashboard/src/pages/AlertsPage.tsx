@@ -739,6 +739,9 @@ export function AlertsPage(): JSX.Element {
     Boolean(alertsExportRangeError) ||
     selectedAlertsExportStatuses.length === 0 ||
     alertsExportPreviewCount === 0;
+  const queueCountLabel = `${visibleAlerts.length} ${status} alert${
+    visibleAlerts.length === 1 ? '' : 's'
+  } in view`;
 
   return (
     <Stack className="page-stack" gap="6">
@@ -751,6 +754,18 @@ export function AlertsPage(): JSX.Element {
         5) Simulate offline and verify non-blocking banner while existing data remains.
         6) Verify search/source/time filters and mobile card layout.
       */}
+      <header className="alerts-page-header-block">
+        <div className="alerts-page-header-block__copy">
+          <h2 className="alerts-page-header-block__title">Alert triage queue</h2>
+          <p className="alerts-page-header-block__subtitle">
+            Review patient safety alerts, confirm ownership, and close escalations with context.
+          </p>
+        </div>
+        <p className="alerts-page-header-block__meta" aria-live="polite">
+          {queueCountLabel}
+        </p>
+      </header>
+
       {staleErrorBannerVisible ? (
         <AlertBanner
           variant="warning"
@@ -790,14 +805,36 @@ export function AlertsPage(): JSX.Element {
         >
           {allClear ? (
             <div className="alerts-all-clear" role="status" aria-live="polite">
-              <p className="alerts-all-clear__title">All clear</p>
+              <div className="alerts-all-clear__heading">
+                <span className="alerts-all-clear__icon" aria-hidden="true">
+                  ✓
+                </span>
+                <p className="alerts-all-clear__title">All clear</p>
+              </div>
               <p className="alerts-all-clear__summary">No open alerts need action right now.</p>
-              <p className="alerts-all-clear__meta">
-                Last updated {formatLastUpdated(connection.lastSuccessAt)}
-              </p>
+              <div className="alerts-all-clear__footer">
+                <p className="alerts-all-clear__meta">
+                  Monitoring active · Last updated {formatLastUpdated(connection.lastSuccessAt)}
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    void alertsQuery.refetch();
+                  }}
+                  disabled={alertsQuery.isFetching}
+                >
+                  {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
+                </Button>
+              </div>
             </div>
           ) : (
-            <KpiRow summary={alertKpis} loading={overviewLoading} />
+            <>
+              <p className="alerts-overview-note">
+                Open workload, first-review visibility, ownership, and notification delivery at a glance.
+              </p>
+              <KpiRow summary={alertKpis} loading={overviewLoading} />
+            </>
           )}
         </BentoCard>
 
@@ -814,6 +851,9 @@ export function AlertsPage(): JSX.Element {
           size="xl"
         >
           <Stack gap="4">
+            <p className="alerts-queue-intro">
+              Start with open alerts, then narrow with workflow filters to focus assignments and follow-up.
+            </p>
             <StatusTabs value={status} onChange={setStatus} />
 
             <FiltersBar
@@ -876,11 +916,30 @@ export function AlertsPage(): JSX.Element {
               details={troubleshootingDetails}
             />
           ) : status === 'open' && sourceAlerts.length === 0 ? (
-            <StatusPanel
-              variant="success"
-              title="All clear"
-              description={`No open alerts right now. Last updated ${formatLastUpdated(connection.lastSuccessAt)}.`}
-            />
+            <div className="alerts-empty-state" role="status" aria-live="polite">
+              <div className="alerts-empty-state__title-row">
+                <span className="alerts-empty-state__icon" aria-hidden="true">
+                  ✓
+                </span>
+                <h3 className="alerts-empty-state__title">All clear</h3>
+              </div>
+              <p className="alerts-empty-state__description">No open alerts need attention right now.</p>
+              <p className="alerts-empty-state__meta">
+                System monitoring is active. Last updated {formatLastUpdated(connection.lastSuccessAt)}.
+              </p>
+              <div className="alerts-empty-state__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    void alertsQuery.refetch();
+                  }}
+                  disabled={alertsQuery.isFetching}
+                >
+                  {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
+                </Button>
+              </div>
+            </div>
           ) : sourceAlerts.length === 0 ? (
             <StatusPanel
               variant="empty"

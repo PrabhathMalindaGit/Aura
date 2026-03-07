@@ -5,8 +5,8 @@ import { AlertBanner } from '../components/ui/AlertBanner';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
+import { Skeleton } from '../components/ui/Skeleton';
 import {
   createAppointmentSlot,
   listAppointmentRequests,
@@ -44,6 +44,18 @@ function formatDateTime(value: string): string {
   return parsed.toLocaleString();
 }
 
+function formatWorkspaceUpdatedAt(slotsUpdatedAt: number, requestsUpdatedAt: number): string {
+  const timestamp = Math.max(slotsUpdatedAt || 0, requestsUpdatedAt || 0);
+  if (!timestamp) {
+    return '--';
+  }
+
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function AppointmentsPage(): JSX.Element {
   const [slotStatus, setSlotStatus] = useState<'available' | 'closed'>('available');
   const [requestStatus, setRequestStatus] = useState<'pending' | 'approved' | 'rejected' | 'canceled'>(
@@ -79,6 +91,13 @@ export function AppointmentsPage(): JSX.Element {
     () => startsAtInput.trim().length > 0 && endsAtInput.trim().length > 0 && !isCreating,
     [endsAtInput, isCreating, startsAtInput],
   );
+  const slots = slotsQuery.data ?? [];
+  const requests = requestsQuery.data ?? [];
+  const availableSlotsCount = slots.filter((slot) => (slot.status ?? 'available') === 'available').length;
+  const closedSlotsCount = slots.filter((slot) => (slot.status ?? 'available') === 'closed').length;
+  const pendingRequestsCount = requests.filter((request) => request.status === 'pending').length;
+  const refreshedAtLabel = formatWorkspaceUpdatedAt(slotsQuery.dataUpdatedAt, requestsQuery.dataUpdatedAt);
+  const isRefreshingWorkspace = slotsQuery.isFetching || requestsQuery.isFetching;
 
   async function handleCreateSlot(): Promise<void> {
     setErrorMessage(null);
@@ -125,23 +144,51 @@ export function AppointmentsPage(): JSX.Element {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack appointments-page">
       <Section
-        className="dashboard-page-header"
+        className="dashboard-page-header appointments-page-header"
         eyebrow="Care coordination"
         title="Appointments"
-        subtitle="Manage tele-rehab slots and review patient booking requests."
+        subtitle="Create clinician availability, review patient requests, and manage tele-rehab scheduling."
+        meta={
+          <span className="appointments-page__meta" aria-live="polite">
+            <span className="appointments-page__meta-pill appointments-page__meta-pill--count">
+              {pendingRequestsCount} pending requests
+            </span>
+            <span className="appointments-page__meta-pill">Updated {refreshedAtLabel}</span>
+          </span>
+        }
         actions={
           <Button
             variant="secondary"
+            disabled={isRefreshingWorkspace}
             onClick={() => {
               void Promise.all([slotsQuery.refetch(), requestsQuery.refetch()]);
             }}
           >
-            Refresh
+            {isRefreshingWorkspace ? 'Refreshing...' : 'Refresh'}
           </Button>
         }
       />
+
+      <section className="appointments-summary-strip" aria-label="Appointments summary">
+        <article className="appointments-summary-strip__item">
+          <p className="appointments-summary-strip__label">Total slots</p>
+          <p className="appointments-summary-strip__value">{slots.length}</p>
+        </article>
+        <article className="appointments-summary-strip__item">
+          <p className="appointments-summary-strip__label">Available slots</p>
+          <p className="appointments-summary-strip__value">{availableSlotsCount}</p>
+        </article>
+        <article className="appointments-summary-strip__item">
+          <p className="appointments-summary-strip__label">Closed slots</p>
+          <p className="appointments-summary-strip__value">{closedSlotsCount}</p>
+        </article>
+        <article className="appointments-summary-strip__item appointments-summary-strip__item--attention">
+          <p className="appointments-summary-strip__label">Pending requests</p>
+          <p className="appointments-summary-strip__value">{pendingRequestsCount}</p>
+        </article>
+      </section>
 
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not complete action">
@@ -155,168 +202,254 @@ export function AppointmentsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card title="Create slot">
-        <div className="stack stack--2">
-          <label className="stack stack--1">
-            <span className="muted-text">Start (local datetime)</span>
-            <input
-              type="datetime-local"
-              value={startsAtInput}
-              onChange={(event) => setStartsAtInput(event.target.value)}
-            />
-          </label>
-          <label className="stack stack--1">
-            <span className="muted-text">End (local datetime)</span>
-            <input
-              type="datetime-local"
-              value={endsAtInput}
-              onChange={(event) => setEndsAtInput(event.target.value)}
-            />
-          </label>
-          <label className="stack stack--1">
-            <span className="muted-text">Meeting link (optional)</span>
-            <input
-              type="text"
-              value={meetingLinkInput}
-              placeholder="https://..."
-              onChange={(event) => setMeetingLinkInput(event.target.value)}
-            />
-          </label>
-          <Button
-            variant="primary"
-            disabled={!canCreate}
-            onClick={() => {
-              void handleCreateSlot();
-            }}
-          >
-            {isCreating ? 'Creating...' : 'Create slot'}
-          </Button>
-        </div>
-      </Card>
-
-      <Card title="Slots">
-        <div className="stack stack--2">
-          <div className="appointments-filter-group">
+      <Card className="appointments-composer-card" title="Create availability slot">
+        <div className="appointments-composer">
+          <p className="appointments-composer__intro">
+            Set local date and time first, then share an optional tele-rehab meeting link for the slot.
+          </p>
+          <div className="appointments-composer__grid">
+            <label className="appointments-composer__field">
+              <span className="appointments-composer__label">Start (local datetime)</span>
+              <input
+                type="datetime-local"
+                value={startsAtInput}
+                onChange={(event) => setStartsAtInput(event.target.value)}
+              />
+            </label>
+            <label className="appointments-composer__field">
+              <span className="appointments-composer__label">End (local datetime)</span>
+              <input
+                type="datetime-local"
+                value={endsAtInput}
+                onChange={(event) => setEndsAtInput(event.target.value)}
+              />
+            </label>
+            <label className="appointments-composer__field appointments-composer__field--wide">
+              <span className="appointments-composer__label">Meeting link (optional)</span>
+              <input
+                type="text"
+                value={meetingLinkInput}
+                placeholder="https://..."
+                onChange={(event) => setMeetingLinkInput(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="appointments-composer__actions">
+            <p className="appointments-composer__hint">
+              Slots are created as video visits and become visible in the booking queue immediately.
+            </p>
             <Button
-              variant={slotStatus === 'available' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => setSlotStatus('available')}
+              variant="primary"
+              disabled={!canCreate}
+              onClick={() => {
+                void handleCreateSlot();
+              }}
             >
-              Available
-            </Button>
-            <Button
-              variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => setSlotStatus('closed')}
-            >
-              Closed
+              {isCreating ? 'Creating...' : 'Create slot'}
             </Button>
           </div>
-
-          {slotsQuery.error ? (
-            <AlertBanner variant="error" title="Could not load slots">
-              {toUserMessage(slotsQuery.error)}
-            </AlertBanner>
-          ) : null}
-
-          {slotsQuery.isLoading && (slotsQuery.data?.length ?? 0) === 0 ? (
-            <p className="muted-text">Loading slots...</p>
-          ) : (slotsQuery.data?.length ?? 0) === 0 ? (
-            <EmptyState title="No slots" description="No slots match this filter." />
-          ) : (
-            <div className="stack stack--2">
-              {(slotsQuery.data ?? []).map((slot) => (
-                <div key={slot.slotId} className="appointments-item">
-                  <div className="appointments-item__header">
-                    <p className="appointments-item__title">{formatDateTime(slot.startsAt)}</p>
-                    <Badge variant={toStatusVariant(slot.status ?? 'available')}>
-                      {(slot.status ?? 'available').toUpperCase()}
-                    </Badge>
-                  </div>
-                  <p className="muted-text appointments-item__meta">
-                    Ends: {formatDateTime(slot.endsAt)}
-                  </p>
-                  {slot.meetingLink ? (
-                    <p className="muted-text appointments-item__meta">
-                      Link: {slot.meetingLink}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </Card>
 
-      <Card title="Requests">
-        <div className="stack stack--2">
-          <div className="appointments-filter-group">
-            {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
+      <Card className="appointments-workspace-card" title="Scheduling workspace">
+        <div className="appointments-workspace">
+          <p className="appointments-workspace__intro">
+            Review availability and patient booking requests together to keep scheduling decisions quick and clear.
+          </p>
+
+          <section className="appointments-workspace__section" aria-label="Appointment slots">
+            <header className="appointments-workspace__section-header">
+              <h3 className="appointments-workspace__section-title">Slots</h3>
+              <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
+                {slotStatus === 'available' ? 'Available view' : 'Closed view'}
+              </Badge>
+            </header>
+            <div className="appointments-filter-group appointments-filter-group--segmented">
               <Button
-                key={status}
-                variant={requestStatus === status ? 'primary' : 'secondary'}
+                variant={slotStatus === 'available' ? 'primary' : 'secondary'}
                 size="sm"
-                onClick={() => setRequestStatus(status)}
+                onClick={() => setSlotStatus('available')}
               >
-                {status}
+                Available
               </Button>
-            ))}
-          </div>
+              <Button
+                variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setSlotStatus('closed')}
+              >
+                Closed
+              </Button>
+            </div>
 
-          {requestsQuery.error ? (
-            <AlertBanner variant="error" title="Could not load requests">
-              {toUserMessage(requestsQuery.error)}
-            </AlertBanner>
-          ) : null}
+            {slotsQuery.error ? (
+              <AlertBanner variant="error" title="Could not load slots">
+                {toUserMessage(slotsQuery.error)}
+              </AlertBanner>
+            ) : null}
 
-          {requestsQuery.isLoading && (requestsQuery.data?.length ?? 0) === 0 ? (
-            <p className="muted-text">Loading requests...</p>
-          ) : (requestsQuery.data?.length ?? 0) === 0 ? (
-            <EmptyState title="No requests" description="No appointment requests match this filter." />
-          ) : (
-            <div className="stack stack--2">
-              {(requestsQuery.data ?? []).map((item) => (
-                <div key={item.requestId} className="appointments-item">
-                  <div className="appointments-item__header">
-                    <p className="appointments-item__title">{formatDateTime(item.startsAt)}</p>
-                    <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
-                  </div>
-                  <p className="muted-text appointments-item__meta">
-                    Patient: {item.patientId} · Ends: {formatDateTime(item.endsAt)}
-                  </p>
-                  {item.note ? (
-                    <p className="muted-text appointments-item__meta">
-                      Note: {item.note}
-                    </p>
-                  ) : null}
-                  {item.status === 'pending' ? (
-                    <div className="appointments-item__actions">
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        disabled={reviewingKey !== null}
-                        onClick={() => {
-                          void handleReview(item.requestId, 'approved');
-                        }}
-                      >
-                        {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={reviewingKey !== null}
-                        onClick={() => {
-                          void handleReview(item.requestId, 'rejected');
-                        }}
-                      >
-                        {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
-                      </Button>
-                    </div>
-                  ) : null}
+            {slotsQuery.isLoading && slots.length === 0 ? (
+              <div className="appointments-skeleton" aria-label="Appointment slots loading placeholder">
+                <Skeleton height={64} />
+                <Skeleton height={64} />
+                <Skeleton height={64} />
+              </div>
+            ) : slots.length === 0 ? (
+              <div className="appointments-empty-state" role="status" aria-live="polite">
+                <div className="appointments-empty-state__title-row">
+                  <span className="appointments-empty-state__icon" aria-hidden="true">
+                    ⏱
+                  </span>
+                  <h3 className="appointments-empty-state__title">No slots in this view</h3>
                 </div>
+                <p className="appointments-empty-state__description">
+                  Create a new availability slot to start accepting patient booking requests.
+                </p>
+              </div>
+            ) : (
+              <div className="stack stack--2">
+                {slots.map((slot) => (
+                  <div key={slot.slotId} className="appointments-item">
+                    <div className="appointments-item__header">
+                      <div className="appointments-item__title-group">
+                        <p className="appointments-item__title">{formatDateTime(slot.startsAt)}</p>
+                        <p className="appointments-item__subtitle">
+                          Ends {formatDateTime(slot.endsAt)}
+                        </p>
+                      </div>
+                      <Badge variant={toStatusVariant(slot.status ?? 'available')}>
+                        {(slot.status ?? 'available').toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="appointments-item__meta-row">
+                      <span className="appointments-item__meta-chip">Video visit</span>
+                      {slot.clinicianName ? (
+                        <span className="appointments-item__meta-chip">Clinician: {slot.clinicianName}</span>
+                      ) : null}
+                      {slot.createdAt ? (
+                        <span className="appointments-item__meta-chip">
+                          Created {formatDateTime(slot.createdAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {slot.meetingLink ? (
+                      <p className="appointments-item__meta appointments-item__meta--link">
+                        Meeting link:{' '}
+                        <a href={slot.meetingLink} target="_blank" rel="noreferrer">
+                          {slot.meetingLink}
+                        </a>
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <div className="appointments-workspace__divider" aria-hidden="true" />
+
+          <section className="appointments-workspace__section" aria-label="Appointment requests">
+            <header className="appointments-workspace__section-header">
+              <h3 className="appointments-workspace__section-title">Requests</h3>
+              <Badge variant={requestStatus === 'pending' ? 'warning' : 'default'}>
+                {requestStatus}
+              </Badge>
+            </header>
+            <div className="appointments-filter-group appointments-filter-group--segmented">
+              {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
+                <Button
+                  key={status}
+                  variant={requestStatus === status ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => setRequestStatus(status)}
+                >
+                  {status}
+                </Button>
               ))}
             </div>
-          )}
+
+            {requestsQuery.error ? (
+              <AlertBanner variant="error" title="Could not load requests">
+                {toUserMessage(requestsQuery.error)}
+              </AlertBanner>
+            ) : null}
+
+            {requestsQuery.isLoading && requests.length === 0 ? (
+              <div className="appointments-skeleton" aria-label="Appointment requests loading placeholder">
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+              </div>
+            ) : requests.length === 0 ? (
+              <div className="appointments-empty-state" role="status" aria-live="polite">
+                <div className="appointments-empty-state__title-row">
+                  <span className="appointments-empty-state__icon" aria-hidden="true">
+                    ✓
+                  </span>
+                  <h3 className="appointments-empty-state__title">No requests in this view</h3>
+                </div>
+                <p className="appointments-empty-state__description">
+                  Requests matching the current status filter will appear here when patients book slots.
+                </p>
+              </div>
+            ) : (
+              <div className="stack stack--2">
+                {requests.map((item) => (
+                  <div key={item.requestId} className="appointments-item">
+                    <div className="appointments-item__header">
+                      <div className="appointments-item__title-group">
+                        <p className="appointments-item__title">{formatDateTime(item.startsAt)}</p>
+                        <p className="appointments-item__subtitle">
+                          Ends {formatDateTime(item.endsAt)}
+                        </p>
+                      </div>
+                      <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
+                    </div>
+                    <div className="appointments-item__meta-row">
+                      <span className="appointments-item__meta-chip">Patient: {item.patientId}</span>
+                      <span className="appointments-item__meta-chip">Video visit</span>
+                      <span className="appointments-item__meta-chip">
+                        Created {formatDateTime(item.createdAt)}
+                      </span>
+                      {item.reviewedAt ? (
+                        <span className="appointments-item__meta-chip">
+                          Reviewed {formatDateTime(item.reviewedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {item.note ? (
+                      <p className="appointments-item__meta">
+                        Note: {item.note}
+                      </p>
+                    ) : null}
+                    {item.status === 'pending' ? (
+                      <div className="appointments-item__actions">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          disabled={reviewingKey !== null}
+                          onClick={() => {
+                            void handleReview(item.requestId, 'approved');
+                          }}
+                        >
+                          {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={reviewingKey !== null}
+                          onClick={() => {
+                            void handleReview(item.requestId, 'rejected');
+                          }}
+                        >
+                          {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </Card>
     </div>

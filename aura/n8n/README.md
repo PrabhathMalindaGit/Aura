@@ -1,4 +1,21 @@
-# Aura n8n Setup — Workflow 01 (Alert Webhook)
+# Aura n8n Setup
+
+This file keeps the click-by-click setup for the alert-created workflow.
+
+For the current canonical workflow suite, use:
+- `/Users/University/Final Project/aura/n8n/workflows/README.md`
+
+Current follow-through automation exports include:
+- `01 - Alert Created Webhook`
+- `03 - Missed Check-in Follow-through`
+- `04 - Task Reminder Timing`
+- `06 - Appointment Reminder and Status Follow-up`
+- `07 - Daily Digest`
+- `08 - Communication No-Response Escalation`
+
+If a local n8n workspace already contains older imported workflows, treat the JSON exports in `/Users/University/Final Project/aura/n8n/workflows/` as the source of truth and clean up legacy live imports manually before a final demo.
+
+## Workflow 01 setup guide
 
 ## Canonical export path
 - Canonical workflow JSON exports are maintained in:

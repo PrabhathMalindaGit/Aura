@@ -12,6 +12,8 @@ npm run dev
 
 ## Routes
 
+- `/dashboard`
+- `/worklist`
 - `/alerts`
 - `/insights`
 - `/appointments`
@@ -20,9 +22,11 @@ npm run dev
 - `/patients/:patientId/plan`
 - `/patients/:patientId/weekly-report`
 - `/proms/:promId`
+- `/login`
+- `/session-ended`
 - `/smoke`
 - `/settings`
-- unknown paths redirect to `/alerts`
+- unknown paths redirect to `/dashboard`
 
 ## Environment
 
@@ -51,7 +55,8 @@ Dashboard routes are now auth-gated.
 1) Open the dashboard and sign in at `/login`.
 2) Use seeded demo credentials:
    - `clinician1@example.com` / `devpass123`
-3) After successful sign-in, dashboard routes (`/alerts`, `/patients`, etc.) load normally.
+3) After successful sign-in, the default landing page is `/dashboard`.
+4) Core clinician routes (`/worklist`, `/alerts`, `/patients`, `/appointments`, `/settings`) remain directly reachable after login.
 
 If a session expires or token becomes stale, the app clears invalid auth tokens and routes back to `/login` with a recovery message.
 

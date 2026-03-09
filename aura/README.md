@@ -1,5 +1,16 @@
 # Aura – Local Development Setup
 
+## Current demo/proof entry points
+
+For the current demo-ready product state, use these repo sources as truth:
+
+- Final proof pack: `/Users/University/Final Project/aura/FINAL_PROOF_PACK.md`
+- Canonical n8n workflow exports: `/Users/University/Final Project/aura/n8n/workflows/README.md`
+- Dashboard routes and auth bootstrap: `/Users/University/Final Project/aura/dashboard/README.md`
+- Mobile workflow surfaces: `/Users/University/Final Project/aura/mobile/README.md`
+
+This README remains useful for local service startup, but it is no longer the full product walkthrough on its own.
+
 ## Prerequisites
 - Docker Desktop
 - VSCode
@@ -10,9 +21,9 @@
 1. `cd "/Users/University/Final Project/aura" && docker compose up -d`
 2. Start AI service (`uvicorn src.main:app --reload --host 127.0.0.1 --port 8001`) from `/Users/University/Final Project/aura/ai`.
 3. Start Node backend (`npm run dev`) from `/Users/University/Final Project/aura/server`.
-4. Ensure n8n workflow `01 - Alert Created Webhook` is active.
-5. Run a high-risk check-in (`pain: 8`) to `/checkins`.
-6. Verify alert via `/clinician/alerts?status=open`.
+4. Import/activate the canonical n8n exports described in `/Users/University/Final Project/aura/n8n/workflows/README.md`.
+5. Open the dashboard at `/dashboard` after clinician login.
+6. Run the end-to-end checks in `/Users/University/Final Project/aura/FINAL_PROOF_PACK.md`.
 
 ### 0) Before you start (one-time checks)
 1. Confirm Docker Desktop is running.
@@ -104,10 +115,12 @@ docker logs aura_mongo --tail 50
 lsof -i :3000
 ```
 
-### 4) Set up n8n Workflow 01 (Alert Created Webhook)
-This is a one-time setup step.
+### 4) Set up n8n canonical workflows
+The alert-created workflow is still required, but the current demo flow also expects the follow-through workflow exports under `/Users/University/Final Project/aura/n8n/workflows/`.
 
-Full guide: `/Users/University/Final Project/aura/n8n/README.md`
+Full guides:
+- `/Users/University/Final Project/aura/n8n/README.md` for Workflow 01 click-by-click setup
+- `/Users/University/Final Project/aura/n8n/workflows/README.md` for the full canonical export list
 
 Mini-summary:
 - Create `Webhook` node with method `POST` and path `alert-created`.

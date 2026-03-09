@@ -1,0 +1,75 @@
+# Aura Final Proof Pack
+
+## Seeded demo access
+
+- Clinician login: `clinician1@example.com` / `devpass123`
+- Secondary clinician login: `clinician2@example.com` / `devpass123`
+- Patient access codes: `P1-DEMO`, `P2-DEMO`, `P3-DEMO`
+
+## Screenshot checklist
+
+Capture the following against the current local build:
+
+1. Clinician login screen: `/login`
+2. Dashboard Home / command center: `/dashboard`
+3. Alerts queue: `/alerts`
+4. Worklist: `/worklist`
+5. Patients page: `/patients`
+6. Patient Detail 2.0: `/patients/p1`
+7. Appointments page: `/appointments`
+8. Insights page: `/insights`
+9. Settings page: `/settings`
+10. Mobile Check-in 2.0: `/(tabs)/checkin`
+11. Mobile Tasks: `/tasks`
+12. Mobile Appointments: `/appointments`
+13. Mobile Reminders: `/reminders`
+14. Mobile Chat with workflow-linked prompt card: `/(tabs)/chat`
+15. n8n canonical workflow list: `/Users/University/Final Project/aura/n8n/workflows/`
+16. n8n live workflow list or execution evidence from local n8n UI / CLI
+17. Telegram or callback evidence, if available, from alert or automation callback state
+18. High-risk alert visible on clinician side after a triggered check-in/chat
+19. Follow-up task or reminder visible on the patient side
+20. Appointment state visible on the patient side (`awaiting_confirmation` or `upcoming`)
+
+## Demo order
+
+### 2-minute version
+
+1. Start at clinician `/dashboard`.
+2. Show `/worklist` and open `/patients/p1`.
+3. On Patient Detail, call out Current Priorities, tasks, communication, and appointments.
+4. Switch to mobile and show Check-in 2.0, Tasks, and Reminders.
+5. Close on n8n workflow evidence and the clinician alert/reminder continuity.
+
+### 3–5 minute version
+
+1. Clinician login at `/login`, landing on `/dashboard`.
+2. Dashboard Home: summary modules, priority queue, and follow-up context.
+3. Worklist: filter/action-oriented patient review.
+4. Patient Detail 2.0: operational header, Current Priorities, Tasks, Communication, Appointments.
+5. Mobile: Check-in 2.0 with body map and safety-aware support section.
+6. Mobile: Tasks, Appointments, Reminders, and Chat workflow prompt.
+7. n8n: show canonical workflow list and one execution/callback proof point.
+8. End on the completed loop:
+   clinician state -> backend task/workflow state -> n8n follow-through -> patient reminder -> backend-visible callback/audit.
+
+## Evidence map
+
+| Claim | Proof source |
+|---|---|
+| High-risk check-ins create alerts | `/Users/University/Final Project/aura/server/tests/patient.routes.test.ts`, local API probe, `/clinician/alerts` visibility |
+| High-risk chat triggers safety routing | `/Users/University/Final Project/aura/server/tests/*chat*`, local API probe, alert context route |
+| Dashboard command center is implemented | `/Users/University/Final Project/aura/dashboard/src/pages/DashboardHomePage.tsx`, `/Users/University/Final Project/aura/dashboard/src/app/routes.tsx`, dashboard live smoke |
+| Worklist is implemented and action-oriented | `/Users/University/Final Project/aura/dashboard/src/pages/WorklistPage.tsx`, worklist route tests, local API probe |
+| Patient Detail 2.0 is operational | `/Users/University/Final Project/aura/dashboard/src/pages/PatientDetailPage.tsx`, patient detail tests/e2e |
+| Patient tasks are real and actionable | `/Users/University/Final Project/aura/server/src/routes/tasks.routes.ts`, `/Users/University/Final Project/aura/mobile/app/tasks.tsx`, local API probe |
+| Patient appointments reflect workflow state | `/Users/University/Final Project/aura/server/src/routes/appointments.routes.ts`, `/Users/University/Final Project/aura/mobile/app/appointments.tsx`, local API probe |
+| In-app reminders are grounded in real workflow data | `/Users/University/Final Project/aura/mobile/app/reminders.tsx`, `/Users/University/Final Project/aura/mobile/src/utils/reminders.ts`, mobile QA checks |
+| Alert-created automation is truthful | `/Users/University/Final Project/aura/server/src/routes/events.routes.ts`, `/Users/University/Final Project/aura/n8n/workflows/01 - Alert Created Webhook (POST → Dedupe → Table → Telegram → Respond).json`, server callback tests |
+| Follow-through automation exists | `/Users/University/Final Project/aura/server/src/routes/internalN8n.routes.ts`, `/Users/University/Final Project/aura/server/src/services/followThroughAutomationService.ts`, `n8n/workflows/03/04/06/07/08`, server tests |
+
+## Local verification notes
+
+- The canonical n8n export set is under `/Users/University/Final Project/aura/n8n/workflows/`.
+- A local n8n workspace may still contain older imported workflows. For a clean final demo, review the live workflow list and disable or remove stale entries before presenting.
+- Backend remains the source of truth. n8n orchestrates reminders and follow-through and writes back truthful automation status through `/events/automation-status`.

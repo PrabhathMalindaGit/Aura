@@ -16,6 +16,19 @@ In the Expo terminal:
 
 - UI redesign implementation checklist: `docs/UI_REDESIGN_CHECKLIST.md`
 
+## Current patient workflow surfaces
+
+The current mobile app is no longer just check-in + chat. The demo-ready patient flow now includes:
+
+- `/(tabs)` Home with attention preview cards and reminder visibility
+- `/(tabs)/checkin` for Check-in 2.0 with body map and rehab monitoring sections
+- `/tasks` for patient-facing follow-up tasks
+- `/appointments` for patient appointment state and requests
+- `/reminders` for the in-app reminder center
+- `/(tabs)/chat` with workflow-linked communication prompt cards
+
+Use these surfaces for demo flow and screenshot capture instead of the older milestone-only paths below.
+
 ### Safe start scripts
 
 - `npm run start`: recommended. Cleans invalid port env vars and forces Expo/Metro to port `8081`.

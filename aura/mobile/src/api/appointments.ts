@@ -14,10 +14,18 @@ export type AppointmentRequestStatus =
   | "rejected"
   | "canceled";
 
+export type AppointmentWorkflowStatus =
+  | "upcoming"
+  | "awaiting_confirmation"
+  | "completed"
+  | "missed"
+  | "reschedule_requested";
+
 export type AppointmentRequestItem = {
   requestId: string;
   slotId: string;
   status: AppointmentRequestStatus;
+  workflowStatus?: AppointmentWorkflowStatus;
   startsAt: string;
   endsAt: string;
   modality: "video";
@@ -73,6 +81,7 @@ function normalizeRequest(value: unknown): AppointmentRequestItem | null {
     requestId?: unknown;
     slotId?: unknown;
     status?: unknown;
+    workflowStatus?: unknown;
     startsAt?: unknown;
     endsAt?: unknown;
     modality?: unknown;
@@ -92,6 +101,14 @@ function normalizeRequest(value: unknown): AppointmentRequestItem | null {
     record.status === "canceled"
       ? record.status
       : null;
+  const workflowStatus =
+    record.workflowStatus === "upcoming" ||
+    record.workflowStatus === "awaiting_confirmation" ||
+    record.workflowStatus === "completed" ||
+    record.workflowStatus === "missed" ||
+    record.workflowStatus === "reschedule_requested"
+      ? record.workflowStatus
+      : undefined;
   if (!requestId || !slotId || !startsAt || !endsAt || !createdAt || !status) {
     return null;
   }
@@ -99,6 +116,7 @@ function normalizeRequest(value: unknown): AppointmentRequestItem | null {
     requestId,
     slotId,
     status,
+    workflowStatus,
     startsAt,
     endsAt,
     modality: record.modality === "video" ? "video" : "video",

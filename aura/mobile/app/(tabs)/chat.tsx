@@ -22,8 +22,10 @@ import {
   type ChatItem,
   type ChatSendResponse,
 } from "@/src/api/patient";
+import { listPatientTasks } from "@/src/api/tasks";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
+import { WorkflowMessageCard } from "@/src/components/communication/WorkflowMessageCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { GlassPanel } from "@/src/components/GlassPanel";
 import { HeroHeader } from "@/src/components/HeroHeader";
@@ -35,13 +37,16 @@ import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
 import { getCachedChat, setCachedChat } from "@/src/state/chatCache";
+import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
+import type { PatientTaskItem } from "@/src/types/task";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { derivePatientTaskAction, formatTaskDueLabel, formatTaskSupportText, isCommunicationTask } from "@/src/utils/tasks";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 type MessageDelivery = "sending" | "sent" | "failed";
@@ -62,6 +67,7 @@ type NoticeState = {
 type ChatDevParams = {
   devPreset?: string | string[];
   devToken?: string | string[];
+  focusComposer?: string | string[];
 };
 
 const CHAT_LIMIT = 50;
@@ -329,6 +335,7 @@ export default function ChatScreen() {
     label: chatRefreshLabel,
     refreshLocal: refreshChatStamp,
   } = useLastRefreshed("chat");
+  const tasksRefresh = useLastRefreshed("tasks");
   const {
     label: chatLoadErrorLabel,
     lastError: chatLoadLastError,
@@ -356,6 +363,7 @@ export default function ChatScreen() {
   });
 
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [workflowTasks, setWorkflowTasks] = useState<PatientTaskItem[]>([]);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -376,6 +384,13 @@ export default function ChatScreen() {
     }
     return params.devToken ?? "";
   }, [params.devToken]);
+
+  const focusComposer = useMemo(() => {
+    if (Array.isArray(params.focusComposer)) {
+      return params.focusComposer[0] ?? "";
+    }
+    return params.focusComposer ?? "";
+  }, [params.focusComposer]);
 
   const isSendDisabled = useMemo(
     () => isSending || isOffline || !draft.trim(),
@@ -462,6 +477,13 @@ export default function ChatScreen() {
   const quickActions = useMemo<QuickAction[]>(
     () => [
       {
+        key: "tasks",
+        label: "Tasks",
+        icon: "tasks",
+        accessibilityLabel: "Open tasks",
+        route: "/tasks",
+      },
+      {
         key: "plan",
         label: "Plan",
         icon: "exercise",
@@ -492,6 +514,38 @@ export default function ChatScreen() {
     ],
     []
   );
+
+  const communicationPrompts = useMemo(
+    () =>
+      workflowTasks
+        .filter((task) => isCommunicationTask(task) && (task.status === "open" || task.status === "in_progress"))
+        .slice(0, 2),
+    [workflowTasks],
+  );
+
+  const loadWorkflowTasks = useCallback(async () => {
+    if (!auth.token || !patientId) {
+      return;
+    }
+
+    if (isOffline) {
+      const cached = await getCachedTasks(patientId);
+      setWorkflowTasks(cached?.items ?? []);
+      return;
+    }
+
+    try {
+      const items = await listPatientTasks(auth.token, {
+        status: ["open", "in_progress"],
+        limit: 20,
+      });
+      setWorkflowTasks(items);
+      await Promise.all([setCachedTasks(patientId, items), tasksRefresh.refreshLocal()]);
+    } catch {
+      const cached = await getCachedTasks(patientId);
+      setWorkflowTasks(cached?.items ?? []);
+    }
+  }, [auth.token, isOffline, patientId, tasksRefresh]);
 
   const persistRenderable = useCallback(
     (nextMessages: MessageItem[]) => {
@@ -921,6 +975,13 @@ export default function ChatScreen() {
   }, [auth.status, loadHistory]);
 
   useEffect(() => {
+    if (auth.status !== "signedIn") {
+      return;
+    }
+    void loadWorkflowTasks();
+  }, [auth.status, loadWorkflowTasks]);
+
+  useEffect(() => {
     if (!__DEV__ || auth.status !== "signedIn") {
       return;
     }
@@ -946,6 +1007,19 @@ export default function ChatScreen() {
       router.setParams({ devPreset: "", devToken: "" });
     }
   }, [auth.status, devPreset, devToken, router]);
+
+  useEffect(() => {
+    if (!focusComposer) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 48);
+
+    router.setParams({ focusComposer: "" });
+    return () => clearTimeout(timer);
+  }, [focusComposer, router]);
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -1040,6 +1114,30 @@ export default function ChatScreen() {
         <View style={styles.flex}>
           <View style={styles.metaArea}>
             <Text style={styles.metaText}>Last updated: {chatRefreshLabel}</Text>
+
+            {communicationPrompts.length > 0 ? (
+              <View style={styles.promptStack}>
+                {communicationPrompts.map((task) => {
+                  const action = derivePatientTaskAction(task);
+                  return (
+                    <WorkflowMessageCard
+                      key={task.id}
+                      compact
+                      title={task.title}
+                      text={formatTaskSupportText(task)}
+                      chips={[formatTaskDueLabel(task), task.sourceLabel].filter(
+                        (value): value is string => Boolean(value),
+                      )}
+                      tone={task.priority === "urgent" || task.priority === "high" ? "warning" : "info"}
+                      actionLabel={action.label}
+                      onAction={() => {
+                        router.push(action.href as never);
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            ) : null}
 
             {showingOfflineCache && !isOffline ? (
               <Banner
@@ -1290,6 +1388,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     metaArea: {
       gap: tokens.spacing.xs,
       marginBottom: tokens.spacing.sm,
+    },
+    promptStack: {
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
     },
     metaText: {
       color: tokens.colors.textMuted,

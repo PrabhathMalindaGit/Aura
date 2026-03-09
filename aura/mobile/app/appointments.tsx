@@ -1,6 +1,6 @@
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -56,6 +56,13 @@ import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTokens } from "@/src/theme/tokens";
+import {
+  appointmentWorkflowTone,
+  buildAppointmentChips,
+  formatAppointmentTimeRange,
+  formatAppointmentWorkflowLabel,
+  getAppointmentWorkflowStatus,
+} from "@/src/utils/appointments";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -84,6 +91,9 @@ type EmptyListItem = {
 };
 
 type ListItem = SlotGroupListItem | RequestListItem | EmptyListItem;
+type AppointmentRouteParams = {
+  mode?: string | string[];
+};
 
 const REMINDER_LEAD_MS = 15 * 60 * 1000;
 const isExpoGo = Constants.appOwnership === "expo";
@@ -215,29 +225,6 @@ function toLocalDateKey(value: string): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatStatus(value: AppointmentRequestItem["status"]): string {
-  if (value === "approved") {
-    return "Approved";
-  }
-  if (value === "rejected") {
-    return "Rejected";
-  }
-  if (value === "canceled") {
-    return "Canceled";
-  }
-  return "Pending";
-}
-
-function requestStatusTone(value: AppointmentRequestItem["status"]): "success" | "warning" | "info" {
-  if (value === "approved") {
-    return "success";
-  }
-  if (value === "pending") {
-    return "warning";
-  }
-  return "info";
-}
-
 async function scheduleAppointmentReminder(startsAtISO: string): Promise<string | null> {
   const startsAtMs = Date.parse(startsAtISO);
   if (!Number.isFinite(startsAtMs)) {
@@ -280,6 +267,7 @@ async function scheduleAppointmentReminder(startsAtISO: string): Promise<string 
 export default function AppointmentsScreen() {
   const auth = useAuth();
   const router = useRouter();
+  const params = useLocalSearchParams<AppointmentRouteParams>();
   const isOffline = useIsOffline();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -296,9 +284,17 @@ export default function AppointmentsScreen() {
   const [cancelingRequestId, setCancelingRequestId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [notice, setNotice] = useState<NoticeState | null>(null);
-  const [mode, setMode] = useState<ViewMode>("book");
+  const initialMode = useMemo<ViewMode>(() => {
+    const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+    return rawMode === "requests" || rawMode === "upcoming" ? rawMode : "book";
+  }, [params.mode]);
+  const [mode, setMode] = useState<ViewMode>(initialMode);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   const pendingCount = useMemo(
     () => requests.filter((item) => item.status === "pending").length,
@@ -781,30 +777,13 @@ export default function AppointmentsScreen() {
 
   const renderRequestCard = useCallback(
     (requestItem: AppointmentRequestItem) => {
+      const workflowStatus = getAppointmentWorkflowStatus(requestItem);
       const link = requestItem.meetingLink?.trim();
-
-      const chips: MediaCardChip[] = [
-        {
-          text: formatStatus(requestItem.status),
-          tone:
-            requestItem.status === "approved"
-              ? "success"
-              : requestItem.status === "pending"
-                ? "warning"
-                : "muted",
-        },
-      ];
-
-      if (link) {
-        chips.push({ text: "Video link", tone: "info" });
-      }
-      if (requestItem.reviewedAt) {
-        chips.push({ text: "Reviewed", tone: "muted" });
-      }
+      const chips: MediaCardChip[] = buildAppointmentChips(requestItem);
 
       const actions: MediaCardAction[] = [];
 
-      if (requestItem.status === "approved" && link) {
+      if (workflowStatus === "upcoming" && link) {
         actions.push({
           label: "Open link",
           kind: "secondary",
@@ -848,25 +827,31 @@ export default function AppointmentsScreen() {
             leading={{
               type: "icon",
               icon:
-                requestItem.status === "approved"
+                workflowStatus === "upcoming" || workflowStatus === "completed"
                   ? "success"
-                  : requestItem.status === "pending"
+                  : workflowStatus === "awaiting_confirmation" ||
+                      workflowStatus === "reschedule_requested"
                     ? "warning"
-                    : "info",
+                    : workflowStatus === "missed"
+                      ? "warning"
+                      : "info",
               tone:
-                requestItem.status === "approved"
+                workflowStatus === "upcoming" || workflowStatus === "completed"
                   ? "success"
-                  : requestItem.status === "pending"
+                  : workflowStatus === "awaiting_confirmation" ||
+                      workflowStatus === "reschedule_requested"
                     ? "warning"
-                    : "muted",
+                    : workflowStatus === "missed"
+                      ? "warning"
+                      : "muted",
             }}
-            title={formatDateTime(requestItem.startsAt)}
-            subtitle={`Ends ${formatDateTime(requestItem.endsAt)}${
+            title={formatAppointmentTimeRange(requestItem)}
+            subtitle={`${formatAppointmentWorkflowLabel(workflowStatus)}${
               requestItem.reviewedAt ? ` · Reviewed ${formatDateTime(requestItem.reviewedAt)}` : ""
             }`}
             statusPill={{
-              text: formatStatus(requestItem.status),
-              tone: requestStatusTone(requestItem.status),
+              text: formatAppointmentWorkflowLabel(workflowStatus),
+              tone: appointmentWorkflowTone(workflowStatus),
             }}
             chips={chips}
             actions={actions.slice(0, 2)}

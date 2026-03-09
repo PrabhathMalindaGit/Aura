@@ -27,6 +27,8 @@ export type ErrorKey =
   | "wearablesSync"
   | "appointmentsLoad"
   | "appointmentRequest"
+  | "tasksLoad"
+  | "taskAction"
   | "insightsLoad"
   | "caregiverLoad"
   | "caregiverLogin"

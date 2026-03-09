@@ -17,6 +17,7 @@ export type RefreshKey =
   | "medications"
   | "wearables"
   | "appointments"
+  | "tasks"
   | "insights"
   | "caregiver"
   | "weeklyReport"

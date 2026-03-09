@@ -10,7 +10,7 @@ import {
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { SmartImage, type SmartImageSource } from "@/src/components/SmartImage";
-import { StatusPill } from "@/src/components/StatusPill";
+import { StatusPill, type StatusPillVariant } from "@/src/components/StatusPill";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 import {
@@ -61,7 +61,7 @@ export type MediaCardProps = {
   subtitle?: string;
   chips?: MediaCardChip[];
   maxChips?: number;
-  statusPill?: { text: string; tone?: "info" | "success" | "warning" | "danger" };
+  statusPill?: { text: string; tone?: StatusPillVariant };
   onPress?: () => void;
   rightAccessory?: ReactNode;
   showChevron?: boolean;

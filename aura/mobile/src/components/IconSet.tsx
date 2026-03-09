@@ -6,6 +6,7 @@ import { useTokens } from "@/src/theme/tokens";
 
 export type DomainIconKey =
   | "home"
+  | "tasks"
   | "checkin"
   | "chat"
   | "progress"
@@ -32,6 +33,7 @@ export type DomainIconKey =
 
 export const DOMAIN_ICON_KEYS: DomainIconKey[] = [
   "home",
+  "tasks",
   "checkin",
   "chat",
   "progress",
@@ -61,6 +63,7 @@ type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 const ICON_MAP: Record<DomainIconKey, MaterialIconName> = {
   home: "home-variant-outline",
+  tasks: "clipboard-text-outline",
   checkin: "clipboard-check-outline",
   chat: "message-text-outline",
   progress: "chart-line",

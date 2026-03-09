@@ -28,6 +28,7 @@ import { clearPromsCache } from "@/src/state/promsCache";
 import { clearCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
 import { clearReminderPrefs } from "@/src/state/reminderPrefs";
+import { clearCachedTasks } from "@/src/state/tasksCache";
 import { clearAllWeeklyReportsForPatient } from "@/src/state/weeklyReportCache";
 import { clearPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { clearCachedWearables } from "@/src/state/wearablesCache";
@@ -59,6 +60,7 @@ export async function resetDemoState(
     tasks.push(clearCachedMedications(patientId));
     tasks.push(clearAllMedicationTodayCacheForPatient(patientId));
     tasks.push(clearCachedPhotosList(patientId));
+    tasks.push(clearCachedTasks(patientId));
     tasks.push(clearCachedWearables(patientId));
     tasks.push(clearCachedRehabPhases(patientId));
     tasks.push(clearPromsCache(patientId));

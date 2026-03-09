@@ -3,9 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
+import { listMyRequests, type AppointmentRequestItem } from "@/src/api/appointments";
+import { listPatientTasks } from "@/src/api/tasks";
 import type { CheckInItem } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
+import { WorkflowMessageCard } from "@/src/components/communication/WorkflowMessageCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { DomainIcon } from "@/src/components/IconSet";
@@ -20,7 +23,10 @@ import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
-import { getCachedAppointmentRequests } from "@/src/state/appointmentsCache";
+import {
+  getCachedAppointmentRequests,
+  setCachedAppointmentRequests,
+} from "@/src/state/appointmentsCache";
 import { getCachedCheckins } from "@/src/state/checkinsCache";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedInsights } from "@/src/state/insightsCache";
@@ -34,10 +40,14 @@ import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
+import { useIsOffline } from "@/src/state/network";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { useTokens } from "@/src/theme/tokens";
+import type { PatientTaskItem } from "@/src/types/task";
 import { addDaysISO, formatISOToHuman, startOfWeekMondayISO, todayISO } from "@/src/utils/date";
+import { buildHomeWorkflowPrompts, isTaskActive } from "@/src/utils/tasks";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 type StatusSummary = {
@@ -163,6 +173,7 @@ function average(values: number[]): number | null {
 export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
+  const isOffline = useIsOffline();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
@@ -214,12 +225,14 @@ export default function HomeScreen() {
     itemCount: 0,
     top: [],
   });
+  const [taskItems, setTaskItems] = useState<PatientTaskItem[]>([]);
   const [appointmentSummary, setAppointmentSummary] = useState<AppointmentSummary>({
     status: "loading",
     pendingCount: 0,
     nextApprovedLabel: "No upcoming appointments",
     hasUpcoming: false,
   });
+  const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequestItem[]>([]);
 
   const checkinsRefresh = useLastRefreshed("checkins");
   const exercisePlanRefresh = useLastRefreshed("exercisePlan");
@@ -228,6 +241,7 @@ export default function HomeScreen() {
   const weeklyReportRefresh = useLastRefreshed("weeklyReport");
   const insightsRefresh = useLastRefreshed("insights");
   const appointmentsRefresh = useLastRefreshed("appointments");
+  const tasksRefresh = useLastRefreshed("tasks");
 
   const totalPendingUploads = useMemo(
     () =>
@@ -610,12 +624,37 @@ export default function HomeScreen() {
     let active = true;
 
     if (!patientId) {
+      setTaskItems([]);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const cached = await getCachedTasks(patientId);
+      if (!active) {
+        return;
+      }
+
+      setTaskItems(cached?.items ?? []);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [patientId, tasksRefresh.lastRefreshedAt]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!patientId) {
       setAppointmentSummary({
         status: "ready",
         pendingCount: 0,
         nextApprovedLabel: "No upcoming appointments",
         hasUpcoming: false,
       });
+      setAppointmentRequests([]);
       return () => {
         active = false;
       };
@@ -628,6 +667,7 @@ export default function HomeScreen() {
       }
 
       const requests = cached?.requests ?? [];
+      setAppointmentRequests(requests);
       const pendingCount = requests.filter((item) => item.status === "pending").length;
       const approved = requests
         .filter((item) => item.status === "approved")
@@ -653,6 +693,79 @@ export default function HomeScreen() {
       active = false;
     };
   }, [appointmentsRefresh.lastRefreshedAt, patientId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const token = auth.token;
+      if (!token || !patientId || isOffline) {
+        return undefined;
+      }
+
+      let active = true;
+      void (async () => {
+        const [tasksResult, appointmentsResult] = await Promise.allSettled([
+          listPatientTasks(token, {
+            status: ["open", "in_progress", "completed", "cancelled"],
+            limit: 100,
+          }),
+          listMyRequests(token),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        if (tasksResult.status === "fulfilled") {
+          setTaskItems(tasksResult.value);
+          await Promise.all([
+            setCachedTasks(patientId, tasksResult.value),
+            tasksRefresh.refreshLocal(),
+          ]);
+        }
+
+        if (appointmentsResult.status === "fulfilled") {
+          setAppointmentRequests(appointmentsResult.value);
+          const pendingCount = appointmentsResult.value.filter((item) => item.status === "pending").length;
+          const approved = appointmentsResult.value
+            .filter((item) => item.status === "approved")
+            .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt));
+          const nextApproved =
+            approved.find((item) => Date.parse(item.startsAt) > Date.now()) ?? null;
+
+          setAppointmentSummary({
+            status: "ready",
+            pendingCount,
+            nextApprovedLabel: nextApproved
+              ? new Date(nextApproved.startsAt).toLocaleString([], {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "No upcoming appointments",
+            hasUpcoming: Boolean(nextApproved),
+          });
+          await Promise.all([
+            setCachedAppointmentRequests(patientId, appointmentsResult.value),
+            appointmentsRefresh.refreshLocal(),
+          ]);
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [appointmentsRefresh, auth.token, isOffline, patientId, tasksRefresh]),
+  );
+
+  const activeTaskCount = useMemo(
+    () => taskItems.filter((task) => isTaskActive(task)).length,
+    [taskItems],
+  );
+  const workflowPrompts = useMemo(
+    () => buildHomeWorkflowPrompts(taskItems, appointmentRequests),
+    [appointmentRequests, taskItems],
+  );
 
   return (
     <Screen
@@ -682,12 +795,12 @@ export default function HomeScreen() {
             tone: "warning",
           },
           {
-            icon: "settings",
+            icon: "tasks",
             onPress: () => {
-              router.push("/(tabs)/settings" as never);
+              router.push("/tasks" as never);
             },
-            accessibilityLabel: "Open Settings",
-            tone: "muted",
+            accessibilityLabel: "Open Tasks",
+            tone: activeTaskCount > 0 ? "accent" : "muted",
           },
         ]}
       />
@@ -710,6 +823,65 @@ export default function HomeScreen() {
         ]}
         style={styles.statusStrip}
       />
+
+      {workflowPrompts.length > 0 ? (
+        <Section
+          title="Needs your attention"
+          subtitle="Follow-up steps, appointment updates, and care team prompts."
+          left={
+            <View accessible={false} importantForAccessibility="no-hide-descendants">
+              <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />
+            </View>
+          }
+          card
+        >
+          <View style={styles.actionStack}>
+            {workflowPrompts.map((prompt) =>
+              prompt.kind === "communication" ? (
+                <WorkflowMessageCard
+                  key={prompt.id}
+                  compact
+                  title={prompt.title}
+                  text={prompt.text}
+                  chips={prompt.chips}
+                  tone={prompt.tone}
+                  actionLabel={prompt.action.label}
+                  onAction={() => {
+                    router.push(prompt.action.href as never);
+                  }}
+                />
+              ) : (
+                <MediaCard
+                  key={prompt.id}
+                  variant="compact"
+                  leading={{ type: "icon", icon: prompt.action.icon, tone: "accent" }}
+                  title={prompt.title}
+                  subtitle={prompt.text}
+                  chips={prompt.chips?.map((chip) => ({ text: chip, tone: "muted" })) ?? []}
+                  actions={[
+                    {
+                      label: prompt.action.label,
+                      kind: "primary",
+                      onPress: () => {
+                        router.push(prompt.action.href as never);
+                      },
+                    },
+                  ]}
+                  showChevron={false}
+                />
+              ),
+            )}
+            {activeTaskCount > 0 ? (
+              <SecondaryButton
+                label="View all tasks"
+                onPress={() => {
+                  router.push("/tasks" as never);
+                }}
+              />
+            ) : null}
+          </View>
+        </Section>
+      ) : null}
 
       {/* Tracker grid */}
       <View style={styles.trackerGrid}>

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Types } from "mongoose";
 import { z } from "zod";
 
+import { requirePatientAuth } from "../middleware/patientAuth";
 import {
   TASK_PRIORITY_VALUES,
   TASK_STATUS_VALUES,
@@ -20,8 +21,10 @@ import {
   updateTask,
 } from "../services/taskService";
 import type { RequestWithUser } from "../types/auth";
+import type { RequestWithPatient } from "../types/patientAuth";
 
 const router = Router();
+const MAX_LIMIT = 100;
 
 const csvEnumArray = <T extends readonly [string, ...string[]]>(values: T) =>
   z.preprocess((value) => {
@@ -102,6 +105,76 @@ const listTasksQuerySchema = z.object({
   sortDirection: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
+const patientTasksQuerySchema = z.object({
+  status: csvEnumArray(TASK_STATUS_VALUES),
+  limit: z.coerce.number().int().min(1).max(MAX_LIMIT).optional().default(50),
+});
+
+function cleanString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function extractPatientAction(meta: unknown):
+  | {
+      kind: string;
+      label?: string;
+    }
+  | undefined {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    return undefined;
+  }
+
+  const action = (meta as Record<string, unknown>).patientAction;
+  if (!action || typeof action !== "object" || Array.isArray(action)) {
+    return undefined;
+  }
+
+  const kind = cleanString((action as Record<string, unknown>).kind);
+  if (!kind) {
+    return undefined;
+  }
+
+  return {
+    kind,
+    label: cleanString((action as Record<string, unknown>).label),
+  };
+}
+
+function mapPatientTask(task: Awaited<ReturnType<typeof getTaskById>> extends infer T
+  ? T extends null
+    ? never
+    : T
+  : never) {
+  const meta =
+    task.meta && typeof task.meta === "object" && !Array.isArray(task.meta)
+      ? task.meta
+      : undefined;
+
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    type: task.type,
+    priority: task.priority,
+    status: task.status,
+    dueAt: task.dueAt,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    completedAt: task.completedAt,
+    cancelledAt: task.cancelledAt,
+    sourceLabel: cleanString(task.source?.label),
+    linkedAppointmentId: task.linkedAppointmentId,
+    linkedMessageId: task.linkedMessageId,
+    patientCompletable: meta?.patientCompletable === true,
+    patientAction: extractPatientAction(meta),
+  };
+}
+
 function parseIsoDateTime(
   value: string | undefined | null,
   path: string,
@@ -130,6 +203,43 @@ function parseIsoDateTime(
 function isObjectId(value: string): boolean {
   return Types.ObjectId.isValid(value);
 }
+
+router.get("/patient/tasks", requirePatientAuth, async (req, res) => {
+  const requestWithPatient = req as RequestWithPatient;
+  const patientId = requestWithPatient.patient?.id;
+  if (!patientId) {
+    return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+  }
+
+  const parsedQuery = patientTasksQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    return res.status(400).json({
+      ok: false,
+      error: "VALIDATION_ERROR",
+      details: parsedQuery.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+  }
+
+  const statuses =
+    parsedQuery.data.status && parsedQuery.data.status.length > 0
+      ? parsedQuery.data.status
+      : (["open", "in_progress"] as const);
+
+  const tasks = await listTasks({
+    patientId,
+    status: [...statuses],
+    sortBy: "dueAt",
+    sortDirection: "asc",
+  });
+
+  return res.json({
+    ok: true,
+    items: tasks.slice(0, parsedQuery.data.limit).map((task) => mapPatientTask(task)),
+  });
+});
 
 router.get("/clinician/tasks", async (req, res) => {
   const requestWithUser = req as RequestWithUser;
@@ -340,6 +450,55 @@ router.post("/clinician/tasks/:id/complete", async (req, res) => {
   return res.json({
     ok: true,
     task,
+  });
+});
+
+router.post("/patient/tasks/:id/complete", requirePatientAuth, async (req, res) => {
+  const requestWithPatient = req as RequestWithPatient;
+  const patientId = requestWithPatient.patient?.id;
+  if (!patientId) {
+    return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+  }
+
+  const taskId = String(req.params.id ?? "");
+  if (!isObjectId(taskId)) {
+    return res.status(400).json({
+      ok: false,
+      error: "VALIDATION_ERROR",
+      details: [{ path: "id", message: "id must be a valid task id" }],
+    });
+  }
+
+  const existingTask = await getTaskById(taskId);
+  if (!existingTask || existingTask.patientId !== patientId) {
+    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+  }
+
+  const meta =
+    existingTask.meta &&
+    typeof existingTask.meta === "object" &&
+    !Array.isArray(existingTask.meta)
+      ? existingTask.meta
+      : undefined;
+  if (meta?.patientCompletable !== true) {
+    return res.status(409).json({
+      ok: false,
+      error: "ACTION_NOT_ALLOWED",
+      message: "This task can only be completed after the related action is done.",
+    });
+  }
+
+  const task =
+    existingTask.status === "completed"
+      ? existingTask
+      : await completeTask(taskId);
+  if (!task) {
+    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+  }
+
+  return res.json({
+    ok: true,
+    item: mapPatientTask(task),
   });
 });
 

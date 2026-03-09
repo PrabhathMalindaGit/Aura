@@ -89,6 +89,7 @@ function normalizeRequests(value: unknown): StoredRequestsCache | null {
         requestId?: unknown;
         slotId?: unknown;
         status?: unknown;
+        workflowStatus?: unknown;
         startsAt?: unknown;
         endsAt?: unknown;
         createdAt?: unknown;
@@ -99,6 +100,12 @@ function normalizeRequests(value: unknown): StoredRequestsCache | null {
         typeof row.startsAt === "string" &&
         typeof row.endsAt === "string" &&
         typeof row.createdAt === "string" &&
+        (row.workflowStatus === undefined ||
+          row.workflowStatus === "upcoming" ||
+          row.workflowStatus === "awaiting_confirmation" ||
+          row.workflowStatus === "completed" ||
+          row.workflowStatus === "missed" ||
+          row.workflowStatus === "reschedule_requested") &&
         (row.status === "pending" ||
           row.status === "approved" ||
           row.status === "rejected" ||

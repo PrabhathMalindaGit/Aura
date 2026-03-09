@@ -174,13 +174,31 @@ describe("patient auth + patient endpoints", () => {
         adherence: {
           exercises: 0.5,
           medication: true,
+          medicationStatus: "taken",
+        },
+        symptoms: {
+          flags: ["stiffness", "fatigue"],
+        },
+        recovery: {
+          difficultyLevel: 3,
+          confidenceLevel: 4,
+          mobilityLevel: 3,
+        },
+        support: {
+          stressLevel: 2,
+          wantsFollowUp: true,
         },
         sleep: {
           hours: 7.5,
           quality: 4,
           disturbances: 1,
         },
+        dailySignals: {
+          hydrationLevel: 4,
+          energyLevel: 3,
+        },
         bodyMap: {
+          primaryRegion: "lower_back",
           regions: [
             { region: "lower_back", intensity: 6, type: "stiffness" },
             { region: "knee_left", intensity: 5, type: "ache" },
@@ -200,12 +218,34 @@ describe("patient auth + patient endpoints", () => {
     const created = await CheckIn.findOne({ patientId: "p1" }).lean();
     expect(created).toBeTruthy();
     expect(created?.pain).toBe(2);
+    expect(created?.symptoms).toMatchObject({
+      flags: ["stiffness", "fatigue"],
+    });
+    expect(created?.adherence).toMatchObject({
+      exercises: 0.5,
+      medication: true,
+      medicationStatus: "taken",
+    });
+    expect(created?.recovery).toMatchObject({
+      difficultyLevel: 3,
+      confidenceLevel: 4,
+      mobilityLevel: 3,
+    });
+    expect(created?.support).toMatchObject({
+      stressLevel: 2,
+      wantsFollowUp: true,
+    });
     expect(created?.sleep).toMatchObject({
       hours: 7.5,
       quality: 4,
       disturbances: 1,
     });
+    expect(created?.dailySignals).toMatchObject({
+      hydrationLevel: 4,
+      energyLevel: 3,
+    });
     expect(created?.bodyMap).toMatchObject({
+      primaryRegion: "lower_back",
       regions: [
         { region: "lower_back", intensity: 6, type: "stiffness" },
         { region: "knee_left", intensity: 5, type: "ache" },
@@ -240,6 +280,79 @@ describe("patient auth + patient endpoints", () => {
 
     const alertCount = await Alert.countDocuments({ patientId: "p1" });
     expect(alertCount).toBe(1);
+  });
+
+  it("escalates when urgent help is requested even if classifier returns low risk", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(emitAlertCreated).mockResolvedValue(true);
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-25",
+        mood: 3,
+        pain: 2,
+        support: {
+          needsUrgentHelp: true,
+          feelsSafe: false,
+          wantsFollowUp: true,
+        },
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.risk.level).toBe("high");
+    expect(response.body.risk.reasonCodes).toEqual(
+      expect.arrayContaining(["URGENT_HELP_REQUESTED", "PATIENT_UNSAFE"])
+    );
+    expect(typeof response.body.alertId).toBe("string");
+
+    const created = await CheckIn.findOne({ patientId: "p1" }).lean();
+    expect(created?.risk).toMatchObject({
+      level: "high",
+      reasons: expect.arrayContaining(["URGENT_HELP_REQUESTED", "PATIENT_UNSAFE"]),
+    });
+  });
+
+  it("returns 409 for a duplicate patient check-in on the same date", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const payload = {
+      date: "2026-02-26",
+      mood: 4,
+      pain: 3,
+      notes: "Stable today",
+    };
+
+    const first = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send(payload);
+
+    expect(first.status).toBe(200);
+    expect(first.body.ok).toBe(true);
+
+    const duplicate = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send(payload);
+
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.ok).toBe(false);
+    expect(duplicate.body.error).toBe("DUPLICATE_CHECKIN");
   });
 
   it("rejects invalid sleep fields on patient check-in", async () => {
@@ -318,12 +431,34 @@ describe("patient auth + patient endpoints", () => {
         date: "2026-02-20",
         mood: 4,
         pain: 3,
+        symptoms: {
+          flags: ["swelling", "fatigue"],
+        },
+        adherence: {
+          exercises: 0.7,
+          medication: true,
+          medicationStatus: "taken",
+        },
+        recovery: {
+          difficultyLevel: 2,
+          confidenceLevel: 4,
+          mobilityLevel: 3,
+        },
+        support: {
+          stressLevel: 2,
+          wantsExtraSupport: true,
+        },
         sleep: {
           hours: 7,
           quality: 4,
           disturbances: 1,
         },
+        dailySignals: {
+          hydrationLevel: 3,
+          energyLevel: 4,
+        },
         bodyMap: {
+          primaryRegion: "knee_left",
           regions: [{ region: "knee_left", intensity: 5, type: "ache" }],
         },
         createdAt: new Date("2026-02-20T08:00:00.000Z"),
@@ -366,12 +501,34 @@ describe("patient auth + patient endpoints", () => {
     expect(withSleep.status).toBe(200);
     expect(withSleep.body.checkins[0]).toMatchObject({
       date: "2026-02-20",
+      symptoms: {
+        flags: ["swelling", "fatigue"],
+      },
+      adherence: {
+        exercises: 0.7,
+        medication: true,
+        medicationStatus: "taken",
+      },
+      recovery: {
+        difficultyLevel: 2,
+        confidenceLevel: 4,
+        mobilityLevel: 3,
+      },
+      support: {
+        stressLevel: 2,
+        wantsExtraSupport: true,
+      },
       sleep: {
         hours: 7,
         quality: 4,
         disturbances: 1,
       },
+      dailySignals: {
+        hydrationLevel: 3,
+        energyLevel: 4,
+      },
       bodyMap: {
+        primaryRegion: "knee_left",
         regions: [{ region: "knee_left", intensity: 5, type: "ache" }],
       },
     });

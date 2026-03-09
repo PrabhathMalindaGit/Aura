@@ -7,6 +7,10 @@ import {
   isBodyMapPainType,
   isBodyMapRegion,
 } from "../constants/bodyMap";
+import {
+  CHECK_IN_MEDICATION_STATUSES,
+  CHECK_IN_SYMPTOM_FLAGS,
+} from "../constants/checkin";
 import { env } from "../env";
 import { validateBody } from "../middleware/validate";
 import { AIUnavailableError } from "../services/ai";
@@ -67,6 +71,7 @@ function resolveLegacyPatientId(
 function normalizeBodyMapForFlow(
   value:
     | {
+        primaryRegion?: unknown;
         regions?: Array<{
           region?: unknown;
           intensity?: unknown;
@@ -95,7 +100,14 @@ function normalizeBodyMapForFlow(
     }
   }
 
-  return regions.length > 0 ? { regions } : undefined;
+  return regions.length > 0
+    ? {
+        primaryRegion: isBodyMapRegion(value.primaryRegion)
+          ? value.primaryRegion
+          : undefined,
+        regions,
+      }
+    : undefined;
 }
 
 const sleepHoursSchema = z
@@ -122,6 +134,29 @@ const checkInSchema = z
       .object({
         exercises: z.number().min(0).max(1).optional(),
         medication: z.boolean().optional(),
+        medicationStatus: z.enum(CHECK_IN_MEDICATION_STATUSES).optional(),
+        medicationReason: z.string().trim().max(120).optional(),
+      })
+      .optional(),
+    symptoms: z
+      .object({
+        flags: z.array(z.enum(CHECK_IN_SYMPTOM_FLAGS)).max(8).optional(),
+      })
+      .optional(),
+    recovery: z
+      .object({
+        difficultyLevel: z.number().int().min(1).max(5).optional(),
+        confidenceLevel: z.number().int().min(1).max(5).optional(),
+        mobilityLevel: z.number().int().min(1).max(5).optional(),
+      })
+      .optional(),
+    support: z
+      .object({
+        stressLevel: z.number().int().min(1).max(5).optional(),
+        feelsSafe: z.boolean().optional(),
+        wantsFollowUp: z.boolean().optional(),
+        wantsExtraSupport: z.boolean().optional(),
+        needsUrgentHelp: z.boolean().optional(),
       })
       .optional(),
     sleep: z
@@ -131,8 +166,15 @@ const checkInSchema = z
         disturbances: z.number().int().min(0).max(5).optional(),
       })
       .optional(),
+    dailySignals: z
+      .object({
+        hydrationLevel: z.number().int().min(1).max(5).optional(),
+        energyLevel: z.number().int().min(1).max(5).optional(),
+      })
+      .optional(),
     bodyMap: z
       .object({
+        primaryRegion: z.enum(BODY_MAP_REGIONS).optional(),
         regions: z.array(bodyMapRegionSchema).max(12),
       })
       .optional(),
@@ -151,11 +193,44 @@ const checkInSchema = z
       }
       seen.add(region.region);
     });
+
+    const flags = value.symptoms?.flags ?? [];
+    if (new Set(flags).size !== flags.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["symptoms", "flags"],
+        message: "Duplicate symptom flags are not allowed",
+      });
+    }
+
+    if (
+      value.bodyMap?.primaryRegion &&
+      !regions.some((region) => region.region === value.bodyMap?.primaryRegion)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bodyMap", "primaryRegion"],
+        message: "Primary region must also be selected in bodyMap.regions",
+      });
+    }
   });
 
 router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
   try {
-    const { patientId: bodyPatientId, date, mood, pain, adherence, sleep, bodyMap, notes } =
+    const {
+      patientId: bodyPatientId,
+      date,
+      mood,
+      pain,
+      symptoms,
+      adherence,
+      recovery,
+      support,
+      sleep,
+      dailySignals,
+      bodyMap,
+      notes,
+    } =
       req.body as z.infer<typeof checkInSchema>;
 
     const resolvedPatient = resolveLegacyPatientId(
@@ -193,8 +268,12 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
       date,
       mood,
       pain,
+      symptoms,
       adherence,
+      recovery,
+      support,
       sleep,
+      dailySignals,
       bodyMap: normalizeBodyMapForFlow(bodyMap),
       notes,
     });

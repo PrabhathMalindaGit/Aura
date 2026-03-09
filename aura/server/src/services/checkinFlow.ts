@@ -7,6 +7,12 @@ import {
   type BodyMapPainType,
   type BodyMapRegion,
 } from "../constants/bodyMap";
+import {
+  isCheckInMedicationStatus,
+  isCheckInSymptomFlag,
+  type CheckInMedicationStatus,
+  type CheckInSymptomFlag,
+} from "../constants/checkin";
 import { toId } from "../utils/ids";
 import { classify } from "./ai";
 import { emitAlertCreated } from "./n8n";
@@ -16,16 +22,38 @@ export type CheckInFlowInput = {
   date: string;
   mood: number;
   pain: number;
+  symptoms?: {
+    flags?: CheckInSymptomFlag[];
+  };
   adherence?: {
     exercises?: number;
     medication?: boolean;
+    medicationStatus?: CheckInMedicationStatus;
+    medicationReason?: string;
+  };
+  recovery?: {
+    difficultyLevel?: number;
+    confidenceLevel?: number;
+    mobilityLevel?: number;
+  };
+  support?: {
+    stressLevel?: number;
+    feelsSafe?: boolean;
+    wantsFollowUp?: boolean;
+    wantsExtraSupport?: boolean;
+    needsUrgentHelp?: boolean;
   };
   sleep?: {
     hours?: number;
     quality?: number;
     disturbances?: number;
   };
+  dailySignals?: {
+    hydrationLevel?: number;
+    energyLevel?: number;
+  };
   bodyMap?: {
+    primaryRegion?: BodyMapRegion;
     regions: Array<{
       region: BodyMapRegion;
       intensity: number;
@@ -110,24 +138,82 @@ function normalizeBodyMap(
     };
   });
 
-  return { regions: normalized };
+  if (value?.primaryRegion) {
+    if (!isBodyMapRegion(value.primaryRegion)) {
+      throw new CheckInValidationError(
+        "bodyMap.primaryRegion",
+        "bodyMap.primaryRegion must be one of the allowed body map regions"
+      );
+    }
+
+    if (!normalized.some((entry) => entry.region === value.primaryRegion)) {
+      throw new CheckInValidationError(
+        "bodyMap.primaryRegion",
+        "bodyMap.primaryRegion must also be included in bodyMap.regions"
+      );
+    }
+  }
+
+  return {
+    primaryRegion: value?.primaryRegion,
+    regions: normalized,
+  };
+}
+
+function normalizeSymptomFlags(
+  value: CheckInFlowInput["symptoms"]
+): CheckInFlowInput["symptoms"] | undefined {
+  if (!value?.flags || value.flags.length === 0) {
+    return undefined;
+  }
+
+  const seen = new Set<string>();
+  const flags = value.flags.map((flag, index) => {
+    if (!isCheckInSymptomFlag(flag)) {
+      throw new CheckInValidationError(
+        `symptoms.flags.${index}`,
+        "symptoms.flags must only include allowed values"
+      );
+    }
+    if (seen.has(flag)) {
+      throw new CheckInValidationError(
+        "symptoms.flags",
+        "symptoms.flags must not contain duplicate values"
+      );
+    }
+    seen.add(flag);
+    return flag;
+  });
+
+  return flags.length > 0 ? { flags } : undefined;
 }
 
 export async function processCheckIn(
   input: CheckInFlowInput
 ): Promise<CheckInFlowResult> {
   const bodyMap = normalizeBodyMap(input.bodyMap);
+  const symptoms = normalizeSymptomFlags(input.symptoms);
 
   const checkin = await CheckIn.create({
     patientId: input.patientId,
     date: input.date,
     mood: input.mood,
     pain: input.pain,
+    symptoms,
     adherence: {
       exercises: input.adherence?.exercises ?? 0,
       medication: input.adherence?.medication ?? false,
+      medicationStatus:
+        input.adherence?.medicationStatus &&
+        isCheckInMedicationStatus(input.adherence.medicationStatus)
+          ? input.adherence.medicationStatus
+          : undefined,
+      medicationReason: input.adherence?.medicationReason,
     },
+    recovery: input.recovery,
     sleep: input.sleep,
+    support: input.support,
+    dailySignals: input.dailySignals,
     bodyMap,
     notes: input.notes,
     risk: {
@@ -136,22 +222,41 @@ export async function processCheckIn(
     },
   });
 
+  const explicitReasonCodes = [
+    input.support?.needsUrgentHelp ? "URGENT_HELP_REQUESTED" : null,
+    input.support?.feelsSafe === false ? "PATIENT_UNSAFE" : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const classificationText = [
+    input.notes || "",
+    input.support?.needsUrgentHelp ? "Patient says they need urgent help." : "",
+    input.support?.feelsSafe === false ? "Patient says they do not feel safe." : "",
+    input.support?.wantsFollowUp ? "Patient requested clinician follow-up." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const aiResult = await classify({
     type: "checkin",
     pain: input.pain,
-    text: input.notes || "",
+    text: classificationText,
   });
 
+  const reasonCodes = Array.from(
+    new Set<string>([...aiResult.reasons, ...explicitReasonCodes])
+  );
+  const riskLevel = explicitReasonCodes.length > 0 ? "high" : aiResult.risk;
+
   checkin.risk = {
-    level: aiResult.risk,
-    reasons: aiResult.reasons,
+    level: riskLevel,
+    reasons: reasonCodes,
   };
   await checkin.save();
 
-  if (aiResult.risk === "high") {
+  if (riskLevel === "high") {
     const alert = await Alert.create({
       patientId: input.patientId,
-      reason: aiResult.reasons.join(", "),
+      reason: reasonCodes.join(", "),
       source: {
         type: "checkin",
         sourceId: toId(checkin._id),
@@ -163,7 +268,7 @@ export async function processCheckIn(
       patientId: input.patientId,
       alertId: toId(alert._id),
       payload: {
-        reasons: aiResult.reasons,
+        reasons: reasonCodes,
         pain: input.pain,
       },
     });
@@ -173,14 +278,14 @@ export async function processCheckIn(
       patientId: input.patientId,
       alertId: toId(alert._id),
       risk: "high",
-      reason: aiResult.reasons,
+      reason: reasonCodes,
       timestamp: new Date().toISOString(),
     });
 
     return {
       checkInId: toId(checkin._id),
       riskLevel: "high",
-      reasonCodes: aiResult.reasons,
+      reasonCodes,
       alertId: toId(alert._id),
       n8nDelivered,
     };
@@ -189,6 +294,6 @@ export async function processCheckIn(
   return {
     checkInId: toId(checkin._id),
     riskLevel: "low",
-    reasonCodes: aiResult.reasons,
+    reasonCodes,
   };
 }

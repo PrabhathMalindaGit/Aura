@@ -6,6 +6,10 @@ import {
   type BodyMapPainType,
   type BodyMapRegion,
 } from "@/src/utils/bodyMapLabels";
+import type {
+  CheckinMedicationStatus,
+  CheckinSymptomFlag,
+} from "@/src/types/checkin";
 
 type PatientLike = {
   id?: string;
@@ -32,16 +36,38 @@ export type CheckInCreatePayload = {
   date: string;
   mood: number;
   pain: number;
+  symptoms?: {
+    flags?: CheckinSymptomFlag[];
+  };
   adherence: {
     exercises: number;
     medication: boolean;
+    medicationStatus?: CheckinMedicationStatus;
+    medicationReason?: string;
+  };
+  recovery?: {
+    difficultyLevel?: number;
+    confidenceLevel?: number;
+    mobilityLevel?: number;
+  };
+  support?: {
+    stressLevel?: number;
+    feelsSafe?: boolean;
+    wantsFollowUp?: boolean;
+    wantsExtraSupport?: boolean;
+    needsUrgentHelp?: boolean;
   };
   sleep?: {
     hours?: number;
     quality?: number;
     disturbances?: number;
   };
+  dailySignals?: {
+    hydrationLevel?: number;
+    energyLevel?: number;
+  };
   bodyMap?: {
+    primaryRegion?: BodyMapRegion;
     regions: Array<{
       region: BodyMapRegion;
       intensity: number;
@@ -548,16 +574,38 @@ export type CheckInItem = {
   createdAt?: string;
   pain: number;
   mood: number;
+  symptoms?: {
+    flags?: CheckinSymptomFlag[];
+  };
   adherence?: {
     exercises?: number;
     medication?: boolean;
+    medicationStatus?: CheckinMedicationStatus;
+    medicationReason?: string;
+  };
+  recovery?: {
+    difficultyLevel?: number;
+    confidenceLevel?: number;
+    mobilityLevel?: number;
+  };
+  support?: {
+    stressLevel?: number;
+    feelsSafe?: boolean;
+    wantsFollowUp?: boolean;
+    wantsExtraSupport?: boolean;
+    needsUrgentHelp?: boolean;
   };
   sleep?: {
     hours?: number;
     quality?: number;
     disturbances?: number;
   };
+  dailySignals?: {
+    hydrationLevel?: number;
+    energyLevel?: number;
+  };
   bodyMap?: {
+    primaryRegion?: BodyMapRegion;
     regions: Array<{
       region: BodyMapRegion;
       intensity: number;
@@ -1496,8 +1544,9 @@ function normalizeBodyMap(value: unknown): CheckInItem["bodyMap"] | undefined {
     return undefined;
   }
 
-  const regionsSource = Array.isArray((value as { regions?: unknown }).regions)
-    ? ((value as { regions: unknown[] }).regions as unknown[])
+  const record = value as { regions?: unknown; primaryRegion?: unknown };
+  const regionsSource = Array.isArray(record.regions)
+    ? (record.regions as unknown[])
     : [];
 
   const regions = regionsSource
@@ -1516,7 +1565,30 @@ function normalizeBodyMap(value: unknown): CheckInItem["bodyMap"] | undefined {
     return undefined;
   }
 
-  return { regions };
+  return {
+    primaryRegion: isBodyMapRegion(record.primaryRegion)
+      ? record.primaryRegion
+      : undefined,
+    regions,
+  };
+}
+
+function normalizeSymptomFlags(value: unknown): CheckInItem["symptoms"] | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const flags = Array.isArray((value as { flags?: unknown }).flags)
+    ? ((value as { flags: unknown[] }).flags as unknown[]).filter(
+        (item): item is CheckinSymptomFlag =>
+          item === "stiffness" ||
+          item === "swelling" ||
+          item === "fatigue" ||
+          item === "mobility_difficulty"
+      )
+    : [];
+
+  return flags.length > 0 ? { flags } : undefined;
 }
 
 function normalizeCheckInItem(value: unknown): CheckInItem | null {
@@ -1535,11 +1607,30 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
     adherence?: {
       exercises?: unknown;
       medication?: unknown;
+      medicationStatus?: unknown;
+      medicationReason?: unknown;
+    };
+    symptoms?: unknown;
+    recovery?: {
+      difficultyLevel?: unknown;
+      confidenceLevel?: unknown;
+      mobilityLevel?: unknown;
+    };
+    support?: {
+      stressLevel?: unknown;
+      feelsSafe?: unknown;
+      wantsFollowUp?: unknown;
+      wantsExtraSupport?: unknown;
+      needsUrgentHelp?: unknown;
     };
     sleep?: {
       hours?: unknown;
       quality?: unknown;
       disturbances?: unknown;
+    };
+    dailySignals?: {
+      hydrationLevel?: unknown;
+      energyLevel?: unknown;
     };
     bodyMap?: unknown;
     notes?: unknown;
@@ -1562,12 +1653,28 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
     typeof item.adherence?.medication === "boolean"
       ? item.adherence.medication
       : undefined;
+  const medicationStatus: CheckinMedicationStatus | undefined =
+    item.adherence?.medicationStatus === "taken" ||
+    item.adherence?.medicationStatus === "missed" ||
+    item.adherence?.medicationStatus === "not_applicable"
+      ? item.adherence.medicationStatus
+      : undefined;
+  const medicationReason =
+    typeof item.adherence?.medicationReason === "string" &&
+    item.adherence.medicationReason.trim()
+      ? item.adherence.medicationReason.trim()
+      : undefined;
 
   const adherence =
-    exercises !== null || typeof medication === "boolean"
+    exercises !== null ||
+    typeof medication === "boolean" ||
+    medicationStatus !== undefined ||
+    medicationReason !== undefined
       ? {
           exercises: exercises !== null ? exercises : undefined,
           medication,
+          medicationStatus,
+          medicationReason,
         }
       : undefined;
 
@@ -1583,14 +1690,68 @@ function normalizeCheckInItem(value: unknown): CheckInItem | null {
         }
       : undefined;
 
+  const difficultyLevel = toFiniteNumber(item.recovery?.difficultyLevel);
+  const confidenceLevel = toFiniteNumber(item.recovery?.confidenceLevel);
+  const mobilityLevel = toFiniteNumber(item.recovery?.mobilityLevel);
+  const recovery =
+    difficultyLevel !== null || confidenceLevel !== null || mobilityLevel !== null
+      ? {
+          difficultyLevel: difficultyLevel ?? undefined,
+          confidenceLevel: confidenceLevel ?? undefined,
+          mobilityLevel: mobilityLevel ?? undefined,
+        }
+      : undefined;
+
+  const stressLevel = toFiniteNumber(item.support?.stressLevel);
+  const support =
+    stressLevel !== null ||
+    typeof item.support?.feelsSafe === "boolean" ||
+    typeof item.support?.wantsFollowUp === "boolean" ||
+    typeof item.support?.wantsExtraSupport === "boolean" ||
+    typeof item.support?.needsUrgentHelp === "boolean"
+      ? {
+          stressLevel: stressLevel ?? undefined,
+          feelsSafe:
+            typeof item.support?.feelsSafe === "boolean"
+              ? item.support.feelsSafe
+              : undefined,
+          wantsFollowUp:
+            typeof item.support?.wantsFollowUp === "boolean"
+              ? item.support.wantsFollowUp
+              : undefined,
+          wantsExtraSupport:
+            typeof item.support?.wantsExtraSupport === "boolean"
+              ? item.support.wantsExtraSupport
+              : undefined,
+          needsUrgentHelp:
+            typeof item.support?.needsUrgentHelp === "boolean"
+              ? item.support.needsUrgentHelp
+              : undefined,
+        }
+      : undefined;
+
+  const hydrationLevel = toFiniteNumber(item.dailySignals?.hydrationLevel);
+  const energyLevel = toFiniteNumber(item.dailySignals?.energyLevel);
+  const dailySignals =
+    hydrationLevel !== null || energyLevel !== null
+      ? {
+          hydrationLevel: hydrationLevel ?? undefined,
+          energyLevel: energyLevel ?? undefined,
+        }
+      : undefined;
+
   return {
     id: id.trim(),
     date: typeof item.date === "string" ? item.date : undefined,
     createdAt: typeof item.createdAt === "string" ? item.createdAt : undefined,
     pain,
     mood,
+    symptoms: normalizeSymptomFlags(item.symptoms),
     adherence,
+    recovery,
+    support,
     sleep,
+    dailySignals,
     bodyMap: normalizeBodyMap(item.bodyMap),
     notes: typeof item.notes === "string" ? item.notes : undefined,
   };

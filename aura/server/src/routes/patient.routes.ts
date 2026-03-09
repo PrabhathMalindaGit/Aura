@@ -7,6 +7,12 @@ import {
   isBodyMapPainType,
   isBodyMapRegion,
 } from "../constants/bodyMap";
+import {
+  CHECK_IN_MEDICATION_STATUSES,
+  CHECK_IN_SYMPTOM_FLAGS,
+  isCheckInMedicationStatus,
+  isCheckInSymptomFlag,
+} from "../constants/checkin";
 import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
@@ -59,6 +65,29 @@ const patientCheckInSchema = z
       .object({
         exercises: z.number().min(0).max(1).optional(),
         medication: z.boolean().optional(),
+        medicationStatus: z.enum(CHECK_IN_MEDICATION_STATUSES).optional(),
+        medicationReason: z.string().trim().max(120).optional(),
+      })
+      .optional(),
+    symptoms: z
+      .object({
+        flags: z.array(z.enum(CHECK_IN_SYMPTOM_FLAGS)).max(8).optional(),
+      })
+      .optional(),
+    recovery: z
+      .object({
+        difficultyLevel: z.number().int().min(1).max(5).optional(),
+        confidenceLevel: z.number().int().min(1).max(5).optional(),
+        mobilityLevel: z.number().int().min(1).max(5).optional(),
+      })
+      .optional(),
+    support: z
+      .object({
+        stressLevel: z.number().int().min(1).max(5).optional(),
+        feelsSafe: z.boolean().optional(),
+        wantsFollowUp: z.boolean().optional(),
+        wantsExtraSupport: z.boolean().optional(),
+        needsUrgentHelp: z.boolean().optional(),
       })
       .optional(),
     sleep: z
@@ -68,8 +97,15 @@ const patientCheckInSchema = z
         disturbances: z.number().int().min(0).max(5).optional(),
       })
       .optional(),
+    dailySignals: z
+      .object({
+        hydrationLevel: z.number().int().min(1).max(5).optional(),
+        energyLevel: z.number().int().min(1).max(5).optional(),
+      })
+      .optional(),
     bodyMap: z
       .object({
+        primaryRegion: z.enum(BODY_MAP_REGIONS).optional(),
         regions: z.array(bodyMapRegionSchema).max(12),
       })
       .optional(),
@@ -88,6 +124,26 @@ const patientCheckInSchema = z
       }
       seen.add(region.region);
     });
+
+    const flags = value.symptoms?.flags ?? [];
+    if (new Set(flags).size !== flags.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["symptoms", "flags"],
+        message: "Duplicate symptom flags are not allowed",
+      });
+    }
+
+    if (
+      value.bodyMap?.primaryRegion &&
+      !regions.some((region) => region.region === value.bodyMap?.primaryRegion)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bodyMap", "primaryRegion"],
+        message: "Primary region must also be selected in bodyMap.regions",
+      });
+    }
   });
 
 const patientCheckInsQuerySchema = z.object({
@@ -107,6 +163,7 @@ const patientChatHistoryQuerySchema = z.object({
 function normalizeBodyMapForFlow(
   value:
     | {
+        primaryRegion?: unknown;
         regions?: Array<{
           region?: unknown;
           intensity?: unknown;
@@ -135,7 +192,14 @@ function normalizeBodyMapForFlow(
     }
   }
 
-  return regions.length > 0 ? { regions } : undefined;
+  return regions.length > 0
+    ? {
+        primaryRegion: isBodyMapRegion(value.primaryRegion)
+          ? value.primaryRegion
+          : undefined,
+        regions,
+      }
+    : undefined;
 }
 
 function parseIsoDate(value: string): Date | null {
@@ -283,7 +347,7 @@ router.post(
     }
 
     try {
-      const { date, mood, pain, adherence, sleep, bodyMap, notes } =
+      const { date, mood, pain, symptoms, adherence, recovery, support, sleep, dailySignals, bodyMap, notes } =
         req.body as z.infer<typeof patientCheckInSchema>;
 
       const result = await processCheckIn({
@@ -291,8 +355,12 @@ router.post(
         date,
         mood,
         pain,
+        symptoms,
         adherence,
+        recovery,
+        support,
         sleep,
+        dailySignals,
         bodyMap: normalizeBodyMapForFlow(bodyMap),
         notes,
       });
@@ -430,10 +498,80 @@ router.get("/patient/checkins", requirePatientAuth, async (req, res) => {
         date: checkin.date,
         pain: checkin.pain,
         mood: checkin.mood,
+        symptoms:
+          checkin.symptoms &&
+          Array.isArray(checkin.symptoms.flags) &&
+          checkin.symptoms.flags.length > 0
+            ? {
+                flags: checkin.symptoms.flags.filter((flag) =>
+                  isCheckInSymptomFlag(flag)
+                ),
+              }
+            : undefined,
         adherence: {
           exercises: checkin.adherence?.exercises,
           medication: checkin.adherence?.medication,
+          medicationStatus: isCheckInMedicationStatus(
+            checkin.adherence?.medicationStatus
+          )
+            ? checkin.adherence?.medicationStatus
+            : undefined,
+          medicationReason:
+            typeof checkin.adherence?.medicationReason === "string" &&
+            checkin.adherence.medicationReason.trim().length > 0
+              ? checkin.adherence.medicationReason.trim()
+              : undefined,
         },
+        recovery:
+          checkin.recovery &&
+          (typeof checkin.recovery.difficultyLevel === "number" ||
+            typeof checkin.recovery.confidenceLevel === "number" ||
+            typeof checkin.recovery.mobilityLevel === "number")
+            ? {
+                difficultyLevel:
+                  typeof checkin.recovery.difficultyLevel === "number"
+                    ? checkin.recovery.difficultyLevel
+                    : undefined,
+                confidenceLevel:
+                  typeof checkin.recovery.confidenceLevel === "number"
+                    ? checkin.recovery.confidenceLevel
+                    : undefined,
+                mobilityLevel:
+                  typeof checkin.recovery.mobilityLevel === "number"
+                    ? checkin.recovery.mobilityLevel
+                    : undefined,
+              }
+            : undefined,
+        support:
+          checkin.support &&
+          (typeof checkin.support.stressLevel === "number" ||
+            typeof checkin.support.feelsSafe === "boolean" ||
+            typeof checkin.support.wantsFollowUp === "boolean" ||
+            typeof checkin.support.wantsExtraSupport === "boolean" ||
+            typeof checkin.support.needsUrgentHelp === "boolean")
+            ? {
+                stressLevel:
+                  typeof checkin.support.stressLevel === "number"
+                    ? checkin.support.stressLevel
+                    : undefined,
+                feelsSafe:
+                  typeof checkin.support.feelsSafe === "boolean"
+                    ? checkin.support.feelsSafe
+                    : undefined,
+                wantsFollowUp:
+                  typeof checkin.support.wantsFollowUp === "boolean"
+                    ? checkin.support.wantsFollowUp
+                    : undefined,
+                wantsExtraSupport:
+                  typeof checkin.support.wantsExtraSupport === "boolean"
+                    ? checkin.support.wantsExtraSupport
+                    : undefined,
+                needsUrgentHelp:
+                  typeof checkin.support.needsUrgentHelp === "boolean"
+                    ? checkin.support.needsUrgentHelp
+                    : undefined,
+              }
+            : undefined,
         sleep:
           checkin.sleep &&
           (typeof checkin.sleep.hours === "number" ||
@@ -454,11 +592,29 @@ router.get("/patient/checkins", requirePatientAuth, async (req, res) => {
                     : undefined,
               }
             : undefined,
+        dailySignals:
+          checkin.dailySignals &&
+          (typeof checkin.dailySignals.hydrationLevel === "number" ||
+            typeof checkin.dailySignals.energyLevel === "number")
+            ? {
+                hydrationLevel:
+                  typeof checkin.dailySignals.hydrationLevel === "number"
+                    ? checkin.dailySignals.hydrationLevel
+                    : undefined,
+                energyLevel:
+                  typeof checkin.dailySignals.energyLevel === "number"
+                    ? checkin.dailySignals.energyLevel
+                    : undefined,
+              }
+            : undefined,
         bodyMap:
           checkin.bodyMap &&
           Array.isArray(checkin.bodyMap.regions) &&
           checkin.bodyMap.regions.length > 0
             ? {
+                primaryRegion: isBodyMapRegion(checkin.bodyMap.primaryRegion)
+                  ? checkin.bodyMap.primaryRegion
+                  : undefined,
                 regions: checkin.bodyMap.regions.reduce<
                   Array<{ region: string; intensity: number; type: string }>
                 >((acc, region) => {

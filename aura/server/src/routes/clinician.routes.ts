@@ -282,6 +282,7 @@ function toNumberOrNull(value: unknown): number | null {
 
 function mapBodyMap(value: unknown):
   | {
+      primaryRegion?: string;
       regions: Array<{
         region: string;
         intensity: number;
@@ -330,7 +331,143 @@ function mapBodyMap(value: unknown):
     return undefined;
   }
 
-  return { regions };
+  return {
+    primaryRegion: toStringOrNull(
+      value && typeof value === "object"
+        ? (value as { primaryRegion?: unknown }).primaryRegion
+        : undefined
+    ) ?? undefined,
+    regions,
+  };
+}
+
+function mapSymptomFlags(value: unknown):
+  | {
+      flags: string[];
+    }
+  | undefined {
+  const symptomRecord =
+    value && typeof value === "object" ? (value as { flags?: unknown }) : undefined;
+
+  if (!symptomRecord || !Array.isArray(symptomRecord.flags)) {
+    return undefined;
+  }
+
+  const flags = symptomRecord.flags.filter(
+    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+  );
+
+  return flags.length > 0 ? { flags } : undefined;
+}
+
+function mapRecovery(value: unknown):
+  | {
+      difficultyLevel?: number | null;
+      confidenceLevel?: number | null;
+      mobilityLevel?: number | null;
+    }
+  | undefined {
+  const recoveryRecord =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+
+  if (!recoveryRecord) {
+    return undefined;
+  }
+
+  const difficultyLevel = toNumberOrNull(recoveryRecord.difficultyLevel);
+  const confidenceLevel = toNumberOrNull(recoveryRecord.confidenceLevel);
+  const mobilityLevel = toNumberOrNull(recoveryRecord.mobilityLevel);
+
+  if (
+    difficultyLevel === null &&
+    confidenceLevel === null &&
+    mobilityLevel === null
+  ) {
+    return undefined;
+  }
+
+  return {
+    difficultyLevel,
+    confidenceLevel,
+    mobilityLevel,
+  };
+}
+
+function mapSupport(value: unknown):
+  | {
+      stressLevel?: number | null;
+      feelsSafe?: boolean | null;
+      wantsFollowUp?: boolean | null;
+      wantsExtraSupport?: boolean | null;
+      needsUrgentHelp?: boolean | null;
+    }
+  | undefined {
+  const supportRecord =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+
+  if (!supportRecord) {
+    return undefined;
+  }
+
+  const stressLevel = toNumberOrNull(supportRecord.stressLevel);
+  const feelsSafe =
+    typeof supportRecord.feelsSafe === "boolean" ? supportRecord.feelsSafe : null;
+  const wantsFollowUp =
+    typeof supportRecord.wantsFollowUp === "boolean"
+      ? supportRecord.wantsFollowUp
+      : null;
+  const wantsExtraSupport =
+    typeof supportRecord.wantsExtraSupport === "boolean"
+      ? supportRecord.wantsExtraSupport
+      : null;
+  const needsUrgentHelp =
+    typeof supportRecord.needsUrgentHelp === "boolean"
+      ? supportRecord.needsUrgentHelp
+      : null;
+
+  if (
+    stressLevel === null &&
+    feelsSafe === null &&
+    wantsFollowUp === null &&
+    wantsExtraSupport === null &&
+    needsUrgentHelp === null
+  ) {
+    return undefined;
+  }
+
+  return {
+    stressLevel,
+    feelsSafe,
+    wantsFollowUp,
+    wantsExtraSupport,
+    needsUrgentHelp,
+  };
+}
+
+function mapDailySignals(value: unknown):
+  | {
+      hydrationLevel?: number | null;
+      energyLevel?: number | null;
+    }
+  | undefined {
+  const dailySignalsRecord =
+    value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+
+  if (!dailySignalsRecord) {
+    return undefined;
+  }
+
+  const hydrationLevel = toNumberOrNull(dailySignalsRecord.hydrationLevel);
+  const energyLevel = toNumberOrNull(dailySignalsRecord.energyLevel);
+
+  if (hydrationLevel === null && energyLevel === null) {
+    return undefined;
+  }
+
+  return {
+    hydrationLevel,
+    energyLevel,
+  };
 }
 
 function sanitizePayload(payload: unknown): unknown {
@@ -467,15 +604,21 @@ function mapCheckinSnapshot(checkin: Record<string, unknown>) {
     date: toStringOrNull(checkin.date) ?? "",
     pain: toNumberOrNull(checkin.pain),
     mood: toNumberOrNull(checkin.mood),
+    symptoms: mapSymptomFlags(checkin.symptoms),
     adherence: {
       exercises: toNumberOrNull(adherenceRecord.exercises),
       medication:
         typeof adherenceRecord.medication === "boolean"
           ? adherenceRecord.medication
           : null,
+      medicationStatus: toStringOrNull(adherenceRecord.medicationStatus),
+      medicationReason: toStringOrNull(adherenceRecord.medicationReason),
     },
+    recovery: mapRecovery(checkin.recovery),
+    support: mapSupport(checkin.support),
     notes: toStringOrNull(checkin.notes) ?? undefined,
     bodyMap: mapBodyMap(checkin.bodyMap),
+    dailySignals: mapDailySignals(checkin.dailySignals),
     risk: riskRecord
       ? {
           level: toStringOrNull(riskRecord.level),
@@ -1074,8 +1217,8 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
     });
 
     const selectedFields = includeNotes
-      ? "patientId date pain mood adherence sleep bodyMap risk createdAt notes"
-      : "patientId date pain mood adherence sleep bodyMap risk createdAt";
+      ? "patientId date pain mood symptoms adherence recovery support sleep dailySignals bodyMap risk createdAt notes"
+      : "patientId date pain mood symptoms adherence recovery support sleep dailySignals bodyMap risk createdAt";
 
     const rows = await CheckIn.find({
       patientId,
@@ -1106,13 +1249,18 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
         date: toStringOrNull(row.date) ?? "",
         pain: toNumberOrNull(row.pain),
         mood: toNumberOrNull(row.mood),
+        symptoms: mapSymptomFlags(row.symptoms),
         adherence: {
           exercises: toNumberOrNull(adherenceRecord.exercises),
           medication:
             typeof adherenceRecord.medication === "boolean"
               ? adherenceRecord.medication
               : null,
+          medicationStatus: toStringOrNull(adherenceRecord.medicationStatus),
+          medicationReason: toStringOrNull(adherenceRecord.medicationReason),
         },
+        recovery: mapRecovery(row.recovery),
+        support: mapSupport(row.support),
         sleep: sleepRecord
           ? {
               hours: toNumberOrNull(sleepRecord.hours),
@@ -1120,6 +1268,7 @@ router.get("/clinician/patients/:patientId/checkins", async (req, res) => {
               disturbances: toNumberOrNull(sleepRecord.disturbances),
             }
           : undefined,
+        dailySignals: mapDailySignals(row.dailySignals),
         bodyMap: mapBodyMap(row.bodyMap),
         risk: riskRecord
           ? {

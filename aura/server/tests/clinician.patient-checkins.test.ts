@@ -58,9 +58,27 @@ describe("GET /clinician/patients/:patientId/checkins", () => {
       date: "2026-03-01",
       mood: 2,
       pain: 8,
-      adherence: { exercises: 0.2, medication: false },
+      symptoms: { flags: ["stiffness", "mobility_difficulty"] },
+      adherence: {
+        exercises: 0.2,
+        medication: false,
+        medicationStatus: "missed",
+        medicationReason: "Forgot",
+      },
+      recovery: {
+        difficultyLevel: 5,
+        confidenceLevel: 2,
+        mobilityLevel: 2,
+      },
+      support: {
+        stressLevel: 4,
+        feelsSafe: false,
+        wantsFollowUp: true,
+      },
       sleep: { hours: 5.5, quality: 2, disturbances: 3 },
+      dailySignals: { hydrationLevel: 2, energyLevel: 2 },
       bodyMap: {
+        primaryRegion: "lower_back",
         regions: [
           { region: "lower_back", intensity: 8, type: "stiffness" },
           { region: "knee_left", intensity: 6, type: "ache" },
@@ -115,12 +133,36 @@ describe("GET /clinician/patients/:patientId/checkins", () => {
     ]);
     expect(checkins[0]).not.toHaveProperty("notes");
     expect(checkins[0]).toMatchObject({
+      symptoms: {
+        flags: ["stiffness", "mobility_difficulty"],
+      },
+      adherence: {
+        exercises: 0.2,
+        medication: false,
+        medicationStatus: "missed",
+        medicationReason: "Forgot",
+      },
+      recovery: {
+        difficultyLevel: 5,
+        confidenceLevel: 2,
+        mobilityLevel: 2,
+      },
+      support: {
+        stressLevel: 4,
+        feelsSafe: false,
+        wantsFollowUp: true,
+      },
       sleep: {
         hours: 5.5,
         quality: 2,
         disturbances: 3,
       },
+      dailySignals: {
+        hydrationLevel: 2,
+        energyLevel: 2,
+      },
       bodyMap: {
+        primaryRegion: "lower_back",
         regions: [
           { region: "lower_back", intensity: 8, type: "stiffness" },
           { region: "knee_left", intensity: 6, type: "ache" },

@@ -1,5 +1,9 @@
 import { Schema, model } from "mongoose";
 import { BODY_MAP_PAIN_TYPES, BODY_MAP_REGIONS } from "../constants/bodyMap";
+import {
+  CHECK_IN_MEDICATION_STATUSES,
+  CHECK_IN_SYMPTOM_FLAGS,
+} from "../constants/checkin";
 
 const adherenceSchema = new Schema(
   {
@@ -12,6 +16,47 @@ const adherenceSchema = new Schema(
     medication: {
       type: Boolean,
       default: false,
+    },
+    medicationStatus: {
+      type: String,
+      enum: CHECK_IN_MEDICATION_STATUSES,
+      default: undefined,
+    },
+    medicationReason: {
+      type: String,
+      trim: true,
+    },
+  },
+  { _id: false }
+);
+
+const symptomsSchema = new Schema(
+  {
+    flags: {
+      type: [String],
+      enum: CHECK_IN_SYMPTOM_FLAGS,
+      default: undefined,
+    },
+  },
+  { _id: false }
+);
+
+const recoverySchema = new Schema(
+  {
+    difficultyLevel: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    confidenceLevel: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    mobilityLevel: {
+      type: Number,
+      min: 1,
+      max: 5,
     },
   },
   { _id: false }
@@ -53,6 +98,49 @@ const sleepSchema = new Schema(
   { _id: false }
 );
 
+const supportSchema = new Schema(
+  {
+    stressLevel: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    feelsSafe: {
+      type: Boolean,
+      default: undefined,
+    },
+    wantsFollowUp: {
+      type: Boolean,
+      default: undefined,
+    },
+    wantsExtraSupport: {
+      type: Boolean,
+      default: undefined,
+    },
+    needsUrgentHelp: {
+      type: Boolean,
+      default: undefined,
+    },
+  },
+  { _id: false }
+);
+
+const dailySignalsSchema = new Schema(
+  {
+    hydrationLevel: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    energyLevel: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+  },
+  { _id: false }
+);
+
 const bodyMapRegionSchema = new Schema(
   {
     region: {
@@ -77,6 +165,11 @@ const bodyMapRegionSchema = new Schema(
 
 const bodyMapSchema = new Schema(
   {
+    primaryRegion: {
+      type: String,
+      enum: BODY_MAP_REGIONS,
+      default: undefined,
+    },
     regions: {
       type: [bodyMapRegionSchema],
       default: undefined,
@@ -135,6 +228,14 @@ const checkInSchema = new Schema(
       type: adherenceSchema,
       default: () => ({}),
     },
+    symptoms: {
+      type: symptomsSchema,
+      default: undefined,
+    },
+    recovery: {
+      type: recoverySchema,
+      default: undefined,
+    },
     notes: {
       type: String,
     },
@@ -144,6 +245,14 @@ const checkInSchema = new Schema(
     },
     sleep: {
       type: sleepSchema,
+      default: undefined,
+    },
+    support: {
+      type: supportSchema,
+      default: undefined,
+    },
+    dailySignals: {
+      type: dailySignalsSchema,
       default: undefined,
     },
     bodyMap: {

@@ -29,6 +29,8 @@ export type ErrorKey =
   | "appointmentRequest"
   | "tasksLoad"
   | "taskAction"
+  | "remindersLoad"
+  | "remindersAction"
   | "insightsLoad"
   | "caregiverLoad"
   | "caregiverLogin"

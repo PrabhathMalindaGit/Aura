@@ -8,12 +8,13 @@ import { listPatientTasks } from "@/src/api/tasks";
 import type { CheckInItem } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
-import { WorkflowMessageCard } from "@/src/components/communication/WorkflowMessageCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { DomainIcon } from "@/src/components/IconSet";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { ReminderCard } from "@/src/components/reminders/ReminderCard";
+import { UnreadBadge } from "@/src/components/reminders/UnreadBadge";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
@@ -39,15 +40,18 @@ import { getPending } from "@/src/state/pendingSessions";
 import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
+import { getReminderReadState, markReminderRead, syncReminderReadState } from "@/src/state/inAppReminders";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useIsOffline } from "@/src/state/network";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { useTokens } from "@/src/theme/tokens";
+import type { ReminderItem, ReminderReadState } from "@/src/types/reminder";
 import type { PatientTaskItem } from "@/src/types/task";
 import { addDaysISO, formatISOToHuman, startOfWeekMondayISO, todayISO } from "@/src/utils/date";
-import { buildHomeWorkflowPrompts, isTaskActive } from "@/src/utils/tasks";
+import { buildReminderItems, buildReminderPreview, countUnreadReminders } from "@/src/utils/reminders";
+import { isTaskActive } from "@/src/utils/tasks";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 type StatusSummary = {
@@ -109,6 +113,11 @@ const EMPTY_PENDING: StatusSummary = {
   pendingMedication: 0,
   pendingPhotos: 0,
   pendingWearables: 0,
+};
+
+const EMPTY_READ_STATE: ReminderReadState = {
+  readById: {},
+  updatedAt: 0,
 };
 
 function extractPatientPhotoUri(patient: unknown): string | null {
@@ -226,6 +235,7 @@ export default function HomeScreen() {
     top: [],
   });
   const [taskItems, setTaskItems] = useState<PatientTaskItem[]>([]);
+  const [reminderReadState, setReminderReadState] = useState<ReminderReadState>(EMPTY_READ_STATE);
   const [appointmentSummary, setAppointmentSummary] = useState<AppointmentSummary>({
     status: "loading",
     pendingCount: 0,
@@ -242,6 +252,7 @@ export default function HomeScreen() {
   const insightsRefresh = useLastRefreshed("insights");
   const appointmentsRefresh = useLastRefreshed("appointments");
   const tasksRefresh = useLastRefreshed("tasks");
+  const remindersRefresh = useLastRefreshed("reminders");
 
   const totalPendingUploads = useMemo(
     () =>
@@ -758,13 +769,67 @@ export default function HomeScreen() {
     }, [appointmentsRefresh, auth.token, isOffline, patientId, tasksRefresh]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      if (!patientId) {
+        setReminderReadState(EMPTY_READ_STATE);
+        return () => {
+          active = false;
+        };
+      }
+
+      void (async () => {
+        const currentReadState = await getReminderReadState(patientId);
+        if (!active) {
+          return;
+        }
+
+        const synced = await syncReminderReadState(
+          patientId,
+          buildReminderItems(taskItems, appointmentRequests, currentReadState).map((item) => item.id),
+        );
+        if (!active) {
+          return;
+        }
+        setReminderReadState(synced);
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [appointmentRequests, patientId, taskItems]),
+  );
+
   const activeTaskCount = useMemo(
     () => taskItems.filter((task) => isTaskActive(task)).length,
     [taskItems],
   );
-  const workflowPrompts = useMemo(
-    () => buildHomeWorkflowPrompts(taskItems, appointmentRequests),
-    [appointmentRequests, taskItems],
+  const reminders = useMemo(
+    () => buildReminderItems(taskItems, appointmentRequests, reminderReadState),
+    [appointmentRequests, reminderReadState, taskItems],
+  );
+  const previewReminders = useMemo(
+    () => buildReminderPreview(reminders, 3),
+    [reminders],
+  );
+  const unreadReminderCount = useMemo(
+    () => countUnreadReminders(reminders),
+    [reminders],
+  );
+
+  const handleOpenReminder = useCallback(
+    async (reminder: ReminderItem) => {
+      if (patientId) {
+        const nextReadState = await markReminderRead(patientId, reminder.id);
+        setReminderReadState(nextReadState);
+        await remindersRefresh.refreshLocal();
+      }
+
+      router.push(reminder.linkedRoute as never);
+    },
+    [patientId, remindersRefresh, router],
   );
 
   return (
@@ -793,6 +858,14 @@ export default function HomeScreen() {
             },
             accessibilityLabel: "Open Safety support",
             tone: "warning",
+          },
+          {
+            icon: "bell",
+            onPress: () => {
+              router.push("/reminders" as never);
+            },
+            accessibilityLabel: "Open reminders",
+            tone: unreadReminderCount > 0 ? "accent" : "muted",
           },
           {
             icon: "tasks",
@@ -824,7 +897,7 @@ export default function HomeScreen() {
         style={styles.statusStrip}
       />
 
-      {workflowPrompts.length > 0 ? (
+      {previewReminders.length > 0 ? (
         <Section
           title="Needs your attention"
           subtitle="Follow-up steps, appointment updates, and care team prompts."
@@ -833,52 +906,36 @@ export default function HomeScreen() {
               <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />
             </View>
           }
+          right={<UnreadBadge count={unreadReminderCount} compactLabel />}
           card
         >
           <View style={styles.actionStack}>
-            {workflowPrompts.map((prompt) =>
-              prompt.kind === "communication" ? (
-                <WorkflowMessageCard
-                  key={prompt.id}
-                  compact
-                  title={prompt.title}
-                  text={prompt.text}
-                  chips={prompt.chips}
-                  tone={prompt.tone}
-                  actionLabel={prompt.action.label}
-                  onAction={() => {
-                    router.push(prompt.action.href as never);
-                  }}
-                />
-              ) : (
-                <MediaCard
-                  key={prompt.id}
-                  variant="compact"
-                  leading={{ type: "icon", icon: prompt.action.icon, tone: "accent" }}
-                  title={prompt.title}
-                  subtitle={prompt.text}
-                  chips={prompt.chips?.map((chip) => ({ text: chip, tone: "muted" })) ?? []}
-                  actions={[
-                    {
-                      label: prompt.action.label,
-                      kind: "primary",
-                      onPress: () => {
-                        router.push(prompt.action.href as never);
-                      },
-                    },
-                  ]}
-                  showChevron={false}
-                />
-              ),
-            )}
-            {activeTaskCount > 0 ? (
-              <SecondaryButton
-                label="View all tasks"
-                onPress={() => {
-                  router.push("/tasks" as never);
+            {previewReminders.map((reminder) => (
+              <ReminderCard
+                key={reminder.id}
+                reminder={reminder}
+                compact
+                onPressPrimary={() => {
+                  void handleOpenReminder(reminder);
                 }}
               />
-            ) : null}
+            ))}
+            <View style={styles.homeWorkflowActions}>
+              <SecondaryButton
+                label={unreadReminderCount > 0 ? "Open reminders" : "View reminders"}
+                onPress={() => {
+                  router.push("/reminders" as never);
+                }}
+              />
+              {activeTaskCount > 0 ? (
+                <SecondaryButton
+                  label="View all tasks"
+                  onPress={() => {
+                    router.push("/tasks" as never);
+                  }}
+                />
+              ) : null}
+            </View>
           </View>
         </Section>
       ) : null}
@@ -1231,6 +1288,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       minWidth: 0,
     },
     actionStack: {
+      gap: tokens.spacing.sm,
+    },
+    homeWorkflowActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     bodyText: {

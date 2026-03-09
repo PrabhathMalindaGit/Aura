@@ -18,6 +18,7 @@ export type RefreshKey =
   | "wearables"
   | "appointments"
   | "tasks"
+  | "reminders"
   | "insights"
   | "caregiver"
   | "weeklyReport"

@@ -42,7 +42,7 @@ export function CommunicationOverviewCard({
       }
       action={
         <Button variant="ghost" size="sm" onClick={onOpenPatients}>
-          Open patients
+          Open worklist
         </Button>
       }
     >

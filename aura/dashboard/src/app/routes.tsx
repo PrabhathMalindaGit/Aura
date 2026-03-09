@@ -3,6 +3,7 @@ import { AppShell } from './AppShell';
 import { RequireClinicianAuth } from './RequireClinicianAuth';
 import { AlertsPage } from '../pages/AlertsPage';
 import { DashboardHomePage } from '../pages/DashboardHomePage';
+import { WorklistPage } from '../pages/WorklistPage';
 import { PatientsPage } from '../pages/PatientsPage';
 import { PatientDetailPage } from '../pages/PatientDetailPage';
 import { PatientExercisePlanPage } from '../pages/PatientExercisePlanPage';
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: 'dashboard', element: <DashboardHomePage /> },
+          { path: 'worklist', element: <WorklistPage /> },
           { path: 'alerts', element: <AlertsPage /> },
           { path: 'insights', element: <InsightsQueuePage /> },
           { path: 'appointments', element: <AppointmentsPage /> },

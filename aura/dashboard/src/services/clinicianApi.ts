@@ -69,6 +69,8 @@ import {
   type PromHistoryRow,
   type PromInstanceDetail,
   type WeeklyReportPayload,
+  type WorklistResponse,
+  type WorklistSortOption,
   type ListAlertsResponse,
   type ListPatientsResponse,
   type PatchAlertResponse,
@@ -115,6 +117,16 @@ export const clinicianQueryKeys = {
     ['dashboard', 'follow-up-tasks', limit, assignedToMe],
   dashboardCommunicationOverview: (limit: number): QueryKey =>
     ['dashboard', 'communication-overview', limit],
+  worklist: (params: {
+    search?: string;
+    highRiskOnly?: boolean;
+    hasOpenAlerts?: boolean;
+    needsResponse?: boolean;
+    missedCheckins?: boolean;
+    assignedToMe?: boolean;
+    status?: string;
+    sort?: WorklistSortOption;
+  }): QueryKey => ['worklist', params],
   alerts: (status: AlertStatus): QueryKey => ['alerts', status],
   patientTrends: (patientId: string, days: 14 | 30): QueryKey => ['patient-trends', patientId, days],
   alertContext: (alertId: string): QueryKey => ['alert-context', alertId],
@@ -907,6 +919,37 @@ export async function listPatients(): Promise<PatientSummary[]> {
   return response.patients;
 }
 
+export interface ListWorklistParams {
+  search?: string;
+  highRiskOnly?: boolean;
+  hasOpenAlerts?: boolean;
+  needsResponse?: boolean;
+  missedCheckins?: boolean;
+  assignedToMe?: boolean;
+  status?: string;
+  sort?: WorklistSortOption;
+}
+
+export async function listClinicianWorklist(
+  params: ListWorklistParams = {},
+): Promise<WorklistResponse> {
+  const response = await fetchJson<WorklistResponse>('/clinician/worklist', {
+    method: 'GET',
+    query: {
+      search: params.search?.trim() || undefined,
+      highRiskOnly: params.highRiskOnly === true ? 'true' : undefined,
+      hasOpenAlerts: params.hasOpenAlerts === true ? 'true' : undefined,
+      needsResponse: params.needsResponse === true ? 'true' : undefined,
+      missedCheckins: params.missedCheckins === true ? 'true' : undefined,
+      assignedToMe: params.assignedToMe === true ? 'true' : undefined,
+      status: params.status && params.status !== 'all' ? params.status : undefined,
+      sort: params.sort ?? 'priority',
+    },
+  });
+
+  return response;
+}
+
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const response = await fetchJson<DashboardSummaryResponse>('/clinician/dashboard/summary', {
     method: 'GET',
@@ -1360,6 +1403,28 @@ export function useDashboardCommunicationOverview(
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardCommunicationOverview(limit),
     queryFn: () => getDashboardCommunicationOverview(limit),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useClinicianWorklist(
+  params: ListWorklistParams = {},
+): UseQueryResult<WorklistResponse, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.worklist({
+      search: params.search?.trim() || undefined,
+      highRiskOnly: params.highRiskOnly === true,
+      hasOpenAlerts: params.hasOpenAlerts === true,
+      needsResponse: params.needsResponse === true,
+      missedCheckins: params.missedCheckins === true,
+      assignedToMe: params.assignedToMe === true,
+      status: params.status && params.status !== 'all' ? params.status : undefined,
+      sort: params.sort ?? 'priority',
+    }),
+    queryFn: () => listClinicianWorklist(params),
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,

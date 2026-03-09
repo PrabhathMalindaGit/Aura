@@ -163,7 +163,7 @@ export function DashboardHomePage(): JSX.Element {
         value: summaryQuery.data.missedCheckinsCount,
         helper: 'Patients needing outreach',
         tone: 'warning',
-        onSelect: () => navigate('/patients'),
+        onSelect: () => navigate('/worklist'),
       },
       {
         key: 'follow-up-tasks',
@@ -171,7 +171,7 @@ export function DashboardHomePage(): JSX.Element {
         value: summaryQuery.data.openFollowUpTasksCount,
         helper: 'Open clinician workflow items',
         tone: 'primary',
-        onSelect: () => navigate('/patients'),
+        onSelect: () => navigate('/worklist'),
       },
     ];
   }, [navigate, summaryQuery.data]);
@@ -282,7 +282,7 @@ export function DashboardHomePage(): JSX.Element {
             retrying={followUpTasksQuery.isFetching}
             resolvePatientLabel={resolvePatientLabel}
             onOpenTaskItem={openTaskItem}
-            onOpenPatients={() => navigate('/patients')}
+            onOpenPatients={() => navigate('/worklist')}
           />
 
           <CommunicationOverviewCard
@@ -294,7 +294,7 @@ export function DashboardHomePage(): JSX.Element {
             }}
             retrying={communicationQuery.isFetching}
             onOpenPatient={openPatient}
-            onOpenPatients={() => navigate('/patients')}
+            onOpenPatients={() => navigate('/worklist')}
           />
         </div>
       </div>

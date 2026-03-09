@@ -1,0 +1,287 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { WorklistCardList } from '../components/worklist/WorklistCardList';
+import { WorklistFilters } from '../components/worklist/WorklistFilters';
+import { WorklistTable } from '../components/worklist/WorklistTable';
+import { RetryButton } from '../components/system/RetryButton';
+import { StatusPanel } from '../components/system/StatusPanel';
+import { AlertBanner } from '../components/ui/AlertBanner';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Section } from '../components/ui/Section';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Stack } from '../components/ui/Stack';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useConnectionStatus } from '../services/connection';
+import { useClinicianWorklist } from '../services/clinicianApi';
+import { MEDIA_QUERIES } from '../styles/breakpoints';
+import { asAppError } from '../utils/errors';
+import { toErrorView } from '../utils/errorView';
+import {
+  defaultWorklistFilters,
+  hasWorklistFilterConstraints,
+  type WorklistFilters as WorklistFiltersState,
+} from '../utils/worklist';
+
+const WORKLIST_ENDPOINT_HINT =
+  'Add GET /clinician/worklist returning { ok: true, items: [...], total }.';
+const RETRY_EVENT = 'aura:retry';
+
+function isEndpointMissing(error: unknown): boolean {
+  const appError = asAppError(error);
+  return appError.kind === 'HTTP' && appError.status === 404;
+}
+
+export function WorklistPage(): JSX.Element {
+  const navigate = useNavigate();
+  const connection = useConnectionStatus();
+  const isCompactLayout = useMediaQuery(MEDIA_QUERIES.lgDown);
+  const [filters, setFilters] = useState<WorklistFiltersState>(defaultWorklistFilters());
+  const debouncedSearch = useDebouncedValue(filters.search.trim(), 250);
+
+  const requestFilters = useMemo(
+    () => ({
+      search: debouncedSearch || undefined,
+      highRiskOnly: filters.highRiskOnly,
+      hasOpenAlerts: filters.hasOpenAlerts,
+      needsResponse: filters.needsResponse,
+      missedCheckins: filters.missedCheckins,
+      assignedToMe: filters.assignedToMe,
+      status: filters.status,
+      sort: filters.sort,
+    }),
+    [debouncedSearch, filters],
+  );
+
+  const worklistQuery = useClinicianWorklist(requestFilters);
+  const items = useMemo(() => worklistQuery.data?.items ?? [], [worklistQuery.data?.items]);
+  const total = worklistQuery.data?.total ?? items.length;
+  const activeFilterConstraints = hasWorklistFilterConstraints(filters);
+
+  const summary = useMemo(() => {
+    return {
+      highRisk: items.filter((item) => item.latestRiskLevel === 'high').length,
+      needsResponse: items.filter((item) => item.communicationNeedsResponse).length,
+      openAlerts: items.filter((item) => item.openAlertsCount > 0).length,
+      activeTasks: items.filter((item) => item.activeTaskCount > 0).length,
+    };
+  }, [items]);
+
+  const updatedAtLabel = connection.lastSuccessAt
+    ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '--';
+
+  const showInitialLoading = worklistQuery.isLoading && items.length === 0;
+  const endpointMissing = Boolean(worklistQuery.error) && isEndpointMissing(worklistQuery.error);
+  const genericError = worklistQuery.error && !endpointMissing ? asAppError(worklistQuery.error) : null;
+  const staleDataAvailable = items.length > 0;
+  const staleErrorBannerVisible = Boolean(genericError && staleDataAvailable);
+  const blockingOfflineVisible = !connection.online && !staleDataAvailable && !worklistQuery.error;
+  const errorView = genericError ? toErrorView(genericError) : null;
+
+  const retryWorklist = useCallback((): void => {
+    void worklistQuery.refetch();
+  }, [worklistQuery]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const onRetry = (): void => {
+      retryWorklist();
+    };
+
+    window.addEventListener(RETRY_EVENT, onRetry);
+    return () => window.removeEventListener(RETRY_EVENT, onRetry);
+  }, [retryWorklist]);
+
+  return (
+    <Stack className="page-stack worklist-page" gap="5">
+      <Section
+        className="dashboard-page-header worklist-page-header"
+        eyebrow="Operational roster"
+        title="Worklist"
+        subtitle="Review active patient issues across safety, adherence, communication, tasks, and appointments."
+        meta={
+          <span className="worklist-page__meta" aria-live="polite">
+            <span className="worklist-page__meta-pill worklist-page__meta-pill--count">
+              {total} in view
+            </span>
+            <span className="worklist-page__meta-pill worklist-page__meta-pill--updated">Updated {updatedAtLabel}</span>
+          </span>
+        }
+        actions={
+          <Button variant="secondary" size="sm" onClick={retryWorklist} disabled={worklistQuery.isFetching}>
+            {worklistQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        }
+      />
+
+      {staleErrorBannerVisible ? (
+        <AlertBanner
+          variant="warning"
+          title="Service temporarily unavailable"
+          action={<RetryButton onRetry={retryWorklist} loading={worklistQuery.isFetching} />}
+        >
+          Showing the last known worklist snapshot from {updatedAtLabel}.
+        </AlertBanner>
+      ) : null}
+
+      <section className="worklist-summary-strip" aria-label="Worklist summary">
+        <article className="worklist-summary-strip__item worklist-summary-strip__item--total">
+          <p className="worklist-summary-strip__label">In view</p>
+          <p className="worklist-summary-strip__value">{total}</p>
+        </article>
+        <article className="worklist-summary-strip__item worklist-summary-strip__item--risk">
+          <p className="worklist-summary-strip__label">High risk</p>
+          <p className="worklist-summary-strip__value">{summary.highRisk}</p>
+        </article>
+        <article className="worklist-summary-strip__item worklist-summary-strip__item--response">
+          <p className="worklist-summary-strip__label">Needs response</p>
+          <p className="worklist-summary-strip__value">{summary.needsResponse}</p>
+        </article>
+        <article className="worklist-summary-strip__item worklist-summary-strip__item--alerts">
+          <p className="worklist-summary-strip__label">With alerts</p>
+          <p className="worklist-summary-strip__value">{summary.openAlerts}</p>
+        </article>
+        <article className="worklist-summary-strip__item worklist-summary-strip__item--tasks">
+          <p className="worklist-summary-strip__label">With tasks</p>
+          <p className="worklist-summary-strip__value">{summary.activeTasks}</p>
+        </article>
+      </section>
+
+      <Card
+        className="worklist-workspace-card"
+        title="Active review queue"
+        action={
+          <Button variant="ghost" size="sm" onClick={() => setFilters(defaultWorklistFilters())} disabled={worklistQuery.isFetching}>
+            Clear view
+          </Button>
+        }
+      >
+        <Stack gap="4">
+          <div className="worklist-workspace-card__controls">
+            <p className="worklist-queue-intro">
+              Focus the queue by risk, alerts, communication, missed check-ins, and ownership to decide what to open next.
+            </p>
+            <WorklistFilters
+              filters={filters}
+              disabled={worklistQuery.isFetching && items.length === 0}
+              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+              onToggleFilter={(key) =>
+                setFilters((current) => ({
+                  ...current,
+                  [key]: !current[key],
+                }))
+              }
+              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
+              onReset={() => setFilters(defaultWorklistFilters())}
+            />
+          </div>
+
+          {showInitialLoading ? (
+            <div className="worklist-skeleton" aria-label="Worklist loading placeholder">
+              <Skeleton height={80} />
+              <Skeleton height={80} />
+              <Skeleton height={80} />
+            </div>
+          ) : endpointMissing ? (
+            <StatusPanel
+              variant="info"
+              title="Worklist not available yet"
+              description="The backend worklist endpoint is not available."
+              actions={<RetryButton onRetry={retryWorklist} loading={worklistQuery.isFetching} />}
+              hint={
+                <details className="status-panel__details">
+                  <summary>Show developer hint</summary>
+                  <p className="muted-text">{WORKLIST_ENDPOINT_HINT}</p>
+                </details>
+              }
+              details={{
+                endpoint: '/clinician/worklist',
+                status: 404,
+                timestamp: connection.lastErrorAt
+                  ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
+                  : undefined,
+              }}
+            />
+          ) : genericError && !staleDataAvailable && errorView ? (
+            <StatusPanel
+              variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
+              title="Unable to load worklist"
+              description={errorView.description}
+              actions={<RetryButton onRetry={retryWorklist} loading={worklistQuery.isFetching} />}
+              details={{
+                endpoint: connection.lastEndpoint,
+                status: connection.lastHttpStatus,
+                timestamp: connection.lastErrorAt
+                  ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
+                  : undefined,
+              }}
+            />
+          ) : blockingOfflineVisible ? (
+            <StatusPanel
+              variant="info"
+              title="Offline"
+              description="No cached worklist snapshot is available yet. Reconnect and retry."
+              actions={<RetryButton onRetry={retryWorklist} loading={worklistQuery.isFetching} />}
+            />
+          ) : items.length === 0 ? (
+            activeFilterConstraints ? (
+              <EmptyState
+                title="No patients match this view"
+                description="Clear filters to return to the active review queue."
+                tone="warning"
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setFilters(defaultWorklistFilters())}>
+                    Reset filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="No patients need active review"
+                description="Safety, adherence, communication, and appointment follow-up items will appear here."
+                tone="success"
+                action={
+                  <Button variant="secondary" size="sm" onClick={retryWorklist} disabled={worklistQuery.isFetching}>
+                    {worklistQuery.isFetching ? 'Refreshing...' : 'Refresh queue'}
+                  </Button>
+                }
+              />
+            )
+          ) : isCompactLayout ? (
+            <WorklistCardList
+              items={items}
+              onOpenPatient={(patientId) => navigate(`/patients/${encodeURIComponent(patientId)}`)}
+              onOpenAlerts={() => navigate('/alerts')}
+              onOpenAppointments={() => navigate('/appointments')}
+            />
+          ) : (
+            <WorklistTable
+              items={items}
+              onOpenPatient={(patientId) => navigate(`/patients/${encodeURIComponent(patientId)}`)}
+              onOpenAlerts={() => navigate('/alerts')}
+              onOpenAppointments={() => navigate('/appointments')}
+            />
+          )}
+        </Stack>
+      </Card>
+    </Stack>
+  );
+}

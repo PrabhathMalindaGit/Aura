@@ -47,6 +47,7 @@ function renderShell(entry: string): void {
         <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<div>Dashboard workspace</div>} />
+          <Route path="worklist" element={<div>Worklist workspace</div>} />
           <Route path="alerts" element={<div>Alerts workspace</div>} />
           <Route path="patients" element={<div>Patients workspace</div>} />
           <Route path="settings" element={<div>Settings workspace</div>} />
@@ -92,6 +93,15 @@ describe('AppShell navigation', () => {
 
     const activeLink = screen.getByRole('link', { name: 'Patients' });
     expect(activeLink).toHaveClass('sidebar-item--active');
+  });
+
+  it('highlights the worklist nav item when the worklist route is active', () => {
+    installMatchMediaPreset('desktop');
+    renderShell('/worklist');
+
+    const activeLink = screen.getByRole('link', { name: 'Worklist' });
+    expect(activeLink).toHaveClass('sidebar-item--active');
+    expect(screen.getByText('Worklist workspace')).toBeInTheDocument();
   });
 
   it('redirects the shell index route to dashboard workspace', async () => {

@@ -65,7 +65,7 @@ export function FollowUpTasksCard({
       }
       action={
         <Button variant="ghost" size="sm" onClick={onOpenPatients}>
-          View patients
+          Open worklist
         </Button>
       }
     >

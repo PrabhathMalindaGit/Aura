@@ -133,6 +133,10 @@ export function AppShell(): JSX.Element {
       return 'Dashboard';
     }
 
+    if (pathname.startsWith('/worklist')) {
+      return 'Worklist';
+    }
+
     if (pathname.startsWith('/patients/')) {
       return 'Patient Detail';
     }

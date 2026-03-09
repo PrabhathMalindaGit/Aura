@@ -14,6 +14,7 @@ import {
   FIXTURE_RESOLVED_ALERT,
   FIXTURE_TRENDS_14,
   FIXTURE_TRENDS_30,
+  FIXTURE_WORKLIST_ITEMS,
 } from '../fixtures';
 import { jsonHeaders, isPath, parseRequestUrl, startsWithPath } from '../mocks/routes';
 
@@ -158,6 +159,51 @@ export async function installMockApi(
 
     if (isPath(pathname, '/clinician/dashboard/communication-overview') && method === 'GET') {
       await fulfillJson(route, 200, { ok: true, overview: deepClone(FIXTURE_DASHBOARD_COMMUNICATION) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/worklist') && method === 'GET') {
+      let items = deepClone(FIXTURE_WORKLIST_ITEMS);
+      const search = url.searchParams.get('search')?.trim().toLowerCase();
+
+      if (search) {
+        items = items.filter(
+          (item) =>
+            item.patientName.toLowerCase().includes(search) ||
+            item.patientId.toLowerCase().includes(search),
+        );
+      }
+
+      if (url.searchParams.get('highRiskOnly') === 'true') {
+        items = items.filter((item) => item.latestRiskLevel === 'high');
+      }
+
+      if (url.searchParams.get('hasOpenAlerts') === 'true') {
+        items = items.filter((item) => item.openAlertsCount > 0);
+      }
+
+      if (url.searchParams.get('needsResponse') === 'true') {
+        items = items.filter((item) => item.communicationNeedsResponse);
+      }
+
+      if (url.searchParams.get('missedCheckins') === 'true') {
+        items = items.filter((item) => item.missedCheckins.flag);
+      }
+
+      if (url.searchParams.get('assignedToMe') === 'true') {
+        items = items.filter((item) => item.patientId === 'p1');
+      }
+
+      const status = url.searchParams.get('status');
+      if (status) {
+        items = items.filter((item) => item.patientStatus === status);
+      }
+
+      if (url.searchParams.get('sort') === 'patientName') {
+        items.sort((left, right) => left.patientName.localeCompare(right.patientName));
+      }
+
+      await fulfillJson(route, 200, { ok: true, items, total: items.length });
       return;
     }
 

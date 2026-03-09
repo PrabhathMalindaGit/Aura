@@ -24,6 +24,17 @@ function NavIcon({ icon }: NavIconProps): JSX.Element {
     );
   }
 
+  if (icon === 'worklist') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M6 5.5A1.5 1.5 0 0 1 7.5 4h9A1.5 1.5 0 0 1 18 5.5v13A1.5 1.5 0 0 1 16.5 20h-9A1.5 1.5 0 0 1 6 18.5v-13Zm3 2.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5H9Zm0 4a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5H9Zm0 4a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5H9ZM4.75 8a.75.75 0 1 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5Zm0 4a.75.75 0 1 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5Zm0 4a.75.75 0 1 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
   if (icon === 'alerts') {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">

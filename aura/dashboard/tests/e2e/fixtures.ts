@@ -8,6 +8,7 @@ import type {
   DashboardTodayAppointmentItem,
   PatientSummary,
   TrendPointRaw,
+  WorklistRecord,
 } from '../../src/types/models';
 
 function daysAgoDate(days: number): Date {
@@ -127,6 +128,58 @@ export const FIXTURE_DASHBOARD_COMMUNICATION: DashboardCommunicationOverview = {
     },
   ],
 };
+
+export const FIXTURE_WORKLIST_ITEMS: WorklistRecord[] = [
+  {
+    patientId: FIXTURE_PATIENT_ID,
+    patientName: 'Patient P1',
+    patientStatus: 'active',
+    rehabPhase: 'Strength & Control',
+    lastCheckinAt: daysAgoDate(1).toISOString(),
+    openAlertsCount: 1,
+    latestRiskLevel: 'high',
+    lastPainScore: 7,
+    adherenceSummary: {
+      exercisesPct: 0.4,
+      medicationTaken: false,
+    },
+    nextAppointmentAt: new Date(daysAgoDate(0).setUTCHours(13, 0, 0, 0)).toISOString(),
+    missedCheckins: {
+      flag: false,
+      count: 0,
+    },
+    communicationNeedsResponse: true,
+    activeTaskCount: 1,
+    topIssue: 'High pain escalation',
+    reviewReason: 'Patient communication and safety review both need follow-up.',
+    priorityScore: 90,
+    updatedAt: BASE_TIME_ISO,
+  },
+  {
+    patientId: 'p2',
+    patientName: 'Patient P2',
+    patientStatus: 'on_hold',
+    rehabPhase: 'Return to mobility',
+    lastCheckinAt: daysAgoDate(5).toISOString(),
+    openAlertsCount: 0,
+    latestRiskLevel: 'low',
+    lastPainScore: 3,
+    adherenceSummary: {
+      exercisesPct: 0.75,
+      medicationTaken: true,
+    },
+    missedCheckins: {
+      flag: true,
+      count: 2,
+    },
+    communicationNeedsResponse: false,
+    activeTaskCount: 1,
+    topIssue: 'Missed daily check-ins',
+    reviewReason: 'Follow-up before the next rehab step is recommended.',
+    priorityScore: 48,
+    updatedAt: BASE_TIME_ISO,
+  },
+];
 
 export const FIXTURE_OPEN_ALERT: AlertItem = {
   _id: FIXTURE_ALERT_ID,

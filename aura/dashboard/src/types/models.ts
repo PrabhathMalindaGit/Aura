@@ -532,6 +532,45 @@ export interface DashboardCommunicationOverviewResponse {
   overview: DashboardCommunicationOverview;
 }
 
+export type WorklistSortOption =
+  | 'priority'
+  | 'updatedAt'
+  | 'lastCheckinAt'
+  | 'patientName'
+  | 'nextAppointmentAt';
+
+export interface WorklistRecord {
+  patientId: string;
+  patientName: string;
+  patientStatus: PatientStatus;
+  rehabPhase?: string;
+  lastCheckinAt?: string;
+  openAlertsCount: number;
+  latestRiskLevel: 'low' | 'high' | string;
+  lastPainScore?: number;
+  adherenceSummary: {
+    exercisesPct?: number;
+    medicationTaken?: boolean;
+  };
+  nextAppointmentAt?: string;
+  missedCheckins: {
+    flag: boolean;
+    count: number;
+  };
+  communicationNeedsResponse: boolean;
+  activeTaskCount: number;
+  topIssue?: string;
+  reviewReason?: string;
+  priorityScore: number;
+  updatedAt: string;
+}
+
+export interface WorklistResponse {
+  ok: true;
+  items: WorklistRecord[];
+  total: number;
+}
+
 export interface PatchAlertResponse {
   ok: true;
   alert: AlertItem;

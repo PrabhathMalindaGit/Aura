@@ -1,0 +1,359 @@
+{
+  "name": "04 - Task Reminder Timing (Cron \u2192 Aura Process \u2192 Telegram \u2192 Callback)",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyDay",
+              "hour": 8,
+              "minute": 30
+            },
+            {
+              "mode": "everyDay",
+              "hour": 12,
+              "minute": 30
+            },
+            {
+              "mode": "everyDay",
+              "hour": 16,
+              "minute": 30
+            },
+            {
+              "mode": "everyDay",
+              "hour": 20,
+              "minute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        160
+      ],
+      "id": "8cff6830-9ca4-4263-bbc3-3964c802b18f",
+      "name": "Cron"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/internal/n8n/follow-through/tasks/process' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-aura-webhook-key",
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { force: false, limit: 25 } }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        160
+      ],
+      "id": "fb9f2212-7120-4e4c-91e4-c887e1ab0578",
+      "name": "HTTP Process",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $input.first().json ?? {};\nconst failed = !!payload.error || payload?.ok === false || (typeof payload.statusCode === 'number' && payload.statusCode >= 400);\nif (failed) {\n  return [{ json: { workflow: 'task_reminder_timing', items: [], message: '', backendError: String(payload.error ?? payload.message ?? 'BACKEND_UNAVAILABLE') } }];\n}\nconst items = Array.isArray(payload.items) ? payload.items : [];\nif (items.length === 0) {\n  return [{ json: { workflow: payload.workflow ?? 'task_reminder_timing', items: [], message: '', summary: payload.summary ?? {} } }];\n}\nconst explicitMessage = typeof payload.messageText === 'string' ? payload.messageText.trim() : '';\nconst lines = items.slice(0, 12).map((item) => `- ${item.title ?? 'Follow-up item'}${item.message ? ` \u2014 ${String(item.message).replace(/\\s+/g, ' ').trim()}` : ''}`);\nconst remainder = items.length > 12 ? `\\n...and ${items.length - 12} more.` : '';\nconst message = explicitMessage || ['Aura Follow-through: task reminders', lines.join('\\n') + remainder].filter(Boolean).join('\\n\\n');\nreturn [{ json: { workflow: payload.workflow ?? 'task_reminder_timing', items, message, summary: payload.summary ?? {} } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        160
+      ],
+      "id": "067b6f6c-3975-441f-a7bb-c1744978fce3",
+      "name": "Build Batch Message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "62e1f0b4-53e4-4a99-b461-9f4405844e24",
+              "leftValue": "={{ Array.isArray($json.items) && $json.items.length > 0 ? 'true' : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        200,
+        160
+      ],
+      "id": "1574d6e8-5578-490a-ade8-1aac29baed79",
+      "name": "Has Items?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9f88f6ff-d36e-4fd2-84cd-1135d1f30fb5",
+              "leftValue": "={{ ($env.TELEGRAM_CLINICIAN_CHAT_ID || '').toString().trim() !== '' && ($env.TELEGRAM_CLINICIAN_CHAT_ID || '').toString().trim() !== 'CHANGE_ME' ? 'true' : 'false' }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        160
+      ],
+      "id": "c65a7d7f-1c32-431d-aff2-36bdd5b99389",
+      "name": "Telegram configured?"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{$env.TELEGRAM_CLINICIAN_CHAT_ID}}",
+        "text": "={{$node[\"Build Batch Message\"].json.message}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        680,
+        64
+      ],
+      "id": "4d36634a-d10c-4b42-96b4-7be561a6d810",
+      "name": "Telegram Send Message",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const batch = $('Build Batch Message').first().json ?? {};\nconst result = $input.first().json ?? {};\nconst failed = !!result.error || result?.ok === false || (typeof result.statusCode === 'number' && result.statusCode >= 400);\nreturn [{ json: { workflow: batch.workflow ?? 'task_reminder_timing', status: failed ? 'failed' : 'sent', channel: 'telegram', target: ($env.TELEGRAM_CLINICIAN_CHAT_ID || '').toString().trim() || undefined, error: failed ? String(result.description ?? result.message ?? result.error ?? 'TELEGRAM_SEND_FAILED').slice(0, 400) : undefined, items: Array.isArray(batch.items) ? batch.items : [], meta: { workflowId: '04' } } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        64
+      ],
+      "id": "b36d2573-070e-480b-b0f4-90faa1d22b52",
+      "name": "Build Callback Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/events/automation-status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-aura-webhook-key",
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1160,
+        64
+      ],
+      "id": "6668ae7f-c96c-4216-aeee-cdeaa6cf4f5e",
+      "name": "Post Automation Status",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const batch = $('Build Batch Message').first().json ?? {};\nreturn [{ json: { workflow: batch.workflow ?? 'task_reminder_timing', status: 'skipped', channel: 'none', error: 'TELEGRAM_NOT_CONFIGURED', items: Array.isArray(batch.items) ? batch.items : [], meta: { workflowId: '04' } } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        272
+      ],
+      "id": "b75f3105-70bd-42c5-8fe5-0ad2755abbff",
+      "name": "Build Skipped Callback Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.AURA_API_BASE || 'http://host.docker.internal:3000') + '/events/automation-status' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-aura-webhook-key",
+              "value": "={{$env.AURA_WEBHOOK_KEY}}"
+            }
+          ]
+        },
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        272
+      ],
+      "id": "057531f7-6733-4176-841a-0eb0305cced2",
+      "name": "Post Skipped Automation Status",
+      "continueOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Cron": {
+      "main": [
+        [
+          {
+            "node": "HTTP Process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Process": {
+      "main": [
+        [
+          {
+            "node": "Build Batch Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Batch Message": {
+      "main": [
+        [
+          {
+            "node": "Has Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Items?": {
+      "main": [
+        [
+          {
+            "node": "Telegram configured?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Telegram configured?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Skipped Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Send Message": {
+      "main": [
+        [
+          {
+            "node": "Build Callback Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Post Automation Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Skipped Callback Payload": {
+      "main": [
+        [
+          {
+            "node": "Post Skipped Automation Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Asia/Colombo",
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "tags": []
+}

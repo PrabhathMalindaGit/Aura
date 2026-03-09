@@ -1,6 +1,7 @@
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import CheckIn from "../models/CheckIn";
+import Task from "../models/Task";
 import {
   isBodyMapPainType,
   isBodyMapRegion,
@@ -252,6 +253,33 @@ export async function processCheckIn(
     reasons: reasonCodes,
   };
   await checkin.save();
+
+  const resolvedReminderTasks = await Task.updateMany(
+    {
+      patientId: input.patientId,
+      status: { $in: ["open", "in_progress"] },
+      "source.entityType": "missed_checkin_reminder",
+    },
+    {
+      $set: {
+        status: "completed",
+        completedAt: new Date(),
+        cancelledAt: null,
+      },
+    }
+  );
+
+  if (resolvedReminderTasks.modifiedCount > 0) {
+    await CareEvent.create({
+      type: "FOLLOW_THROUGH_TASK_COMPLETED",
+      patientId: input.patientId,
+      payload: {
+        source: "checkin",
+        resolvedTaskCount: resolvedReminderTasks.modifiedCount,
+        sourceEntityType: "missed_checkin_reminder",
+      },
+    });
+  }
 
   if (riskLevel === "high") {
     const alert = await Alert.create({

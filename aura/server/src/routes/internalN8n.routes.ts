@@ -2,6 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 
 import Alert from "../models/Alert";
+import {
+  buildDailyClinicianDigest,
+  processAppointmentFollowThroughAutomation,
+  processCommunicationNoResponseAutomation,
+  processMissedCheckinAutomation,
+  processTaskReminderAutomation,
+} from "../services/followThroughAutomationService";
 import { isObjectId } from "../utils/ids";
 import { logger } from "../utils/logger";
 import { requireWebhookKey } from "../utils/webhookAuth";
@@ -15,6 +22,12 @@ const listQuerySchema = z.object({
 
 const patchSchema = z.object({
   status: z.enum(["acknowledged", "resolved"]),
+});
+
+const processBodySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).optional().default(25),
+  force: z.boolean().optional().default(false),
+  now: z.string().trim().optional(),
 });
 
 function mapAlertRow(alert: Record<string, unknown>) {
@@ -54,6 +67,55 @@ function mapAlertRow(alert: Record<string, unknown>) {
       alert.resolvedAt instanceof Date
         ? alert.resolvedAt.toISOString()
         : undefined,
+  };
+}
+
+function parseProcessBody(body: unknown) {
+  const parsed = processBodySchema.safeParse(
+    body && typeof body === "object" && !Array.isArray(body) ? body : {}
+  );
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      response: {
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsed.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
+      },
+    };
+  }
+
+  let now: Date | undefined;
+  if (parsed.data.now) {
+    const parsedDate = new Date(parsed.data.now);
+    if (!Number.isFinite(parsedDate.getTime())) {
+      return {
+        ok: false as const,
+        response: {
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: [
+            {
+              path: "now",
+              message: "now must be a valid ISO datetime string",
+            },
+          ],
+        },
+      };
+    }
+    now = parsedDate;
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      limit: parsed.data.limit,
+      force: parsed.data.force,
+      now,
+    },
   };
 }
 
@@ -152,5 +214,115 @@ router.patch("/internal/n8n/alerts/:id", requireWebhookKey, async (req, res) => 
     });
   }
 });
+
+router.post(
+  "/internal/n8n/follow-through/missed-checkins/process",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await processMissedCheckinAutomation(parsedBody.value);
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Process missed check-in follow-through failed", {
+        route: "POST /internal/n8n/follow-through/missed-checkins/process",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.post(
+  "/internal/n8n/follow-through/tasks/process",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await processTaskReminderAutomation(parsedBody.value);
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Process task reminder automation failed", {
+        route: "POST /internal/n8n/follow-through/tasks/process",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.post(
+  "/internal/n8n/follow-through/appointments/process",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await processAppointmentFollowThroughAutomation(parsedBody.value);
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Process appointment follow-through failed", {
+        route: "POST /internal/n8n/follow-through/appointments/process",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.post(
+  "/internal/n8n/follow-through/communications/process",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await processCommunicationNoResponseAutomation(parsedBody.value);
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Process communication no-response automation failed", {
+        route: "POST /internal/n8n/follow-through/communications/process",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.post(
+  "/internal/n8n/follow-through/digest/process",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await buildDailyClinicianDigest(parsedBody.value);
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Build daily clinician digest failed", {
+        route: "POST /internal/n8n/follow-through/digest/process",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
 
 export default router;

@@ -4,6 +4,7 @@ import { z } from "zod";
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import { validateBody } from "../middleware/validate";
+import { FOLLOW_THROUGH_WORKFLOW_VALUES } from "../services/followThroughAutomationService";
 import type {
   NotificationStatusCallbackBody,
   NotificationStatusCallbackStatus,
@@ -34,12 +35,43 @@ const notificationStatusCallbackSchema = z.object({
     .optional(),
 });
 
+const automationStatusCallbackSchema = z.object({
+  workflow: z.enum(FOLLOW_THROUGH_WORKFLOW_VALUES),
+  status: z.enum(["attempted", "sent", "failed", "skipped"]),
+  channel: z.enum(["telegram", "internal_demo", "none"]),
+  timestamp: z.string().optional(),
+  target: z.string().trim().min(1).max(200).optional(),
+  error: z.string().max(1000).optional(),
+  items: z
+    .array(
+      z.object({
+        dedupeKey: z.string().trim().min(1).max(200),
+        patientId: z.string().trim().min(1).max(120).optional(),
+        taskId: z.string().trim().min(1).max(120).optional(),
+        appointmentRequestId: z.string().trim().min(1).max(120).optional(),
+        communicationReviewId: z.string().trim().min(1).max(120).optional(),
+        linkedEntityType: z.string().trim().min(1).max(80).optional(),
+        linkedEntityId: z.string().trim().min(1).max(120).optional(),
+        title: z.string().trim().min(1).max(200).optional(),
+      })
+    )
+    .max(100)
+    .default([]),
+  meta: z
+    .object({
+      executionId: z.string().trim().min(1).max(120).optional(),
+      workflowId: z.string().trim().min(1).max(120).optional(),
+    })
+    .optional(),
+});
+
 const CARE_EVENT_TYPE_BY_STATUS: Record<NotificationStatusCallbackStatus, string> = {
   attempted: "NOTIFICATION_ATTEMPTED",
   sent: "NOTIFICATION_SENT",
   failed: "NOTIFICATION_FAILED",
   skipped: "NOTIFICATION_SKIPPED",
 };
+const AUTOMATION_STATUS_EVENT_TYPE = "AUTOMATION_STATUS";
 
 const MIN_CALLBACK_TIMESTAMP_MS = Date.UTC(2000, 0, 1, 0, 0, 0, 0);
 const MAX_CALLBACK_FUTURE_DRIFT_MS = 24 * 60 * 60 * 1000;
@@ -199,6 +231,14 @@ function buildNotificationEventKey(
 ): string {
   const roundedTimestamp = new Date(Math.floor(timestamp.getTime() / 1000) * 1000);
   return `notif:${status}:${alertId}:${roundedTimestamp.toISOString()}:${messageId ?? ""}`;
+}
+
+function buildAutomationEventKey(
+  workflow: string,
+  status: string,
+  dedupeKey: string
+): string {
+  return `automation:${workflow}:${status}:${dedupeKey}`;
 }
 
 function mapAlertNotificationResponse(alert: { _id: unknown; patientId: unknown; notification?: unknown }) {
@@ -439,6 +479,93 @@ router.post(
       logger.error("Notification status callback failed", {
         route: "POST /events/notification-status",
         alertId,
+        status: body.status,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.post(
+  "/events/automation-status",
+  requireWebhookKey,
+  validateBody(automationStatusCallbackSchema),
+  async (req, res) => {
+    const body = req.body as z.infer<typeof automationStatusCallbackSchema>;
+    const now = new Date();
+    const normalizedTimestamp = normalizeTimestamp(body.timestamp, now);
+
+    if (!normalizedTimestamp.ok) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: [
+          {
+            path: "timestamp",
+            message: "Invalid timestamp",
+          },
+        ],
+      });
+    }
+
+    const callbackTimestamp = normalizedTimestamp.value;
+
+    try {
+      const writtenEvents: string[] = [];
+
+      for (const item of body.items) {
+        const eventKey = buildAutomationEventKey(
+          body.workflow,
+          body.status,
+          item.dedupeKey
+        );
+
+        const existing = await CareEvent.exists({
+          type: AUTOMATION_STATUS_EVENT_TYPE,
+          "payload.eventKey": eventKey,
+        });
+        if (existing) {
+          continue;
+        }
+
+        await CareEvent.create({
+          type: AUTOMATION_STATUS_EVENT_TYPE,
+          patientId: item.patientId ?? "system",
+          payload: {
+            workflow: body.workflow,
+            status: body.status,
+            channel: body.channel,
+            dedupeKey: item.dedupeKey,
+            target: body.target,
+            taskId: item.taskId,
+            appointmentRequestId: item.appointmentRequestId,
+            communicationReviewId: item.communicationReviewId,
+            linkedEntityType: item.linkedEntityType,
+            linkedEntityId: item.linkedEntityId,
+            title: item.title,
+            error: body.error ? sanitizeNotificationError(body.error) : undefined,
+            eventKey,
+            meta: body.meta,
+          },
+          createdAt: callbackTimestamp,
+          updatedAt: callbackTimestamp,
+        });
+
+        writtenEvents.push(eventKey);
+      }
+
+      return res.json({
+        ok: true,
+        writtenEvents,
+      });
+    } catch (error) {
+      logger.error("Automation status callback failed", {
+        route: "POST /events/automation-status",
+        workflow: body.workflow,
         status: body.status,
         message: error instanceof Error ? error.message : String(error),
       });

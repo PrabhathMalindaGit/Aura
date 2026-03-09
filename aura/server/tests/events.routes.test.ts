@@ -230,3 +230,96 @@ describe("POST /events/notification-status", () => {
     expect(failedEvents).toHaveLength(0);
   });
 });
+
+describe("POST /events/automation-status", () => {
+  let mongoServer: MongoMemoryServer | null = null;
+  const mutableEnv = env as unknown as { AURA_WEBHOOK_KEY: string };
+  const originalWebhookKey = mutableEnv.AURA_WEBHOOK_KEY;
+
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    await mongoose.connect(mongoServer.getUri());
+  });
+
+  afterAll(async () => {
+    mutableEnv.AURA_WEBHOOK_KEY = originalWebhookKey;
+    await mongoose.disconnect();
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
+  });
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-02T09:00:00.000Z"));
+    mutableEnv.AURA_WEBHOOK_KEY = "test-webhook-key";
+    await CareEvent.deleteMany({});
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("requires webhook authentication", async () => {
+    const response = await request(app).post("/events/automation-status").send({
+      workflow: "task_reminder_timing",
+      status: "sent",
+      channel: "telegram",
+      items: [{ dedupeKey: "task:1" }],
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("UNAUTHORIZED");
+  });
+
+  it("writes automation status events once per dedupe key and remains idempotent", async () => {
+    const payload = {
+      workflow: "task_reminder_timing",
+      status: "sent",
+      channel: "telegram",
+      timestamp: "2026-05-02T08:30:00.000Z",
+      target: "telegram:-100123",
+      items: [
+        {
+          dedupeKey: "task-reminder:abc:overdue:1",
+          patientId: "p1",
+          taskId: "task-1",
+          linkedEntityType: "task",
+          linkedEntityId: "task-1",
+          title: "Complete your rehab check-in",
+        },
+      ],
+      meta: {
+        executionId: "exec-123",
+        workflowId: "wf-04",
+      },
+    } as const;
+
+    const first = await request(app)
+      .post("/events/automation-status")
+      .set("x-aura-webhook-key", "test-webhook-key")
+      .send(payload);
+    const second = await request(app)
+      .post("/events/automation-status")
+      .set("x-aura-webhook-key", "test-webhook-key")
+      .send(payload);
+
+    expect(first.status).toBe(200);
+    expect(first.body.ok).toBe(true);
+    expect(first.body.writtenEvents).toHaveLength(1);
+
+    expect(second.status).toBe(200);
+    expect(second.body.ok).toBe(true);
+    expect(second.body.writtenEvents).toEqual([]);
+
+    const stored = await CareEvent.find({ type: "AUTOMATION_STATUS" }).lean();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].patientId).toBe("p1");
+    expect(stored[0].payload).toMatchObject({
+      workflow: "task_reminder_timing",
+      status: "sent",
+      dedupeKey: "task-reminder:abc:overdue:1",
+      taskId: "task-1",
+    });
+  });
+});

@@ -10,6 +10,8 @@ import {
   FIXTURE_DASHBOARD_SUMMARY,
   FIXTURE_DASHBOARD_TASKS,
   FIXTURE_DAY_DRILLDOWN_DATE,
+  FIXTURE_PATIENT_APPOINTMENT_REQUESTS,
+  FIXTURE_PATIENT_TASKS,
   FIXTURE_PATIENTS,
   FIXTURE_RESOLVED_ALERT,
   FIXTURE_TRENDS_14,
@@ -38,6 +40,9 @@ export interface MockApiTracker {
 interface MockState {
   alertsByStatus: Record<AlertStatus, AlertItem[]>;
   trendsByDays: Record<14 | 30, TrendPointRaw[]>;
+  tasks: typeof FIXTURE_PATIENT_TASKS;
+  worklistItems: typeof FIXTURE_WORKLIST_ITEMS;
+  appointmentRequests: typeof FIXTURE_PATIENT_APPOINTMENT_REQUESTS;
 }
 
 function deepClone<T>(value: T): T {
@@ -51,7 +56,32 @@ function createInitialState(): MockState {
       14: deepClone(FIXTURE_TRENDS_14),
       30: deepClone(FIXTURE_TRENDS_30),
     },
+    tasks: deepClone(FIXTURE_PATIENT_TASKS),
+    worklistItems: deepClone(FIXTURE_WORKLIST_ITEMS),
+    appointmentRequests: deepClone(FIXTURE_PATIENT_APPOINTMENT_REQUESTS),
   };
+}
+
+function applyTaskCompletion(state: MockState, id: string) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task) {
+    return undefined;
+  }
+
+  const nowIso = new Date('2026-02-22T10:05:00.000Z').toISOString();
+  task.status = 'completed';
+  task.completedAt = nowIso;
+  task.updatedAt = nowIso;
+
+  const worklistItem = state.worklistItems.find((item) => item.patientId === task.patientId);
+  if (worklistItem) {
+    worklistItem.activeTaskCount = state.tasks.filter(
+      (item) => item.patientId === task.patientId && (item.status === 'open' || item.status === 'in_progress'),
+    ).length;
+    worklistItem.updatedAt = nowIso;
+  }
+
+  return task;
 }
 
 function findAlertById(state: MockState, id: string): AlertItem | undefined {
@@ -163,7 +193,7 @@ export async function installMockApi(
     }
 
     if (isPath(pathname, '/clinician/worklist') && method === 'GET') {
-      let items = deepClone(FIXTURE_WORKLIST_ITEMS);
+      let items = deepClone(state.worklistItems);
       const search = url.searchParams.get('search')?.trim().toLowerCase();
 
       if (search) {
@@ -204,6 +234,62 @@ export async function installMockApi(
       }
 
       await fulfillJson(route, 200, { ok: true, items, total: items.length });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/tasks') && method === 'GET') {
+      let items = deepClone(state.tasks);
+      const patientId = url.searchParams.get('patientId');
+      const statusValues = url.searchParams.get('status')?.split(',').filter(Boolean) ?? [];
+
+      if (patientId) {
+        items = items.filter((item) => item.patientId === patientId);
+      }
+
+      if (statusValues.length > 0) {
+        items = items.filter((item) => statusValues.includes(item.status));
+      }
+
+      await fulfillJson(route, 200, { ok: true, tasks: items });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/tasks/') && pathname.endsWith('/complete') && method === 'POST') {
+      const id = pathname.split('/')[3];
+      if (!id) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const task = applyTaskCompletion(state, id);
+      if (!task) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, { ok: true, task: deepClone(task) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/appointments/requests') && method === 'GET') {
+      let items = deepClone(state.appointmentRequests);
+      const status = url.searchParams.get('status');
+      const from = url.searchParams.get('from');
+      const to = url.searchParams.get('to');
+
+      if (status) {
+        items = items.filter((item) => item.status === status);
+      }
+      if (from) {
+        const fromTime = Date.parse(from);
+        items = items.filter((item) => Date.parse(item.startsAt) >= fromTime);
+      }
+      if (to) {
+        const toTime = Date.parse(to);
+        items = items.filter((item) => Date.parse(item.startsAt) <= toTime);
+      }
+
+      await fulfillJson(route, 200, { ok: true, items });
       return;
     }
 

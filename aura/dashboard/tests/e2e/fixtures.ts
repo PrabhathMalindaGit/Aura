@@ -1,5 +1,7 @@
 import type {
   AlertItem,
+  AppointmentRequestItem,
+  ClinicianTaskItem,
   DashboardCommunicationOverview,
   DashboardFollowUpTaskItem,
   DashboardPriorityQueueItem,
@@ -128,6 +130,66 @@ export const FIXTURE_DASHBOARD_COMMUNICATION: DashboardCommunicationOverview = {
     },
   ],
 };
+
+export const FIXTURE_PATIENT_TASKS: ClinicianTaskItem[] = [
+  {
+    id: 'task-1',
+    patientId: FIXTURE_PATIENT_ID,
+    title: 'Check medication adherence',
+    description: 'Patient reported increased pain and skipped medication yesterday.',
+    type: 'follow_up',
+    priority: 'high',
+    status: 'open',
+    dueAt: new Date(daysAgoDate(1).setUTCHours(16, 0, 0, 0)).toISOString(),
+    assignedTo: 'clinician-1',
+    createdBy: 'system',
+    linkedAlertId: FIXTURE_ALERT_ID,
+    linkedMessageId: 'message-1',
+    createdAt: BASE_TIME_ISO,
+    updatedAt: BASE_TIME_ISO,
+  },
+  {
+    id: 'task-2',
+    patientId: FIXTURE_PATIENT_ID,
+    title: 'Review missed check-in follow-up',
+    type: 'adherence_review',
+    priority: 'medium',
+    status: 'completed',
+    createdBy: 'clinician-1',
+    createdAt: daysAgoDate(2).toISOString(),
+    updatedAt: daysAgoDate(1).toISOString(),
+    completedAt: daysAgoDate(1).toISOString(),
+  },
+];
+
+export const FIXTURE_PATIENT_APPOINTMENT_REQUESTS: AppointmentRequestItem[] = [
+  {
+    requestId: 'appointment-request-1',
+    slotId: 'slot-1',
+    patientId: FIXTURE_PATIENT_ID,
+    status: 'pending',
+    workflowStatus: 'awaiting_confirmation',
+    note: 'Waiting for patient confirmation before the next rehab review.',
+    startsAt: new Date(daysAgoDate(0).setUTCHours(13, 0, 0, 0)).toISOString(),
+    endsAt: new Date(daysAgoDate(0).setUTCHours(13, 30, 0, 0)).toISOString(),
+    modality: 'video',
+    createdAt: BASE_TIME_ISO,
+    updatedAt: BASE_TIME_ISO,
+  },
+  {
+    requestId: 'appointment-request-2',
+    slotId: 'slot-2',
+    patientId: FIXTURE_PATIENT_ID,
+    status: 'approved',
+    workflowStatus: 'completed',
+    note: 'Previous review completed successfully.',
+    startsAt: new Date(daysAgoDate(3).setUTCHours(10, 0, 0, 0)).toISOString(),
+    endsAt: new Date(daysAgoDate(3).setUTCHours(10, 30, 0, 0)).toISOString(),
+    modality: 'video',
+    createdAt: daysAgoDate(4).toISOString(),
+    updatedAt: daysAgoDate(3).toISOString(),
+  },
+];
 
 export const FIXTURE_WORKLIST_ITEMS: WorklistRecord[] = [
   {

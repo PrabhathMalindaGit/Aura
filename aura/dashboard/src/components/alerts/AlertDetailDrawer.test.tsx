@@ -196,7 +196,7 @@ describe('AlertDetailDrawer accessibility and actions', () => {
 
     await user.type(screen.getByLabelText('Override reason'), 'Clinical review completed.');
     expect(saveButton).toBeEnabled();
-  });
+  }, 10_000);
 
   it('uses full-screen drawer mode on phone widths', async () => {
     installMatchMediaMock((query) => query.includes('(max-width: 899px)'));

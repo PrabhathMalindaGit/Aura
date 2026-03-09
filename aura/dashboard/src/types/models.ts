@@ -532,6 +532,54 @@ export interface DashboardCommunicationOverviewResponse {
   overview: DashboardCommunicationOverview;
 }
 
+export type ClinicianTaskType =
+  | 'follow_up'
+  | 'appointment'
+  | 'safety_review'
+  | 'adherence_review'
+  | 'communication'
+  | 'custom';
+
+export type ClinicianTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type ClinicianTaskStatus = 'open' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface ClinicianTaskItem {
+  id: string;
+  patientId: string;
+  title: string;
+  description?: string;
+  type: ClinicianTaskType;
+  priority: ClinicianTaskPriority;
+  status: ClinicianTaskStatus;
+  dueAt?: string;
+  assignedTo?: string;
+  createdBy: string;
+  source?: {
+    type?: string;
+    entityType?: string;
+    entityId?: string;
+    label?: string;
+  };
+  linkedAlertId?: string;
+  linkedAppointmentId?: string;
+  linkedMessageId?: string;
+  meta?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  cancelledAt?: string;
+}
+
+export interface ClinicianTasksResponse {
+  ok: true;
+  tasks: ClinicianTaskItem[];
+}
+
+export interface ClinicianTaskMutationResponse {
+  ok: true;
+  task: ClinicianTaskItem;
+}
+
 export type WorklistSortOption =
   | 'priority'
   | 'updatedAt'

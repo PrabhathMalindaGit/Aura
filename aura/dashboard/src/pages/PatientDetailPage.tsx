@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -10,13 +10,20 @@ import { Tabs } from '../components/ui/Tabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import { DayDetailPanel } from '../components/patients/DayDetailPanel';
+import { PatientAppointmentsPanel } from '../components/patients/PatientAppointmentsPanel';
+import { PatientCommunicationPanel } from '../components/patients/PatientCommunicationPanel';
+import { PatientCurrentPriorities } from '../components/patients/PatientCurrentPriorities';
 import { PatientSummaryCards } from '../components/patients/PatientSummaryCards';
+import { PatientTasksPanel } from '../components/patients/PatientTasksPanel';
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
+import { RecommendedActionsPanel } from '../components/patients/RecommendedActionsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import {
   assignPromToPatient,
+  completeClinicianTask,
   fetchPhotoBlob,
   generatePatientInsights,
+  getDashboardCommunicationOverview,
   getPatientMedicationAdherence,
   getPatientPhotos,
   getPatientInsights,
@@ -29,10 +36,13 @@ import {
   getRehabPhases,
   getPatientTrendsEndpointHint,
   isPatientTrendsEndpointMissing,
+  listAppointmentRequests,
   listAlerts,
+  listClinicianTasks,
   reviewInsight,
   setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
+  useClinicianWorklist,
   usePatients,
   usePatientTrends,
   useUpdateAlertStatus,
@@ -43,12 +53,16 @@ import type {
   AlertItem,
   InsightItem,
   AlertStatus,
+  AppointmentRequestItem,
+  ClinicianTaskItem,
+  DashboardCommunicationOverviewItem,
   PatientSummary,
   PromDueCard,
   PromHistoryRow,
   RehabPayload,
   SymptomPhotoItem,
   TrendPointRaw,
+  WorklistRecord,
 } from '../types/models';
 import { toCsv, downloadCsv } from '../utils/csv';
 import {
@@ -70,6 +84,13 @@ import {
   normalizeTrendPointsForExport,
 } from '../services/exportService';
 import {
+  derivePatientCurrentPriorities,
+  derivePatientRecommendedActions,
+  type PatientActionKey,
+  appointmentWorkflowLabel,
+  appointmentWorkflowTone,
+} from '../utils/patientDetail';
+import {
   alertsForDate,
   deriveTrendSummary,
   filterAlertsForPatient,
@@ -77,6 +98,7 @@ import {
   trendPointHasAnyData,
 } from '../utils/trends';
 import { bodyMapRegionLabel } from '../utils/bodyMap';
+import { formatDashboardRelativeTime } from '../utils/dashboard';
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 const CLINICIAN_BUCKET = 'anon';
@@ -274,6 +296,8 @@ export function PatientDetailPage(): JSX.Element {
   const [insightReviewingId, setInsightReviewingId] = useState<string | null>(null);
   const [insightActionError, setInsightActionError] = useState<string | null>(null);
   const [insightActionNotice, setInsightActionNotice] = useState<string | null>(null);
+  const [operationsError, setOperationsError] = useState<string | null>(null);
+  const [operationsNotice, setOperationsNotice] = useState<string | null>(null);
   const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
   const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
@@ -443,7 +467,71 @@ export function PatientDetailPage(): JSX.Element {
     placeholderData: (previous) => previous,
   });
 
+  const patientWorklistQuery = useClinicianWorklist({
+    search: patientId,
+    sort: 'priority',
+  });
+  const appointmentWindowFrom = useMemo(() => addDaysToWeekStart(recentSleepTo, -30), [recentSleepTo]);
+  const appointmentWindowTo = useMemo(() => addDaysToWeekStart(recentSleepTo, 60), [recentSleepTo]);
+
+  const patientCommunicationQuery = useQuery({
+    queryKey: ['patient-communication-overview', patientId],
+    queryFn: () => getDashboardCommunicationOverview(100),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientTasksQuery = useQuery({
+    queryKey: ['patient-tasks', patientId],
+    queryFn: () =>
+      listClinicianTasks({
+        patientId: patientId ?? '',
+        status: ['open', 'in_progress', 'completed'],
+        sortBy: 'createdAt',
+        sortDirection: 'desc',
+      }),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientAppointmentsQuery = useQuery({
+    queryKey: ['patient-appointments', patientId, appointmentWindowFrom, appointmentWindowTo],
+    queryFn: () =>
+      listAppointmentRequests({
+        from: appointmentWindowFrom,
+        to: appointmentWindowTo,
+        limit: 100,
+      }),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
   const updateAlertMutation = useUpdateAlertStatus();
+  const completeTaskMutation = useMutation({
+    mutationFn: (taskId: string) => completeClinicianTask(taskId),
+    onSuccess: async () => {
+      setOperationsError(null);
+      setOperationsNotice('Task marked complete.');
+      await Promise.allSettled([
+        patientTasksQuery.refetch(),
+        patientWorklistQuery.refetch(),
+        patientCommunicationQuery.refetch(),
+      ]);
+    },
+    onError: (error) => {
+      setOperationsNotice(null);
+      setOperationsError(toUserMessage(asAppError(error)));
+    },
+  });
 
   useEffect(() => {
     setSeenAlertMap(pruneSeenMap(CLINICIAN_BUCKET));
@@ -798,9 +886,57 @@ export function PatientDetailPage(): JSX.Element {
     () => patientInsightsQuery.data?.approved ?? [],
     [patientInsightsQuery.data?.approved],
   );
+  const patientWorklistItem = useMemo<WorklistRecord | null>(() => {
+    const items = patientWorklistQuery.data?.items ?? [];
+    return items.find((item) => item.patientId === patientId) ?? null;
+  }, [patientId, patientWorklistQuery.data?.items]);
+  const patientCommunicationItems = useMemo<DashboardCommunicationOverviewItem[]>(
+    () =>
+      (patientCommunicationQuery.data?.items ?? [])
+        .filter((item) => item.patientId === patientId)
+        .sort((left, right) => Date.parse(right.messageCreatedAt) - Date.parse(left.messageCreatedAt)),
+    [patientCommunicationQuery.data?.items, patientId],
+  );
+  const patientTasks = useMemo<ClinicianTaskItem[]>(
+    () => (patientTasksQuery.data ?? []).filter((task) => task.patientId === patientId),
+    [patientId, patientTasksQuery.data],
+  );
+  const patientActiveTasks = useMemo<ClinicianTaskItem[]>(
+    () =>
+      patientTasks
+        .filter((task) => task.status === 'open' || task.status === 'in_progress')
+        .sort((left, right) => {
+          const leftDue = Date.parse(left.dueAt ?? left.updatedAt);
+          const rightDue = Date.parse(right.dueAt ?? right.updatedAt);
+          return leftDue - rightDue;
+        }),
+    [patientTasks],
+  );
+  const patientRecentCompletedTasks = useMemo<ClinicianTaskItem[]>(
+    () =>
+      patientTasks
+        .filter((task) => task.status === 'completed')
+        .sort((left, right) => Date.parse(right.completedAt ?? right.updatedAt) - Date.parse(left.completedAt ?? left.updatedAt))
+        .slice(0, 3),
+    [patientTasks],
+  );
+  const patientAppointments = useMemo<AppointmentRequestItem[]>(
+    () =>
+      (patientAppointmentsQuery.data ?? [])
+        .filter((item) => item.patientId === patientId)
+        .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt)),
+    [patientAppointmentsQuery.data, patientId],
+  );
 
   const openAlertCount = useMemo(
     () => patientAlerts.filter((alert) => alert.status === 'open').length,
+    [patientAlerts],
+  );
+  const openPatientAlerts = useMemo(
+    () =>
+      patientAlerts
+        .filter((alert) => alert.status === 'open')
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
     [patientAlerts],
   );
 
@@ -820,6 +956,61 @@ export function PatientDetailPage(): JSX.Element {
   const trendsEndpointMissing = isPatientTrendsEndpointMissing(patientId, selectedDays);
   const hasTrendData = normalizedTrends.some((point) => trendPointHasAnyData(point));
   const patientExportRangeError = validateDateRange(patientExportRange);
+  const currentRehabPhaseTitle =
+    patientRehab?.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ??
+    patientWorklistItem?.rehabPhase ??
+    null;
+  const patientPriorities = useMemo(
+    () =>
+      derivePatientCurrentPriorities({
+        worklistItem: patientWorklistItem,
+        openAlerts: openPatientAlerts,
+        communicationItems: patientCommunicationItems,
+        activeTasks: patientActiveTasks,
+        appointments: patientAppointments,
+        trendSummary,
+      }),
+    [
+      openPatientAlerts,
+      patientActiveTasks,
+      patientAppointments,
+      patientCommunicationItems,
+      patientWorklistItem,
+      trendSummary,
+    ],
+  );
+  const recommendedActions = useMemo(
+    () =>
+      derivePatientRecommendedActions({
+        worklistItem: patientWorklistItem,
+        openAlerts: openPatientAlerts,
+        communicationItems: patientCommunicationItems,
+        activeTasks: patientActiveTasks,
+        appointments: patientAppointments,
+        trendSummary,
+      }),
+    [
+      openPatientAlerts,
+      patientActiveTasks,
+      patientAppointments,
+      patientCommunicationItems,
+      patientWorklistItem,
+      trendSummary,
+    ],
+  );
+  const patientPrioritiesError =
+    patientPriorities.length === 0 &&
+    (patientWorklistQuery.error ||
+      patientTasksQuery.error ||
+      patientCommunicationQuery.error ||
+      patientAppointmentsQuery.error)
+      ? 'Some operational signals could not be loaded. Retry to refresh the patient priorities.'
+      : null;
+  const recommendedActionsError =
+    recommendedActions.length === 0 &&
+    (patientWorklistQuery.error || patientTasksQuery.error || patientAppointmentsQuery.error)
+      ? 'Recommended next steps are unavailable until the patient operational context reloads.'
+      : null;
 
   const showTrendsLoading = trendsQuery.isLoading && trendData.length === 0;
 
@@ -830,6 +1021,81 @@ export function PatientDetailPage(): JSX.Element {
 
     setSelectedDateKey(date);
   }
+
+  const scrollToPanel = useCallback((panelId: string): void => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.getElementById(panelId)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
+
+  const handleOperationalAction = useCallback(
+    (key: PatientActionKey): void => {
+      if (key === 'alerts') {
+        scrollToPanel('patient-trends-section');
+        return;
+      }
+
+      if (key === 'communication') {
+        scrollToPanel('patient-communication-panel');
+        return;
+      }
+
+      if (key === 'tasks') {
+        scrollToPanel('patient-tasks-panel');
+        return;
+      }
+
+      if (key === 'appointments') {
+        navigate('/appointments');
+        return;
+      }
+
+      if (key === 'worklist') {
+        navigate('/worklist');
+        return;
+      }
+
+      if (key === 'plan') {
+        navigate(`/patients/${patientId}/plan`);
+        return;
+      }
+
+      scrollToPanel('patient-trends-section');
+    },
+    [navigate, patientId, scrollToPanel],
+  );
+
+  const handleRefreshOverview = useCallback((): void => {
+    void Promise.allSettled([
+      trendsQuery.refetch(),
+      patientAlertsQuery.refetch(),
+      patientWorklistQuery.refetch(),
+      patientTasksQuery.refetch(),
+      patientCommunicationQuery.refetch(),
+      patientAppointmentsQuery.refetch(),
+    ]);
+  }, [
+    patientAlertsQuery,
+    patientAppointmentsQuery,
+    patientCommunicationQuery,
+    patientTasksQuery,
+    patientWorklistQuery,
+    trendsQuery,
+  ]);
+
+  const handleCompleteTask = useCallback(
+    (taskId: string): void => {
+      setOperationsError(null);
+      setOperationsNotice(null);
+      completeTaskMutation.mutate(taskId);
+    },
+    [completeTaskMutation],
+  );
 
   function handleStatusUpdate(nextStatus: 'acknowledged' | 'resolved', alert: AlertItem): void {
     setActionError(null);
@@ -1087,6 +1353,26 @@ export function PatientDetailPage(): JSX.Element {
   }
 
   const patientDisplayName = patientContext?.displayName?.trim() || patientId;
+  const nextPatientAppointment =
+    patientAppointments.find((item) => Date.parse(item.startsAt) >= Date.now()) ?? patientAppointments[0] ?? null;
+  const currentContextTitle =
+    patientWorklistItem?.topIssue?.trim() ||
+    patientPriorities[0]?.title ||
+    'Stable review window';
+  const currentContextBody =
+    patientWorklistItem?.reviewReason?.trim() ||
+    patientPriorities[0]?.reason ||
+    'Use the priorities, trends, and operational panels below to confirm the next clinician step.';
+  const nextAppointmentBadgeVariant =
+    nextPatientAppointment === null
+      ? 'default'
+      : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'danger'
+        ? 'danger'
+        : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'warning'
+          ? 'warning'
+          : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'success'
+            ? 'success'
+            : 'default';
 
   return (
     <div className="page-stack patient-detail-page">
@@ -1138,11 +1424,18 @@ export function PatientDetailPage(): JSX.Element {
             </div>
             <div className="patient-detail-actions">
               <Button
+                className="patient-detail-actions__worklist"
+                variant="ghost"
+                onClick={() => {
+                  navigate('/worklist');
+                }}
+              >
+                Open worklist
+              </Button>
+              <Button
                 className="patient-detail-actions__refresh"
                 variant="secondary"
-                onClick={() => {
-                  void Promise.all([trendsQuery.refetch(), patientAlertsQuery.refetch()]);
-                }}
+                onClick={handleRefreshOverview}
               >
                 Refresh
               </Button>
@@ -1162,16 +1455,60 @@ export function PatientDetailPage(): JSX.Element {
           </div>
         }
       >
-        <div className="patient-detail-meta">
-          <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
-            {connection.online ? 'Online' : 'Offline'}
-          </Badge>
-          <Badge className="patient-detail-meta__alerts" variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
-            {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
-          </Badge>
-          <span className="muted-text patient-detail-meta__updated">
-            Last updated: {formatLastUpdated(connection.lastSuccessAt)}
-          </span>
+        <div className="patient-detail-hero-body">
+          <div className="patient-detail-meta">
+            <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
+              {connection.online ? 'Online' : 'Offline'}
+            </Badge>
+            <Badge className="patient-detail-meta__alerts" variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
+              {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
+            </Badge>
+            {currentRehabPhaseTitle ? <Badge variant="neutral">{currentRehabPhaseTitle}</Badge> : null}
+            {patientActiveTasks.length > 0 ? (
+              <Badge variant={patientActiveTasks.some((task) => task.priority === 'urgent') ? 'danger' : 'warning'}>
+                {patientActiveTasks.length} active task{patientActiveTasks.length === 1 ? '' : 's'}
+              </Badge>
+            ) : null}
+            {patientCommunicationItems.length > 0 ? (
+              <Badge variant={patientCommunicationItems.some((item) => item.flaggedBySafety) ? 'danger' : 'warning'}>
+                Message needs response
+              </Badge>
+            ) : null}
+            {nextPatientAppointment ? (
+              <Badge variant={nextAppointmentBadgeVariant}>
+                {appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}
+              </Badge>
+            ) : null}
+            <span className="muted-text patient-detail-meta__updated">
+              Last updated: {formatLastUpdated(connection.lastSuccessAt)}
+            </span>
+          </div>
+
+          <div className="patient-detail-current-context" data-testid="patient-detail-current-context">
+            <div className="patient-detail-current-context__copy">
+              <p className="patient-detail-current-context__eyebrow">Current context</p>
+              <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
+              <p className="patient-detail-current-context__text">{currentContextBody}</p>
+            </div>
+            <div className="patient-detail-current-context__facts">
+              <div className="patient-detail-current-context__fact">
+                <span>Priority state</span>
+                <strong>{patientPriorities.length > 0 ? `${patientPriorities.length} active` : 'Stable'}</strong>
+              </div>
+              <div className="patient-detail-current-context__fact">
+                <span>Last check-in</span>
+                <strong>{trendSummary.lastCheckinDate ?? '—'}</strong>
+              </div>
+              <div className="patient-detail-current-context__fact">
+                <span>Next appointment</span>
+                <strong>
+                  {nextPatientAppointment
+                    ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
+                    : 'None scheduled'}
+                </strong>
+              </div>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -1305,6 +1642,57 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      {operationsError ? (
+        <AlertBanner variant="error" title="Operational action failed">
+          {operationsError}
+        </AlertBanner>
+      ) : null}
+
+      {operationsNotice ? (
+        <AlertBanner variant="success" title="Patient follow-up updated">
+          {operationsNotice}
+        </AlertBanner>
+      ) : null}
+
+      <section className="patient-detail-section-block patient-detail-section-block--attention">
+        <div className="patient-detail-section-header">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Immediate review</p>
+            <h2 className="patient-detail-section-title">Current priorities and next steps</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Start here to understand what needs attention now before reviewing the full detail.
+          </p>
+        </div>
+        <div className="patient-detail-section-grid patient-detail-section-grid--attention">
+          <PatientCurrentPriorities
+            items={patientPriorities}
+            isLoading={
+              patientPriorities.length === 0 &&
+              (patientWorklistQuery.isLoading ||
+                patientTasksQuery.isLoading ||
+                patientCommunicationQuery.isLoading ||
+                patientAppointmentsQuery.isLoading)
+            }
+            error={patientPrioritiesError}
+            onRetry={handleRefreshOverview}
+            onAction={handleOperationalAction}
+          />
+          <RecommendedActionsPanel
+            items={recommendedActions}
+            isLoading={
+              recommendedActions.length === 0 &&
+              (patientWorklistQuery.isLoading ||
+                patientTasksQuery.isLoading ||
+                patientAppointmentsQuery.isLoading)
+            }
+            error={recommendedActionsError}
+            onRetry={handleRefreshOverview}
+            onAction={handleOperationalAction}
+          />
+        </div>
+      </section>
+
       <section className="patient-detail-summary-shell" aria-label="Patient summary">
         <div className="patient-detail-section-header patient-detail-section-header--summary">
           <div className="patient-detail-section-heading">
@@ -1318,7 +1706,10 @@ export function PatientDetailPage(): JSX.Element {
         <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
       </section>
 
-      <section className="patient-detail-section-block patient-detail-section-block--primary">
+      <section
+        id="patient-trends-section"
+        className="patient-detail-section-block patient-detail-section-block--primary"
+      >
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Clinical review</p>
@@ -1366,6 +1757,52 @@ export function PatientDetailPage(): JSX.Element {
           onResolve={(alert) => handleStatusUpdate('resolved', alert)}
           onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
         />
+      </section>
+
+      <section className="patient-detail-section-block patient-detail-section-block--operational">
+        <div className="patient-detail-section-header">
+          <div className="patient-detail-section-heading">
+            <p className="patient-detail-section-eyebrow">Operational follow-up</p>
+            <h2 className="patient-detail-section-title">Communication, tasks, and appointments</h2>
+          </div>
+          <p className="patient-detail-section-note">
+            Review the patient’s active follow-up burden before moving into deeper historical detail.
+          </p>
+        </div>
+        <div className="patient-detail-section-grid patient-detail-section-grid--operational">
+          <PatientCommunicationPanel
+            items={patientCommunicationItems}
+            isLoading={patientCommunicationQuery.isLoading}
+            error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
+            onRetry={() => {
+              void patientCommunicationQuery.refetch();
+            }}
+            onOpenWorklist={() => navigate('/worklist')}
+            onReviewTasks={() => handleOperationalAction('tasks')}
+          />
+          <PatientTasksPanel
+            activeTasks={patientActiveTasks}
+            recentCompletedTasks={patientRecentCompletedTasks}
+            isLoading={patientTasksQuery.isLoading}
+            error={patientTasksQuery.error ? toUserMessage(patientTasksQuery.error) : null}
+            completingTaskId={completeTaskMutation.isPending ? completeTaskMutation.variables : null}
+            onRetry={() => {
+              void patientTasksQuery.refetch();
+            }}
+            onCompleteTask={handleCompleteTask}
+            onOpenAlerts={() => handleOperationalAction('alerts')}
+            onOpenAppointments={() => navigate('/appointments')}
+          />
+          <PatientAppointmentsPanel
+            items={patientAppointments}
+            isLoading={patientAppointmentsQuery.isLoading}
+            error={patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null}
+            onRetry={() => {
+              void patientAppointmentsQuery.refetch();
+            }}
+            onOpenAppointments={() => navigate('/appointments')}
+          />
+        </div>
       </section>
 
       <section className="patient-detail-section-block patient-detail-section-block--signals">

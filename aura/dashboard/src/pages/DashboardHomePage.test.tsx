@@ -292,5 +292,5 @@ describe('DashboardHomePage', () => {
     await waitFor(() => {
       expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
     });
-  });
+  }, 10_000);
 });

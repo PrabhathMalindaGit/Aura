@@ -22,3 +22,28 @@ test('Trend review supports 14/30 toggle and day drilldown', async ({ page }) =>
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('day-detail-panel')).toHaveCount(0);
 });
+
+test('Patient detail operational panels surface priorities, communication, tasks, and appointments', async ({
+  page,
+}) => {
+  await installMockApi(page, { scenario: 'default' });
+
+  await page.goto('/patients/p1?days=14');
+  await page.waitForLoadState('networkidle');
+
+  await expect(page.getByTestId('patient-detail-current-context')).toContainText('High pain escalation');
+  await expect(page.getByTestId('patient-current-priorities')).toContainText('Open safety alert needs review');
+  await expect(page.getByTestId('patient-recommended-actions')).toContainText('Review latest alert');
+  await expect(page.getByTestId('patient-communication-panel')).toContainText(
+    'Pain is much worse after exercise today.',
+  );
+  await expect(page.getByTestId('patient-tasks-panel')).toContainText('Check medication adherence');
+  await expect(page.getByTestId('patient-appointments-panel')).toContainText('Awaiting confirmation');
+
+  await page
+    .getByTestId('patient-tasks-panel')
+    .getByRole('button', { name: 'Mark complete' })
+    .click();
+
+  await expect(page.getByTestId('patient-tasks-panel')).toContainText('Recently completed');
+});

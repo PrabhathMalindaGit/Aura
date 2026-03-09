@@ -24,6 +24,11 @@ import {
   type AlertStatus,
   type DashboardCommunicationOverview,
   type DashboardCommunicationOverviewResponse,
+  type ClinicianTaskItem,
+  type ClinicianTaskMutationResponse,
+  type ClinicianTasksResponse,
+  type ClinicianTaskStatus,
+  type ClinicianTaskType,
   type DashboardFollowUpTaskItem,
   type DashboardFollowUpTasksResponse,
   type DashboardPriorityQueueItem,
@@ -917,6 +922,48 @@ export async function listPatients(): Promise<PatientSummary[]> {
   });
 
   return response.patients;
+}
+
+export interface ListClinicianTasksParams {
+  patientId?: string;
+  status?: ClinicianTaskStatus[];
+  assignedTo?: string;
+  dueFrom?: string;
+  dueTo?: string;
+  type?: ClinicianTaskType[];
+  sortBy?: 'createdAt' | 'dueAt' | 'priority';
+  sortDirection?: 'asc' | 'desc';
+}
+
+export async function listClinicianTasks(
+  params: ListClinicianTasksParams = {},
+): Promise<ClinicianTaskItem[]> {
+  const response = await fetchJson<ClinicianTasksResponse>('/clinician/tasks', {
+    method: 'GET',
+    query: {
+      patientId: params.patientId,
+      status: params.status?.length ? params.status.join(',') : undefined,
+      assignedTo: params.assignedTo,
+      dueFrom: params.dueFrom,
+      dueTo: params.dueTo,
+      type: params.type?.length ? params.type.join(',') : undefined,
+      sortBy: params.sortBy,
+      sortDirection: params.sortDirection,
+    },
+  });
+
+  return response.tasks ?? [];
+}
+
+export async function completeClinicianTask(taskId: string): Promise<ClinicianTaskItem> {
+  const response = await fetchJson<ClinicianTaskMutationResponse>(
+    `/clinician/tasks/${encodeURIComponent(taskId)}/complete`,
+    {
+      method: 'POST',
+    },
+  );
+
+  return response.task;
 }
 
 export interface ListWorklistParams {

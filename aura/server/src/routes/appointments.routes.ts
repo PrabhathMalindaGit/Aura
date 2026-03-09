@@ -14,6 +14,7 @@ import {
   rejectAppointmentRequest,
   validateSlotDuration,
 } from "../services/appointmentsService";
+import { deriveAppointmentWorkflowStatus } from "../services/appointmentWorkflowService";
 import type { RequestWithUser } from "../types/auth";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { logger } from "../utils/logger";
@@ -231,6 +232,7 @@ router.post("/patient/appointments/requests", requirePatientAuth, async (req, re
       ok: true,
       requestId: String(created._id),
       status: created.status,
+      workflowStatus: "awaiting_confirmation",
       createdAt: toIsoString(created.createdAt),
     });
   } catch (error) {
@@ -304,6 +306,17 @@ router.get("/patient/appointments/requests", requirePatientAuth, async (req, res
           requestId: String(item._id),
           slotId: String(item.slotId),
           status: item.status,
+          workflowStatus: deriveAppointmentWorkflowStatus({
+            startsAt: slot.startsAt,
+            endsAt: slot.endsAt,
+            requestStatus:
+              item.status === "approved" ||
+              item.status === "rejected" ||
+              item.status === "canceled"
+                ? item.status
+                : "pending",
+            note: typeof item.note === "string" ? item.note : undefined,
+          }),
           startsAt: toIsoString(slot.startsAt),
           endsAt: toIsoString(slot.endsAt),
           modality: slot.modality === "video" ? "video" : "video",
@@ -362,6 +375,7 @@ router.post(
           requestId: String(canceled._id),
           slotId: String(canceled.slotId),
           status: canceled.status,
+          workflowStatus: "reschedule_requested",
           reviewedAt: canceled.reviewedAt ? canceled.reviewedAt.toISOString() : undefined,
           createdAt: toIsoString(canceled.createdAt),
         },
@@ -642,6 +656,17 @@ router.get("/clinician/appointments/requests", async (req, res) => {
             slotId: String(item.slotId),
             patientId: item.patientId,
             status: item.status,
+            workflowStatus: deriveAppointmentWorkflowStatus({
+              startsAt: slot.startsAt,
+              endsAt: slot.endsAt,
+              requestStatus:
+                item.status === "approved" ||
+                item.status === "rejected" ||
+                item.status === "canceled"
+                  ? item.status
+                  : "pending",
+              note: typeof item.note === "string" ? item.note : undefined,
+            }),
             note: item.note,
             startsAt: toIsoString(slot.startsAt),
             endsAt: toIsoString(slot.endsAt),
@@ -728,6 +753,22 @@ router.patch("/clinician/appointments/requests/:id", async (req, res) => {
         slotId: String(reviewed.slotId),
         patientId: reviewed.patientId,
         status: reviewed.status,
+        workflowStatus:
+          slot?.startsAt && slot?.endsAt
+            ? deriveAppointmentWorkflowStatus({
+                startsAt: slot.startsAt,
+                endsAt: slot.endsAt,
+                requestStatus:
+                  reviewed.status === "approved" ||
+                  reviewed.status === "rejected" ||
+                  reviewed.status === "canceled"
+                    ? reviewed.status
+                    : "pending",
+                note: typeof reviewed.note === "string" ? reviewed.note : undefined,
+              })
+            : reviewed.status === "approved"
+              ? "upcoming"
+              : "awaiting_confirmation",
         startsAt: toIsoString(slot?.startsAt),
         endsAt: toIsoString(slot?.endsAt),
         modality: slot?.modality === "video" ? "video" : "video",

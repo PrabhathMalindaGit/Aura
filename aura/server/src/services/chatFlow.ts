@@ -1,6 +1,7 @@
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import ChatMessage from "../models/ChatMessage";
+import { upsertCommunicationReview } from "./communicationReviewService";
 import { toId } from "../utils/ids";
 import { redactText } from "../utils/redact";
 import { classify, ragReply } from "./ai";
@@ -53,6 +54,16 @@ export async function processChatMessage(
     reasons: aiResult.reasons,
   };
   await userMsg.save();
+
+  await upsertCommunicationReview({
+    patientId: input.patientId,
+    messageId: toId(userMsg._id),
+    needsResponse: aiResult.risk === "high",
+    flaggedBySafety: aiResult.risk === "high",
+    followUpRequested: aiResult.risk === "high",
+    messageCreatedAt: userMsg.createdAt,
+    messagePreview: input.text,
+  });
 
   if (aiResult.risk === "high") {
     const alert = await Alert.create({

@@ -5,6 +5,7 @@ import appointmentsRoutes from "./appointments.routes";
 import chatRoutes from "./chat.routes";
 import checkinsRoutes from "./checkins.routes";
 import caregiverRoutes from "./caregiver.routes";
+import clinicianDashboardRoutes from "./clinicianDashboard.routes";
 import clinicianRoutes from "./clinician.routes";
 import exercisePlanRoutes from "./exercisePlan.routes";
 import exerciseSessionsRoutes from "./exerciseSessions.routes";
@@ -19,8 +20,10 @@ import patientRoutes from "./patient.routes";
 import promsRoutes from "./proms.routes";
 import rehabPhasesRoutes from "./rehabPhases.routes";
 import symptomPhotosRoutes from "./symptomPhotos.routes";
+import tasksRoutes from "./tasks.routes";
 import wearablesRoutes from "./wearables.routes";
 import weeklyReportsRoutes from "./weeklyReports.routes";
+import worklistRoutes from "./worklist.routes";
 
 const router = Router();
 
@@ -30,6 +33,7 @@ router.use(appointmentsRoutes);
 router.use(checkinsRoutes);
 router.use(caregiverRoutes);
 router.use(chatRoutes);
+router.use(clinicianDashboardRoutes);
 router.use(clinicianRoutes);
 router.use(hydrationRoutes);
 router.use(insightsRoutes);
@@ -40,9 +44,11 @@ router.use(exercisePlanRoutes);
 router.use(exerciseSessionsRoutes);
 router.use(rehabPhasesRoutes);
 router.use(symptomPhotosRoutes);
+router.use(tasksRoutes);
 router.use(wearablesRoutes);
 router.use(promsRoutes);
 router.use(weeklyReportsRoutes);
+router.use(worklistRoutes);
 router.use(eventsRoutes);
 router.use(patientRoutes);
 

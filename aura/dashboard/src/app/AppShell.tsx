@@ -129,6 +129,10 @@ export function AppShell(): JSX.Element {
   }, [navigate, pathname]);
 
   const pageTitle = useMemo(() => {
+    if (pathname.startsWith('/dashboard')) {
+      return 'Dashboard';
+    }
+
     if (pathname.startsWith('/patients/')) {
       return 'Patient Detail';
     }
@@ -149,7 +153,7 @@ export function AppShell(): JSX.Element {
       return 'Settings';
     }
 
-    return 'Alerts';
+    return 'Dashboard';
   }, [pathname]);
 
   return (

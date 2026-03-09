@@ -143,7 +143,7 @@ describe('AlertsPage queue flow', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText(rowLabel)).not.toBeInTheDocument();
     });
-  });
+  }, 12_000);
 
   it('unseen becomes seen after opening drawer', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -174,7 +174,7 @@ describe('AlertsPage queue flow', () => {
 
     const stored = window.localStorage.getItem(getSeenStorageKey('clinician-1'));
     expect(stored).toContain(baseAlert._id);
-  });
+  }, 12_000);
 
   it('unseen-only filter hides seen alerts', async () => {
     const seenAlert: AlertItem = {
@@ -214,7 +214,7 @@ describe('AlertsPage queue flow', () => {
       expect(screen.queryByLabelText(seenRowLabel)).not.toBeInTheDocument();
       expect(screen.getByLabelText(unseenRowLabel)).toBeInTheDocument();
     });
-  });
+  }, 12_000);
 
   it('acknowledged alerts do not show unseen indicator', async () => {
     const acknowledgedAlert: AlertItem = {

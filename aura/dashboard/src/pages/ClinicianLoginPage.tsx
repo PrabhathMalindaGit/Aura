@@ -48,16 +48,16 @@ function reasonMessage(reason: LoginReason | undefined): string {
     return 'You signed out of the dashboard.';
   }
 
-  return 'Sign in with your clinician account to access alerts and patient data.';
+  return 'Sign in with your clinician account to access the command center, alerts, and patient data.';
 }
 
 function toSafeRedirectPath(candidate: string | undefined): string {
   if (!candidate || !candidate.startsWith('/')) {
-    return '/alerts';
+    return '/dashboard';
   }
 
   if (candidate.startsWith('/login')) {
-    return '/alerts';
+    return '/dashboard';
   }
 
   return candidate;

@@ -261,6 +261,12 @@ export interface MedicationAdherenceRangeResponse {
 
 export type AppointmentSlotStatus = 'available' | 'closed';
 export type AppointmentRequestStatus = 'pending' | 'approved' | 'rejected' | 'canceled';
+export type AppointmentWorkflowStatus =
+  | 'upcoming'
+  | 'awaiting_confirmation'
+  | 'completed'
+  | 'missed'
+  | 'reschedule_requested';
 
 export interface AppointmentSlot {
   slotId: string;
@@ -284,12 +290,14 @@ export interface AppointmentRequestItem {
   slotId: string;
   patientId: string;
   status: AppointmentRequestStatus;
+  workflowStatus?: AppointmentWorkflowStatus;
   note?: string;
   startsAt: string;
   endsAt: string;
   modality: 'video';
   meetingLink?: string;
   reviewedAt?: string;
+  updatedAt?: string;
   reviewedBy?: {
     clinicianId: string;
     name?: string;
@@ -394,6 +402,134 @@ export interface ListAlertsResponse {
 export interface ListPatientsResponse {
   ok: true;
   patients: PatientSummary[];
+}
+
+export type DashboardItemPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type DashboardPriorityQueueItemType =
+  | 'alert'
+  | 'task'
+  | 'missed_checkin'
+  | 'communication'
+  | 'appointment_exception';
+
+export interface DashboardSummary {
+  openAlertsCount: number;
+  assignedToMeAlertsCount: number;
+  pendingInsightsCount: number;
+  todayAppointmentsCount: number;
+  missedCheckinsCount: number;
+  openFollowUpTasksCount: number;
+  messagesNeedingResponseCount: number;
+}
+
+export interface DashboardSummaryResponse {
+  ok: true;
+  summary: DashboardSummary;
+}
+
+export interface DashboardPriorityQueueItem {
+  id: string;
+  itemType: DashboardPriorityQueueItemType;
+  patientId: string;
+  title: string;
+  subtitle?: string;
+  priority: DashboardItemPriority;
+  status: string;
+  source: string;
+  createdAt: string;
+  dueAt?: string;
+  linkedEntityId?: string;
+  linkedEntityType?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface DashboardPriorityQueueResponse {
+  ok: true;
+  items: DashboardPriorityQueueItem[];
+}
+
+export interface DashboardSafetyEvent {
+  id: string;
+  type: string;
+  patientId: string;
+  alertId?: string;
+  createdAt: string;
+  summary: string;
+  alertStatus?: string;
+  notificationStatus?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface DashboardRecentSafetyEventsResponse {
+  ok: true;
+  items: DashboardSafetyEvent[];
+}
+
+export interface DashboardTodayAppointmentItem {
+  id: string;
+  patientId: string;
+  clinicianId?: string;
+  startsAt: string;
+  endsAt: string;
+  status: AppointmentWorkflowStatus;
+  requestStatus: AppointmentRequestStatus;
+  modality: 'video';
+  meetingLink?: string;
+  note?: string;
+  updatedAt: string;
+}
+
+export interface DashboardTodayAppointmentsResponse {
+  ok: true;
+  items: DashboardTodayAppointmentItem[];
+}
+
+export interface DashboardFollowUpTaskItem {
+  id: string;
+  patientId: string;
+  title: string;
+  priority: DashboardItemPriority;
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled' | string;
+  dueAt?: string;
+  type: string;
+  linkedAlertId?: string;
+  linkedAppointmentId?: string;
+  linkedMessageId?: string;
+  updatedAt: string;
+}
+
+export interface DashboardFollowUpTasksResponse {
+  ok: true;
+  items: DashboardFollowUpTaskItem[];
+}
+
+export interface DashboardCommunicationOverviewCounts {
+  needsResponseCount: number;
+  flaggedBySafetyCount: number;
+  followUpRequestedCount: number;
+}
+
+export interface DashboardCommunicationOverviewItem {
+  id: string;
+  patientId: string;
+  patientName: string;
+  messageId?: string;
+  needsResponse: boolean;
+  flaggedBySafety: boolean;
+  followUpRequested: boolean;
+  linkedTaskId?: string;
+  messageCreatedAt: string;
+  messagePreview?: string;
+}
+
+export interface DashboardCommunicationOverview {
+  counts: DashboardCommunicationOverviewCounts;
+  items: DashboardCommunicationOverviewItem[];
+}
+
+export interface DashboardCommunicationOverviewResponse {
+  ok: true;
+  overview: DashboardCommunicationOverview;
 }
 
 export interface PatchAlertResponse {

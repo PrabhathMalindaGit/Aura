@@ -3,6 +3,12 @@ import type { AlertItem, AlertStatus, TrendPointRaw } from '../../../src/types/m
 import {
   FIXTURE_ACK_ALERT,
   FIXTURE_ALERTS_BY_STATUS,
+  FIXTURE_DASHBOARD_APPOINTMENTS,
+  FIXTURE_DASHBOARD_COMMUNICATION,
+  FIXTURE_DASHBOARD_PRIORITY_QUEUE,
+  FIXTURE_DASHBOARD_SAFETY_EVENTS,
+  FIXTURE_DASHBOARD_SUMMARY,
+  FIXTURE_DASHBOARD_TASKS,
   FIXTURE_DAY_DRILLDOWN_DATE,
   FIXTURE_PATIENTS,
   FIXTURE_RESOLVED_ALERT,
@@ -122,6 +128,36 @@ export async function installMockApi(
 
     if (isPath(pathname, '/clinician/patients') && method === 'GET') {
       await fulfillJson(route, 200, { ok: true, patients: deepClone(FIXTURE_PATIENTS) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/dashboard/summary') && method === 'GET') {
+      await fulfillJson(route, 200, { ok: true, summary: deepClone(FIXTURE_DASHBOARD_SUMMARY) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/dashboard/priority-queue') && method === 'GET') {
+      await fulfillJson(route, 200, { ok: true, items: deepClone(FIXTURE_DASHBOARD_PRIORITY_QUEUE) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/dashboard/recent-safety-events') && method === 'GET') {
+      await fulfillJson(route, 200, { ok: true, items: deepClone(FIXTURE_DASHBOARD_SAFETY_EVENTS) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/dashboard/today-appointments') && method === 'GET') {
+      await fulfillJson(route, 200, { ok: true, items: deepClone(FIXTURE_DASHBOARD_APPOINTMENTS) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/dashboard/follow-up-tasks') && method === 'GET') {
+      await fulfillJson(route, 200, { ok: true, items: deepClone(FIXTURE_DASHBOARD_TASKS) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/dashboard/communication-overview') && method === 'GET') {
+      await fulfillJson(route, 200, { ok: true, overview: deepClone(FIXTURE_DASHBOARD_COMMUNICATION) });
       return;
     }
 

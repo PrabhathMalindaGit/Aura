@@ -13,6 +13,17 @@ interface NavIconProps {
 }
 
 function NavIcon({ icon }: NavIconProps): JSX.Element {
+  if (icon === 'dashboard') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M4.5 4h6.25a1.5 1.5 0 0 1 1.5 1.5v4.75a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 10.25V5.5A1.5 1.5 0 0 1 4.5 4Zm8.75 0h6.25A1.5 1.5 0 0 1 21 5.5v8.5a1.5 1.5 0 0 1-1.5 1.5h-6.25a1.5 1.5 0 0 1-1.5-1.5V5.5A1.5 1.5 0 0 1 13.25 4ZM4.5 13.25h6.25a1.5 1.5 0 0 1 1.5 1.5v4.75a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5v-4.75a1.5 1.5 0 0 1 1.5-1.5Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
   if (icon === 'alerts') {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">

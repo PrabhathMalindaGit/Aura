@@ -1,4 +1,14 @@
-import type { AlertItem, PatientSummary, TrendPointRaw } from '../../src/types/models';
+import type {
+  AlertItem,
+  DashboardCommunicationOverview,
+  DashboardFollowUpTaskItem,
+  DashboardPriorityQueueItem,
+  DashboardSafetyEvent,
+  DashboardSummary,
+  DashboardTodayAppointmentItem,
+  PatientSummary,
+  TrendPointRaw,
+} from '../../src/types/models';
 
 function daysAgoDate(days: number): Date {
   const value = new Date();
@@ -27,6 +37,96 @@ export const FIXTURE_PATIENTS: PatientSummary[] = [
     lastPain: 7,
   },
 ];
+
+export const FIXTURE_DASHBOARD_SUMMARY: DashboardSummary = {
+  openAlertsCount: 1,
+  assignedToMeAlertsCount: 1,
+  pendingInsightsCount: 2,
+  todayAppointmentsCount: 1,
+  missedCheckinsCount: 1,
+  openFollowUpTasksCount: 1,
+  messagesNeedingResponseCount: 1,
+};
+
+export const FIXTURE_DASHBOARD_PRIORITY_QUEUE: DashboardPriorityQueueItem[] = [
+  {
+    id: 'queue-alert-1',
+    itemType: 'alert',
+    patientId: FIXTURE_PATIENT_ID,
+    title: 'Assigned high-risk alert',
+    subtitle: 'Pain escalation requires review',
+    priority: 'high',
+    status: 'open',
+    source: 'checkin',
+    createdAt: BASE_TIME_ISO,
+    linkedEntityId: FIXTURE_ALERT_ID,
+    linkedEntityType: 'alert',
+  },
+];
+
+export const FIXTURE_DASHBOARD_SAFETY_EVENTS: DashboardSafetyEvent[] = [
+  {
+    id: 'event-1',
+    type: 'NOTIFICATION_SENT',
+    patientId: FIXTURE_PATIENT_ID,
+    alertId: FIXTURE_ALERT_ID,
+    createdAt: BASE_TIME_ISO,
+    summary: 'Telegram escalation sent successfully.',
+    alertStatus: 'open',
+    notificationStatus: 'sent',
+  },
+];
+
+export const FIXTURE_DASHBOARD_APPOINTMENTS: DashboardTodayAppointmentItem[] = [
+  {
+    id: 'appointment-1',
+    patientId: FIXTURE_PATIENT_ID,
+    clinicianId: 'clinician-1',
+    startsAt: new Date(daysAgoDate(0).setUTCHours(13, 0, 0, 0)).toISOString(),
+    endsAt: new Date(daysAgoDate(0).setUTCHours(13, 30, 0, 0)).toISOString(),
+    status: 'awaiting_confirmation',
+    requestStatus: 'pending',
+    modality: 'video',
+    note: 'Waiting for patient confirmation.',
+    updatedAt: BASE_TIME_ISO,
+  },
+];
+
+export const FIXTURE_DASHBOARD_TASKS: DashboardFollowUpTaskItem[] = [
+  {
+    id: 'task-1',
+    patientId: FIXTURE_PATIENT_ID,
+    title: 'Review safety escalation',
+    priority: 'urgent',
+    status: 'open',
+    dueAt: BASE_TIME_ISO,
+    type: 'safety_review',
+    linkedAlertId: FIXTURE_ALERT_ID,
+    updatedAt: BASE_TIME_ISO,
+  },
+];
+
+export const FIXTURE_DASHBOARD_COMMUNICATION: DashboardCommunicationOverview = {
+  counts: {
+    needsResponseCount: 1,
+    flaggedBySafetyCount: 1,
+    followUpRequestedCount: 1,
+  },
+  items: [
+    {
+      id: 'communication-1',
+      patientId: FIXTURE_PATIENT_ID,
+      patientName: 'Patient P1',
+      messageId: 'message-1',
+      needsResponse: true,
+      flaggedBySafety: true,
+      followUpRequested: true,
+      linkedTaskId: 'task-1',
+      messageCreatedAt: BASE_TIME_ISO,
+      messagePreview: 'Pain is much worse after exercise today.',
+    },
+  ],
+};
 
 export const FIXTURE_OPEN_ALERT: AlertItem = {
   _id: FIXTURE_ALERT_ID,

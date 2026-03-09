@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppShell } from './AppShell';
 import { RequireClinicianAuth } from './RequireClinicianAuth';
 import { AlertsPage } from '../pages/AlertsPage';
+import { DashboardHomePage } from '../pages/DashboardHomePage';
 import { PatientsPage } from '../pages/PatientsPage';
 import { PatientDetailPage } from '../pages/PatientDetailPage';
 import { PatientExercisePlanPage } from '../pages/PatientExercisePlanPage';
@@ -32,7 +33,8 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <Navigate to="/alerts" replace /> },
+          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: 'dashboard', element: <DashboardHomePage /> },
           { path: 'alerts', element: <AlertsPage /> },
           { path: 'insights', element: <InsightsQueuePage /> },
           { path: 'appointments', element: <AppointmentsPage /> },
@@ -45,7 +47,7 @@ export const router = createBrowserRouter([
           { path: 'proms/:promId', element: <PromDetailPage /> },
           { path: 'smoke', element: <SmokePage /> },
           { path: 'settings', element: <SettingsPage /> },
-          { path: '*', element: <Navigate to="/alerts" replace /> },
+          { path: '*', element: <Navigate to="/dashboard" replace /> },
         ],
       },
     ],

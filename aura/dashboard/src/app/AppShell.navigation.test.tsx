@@ -45,7 +45,8 @@ function renderShell(entry: string): void {
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/" element={<AppShell />}>
-          <Route index element={<Navigate to="/alerts" replace />} />
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<div>Dashboard workspace</div>} />
           <Route path="alerts" element={<div>Alerts workspace</div>} />
           <Route path="patients" element={<div>Patients workspace</div>} />
           <Route path="settings" element={<div>Settings workspace</div>} />
@@ -92,5 +93,16 @@ describe('AppShell navigation', () => {
     const activeLink = screen.getByRole('link', { name: 'Patients' });
     expect(activeLink).toHaveClass('sidebar-item--active');
   });
-});
 
+  it('redirects the shell index route to dashboard workspace', async () => {
+    installMatchMediaPreset('desktop');
+    renderShell('/');
+
+    await waitFor(() => {
+      expect(screen.getByText('Dashboard workspace')).toBeInTheDocument();
+    });
+
+    const activeLink = screen.getByRole('link', { name: 'Dashboard' });
+    expect(activeLink).toHaveClass('sidebar-item--active');
+  });
+});

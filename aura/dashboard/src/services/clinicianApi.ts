@@ -22,6 +22,18 @@ import {
   type AlertContextResult,
   type AlertItem,
   type AlertStatus,
+  type DashboardCommunicationOverview,
+  type DashboardCommunicationOverviewResponse,
+  type DashboardFollowUpTaskItem,
+  type DashboardFollowUpTasksResponse,
+  type DashboardPriorityQueueItem,
+  type DashboardPriorityQueueResponse,
+  type DashboardRecentSafetyEventsResponse,
+  type DashboardSafetyEvent,
+  type DashboardSummary,
+  type DashboardSummaryResponse,
+  type DashboardTodayAppointmentItem,
+  type DashboardTodayAppointmentsResponse,
   type CheckinsRangeResponse,
   type HydrationRangeResponse,
   type NutritionRangeResponse,
@@ -76,6 +88,7 @@ import { getSeenAt } from './seenStore';
 
 const QUERY_STALE_TIME_MS = 7_000;
 const PATIENTS_QUERY_STALE_TIME_MS = 30_000;
+const DASHBOARD_QUERY_STALE_TIME_MS = 10_000;
 const DEFAULT_POLLING_INTERVAL_MS = 12_000;
 const TRENDS_ENDPOINT_HINT =
   'Trends endpoint not ready. Add GET /clinician/patients/:id/trends?days=14|30';
@@ -94,6 +107,14 @@ function retryIfAllowed(failureCount: number, error: unknown): boolean {
 }
 
 export const clinicianQueryKeys = {
+  dashboardSummary: (): QueryKey => ['dashboard', 'summary'],
+  dashboardPriorityQueue: (limit: number): QueryKey => ['dashboard', 'priority-queue', limit],
+  dashboardRecentSafetyEvents: (limit: number): QueryKey => ['dashboard', 'recent-safety-events', limit],
+  dashboardTodayAppointments: (): QueryKey => ['dashboard', 'today-appointments'],
+  dashboardFollowUpTasks: (limit: number, assignedToMe: boolean): QueryKey =>
+    ['dashboard', 'follow-up-tasks', limit, assignedToMe],
+  dashboardCommunicationOverview: (limit: number): QueryKey =>
+    ['dashboard', 'communication-overview', limit],
   alerts: (status: AlertStatus): QueryKey => ['alerts', status],
   patientTrends: (patientId: string, days: 14 | 30): QueryKey => ['patient-trends', patientId, days],
   alertContext: (alertId: string): QueryKey => ['alert-context', alertId],
@@ -886,6 +907,71 @@ export async function listPatients(): Promise<PatientSummary[]> {
   return response.patients;
 }
 
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  const response = await fetchJson<DashboardSummaryResponse>('/clinician/dashboard/summary', {
+    method: 'GET',
+  });
+
+  return response.summary;
+}
+
+export async function listDashboardPriorityQueue(limit: number = 8): Promise<DashboardPriorityQueueItem[]> {
+  const response = await fetchJson<DashboardPriorityQueueResponse>('/clinician/dashboard/priority-queue', {
+    method: 'GET',
+    query: { limit },
+  });
+
+  return response.items ?? [];
+}
+
+export async function listDashboardRecentSafetyEvents(limit: number = 6): Promise<DashboardSafetyEvent[]> {
+  const response = await fetchJson<DashboardRecentSafetyEventsResponse>(
+    '/clinician/dashboard/recent-safety-events',
+    {
+      method: 'GET',
+      query: { limit },
+    },
+  );
+
+  return response.items ?? [];
+}
+
+export async function listDashboardTodayAppointments(): Promise<DashboardTodayAppointmentItem[]> {
+  const response = await fetchJson<DashboardTodayAppointmentsResponse>('/clinician/dashboard/today-appointments', {
+    method: 'GET',
+  });
+
+  return response.items ?? [];
+}
+
+export async function listDashboardFollowUpTasks(
+  params: { limit?: number; assignedToMe?: boolean } = {},
+): Promise<DashboardFollowUpTaskItem[]> {
+  const response = await fetchJson<DashboardFollowUpTasksResponse>('/clinician/dashboard/follow-up-tasks', {
+    method: 'GET',
+    query: {
+      limit: params.limit,
+      assignedToMe: params.assignedToMe === true ? 'true' : undefined,
+    },
+  });
+
+  return response.items ?? [];
+}
+
+export async function getDashboardCommunicationOverview(
+  limit: number = 5,
+): Promise<DashboardCommunicationOverview> {
+  const response = await fetchJson<DashboardCommunicationOverviewResponse>(
+    '/clinician/dashboard/communication-overview',
+    {
+      method: 'GET',
+      query: { limit },
+    },
+  );
+
+  return response.overview;
+}
+
 export async function getExercisePlan(patientId: string): Promise<ExercisePlan | null> {
   const response = await fetchJson<ExercisePlanResponse>(
     `/clinician/patients/${encodeURIComponent(patientId)}/exercise-plan`,
@@ -1198,6 +1284,83 @@ export function usePatients(): UseQueryResult<PatientSummary[], unknown> {
     queryKey: clinicianQueryKeys.patients(),
     queryFn: () => listPatients(),
     staleTime: PATIENTS_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useDashboardSummary(): UseQueryResult<DashboardSummary, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.dashboardSummary(),
+    queryFn: () => getDashboardSummary(),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useDashboardPriorityQueue(
+  limit: number = 8,
+): UseQueryResult<DashboardPriorityQueueItem[], unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.dashboardPriorityQueue(limit),
+    queryFn: () => listDashboardPriorityQueue(limit),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useDashboardRecentSafetyEvents(
+  limit: number = 6,
+): UseQueryResult<DashboardSafetyEvent[], unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.dashboardRecentSafetyEvents(limit),
+    queryFn: () => listDashboardRecentSafetyEvents(limit),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useDashboardTodayAppointments(): UseQueryResult<DashboardTodayAppointmentItem[], unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.dashboardTodayAppointments(),
+    queryFn: () => listDashboardTodayAppointments(),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useDashboardFollowUpTasks(
+  params: { limit?: number; assignedToMe?: boolean } = {},
+): UseQueryResult<DashboardFollowUpTaskItem[], unknown> {
+  const limit = params.limit ?? 5;
+  const assignedToMe = params.assignedToMe === true;
+
+  return useQuery({
+    queryKey: clinicianQueryKeys.dashboardFollowUpTasks(limit, assignedToMe),
+    queryFn: () => listDashboardFollowUpTasks({ limit, assignedToMe }),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function useDashboardCommunicationOverview(
+  limit: number = 5,
+): UseQueryResult<DashboardCommunicationOverview, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.dashboardCommunicationOverview(limit),
+    queryFn: () => getDashboardCommunicationOverview(limit),
+    staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,

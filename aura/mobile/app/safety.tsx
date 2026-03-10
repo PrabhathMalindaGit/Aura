@@ -11,6 +11,7 @@ import {
 
 import { Banner } from "@/src/components/Banner";
 import { Avatar } from "@/src/components/Avatar";
+import { Card } from "@/src/components/Card";
 import { DomainIcon } from "@/src/components/IconSet";
 import { GlassPanel } from "@/src/components/GlassPanel";
 import { HeroHeader } from "@/src/components/HeroHeader";
@@ -20,6 +21,7 @@ import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TipCard } from "@/src/components/TipCard";
 import {
   EMERGENCY_NUMBER_PLACEHOLDER,
@@ -144,6 +146,14 @@ export default function SafetyScreen() {
   const alertId = Array.isArray(params.alertId) ? params.alertId[0] : params.alertId;
   const clinicNumberConfigured = isConfiguredSupportNumber(SUPPORT_PHONE_PLACEHOLDER);
   const emergencyNumberConfigured = isConfiguredEmergencyNumber(EMERGENCY_NUMBER_PLACEHOLDER);
+  const supportStory =
+    alertId && clinicNumberConfigured
+      ? "Your care team has already been notified. Start by messaging them or calling your clinic support line."
+      : alertId
+        ? "Your care team has already been notified. Start by messaging them so they can guide the next safe step."
+        : clinicNumberConfigured
+          ? "We noticed signals that may mean you need extra support. Start by messaging your care team or calling your clinic support line."
+          : "We noticed signals that may mean you need extra support. Start by messaging your care team first, then use a calming tool if you need a moment.";
 
   const goHome = () => {
     try {
@@ -175,7 +185,7 @@ export default function SafetyScreen() {
         <HeroHeader
           variant="compact"
           title="Safety support"
-          subtitle="Support active · Let’s take the next step together"
+          subtitle="Support active · Take one safe step at a time"
           left={<Avatar size={40} name="Aura" fallback="icon" iconKey="safety" ring="safety" />}
           rightActions={[
             {
@@ -185,30 +195,32 @@ export default function SafetyScreen() {
               onPress: goHome,
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label="Support active" variant="warning" />
+            {alertId ? <StatusPill label="Care team notified" variant="info" /> : null}
+            {isOffline ? <StatusPill label="Offline" variant="neutral" /> : null}
+          </View>
+
+          <Card
+            variant="outlined"
+            style={styles.storyCard}
+            accessibilityLabel="Immediate safety support guidance"
+          >
+            <View style={styles.storyHeader}>
+              <Text style={styles.storyEyebrow}>Immediate support</Text>
+              <Text style={styles.storyTitle}>Start with the safest next step</Text>
+            </View>
+            <Text style={styles.storyText}>{supportStory}</Text>
+          </Card>
+        </HeroHeader>
       }
     >
-      <MediaCard
-        leading={{
-          type: "thumbnail",
-          source: require("../src/assets/illustrations/ill_safety.png"),
-          fit: "contain",
-          bg: "muted",
-        }}
-        title="Support is active"
-        subtitle="You’re not alone. Choose one option below and go at your own pace."
-        chips={[
-          { text: "Support active", tone: "warning" as const },
-          ...(alertId ? [{ text: "Care team notified", tone: "info" as const }] : []),
-          ...(isOffline ? [{ text: "Offline", tone: "muted" as const }] : []),
-        ].slice(0, 3)}
-      />
-
       <TipCard
-        tone="neutral"
+        tone="safety"
         leading={{ type: "icon", icon: "info", tone: "muted" }}
-        title="What’s happening"
-        text="We noticed signals that you may need extra support right now. This screen offers quick tools and clear next steps."
+        title="Why you’re seeing this"
+        text="Aura noticed signals that may mean you need extra support right now. This screen keeps the next steps simple, clear, and close at hand."
         chips={[
           ...visibleReasons,
           ...(remainingReasonCount > 0 ? [`+${remainingReasonCount} more`] : []),
@@ -216,8 +228,45 @@ export default function SafetyScreen() {
       />
 
       <Section
-        title="Quick actions"
-        subtitle="Use one now, then reassess how you feel."
+        title="Start here"
+        subtitle="Choose the safest next step right now. If you need a moment first, use a calming tool below."
+        card
+        cardVariant="elevated"
+      >
+        <View style={styles.primaryActionStack}>
+          <PrimaryButton
+            label="Message care team"
+            onPress={() => {
+              router.push("/(tabs)/chat");
+            }}
+          />
+
+          {clinicNumberConfigured ? (
+            <SecondaryButton
+              label="Call clinic"
+              onPress={() => {
+                void openPhoneDialer(SUPPORT_PHONE_PLACEHOLDER);
+              }}
+            />
+          ) : (
+            <Card variant="outlined" style={styles.supportFallbackCard}>
+              <Text style={styles.supportFallbackTitle}>Clinic phone not configured</Text>
+              <Text style={styles.supportFallbackText}>
+                Use chat or your care plan for the correct support number in this demo environment.
+              </Text>
+            </Card>
+          )}
+
+          <Text style={styles.primaryActionNote}>
+            If you&apos;re in immediate danger, call your local emergency services
+            {emergencyNumberConfigured ? ` (${EMERGENCY_NUMBER_PLACEHOLDER})` : ""}.
+          </Text>
+        </View>
+      </Section>
+
+      <Section
+        title="Calming tools"
+        subtitle="Use one if you need a moment before reaching out or while you wait for support."
         card
       >
         <View style={styles.actionGrid}>
@@ -226,7 +275,7 @@ export default function SafetyScreen() {
               variant="compact"
               leading={{ type: "icon", icon: "coping", tone: "accent" }}
               title="Breathing"
-              subtitle="2 minutes"
+              subtitle="Two-minute reset"
               chips={[{ text: "Calm", tone: "muted" }]}
               showChevron={false}
               onPress={() => {
@@ -239,7 +288,7 @@ export default function SafetyScreen() {
               variant="compact"
               leading={{ type: "icon", icon: "coping", tone: "accent" }}
               title="Grounding"
-              subtitle="5–4–3–2–1"
+              subtitle="5–4–3–2–1 reset"
               chips={[{ text: "Focus", tone: "muted" }]}
               showChevron={false}
               onPress={() => {
@@ -247,45 +296,14 @@ export default function SafetyScreen() {
               }}
             />
           </View>
-          <View style={styles.actionTileWrap}>
-            <MediaCard
-              variant="compact"
-              leading={{ type: "icon", icon: "chat", tone: "primary" }}
-              title="Message care team"
-              subtitle="Open chat"
-              showChevron={false}
-              onPress={() => {
-                router.push("/(tabs)/chat");
-              }}
-            />
-          </View>
-          <View style={styles.actionTileWrap}>
-            <MediaCard
-              variant="compact"
-              leading={{ type: "icon", icon: "appointments", tone: "muted" }}
-              title="Call clinic"
-              subtitle={
-                clinicNumberConfigured ? "Use your support line" : "Use chat for support contact details"
-              }
-              chips={
-                clinicNumberConfigured
-                  ? [{ text: "Available", tone: "info" }]
-                  : [{ text: "Use chat", tone: "muted" }]
-              }
-              showChevron={clinicNumberConfigured}
-              onPress={
-                clinicNumberConfigured
-                  ? () => {
-                      void openPhoneDialer(SUPPORT_PHONE_PLACEHOLDER);
-                    }
-                  : undefined
-              }
-            />
-          </View>
         </View>
       </Section>
 
-      <Section title="Reach support" card>
+      <Section
+        title="Support options"
+        subtitle="Use these when you want another person with you or more direct guidance."
+        card
+      >
         {isOffline ? (
           <Banner
             variant="warning"
@@ -331,12 +349,15 @@ export default function SafetyScreen() {
         </View>
 
         <Text style={styles.supportNote}>
-          If you&apos;re in immediate danger, call your local emergency services
-          {emergencyNumberConfigured ? ` (${EMERGENCY_NUMBER_PLACEHOLDER})` : ""}.
+          Keep this screen open if it helps. You can use chat now, return home when ready, or follow the steps below one at a time.
         </Text>
       </Section>
 
-      <Section title="Your safety plan" card>
+      <Section
+        title="Your safety plan"
+        subtitle="Follow these steps in order if you feel overwhelmed or unsure what to do next."
+        card
+      >
         <View style={styles.planCard}>
           {SAFETY_PLAN_STEPS.map((step) => (
             <View key={step} style={styles.planRow}>
@@ -353,6 +374,12 @@ export default function SafetyScreen() {
         fallbackOpacity={0.78}
         accessibilityLabel="Safety footer actions"
       >
+        <View style={styles.footerCopy}>
+          <Text style={styles.footerTitle}>When you&apos;re ready</Text>
+          <Text style={styles.footerText}>
+            Return home or continue in chat. Your support options will still be available there.
+          </Text>
+        </View>
         <View style={styles.footerActions}>
           <PrimaryButton label="Back to Home" onPress={goHome} />
           <SecondaryButton
@@ -377,6 +404,59 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     container: {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
+    },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.sm,
+      backgroundColor: tokens.colors.surface,
+    },
+    storyHeader: {
+      gap: 2,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    primaryActionStack: {
+      gap: tokens.spacing.sm,
+    },
+    supportFallbackCard: {
+      gap: tokens.spacing.xs,
+    },
+    supportFallbackTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    supportFallbackText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    primaryActionNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     actionGrid: {
       flexDirection: "row",
@@ -419,6 +499,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     footerPanel: {
       marginTop: tokens.spacing.sm,
       borderRadius: tokens.radius.lg,
+    },
+    footerCopy: {
+      gap: tokens.spacing.xs,
+    },
+    footerTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    footerText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     footerActions: {
       gap: tokens.spacing.sm,

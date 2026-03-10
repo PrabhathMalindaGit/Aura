@@ -29,6 +29,7 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard, type MediaCardChip } from "@/src/components/MediaCard";
 import { Screen } from "@/src/components/Screen";
+import { Section } from "@/src/components/Section";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/state/auth";
@@ -55,7 +56,13 @@ type NoticeState = {
 type SegmentValue = "due" | "completed" | "all";
 
 type ListItem =
-  | { type: "section"; key: string; label: string; icon: "warning" | "success" | "info" }
+  | {
+      type: "section";
+      key: string;
+      label: string;
+      helper?: string;
+      icon: "warning" | "success" | "info";
+    }
   | { type: "due"; item: PromDueCard }
   | { type: "history"; item: PromHistoryRow }
   | { type: "empty"; key: string; title: string; description: string; illustration: "today" | "progress" | "offline" };
@@ -71,6 +78,89 @@ function formatDateTime(value?: string | null): string {
   }
 
   return parsed.toLocaleString();
+}
+
+function formatRelativeDate(value?: string | null): string {
+  if (!value) {
+    return "No due date";
+  }
+
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return "No due date";
+  }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTarget = new Date(parsed);
+  startOfTarget.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round(
+    (startOfTarget.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000),
+  );
+
+  if (diffDays === 0) {
+    return "Today";
+  }
+  if (diffDays === 1) {
+    return "Tomorrow";
+  }
+  if (diffDays === -1) {
+    return "Yesterday";
+  }
+  if (diffDays > 1) {
+    return `In ${diffDays} days`;
+  }
+  return `${Math.abs(diffDays)} days ago`;
+}
+
+function formatPromptDueSummary(dueAt: string): {
+  statusText: string;
+  statusTone: "warning" | "info" | "danger";
+  subtitle: string;
+} {
+  const relative = formatRelativeDate(dueAt);
+  if (relative === "Today") {
+    return {
+      statusText: "Due today",
+      statusTone: "warning",
+      subtitle: `Due today · ${formatDateTime(dueAt)}`,
+    };
+  }
+  if (relative === "Tomorrow") {
+    return {
+      statusText: "Due soon",
+      statusTone: "info",
+      subtitle: `Due tomorrow · ${formatDateTime(dueAt)}`,
+    };
+  }
+  if (relative.endsWith("ago") || relative === "Yesterday") {
+    return {
+      statusText: "Overdue",
+      statusTone: "danger",
+      subtitle: `Past due · ${formatDateTime(dueAt)}`,
+    };
+  }
+  return {
+    statusText: "Assigned",
+    statusTone: "info",
+    subtitle: `${relative} · ${formatDateTime(dueAt)}`,
+  };
+}
+
+function toScoreChipTone(
+  bandKey?: "green" | "amber" | "red",
+): "success" | "warning" | "danger" | "muted" {
+  if (bandKey === "green") {
+    return "success";
+  }
+  if (bandKey === "amber") {
+    return "warning";
+  }
+  if (bandKey === "red") {
+    return "danger";
+  }
+  return "muted";
 }
 
 function toFriendlyError(error: unknown, title: string): {
@@ -162,6 +252,9 @@ export default function PromsScreen() {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [segment, setSegment] = useState<SegmentValue>("due");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  const segmentLabel =
+    segment === "due" ? "Do now" : segment === "completed" ? "Completed" : "All assessments";
 
   const loadPending = useCallback(async () => {
     if (!patientId) {
@@ -367,14 +460,20 @@ export default function PromsScreen() {
           {
             type: "empty",
             key: "empty-due",
-            title: "No questionnaires due",
-            description: "You’re all caught up for now.",
+            title: "Nothing is due right now",
+            description: "You’re caught up for now. New assessments will appear here when your care team assigns them.",
             illustration: "today",
           },
         ];
       }
       return [
-        { type: "section", key: "s-due", label: "Due", icon: "warning" },
+        {
+          type: "section",
+          key: "s-due",
+          label: "Do next",
+          helper: "Start with the next assigned assessment when you’re ready.",
+          icon: "warning",
+        },
         ...due.map((item) => ({ type: "due", item }) as const),
       ];
     }
@@ -385,14 +484,20 @@ export default function PromsScreen() {
           {
             type: "empty",
             key: "empty-completed",
-            title: "No completed questionnaires yet",
-            description: "Completed forms will appear here.",
+            title: "No completed assessments yet",
+            description: "Finished assessments will appear here after your first submission.",
             illustration: "progress",
           },
         ];
       }
       return [
-        { type: "section", key: "s-completed", label: "Completed", icon: "success" },
+        {
+          type: "section",
+          key: "s-completed",
+          label: "Completed recently",
+          helper: "Review your latest completed assessments and result bands here.",
+          icon: "success",
+        },
         ...history.map((item) => ({ type: "history", item }) as const),
       ];
     }
@@ -402,36 +507,48 @@ export default function PromsScreen() {
         {
           type: "empty",
           key: "empty-all",
-          title: "No questionnaires available",
-          description: "Check back later for new assignments.",
+          title: "No assessments available",
+          description: "Check back later for new assignments from your care team.",
           illustration: isOffline ? "offline" : "today",
         },
       ];
     }
 
     const items: ListItem[] = [];
-    items.push({ type: "section", key: "s-all-due", label: "Due", icon: "warning" });
+    items.push({
+      type: "section",
+      key: "s-all-due",
+      label: "Do next",
+      helper: "Assessments ready for you to complete now.",
+      icon: "warning",
+    });
     if (due.length > 0) {
       items.push(...due.map((item) => ({ type: "due" as const, item })));
     } else {
       items.push({
         type: "empty",
         key: "empty-all-due",
-        title: "No due questionnaires",
-        description: "You’re all caught up for now.",
+        title: "Nothing is due right now",
+        description: "You’re caught up for now. New assessments will appear here when they’re assigned.",
         illustration: "today",
       });
     }
 
-    items.push({ type: "section", key: "s-all-completed", label: "Completed", icon: "success" });
+    items.push({
+      type: "section",
+      key: "s-all-completed",
+      label: "Handled recently",
+      helper: "Completed assessments stay here for later review.",
+      icon: "success",
+    });
     if (history.length > 0) {
       items.push(...history.map((item) => ({ type: "history" as const, item })));
     } else {
       items.push({
         type: "empty",
         key: "empty-all-completed",
-        title: "No completed questionnaires",
-        description: "Completed forms will appear here.",
+        title: "No completed assessments yet",
+        description: "Completed assessments will appear here after your first submission.",
         illustration: "progress",
       });
     }
@@ -453,8 +570,110 @@ export default function PromsScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  const latestCompleted = history[0];
+  const assessmentStory =
+    due.length > 0
+      ? `You have ${due.length} assessment${due.length === 1 ? "" : "s"} ready to complete. Start with the next one when you feel ready.`
+      : pending.length > 0
+        ? "You’re caught up for now. Saved answers are waiting to sync when you’re back online."
+        : latestCompleted
+          ? `You’re caught up right now. Your latest completed assessment was ${formatRelativeDate(latestCompleted.completedAt).toLowerCase()}.`
+          : "There are no assessments waiting right now. Check back later for new assignments from your care team.";
+
+  const duePillLabel =
+    due.length === 1 ? "1 due now" : `${due.length} due now`;
+  const completedPillLabel =
+    history.length === 1 ? "1 completed" : `${history.length} completed`;
+  const pendingPillLabel =
+    pending.length === 1 ? "1 saved" : `${pending.length} saved`;
+
   const listHeader = (
     <View style={styles.headerStack}>
+      <Section
+        title="Assessment flow"
+        subtitle="Start with what’s due now, then review completed results when you want more context."
+        right={<StatusPill label={segmentLabel} variant="info" accessible={false} />}
+        card
+        cardVariant="elevated"
+      >
+        <View style={styles.flowPills}>
+          <StatusPill label={duePillLabel} variant={due.length > 0 ? "warning" : "neutral"} accessible={false} />
+          <StatusPill label={completedPillLabel} variant={history.length > 0 ? "success" : "neutral"} accessible={false} />
+          <StatusPill label={pendingPillLabel} variant={pending.length > 0 ? "info" : "neutral"} accessible={false} />
+        </View>
+
+        <Card variant="outlined" style={styles.storyCard} accessibilityLabel="Assessment overview">
+          <Text style={styles.storyEyebrow}>Care check</Text>
+          <Text style={styles.storyTitle}>What to do now</Text>
+          <Text style={styles.storyText}>{assessmentStory}</Text>
+        </Card>
+
+        <SegmentedControl
+          value={segment}
+          onChange={setSegment}
+          options={[
+            { value: "due", label: "Do now", icon: "warning" },
+            { value: "completed", label: "Completed", icon: "success" },
+            { value: "all", label: "All", icon: "info" },
+          ]}
+          accessibilityLabel="Assessments filter"
+        />
+      </Section>
+
+      {isOffline ? (
+        <Banner
+          variant="warning"
+          title="Offline"
+          message="Offline — showing saved questionnaires when available."
+        />
+      ) : null}
+
+      {notice ? (
+        <Banner
+          variant={toBannerVariant(notice.variant)}
+          title={notice.title}
+          message={notice.message}
+          actionLabel={notice.actionLabel}
+          onAction={notice.onAction}
+        />
+      ) : null}
+
+      <MediaCard
+        variant="emphasis"
+        leading={{ type: "icon", icon: "proms", tone: "accent" }}
+        title={pending.length > 0 ? "Saved answers waiting to sync" : "Saved answers are up to date"}
+        subtitle={
+          pending.length > 0
+            ? `${pending.length} saved ${pending.length === 1 ? "response is" : "responses are"} waiting to upload.`
+            : "Everything you’ve submitted from this device is already synced."
+        }
+        chips={[
+          ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
+          ...(pending.length > 0
+            ? [{ text: "Needs sync", tone: "info" as const }]
+            : [{ text: "All clear", tone: "success" as const }]),
+        ].slice(0, 3)}
+        actions={[
+          {
+            label: isSubmittingPending ? "Syncing…" : "Sync saved answers",
+            kind: "primary",
+            disabled: pending.length === 0 || isSubmittingPending || isOffline,
+            onPress: () => {
+              void submitPending();
+            },
+          },
+          {
+            label: "Refresh",
+            kind: "secondary",
+            disabled: isLoading,
+            onPress: () => {
+              void loadProms("refresh");
+            },
+          },
+        ]}
+        showChevron={false}
+      />
+
       {__DEV__ ? (
         <Card variant="outlined" padding={tokens.spacing.md}>
           <Pressable
@@ -495,67 +714,6 @@ export default function PromsScreen() {
           ) : null}
         </Card>
       ) : null}
-
-      {isOffline ? (
-        <Banner
-          variant="warning"
-          title="Offline"
-          message="Offline — showing saved questionnaires when available."
-        />
-      ) : null}
-
-      {notice ? (
-        <Banner
-          variant={toBannerVariant(notice.variant)}
-          title={notice.title}
-          message={notice.message}
-          actionLabel={notice.actionLabel}
-          onAction={notice.onAction}
-        />
-      ) : null}
-
-      <SegmentedControl
-        value={segment}
-        onChange={setSegment}
-        options={[
-          { value: "due", label: "Due", icon: "warning" },
-          { value: "completed", label: "Completed", icon: "success" },
-          { value: "all", label: "All", icon: "info" },
-        ]}
-        accessibilityLabel="Questionnaires filter"
-      />
-
-      <MediaCard
-        variant="compact"
-        leading={{ type: "icon", icon: "proms", tone: "accent" }}
-        title={`Pending uploads: ${pending.length}`}
-        subtitle={pending.length > 0 ? "We’ll send when online." : "No pending uploads."}
-        chips={[
-          ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
-          ...(pending.length > 0
-            ? [{ text: "Needs sync", tone: "info" as const }]
-            : [{ text: "All clear", tone: "success" as const }]),
-        ].slice(0, 3)}
-        actions={[
-          {
-            label: isSubmittingPending ? "Submitting…" : "Submit pending",
-            kind: "primary",
-            disabled: pending.length === 0 || isSubmittingPending || isOffline,
-            onPress: () => {
-              void submitPending();
-            },
-          },
-          {
-            label: "Refresh",
-            kind: "secondary",
-            disabled: isLoading,
-            onPress: () => {
-              void loadProms("refresh");
-            },
-          },
-        ]}
-        showChevron={false}
-      />
     </View>
   );
 
@@ -565,8 +723,8 @@ export default function PromsScreen() {
       header={
         <HeroHeader
           variant="compact"
-          title="Questionnaires"
-          subtitle="Complete assigned forms"
+          title="Assessments"
+          subtitle="Short care checks to complete when they’re due"
           left={<Avatar size={40} name={patientName} fallback="icon" iconKey="proms" ring={isOffline ? "attention" : "none"} />}
           rightActions={[
             {
@@ -586,7 +744,13 @@ export default function PromsScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={duePillLabel} variant={due.length > 0 ? "warning" : "neutral"} accessible={false} />
+            <StatusPill label={completedPillLabel} variant={history.length > 0 ? "success" : "neutral"} accessible={false} />
+            {pending.length > 0 ? <StatusPill label={pendingPillLabel} variant="info" accessible={false} /> : null}
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -612,7 +776,10 @@ export default function PromsScreen() {
             return (
               <View style={styles.sectionRow}>
                 <DomainIcon icon={item.icon} tone={item.icon === "success" ? "success" : item.icon === "warning" ? "warning" : "muted"} accessibilityLabel={`${item.label} section`} />
-                <Text style={styles.sectionText}>{item.label}</Text>
+                <View style={styles.sectionTextWrap}>
+                  <Text style={styles.sectionText}>{item.label}</Text>
+                  {item.helper ? <Text style={styles.sectionHelper}>{item.helper}</Text> : null}
+                </View>
               </View>
             );
           }
@@ -631,14 +798,19 @@ export default function PromsScreen() {
           }
 
           if (item.type === "due") {
+            const dueSummary = formatPromptDueSummary(item.item.dueAt);
             return (
               <View style={styles.itemWrap}>
                 <MediaCard
+                  variant="emphasis"
                   leading={{ type: "icon", icon: "proms", tone: "accent" }}
                   title={item.item.title}
-                  subtitle={`Due: ${formatDateTime(item.item.dueAt)}`}
-                  statusPill={{ text: "Due", tone: "warning" }}
-                  chips={[{ text: "Assigned", tone: "warning" }]}
+                  subtitle={dueSummary.subtitle}
+                  statusPill={{ text: dueSummary.statusText, tone: dueSummary.statusTone }}
+                  chips={[
+                    { text: "Care team check", tone: "muted" },
+                    { text: "Ready when you are", tone: "info" },
+                  ]}
                   onPress={() => {
                     router.push({
                       pathname: "/prom-fill" as never,
@@ -651,15 +823,24 @@ export default function PromsScreen() {
           }
 
           const historyChips: MediaCardChip[] = item.item.score
-            ? [{ text: `${item.item.score.normalized} (${item.item.score.bandLabel})`, tone: "info" }]
-            : [{ text: "Score —", tone: "muted" }];
+            ? [
+                {
+                  text: `${item.item.score.normalized} · ${item.item.score.bandLabel}`,
+                  tone: toScoreChipTone(item.item.score.bandKey),
+                },
+                {
+                  text: formatRelativeDate(item.item.completedAt),
+                  tone: "muted",
+                },
+              ]
+            : [{ text: "Saved result", tone: "muted" }];
 
           return (
             <View style={styles.itemWrap}>
               <MediaCard
                 leading={{ type: "icon", icon: "success", tone: "success" }}
                 title={item.item.title}
-                subtitle={`Completed: ${formatDateTime(item.item.completedAt)}`}
+                subtitle={`Completed ${formatDateTime(item.item.completedAt)}`}
                 statusPill={{ text: "Completed", tone: "success" }}
                 chips={historyChips}
                 showChevron={false}
@@ -699,21 +880,63 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    flowPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
     itemWrap: {
       marginBottom: tokens.spacing.sm,
     },
     sectionRow: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       gap: tokens.spacing.sm,
       marginBottom: tokens.spacing.xs,
-      marginTop: tokens.spacing.sm,
+      marginTop: tokens.spacing.md,
+    },
+    sectionTextWrap: {
+      flex: 1,
+      gap: 2,
     },
     sectionText: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     diagToggle: {
       minHeight: 44,

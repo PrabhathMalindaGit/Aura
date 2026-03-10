@@ -106,6 +106,18 @@ function formatTroubleshootingTime(timestamp: number | null): string | undefined
   });
 }
 
+function formatStatusViewLabel(status: AlertStatus): string {
+  if (status === 'acknowledged') {
+    return 'Acknowledged queue';
+  }
+
+  if (status === 'resolved') {
+    return 'Resolved archive';
+  }
+
+  return 'Open queue';
+}
+
 function useDocumentHidden(): boolean {
   const [hidden, setHidden] = useState(() => (typeof document === 'undefined' ? false : document.hidden));
 
@@ -744,6 +756,7 @@ export function AlertsPage(): JSX.Element {
     visibleAlerts.length === 1 ? '' : 's'
   } in view`;
   const updatedAtLabel = `Updated ${formatLastUpdated(connection.lastSuccessAt)}`;
+  const statusViewLabel = formatStatusViewLabel(status);
 
   return (
     <Stack className="page-stack alerts-page" gap="5">
@@ -760,10 +773,19 @@ export function AlertsPage(): JSX.Element {
         className="dashboard-page-header alerts-page__header"
         eyebrow="Safety operations"
         title="Alerts"
-        subtitle="Review patient safety alerts, confirm ownership, and close escalations with context."
+        subtitle="Review active safety issues, confirm ownership, and close escalations with clear clinical context."
         meta={
           <span className="alerts-page__meta" aria-live="polite">
             <span className="alerts-page__meta-pill alerts-page__meta-pill--count">{queueCountLabel}</span>
+            {status === 'open' ? (
+              <span className="alerts-page__meta-pill">Unseen {unseenCount}</span>
+            ) : null}
+            {status === 'open' && alertKpis.assignedToMeCount > 0 ? (
+              <span className="alerts-page__meta-pill">Assigned to you {alertKpis.assignedToMeCount}</span>
+            ) : null}
+            {alertKpis.notifFailedCount > 0 ? (
+              <span className="alerts-page__meta-pill">Delivery issues {alertKpis.notifFailedCount}</span>
+            ) : null}
             <span className="alerts-page__meta-pill">{updatedAtLabel}</span>
           </span>
         }
@@ -828,9 +850,9 @@ export function AlertsPage(): JSX.Element {
         ) : (
           <>
             <div className="alerts-summary-strip__header">
-              <h3 className="alerts-summary-strip__title">Overview</h3>
+              <h3 className="alerts-summary-strip__title">Attention now</h3>
               <p className="alerts-overview-note">
-                Open workload, first-review visibility, ownership, and delivery issues at a glance.
+                Open workload, first-review visibility, ownership, and delivery follow-through at a glance.
               </p>
             </div>
             <KpiRow summary={alertKpis} loading={overviewLoading} />
@@ -846,14 +868,23 @@ export function AlertsPage(): JSX.Element {
             Export CSV
           </Button>
         }
-      >
+        >
         <div className="alerts-workspace-card__controls">
           <div className="alerts-workspace-card__heading-row">
-            <p className="alerts-queue-intro">
-              Start with open alerts, then narrow with workflow filters to focus ownership and follow-up.
-            </p>
-            <div className="alerts-status-tabs-wrap">
-              <StatusTabs value={status} onChange={setStatus} />
+            <div className="alerts-workspace-card__heading-copy">
+              <span className="alerts-workspace-card__eyebrow">Current queue</span>
+              <p className="alerts-queue-intro">
+                Start with open alerts, then narrow by workflow, ownership, and delivery needs to focus the next safe action.
+              </p>
+            </div>
+            <div className="alerts-workspace-card__heading-actions">
+              <div className="alerts-workspace-card__queue-meta" aria-live="polite">
+                <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
+                <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
+              </div>
+              <div className="alerts-status-tabs-wrap">
+                <StatusTabs value={status} onChange={setStatus} />
+              </div>
             </div>
           </div>
 

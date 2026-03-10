@@ -5,6 +5,7 @@ import { isAlertUnseenForUi } from '../../utils/seen';
 import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import {
   NOTIFICATION_RETRY_ENABLED,
+  resolveNotificationStatus,
   shouldShowNotificationRetry,
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
@@ -48,6 +49,48 @@ function statusBadgeVariant(
   return 'status-open';
 }
 
+function statusSupportLabel(status: AlertItem['status']): string {
+  if (status === 'acknowledged') {
+    return 'In review';
+  }
+
+  if (status === 'resolved') {
+    return 'Closed';
+  }
+
+  return 'Needs action';
+}
+
+function assignmentSupportLabel(alert: AlertItem, clinicianId: string): string {
+  if (!alert.assignedTo) {
+    return 'Needs owner';
+  }
+
+  if (alert.assignedTo === clinicianId) {
+    return 'Current owner';
+  }
+
+  return 'Owned elsewhere';
+}
+
+function notificationSupportLabel(status: AlertItem['notificationStatus']): string {
+  const normalized = resolveNotificationStatus(status);
+
+  if (normalized === 'sent') {
+    return 'Callback recorded';
+  }
+
+  if (normalized === 'failed') {
+    return 'Retry may be needed';
+  }
+
+  if (normalized === 'skipped') {
+    return 'Delivery skipped';
+  }
+
+  return 'Awaiting delivery signal';
+}
+
 function moveFocusToRow(
   event: KeyboardEvent<HTMLTableRowElement>,
   direction: 'next' | 'prev',
@@ -83,7 +126,7 @@ export function AlertsTable({
         <thead>
           <tr>
             <th scope="col" className="alerts-table__head alerts-table__head--unseen">
-              Unseen
+              New
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--created">
               Created
@@ -92,7 +135,7 @@ export function AlertsTable({
               Patient
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--reason">
-              Reason
+              Attention
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--source">
               Source
@@ -104,10 +147,10 @@ export function AlertsTable({
               Status
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--assignment">
-              Assignment
+              Owner
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--notification">
-              Notification
+              Delivery
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--actions">
               Actions
@@ -172,9 +215,12 @@ export function AlertsTable({
                   )}
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--created">
-                  <time className="alerts-table__created-time" dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
-                    {formatRelativeTime(alert.createdAt)}
-                  </time>
+                  <div className="alerts-time-cell">
+                    <time className="alerts-table__created-time" dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
+                      {formatRelativeTime(alert.createdAt)}
+                    </time>
+                    <span className="alerts-time-cell__meta">{formatExactTime(alert.createdAt)}</span>
+                  </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--patient">
                   <div className="alerts-patient-cell">
@@ -182,13 +228,17 @@ export function AlertsTable({
                     <span className="alerts-patient-cell__meta">Alert {alert._id}</span>
                   </div>
                 </td>
-                <td className="alerts-table__cell alerts-table__cell--reason alerts-table__reason" title={reasonText}>
-                  {reasonText}
+                <td className="alerts-table__cell alerts-table__cell--reason" title={reasonText}>
+                  <div className="alerts-reason-cell">
+                    <p className="alerts-table__reason">{reasonText}</p>
+                    <span className="alerts-reason-cell__meta">{statusSupportLabel(alert.status)}</span>
+                  </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--source">
-                  <span className="alerts-source-pill alerts-source-pill--row">
-                    {alert.source.type} • {alert.source.sourceId}
-                  </span>
+                  <div className="alerts-source-cell">
+                    <span className="alerts-source-pill alerts-source-pill--row">{alert.source.type}</span>
+                    <span className="alerts-source-cell__id">{alert.source.sourceId}</span>
+                  </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--risk">
                   <div className="alerts-risk-cell">
@@ -199,16 +249,27 @@ export function AlertsTable({
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--status">
-                  <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                    {alert.status}
-                  </Badge>
+                  <div className="alerts-status-cell">
+                    <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
+                      {alert.status}
+                    </Badge>
+                    <span className="alerts-status-cell__meta">{statusSupportLabel(alert.status)}</span>
+                  </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--assignment">
-                  <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                  <div className="alerts-assignment-cell">
+                    <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                    <span className="alerts-assignment-cell__meta">
+                      {assignmentSupportLabel(alert, clinicianId)}
+                    </span>
+                  </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--notification">
                   <div className="alerts-notification-cell">
                     <NotificationStatusBadge className="alerts-notification-badge" status={alert.notificationStatus} />
+                    <span className="alerts-notification-cell__meta">
+                      {notificationSupportLabel(alert.notificationStatus)}
+                    </span>
                     {showRetry ? (
                       <Button
                         className="alerts-notification-retry"
@@ -227,49 +288,53 @@ export function AlertsTable({
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--actions">
                   <div
-                    className="alerts-actions"
+                    className="alerts-actions alerts-actions--table"
                     onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
                   >
-                    <Button
-                      className="alerts-actions__open"
-                      variant="ghost"
-                      data-testid={`alert-open-${alert._id}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpen(alert, event.currentTarget);
-                      }}
-                    >
-                      Open
-                    </Button>
-                    <Button
-                      className="alerts-actions__ack"
-                      variant="secondary"
-                      disabled={alert.status !== 'open' || mutationPending || assignedToOther}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onAcknowledge(alert);
-                      }}
-                    >
-                      Ack
-                    </Button>
-                    <Button
-                      className="alerts-actions__resolve"
-                      variant="danger"
-                      disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onResolve(alert);
-                      }}
-                    >
-                      Resolve
-                    </Button>
-                    <AssignmentActions
-                      alert={alert}
-                      clinicianId={clinicianId}
-                      busy={assignmentPending}
-                      onAssignToMe={onAssignToMe}
-                      onTakeOver={onTakeOver}
-                    />
+                    <div className="alerts-actions__primary-row">
+                      <Button
+                        className="alerts-actions__open"
+                        variant="ghost"
+                        data-testid={`alert-open-${alert._id}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(alert, event.currentTarget);
+                        }}
+                      >
+                        Open
+                      </Button>
+                      <AssignmentActions
+                        alert={alert}
+                        clinicianId={clinicianId}
+                        busy={assignmentPending}
+                        onAssignToMe={onAssignToMe}
+                        onTakeOver={onTakeOver}
+                      />
+                    </div>
+                    <div className="alerts-actions__secondary-row">
+                      <Button
+                        className="alerts-actions__ack"
+                        variant="secondary"
+                        disabled={alert.status !== 'open' || mutationPending || assignedToOther}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onAcknowledge(alert);
+                        }}
+                      >
+                        Ack
+                      </Button>
+                      <Button
+                        className="alerts-actions__resolve"
+                        variant="danger"
+                        disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onResolve(alert);
+                        }}
+                      >
+                        Resolve
+                      </Button>
+                    </div>
                   </div>
                 </td>
               </tr>

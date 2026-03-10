@@ -238,7 +238,7 @@ export function AppointmentsPage(): JSX.Element {
             <div className="appointments-composer__cluster">
               <p className="appointments-composer__cluster-label">Schedule window</p>
               <div className="appointments-composer__grid">
-                <label className="appointments-composer__field">
+                <label className="appointments-composer__field form-field">
                   <span className="appointments-composer__label">Start (local datetime)</span>
                   <input
                     type="datetime-local"
@@ -246,7 +246,7 @@ export function AppointmentsPage(): JSX.Element {
                     onChange={(event) => setStartsAtInput(event.target.value)}
                   />
                 </label>
-                <label className="appointments-composer__field">
+                <label className="appointments-composer__field form-field">
                   <span className="appointments-composer__label">End (local datetime)</span>
                   <input
                     type="datetime-local"
@@ -254,7 +254,7 @@ export function AppointmentsPage(): JSX.Element {
                     onChange={(event) => setEndsAtInput(event.target.value)}
                   />
                 </label>
-                <label className="appointments-composer__field appointments-composer__field--wide">
+                <label className="appointments-composer__field appointments-composer__field--wide form-field">
                   <span className="appointments-composer__label">Meeting link (optional)</span>
                   <input
                     type="text"

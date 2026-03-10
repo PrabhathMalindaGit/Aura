@@ -1,17 +1,22 @@
 import { useMemo, useState } from "react";
-import { StyleSheet, Text, View, Pressable } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
 import { isApiError } from "@/src/api/client";
+import { Card } from "@/src/components/Card";
+import { HeroHeader } from "@/src/components/HeroHeader";
 import { InlineNotice } from "@/src/components/InlineNotice";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TextField } from "@/src/components/TextField";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
+import { useTokens } from "@/src/theme/tokens";
 
 function toFriendlySignInMessage(error: unknown): string {
   if (!isApiError(error)) {
@@ -42,6 +47,8 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const isOffline = useIsOffline();
   const authError = useLastError("auth");
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
   const [accessCode, setAccessCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
@@ -83,75 +90,102 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen title="Sign in">
+    <Screen
+      header={
+        <HeroHeader
+          variant="compact"
+          title="Sign in"
+          subtitle="Use your access code to continue your rehab plan."
+        />
+      }
+      maxWidth={420}
+    >
       <View style={styles.container}>
-        <TextField
-          label="Access code"
-          value={accessCode}
-          onChangeText={setAccessCode}
-          placeholder="e.g., P1-DEMO"
-          autoCapitalize="characters"
-        />
-        {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            router.push("/caregiver-login" as Href);
-          }}
-          style={({ pressed }) => [
-            styles.caregiverLink,
-            pressed ? styles.caregiverLinkPressed : null,
-          ]}
-        >
-          <Text style={styles.caregiverLinkText}>I’m a caregiver</Text>
-        </Pressable>
-        <PrimaryButton
-          label="Continue"
-          loading={isSubmitting}
-          disabled={isSubmitting}
-          onPress={handleSubmit}
-        />
-        {inlineError ? (
-          <InlineNotice
-            variant="error"
-            title="Sign-in failed"
-            message={inlineError}
-          />
-        ) : null}
-        <LastFailedAttempt
-          value={authError.label}
-          title={authError.lastError?.title}
-          message={authError.lastError?.message}
-          onClear={authError.lastError ? authError.clear : undefined}
-        />
-        <Text style={styles.apiText}>API: {API_BASE}</Text>
+        <Card variant="elevated" style={styles.card}>
+          <View style={styles.cardHeader}>
+            <StatusPill
+              label={isOffline ? "Offline" : "Secure sign-in"}
+              variant={isOffline ? "warning" : "info"}
+            />
+            {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
+          </View>
+
+          <View style={styles.formStack}>
+            <TextField
+              label="Access code"
+              value={accessCode}
+              onChangeText={setAccessCode}
+              placeholder="e.g., P1-DEMO"
+              helperText="Use the code your care team gave you."
+              autoCapitalize="characters"
+            />
+
+            <View style={styles.actions}>
+              <PrimaryButton
+                label="Continue"
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                onPress={handleSubmit}
+              />
+              <SecondaryButton
+                label="I’m a caregiver"
+                onPress={() => {
+                  router.push("/caregiver-login" as Href);
+                }}
+              />
+            </View>
+
+            {inlineError ? (
+              <InlineNotice
+                variant="error"
+                title="Sign-in failed"
+                message={inlineError}
+              />
+            ) : null}
+
+            <LastFailedAttempt
+              value={authError.label}
+              title={authError.lastError?.title}
+              message={authError.lastError?.message}
+              onClear={authError.lastError ? authError.clear : undefined}
+            />
+          </View>
+
+          <Text style={styles.apiText}>API: {API_BASE}</Text>
+        </Card>
       </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 12,
-  },
-  helper: {
-    fontSize: 12,
-    color: "#4b5563",
-  },
-  caregiverLink: {
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-  },
-  caregiverLinkPressed: {
-    opacity: 0.7,
-  },
-  caregiverLinkText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#1f2937",
-  },
-  apiText: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-});
+function createStyles(tokens: ReturnType<typeof useTokens>) {
+  return StyleSheet.create({
+    container: {
+      gap: tokens.spacing.lg,
+    },
+    card: {
+      gap: tokens.spacing.lg,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+    },
+    cardHeader: {
+      gap: tokens.spacing.sm,
+    },
+    helper: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+    formStack: {
+      gap: tokens.spacing.md,
+    },
+    actions: {
+      gap: tokens.spacing.sm,
+    },
+    apiText: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
+    },
+  });
+}

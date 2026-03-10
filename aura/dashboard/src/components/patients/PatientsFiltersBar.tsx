@@ -59,7 +59,7 @@ export function PatientsFiltersBar({
           <div className="patients-filters__clusters">
             <div className="patients-filters__cluster patients-filters__cluster--search-source">
               <span className="patients-filters__cluster-label">Search roster</span>
-              <label className="patients-filters__search">
+              <label className="patients-filters__search form-field">
                 <span className="patients-filters__label">Search</span>
                 <input
                   aria-label="Search patients"
@@ -124,7 +124,7 @@ export function PatientsFiltersBar({
           }
         >
           <section className="patients-filters__sheet" aria-label="Patient filters sheet">
-            <label className="patients-filters__control">
+            <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Status</span>
               <select
                 aria-label="Filter patients by status"
@@ -145,7 +145,7 @@ export function PatientsFiltersBar({
               </select>
             </label>
 
-            <label className="patients-filters__control">
+            <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Recently active</span>
               <select
                 aria-label="Filter by recently active"
@@ -165,7 +165,7 @@ export function PatientsFiltersBar({
               </select>
             </label>
 
-            <label className="patients-filters__control">
+            <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Sort</span>
               <select
                 aria-label="Sort patients"
@@ -227,7 +227,7 @@ export function PatientsFiltersBar({
       <div className="patients-filters__clusters">
         <div className="patients-filters__cluster patients-filters__cluster--search-source">
           <span className="patients-filters__cluster-label">Search</span>
-          <label className="patients-filters__search">
+          <label className="patients-filters__search form-field">
             <span className="patients-filters__label">Search</span>
             <input
               aria-label="Search patients"
@@ -243,7 +243,7 @@ export function PatientsFiltersBar({
         <div className="patients-filters__cluster patients-filters__cluster--workflow">
           <span className="patients-filters__cluster-label">Workflow filters</span>
           <div className="patients-filters__cluster-body patients-filters__cluster-body--workflow">
-            <label className="patients-filters__control">
+            <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Status</span>
               <select
                 aria-label="Filter patients by status"
@@ -259,7 +259,7 @@ export function PatientsFiltersBar({
               </select>
             </label>
 
-            <label className="patients-filters__control">
+            <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Recently active</span>
               <select
                 aria-label="Filter by recently active"
@@ -303,7 +303,7 @@ export function PatientsFiltersBar({
         <div className="patients-filters__cluster patients-filters__cluster--view">
           <span className="patients-filters__cluster-label">View controls</span>
           <div className="patients-filters__cluster-body patients-filters__cluster-body--view">
-            <label className="patients-filters__control">
+            <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Sort</span>
               <select
                 aria-label="Sort patients"

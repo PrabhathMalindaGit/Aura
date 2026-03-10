@@ -263,7 +263,7 @@ export function SettingsPage(): JSX.Element {
               />
             </label>
 
-            <label className="setting-item setting-item--field" htmlFor="idle-timeout-minutes">
+            <label className="setting-item setting-item--field form-field" htmlFor="idle-timeout-minutes">
               <span>
                 <strong>Idle timeout</strong>
                 <small>Show warning 60 seconds before lock.</small>
@@ -283,7 +283,7 @@ export function SettingsPage(): JSX.Element {
               </select>
             </label>
 
-            <label className="setting-item setting-item--field" htmlFor="absolute-timeout-hours">
+            <label className="setting-item setting-item--field form-field" htmlFor="absolute-timeout-hours">
               <span>
                 <strong>Absolute session timeout</strong>
                 <small>Show warning 5 minutes before maximum session duration.</small>
@@ -336,7 +336,7 @@ export function SettingsPage(): JSX.Element {
             Set the identity shown for assignment ownership and review actions on this device.
           </div>
           <div className="settings-list settings-list--refined">
-            <label className="setting-item setting-item--field" htmlFor="clinician-id-input">
+            <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
               <span>
                 <strong>My Clinician ID</strong>
                 <small>Used for alert assignment ownership in this browser.</small>
@@ -351,7 +351,7 @@ export function SettingsPage(): JSX.Element {
               />
             </label>
 
-            <label className="setting-item setting-item--field" htmlFor="clinician-name-input">
+            <label className="setting-item setting-item--field form-field" htmlFor="clinician-name-input">
               <span>
                 <strong>Display name</strong>
                 <small>Shown when alerts are assigned to you.</small>

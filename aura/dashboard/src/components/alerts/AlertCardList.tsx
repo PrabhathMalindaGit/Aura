@@ -5,6 +5,7 @@ import { isAlertUnseenForUi } from '../../utils/seen';
 import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import {
   NOTIFICATION_RETRY_ENABLED,
+  resolveNotificationStatus,
   shouldShowNotificationRetry,
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
@@ -47,6 +48,24 @@ function statusBadgeVariant(
   }
 
   return 'status-open';
+}
+
+function notificationSupportLabel(status: AlertItem['notificationStatus']): string {
+  const normalized = resolveNotificationStatus(status);
+
+  if (normalized === 'sent') {
+    return 'Callback recorded';
+  }
+
+  if (normalized === 'failed') {
+    return 'Retry may be needed';
+  }
+
+  if (normalized === 'skipped') {
+    return 'Delivery skipped';
+  }
+
+  return 'Awaiting delivery signal';
 }
 
 export function AlertCardList({
@@ -141,18 +160,24 @@ export function AlertCardList({
                 ) : null}
 
                 <div className="alerts-card-list__meta">
-                  <span className="alerts-source-pill alerts-source-pill--row">
-                    {alert.source.type} • {alert.source.sourceId}
-                  </span>
-                  <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
-                    {formatRiskLabel(effectiveRisk)}
-                  </Badge>
-                  <OverrideChip alert={alert} />
-                  <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                  <div className="alerts-card-list__meta-primary">
+                    <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
+                      {formatRiskLabel(effectiveRisk)}
+                    </Badge>
+                    <OverrideChip alert={alert} />
+                    <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                  </div>
+                  <div className="alerts-card-list__meta-secondary">
+                    <span className="alerts-source-pill alerts-source-pill--row">{alert.source.type}</span>
+                    <span className="alerts-card-list__source-id">{alert.source.sourceId}</span>
+                  </div>
                 </div>
 
                 <div className="alerts-card-list__notification">
                   <NotificationStatusBadge className="alerts-notification-badge" status={alert.notificationStatus} />
+                  <span className="alerts-card-list__notification-meta">
+                    {notificationSupportLabel(alert.notificationStatus)}
+                  </span>
                   {showRetry ? (
                     <Button
                       className="alerts-notification-retry"
@@ -167,41 +192,45 @@ export function AlertCardList({
               </div>
 
               <div className="alerts-actions alerts-actions--stack alerts-card-list__actions">
-                <Button
-                  className="alerts-actions__open"
-                  variant="ghost"
-                  data-testid={`alert-open-${alert._id}`}
-                  onClick={(event) => onOpen(alert, event.currentTarget)}
-                  fullWidth
-                >
-                  Open
-                </Button>
-                <Button
-                  className="alerts-actions__ack"
-                  variant="secondary"
-                  disabled={alert.status !== 'open' || mutationPending || assignedToOther}
-                  onClick={() => onAcknowledge(alert)}
-                  fullWidth
-                >
-                  Ack
-                </Button>
-                <Button
-                  className="alerts-actions__resolve"
-                  variant="danger"
-                  disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
-                  onClick={() => onResolve(alert)}
-                  fullWidth
-                >
-                  Resolve
-                </Button>
-                <AssignmentActions
-                  alert={alert}
-                  clinicianId={clinicianId}
-                  busy={assignmentPending}
-                  fullWidth
-                  onAssignToMe={onAssignToMe}
-                  onTakeOver={onTakeOver}
-                />
+                <div className="alerts-card-list__actions-primary">
+                  <Button
+                    className="alerts-actions__open"
+                    variant="ghost"
+                    data-testid={`alert-open-${alert._id}`}
+                    onClick={(event) => onOpen(alert, event.currentTarget)}
+                    fullWidth
+                  >
+                    Open
+                  </Button>
+                  <AssignmentActions
+                    alert={alert}
+                    clinicianId={clinicianId}
+                    busy={assignmentPending}
+                    fullWidth
+                    onAssignToMe={onAssignToMe}
+                    onTakeOver={onTakeOver}
+                  />
+                </div>
+                <div className="alerts-card-list__actions-secondary">
+                  <Button
+                    className="alerts-actions__ack"
+                    variant="secondary"
+                    disabled={alert.status !== 'open' || mutationPending || assignedToOther}
+                    onClick={() => onAcknowledge(alert)}
+                    fullWidth
+                  >
+                    Ack
+                  </Button>
+                  <Button
+                    className="alerts-actions__resolve"
+                    variant="danger"
+                    disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
+                    onClick={() => onResolve(alert)}
+                    fullWidth
+                  >
+                    Resolve
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

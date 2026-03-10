@@ -65,15 +65,15 @@ export function FiltersBar({
           role="group"
           aria-label="Search and source controls"
         >
-          <span className="alerts-filters__cluster-label">Search and source</span>
+          <span className="alerts-filters__cluster-label">Find alerts</span>
           <div className="alerts-filters__cluster-body">
-            <label className="alerts-filters__search">
+            <label className="alerts-filters__search form-field">
               <span className="alerts-filters__label">Search</span>
               <input
                 type="search"
                 value={searchValue}
                 onChange={(event) => onSearchValueChange(event.target.value)}
-                placeholder="Search patient, alert id, reason, source"
+                placeholder="Search patient, alert ID, reason, source"
                 aria-label="Search alerts"
               />
             </label>
@@ -106,7 +106,7 @@ export function FiltersBar({
             role="group"
             aria-label="Workflow filters"
           >
-            <span className="alerts-filters__cluster-label">Workflow filters</span>
+            <span className="alerts-filters__cluster-label">Open queue focus</span>
             <div className="alerts-filters__cluster-body alerts-filters__cluster-body--workflow">
               <div className="alerts-filters__toggle-wrap">
                 <div className="alerts-filters__toggle-group" role="group" aria-label="Open alert visibility filters">
@@ -153,7 +153,7 @@ export function FiltersBar({
                 aria-live="polite"
                 aria-label={`Unseen alerts count ${unseenCount}`}
               >
-                Unseen: {unseenCount}
+                First review: {unseenCount}
               </span>
             </div>
           </div>
@@ -164,9 +164,9 @@ export function FiltersBar({
           role="group"
           aria-label="View controls"
         >
-          <span className="alerts-filters__cluster-label">View controls</span>
+          <span className="alerts-filters__cluster-label">View options</span>
           <div className="alerts-filters__cluster-body alerts-filters__cluster-body--view">
-            <label className="alerts-filters__control">
+            <label className="alerts-filters__control form-field">
               <span className="alerts-filters__label">Time range</span>
               <select value={timeRange} onChange={(event) => onTimeRangeChange(event.target.value as TimeRangeFilter)}>
                 <option value="24h">Last 24h</option>
@@ -175,7 +175,7 @@ export function FiltersBar({
               </select>
             </label>
 
-            <label className="alerts-filters__control">
+            <label className="alerts-filters__control form-field">
               <span className="alerts-filters__label">Sort</span>
               <select value={sortOrder} onChange={(event) => onSortOrderChange(event.target.value as SortOrder)}>
                 <option value="newest">Newest first</option>

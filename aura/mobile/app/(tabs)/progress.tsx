@@ -18,6 +18,9 @@ import {
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
+import { HeroHeader } from "@/src/components/HeroHeader";
+import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
+import { MediaCard, type MediaCardChip } from "@/src/components/MediaCard";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
@@ -26,7 +29,6 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
-import { Row } from "@/src/components/Row";
 import { useAuth } from "@/src/state/auth";
 import { getCachedCheckins, setCachedCheckins } from "@/src/state/checkinsCache";
 import {
@@ -81,6 +83,13 @@ type TrendSplit = {
   previous: number | null;
   recent: number | null;
 };
+
+type HistoryCardStatus =
+  | {
+      text: string;
+      tone: "neutral" | "info" | "success" | "warning" | "danger";
+    }
+  | undefined;
 
 function toFriendlyProgressError(error: unknown): {
   title: string;
@@ -328,6 +337,80 @@ function trendArrow(direction: "up" | "down" | "flat"): string {
     return "↓";
   }
   return "→";
+}
+
+function trendTitle(key: TrendItem["key"]): string {
+  if (key === "pain") {
+    return "Pain trend";
+  }
+  if (key === "mood") {
+    return "Mood trend";
+  }
+  return "Adherence trend";
+}
+
+function trendNarrative(trend: TrendItem, rangeDays: RangeDays): string {
+  const label = trend.title.toLowerCase();
+
+  if (trend.assessment === "Improving") {
+    return `${label} is moving in a better direction across the last ${rangeDays} days.`;
+  }
+
+  if (trend.assessment === "Stable") {
+    return `${label} looks steady across the last ${rangeDays} days.`;
+  }
+
+  return `${label} may need a closer look across this ${rangeDays}-day window.`;
+}
+
+function historyStatus(item: CheckInItem): HistoryCardStatus {
+  if (item.support?.needsUrgentHelp || item.support?.feelsSafe === false) {
+    return { text: "Safety", tone: "danger" };
+  }
+
+  if (item.support?.wantsFollowUp || item.support?.wantsExtraSupport) {
+    return { text: "Follow-up", tone: "warning" };
+  }
+
+  if (item.notes?.trim()) {
+    return { text: "Note", tone: "info" };
+  }
+
+  return undefined;
+}
+
+function historyChips(item: CheckInItem): MediaCardChip[] {
+  const chips: MediaCardChip[] = [];
+
+  if (typeof item.adherence?.exercises === "number") {
+    chips.push({
+      text: `Exercises ${Math.round(item.adherence.exercises * 100)}%`,
+      tone: item.adherence.exercises >= 0.75 ? "success" : item.adherence.exercises >= 0.5 ? "info" : "warning",
+    });
+  }
+
+  if (typeof item.adherence?.medication === "boolean") {
+    chips.push({
+      text: item.adherence.medication ? "Medication taken" : "Medication missed",
+      tone: item.adherence.medication ? "success" : "warning",
+    });
+  }
+
+  if (typeof item.sleep?.hours === "number") {
+    chips.push({
+      text: `Sleep ${item.sleep.hours.toFixed(1)}h`,
+      tone: item.sleep.hours >= 7 ? "success" : item.sleep.hours >= 6 ? "info" : "warning",
+    });
+  }
+
+  if (item.notes?.trim()) {
+    chips.push({
+      text: "Note recorded",
+      tone: "info",
+    });
+  }
+
+  return chips.slice(0, 4);
 }
 
 function hydrationAverage(
@@ -627,6 +710,46 @@ export default function ProgressScreen() {
     return "Your recovery trends over time.";
   }, [source]);
 
+  const latestCheckin = filteredItems[0] ?? null;
+  const supportRequestsInRange = useMemo(
+    () =>
+      filteredItems.filter(
+        (item) => item.support?.wantsFollowUp || item.support?.wantsExtraSupport || item.support?.needsUrgentHelp,
+      ).length,
+    [filteredItems],
+  );
+
+  const progressStory = useMemo(() => {
+    if (filteredItems.length === 0) {
+      return {
+        title: "Your recovery story will build as new check-ins come in.",
+        body: "Use this screen to notice current direction first, then review the daily detail underneath.",
+      };
+    }
+
+    const warningCount = trendItems.filter((item) => item.variant === "warning" || item.variant === "danger").length;
+    const improvingCount = trendItems.filter((item) => item.variant === "success").length;
+
+    if (warningCount > 0) {
+      return {
+        title: "A few recovery signals need a closer look.",
+        body: "Start with the trend cards below, then review recent check-ins to understand what changed.",
+      };
+    }
+
+    if (improvingCount >= 2) {
+      return {
+        title: "Recovery looks steady across this window.",
+        body: "You have enough recent data to see a clearer direction in pain, mood, and adherence.",
+      };
+    }
+
+    return {
+      title: "Recent recovery signals look broadly stable.",
+      body: "Use the trend summary for the headline view, then dip into the daily history for supporting detail.",
+    };
+  }, [filteredItems.length, trendItems]);
+
   // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
   const loadProgress = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -786,13 +909,32 @@ export default function ProgressScreen() {
 
   const listHeader = (
     <View style={styles.listHeader}>
-      <View style={styles.headerIntro}>
-        <Text accessibilityRole="header" style={styles.title}>
-          Progress
-        </Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+      <HeroHeader
+        title="Progress"
+        subtitle={subtitle}
+        rightActions={[
+          {
+            icon: "checkin",
+            tone: "primary",
+            accessibilityLabel: "Open today’s check-in",
+            onPress: () => {
+              router.push("/(tabs)/checkin");
+            },
+          },
+        ]}
+      >
         <View style={styles.headerPillRow}>
           <StatusPill label={`Range ${rangeDays}d`} variant="neutral" />
+          <StatusPill
+            label={source === "cache" ? "Saved view" : source === "live" ? "Live trends" : "No data yet"}
+            variant={source === "cache" ? "warning" : source === "live" ? "success" : "neutral"}
+          />
+          {filteredItems.length > 0 ? (
+            <StatusPill
+              label={`${filteredItems.length} check-in${filteredItems.length === 1 ? "" : "s"}`}
+              variant="info"
+            />
+          ) : null}
         </View>
         <TrustCues
           status={trustStatus}
@@ -802,7 +944,32 @@ export default function ProgressScreen() {
           showSavedLocalHint
           style={styles.trustCueRow}
         />
-      </View>
+        <Card variant="outlined" style={styles.storyCard}>
+          <View style={styles.storyCardCopy}>
+            <Text style={styles.storyEyebrow}>Current direction</Text>
+            <Text style={styles.storyTitle}>{progressStory.title}</Text>
+            <Text style={styles.storyText}>{progressStory.body}</Text>
+          </View>
+          <View style={styles.storyFacts}>
+            <View style={styles.storyFact}>
+              <Text style={styles.storyFactLabel}>Latest check-in</Text>
+              <Text style={styles.storyFactValue}>
+                {latestCheckin ? formatDateTitle(latestCheckin) : "Not logged yet"}
+              </Text>
+            </View>
+            <View style={styles.storyFact}>
+              <Text style={styles.storyFactLabel}>Entries in view</Text>
+              <Text style={styles.storyFactValue}>{filteredItems.length || "0"}</Text>
+            </View>
+            <View style={styles.storyFact}>
+              <Text style={styles.storyFactLabel}>Support requests</Text>
+              <Text style={styles.storyFactValue}>
+                {supportRequestsInRange > 0 ? `${supportRequestsInRange} flagged` : "None in range"}
+              </Text>
+            </View>
+          </View>
+        </Card>
+      </HeroHeader>
 
       {notice ? (
         <Banner
@@ -815,18 +982,24 @@ export default function ProgressScreen() {
       ) : null}
 
       {progressLoadLastError && !notice ? (
-        <Banner
-          variant="warning"
-          title="Last refresh issue"
-          message={`${progressLoadErrorLabel}. ${progressLoadLastError.message}`}
-          actionLabel="Clear"
-          onAction={() => {
-            void clearProgressLoadError();
-          }}
-        />
+        <Card variant="outlined" style={styles.failureCard}>
+          <LastFailedAttempt
+            label="Last refresh issue"
+            value={progressLoadErrorLabel}
+            title={progressLoadLastError.title}
+            message={progressLoadLastError.message}
+            onClear={() => {
+              void clearProgressLoadError();
+            }}
+          />
+        </Card>
       ) : null}
 
-      <Card variant="outlined">
+      <Section
+        title="Review window"
+        subtitle="Short windows highlight recent change. Longer windows show steadier recovery patterns."
+        card
+      >
         <SegmentedControl
           value={String(rangeDays) as "7" | "30" | "90"}
           options={[
@@ -838,9 +1011,13 @@ export default function ProgressScreen() {
           accessibilityLabel="Progress range selector"
           tone="primary"
         />
-      </Card>
+      </Section>
 
-      <Section title="Key metrics" card>
+      <Section
+        title="Current signals"
+        subtitle="Start here for the clearest recent recovery measures in this window."
+        card
+      >
         {isLoading && items.length === 0 ? (
           <View style={styles.kpiGrid}>
             {[0, 1, 2, 3].map((key) => (
@@ -921,25 +1098,60 @@ export default function ProgressScreen() {
         )}
       </Section>
 
-      <Section title="Trends" card>
+      <Section
+        title="Trend story"
+        subtitle="These summaries help you see what is improving, what is steady, and what may need more attention."
+        card
+      >
         <View style={styles.trendList}>
           {trendItems.map((trend) => (
-            <View key={trend.key} style={styles.trendRow}>
-              <View style={styles.trendLeft}>
-                <Text style={styles.trendTitle}>{trend.title}</Text>
-                <Text style={styles.trendDelta}>
-                  {trendArrow(trend.direction)} {trend.deltaLabel}
-                </Text>
-              </View>
-              <StatusPill label={trend.assessment} variant={trend.variant} />
-            </View>
+            <MediaCard
+              key={trend.key}
+              variant="compact"
+              leading={{
+                type: "icon",
+                icon: trend.key === "adherence" ? "exercise" : trend.key === "mood" ? "progress" : "checkin",
+                tone:
+                  trend.variant === "success"
+                    ? "success"
+                    : trend.variant === "warning" || trend.variant === "danger"
+                      ? "warning"
+                      : trend.variant === "info"
+                        ? "accent"
+                        : "muted",
+              }}
+              title={trendTitle(trend.key)}
+              subtitle={`${trendArrow(trend.direction)} ${trend.deltaLabel} · ${trendNarrative(trend, rangeDays)}`}
+              chips={[
+                { text: `Last ${rangeDays}d`, tone: "muted" },
+                {
+                  text: `Change ${trend.deltaLabel}`,
+                  tone:
+                    trend.variant === "success"
+                      ? "success"
+                      : trend.variant === "warning" || trend.variant === "danger"
+                        ? "warning"
+                        : trend.variant === "info"
+                          ? "info"
+                          : "muted",
+                },
+              ]}
+              statusPill={{ text: trend.assessment, tone: trend.variant }}
+              showChevron={false}
+            />
           ))}
         </View>
       </Section>
 
-      <Text accessibilityRole="header" style={styles.historyTitle}>
-        Recent check-ins
-      </Text>
+      <View style={styles.historyHeader}>
+        <Text style={styles.historyEyebrow}>Deeper history</Text>
+        <Text accessibilityRole="header" style={styles.historyTitle}>
+          Recent check-ins
+        </Text>
+        <Text style={styles.historySubtitle}>
+          Use these daily entries as supporting detail beneath the trend summary above.
+        </Text>
+      </View>
       {/* IMPORTANT: Header belongs in ListHeaderComponent only; do not duplicate in renderItem. */}
     </View>
   );
@@ -989,9 +1201,25 @@ export default function ProgressScreen() {
 
           return (
             <View style={styles.historyRowWrap}>
-              <Row
+              <MediaCard
+                variant="compact"
+                leading={{
+                  type: "icon",
+                  icon: "checkin",
+                  tone:
+                    item.support?.needsUrgentHelp || item.support?.feelsSafe === false
+                      ? "danger"
+                      : item.support?.wantsFollowUp || item.support?.wantsExtraSupport
+                        ? "warning"
+                        : item.notes?.trim()
+                          ? "accent"
+                          : "muted",
+                }}
                 title={formatDateTitle(item)}
                 subtitle={`Pain ${item.pain}/10 · Mood ${item.mood}/5 · Exercises ${exercisePct}${sleepSummary ? ` · Sleep ${sleepSummary}` : ""} · Medication ${medTaken}`}
+                chips={historyChips(item)}
+                maxChips={3}
+                statusPill={historyStatus(item)}
                 onPress={() => {
                   setSelectedCheckin(item);
                   router.push("/checkin-detail" as any);
@@ -1011,11 +1239,11 @@ export default function ProgressScreen() {
             <EmptyState
               variant="compact"
               illustrationKey={isOffline ? "offline" : "progress"}
-              title={isOffline ? "Offline — showing saved info" : "No check-ins in this range"}
+              title={isOffline ? "Offline — no saved progress yet" : "No check-ins in this range yet"}
               description={
                 isOffline
-                  ? "Connect to refresh progress data."
-                  : "Try a different range or complete today’s check-in."
+                  ? "Connect again to refresh your recovery history."
+                  : "Your recovery story will appear here as you complete check-ins."
               }
               ctaLabel={isOffline ? undefined : "Start today’s check-in"}
               onCtaPress={
@@ -1041,30 +1269,70 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     listHeader: {
-      gap: tokens.spacing.md,
-    },
-    headerIntro: {
-      gap: tokens.spacing.xs,
-    },
-    title: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.title.fontSize,
-      lineHeight: tokens.typography.title.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    subtitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      gap: tokens.spacing.lg,
     },
     headerPillRow: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
-      marginTop: tokens.spacing.xs,
     },
     trustCueRow: {
       marginTop: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+      backgroundColor: tokens.colors.surface,
+    },
+    storyCardCopy: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyFacts: {
+      gap: tokens.spacing.sm,
+    },
+    storyFact: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: 2,
+    },
+    storyFactLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyFactValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    failureCard: {
+      backgroundColor: tokens.colors.surface,
     },
     kpiGrid: {
       flexDirection: "row",
@@ -1084,42 +1352,32 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     trendList: {
       gap: tokens.spacing.sm,
     },
-    trendRow: {
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      backgroundColor: tokens.colors.surfaceElevated,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: tokens.spacing.sm,
+    historyHeader: {
+      gap: tokens.spacing.xs,
+      marginTop: tokens.spacing.xs,
+      marginBottom: tokens.spacing.xs,
     },
-    trendLeft: {
-      flex: 1,
-      gap: 2,
-    },
-    trendTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    trendDelta: {
+    historyEyebrow: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      fontWeight: tokens.typography.weights.medium,
     },
     historyTitle: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
-      marginTop: tokens.spacing.xs,
+    },
+    historySubtitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     listContent: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
     },
     historyRowWrap: {

@@ -12,6 +12,23 @@ import {
 } from "@/src/utils/tasks";
 import { MediaCard } from "@/src/components/MediaCard";
 
+function leadingToneForTask(task: PatientTaskItem): "muted" | "accent" | "success" | "warning" | "danger" {
+  const statusTone = taskStatusVariant(task);
+  if (statusTone === "success") {
+    return "success";
+  }
+  if (statusTone === "warning") {
+    return "warning";
+  }
+  if (statusTone === "danger") {
+    return "danger";
+  }
+  if (statusTone === "info") {
+    return "accent";
+  }
+  return "muted";
+}
+
 type TaskCardProps = {
   task: PatientTaskItem;
   onPressAction: () => void;
@@ -53,7 +70,7 @@ export function TaskCard({
     <View testID={testID}>
       <MediaCard
         variant={compact ? "compact" : "default"}
-        leading={{ type: "icon", icon: getTaskIcon(task), tone: "accent" }}
+        leading={{ type: "icon", icon: getTaskIcon(task), tone: leadingToneForTask(task) }}
         title={task.title}
         subtitle={formatTaskSupportText(task)}
         statusPill={{

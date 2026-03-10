@@ -3,6 +3,21 @@ import { View } from "react-native";
 import { MediaCard } from "@/src/components/MediaCard";
 import type { ReminderItem } from "@/src/types/reminder";
 
+function leadingToneForReminder(
+  reminder: ReminderItem,
+): "muted" | "accent" | "success" | "warning" | "danger" {
+  if (reminder.tone === "success") {
+    return "success";
+  }
+  if (reminder.tone === "warning") {
+    return reminder.status === "overdue" ? "danger" : "warning";
+  }
+  if (reminder.tone === "info") {
+    return "accent";
+  }
+  return reminder.unread ? "accent" : "muted";
+}
+
 type ReminderCardProps = {
   reminder: ReminderItem;
   compact?: boolean;
@@ -44,7 +59,11 @@ export function ReminderCard({
     <View testID={testID}>
       <MediaCard
         variant={compact ? "compact" : "default"}
-        leading={{ type: "icon", icon: reminder.primaryActionIcon, tone: "accent" }}
+        leading={{
+          type: "icon",
+          icon: reminder.primaryActionIcon,
+          tone: leadingToneForReminder(reminder),
+        }}
         title={reminder.title}
         subtitle={reminder.message}
         statusPill={{

@@ -59,6 +59,7 @@ import { useTokens } from "@/src/theme/tokens";
 import {
   appointmentWorkflowTone,
   buildAppointmentChips,
+  formatAppointmentRelativeLabel,
   formatAppointmentTimeRange,
   formatAppointmentWorkflowLabel,
   getAppointmentWorkflowStatus,
@@ -310,6 +311,33 @@ export default function AppointmentsScreen() {
   const nextApproved = approvedRequests.find(
     (item) => Date.parse(item.startsAt) > Date.now(),
   );
+  const workflowStory = useMemo(() => {
+    if (nextApproved) {
+      return {
+        title: "Your next session is already taking shape.",
+        body: "Keep upcoming visits in view here, then use requests when you need to check approval or make a change.",
+      };
+    }
+
+    if (pendingCount > 0) {
+      return {
+        title: "A request is waiting for review.",
+        body: "You can keep an eye on request status here while you browse other times or add context for your clinician.",
+      };
+    }
+
+    if (slots.length > 0) {
+      return {
+        title: "Open times are ready to review.",
+        body: "Start with available slots, then move to requests or upcoming visits once a time is selected and approved.",
+      };
+    }
+
+    return {
+      title: "No visit is lined up right now.",
+      body: "Check back here for new availability or review your existing requests when something changes.",
+    };
+  }, [nextApproved, pendingCount, slots.length]);
 
   const sortedRequests = useMemo(
     () => [...requests].sort((left, right) => Date.parse(right.startsAt) - Date.parse(left.startsAt)),
@@ -668,11 +696,13 @@ export default function AppointmentsScreen() {
           />
         ) : null}
 
+        <LastRefreshed value={appointmentsRefresh.label} compact />
+
         <SegmentedControl
           value={mode}
           onChange={setMode}
           options={[
-            { value: "book", label: "Book", icon: "appointments" },
+            { value: "book", label: "Find time", icon: "appointments" },
             { value: "requests", label: "Requests", icon: "info" },
             { value: "upcoming", label: "Upcoming", icon: "success" },
           ]}
@@ -687,13 +717,13 @@ export default function AppointmentsScreen() {
               title={nextApproved ? formatDateTime(nextApproved.startsAt) : "No upcoming"}
               subtitle={
                 nextApproved
-                  ? "Approved appointment"
-                  : "Book a slot to schedule"
+                  ? "Next confirmed visit"
+                  : "Choose a time to request"
               }
               chips={[
                 nextApproved
                   ? { text: "Upcoming", tone: "success" as const }
-                  : { text: "Tap Book", tone: "muted" as const },
+                  : { text: "Browse times", tone: "muted" as const },
               ]}
               onPress={() => {
                 setMode(nextApproved ? "upcoming" : "book");
@@ -705,7 +735,7 @@ export default function AppointmentsScreen() {
               variant="compact"
               leading={{ type: "icon", icon: "info", tone: "muted" }}
               title={`Pending: ${pendingCount}`}
-              subtitle={pendingCount > 0 ? "Awaiting approval" : "No pending requests"}
+              subtitle={pendingCount > 0 ? "Waiting for review" : "No pending requests"}
               chips={[
                 pendingCount > 0
                   ? { text: "Requests", tone: "warning" as const }
@@ -723,15 +753,17 @@ export default function AppointmentsScreen() {
             <View style={styles.noteHeader}>
               <View style={styles.noteTitleRow}>
                 <DomainIcon icon="chat" tone="muted" accessibilityLabel="Optional note icon" />
-                <Text style={styles.noteTitle}>Optional note</Text>
+                <Text style={styles.noteTitle}>Share context</Text>
               </View>
               <Text style={styles.noteCounter}>{noteDraft.length}/280</Text>
             </View>
-            <Text style={styles.noteSubtitle}>Add context for your clinician (max 280).</Text>
+            <Text style={styles.noteSubtitle}>
+              Add a short note if you want your clinician to know what time or context works best.
+            </Text>
             <TextInput
               value={noteDraft}
               onChangeText={(value) => setNoteDraft(value.slice(0, 280))}
-              placeholder="Optional short note"
+              placeholder="Optional note for your clinician"
               placeholderTextColor={tokens.colors.textMuted}
               multiline
               maxLength={280}
@@ -757,20 +789,11 @@ export default function AppointmentsScreen() {
     pendingCount,
     setMode,
     showDiagnostics,
-    styles.diagContent,
-    styles.diagTitle,
-    styles.diagTitleRow,
-    styles.diagToggle,
-    styles.listHeader,
-    styles.noteCounter,
-    styles.noteHeader,
-    styles.noteInput,
-    styles.noteSubtitle,
-    styles.noteTitle,
-    styles.noteTitleRow,
-    styles.pressed,
-    styles.summaryCardWrap,
-    styles.summaryRow,
+    slots.length,
+    styles,
+    upcomingRequests.length,
+    workflowStory.body,
+    workflowStory.title,
     tokens.colors.textMuted,
     tokens.spacing.md,
   ]);
@@ -779,6 +802,7 @@ export default function AppointmentsScreen() {
     (requestItem: AppointmentRequestItem) => {
       const workflowStatus = getAppointmentWorkflowStatus(requestItem);
       const link = requestItem.meetingLink?.trim();
+      const relativeLabel = formatAppointmentRelativeLabel(requestItem);
       const chips: MediaCardChip[] = buildAppointmentChips(requestItem);
 
       const actions: MediaCardAction[] = [];
@@ -846,8 +870,24 @@ export default function AppointmentsScreen() {
                       : "muted",
             }}
             title={formatAppointmentTimeRange(requestItem)}
-            subtitle={`${formatAppointmentWorkflowLabel(workflowStatus)}${
-              requestItem.reviewedAt ? ` · Reviewed ${formatDateTime(requestItem.reviewedAt)}` : ""
+            subtitle={`${
+              workflowStatus === "upcoming"
+                ? "Confirmed and coming up"
+                : workflowStatus === "awaiting_confirmation"
+                  ? "Waiting for clinician review"
+                  : workflowStatus === "reschedule_requested"
+                    ? "A new time is needed"
+                    : workflowStatus === "missed"
+                      ? "This visit was missed"
+                      : workflowStatus === "completed"
+                        ? "This session is complete"
+                        : formatAppointmentWorkflowLabel(workflowStatus)
+            }${
+              relativeLabel
+                ? ` · ${relativeLabel}`
+                : requestItem.reviewedAt
+                  ? ` · Reviewed ${formatDateTime(requestItem.reviewedAt)}`
+                  : ""
             }`}
             statusPill={{
               text: formatAppointmentWorkflowLabel(workflowStatus),
@@ -870,7 +910,12 @@ export default function AppointmentsScreen() {
           <Card variant="outlined" padding={tokens.spacing.md}>
             <View style={styles.slotHeader}>
               <DomainIcon icon="weekly" tone="muted" accessibilityLabel="Date group icon" />
-              <Text style={styles.slotDate}>{group.dateLabel}</Text>
+              <View style={styles.slotHeaderCopy}>
+                <Text style={styles.slotDate}>{group.dateLabel}</Text>
+                <Text style={styles.slotSubtitle}>
+                  {`${group.slots.length} time option${group.slots.length === 1 ? "" : "s"}`}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.slotChipsWrap}>
@@ -942,11 +987,11 @@ export default function AppointmentsScreen() {
         <EmptyState
           variant="compact"
           illustrationKey={isOffline ? "offline" : "weekly"}
-          title={isOffline ? "Offline" : "No available slots"}
+          title={isOffline ? "Offline" : "No open times right now"}
           description={
             isOffline
               ? "Reconnect to refresh appointment availability."
-              : "No slots are currently open. Pull to refresh shortly."
+              : "New time options will appear here when your care team opens availability."
           }
         />
       );
@@ -958,8 +1003,8 @@ export default function AppointmentsScreen() {
           variant="compact"
           illustrationKey="today"
           title="No requests yet"
-          description="Choose Book to request an appointment time."
-          ctaLabel="Go to Book"
+          description="Browse open times first, then request the one that works best for you."
+          ctaLabel="Find time"
           onCtaPress={() => {
             setMode("book");
           }}
@@ -972,7 +1017,7 @@ export default function AppointmentsScreen() {
         variant="compact"
         illustrationKey="progress"
         title="No upcoming appointments"
-        description="Your approved appointments will appear here."
+        description="Confirmed visits will appear here once a request is approved."
         ctaLabel="View requests"
         onCtaPress={() => {
           setMode("requests");
@@ -1004,7 +1049,7 @@ export default function AppointmentsScreen() {
         <HeroHeader
           variant="compact"
           title="Appointments"
-          subtitle="Book a session · Review requests"
+          subtitle="Plan visits, track requests, and stay ready for what’s next."
           left={<Avatar size={40} name={patientName} ring={isOffline ? "attention" : "none"} />}
           rightActions={[
             {
@@ -1024,7 +1069,40 @@ export default function AppointmentsScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerMeta}>
+            <StatusPill label={`${slots.length} open times`} variant={slots.length > 0 ? "info" : "neutral"} />
+            <StatusPill label={`${pendingCount} pending`} variant={pendingCount > 0 ? "warning" : "neutral"} />
+            <StatusPill label={`${upcomingRequests.length} upcoming`} variant={upcomingRequests.length > 0 ? "success" : "neutral"} />
+          </View>
+          <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
+            <View style={styles.storyCopy}>
+              <Text style={styles.storyEyebrow}>Planning overview</Text>
+              <Text style={styles.storyTitle}>{workflowStory.title}</Text>
+              <Text style={styles.storyText}>{workflowStory.body}</Text>
+            </View>
+            <View style={styles.storyFacts}>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Next visit</Text>
+                <Text style={styles.storyFactValue}>
+                  {nextApproved ? formatDateTime(nextApproved.startsAt) : "Not scheduled yet"}
+                </Text>
+              </View>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Requests</Text>
+                <Text style={styles.storyFactValue}>
+                  {pendingCount > 0 ? `${pendingCount} waiting` : "No pending review"}
+                </Text>
+              </View>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Open times</Text>
+                <Text style={styles.storyFactValue}>
+                  {slots.length > 0 ? `${slots.length} available` : "Nothing open"}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        </HeroHeader>
       }
     >
       <View style={styles.body}>
@@ -1064,8 +1142,11 @@ export default function AppointmentsScreen() {
             accessibilityLabel="Selected appointment actions"
           >
             <View style={styles.footerHeader}>
-              <Text style={styles.footerTitle}>Selected</Text>
+              <Text style={styles.footerTitle}>Selected time</Text>
               <Text style={styles.footerSubtitle}>{formatDateTime(selectedSlot.startsAt)}</Text>
+              <Text style={styles.footerNote}>
+                This sends a request for clinician approval before the visit is confirmed.
+              </Text>
             </View>
 
             {isOffline ? (
@@ -1126,6 +1207,66 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     listHeader: {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
+    },
+    headerMeta: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyCopy: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyFacts: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    storyFact: {
+      flexGrow: 1,
+      minWidth: 108,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: 2,
+    },
+    storyFactLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyFactValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
     },
     listItemWrap: {
       marginBottom: tokens.spacing.sm,
@@ -1223,15 +1364,24 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     slotHeader: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       gap: tokens.spacing.sm,
       marginBottom: tokens.spacing.sm,
+    },
+    slotHeaderCopy: {
+      flex: 1,
+      gap: 2,
     },
     slotDate: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    slotSubtitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     slotChipsWrap: {
       flexDirection: "row",
@@ -1282,6 +1432,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    footerNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     footerButtons: {
       flexDirection: "row",

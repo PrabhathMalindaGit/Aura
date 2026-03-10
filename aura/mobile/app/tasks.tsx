@@ -7,6 +7,7 @@ import { isApiError, type ApiError } from "@/src/api/client";
 import { completePatientTask, listPatientTasks } from "@/src/api/tasks";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { DomainIcon } from "@/src/components/IconSet";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
@@ -233,6 +234,7 @@ export default function TasksScreen() {
     () => tasks.filter((task) => task.status === "completed").sort(compareCompletedTasks),
     [tasks],
   );
+  const nextTask = activeTasks[0] ?? null;
   const dueTodayCount = useMemo(
     () =>
       activeTasks.filter((task) => {
@@ -245,6 +247,33 @@ export default function TasksScreen() {
     () => activeTasks.filter((task) => isCommunicationTask(task)).length,
     [activeTasks],
   );
+  const workflowStory = useMemo(() => {
+    if (!nextTask) {
+      return {
+        title: "Your follow-through queue is clear right now.",
+        body: "New care steps will appear here when your clinician wants you to review, reply, or complete something next.",
+      };
+    }
+
+    if (dueTodayCount > 0) {
+      return {
+        title: "Start with what needs attention today.",
+        body: "Use the primary action on the first task below to move the next care step forward without losing your place.",
+      };
+    }
+
+    if (communicationCount > 0) {
+      return {
+        title: "There is a follow-up reply waiting from your care team.",
+        body: "Open the first communication task to continue the conversation and keep your plan moving.",
+      };
+    }
+
+    return {
+      title: "Your next care steps are lined up clearly.",
+      body: "Review active tasks first, then use the completed view for a quick record of what you have already handled.",
+    };
+  }, [communicationCount, dueTodayCount, nextTask]);
 
   const visibleTasks = mode === "active" ? activeTasks : completedTasks;
 
@@ -328,7 +357,7 @@ export default function TasksScreen() {
         <HeroHeader
           variant="compact"
           title="Tasks"
-          subtitle="Clear next steps from your care team."
+          subtitle="Keep care follow-through moving one step at a time."
           left={
             <Avatar
               size={40}
@@ -361,6 +390,27 @@ export default function TasksScreen() {
             <StatusPill label={`${dueTodayCount} due now`} variant={dueTodayCount > 0 ? "warning" : "neutral"} />
             <StatusPill label={`${communicationCount} reply request${communicationCount === 1 ? "" : "s"}`} variant={communicationCount > 0 ? "info" : "neutral"} />
           </View>
+          <Card variant="outlined" style={styles.storyCard}>
+            <View style={styles.storyCopy}>
+              <Text style={styles.storyEyebrow}>Do next</Text>
+              <Text style={styles.storyTitle}>{workflowStory.title}</Text>
+              <Text style={styles.storyText}>{workflowStory.body}</Text>
+            </View>
+            <View style={styles.storyFacts}>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Next task</Text>
+                <Text style={styles.storyFactValue}>{nextTask ? nextTask.title : "Nothing waiting"}</Text>
+              </View>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Due now</Text>
+                <Text style={styles.storyFactValue}>{dueTodayCount > 0 ? `${dueTodayCount} task${dueTodayCount === 1 ? "" : "s"}` : "All clear"}</Text>
+              </View>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Completed</Text>
+                <Text style={styles.storyFactValue}>{completedTasks.length > 0 ? `${completedTasks.length} handled` : "Nothing logged yet"}</Text>
+              </View>
+            </View>
+          </Card>
         </HeroHeader>
       }
     >
@@ -399,8 +449,8 @@ export default function TasksScreen() {
       </View>
 
       <Section
-        title="Your care workflow"
-        subtitle="Open the next step, or mark simple checklist tasks done when available."
+        title="Do next"
+        subtitle="Start with active follow-up steps, then switch to done items when you want a quick record of what is already handled."
         left={<DomainIcon icon="checkin" tone="muted" accessibilityLabel="Tasks icon" />}
         card
       >
@@ -423,11 +473,11 @@ export default function TasksScreen() {
           <EmptyState
             variant="compact"
             illustrationKey={mode === "active" ? "today" : "progress"}
-            title={mode === "active" ? "No tasks right now" : "No completed tasks yet"}
+            title={mode === "active" ? "Nothing needs your attention right now" : "No completed steps yet"}
             description={
               mode === "active"
-                ? "When your care team asks for a follow-up step, it will appear here."
-                : "Completed care steps will appear here after they are done."
+                ? "New follow-up steps will appear here when your care team asks you to do something next."
+                : "Completed steps will collect here so you can see what has already been handled."
             }
             ctaLabel={mode === "active" ? "Open chat" : undefined}
             onCtaPress={
@@ -462,8 +512,8 @@ export default function TasksScreen() {
       </Section>
 
       <Section
-        title="Need help sooner?"
-        subtitle="You can always message your care team or review your appointments."
+        title="Stay on track"
+        subtitle="Use chat for questions and appointments for planning so every next step stays connected."
         left={<DomainIcon icon="info" tone="muted" accessibilityLabel="Support icon" />}
         card
         cardVariant="outlined"
@@ -488,6 +538,61 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyCopy: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyFacts: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    storyFact: {
+      flexGrow: 1,
+      minWidth: 108,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: 2,
+    },
+    storyFactLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyFactValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
     },
     metaArea: {
       gap: tokens.spacing.sm,

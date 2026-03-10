@@ -7,6 +7,7 @@ import { listMyRequests, type AppointmentRequestItem } from "@/src/api/appointme
 import { completePatientTask, listPatientTasks } from "@/src/api/tasks";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { DomainIcon } from "@/src/components/IconSet";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
@@ -127,6 +128,34 @@ export default function RemindersScreen() {
   );
   const unreadCount = useMemo(() => countUnreadReminders(reminders), [reminders]);
   const grouped = useMemo(() => splitReminderGroups(reminders), [reminders]);
+  const nextReminder = grouped.attention[0] ?? grouped.soon[0] ?? grouped.recent[0] ?? null;
+  const reminderStory = useMemo(() => {
+    if (!nextReminder) {
+      return {
+        title: "You’re caught up for now.",
+        body: "New follow-up prompts will show up here when a task, appointment, or care-team request changes.",
+      };
+    }
+
+    if (grouped.attention.length > 0) {
+      return {
+        title: "Start with what needs attention now.",
+        body: "Open the first reminder below to jump straight back into the right care step, conversation, or appointment view.",
+      };
+    }
+
+    if (grouped.soon.length > 0) {
+      return {
+        title: "Your next follow-up steps are lined up.",
+        body: "Use this screen to see what is coming up soon, then move into tasks or appointments when you are ready to act.",
+      };
+    }
+
+    return {
+      title: "Recent updates are saved here for reference.",
+      body: "Handled reminders stay quieter so you can focus on what is next without losing the recent context.",
+    };
+  }, [grouped.attention.length, grouped.recent.length, grouped.soon.length, nextReminder]);
 
   const syncReadStateForItems = useCallback(
     async (
@@ -404,7 +433,7 @@ export default function RemindersScreen() {
         <HeroHeader
           variant="compact"
           title="Reminders"
-          subtitle="See what changed and what needs attention next."
+          subtitle="Stay on top of what changed, what is next, and what can wait."
           left={
             <Avatar
               size={40}
@@ -443,6 +472,27 @@ export default function RemindersScreen() {
               variant={grouped.soon.length > 0 ? "info" : "neutral"}
             />
           </View>
+          <Card variant="outlined" style={styles.storyCard}>
+            <View style={styles.storyCopy}>
+              <Text style={styles.storyEyebrow}>Follow-through view</Text>
+              <Text style={styles.storyTitle}>{reminderStory.title}</Text>
+              <Text style={styles.storyText}>{reminderStory.body}</Text>
+            </View>
+            <View style={styles.storyFacts}>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Next reminder</Text>
+                <Text style={styles.storyFactValue}>{nextReminder ? nextReminder.title : "Nothing waiting"}</Text>
+              </View>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Unread</Text>
+                <Text style={styles.storyFactValue}>{unreadCount > 0 ? `${unreadCount} to review` : "All read"}</Text>
+              </View>
+              <View style={styles.storyFact}>
+                <Text style={styles.storyFactLabel}>Upcoming</Text>
+                <Text style={styles.storyFactValue}>{grouped.soon.length > 0 ? `${grouped.soon.length} queued` : "Nothing soon"}</Text>
+              </View>
+            </View>
+          </Card>
         </HeroHeader>
       }
     >
@@ -485,8 +535,8 @@ export default function RemindersScreen() {
       </View>
 
       <Section
-        title="Reminder center"
-        subtitle="Open a reminder to jump back into the right part of your care plan."
+        title="Follow-through"
+        subtitle="Open a reminder to jump back into the right part of your care plan without losing context."
         left={<DomainIcon icon="info" tone="muted" accessibilityLabel="Reminders icon" />}
         right={
           unreadCount > 0 ? (
@@ -506,8 +556,8 @@ export default function RemindersScreen() {
           <EmptyState
             variant="compact"
             illustrationKey="today"
-            title="No reminders right now"
-            description="You’re all caught up. New follow-up steps will appear here when something changes."
+            title="Nothing needs your attention right now"
+            description="You’re caught up. New follow-up steps will appear here when something changes in your care plan."
             ctaLabel="Open check-in"
             onCtaPress={() => {
               router.push("/(tabs)/checkin" as never);
@@ -517,8 +567,8 @@ export default function RemindersScreen() {
           <View style={styles.groupStack}>
             {grouped.attention.length > 0 ? (
               <Section
-                title="Needs attention now"
-                subtitle="Start with overdue or care-team follow-up items."
+                title="Do next"
+                subtitle="Start with overdue steps or care-team follow-up items first."
                 left={<DomainIcon icon="warning" tone="warning" accessibilityLabel="Attention reminders" />}
               >
                 <View style={styles.listStack}>
@@ -547,7 +597,7 @@ export default function RemindersScreen() {
             {grouped.soon.length > 0 ? (
               <Section
                 title="Coming up soon"
-                subtitle="Upcoming appointments and follow-up steps to keep on track."
+                subtitle="Upcoming appointments and follow-up steps that help you stay on track."
                 left={<DomainIcon icon="weekly" tone="accent" accessibilityLabel="Upcoming reminders" />}
               >
                 <View style={styles.listStack}>
@@ -566,8 +616,8 @@ export default function RemindersScreen() {
 
             {grouped.recent.length > 0 ? (
               <Section
-                title="Recent updates"
-                subtitle="Quiet updates from recently handled tasks and appointment changes."
+                title="Handled recently"
+                subtitle="Quiet updates from recently completed steps and appointment changes."
                 left={<DomainIcon icon="success" tone="success" accessibilityLabel="Recent reminder updates" />}
               >
                 <View style={styles.listStack}>
@@ -601,6 +651,61 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyCopy: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyFacts: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    storyFact: {
+      flexGrow: 1,
+      minWidth: 108,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: 2,
+    },
+    storyFactLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    storyFactValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
     },
     metaArea: {
       gap: tokens.spacing.sm,

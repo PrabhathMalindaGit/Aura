@@ -7,6 +7,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { getPhotoMeta, type SymptomPhotoKind, type SymptomPhotoMeta } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -80,6 +81,36 @@ function formatFileSize(value?: number): string {
     return `${Math.round(value / 1024)} KB`;
   }
   return `${value} B`;
+}
+
+function formatDate(value?: string): string {
+  if (!value) {
+    return "Unknown";
+  }
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDateTime(value?: string): string {
+  if (!value) {
+    return "Unknown time";
+  }
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function SymptomPhotoViewScreen() {
@@ -195,6 +226,16 @@ export default function SymptomPhotoViewScreen() {
   const displayDate = isPending ? pendingDate : meta?.date ?? "Unknown";
   const displayNote = isPending ? pendingNote : meta?.note;
   const displayCreatedAt = isPending ? pendingCreatedAt : meta?.createdAt;
+  const photoStatusLabel = isPending ? "Pending sync" : "Uploaded";
+  const photoStatusTone = isPending ? "warning" : "success";
+  const photoStoryTitle = isPending
+    ? "This photo is saved on this device and waiting to sync"
+    : "This photo is part of your symptom timeline";
+  const photoStoryNote = isPending
+    ? "The image is stored locally for now. Once it syncs, it becomes part of your shared symptom history."
+    : "Use the capture date, symptom type, and note below to remember what this photo was documenting.";
+  const reviewSubtitle =
+    displayDate !== "Unknown" ? `${formatDate(displayCreatedAt)} · ${kindLabel(displayKind)}` : "Symptom photo";
 
   return (
     <Screen
@@ -203,7 +244,7 @@ export default function SymptomPhotoViewScreen() {
         <HeroHeader
           variant="compact"
           title="Photo"
-          subtitle={displayDate !== "Unknown" ? displayDate : "Symptom photo"}
+          subtitle="Visual symptom review"
           left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="photos" />}
           rightActions={[
             {
@@ -219,7 +260,13 @@ export default function SymptomPhotoViewScreen() {
               onPress: () => router.push("/safety" as never),
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={photoStatusLabel} variant={photoStatusTone} accessible={false} />
+            <StatusPill label={kindLabel(displayKind)} variant="info" accessible={false} />
+            <StatusPill label={displayDate !== "Unknown" ? displayDate : "Date unavailable"} variant="neutral" accessible={false} />
+          </View>
+        </HeroHeader>
       }
     >
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -230,6 +277,40 @@ export default function SymptomPhotoViewScreen() {
             message={notice.message}
           />
         ) : null}
+
+        <Card variant="elevated" padding={tokens.spacing.lg} style={styles.storyCard}>
+          <View style={styles.storyHeader}>
+            <View style={styles.storyTitleWrap}>
+              <Text style={styles.storyEyebrow}>Visual review</Text>
+              <Text style={styles.storyTitle}>{photoStoryTitle}</Text>
+            </View>
+            <StatusPill label={photoStatusLabel} variant={photoStatusTone} accessible={false} />
+          </View>
+          <Text style={styles.storyBody}>{photoStoryNote}</Text>
+          <View style={styles.storyMetricRow}>
+            <View style={styles.storyMetric}>
+              <Text style={styles.storyMetricValue}>{kindLabel(displayKind)}</Text>
+              <Text style={styles.storyMetricLabel}>Symptom type</Text>
+            </View>
+            <View style={styles.storyMetric}>
+              <Text style={styles.storyMetricValue}>{displayDate}</Text>
+              <Text style={styles.storyMetricLabel}>Capture date</Text>
+            </View>
+            <View style={styles.storyMetric}>
+              <Text style={styles.storyMetricValue}>{formatFileSize(meta?.sizeBytes)}</Text>
+              <Text style={styles.storyMetricLabel}>Image size</Text>
+            </View>
+          </View>
+        </Card>
+
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+          <Text style={styles.sectionEyebrow}>Photo</Text>
+          <Text style={styles.sectionTitle}>Review what was captured</Text>
+          <Text style={styles.sectionBody}>
+            Start with the image, then use the details below to understand when it was taken and
+            what it was documenting.
+          </Text>
+        </Card>
 
         {isLoading ? (
           <View style={styles.centered}>
@@ -252,13 +333,14 @@ export default function SymptomPhotoViewScreen() {
           />
         )}
 
-        <View style={styles.statusRow}>
-          <StatusPill
-            label={isPending ? "Pending sync" : "Uploaded"}
-            variant={isPending ? "warning" : "success"}
-          />
-          <StatusPill label={kindLabel(displayKind)} variant="info" />
-        </View>
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+          <Text style={styles.sectionEyebrow}>Details</Text>
+          <Text style={styles.sectionTitle}>Photo context</Text>
+          <Text style={styles.sectionBody}>
+            These details help keep the image useful as part of your symptom history, especially
+            when you compare it with future captures.
+          </Text>
+        </Card>
 
         <View style={styles.metricGrid}>
           <View style={styles.metricTileWrap}>
@@ -305,33 +387,40 @@ export default function SymptomPhotoViewScreen() {
 
         <MediaCard
           leading={{ type: "icon", icon: "info", tone: "muted" }}
-          title="Details"
-          subtitle={
-            displayCreatedAt
-              ? `Saved ${new Date(displayCreatedAt).toLocaleString()}`
-              : "Saved time unavailable"
-          }
+          title="Photo summary"
+          subtitle={displayCreatedAt ? `Saved ${formatDateTime(displayCreatedAt)}` : "Saved time unavailable"}
           chips={[
             { text: `Date ${displayDate}`, tone: "muted" },
             { text: kindLabel(displayKind), tone: "muted" },
             { text: isPending ? "Pending sync" : "Uploaded", tone: isPending ? "warning" : "success" },
           ]}
+          statusPill={{ text: photoStatusLabel, tone: photoStatusTone }}
         />
 
         <MediaCard
           leading={{ type: "icon", icon: "chat", tone: "muted" }}
-          title="Notes"
-          subtitle={displayNote ?? "No notes provided"}
+          title="Capture note"
+          subtitle={displayNote ?? "No note was added for this photo."}
+          chips={[
+            { text: reviewSubtitle, tone: "muted" },
+            ...(displayNote ? [{ text: "Note saved", tone: "info" as const }] : []),
+          ]}
         />
 
         {!isPending ? (
-          <PrimaryButton
-            label="Reload"
-            onPress={() => {
-              void loadRemote();
-            }}
-            disabled={isLoading}
-          />
+          <View style={styles.footerAction}>
+            <Text style={styles.footerTitle}>Refresh when you need an updated copy</Text>
+            <Text style={styles.footerBody}>
+              If the image or detail card looks out of date, reload it from your symptom timeline.
+            </Text>
+            <PrimaryButton
+              label="Reload photo"
+              onPress={() => {
+                void loadRemote();
+              }}
+              disabled={isLoading}
+            />
+          </View>
         ) : null}
       </ScrollView>
     </Screen>
@@ -344,15 +433,95 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xxxl,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     centered: {
       minHeight: 140,
       alignItems: "center",
       justifyContent: "center",
     },
-    statusRow: {
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyHeader: {
       flexDirection: "row",
-      flexWrap: "wrap",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyTitleWrap: {
+      flex: 1,
       gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyMetricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    storyMetric: {
+      flex: 1,
+      minWidth: 0,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    storyMetricValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyMetricLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     metricGrid: {
       flexDirection: "row",
@@ -362,6 +531,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     metricTileWrap: {
       width: "48%",
       minWidth: 0,
+    },
+    footerAction: {
+      gap: tokens.spacing.sm,
+    },
+    footerTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    footerBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
   });
 }

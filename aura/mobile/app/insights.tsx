@@ -14,6 +14,7 @@ import { isApiError, type ApiError } from "@/src/api/client";
 import { getApprovedInsights, type ApprovedInsight } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -23,6 +24,7 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/state/auth";
 import { getCachedInsights, setCachedInsights } from "@/src/state/insightsCache";
 import { useLastError } from "@/src/state/lastError";
@@ -274,6 +276,22 @@ export default function InsightsScreen() {
   }, [items, segment]);
 
   const latestItem = items[0];
+  const priorityCount = items.filter((insight) => insight.priority >= 2).length;
+  const insightStatusLabel =
+    items.length === 0 ? "No guidance yet" : priorityCount > 0 ? "Priority review" : "Guidance ready";
+  const insightStatusTone = items.length === 0 ? "neutral" : priorityCount > 0 ? "warning" : "success";
+  const insightStoryTitle =
+    items.length === 0
+      ? "Clinician-reviewed guidance will appear here"
+      : priorityCount > 0
+        ? "Focus on the guidance that needs the most attention first"
+        : "Your reviewed guidance is ready to revisit";
+  const insightStoryNote =
+    items.length === 0
+      ? "This screen collects insights your care team has approved so you can review them in one calm place."
+      : priorityCount > 0
+        ? "Priority guidance is surfaced here so you can spot what matters most before reading the full insight list."
+        : "Use these reviewed insights to stay aligned with your recovery plan and recent check-ins.";
 
   if (auth.status === "loading") {
     return (
@@ -283,7 +301,7 @@ export default function InsightsScreen() {
           <HeroHeader
             variant="compact"
             title="Insights"
-            subtitle="Loading"
+            subtitle="Guided recovery review"
             left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="insights" />}
           />
         }
@@ -336,7 +354,25 @@ export default function InsightsScreen() {
               onPress: () => router.push("/safety" as never),
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill
+              label={`${items.length} insight${items.length === 1 ? "" : "s"}`}
+              variant={items.length > 0 ? "info" : "neutral"}
+              accessible={false}
+            />
+            <StatusPill
+              label={priorityCount > 0 ? `${priorityCount} priority` : "All reviewed"}
+              variant={priorityCount > 0 ? "warning" : "success"}
+              accessible={false}
+            />
+            <StatusPill
+              label={source === "cache" ? "Saved copy" : "Live"}
+              variant={source === "cache" ? "warning" : "neutral"}
+              accessible={false}
+            />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -373,29 +409,6 @@ export default function InsightsScreen() {
         )}
         ListHeaderComponent={
           <View style={styles.stack}>
-            {__DEV__ ? (
-              <View style={styles.devBlock}>
-                <SecondaryButton
-                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
-                  onPress={() => {
-                    setShowDevDiagnostics((current) => !current);
-                  }}
-                />
-                {showDevDiagnostics ? (
-                  <View style={styles.devMetaWrap}>
-                    <LastRefreshed value={insightsRefresh.label} compact />
-                    <LastFailedAttempt
-                      value={insightsLoadError.label}
-                      title={insightsLoadError.lastError?.title}
-                      message={insightsLoadError.lastError?.message}
-                      onClear={insightsLoadError.lastError ? insightsLoadError.clear : undefined}
-                      compact
-                    />
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
             {isOffline ? (
               <Banner
                 variant="warning"
@@ -422,6 +435,65 @@ export default function InsightsScreen() {
               />
             ) : null}
 
+            <Card variant="elevated" padding={tokens.spacing.lg} style={styles.storyCard}>
+              <View style={styles.storyHeader}>
+                <View style={styles.storyTitleWrap}>
+                  <Text style={styles.storyEyebrow}>Guidance overview</Text>
+                  <Text style={styles.storyTitle}>{insightStoryTitle}</Text>
+                </View>
+                <StatusPill label={insightStatusLabel} variant={insightStatusTone} accessible={false} />
+              </View>
+              <Text style={styles.storyBody}>{insightStoryNote}</Text>
+              <View style={styles.storyMetricRow}>
+                <View style={styles.storyMetric}>
+                  <Text style={styles.storyMetricValue}>{items.length}</Text>
+                  <Text style={styles.storyMetricLabel}>Reviewed insights</Text>
+                </View>
+                <View style={styles.storyMetric}>
+                  <Text style={styles.storyMetricValue}>{priorityCount}</Text>
+                  <Text style={styles.storyMetricLabel}>Priority items</Text>
+                </View>
+                <View style={styles.storyMetric}>
+                  <Text style={styles.storyMetricValue}>
+                    {latestItem ? formatISOToHuman(latestItem.createdAt) : "—"}
+                  </Text>
+                  <Text style={styles.storyMetricLabel}>Latest review</Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+              <Text style={styles.sectionEyebrow}>Filter</Text>
+              <Text style={styles.sectionTitle}>Choose what to review now</Text>
+              <Text style={styles.sectionBody}>
+                Switch between all approved insights and the smaller set that carries stronger
+                review priority.
+              </Text>
+            </Card>
+
+            {__DEV__ ? (
+              <View style={styles.devBlock}>
+                <SecondaryButton
+                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
+                  onPress={() => {
+                    setShowDevDiagnostics((current) => !current);
+                  }}
+                />
+                {showDevDiagnostics ? (
+                  <View style={styles.devMetaWrap}>
+                    <LastRefreshed value={insightsRefresh.label} compact />
+                    <LastFailedAttempt
+                      value={insightsLoadError.label}
+                      title={insightsLoadError.lastError?.title}
+                      message={insightsLoadError.lastError?.message}
+                      onClear={insightsLoadError.lastError ? insightsLoadError.clear : undefined}
+                      compact
+                    />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
             <SegmentedControl
               value={segment}
               onChange={(next) => {
@@ -440,9 +512,20 @@ export default function InsightsScreen() {
                   variant="compact"
                   leading={{ type: "icon", icon: "success", tone: "success" }}
                   title={`${items.length}`}
-                  subtitle="Approved insights"
+                  subtitle="Reviewed guidance"
                   onPress={() => {
                     setSegment("approved");
+                  }}
+                />
+              </View>
+              <View style={styles.summaryCol}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "warning", tone: priorityCount > 0 ? "warning" : "muted" }}
+                  title={`${priorityCount}`}
+                  subtitle="Priority to review"
+                  onPress={() => {
+                    setSegment("priority");
                   }}
                 />
               </View>
@@ -456,6 +539,15 @@ export default function InsightsScreen() {
               </View>
             </View>
 
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+              <Text style={styles.sectionEyebrow}>Reviewed list</Text>
+              <Text style={styles.sectionTitle}>Approved insights</Text>
+              <Text style={styles.sectionBody}>
+                Read the headline first, then use the chips to understand category, confidence, and
+                when the guidance was reviewed.
+              </Text>
+            </Card>
+
             {isLoading ? (
               <View style={styles.centered}>
                 <ActivityIndicator size="small" />
@@ -468,7 +560,11 @@ export default function InsightsScreen() {
             <EmptyState
               illustrationKey="today"
               title={segment === "priority" ? "No priority insights" : "No reviewed insights"}
-              description="Refresh when online to check for new clinician-reviewed guidance."
+              description={
+                segment === "priority"
+                  ? "Priority guidance will appear here when your care team marks something that needs closer attention."
+                  : "Refresh when you’re online to check for newly reviewed guidance from your care team."
+              }
               ctaLabel="Refresh insights"
               onCtaPress={() => {
                 void loadInsights("refresh");
@@ -520,15 +616,101 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     summaryRow: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     summaryCol: {
       flex: 1,
-      minWidth: 0,
+      minWidth: 92,
     },
     footer: {
       paddingTop: tokens.spacing.xs,
       paddingBottom: tokens.spacing.md,
+    },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyTitleWrap: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyMetricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    storyMetric: {
+      flex: 1,
+      minWidth: 0,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    storyMetricValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyMetricLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
   });
 }

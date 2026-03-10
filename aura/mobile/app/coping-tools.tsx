@@ -5,9 +5,11 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { MediaCard } from "@/src/components/MediaCard";
 import { Screen } from "@/src/components/Screen";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
@@ -119,6 +121,45 @@ export default function CopingToolsScreen() {
 
   const listHeader = (
     <View style={styles.listHeader}>
+      <Card variant="elevated" padding={tokens.spacing.lg} style={styles.storyCard}>
+        <View style={styles.storyHeader}>
+          <View style={styles.storyTitleWrap}>
+            <Text style={styles.storyEyebrow}>Support now</Text>
+            <Text style={styles.storyTitle}>Pick one calming step when you need a reset</Text>
+          </View>
+          <StatusPill label="Offline ready" variant="success" accessible={false} />
+        </View>
+        <Text style={styles.storyBody}>
+          These tools are here to help you steady your breathing, ground yourself, or move into a
+          support step without searching through the app.
+        </Text>
+        <View style={styles.storyMetricRow}>
+          <View style={styles.storyMetric}>
+            <Text style={styles.storyMetricValue}>{usage.breathing.count}</Text>
+            <Text style={styles.storyMetricLabel}>Breathing sessions</Text>
+          </View>
+          <View style={styles.storyMetric}>
+            <Text style={styles.storyMetricValue}>{usage.grounding.count}</Text>
+            <Text style={styles.storyMetricLabel}>Grounding sessions</Text>
+          </View>
+          <View style={styles.storyMetric}>
+            <Text style={styles.storyMetricValue}>
+              {usage.breathing.lastUsedAt || usage.grounding.lastUsedAt ? "Used recently" : "Ready"}
+            </Text>
+            <Text style={styles.storyMetricLabel}>Support status</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+        <Text style={styles.sectionEyebrow}>Quick support</Text>
+        <Text style={styles.sectionTitle}>Choose the next calming step</Text>
+        <Text style={styles.sectionBody}>
+          Start with a short breathing or grounding tool, then move to chat or the Safety screen if
+          you need more support.
+        </Text>
+      </Card>
+
       <MediaCard
         leading={{ type: "icon", icon: "coping", tone: "accent" }}
         title="Support is ready"
@@ -128,6 +169,15 @@ export default function CopingToolsScreen() {
           { text: "2–5 min", tone: "muted" },
         ]}
       />
+
+      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+        <Text style={styles.sectionEyebrow}>Usage</Text>
+        <Text style={styles.sectionTitle}>Recent support activity</Text>
+        <Text style={styles.sectionBody}>
+          Use these quick summaries to see what you’ve leaned on most recently, then continue with
+          the tool that feels helpful now.
+        </Text>
+      </Card>
 
       <View style={styles.trackerGrid}>
         <View style={styles.trackerTileWrap}>
@@ -171,6 +221,15 @@ export default function CopingToolsScreen() {
           />
         </View>
       </View>
+
+      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+        <Text style={styles.sectionEyebrow}>Tools</Text>
+        <Text style={styles.sectionTitle}>Open the right support path</Text>
+        <Text style={styles.sectionBody}>
+          Each option below supports a different kind of reset, from a short breathing pause to a
+          faster route into Safety support.
+        </Text>
+      </Card>
 
       <View style={styles.toolGrid}>
         {toolCards.map((card) => (
@@ -222,7 +281,17 @@ export default function CopingToolsScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label="Offline ready" variant="success" accessible={false} />
+            <StatusPill
+              label={`${usage.breathing.count + usage.grounding.count} uses`}
+              variant="info"
+              accessible={false}
+            />
+            <StatusPill label="Support tools" variant="neutral" accessible={false} />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -241,6 +310,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     container: {
       paddingBottom: tokens.spacing.xxxl,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     centered: {
       minHeight: 140,
       alignItems: "center",
@@ -253,6 +327,86 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     listHeader: {
       gap: tokens.spacing.md,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyTitleWrap: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyMetricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    storyMetric: {
+      flex: 1,
+      minWidth: 0,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    storyMetricValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyMetricLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",

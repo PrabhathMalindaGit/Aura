@@ -153,6 +153,7 @@ export default function ExerciseSessionsScreen() {
   const loadInFlightRef = useRef(false);
 
   const pendingCount = pending.length;
+  const latestSession = sessions[0] ?? null;
 
   const loadPending = useCallback(async () => {
     if (!patientId) {
@@ -395,13 +396,31 @@ export default function ExerciseSessionsScreen() {
           />
         ) : null}
 
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
+          <Text style={styles.storyEyebrow}>Rehab sessions</Text>
+          <Text style={styles.storyTitle}>
+            {latestSession
+              ? "Your recent sessions show how the plan is going"
+              : pendingCount > 0
+                ? "Your next rehab step is ready to sync"
+                : "Your completed rehab sessions will appear here"}
+          </Text>
+          <Text style={styles.storyText}>
+            {latestSession
+              ? "Review what you completed, sync anything saved offline, and keep your rehab work moving forward."
+              : pendingCount > 0
+                ? "Saved sessions are ready to send when you reconnect."
+                : "Start a session from your plan to build your exercise history here."}
+          </Text>
+        </Card>
+
         <View style={styles.summaryRow}>
           <View style={styles.summaryCardWrap}>
             <MediaCard
               variant="compact"
               leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-              title="Start a session"
-              subtitle="Log exercise completion"
+              title="Start today’s session"
+              subtitle="Log what you complete and how it feels"
               chips={[{ text: `${sessions.length} recent`, tone: "muted" }]}
               onPress={() => {
                 router.push("/exercise-session");
@@ -412,7 +431,7 @@ export default function ExerciseSessionsScreen() {
             <MediaCard
               variant="compact"
               leading={{ type: "icon", icon: "warning", tone: "warning" }}
-              title={`Pending ${pendingCount}`}
+              title={`Sync saved sessions (${pendingCount})`}
               subtitle={pendingSummary}
               chips={[{ text: isOffline ? "Offline" : "Ready", tone: isOffline ? "warning" : "success" }]}
               actions={[
@@ -429,11 +448,19 @@ export default function ExerciseSessionsScreen() {
           </View>
         </View>
 
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+          <Text style={styles.sectionEyebrow}>Recent activity</Text>
+          <Text style={styles.sectionTitle}>Review your latest completed rehab work</Text>
+          <Text style={styles.sectionText}>
+            Recent sessions help you see what was completed, how long it took, and how it felt.
+          </Text>
+        </Card>
+
         <View style={styles.trackerGrid}>
           <View style={styles.trackerTileWrap}>
             <TrackerTile
               icon="weekly"
-              label="Recent"
+              label="Completed"
               value={`${sessions.length}`}
               delta="Sessions"
               tone="accent"
@@ -443,7 +470,7 @@ export default function ExerciseSessionsScreen() {
           <View style={styles.trackerTileWrap}>
             <TrackerTile
               icon="warning"
-              label="Pending"
+              label="Saved"
               value={`${pendingCount}`}
               delta="Uploads"
               tone="warning"
@@ -453,7 +480,7 @@ export default function ExerciseSessionsScreen() {
           <View style={styles.trackerTileWrap}>
             <TrackerTile
               icon="exercise"
-              label="Avg duration"
+              label="Typical session"
               value={avgDurationSeconds !== null ? formatDuration(avgDurationSeconds) : "—"}
               delta="Recent sessions"
               tone="primary"
@@ -466,7 +493,7 @@ export default function ExerciseSessionsScreen() {
           <View style={styles.trackerTileWrap}>
             <TrackerTile
               icon="progress"
-              label="Sync state"
+              label="Connection"
               value={isOffline ? "Offline" : "Online"}
               delta="Connection"
               tone={isOffline ? "warning" : "success"}
@@ -481,6 +508,7 @@ export default function ExerciseSessionsScreen() {
     isOffline,
     isSubmittingPending,
     notice,
+    latestSession,
     pendingCount,
     pendingSummary,
     router,
@@ -501,6 +529,14 @@ export default function ExerciseSessionsScreen() {
     styles.diagToggle,
     styles.listHeader,
     styles.pressed,
+    styles.sectionEyebrow,
+    styles.sectionIntroCard,
+    styles.sectionText,
+    styles.sectionTitle,
+    styles.storyCard,
+    styles.storyEyebrow,
+    styles.storyText,
+    styles.storyTitle,
     styles.summaryCardWrap,
     styles.summaryRow,
     styles.trackerGrid,
@@ -533,7 +569,7 @@ export default function ExerciseSessionsScreen() {
         <HeroHeader
           variant="compact"
           title="Exercise sessions"
-          subtitle={pendingCount ? `Pending ${pendingCount} · Recent ${sessions.length}` : `Recent ${sessions.length}`}
+          subtitle={pendingCount ? `Saved ${pendingCount} · Completed ${sessions.length}` : `Completed ${sessions.length}`}
           left={
             <Avatar
               size={40}
@@ -560,7 +596,13 @@ export default function ExerciseSessionsScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={`${sessions.length} completed`} variant="success" />
+            {pendingCount ? <StatusPill label={`${pendingCount} saved`} variant="warning" /> : null}
+            <StatusPill label={isOffline ? "Offline" : "Up to date"} variant={isOffline ? "warning" : "neutral"} />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -575,22 +617,26 @@ export default function ExerciseSessionsScreen() {
             </View>
           ) : (
             <Card variant="outlined" padding={tokens.spacing.md}>
-              <Text style={styles.emptyText}>Start a session from Today’s plan to see it here.</Text>
+              <Text style={styles.emptyText}>
+                Start a rehab session from Today’s plan and your completed work will appear here.
+              </Text>
             </Card>
           )
         }
         ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
         renderItem={({ item }) => (
           <MediaCard
+            variant={item.id === latestSession?.id ? "emphasis" : "default"}
             leading={{ type: "icon", icon: "exercise", tone: "accent" }}
             title={formatISOToHuman(item.startedAt)}
-            subtitle={`${formatDuration(item.durationSeconds)} · ${item.completedCount}/${item.exerciseCount} done`}
+            subtitle={`Completed session · ${formatDuration(item.durationSeconds)} · ${item.completedCount}/${item.exerciseCount} done`}
             chips={[
+              ...(item.id === latestSession?.id ? [{ text: "Most recent", tone: "info" as const }] : []),
               ...(typeof item.avgPainDuring === "number"
                 ? [{ text: `Pain ${item.avgPainDuring}/5`, tone: "warning" as const }]
                 : [{ text: "Pain —", tone: "muted" as const }]),
             ]}
-            statusPill={{ text: "Saved", tone: "info" }}
+            statusPill={{ text: "Completed", tone: "success" }}
             onPress={() => {
               router.push({
                 pathname: "/exercise-session-detail",
@@ -621,6 +667,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
     listSeparator: {
       height: tokens.spacing.md,
     },
@@ -641,6 +692,50 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     summaryCardWrap: {
       flex: 1,
       minWidth: 0,
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    sectionIntroCard: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",

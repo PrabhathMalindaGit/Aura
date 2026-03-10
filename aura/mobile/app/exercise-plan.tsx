@@ -326,6 +326,7 @@ export default function ExercisePlanScreen() {
 
   const estimatedMinutes = useMemo(() => estimateMinutes(items), [items]);
   const intensityLabel = useMemo(() => summarizeIntensity(items), [items]);
+  const firstExercise = items[0] ?? null;
 
   const listHeader = useMemo(() => {
     const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
@@ -390,6 +391,20 @@ export default function ExercisePlanScreen() {
           />
         ) : null}
 
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
+          <Text style={styles.storyEyebrow}>Rehab plan</Text>
+          <Text style={styles.storyTitle}>
+            {items.length > 0
+              ? `Your plan for ${dayLabel ?? "today"} is ready`
+              : "Your rehab plan will appear here when it is ready"}
+          </Text>
+          <Text style={styles.storyText}>
+            {firstExercise
+              ? `Start with ${firstExercise.name} and move through the session one step at a time.`
+              : "When your clinician assigns exercises, this screen will guide you through what to do next."}
+          </Text>
+        </Card>
+
         <View style={styles.trackerGrid}>
           <View style={styles.trackerTileWrap}>
             <TrackerTile
@@ -433,14 +448,27 @@ export default function ExercisePlanScreen() {
           </View>
         </View>
 
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+          <Text style={styles.sectionEyebrow}>Do next</Text>
+          <Text style={styles.sectionTitle}>Start today’s rehab session when you’re ready</Text>
+          <Text style={styles.sectionText}>
+            Use the current plan as your guide, then log how the session felt once you finish.
+          </Text>
+        </Card>
+
         <MediaCard
           leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-          title="Start today’s session"
-          subtitle="Log completion and how it felt"
+          title={firstExercise ? `Start with ${firstExercise.name}` : "Start today’s session"}
+          subtitle={
+            firstExercise
+              ? "Follow the planned exercise order and record how the session felt."
+              : "Log completion and how the session felt once a plan is assigned."
+          }
           chips={[
             { text: isOffline ? "Offline mode" : "Ready", tone: isOffline ? "warning" : "success" },
             { text: `${items.length} exercises`, tone: "muted" },
           ]}
+          variant={firstExercise ? "emphasis" : "default"}
           actions={[
             {
               label: "Start session",
@@ -458,6 +486,14 @@ export default function ExercisePlanScreen() {
             },
           ]}
         />
+
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+          <Text style={styles.sectionEyebrow}>Plan details</Text>
+          <Text style={styles.sectionTitle}>Move through the exercises in order</Text>
+          <Text style={styles.sectionText}>
+            Each exercise shows the planned dose, intensity, and any caution notes included in your plan.
+          </Text>
+        </Card>
 
         {plan ? (
           <Text style={styles.metaText}>
@@ -479,6 +515,7 @@ export default function ExercisePlanScreen() {
     exercisePlanRefresh.label,
     intensityLabel,
     isOffline,
+    firstExercise,
     items.length,
     notice,
     plan,
@@ -493,6 +530,14 @@ export default function ExercisePlanScreen() {
     styles.listHeader,
     styles.metaText,
     styles.pressed,
+    styles.sectionEyebrow,
+    styles.sectionIntroCard,
+    styles.sectionText,
+    styles.sectionTitle,
+    styles.storyCard,
+    styles.storyEyebrow,
+    styles.storyText,
+    styles.storyTitle,
     styles.trackerGrid,
     styles.trackerTileWrap,
     tokens.spacing.md,
@@ -522,7 +567,7 @@ export default function ExercisePlanScreen() {
         <HeroHeader
           variant="compact"
           title="Today’s plan"
-          subtitle={source === "live" ? "Up to date" : source === "cache" ? "Saved plan" : "Plan overview"}
+          subtitle={source === "live" ? "Guided rehab plan" : source === "cache" ? "Saved rehab plan" : "Plan overview"}
           left={
             <Avatar
               size={40}
@@ -550,7 +595,16 @@ export default function ExercisePlanScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={`${items.length} exercises`} variant="info" />
+            {estimatedMinutes !== null ? <StatusPill label={`${estimatedMinutes} min`} variant="neutral" /> : null}
+            <StatusPill
+              label={isOffline ? "Offline" : source === "live" ? "Up to date" : "Saved"}
+              variant={isOffline ? "warning" : source === "live" ? "success" : "neutral"}
+            />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -567,7 +621,7 @@ export default function ExercisePlanScreen() {
           ) : (
             <Card variant="outlined" padding={tokens.spacing.md}>
               <Text style={styles.emptyText}>
-                No plan assigned yet. Your clinician will add one soon.
+                No plan is assigned yet. Your clinician will add your exercises here when they are ready.
               </Text>
             </Card>
           )
@@ -583,13 +637,20 @@ export default function ExercisePlanScreen() {
 
           return (
             <MediaCard
+              variant={item.order === 1 ? "emphasis" : "default"}
               leading={{ type: "icon", icon: "exercise", tone: "accent" }}
               title={item.name}
               subtitle={item.instructions}
               chips={chips}
+              maxChips={4}
+              statusPill={
+                item.order === 1
+                  ? { text: "Start here", tone: "info" }
+                  : { text: `Step ${item.order}`, tone: "neutral" }
+              }
               actions={[
                 {
-                  label: "Start",
+                  label: "Start session",
                   kind: "primary",
                   onPress: () => {
                     router.push("/exercise-session");
@@ -598,7 +659,7 @@ export default function ExercisePlanScreen() {
                 ...(item.videoUrl
                   ? [
                       {
-                        label: "Open video",
+                        label: "Watch guide",
                         kind: "secondary" as const,
                         onPress: () => {
                           void openVideo(item.videoUrl ?? "");
@@ -618,7 +679,11 @@ export default function ExercisePlanScreen() {
             }}
           />
         }
-        ListFooterComponent={<Text style={styles.footerNote}>If pain increases sharply, stop and contact your clinician.</Text>}
+        ListFooterComponent={
+          <Text style={styles.footerNote}>
+            If pain increases sharply, pause the session and contact your clinician or open Safety support.
+          </Text>
+        }
       />
     </Screen>
   );
@@ -632,6 +697,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     listHeader: {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
+    },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
     },
     listSeparator: {
       height: tokens.spacing.md,
@@ -650,6 +720,50 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       color: tokens.colors.textMuted,
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    sectionIntroCard: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     footerNote: {
       marginTop: tokens.spacing.md,

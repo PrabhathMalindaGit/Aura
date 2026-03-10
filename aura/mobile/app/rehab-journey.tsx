@@ -121,6 +121,32 @@ function currentPhaseLabel(rehab: RehabPayload | null): string {
   return current?.title ?? "Not set";
 }
 
+function getCurrentPhase(rehab: RehabPayload | null): RehabPhase | null {
+  if (!rehab || rehab.phases.length === 0) {
+    return null;
+  }
+
+  return (
+    rehab.phases.find((phase) => phase.key === rehab.currentKey) ??
+    rehab.phases.find((phase) => phase.status === "current") ??
+    null
+  );
+}
+
+function getNextPhase(rehab: RehabPayload | null): RehabPhase | null {
+  if (!rehab || rehab.phases.length === 0) {
+    return null;
+  }
+
+  const sorted = [...rehab.phases].sort((left, right) => left.order - right.order);
+  const current = getCurrentPhase(rehab);
+  if (!current) {
+    return sorted.find((phase) => phase.status === "locked") ?? null;
+  }
+
+  return sorted.find((phase) => phase.order > current.order) ?? null;
+}
+
 function toBannerVariant(value: NoticeState["variant"]): "info" | "warning" | "danger" {
   return value === "error" ? "danger" : value;
 }
@@ -133,6 +159,22 @@ function phaseStatusLabel(phase: RehabPhase): string {
     return "Current";
   }
   return "Locked";
+}
+
+function phaseSupportText(phase: RehabPhase): string {
+  if (phase.status === "done") {
+    return phase.completedAt
+      ? `Completed ${formatISOToHuman(phase.completedAt)}`
+      : "Completed and ready for reference";
+  }
+
+  if (phase.status === "current") {
+    return phase.startedAt
+      ? `Current focus since ${formatISOToHuman(phase.startedAt)}`
+      : "Current focus in your recovery plan";
+  }
+
+  return "This stage opens after the earlier phase is completed.";
 }
 
 export default function RehabJourneyScreen() {
@@ -271,7 +313,10 @@ export default function RehabJourneyScreen() {
 
   const phases = rehab?.phases ?? [];
   const phaseLabel = currentPhaseLabel(rehab);
+  const currentPhase = getCurrentPhase(rehab);
+  const nextPhase = getNextPhase(rehab);
   const doneCount = phases.filter((phase) => phase.status === "done").length;
+  const lockedCount = phases.filter((phase) => phase.status === "locked").length;
   const progressRatio = phases.length > 0 ? doneCount / phases.length : 0;
 
   const listHeader = (
@@ -335,18 +380,54 @@ export default function RehabJourneyScreen() {
         />
       ) : null}
 
+      <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
+        <Text style={styles.storyEyebrow}>Recovery path</Text>
+        <Text style={styles.storyTitle}>
+          {currentPhase
+            ? `You’re currently in ${currentPhase.title}`
+            : phases.length > 0
+              ? "Your recovery pathway is ready"
+              : "Your recovery pathway will appear here"}
+        </Text>
+        <Text style={styles.storyText}>
+          {currentPhase && nextPhase
+            ? `Keep working through this stage. Next up is ${nextPhase.title}.`
+            : currentPhase
+              ? "Keep focusing on your current stage. Your next phase will unlock as you progress."
+              : phases.length > 0
+                ? "Your care team has outlined the phases in your recovery pathway."
+                : "Your clinician will set your rehab phases here once your plan is ready."}
+        </Text>
+      </Card>
+
+      <View style={styles.pillRow}>
+        <StatusPill label={phaseLabel !== "Not set" ? phaseLabel : "Phase not set"} variant="info" />
+        <StatusPill
+          label={source === "live" ? "Live" : source === "cache" ? "Saved" : "Not set"}
+          variant={source === "live" ? "success" : source === "cache" ? "info" : "neutral"}
+        />
+        {isOffline ? <StatusPill label="Offline" variant="warning" /> : null}
+      </View>
+
       <MediaCard
-        leading={{ type: "icon", icon: "rehabJourney", tone: "accent" }}
-        title={phaseLabel}
-        subtitle={rehab?.updatedAt ? `Updated ${formatISOToHuman(rehab.updatedAt)}` : "Updated —"}
+        leading={{
+          type: "icon",
+          icon: currentPhase ? "rehabJourney" : "info",
+          tone: currentPhase ? "accent" : "muted",
+        }}
+        title={currentPhase?.title ?? "Current phase not set"}
+        subtitle={
+          currentPhase
+            ? phaseSupportText(currentPhase)
+            : rehab?.updatedAt
+              ? `Plan updated ${formatISOToHuman(rehab.updatedAt)}`
+              : "Your clinician will outline the next stage here."
+        }
         chips={[
-          source === "live"
-            ? { text: "Live", tone: "success" as const }
-            : source === "cache"
-              ? { text: "Saved", tone: "info" as const }
-              : { text: "Not set", tone: "muted" as const },
-          ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
+          nextPhase ? { text: `Next: ${nextPhase.title}`, tone: "info" as const } : { text: "Pathway overview", tone: "muted" as const },
+          ...(rehab?.updatedAt ? [{ text: `Updated ${formatISOToHuman(rehab.updatedAt)}`, tone: "muted" as const }] : []),
         ].slice(0, 3)}
+        variant={currentPhase ? "emphasis" : "default"}
       />
 
       <View style={styles.trackerRow}>
@@ -364,15 +445,23 @@ export default function RehabJourneyScreen() {
         <View style={styles.trackerWrap}>
           <TrackerTile
             variant="compact"
-            icon={isOffline ? "warning" : "success"}
-            tone={isOffline ? "warning" : "success"}
-            label="Status"
-            value={isOffline ? "Offline" : "Synced"}
-            delta={source === "cache" ? "Saved data" : "Live data"}
-            micro={{ type: "dots", values: isOffline ? [1, 0, 0, 0, 0, 0, 0] : [1, 1, 1, 1, 1, 1, 1] }}
+            icon={lockedCount > 0 ? "rehabJourney" : "success"}
+            tone={lockedCount > 0 ? "warning" : "success"}
+            label="Next steps"
+            value={lockedCount > 0 ? `${lockedCount}` : "Open"}
+            delta={lockedCount > 0 ? "Stages ahead" : "All visible"}
+            micro={{ type: "dots", values: lockedCount > 0 ? [1, 1, 0, 0, 0, 0, 0] : [1, 1, 1, 1, 1, 1, 1] }}
           />
         </View>
       </View>
+
+      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+        <Text style={styles.sectionEyebrow}>Pathway overview</Text>
+        <Text style={styles.sectionTitle}>See where you are now and what comes next</Text>
+        <Text style={styles.sectionText}>
+          Review the current stage first, then use the full pathway below for the bigger recovery picture.
+        </Text>
+      </Card>
     </View>
   );
 
@@ -383,7 +472,7 @@ export default function RehabJourneyScreen() {
         <HeroHeader
           variant="compact"
           title="Rehab journey"
-          subtitle={phaseLabel ? `Current: ${phaseLabel}` : "Your recovery plan"}
+          subtitle={currentPhase ? `Current phase · ${currentPhase.title}` : "Your guided recovery pathway"}
           left={
             <Avatar
               size={40}
@@ -411,7 +500,13 @@ export default function RehabJourneyScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={`${doneCount}/${phases.length || 0} completed`} variant="success" />
+            {nextPhase ? <StatusPill label={`Next: ${nextPhase.title}`} variant="info" /> : null}
+            <StatusPill label={isOffline ? "Offline" : "Up to date"} variant={isOffline ? "warning" : "neutral"} />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -429,13 +524,13 @@ export default function RehabJourneyScreen() {
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           const statusLabel = phaseStatusLabel(item);
-          const phaseChipTone: "success" | "muted" =
+          const phaseChipTone: "success" | "muted" | "info" =
             item.status === "done" ? "success" : "muted";
 
           return (
             <View style={styles.phaseItemWrap}>
               <MediaCard
-                variant="default"
+                variant={item.status === "current" ? "emphasis" : "default"}
                 leading={{
                   type: "icon",
                   icon:
@@ -452,7 +547,7 @@ export default function RehabJourneyScreen() {
                         : "muted",
                 }}
                 title={item.title}
-                subtitle={item.description ?? "No details yet."}
+                subtitle={item.description ?? phaseSupportText(item)}
                 statusPill={{
                   text: statusLabel,
                   tone:
@@ -463,10 +558,20 @@ export default function RehabJourneyScreen() {
                         : "info",
                 }}
                 chips={[
-                  { text: statusLabel, tone: phaseChipTone },
+                  {
+                    text:
+                      item.status === "current"
+                        ? "Focus now"
+                        : item.status === "done"
+                          ? "Completed"
+                          : "Coming up",
+                    tone: (item.status === "current" ? "info" : phaseChipTone) as "info" | "success" | "muted",
+                  },
                   ...(item.status === "done" && item.completedAt
                     ? [{ text: `Completed ${formatISOToHuman(item.completedAt)}`, tone: "info" as const }]
-                    : []),
+                    : item.status === "current" && item.startedAt
+                      ? [{ text: `Started ${formatISOToHuman(item.startedAt)}`, tone: "muted" as const }]
+                      : []),
                 ].slice(0, 3)}
                 showChevron={false}
               />
@@ -482,8 +587,8 @@ export default function RehabJourneyScreen() {
             <EmptyState
               variant="compact"
               illustrationKey={isOffline ? "offline" : "today"}
-              title="No rehab phases yet"
-              description="Your clinician will set your rehab plan soon."
+              title="No rehab pathway yet"
+              description="Your clinician will outline your recovery stages here when the plan is ready."
               ctaLabel="Retry"
               onCtaPress={() => {
                 void loadRehab("refresh");
@@ -493,7 +598,7 @@ export default function RehabJourneyScreen() {
         }
         ListFooterComponent={
           <Text style={styles.footerText}>
-            If pain increases sharply or you feel unsafe, use Check-in or contact your clinician.
+            If pain increases sharply or you feel unsafe, use Check-in or open Safety support right away.
           </Text>
         }
       />
@@ -517,9 +622,41 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingBottom: tokens.spacing.xl,
       gap: tokens.spacing.sm,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
     headerStack: {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    pillRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
     },
     diagToggle: {
       minHeight: 44,
@@ -556,6 +693,28 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     trackerWrap: {
       flex: 1,
       minWidth: 0,
+    },
+    sectionIntroCard: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     phaseItemWrap: {
       marginBottom: tokens.spacing.sm,

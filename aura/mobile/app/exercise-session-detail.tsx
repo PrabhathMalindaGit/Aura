@@ -73,6 +73,19 @@ function formatTimestamp(value: number | null): string {
   });
 }
 
+function sessionStatusLabel(status: string): string {
+  if (status === "completed") {
+    return "Completed";
+  }
+  if (status === "in_progress") {
+    return "In progress";
+  }
+  if (status === "abandoned") {
+    return "Stopped";
+  }
+  return status;
+}
+
 export default function ExerciseSessionDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<DetailParams>();
@@ -148,6 +161,7 @@ export default function ExerciseSessionDetailScreen() {
 
   const progressRatio =
     session && session.exerciseCount > 0 ? Math.max(0, Math.min(1, session.completedCount / session.exerciseCount)) : 0;
+  const statusLabel = session ? sessionStatusLabel(session.status) : "Session";
 
   return (
     <Screen
@@ -156,7 +170,7 @@ export default function ExerciseSessionDetailScreen() {
         <HeroHeader
           variant="compact"
           title="Session detail"
-          subtitle={session ? formatISOToHuman(session.startedAt) : "Session"}
+          subtitle={session ? `Session review · ${formatISOToHuman(session.startedAt)}` : "Session"}
           left={<Avatar size={40} name="Exercise" fallback="icon" iconKey="exercise" />}
           rightActions={[
             {
@@ -176,7 +190,15 @@ export default function ExerciseSessionDetailScreen() {
               },
             },
           ]}
-        />
+        >
+          {session ? (
+            <View style={styles.headerPills}>
+              <StatusPill label={statusLabel} variant={session.status === "completed" ? "success" : "info"} />
+              <StatusPill label={`${session.completedCount}/${session.exerciseCount} done`} variant="neutral" />
+              <StatusPill label={formatDuration(session.durationSeconds)} variant="neutral" />
+            </View>
+          ) : null}
+        </HeroHeader>
       }
     >
       <ScrollView contentContainerStyle={styles.container}>
@@ -234,9 +256,23 @@ export default function ExerciseSessionDetailScreen() {
           />
         ) : (
           <>
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
+              <Text style={styles.storyEyebrow}>Session review</Text>
+              <Text style={styles.storyTitle}>
+                {session.status === "completed"
+                  ? "You completed this rehab session"
+                  : "Review this rehab session"}
+              </Text>
+              <Text style={styles.storyText}>
+                {session.status === "completed"
+                  ? "Use this summary to see what you completed, how long it took, and how the session felt."
+                  : "Use this summary to review what was recorded during the session and what still needs attention."}
+              </Text>
+            </Card>
+
             <MediaCard
               leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-              title="Completed session"
+              title={session.status === "completed" ? "Completed session" : "Session summary"}
               subtitle={`${session.exerciseCount} exercises · ${formatDuration(session.durationSeconds)}`}
               chips={[
                 ...(typeof session.avgPainDuring === "number"
@@ -244,7 +280,17 @@ export default function ExerciseSessionDetailScreen() {
                   : [{ text: "Pain —", tone: "muted" as const }]),
                 ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
               ]}
+              variant="emphasis"
+              statusPill={{ text: statusLabel, tone: session.status === "completed" ? "success" : "info" }}
             />
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+              <Text style={styles.sectionEyebrow}>Session summary</Text>
+              <Text style={styles.sectionTitle}>See what you completed and how the session went</Text>
+              <Text style={styles.sectionText}>
+                Start with the overall session summary, then review the exercise-by-exercise breakdown below.
+              </Text>
+            </Card>
 
             <View style={styles.trackerGrid}>
               <View style={styles.trackerTileWrap}>
@@ -296,23 +342,50 @@ export default function ExerciseSessionDetailScreen() {
 
             <Card variant="outlined" padding={tokens.spacing.md}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryLine}>Started: {formatISOToHuman(session.startedAt)}</Text>
-                <Text style={styles.summaryLine}>Ended: {formatISOToHuman(session.endedAt)}</Text>
-                <Text style={styles.summaryLine}>Status: {session.status}</Text>
-                <Text style={styles.summaryLine}>
-                  Completed: {session.completedCount}/{session.exerciseCount}
-                </Text>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Started</Text>
+                  <Text style={styles.summaryValue}>{formatISOToHuman(session.startedAt)}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Ended</Text>
+                  <Text style={styles.summaryValue}>{formatISOToHuman(session.endedAt)}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Status</Text>
+                  <Text style={styles.summaryValue}>{statusLabel}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Completed</Text>
+                  <Text style={styles.summaryValue}>
+                    {session.completedCount}/{session.exerciseCount}
+                  </Text>
+                </View>
               </View>
+            </Card>
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+              <Text style={styles.sectionEyebrow}>Exercise breakdown</Text>
+              <Text style={styles.sectionTitle}>Review each exercise from this session</Text>
+              <Text style={styles.sectionText}>
+                Use the breakdown below to see what was finished, how difficult it felt, and where pain was reported.
+              </Text>
             </Card>
 
             <View style={styles.exerciseList}>
               {session.exercises.map((exercise) => (
                 <MediaCard
                   key={`${exercise.itemKey}-${exercise.order}`}
+                  variant={exercise.completed ? "default" : "compact"}
                   leading={{ type: "icon", icon: "exercise", tone: "accent" }}
                   title={exercise.nameSnapshot}
-                  subtitle={exercise.note ?? "No note"}
+                  subtitle={
+                    exercise.note ??
+                    (exercise.completed
+                      ? "Completed during this session."
+                      : "Not completed during this session.")
+                  }
                   chips={[
+                    { text: `Exercise ${exercise.order}`, tone: "muted" as const },
                     { text: exercise.completed ? "Completed" : "Not completed", tone: exercise.completed ? "success" : "muted" },
                     ...(exercise.difficulty
                       ? [{ text: `Difficulty ${exercise.difficulty}`, tone: "info" as const }]
@@ -338,10 +411,37 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xxxl,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
     centered: {
       minHeight: 120,
       alignItems: "center",
       justifyContent: "center",
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",
@@ -355,10 +455,49 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     summaryCard: {
       gap: tokens.spacing.xs,
     },
-    summaryLine: {
+    summaryRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: tokens.spacing.md,
+      alignItems: "center",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: tokens.colors.border,
+      paddingBottom: tokens.spacing.sm,
+    },
+    summaryLabel: {
+      flex: 1,
+      color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
+    },
+    summaryValue: {
+      flexShrink: 1,
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionIntroCard: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
       color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     exerciseList: {
       gap: tokens.spacing.md,

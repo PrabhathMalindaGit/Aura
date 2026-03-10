@@ -226,6 +226,15 @@ export default function ExerciseSessionScreen() {
     () => sessionExercises.filter((item) => item.completed).length,
     [sessionExercises]
   );
+  const currentExerciseIndex = useMemo(
+    () => sessionExercises.findIndex((item) => !item.completed),
+    [sessionExercises]
+  );
+  const currentExercise =
+    currentExerciseIndex >= 0
+      ? sessionExercises[currentExerciseIndex] ?? null
+      : sessionExercises[sessionExercises.length - 1] ?? null;
+  const remainingCount = Math.max(sessionExercises.length - completedCount, 0);
 
   const averagePain = useMemo(() => {
     const values = sessionExercises
@@ -529,6 +538,12 @@ export default function ExerciseSessionScreen() {
   }
 
   const plan = planResponse?.plan ?? null;
+  const progressRatio =
+    sessionExercises.length > 0
+      ? Math.max(0, Math.min(1, completedCount / sessionExercises.length))
+      : 0;
+  const latestDifficulty =
+    sessionExercises.find((item) => item.completed && item.difficulty)?.difficulty ?? "—";
 
   return (
     <Screen
@@ -537,7 +552,11 @@ export default function ExerciseSessionScreen() {
         <HeroHeader
           variant="compact"
           title="Exercise session"
-          subtitle={`${completedCount}/${sessionExercises.length} completed · ${formatDuration(elapsedSeconds)}`}
+          subtitle={
+            currentExercise
+              ? `Current step · ${currentExercise.nameSnapshot}`
+              : `${completedCount}/${sessionExercises.length} completed`
+          }
           left={<Avatar size={40} name="Exercise" fallback="icon" iconKey="exercise" />}
           rightActions={[
             {
@@ -557,7 +576,13 @@ export default function ExerciseSessionScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={`${completedCount}/${sessionExercises.length || 0} completed`} variant="success" />
+            {remainingCount > 0 ? <StatusPill label={`${remainingCount} left`} variant="info" /> : <StatusPill label="Ready to finish" variant="success" />}
+            <StatusPill label={isOffline ? "Offline" : "In session"} variant={isOffline ? "warning" : "neutral"} />
+          </View>
+        </HeroHeader>
       }
     >
       <ScrollView
@@ -629,7 +654,7 @@ export default function ExerciseSessionScreen() {
         ) : !plan ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Text style={styles.emptyText}>
-              No plan assigned yet. Ask your clinician to assign one before starting a session.
+              No rehab plan is assigned yet. Ask your clinician to add a plan before starting a session.
             </Text>
             <SecondaryButton
               label="Back to plan"
@@ -640,6 +665,28 @@ export default function ExerciseSessionScreen() {
           </Card>
         ) : (
           <>
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
+              <Text style={styles.storyEyebrow}>Guided session</Text>
+              <Text style={styles.storyTitle}>
+                {currentExercise
+                  ? `Focus on ${currentExercise.nameSnapshot}`
+                  : "Your session is ready to finish"}
+              </Text>
+              <Text style={styles.storyText}>
+                {currentExercise
+                  ? `Work through one exercise at a time. ${remainingCount > 1 ? `${remainingCount} exercises remain after this step.` : remainingCount === 1 ? "One exercise remains after this step." : "This is the last exercise in the session."}`
+                  : "You’ve completed the planned exercises. Review the session and finish when you’re ready."}
+              </Text>
+            </Card>
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+              <Text style={styles.sectionEyebrow}>Session overview</Text>
+              <Text style={styles.sectionTitle}>Track the current session as you move through it</Text>
+              <Text style={styles.sectionText}>
+                Start with the current step, then use the session checklist below to review what is done and what is left.
+              </Text>
+            </Card>
+
             <View style={styles.trackerGrid}>
               <View style={styles.trackerTileWrap}>
                 <TrackerTile
@@ -660,10 +707,7 @@ export default function ExerciseSessionScreen() {
                   tone="success"
                   micro={{
                     type: "ring",
-                    progress:
-                      sessionExercises.length > 0
-                        ? Math.max(0, Math.min(1, completedCount / sessionExercises.length))
-                        : 0,
+                    progress: progressRatio,
                   }}
                 />
               </View>
@@ -671,9 +715,7 @@ export default function ExerciseSessionScreen() {
                 <TrackerTile
                   icon="insights"
                   label="Difficulty"
-                  value={
-                    sessionExercises.find((item) => item.completed && item.difficulty)?.difficulty ?? "—"
-                  }
+                  value={latestDifficulty}
                   delta="Latest"
                   tone="primary"
                   micro={{
@@ -704,16 +746,58 @@ export default function ExerciseSessionScreen() {
               </View>
             </View>
 
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.currentCard}>
+              <Text style={styles.sectionEyebrow}>Current step</Text>
+              <Text style={styles.currentTitle}>
+                {currentExercise ? currentExercise.nameSnapshot : plan.title}
+              </Text>
+              <Text style={styles.currentText}>
+                {currentExercise
+                  ? currentExercise.instructions
+                  : "All planned exercises are marked done. Finish the session when you’re ready."}
+              </Text>
+              <View style={styles.currentMeta}>
+                {currentExercise && formatPlanDose(currentExercise) ? (
+                  <StatusPill label={formatPlanDose(currentExercise)} variant="neutral" />
+                ) : null}
+                {currentExercise ? (
+                  <StatusPill
+                    label={`Step ${currentExercise.order} of ${sessionExercises.length}`}
+                    variant="info"
+                  />
+                ) : null}
+                {!currentExercise ? <StatusPill label="Session complete" variant="success" /> : null}
+              </View>
+            </Card>
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
+              <Text style={styles.sectionEyebrow}>Session checklist</Text>
+              <Text style={styles.sectionTitle}>Mark each exercise as you finish it</Text>
+              <Text style={styles.sectionText}>
+                Add feedback when something feels harder than expected or pain changes during the session.
+              </Text>
+            </Card>
+
             <Text style={styles.planTitle}>{plan.title}</Text>
             <View style={styles.exerciseList}>
               {sessionExercises.map((item, index) => (
                 <MediaCard
                   key={`${item.itemKey}-${index}`}
+                  variant={
+                    item.completed
+                      ? "compact"
+                      : index === currentExerciseIndex
+                        ? "emphasis"
+                        : "default"
+                  }
                   leading={{ type: "icon", icon: "exercise", tone: item.completed ? "success" : "accent" }}
                   title={item.nameSnapshot}
                   subtitle={item.instructions}
                   chips={[
                     ...(formatPlanDose(item) ? [{ text: formatPlanDose(item), tone: "muted" as const }] : []),
+                    ...(index === currentExerciseIndex && !item.completed
+                      ? [{ text: "Do now", tone: "info" as const }]
+                      : []),
                     ...(item.completed
                       ? [{ text: "Done", tone: "success" as const }]
                       : [{ text: "In progress", tone: "info" as const }]),
@@ -729,7 +813,7 @@ export default function ExerciseSessionScreen() {
                     item.completed
                       ? [
                           {
-                            label: "Edit feedback",
+                            label: "Update feedback",
                             kind: "primary",
                             onPress: () => openFeedback(index),
                           },
@@ -741,7 +825,7 @@ export default function ExerciseSessionScreen() {
                         ]
                       : [
                           {
-                            label: "Mark done",
+                            label: "Complete step",
                             kind: "primary",
                             onPress: () => openFeedback(index),
                           },
@@ -755,17 +839,25 @@ export default function ExerciseSessionScreen() {
       </ScrollView>
 
       <GlassPanel style={styles.footerPanel}>
+        <Text style={styles.footerTitle}>
+          {remainingCount > 0 ? "Keep the session moving" : "Finish and review"}
+        </Text>
+        <Text style={styles.footerText}>
+          {remainingCount > 0
+            ? "Open your completed sessions to review later, or finish once you’ve recorded the exercises you completed."
+            : "Your session summary will be saved and shown in your rehab history when you finish."}
+        </Text>
         {isOffline ? (
           <Banner
             variant="warning"
             title="Offline"
-            message="If you finish now, it will be saved locally and submitted later."
+            message="If you finish now, the session will stay saved here and submit later."
           />
         ) : null}
         <View style={styles.footerButtons}>
           <View style={styles.footerButtonWrap}>
             <SecondaryButton
-              label="View sessions"
+              label="Review sessions"
               onPress={() => {
                 router.replace("/exercise-sessions");
               }}
@@ -778,7 +870,7 @@ export default function ExerciseSessionScreen() {
                   ? "Session queued as pending"
                   : isSubmitting
                     ? "Submitting…"
-                    : "Finish session"
+                    : "Finish and review"
               }
               loading={isSubmitting}
               disabled={completedCount < 1 || isSubmitting || Boolean(queuedLocalId)}
@@ -798,7 +890,10 @@ export default function ExerciseSessionScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>How did it feel?</Text>
+            <Text style={styles.modalTitle}>Session feedback</Text>
+            <Text style={styles.modalText}>
+              Capture how this exercise felt so the session summary stays useful for you and your care team.
+            </Text>
             <Text style={styles.modalLabel}>Difficulty</Text>
             <View style={styles.choiceRow}>
               {(["easy", "ok", "hard"] as const).map((difficulty) => (
@@ -906,6 +1001,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xxxxl,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
     centered: {
       minHeight: 120,
       justifyContent: "center",
@@ -923,6 +1023,69 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
     },
+    storyCard: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    sectionIntroCard: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    currentCard: {
+      gap: tokens.spacing.xs,
+    },
+    currentTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    currentText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    currentMeta: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
     trackerGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -938,10 +1101,22 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     footerPanel: {
       marginTop: tokens.spacing.sm,
     },
+    footerTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    footerText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      marginTop: tokens.spacing.xs,
+      marginBottom: tokens.spacing.sm,
+    },
     footerButtons: {
       flexDirection: "row",
       gap: tokens.spacing.sm,
-      marginTop: tokens.spacing.sm,
     },
     footerButtonWrap: {
       flex: 1,
@@ -969,6 +1144,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    modalText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     modalLabel: {
       color: tokens.colors.text,

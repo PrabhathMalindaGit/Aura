@@ -33,6 +33,7 @@ services:
       WEBHOOK_URL: http://localhost:5678
       GENERIC_TIMEZONE: Asia/Colombo
       AURA_API_BASE: http://host.docker.internal:3000
+      AURA_WEBHOOK_KEY: ${AURA_WEBHOOK_KEY:-dev_aura_webhook_key}
       TELEGRAM_CLINICIAN_CHAT_ID: CHANGE_ME
       TELEGRAM_DEV_CHAT_ID: CHANGE_ME
     volumes:

@@ -31,6 +31,54 @@
 4. Select one of the JSON files from `/Users/University/Final Project/aura/n8n/workflows/`.
 5. After import, review credentials and environment variables, then activate the workflow.
 
+## Local demo baseline
+- Active for the current local demo workspace:
+  - `01 - Alert Created Webhook (POST → Dedupe → Table → Telegram → Respond)`
+  - `07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)`
+- Imported as canonical follow-through drafts, but intentionally left inactive to avoid cron side effects until they are explicitly demoed:
+  - `03 - Missed Check-in Follow-through (Cron → Aura Process → Telegram → Callback)`
+  - `04 - Task Reminder Timing (Cron → Aura Process → Telegram → Callback)`
+  - `06 - Appointment Reminder and Status Follow-up (Cron → Aura Process → Telegram → Callback)`
+  - `08 - Communication No-Response Escalation (Cron → Aura Process → Telegram → Callback)`
+- Legacy workflows that may still exist in a local workspace must remain inactive and should not be used for demos:
+  - `LEGACY - 01 - Alert Created Webhook (old)`
+  - `07 - Daily Digest (Cron 09:00 → Open alerts → Telegram)`
+
+## Required environment
+- `AURA_API_BASE=http://host.docker.internal:3000`
+- `AURA_WEBHOOK_KEY=dev_aura_webhook_key` for the local demo stack, unless you have overridden the backend webhook key
+- `TELEGRAM_CLINICIAN_CHAT_ID`
+  - Leave this as `CHANGE_ME` if you want the workflow to prove the callback path without attempting a real Telegram send
+  - Set a real value only when you want to prove Telegram delivery
+
+## Recommended local demo workflow
+- Use `07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)` for the cleanest local follow-through demo.
+- Why this one:
+  - it is backend-driven
+  - it has a clear success/fallback path
+  - it can prove truthful callback behavior even when Telegram is intentionally not configured
+
+### Daily digest demo runbook
+1. Confirm the backend is running on `http://localhost:3000`.
+2. Confirm the n8n container has:
+   - `AURA_API_BASE=http://host.docker.internal:3000`
+   - `AURA_WEBHOOK_KEY` set
+3. Open the workflow named `07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)` in the n8n UI.
+4. Use **Execute workflow** from the n8n UI.
+   - Do not rely on `docker exec aura_n8n n8n execute ...` for this workflow in the local demo container; one-off CLI execution can fail because the task-broker port is already bound.
+5. Expected result when Telegram is still `CHANGE_ME`:
+   - the workflow reaches `HTTP Process`
+   - `Build Batch Message` receives at least one digest item when seeded demo data is present
+   - `Telegram configured?` routes to the skipped branch
+   - `Post Skipped Automation Status` succeeds
+6. Expected result when Telegram is configured:
+   - the workflow reaches `Telegram Send Message`
+   - `Post Automation Status` records `sent` or `failed` truthfully
+7. Backend proof:
+   - `POST /internal/n8n/follow-through/digest/process` should return digest items
+   - `POST /events/automation-status` should write an `AUTOMATION_STATUS` `CareEvent`
+   - if Telegram is not configured, the callback status should be `skipped` with `TELEGRAM_NOT_CONFIGURED`
+
 ## Note
 Filenames are for git organization; n8n uses the internal workflow name after import.
 

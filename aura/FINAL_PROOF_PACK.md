@@ -93,4 +93,12 @@ Capture the following against the current local build:
 
 - The canonical n8n export set is under `/Users/University/Final Project/aura/n8n/workflows/`.
 - A local n8n workspace may still contain older imported workflows. For a clean final demo, review the live workflow list and disable or remove stale entries before presenting.
+- In the current local demo workspace, the canonical daily digest workflow is the intended follow-through proof path:
+  - `07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)` is active
+  - `03`, `04`, `06`, and `08` remain imported as inactive drafts to avoid surprise cron side effects
+  - the legacy old digest workflow (`07 - Daily Digest (Cron 09:00 → Open alerts → Telegram)`) should stay inactive and should not be used for demos
+- One-off `n8n execute` runs from inside the already-running n8n container may fail if the task-broker port is already bound. Prefer proving the canonical follow-through path through the n8n UI.
+- The current local n8n container now expects the same webhook key as the backend for follow-through callbacks:
+  - `AURA_WEBHOOK_KEY=dev_aura_webhook_key`
+- If `TELEGRAM_CLINICIAN_CHAT_ID` is still `CHANGE_ME`, the canonical daily digest workflow should prove truthfulness through a `skipped` automation callback instead of claiming a send.
 - Backend remains the source of truth. n8n orchestrates reminders and follow-through and writes back truthful automation status through `/events/automation-status`.

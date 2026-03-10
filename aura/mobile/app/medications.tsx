@@ -244,6 +244,27 @@ function formatTimeLabel(value: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatTime(iso: string): string {
+  const parsed = new Date(iso);
+  if (!Number.isFinite(parsed.getTime())) {
+    return "Unknown";
+  }
+  return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function toDoseStatusLabel(dose: MedicationDose): string {
+  if (dose.pending) {
+    return dose.status === "taken" ? "Taken locally" : dose.status === "skipped" ? "Skipped locally" : "Pending sync";
+  }
+  if (dose.status === "taken") {
+    return "Taken";
+  }
+  if (dose.status === "skipped") {
+    return "Skipped";
+  }
+  return "Due";
+}
+
 export default function MedicationsScreen() {
   const auth = useAuth();
   const router = useRouter();
@@ -282,6 +303,36 @@ export default function MedicationsScreen() {
     [todayChecklist]
   );
   const doseProgress = totalDoses > 0 ? Math.max(0, Math.min(1, takenCount / totalDoses)) : 0;
+  const dueCount = useMemo(
+    () =>
+      todayChecklist?.items.reduce(
+        (sum, item) => sum + item.doses.filter((dose) => dose.status === "due").length,
+        0
+      ) ?? 0,
+    [todayChecklist]
+  );
+  const medicationsStatusLabel =
+    totalDoses === 0
+      ? "Nothing due"
+      : dueCount === 0
+        ? "All checked"
+        : dueCount === 1
+          ? "1 dose due"
+          : `${dueCount} doses due`;
+  const medicationsStatusTone =
+    totalDoses === 0 ? "neutral" : dueCount === 0 ? "success" : pendingCount > 0 ? "warning" : "info";
+  const medicationsStoryTitle =
+    totalDoses === 0
+      ? "No medications scheduled for today"
+      : dueCount === 0
+        ? "Today’s medication checklist is complete"
+        : `Next step: review ${dueCount === 1 ? "the due dose" : `${dueCount} due doses`}`;
+  const medicationsStoryNote =
+    totalDoses === 0
+      ? "This checklist will show scheduled doses here when they’re available for today."
+      : dueCount === 0
+        ? "All scheduled doses have been logged. You can still review times, notes, and any pending sync items below."
+        : "Mark each scheduled dose as taken or skipped so today’s checklist stays accurate and easy to follow.";
 
   const reloadPending = useCallback(async () => {
     if (!patientId) {
@@ -626,6 +677,27 @@ export default function MedicationsScreen() {
           />
         ) : null}
 
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.storyCard}>
+            <View style={styles.storyHeader}>
+              <View style={styles.storyHeaderText}>
+                <Text style={styles.storyEyebrow}>Today’s medication plan</Text>
+                <Text style={styles.storyTitle}>{medicationsStoryTitle}</Text>
+              </View>
+              <StatusPill label={medicationsStatusLabel} variant={medicationsStatusTone} />
+            </View>
+            <Text style={styles.storyNote}>{medicationsStoryNote}</Text>
+          </View>
+        </Card>
+
+        <View style={styles.sectionIntro}>
+          <Text style={styles.sectionTitle}>Today at a glance</Text>
+          <Text style={styles.sectionHelper}>
+            Start here to see how many doses are complete, whether anything still needs attention,
+            and if any updates are still waiting to sync.
+          </Text>
+        </View>
+
         <View style={styles.trackerGrid}>
           <View style={styles.trackerTileWrap}>
             <TrackerTile
@@ -684,12 +756,25 @@ export default function MedicationsScreen() {
                 },
               },
             ]}
+            statusPill={{ text: "Pending", tone: "warning" }}
           />
         ) : null}
 
         <Card variant="outlined" padding={tokens.spacing.md}>
           <View style={styles.noteCard}>
-            <Text style={styles.noteTitle}>Optional note for next dose log</Text>
+            <View style={styles.noteHeader}>
+              <View style={styles.noteHeaderText}>
+                <Text style={styles.noteTitle}>Dose note</Text>
+                <Text style={styles.noteHelper}>
+                  Add a short note before you log the next dose if there’s anything you want to
+                  remember.
+                </Text>
+              </View>
+              <StatusPill
+                label={noteDraft.trim().length > 0 ? "Draft note" : "Optional"}
+                variant={noteDraft.trim().length > 0 ? "info" : "neutral"}
+              />
+            </View>
             <TextInput
               value={noteDraft}
               onChangeText={(value) => setNoteDraft(value.slice(0, 280))}
@@ -702,12 +787,25 @@ export default function MedicationsScreen() {
             <Text style={styles.metaText}>{noteDraft.length}/280</Text>
           </View>
         </Card>
+
+        <View style={styles.sectionIntro}>
+          <Text style={styles.sectionTitle}>Today’s checklist</Text>
+          <Text style={styles.sectionHelper}>
+            Work through the scheduled doses below. The current status is shown beside each time so
+            you can see what is taken, skipped, or still due.
+          </Text>
+        </View>
       </View>
     );
   }, [
+    dueCount,
     doseProgress,
     isOffline,
     isSyncing,
+    medicationsStatusLabel,
+    medicationsStatusTone,
+    medicationsStoryNote,
+    medicationsStoryTitle,
     medicationLogError.clear,
     medicationLogError.label,
     medicationLogError.lastError?.message,
@@ -729,9 +827,21 @@ export default function MedicationsScreen() {
     styles.listHeader,
     styles.metaText,
     styles.noteCard,
+    styles.noteHeader,
+    styles.noteHeaderText,
+    styles.noteHelper,
     styles.noteInput,
     styles.noteTitle,
     styles.pressed,
+    styles.sectionHelper,
+    styles.sectionIntro,
+    styles.sectionTitle,
+    styles.storyCard,
+    styles.storyEyebrow,
+    styles.storyHeader,
+    styles.storyHeaderText,
+    styles.storyNote,
+    styles.storyTitle,
     styles.trackerGrid,
     styles.trackerTileWrap,
     syncPending,
@@ -766,7 +876,7 @@ export default function MedicationsScreen() {
         <HeroHeader
           variant="compact"
           title="Medications"
-          subtitle={`Taken ${takenCount}/${totalDoses} · Pending ${pendingCount}`}
+          subtitle="Daily support"
           left={<Avatar size={40} name="Medications" fallback="icon" iconKey="meds" />}
           rightActions={[
             {
@@ -786,7 +896,16 @@ export default function MedicationsScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerMetaRow}>
+            <StatusPill label={`${takenCount}/${totalDoses || 0} taken`} variant="success" />
+            <StatusPill label={medicationsStatusLabel} variant={medicationsStatusTone} />
+            <StatusPill
+              label={isOffline ? "Offline" : pendingCount > 0 ? `${pendingCount} pending` : "Ready"}
+              variant={isOffline ? "warning" : pendingCount > 0 ? "warning" : "neutral"}
+            />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -802,7 +921,12 @@ export default function MedicationsScreen() {
             </View>
           ) : (
             <Card variant="outlined" padding={tokens.spacing.md}>
-              <Text style={styles.metaText}>No active medications scheduled for today.</Text>
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No medications scheduled today</Text>
+                <Text style={styles.metaText}>
+                  Today’s checklist will appear here when there are scheduled doses to review.
+                </Text>
+              </View>
             </Card>
           )
         }
@@ -817,7 +941,11 @@ export default function MedicationsScreen() {
               <MediaCard
                 leading={{ type: "icon", icon: "meds", tone: pendingDoseCount > 0 ? "warning" : "accent" }}
                 title={`${item.name} (${item.type})`}
-                subtitle={item.instructions ? `Instructions: ${item.instructions}` : "Today's schedule"}
+                subtitle={
+                  item.instructions
+                    ? item.instructions
+                    : "Review the scheduled doses below for today."
+                }
                 chips={[
                   { text: `${item.doses.length} dose(s)`, tone: "muted" },
                   ...(pendingDoseCount > 0
@@ -829,7 +957,7 @@ export default function MedicationsScreen() {
                   pendingDoseCount > 0
                     ? { text: "Pending", tone: "warning" }
                     : allTaken
-                      ? { text: "Done", tone: "success" }
+                      ? { text: "Complete", tone: "success" }
                       : { text: "Due", tone: "info" }
                 }
               />
@@ -844,9 +972,16 @@ export default function MedicationsScreen() {
                       return (
                         <View key={key} style={styles.doseRow}>
                           <View style={styles.doseMain}>
-                            <Text style={styles.doseTime}>{formatTimeLabel(dose.time)}</Text>
+                            <View style={styles.doseTextBlock}>
+                              <Text style={styles.doseTime}>{formatTimeLabel(dose.time)}</Text>
+                              <Text style={styles.doseMeta}>
+                                {dose.loggedAt
+                                  ? `${dose.pending ? "Saved locally" : "Logged"} at ${formatTime(dose.loggedAt)}`
+                                  : "Waiting to be logged"}
+                              </Text>
+                            </View>
                             <StatusPill
-                              label={`${dose.status.toUpperCase()}${dose.pending ? " (PENDING)" : ""}`}
+                              label={toDoseStatusLabel(dose)}
                               variant={toDosePillVariant(dose.status)}
                             />
                           </View>
@@ -869,7 +1004,7 @@ export default function MedicationsScreen() {
                                 pressed ? styles.pressed : null,
                               ]}
                             >
-                              <Text style={styles.actionButtonText}>Taken</Text>
+                              <Text style={styles.actionButtonText}>Mark taken</Text>
                             </Pressable>
                             <Pressable
                               accessibilityRole="button"
@@ -889,7 +1024,7 @@ export default function MedicationsScreen() {
                                 pressed ? styles.pressed : null,
                               ]}
                             >
-                              <Text style={styles.actionButtonSecondaryText}>Skipped</Text>
+                              <Text style={styles.actionButtonSecondaryText}>Mark skipped</Text>
                             </Pressable>
                           </View>
                         </View>
@@ -915,6 +1050,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
     },
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     listSeparator: {
       height: tokens.spacing.md,
     },
@@ -923,10 +1063,66 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
       justifyContent: "center",
     },
+    emptyCard: {
+      gap: tokens.spacing.xs,
+    },
+    emptyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
     metaText: {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       color: tokens.colors.textMuted,
+    },
+    storyCard: {
+      gap: tokens.spacing.sm,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",
@@ -940,11 +1136,26 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     noteCard: {
       gap: tokens.spacing.xs,
     },
+    noteHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    noteHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
     noteTitle: {
       color: tokens.colors.text,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    noteHelper: {
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      color: tokens.colors.textMuted,
     },
     noteInput: {
       borderWidth: 1,
@@ -970,15 +1181,24 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     doseMain: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       justifyContent: "space-between",
       gap: tokens.spacing.sm,
+    },
+    doseTextBlock: {
+      flex: 1,
+      gap: tokens.spacing.xs,
     },
     doseTime: {
       color: tokens.colors.text,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    doseMeta: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     actionRow: {
       flexDirection: "row",

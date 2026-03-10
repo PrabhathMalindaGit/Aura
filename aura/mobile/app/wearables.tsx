@@ -150,6 +150,13 @@ function formatTimestamp(value: number | null): string {
   });
 }
 
+function formatWholeNumber(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "—";
+  }
+  return Math.round(value).toLocaleString();
+}
+
 function rollingSeed(input: string): number {
   let seed = 0;
   for (let index = 0; index < input.length; index += 1) {
@@ -261,6 +268,39 @@ export default function WearablesScreen() {
     () => (mergedDays.length > 0 ? summarizeDays(mergedDays, SOURCE) : summary),
     [mergedDays, summary]
   );
+  const trackedDays = displayedSummary?.trackedDays ?? mergedDays.length;
+  const pendingDates = useMemo(() => {
+    const dates = new Set<string>();
+    for (const batch of pending) {
+      for (const day of batch.days) {
+        dates.add(day.date);
+      }
+    }
+    return dates;
+  }, [pending]);
+  const wearablesStatusLabel = connected
+    ? pendingCount > 0
+      ? "Sync pending"
+      : trackedDays > 0
+        ? "Signals ready"
+        : "Ready to sync"
+    : "Connect source";
+  const wearablesStatusTone =
+    !connected ? "warning" : pendingCount > 0 ? "warning" : trackedDays > 0 ? "success" : "info";
+  const wearablesStoryTitle = !connected
+    ? "Connect a wearable source when you’re ready"
+    : pendingCount > 0
+      ? "Saved wearable updates are waiting to sync"
+      : trackedDays > 0
+        ? "Recent wearable signals are ready to review"
+        : "Run a sync to build your recent summary";
+  const wearablesStoryNote = !connected
+    ? "Aura can use connected wearable summaries to show movement, activity, and recovery signals in one place."
+    : pendingCount > 0
+      ? "Your latest wearable batches are saved on this device. Sync them when you’re online or ready to upload."
+      : trackedDays > 0
+        ? "Use the recent summary to understand how movement, activity, and resting heart rate have looked over the last week."
+        : "Sync mock data to build a 7-day summary and see how recent wearable signals are trending.";
 
   const applyCache = useCallback((cached: WearablesCache | null) => {
     setSummary(cached?.summary ?? null);
@@ -571,6 +611,192 @@ export default function WearablesScreen() {
 
     return (
       <View style={styles.listHeader}>
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Offline — showing saved wearable data."
+          />
+        ) : null}
+        {showNotice && notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
+            message={notice.message}
+          />
+        ) : null}
+
+        <Card variant="elevated" padding={tokens.spacing.lg} style={styles.storyCard}>
+          <View style={styles.storyHeader}>
+            <View style={styles.storyTitleWrap}>
+              <Text style={styles.storyEyebrow}>Connected health</Text>
+              <Text style={styles.storyTitle}>{wearablesStoryTitle}</Text>
+            </View>
+            <StatusPill label={wearablesStatusLabel} variant={wearablesStatusTone} accessible={false} />
+          </View>
+          <Text style={styles.storyBody}>{wearablesStoryNote}</Text>
+          <View style={styles.storyMetricRow}>
+            <View style={styles.storyMetric}>
+              <Text style={styles.storyMetricValue}>{trackedDays}</Text>
+              <Text style={styles.storyMetricLabel}>Days tracked</Text>
+            </View>
+            <View style={styles.storyMetric}>
+              <Text style={styles.storyMetricValue}>
+                {displayedSummary ? formatWholeNumber(displayedSummary.avgSteps) : "—"}
+              </Text>
+              <Text style={styles.storyMetricLabel}>Avg steps</Text>
+            </View>
+            <View style={styles.storyMetric}>
+              <Text style={styles.storyMetricValue}>
+                {displayedSummary ? numberOrDash(displayedSummary.avgRestingHr) : "—"}
+              </Text>
+              <Text style={styles.storyMetricLabel}>Resting HR</Text>
+            </View>
+          </View>
+        </Card>
+
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+          <Text style={styles.sectionEyebrow}>Connection and sync</Text>
+          <Text style={styles.sectionTitle}>Keep your wearable summary current</Text>
+          <Text style={styles.sectionBody}>
+            Connect the source, run a sync when you want fresh mock data, and use the recent
+            rollups below to understand the last week at a glance.
+          </Text>
+        </Card>
+
+        <MediaCard
+          leading={{
+            type: "icon",
+            icon: "wearables",
+            tone: connected ? (pendingCount > 0 ? "warning" : "accent") : "muted",
+          }}
+          title={connected ? "Connected source ready" : "Connect wearable source"}
+          subtitle={
+            connected
+              ? pendingCount > 0
+                ? `${pendingCount} saved batch${pendingCount === 1 ? "" : "es"} waiting to sync · Last sync ${formatTimestamp(lastSyncAt)}`
+                : `Last sync ${formatTimestamp(lastSyncAt)} · Daily rollups update here when new data arrives.`
+              : "Turn on the mock connector when you’re ready to start seeing connected daily rollups."
+          }
+          chips={[
+            { text: connected ? "Connected" : "Disconnected", tone: connected ? "success" : "muted" },
+            { text: "Mock source", tone: "muted" },
+            ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
+          ]}
+          statusPill={
+            connected
+              ? pendingCount > 0
+                ? { text: "Needs sync", tone: "warning" }
+                : { text: "Ready", tone: "info" }
+              : { text: "Not connected", tone: "neutral" }
+          }
+          actions={[
+            {
+              label: connected ? "Disconnect source" : "Connect source",
+              kind: "secondary",
+              onPress: () => {
+                void handleToggleConnected();
+              },
+            },
+            {
+              label: isMockSyncing ? "Syncing..." : "Sync mock data",
+              kind: "primary",
+              disabled: !connected || isMockSyncing || isSyncing,
+              onPress: () => {
+                void handleMockSync();
+              },
+            },
+          ]}
+        />
+
+        <View style={styles.connectorActions}>
+          {connected && pendingCount > 0 && !isOffline ? (
+            <PrimaryButton
+              label={isSyncing ? "Syncing pending..." : "Sync now"}
+              loading={isSyncing}
+              disabled={isSyncing || isMockSyncing}
+              onPress={() => {
+                void handleSyncPending();
+              }}
+            />
+          ) : null}
+          <PrimaryButton
+            label={isLoading ? "Refreshing..." : "Refresh summary"}
+            loading={isLoading}
+            disabled={!connected || isLoading || isMockSyncing || isSyncing || isOffline}
+            onPress={() => {
+              void fetchLive();
+            }}
+          />
+        </View>
+
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+          <Text style={styles.sectionEyebrow}>Recent signals</Text>
+          <Text style={styles.sectionTitle}>This week at a glance</Text>
+          <Text style={styles.sectionBody}>
+            These summaries help you spot how movement, active minutes, and resting heart rate
+            have looked over the last few days.
+          </Text>
+        </Card>
+
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="weekly"
+              label="Tracked days"
+              value={`${trackedDays}`}
+              delta="Last 7 days"
+              tone="accent"
+              micro={{
+                type: "ring",
+                progress: trackedDays > 0 ? Math.max(0, Math.min(1, trackedDays / 7)) : 0,
+              }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="wearables"
+              label="Avg steps"
+              value={numberOrDash(displayedSummary?.avgSteps ?? null)}
+              delta="Daily average"
+              tone="primary"
+              micro={{ type: "bars", values: mergedDays.map((day) => day.steps ?? 0).slice(-7) }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="exercise"
+              label="Avg active"
+              value={numberOrDash(displayedSummary?.avgActiveMinutes ?? null)}
+              delta="Minutes/day"
+              tone="success"
+              micro={{ type: "bars", values: mergedDays.map((day) => day.activeMinutes ?? 0).slice(-7) }}
+            />
+          </View>
+          <View style={styles.trackerTileWrap}>
+            <TrackerTile
+              icon="info"
+              label="Avg resting HR"
+              value={numberOrDash(displayedSummary?.avgRestingHr ?? null)}
+              delta="Beats/min"
+              tone="muted"
+              micro={{
+                type: "dots",
+                values: mergedDays.map((day) => day.restingHr ?? 0).slice(-7),
+              }}
+            />
+          </View>
+        </View>
+
+        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+          <Text style={styles.sectionEyebrow}>Daily rollups</Text>
+          <Text style={styles.sectionTitle}>Recent wearable history</Text>
+          <Text style={styles.sectionBody}>
+            Review each saved day below for a calmer day-by-day view of your recent connected
+            activity.
+          </Text>
+        </Card>
+
         {__DEV__ ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
@@ -612,121 +838,6 @@ export default function WearablesScreen() {
             ) : null}
           </Card>
         ) : null}
-
-        {isOffline ? (
-          <Banner
-            variant="warning"
-            title="Offline"
-            message="Offline — showing saved wearable data."
-          />
-        ) : null}
-        {showNotice && notice ? (
-          <Banner
-            variant={toBannerVariant(notice.variant)}
-            title={notice.title}
-            message={notice.message}
-          />
-        ) : null}
-
-        <MediaCard
-          leading={{ type: "icon", icon: "wearables", tone: connected ? "accent" : "muted" }}
-          title={connected ? "Mock wearable connected" : "Not connected"}
-          subtitle={`Pending sync: ${pendingCount} · Last sync: ${formatTimestamp(lastSyncAt)}`}
-          chips={[
-            { text: connected ? "Connected" : "Disconnected", tone: connected ? "success" : "muted" },
-            ...(isOffline ? [{ text: "Offline", tone: "warning" as const }] : []),
-          ]}
-          actions={[
-            {
-              label: connected ? "Disconnect" : "Connect",
-              kind: "secondary",
-              onPress: () => {
-                void handleToggleConnected();
-              },
-            },
-            {
-              label: isMockSyncing ? "Syncing..." : "Mock sync",
-              kind: "primary",
-              disabled: !connected || isMockSyncing || isSyncing,
-              onPress: () => {
-                void handleMockSync();
-              },
-            },
-          ]}
-        />
-
-        <View style={styles.connectorActions}>
-          {connected && pendingCount > 0 && !isOffline ? (
-            <PrimaryButton
-              label={isSyncing ? "Syncing pending..." : "Sync now"}
-              loading={isSyncing}
-              disabled={isSyncing || isMockSyncing}
-              onPress={() => {
-                void handleSyncPending();
-              }}
-            />
-          ) : null}
-          <PrimaryButton
-            label={isLoading ? "Refreshing..." : "Refresh summary"}
-            loading={isLoading}
-            disabled={!connected || isLoading || isMockSyncing || isSyncing || isOffline}
-            onPress={() => {
-              void fetchLive();
-            }}
-          />
-        </View>
-
-        <View style={styles.trackerGrid}>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="weekly"
-              label="Tracked days"
-              value={`${displayedSummary?.trackedDays ?? 0}`}
-              delta="Last 7 days"
-              tone="accent"
-              micro={{
-                type: "ring",
-                progress:
-                  displayedSummary && displayedSummary.trackedDays > 0
-                    ? Math.max(0, Math.min(1, displayedSummary.trackedDays / 7))
-                    : 0,
-              }}
-            />
-          </View>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="wearables"
-              label="Avg steps"
-              value={numberOrDash(displayedSummary?.avgSteps ?? null)}
-              delta="Daily average"
-              tone="primary"
-              micro={{ type: "bars", values: mergedDays.map((day) => day.steps ?? 0).slice(-7) }}
-            />
-          </View>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="exercise"
-              label="Avg active"
-              value={numberOrDash(displayedSummary?.avgActiveMinutes ?? null)}
-              delta="Minutes/day"
-              tone="success"
-              micro={{ type: "bars", values: mergedDays.map((day) => day.activeMinutes ?? 0).slice(-7) }}
-            />
-          </View>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="info"
-              label="Avg resting HR"
-              value={numberOrDash(displayedSummary?.avgRestingHr ?? null)}
-              delta="Beats/min"
-              tone="muted"
-              micro={{
-                type: "dots",
-                values: mergedDays.map((day) => day.restingHr ?? 0).slice(-7),
-              }}
-            />
-          </View>
-        </View>
       </View>
     );
   }, [
@@ -753,14 +864,34 @@ export default function WearablesScreen() {
     styles.diagToggle,
     styles.listHeader,
     styles.pressed,
+    styles.sectionBody,
+    styles.sectionEyebrow,
+    styles.sectionIntro,
+    styles.sectionTitle,
+    styles.storyBody,
+    styles.storyCard,
+    styles.storyEyebrow,
+    styles.storyHeader,
+    styles.storyMetric,
+    styles.storyMetricLabel,
+    styles.storyMetricRow,
+    styles.storyMetricValue,
+    styles.storyTitle,
+    styles.storyTitleWrap,
     styles.trackerGrid,
     styles.trackerTileWrap,
+    trackedDays,
+    tokens.spacing.lg,
     tokens.spacing.md,
     wearablesLoadError.clear,
     wearablesLoadError.label,
     wearablesLoadError.lastError?.message,
     wearablesLoadError.lastError?.title,
     wearablesRefresh.label,
+    wearablesStatusLabel,
+    wearablesStatusTone,
+    wearablesStoryNote,
+    wearablesStoryTitle,
     wearablesSyncError.clear,
     wearablesSyncError.label,
     wearablesSyncError.lastError?.message,
@@ -771,7 +902,9 @@ export default function WearablesScreen() {
     return (
       <Screen
         scroll={false}
-        header={<HeroHeader variant="compact" title="Wearables" subtitle="Daily rollups" />}
+        header={
+          <HeroHeader variant="compact" title="Wearables" subtitle="Connected health support" />
+        }
       >
         <View style={styles.centered}>
           <ActivityIndicator size="small" />
@@ -791,7 +924,7 @@ export default function WearablesScreen() {
         <HeroHeader
           variant="compact"
           title="Wearables"
-          subtitle={connected ? "Connected · Daily rollups" : "Not connected"}
+          subtitle={connected ? "Connected health support" : "Wearable summary support"}
           left={<Avatar size={40} name="Wearables" fallback="icon" iconKey="wearables" />}
           rightActions={[
             {
@@ -811,7 +944,27 @@ export default function WearablesScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill
+              label={connected ? "Connected" : "Not connected"}
+              variant={connected ? "success" : "warning"}
+              accessible={false}
+            />
+            <StatusPill
+              label={`${trackedDays} day${trackedDays === 1 ? "" : "s"} tracked`}
+              variant={trackedDays > 0 ? "info" : "neutral"}
+              accessible={false}
+            />
+            <StatusPill
+              label={
+                isOffline ? "Offline" : pendingCount > 0 ? `${pendingCount} pending` : "Up to date"
+              }
+              variant={isOffline ? "warning" : pendingCount > 0 ? "warning" : "neutral"}
+              accessible={false}
+            />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -826,23 +979,47 @@ export default function WearablesScreen() {
               <ActivityIndicator size="small" />
             </View>
           ) : (
-            <Card variant="outlined" padding={tokens.spacing.md}>
-              <Text style={styles.subtle}>No tracked days yet.</Text>
+            <Card variant="outlined" padding={tokens.spacing.lg} style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>
+                {connected ? "No wearable summaries yet" : "No connected wearable data yet"}
+              </Text>
+              <Text style={styles.emptyBody}>
+                {connected
+                  ? "Run a sync when you’re ready and your recent daily rollups will appear here."
+                  : "Connect the wearable source first, then sync mock data to build a recent summary."}
+              </Text>
             </Card>
           )
         }
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const itemPending = pendingDates.has(item.date);
+
+          return (
           <MediaCard
-            leading={{ type: "icon", icon: "wearables", tone: "accent" }}
+            leading={{
+              type: "icon",
+              icon: "wearables",
+              tone: itemPending ? "warning" : "accent",
+            }}
             title={formatDayLabel(item.date)}
-            subtitle={`${item.steps ?? 0} steps · ${item.activeMinutes ?? 0} min${typeof item.restingHr === "number" ? ` · HR ${item.restingHr}` : ""}`}
+            subtitle={
+              itemPending
+                ? "Daily wearable rollup saved locally and waiting to sync."
+                : "Daily wearable rollup included in your recent summary."
+            }
             chips={[
-              { text: "Daily rollup", tone: "muted" },
-              ...(pendingCount > 0 ? [{ text: "Pending sync", tone: "warning" as const }] : []),
+              { text: `${formatWholeNumber(item.steps ?? 0)} steps`, tone: "info" },
+              { text: `${formatWholeNumber(item.activeMinutes ?? 0)} active min`, tone: "success" },
+              ...(typeof item.restingHr === "number"
+                ? [{ text: `Resting HR ${formatWholeNumber(item.restingHr)}`, tone: "muted" as const }]
+                : []),
             ]}
-            statusPill={pendingCount > 0 ? { text: "Pending", tone: "warning" } : { text: "Saved", tone: "info" }}
+            statusPill={
+              itemPending ? { text: "Pending", tone: "warning" } : { text: "Saved", tone: "info" }
+            }
           />
-        )}
+        );
+        }}
       />
     </Screen>
   );
@@ -860,6 +1037,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     listSeparator: {
       height: tokens.spacing.md,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     centered: {
       minHeight: 72,
       alignItems: "center",
@@ -872,6 +1054,86 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     connectorActions: {
       gap: tokens.spacing.sm,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyTitleWrap: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyMetricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    storyMetric: {
+      flex: 1,
+      minWidth: 0,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    storyMetricValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyMetricLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",
@@ -902,6 +1164,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     diagContent: {
       marginTop: tokens.spacing.sm,
       gap: tokens.spacing.xs,
+    },
+    emptyCard: {
+      gap: tokens.spacing.xs,
+    },
+    emptyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    emptyBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     pressed: {
       opacity: 0.84,

@@ -24,6 +24,7 @@ import {
 import { isApiError, type ApiError } from "@/src/api/client";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -80,6 +81,10 @@ const KIND_OPTIONS: Array<{ key: SymptomPhotoKind; label: string }> = [
   { key: "rash", label: "Rash" },
   { key: "other", label: "Other" },
 ];
+
+function formatKindLabel(kind: SymptomPhotoKind): string {
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
 
 function toFriendlyPhotoError(error: unknown, title: string): {
   title: string;
@@ -300,6 +305,32 @@ export default function SymptomPhotosScreen() {
     }
     return mergedItems;
   }, [mergedItems, segment]);
+  const uploadedCount = mergedItems.filter((item) => !item.pending).length;
+  const latestPhoto = mergedItems[0] ?? null;
+  const photoStatusLabel =
+    mergedItems.length === 0
+      ? "Ready to capture"
+      : pendingItems.length > 0
+        ? "Sync pending"
+        : "Visual check saved";
+  const photoStatusTone =
+    mergedItems.length === 0
+      ? "info"
+      : pendingItems.length > 0
+        ? "warning"
+        : "success";
+  const photoStoryTitle =
+    mergedItems.length === 0
+      ? "Add a first symptom photo when you’re ready"
+      : pendingItems.length > 0
+        ? "Saved photos are waiting to sync"
+        : "Recent symptom photos are ready to review";
+  const photoStoryNote =
+    mergedItems.length === 0
+      ? "Use symptom photos to capture swelling, skin changes, or other visual updates your care team may want to review later."
+      : pendingItems.length > 0
+        ? "Your latest symptom photos are saved on this device. Sync them when you’re online to keep your care timeline current."
+        : "Use the recent gallery to compare visual changes over time and keep your care team updated with clear reference images.";
 
   const reloadPending = useCallback(async () => {
     if (!patientId) {
@@ -595,7 +626,7 @@ export default function SymptomPhotosScreen() {
           <HeroHeader
             variant="compact"
             title="Symptom photos"
-            subtitle="Loading"
+            subtitle="Visual symptom check"
             left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="photos" />}
           />
         }
@@ -618,7 +649,7 @@ export default function SymptomPhotosScreen() {
         <HeroHeader
           variant="compact"
           title="Symptom photos"
-          subtitle={`${mergedItems.length} photos · ${pendingItems.length} pending`}
+          subtitle="Visual symptom check support"
           left={
             <Avatar
               size={40}
@@ -642,7 +673,25 @@ export default function SymptomPhotosScreen() {
               onPress: () => router.push("/safety" as never),
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill
+              label={`${mergedItems.length} photo${mergedItems.length === 1 ? "" : "s"}`}
+              variant={mergedItems.length > 0 ? "info" : "neutral"}
+              accessible={false}
+            />
+            <StatusPill
+              label={pendingItems.length > 0 ? `${pendingItems.length} pending` : "Up to date"}
+              variant={pendingItems.length > 0 ? "warning" : "success"}
+              accessible={false}
+            />
+            <StatusPill
+              label={segment === "all" ? "All photos" : segment === "pending" ? "Pending only" : "Uploaded only"}
+              variant="neutral"
+              accessible={false}
+            />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -707,46 +756,16 @@ export default function SymptomPhotosScreen() {
                 </View>
               </View>
               <Text numberOfLines={1} style={styles.tileTitle}>
-                {item.kind.charAt(0).toUpperCase() + item.kind.slice(1)}
+                {formatKindLabel(item.kind)}
               </Text>
               <Text numberOfLines={1} style={styles.tileMeta}>
-                {formatDateTime(item.createdAt)}
+                {item.pending ? `Saved ${formatDateTime(item.createdAt)}` : formatDateTime(item.createdAt)}
               </Text>
             </Pressable>
           );
         }}
         ListHeaderComponent={
           <View style={styles.stack}>
-            {__DEV__ ? (
-              <View style={styles.devBlock}>
-                <SecondaryButton
-                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
-                  onPress={() => {
-                    setShowDevDiagnostics((current) => !current);
-                  }}
-                />
-                {showDevDiagnostics ? (
-                  <View style={styles.devMetaWrap}>
-                    <LastRefreshed label="Last refreshed" value={photosRefresh.label} compact />
-                    <LastFailedAttempt
-                      label="Last photo load failure"
-                      value={photosLoadError.label}
-                      title={photosLoadError.lastError?.title}
-                      message={photosLoadError.lastError?.message}
-                      compact
-                    />
-                    <LastFailedAttempt
-                      label="Last photo upload failure"
-                      value={photoUploadError.label}
-                      title={photoUploadError.lastError?.title}
-                      message={photoUploadError.lastError?.message}
-                      compact
-                    />
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-
             {isOffline ? (
               <Banner
                 variant="warning"
@@ -763,13 +782,47 @@ export default function SymptomPhotosScreen() {
               />
             ) : null}
 
+            <Card variant="elevated" padding={tokens.spacing.lg} style={styles.storyCard}>
+              <View style={styles.storyHeader}>
+                <View style={styles.storyTitleWrap}>
+                  <Text style={styles.storyEyebrow}>Visual check</Text>
+                  <Text style={styles.storyTitle}>{photoStoryTitle}</Text>
+                </View>
+                <StatusPill label={photoStatusLabel} variant={photoStatusTone} accessible={false} />
+              </View>
+              <Text style={styles.storyBody}>{photoStoryNote}</Text>
+              <View style={styles.storyMetricRow}>
+                <View style={styles.storyMetric}>
+                  <Text style={styles.storyMetricValue}>{mergedItems.length}</Text>
+                  <Text style={styles.storyMetricLabel}>Photos saved</Text>
+                </View>
+                <View style={styles.storyMetric}>
+                  <Text style={styles.storyMetricValue}>{pendingItems.length}</Text>
+                  <Text style={styles.storyMetricLabel}>Waiting to sync</Text>
+                </View>
+                <View style={styles.storyMetric}>
+                  <Text style={styles.storyMetricValue}>{latestPhoto ? formatKindLabel(latestPhoto.kind) : "—"}</Text>
+                  <Text style={styles.storyMetricLabel}>Most recent</Text>
+                </View>
+              </View>
+            </Card>
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+              <Text style={styles.sectionEyebrow}>Capture</Text>
+              <Text style={styles.sectionTitle}>Add a clear visual update</Text>
+              <Text style={styles.sectionBody}>
+                Capture a photo when you notice swelling, skin changes, or something your care
+                team may want to compare over time.
+              </Text>
+            </Card>
+
             <View style={styles.summaryRow}>
               <View style={styles.summaryCol}>
                 <MediaCard
                   variant="compact"
                   leading={{ type: "icon", icon: "photos", tone: "accent" }}
                   title={`${mergedItems.length}`}
-                  subtitle="Total photos"
+                  subtitle="Photos captured"
                 />
               </View>
               <View style={styles.summaryCol}>
@@ -777,7 +830,15 @@ export default function SymptomPhotosScreen() {
                   variant="compact"
                   leading={{ type: "icon", icon: "warning", tone: "warning" }}
                   title={`${pendingItems.length}`}
-                  subtitle="Pending uploads"
+                  subtitle="Waiting to sync"
+                />
+              </View>
+              <View style={styles.summaryCol}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "success", tone: "success" }}
+                  title={`${uploadedCount}`}
+                  subtitle="Saved to timeline"
                 />
               </View>
             </View>
@@ -798,7 +859,7 @@ export default function SymptomPhotosScreen() {
             <View style={styles.actionRow}>
               <View style={styles.actionCol}>
                 <PrimaryButton
-                  label="Add photo"
+                  label="Add symptom photo"
                   onPress={openPickMenu}
                   disabled={isSaving || isSyncing}
                 />
@@ -816,8 +877,21 @@ export default function SymptomPhotosScreen() {
             </View>
 
             {draftPhoto ? (
-              <View style={styles.draftCard}>
-                <Text style={styles.draftTitle}>New photo</Text>
+              <Card variant="outlined" padding={tokens.spacing.lg} style={styles.draftCard}>
+                <View style={styles.draftHeader}>
+                  <View style={styles.draftTitleWrap}>
+                    <Text style={styles.draftEyebrow}>Ready to save</Text>
+                    <Text style={styles.draftTitle}>New symptom photo</Text>
+                  </View>
+                  <StatusPill
+                    label={isOffline ? "Will sync later" : "Ready to upload"}
+                    variant={isOffline ? "warning" : "info"}
+                    accessible={false}
+                  />
+                </View>
+                <Text style={styles.draftBody}>
+                  Add a short label and optional note so the photo is easier to review later.
+                </Text>
                 <SmartImage
                   source={{ uri: draftPhoto.uri }}
                   height={220}
@@ -827,7 +901,7 @@ export default function SymptomPhotosScreen() {
                   accessibilityLabel="Selected symptom photo"
                 />
 
-                <Text style={styles.draftMeta}>Date: {draftPhoto.date}</Text>
+                <Text style={styles.draftMeta}>Captured for {draftPhoto.date}</Text>
 
                 <View style={styles.kindRow}>
                   {KIND_OPTIONS.map((option) => {
@@ -860,7 +934,7 @@ export default function SymptomPhotosScreen() {
                   style={styles.noteInput}
                   multiline
                   maxLength={280}
-                  placeholder="Optional note (max 280)"
+                  placeholder="Add a short note about what changed (optional)"
                   placeholderTextColor={tokens.colors.textMuted}
                   value={draftPhoto.note}
                   onChangeText={(value) => {
@@ -891,6 +965,45 @@ export default function SymptomPhotosScreen() {
                     />
                   </View>
                 </View>
+              </Card>
+            ) : null}
+
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
+              <Text style={styles.sectionEyebrow}>Recent captures</Text>
+              <Text style={styles.sectionTitle}>Review your visual timeline</Text>
+              <Text style={styles.sectionBody}>
+                Compare recent photos here to keep track of visual changes and what has already
+                been added to your symptom timeline.
+              </Text>
+            </Card>
+
+            {__DEV__ ? (
+              <View style={styles.devBlock}>
+                <SecondaryButton
+                  label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
+                  onPress={() => {
+                    setShowDevDiagnostics((current) => !current);
+                  }}
+                />
+                {showDevDiagnostics ? (
+                  <View style={styles.devMetaWrap}>
+                    <LastRefreshed label="Last refreshed" value={photosRefresh.label} compact />
+                    <LastFailedAttempt
+                      label="Last photo load failure"
+                      value={photosLoadError.label}
+                      title={photosLoadError.lastError?.title}
+                      message={photosLoadError.lastError?.message}
+                      compact
+                    />
+                    <LastFailedAttempt
+                      label="Last photo upload failure"
+                      value={photoUploadError.label}
+                      title={photoUploadError.lastError?.title}
+                      message={photoUploadError.lastError?.message}
+                      compact
+                    />
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -903,9 +1016,21 @@ export default function SymptomPhotosScreen() {
           ) : (
             <EmptyState
               illustrationKey="progress"
-              title="No symptom photos"
-              description="Add one to start a visual timeline."
-              ctaLabel="Add photo"
+              title={
+                segment === "pending"
+                  ? "No photos waiting to sync"
+                  : segment === "uploaded"
+                    ? "No uploaded symptom photos yet"
+                    : "No symptom photos yet"
+              }
+              description={
+                segment === "pending"
+                  ? "Saved photo uploads will appear here until they are synced."
+                  : segment === "uploaded"
+                    ? "Uploaded photos will appear here once your first visual check has been saved."
+                    : "Add a symptom photo when you want to capture a visual change for your care timeline."
+              }
+              ctaLabel="Add symptom photo"
               onCtaPress={openPickMenu}
             />
           )
@@ -925,10 +1050,95 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     stack: {
       gap: tokens.spacing.md,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     centered: {
       alignItems: "center",
       justifyContent: "center",
       minHeight: 120,
+    },
+    storyCard: {
+      gap: tokens.spacing.md,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyTitleWrap: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyMetricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    storyMetric: {
+      flex: 1,
+      minWidth: 0,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    storyMetricValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyMetricLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+    },
+    sectionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     devBlock: {
       gap: tokens.spacing.sm,
@@ -943,11 +1153,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     summaryRow: {
       flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     summaryCol: {
       flex: 1,
-      minWidth: 0,
+      minWidth: 96,
     },
     actionRow: {
       flexDirection: "row",
@@ -958,18 +1169,36 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       minWidth: 0,
     },
     draftCard: {
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.lg,
-      backgroundColor: tokens.colors.surface,
-      padding: tokens.spacing.md,
       gap: tokens.spacing.sm,
+    },
+    draftHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    draftTitleWrap: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    draftEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
     },
     draftTitle: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    draftBody: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     draftMeta: {
       color: tokens.colors.textMuted,

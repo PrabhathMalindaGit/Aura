@@ -301,6 +301,8 @@ export default function CaregiverHomeScreen() {
   const patientName =
     summary?.patient.displayName ?? caregiverSession.patient?.displayName ?? "Patient";
   const patientIdentifier = summary?.patient.id ?? caregiverSession.patient?.id ?? "—";
+  const openAlertsCount = summary?.safety.openAlertsCount ?? 0;
+  const highRiskAlertsCount = summary?.safety.highRiskAlerts14d ?? 0;
 
   const lastCheckin = summary?.lastCheckin;
   const adherencePctNumber =
@@ -319,11 +321,27 @@ export default function CaregiverHomeScreen() {
     .slice(0, 2)
     .map((item) => ({ text: item, tone: "muted" as const }));
 
+  const supportOverview =
+    openAlertsCount > 0
+      ? `There ${openAlertsCount === 1 ? "is" : "are"} ${openAlertsCount} open ${
+          openAlertsCount === 1 ? "alert" : "alerts"
+        } for ${patientName}. Start with safety and weekly updates.`
+      : weeklyHeadline
+        ? weeklyHeadline
+        : `You’re following ${patientName}'s recovery through recent check-ins, weekly trends, and safety context.`;
+
+  const supportPrompt =
+    openAlertsCount > 0
+      ? "Review the weekly summary and contact the clinic if something feels off."
+      : lastCheckin
+        ? "Use the latest check-in and weekly summary to notice what changed and what still needs support."
+        : "Check the weekly summary when it becomes available and stay ready to help with routines or reminders.";
+
   const header = (
     <HeroHeader
       variant="compact"
       title="Caregiver"
-      subtitle={patientName ? `Patient · ${patientName}` : "Read-only view"}
+      subtitle={patientName ? `Supporting ${patientName}` : "Read-only caregiver view"}
       left={
         <Avatar
           size={40}
@@ -352,7 +370,22 @@ export default function CaregiverHomeScreen() {
           onPress: () => router.push("/safety" as Href),
         },
       ]}
-    />
+    >
+      <View style={styles.headerMetaRow}>
+        <StatusPill label="Read-only" variant="neutral" />
+        <StatusPill
+          label={openAlertsCount > 0 ? `${openAlertsCount} alert${openAlertsCount === 1 ? "" : "s"}` : "No open alerts"}
+          variant={openAlertsCount > 0 ? "warning" : "success"}
+        />
+        <StatusPill label={isOffline ? "Offline" : "Weekly summary"} variant={isOffline ? "warning" : "info"} />
+      </View>
+
+      <View style={styles.headerStoryCard}>
+        <Text style={styles.headerStoryTitle}>Support overview</Text>
+        <Text style={styles.headerStoryText}>{supportOverview}</Text>
+        <Text style={styles.headerStoryNote}>{supportPrompt}</Text>
+      </View>
+    </HeroHeader>
   );
 
   if (caregiverSession.status === "loading") {
@@ -421,6 +454,14 @@ export default function CaregiverHomeScreen() {
               />
             ) : null}
 
+            <View style={styles.sectionIntro}>
+              <Text style={styles.sectionTitle}>Patient snapshot</Text>
+              <Text style={styles.sectionHelper}>
+                Follow the patient&apos;s latest signals here, then move into the weekly summary or
+                safety context when you need more detail.
+              </Text>
+            </View>
+
             <MediaCard
               leading={{
                 type: "avatar",
@@ -429,8 +470,26 @@ export default function CaregiverHomeScreen() {
               }}
               title={patientName}
               subtitle={`ID: ${patientIdentifier}`}
-              chips={[{ text: "Read-only", tone: "muted" }]}
+              chips={[
+                { text: "Read-only", tone: "muted" },
+                {
+                  text: lastCheckin ? "Latest check-in available" : "Waiting for first check-in",
+                  tone: "muted",
+                },
+              ]}
+              statusPill={{
+                text: openAlertsCount > 0 ? "Needs review" : "Steady",
+                tone: openAlertsCount > 0 ? "warning" : "success",
+              }}
             />
+
+            <View style={styles.sectionIntro}>
+              <Text style={styles.sectionTitle}>This week</Text>
+              <Text style={styles.sectionHelper}>
+                These signals help you notice how recovery is going before you look at the fuller
+                weekly summary.
+              </Text>
+            </View>
 
             <View style={styles.trackerGrid}>
               <View style={styles.trackerTileWrap}>
@@ -480,26 +539,39 @@ export default function CaregiverHomeScreen() {
             </View>
 
             <MediaCard
+              variant="emphasis"
               leading={{ type: "icon", icon: "weekly", tone: "accent" }}
-              title={weeklyHeadline || "Weekly report"}
-              subtitle={weeklyHighlights[0] ?? "No preview yet."}
+              title={weeklyHeadline || "Weekly summary"}
+              subtitle={weeklyHighlights[0] ?? "Open the weekly summary when you want a clearer view of the patient’s recent recovery trends."}
               chips={weeklyPreviewChips}
+              statusPill={{
+                text: weeklyHeadline ? "This week" : "Waiting for summary",
+                tone: weeklyHeadline ? "info" : "neutral",
+              }}
               onPress={() => router.push("/caregiver-weekly-report" as Href)}
             />
 
             <MediaCard
               leading={{ type: "icon", icon: "safety", tone: "warning" }}
-              title="Safety"
-              subtitle={`Open alerts: ${summary?.safety.openAlertsCount ?? 0} · High-risk (14d): ${summary?.safety.highRiskAlerts14d ?? 0}`}
+              title="Safety follow-up"
+              subtitle={`Open alerts: ${openAlertsCount} · High-risk (14d): ${highRiskAlertsCount}`}
               chips={[{ text: "Contact clinic if concerned", tone: "muted" }]}
+              statusPill={{
+                text: openAlertsCount > 0 ? "Needs attention" : "Stable",
+                tone: openAlertsCount > 0 ? "warning" : "success",
+              }}
             />
 
             <View style={styles.actionsCard}>
-              <Text style={styles.actionsTitle}>Actions</Text>
+              <Text style={styles.actionsTitle}>Do next</Text>
+              <Text style={styles.actionsHelper}>
+                Refresh this read-only view when you need the latest caregiver summary, or sign out
+                when you&apos;re done.
+              </Text>
               <View style={styles.actionsRow}>
                 <View style={styles.actionButtonWrap}>
                   <PrimaryButton
-                    label={isRefreshing ? "Refreshing…" : "Refresh"}
+                    label={isRefreshing ? "Refreshing…" : "Refresh summary"}
                     disabled={isRefreshing || isOffline}
                     onPress={() => {
                       void loadCaregiverData("refresh");
@@ -507,7 +579,7 @@ export default function CaregiverHomeScreen() {
                   />
                 </View>
                 <View style={styles.actionButtonWrap}>
-                  <SecondaryButton label="Sign out" onPress={handleSignOut} />
+                  <SecondaryButton label="Sign out caregiver" onPress={handleSignOut} />
                 </View>
               </View>
             </View>
@@ -530,6 +602,51 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     content: {
       gap: tokens.spacing.md,
+    },
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    headerStoryCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.xs,
+    },
+    headerStoryTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    headerStoryText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    headerStoryNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",
@@ -554,6 +671,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    actionsHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     actionsRow: {
       flexDirection: "row",

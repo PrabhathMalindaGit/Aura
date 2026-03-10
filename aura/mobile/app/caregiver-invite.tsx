@@ -258,7 +258,7 @@ export default function CaregiverInviteScreen() {
     <HeroHeader
       variant="compact"
       title="Caregiver access"
-      subtitle="Share read-only access"
+      subtitle="Share read-only support access"
       left={<Avatar size={40} name="Caregiver" fallback="icon" iconKey="caregiver" />}
       rightActions={[
         {
@@ -274,7 +274,24 @@ export default function CaregiverInviteScreen() {
           onPress: () => router.push("/safety" as Href),
         },
       ]}
-    />
+    >
+      <View style={styles.headerMetaRow}>
+        <StatusPill label="Read-only" variant="neutral" />
+        <StatusPill label="24h code" variant="info" />
+        <StatusPill
+          label={invites.length > 0 ? `${invites.length} active` : "No active codes"}
+          variant={invites.length > 0 ? "success" : "neutral"}
+        />
+      </View>
+
+      <View style={styles.headerStoryCard}>
+        <Text style={styles.headerStoryTitle}>Invite trusted support</Text>
+        <Text style={styles.headerStoryText}>
+          Share a temporary code when someone needs read-only access to weekly updates, recent
+          check-ins, and safety context.
+        </Text>
+      </View>
+    </HeroHeader>
   );
 
   if (auth.status === "loading") {
@@ -302,11 +319,19 @@ export default function CaregiverInviteScreen() {
           <MediaCard
             leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
             title={`•••• ${item.codeHint}`}
-            subtitle={`Expires: ${formatISOToHuman(item.expiresAt)}`}
+            subtitle={
+              item.usedAt
+                ? `Used ${formatISOToHuman(item.usedAt)}`
+                : `Expires ${formatISOToHuman(item.expiresAt)}`
+            }
+            statusPill={{
+              text: item.usedAt ? "Used" : "Active",
+              tone: item.usedAt ? "neutral" : "success",
+            }}
             chips={
               item.usedAt
-                ? [{ text: `Used: ${formatISOToHuman(item.usedAt)}`, tone: "muted" }]
-                : [{ text: "Active", tone: "muted" }]
+                ? [{ text: "Read-only access ended", tone: "muted" }]
+                : [{ text: "Read-only caregiver view", tone: "muted" }]
             }
             actions={[
               {
@@ -359,11 +384,19 @@ export default function CaregiverInviteScreen() {
               />
             ) : null}
 
+            <View style={styles.sectionIntro}>
+              <Text style={styles.sectionTitle}>Share access carefully</Text>
+              <Text style={styles.sectionHelper}>
+                Caregiver access is read-only. Each code expires after a day and should be shared
+                only with someone you trust.
+              </Text>
+            </View>
+
             <MediaCard
               variant="emphasis"
               leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
-              title="Create invite code"
-              subtitle="Invite codes are temporary and tied to your account."
+              title="Create caregiver invite"
+              subtitle="Generate a temporary code to share weekly updates and safety context."
               chips={[
                 { text: "Read-only", tone: "muted" },
                 { text: "Temporary", tone: "muted" },
@@ -382,7 +415,13 @@ export default function CaregiverInviteScreen() {
 
             {generatedCode ? (
               <View style={styles.generatedCard}>
-                <Text style={styles.generatedLabel}>Code (shown once)</Text>
+                <View style={styles.generatedHeader}>
+                  <View style={styles.generatedHeaderText}>
+                    <Text style={styles.generatedTitle}>Invite code ready</Text>
+                    <Text style={styles.generatedLabel}>Shown once. Share it securely.</Text>
+                  </View>
+                  <StatusPill label="Shown once" variant="warning" />
+                </View>
                 <Text selectable style={styles.generatedValue}>
                   {generatedCode}
                 </Text>
@@ -392,7 +431,12 @@ export default function CaregiverInviteScreen() {
               </View>
             ) : null}
 
-            <Text style={styles.sectionTitle}>Active invites</Text>
+            <View style={styles.sectionIntro}>
+              <Text style={styles.sectionTitle}>Shared access</Text>
+              <Text style={styles.sectionHelper}>
+                Review active codes here and revoke any that should no longer open caregiver access.
+              </Text>
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -400,10 +444,15 @@ export default function CaregiverInviteScreen() {
             {isLoading ? (
               <ActivityIndicator size="small" />
             ) : (
-              <Banner variant="info" title="No active invites" message="Create an invite to grant caregiver access." />
+              <Banner
+                variant="info"
+                title="No active invites"
+                message="Create an invite when someone needs a read-only caregiver summary."
+              />
             )}
           </View>
         }
+        ListFooterComponent={isLoading ? null : <View style={styles.listFooter} />}
       />
     </Screen>
   );
@@ -423,19 +472,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     content: {
       gap: tokens.spacing.md,
     },
-    emptyWrap: {
-      minHeight: 120,
-      alignItems: "center",
-      justifyContent: "center",
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
     },
-    sectionTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-      marginTop: tokens.spacing.xs,
-    },
-    generatedCard: {
+    headerStoryCard: {
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.lg,
@@ -443,11 +485,66 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       padding: tokens.spacing.md,
       gap: tokens.spacing.xs,
     },
+    headerStoryTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    headerStoryText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    emptyWrap: {
+      minHeight: 120,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    generatedCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    generatedHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    generatedHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
     generatedLabel: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    generatedTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
     },
     generatedValue: {
       color: tokens.colors.text,
@@ -460,6 +557,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
+    },
+    listFooter: {
+      height: tokens.spacing.md,
     },
     devCard: {
       borderWidth: 1,

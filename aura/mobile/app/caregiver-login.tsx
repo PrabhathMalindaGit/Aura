@@ -106,7 +106,7 @@ export default function CaregiverLoginScreen() {
     <HeroHeader
       variant="compact"
       title="Caregiver access"
-      subtitle="Read-only · Weekly summary"
+      subtitle="Read-only support companion"
       left={<Avatar size={40} name="Caregiver" fallback="icon" iconKey="caregiver" />}
       rightActions={[
         {
@@ -122,7 +122,21 @@ export default function CaregiverLoginScreen() {
           onPress: () => router.push("/safety" as Href),
         },
       ]}
-    />
+    >
+      <View style={styles.headerMetaRow}>
+        <StatusPill label="Invite code" variant="info" />
+        <StatusPill label="Read-only" variant="neutral" />
+        <StatusPill label={isOffline ? "Offline" : "Weekly summary"} variant={isOffline ? "warning" : "success"} />
+      </View>
+
+      <View style={styles.headerStoryCard}>
+        <Text style={styles.headerStoryTitle}>Support companion</Text>
+        <Text style={styles.headerStoryText}>
+          Use a caregiver invite code to view weekly updates, recent check-ins, and safety
+          context without changing the patient&apos;s plan.
+        </Text>
+      </View>
+    </HeroHeader>
   );
 
   if (caregiverSession.status === "loading") {
@@ -150,16 +164,28 @@ export default function CaregiverLoginScreen() {
           <MediaCard
             variant="emphasis"
             leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
-            title="Enter invite code"
-            subtitle="Use the code shared from the patient app."
+            title="Caregiver sign-in"
+            subtitle="Enter the code shared from the patient app to open a calm, read-only support view."
             chips={[
               { text: "Read-only", tone: "muted" },
-              { text: "No edits", tone: "muted" },
+              { text: "Support updates", tone: "muted" },
             ]}
           />
 
+          <View style={styles.sectionIntro}>
+            <Text style={styles.sectionTitle}>What you’ll see</Text>
+            <Text style={styles.sectionHelper}>
+              Caregiver access focuses on the patient&apos;s weekly summary, recent check-ins, and
+              safety signals so you can stay informed without editing care details.
+            </Text>
+          </View>
+
           <View style={styles.formCard}>
-            <Text style={styles.subtitle}>Enter the invite code from the patient app.</Text>
+            <Text style={styles.formTitle}>Enter invite code</Text>
+            <Text style={styles.subtitle}>
+              Use the code exactly as it appears in the patient app. It opens the caregiver view
+              for this patient only.
+            </Text>
             <TextField
               label="Invite code"
               value={inviteCode}
@@ -205,6 +231,13 @@ export default function CaregiverLoginScreen() {
       </ScrollView>
 
       <GlassPanel style={styles.footerPanel}>
+        <View style={styles.footerCopy}>
+          <Text style={styles.footerTitle}>Continue when you&apos;re ready</Text>
+          <Text style={styles.footerText}>
+            You&apos;ll move into a read-only caregiver view focused on weekly recovery and safety
+            context.
+          </Text>
+        </View>
         <PrimaryButton
           label="Continue"
           loading={isSubmitting}
@@ -227,6 +260,45 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
     },
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    headerStoryCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.xs,
+    },
+    headerStoryTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    headerStoryText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
     subtitle: {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
@@ -240,6 +312,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       padding: tokens.spacing.md,
       gap: tokens.spacing.sm,
     },
+    formTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
     centered: {
       flex: 1,
       alignItems: "center",
@@ -247,6 +325,21 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     footerPanel: {
       marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.sm,
+    },
+    footerCopy: {
+      gap: tokens.spacing.xs,
+    },
+    footerTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    footerText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     devCard: {
       borderWidth: 1,

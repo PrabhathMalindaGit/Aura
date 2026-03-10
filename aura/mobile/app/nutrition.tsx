@@ -253,6 +253,22 @@ export default function NutritionScreen() {
   const trackedRatio = Math.max(0, Math.min(1, summary.trackedDays / 7));
   const todayLoggedRatio = currentEntry ? 1 : 0;
   const pendingCount = pendingEntries.length;
+  const nutritionStatusLabel = currentEntry
+    ? currentEntry.pending
+      ? "Saved locally"
+      : "Logged today"
+    : "Ready to log";
+  const nutritionStatusTone = currentEntry
+    ? currentEntry.pending
+      ? "warning"
+      : "success"
+    : "info";
+  const nutritionStoryTitle = currentEntry
+    ? "Today’s nutrition check is saved"
+    : "Log today’s meals in one short check";
+  const nutritionStoryNote = currentEntry
+    ? `Fruit and veg ${currentEntry.fruitVegServings} · protein ${currentEntry.protein} · meals ${currentEntry.mealRegularity}${currentEntry.pending ? " · waiting to sync" : ""}.`
+    : "A short daily nutrition check helps you notice patterns in protein, fruit and veg, meal regularity, and appetite.";
 
   const reloadPending = useCallback(async () => {
     if (!patientId) {
@@ -585,6 +601,27 @@ export default function NutritionScreen() {
           />
         ) : null}
 
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.storyCard}>
+            <View style={styles.storyHeader}>
+              <View style={styles.storyHeaderText}>
+                <Text style={styles.storyEyebrow}>Today’s nutrition</Text>
+                <Text style={styles.storyTitle}>{nutritionStoryTitle}</Text>
+              </View>
+              <StatusPill label={nutritionStatusLabel} variant={nutritionStatusTone} />
+            </View>
+            <Text style={styles.storyNote}>{nutritionStoryNote}</Text>
+          </View>
+        </Card>
+
+        <View style={styles.sectionIntro}>
+          <Text style={styles.sectionTitle}>Today at a glance</Text>
+          <Text style={styles.sectionHelper}>
+            Start here to see whether today is logged, how often you&apos;ve tracked nutrition this
+            week, and whether anything is still waiting to sync.
+          </Text>
+        </View>
+
         <View style={styles.trackerGrid}>
           <View style={styles.trackerTileWrap}>
             <TrackerTile
@@ -630,20 +667,38 @@ export default function NutritionScreen() {
 
         <MediaCard
           leading={{ type: "icon", icon: "nutrition", tone: "accent" }}
-          title={`Today · ${today}`}
+          title="Today’s nutrition"
           subtitle={
             currentEntry
-              ? `Saved at ${formatTime(currentEntry.createdAt)}${currentEntry.pending ? " (Pending sync)" : ""}`
-              : "No log yet for today."
+              ? `Saved at ${formatTime(currentEntry.createdAt)}${currentEntry.pending ? " on this device" : ""}`
+              : "No nutrition check saved for today yet."
           }
           chips={[
-            { text: pendingCount > 0 ? `Pending ${pendingCount}` : "No pending", tone: pendingCount > 0 ? "warning" : "muted" },
+            {
+              text: pendingCount > 0 ? `Pending ${pendingCount}` : `Tracking from ${today}`,
+              tone: pendingCount > 0 ? "warning" : "muted",
+            },
           ]}
+          statusPill={{ text: nutritionStatusLabel, tone: nutritionStatusTone }}
         />
 
         <Card variant="outlined" padding={tokens.spacing.md}>
           <View style={styles.formCard}>
-            <Text style={styles.label}>Protein adequacy</Text>
+            <View style={styles.formHeader}>
+              <View style={styles.formHeaderText}>
+                <Text style={styles.cardTitle}>Log today’s meals</Text>
+                <Text style={styles.cardHelper}>
+                  Capture a quick picture of how meals felt today. This stays short and focuses on
+                  what supports recovery.
+                </Text>
+              </View>
+              <StatusPill
+                label={pendingCount > 0 ? `${pendingCount} pending` : "Daily check"}
+                variant={pendingCount > 0 ? "warning" : "neutral"}
+              />
+            </View>
+
+            <Text style={styles.label}>Protein today</Text>
             <View style={styles.chipRow}>
               {(["low", "ok", "high"] as const).map((option) => (
                 <Pressable
@@ -664,7 +719,7 @@ export default function NutritionScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>Fruit/veg servings</Text>
+            <Text style={styles.label}>Fruit and veg servings</Text>
             <View style={styles.stepperRow}>
               <View style={styles.stepperButtonWrap}>
                 <SecondaryButton
@@ -703,7 +758,7 @@ export default function NutritionScreen() {
               />
             </View>
 
-            <Text style={styles.label}>Meal regularity</Text>
+            <Text style={styles.label}>Meal regularity today</Text>
             <View style={styles.chipRow}>
               {(["irregular", "mostly", "regular"] as const).map((option) => (
                 <Pressable
@@ -730,7 +785,7 @@ export default function NutritionScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>Appetite (optional)</Text>
+            <Text style={styles.label}>Appetite today (optional)</Text>
             <View style={styles.chipRow}>
               {(["low", "normal", "high"] as const).map((option) => (
                 <Pressable
@@ -756,7 +811,7 @@ export default function NutritionScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>Notes (optional)</Text>
+            <Text style={styles.label}>Add a short note (optional)</Text>
             <TextInput
               value={form.notes}
               onChangeText={(value) =>
@@ -771,7 +826,7 @@ export default function NutritionScreen() {
             <Text style={styles.metaText}>{form.notes.length}/280</Text>
 
             <PrimaryButton
-              label={isSaving ? "Saving..." : "Save today"}
+              label={isSaving ? "Saving..." : "Save today’s log"}
               loading={isSaving}
               disabled={isSaving}
               onPress={() => {
@@ -779,14 +834,14 @@ export default function NutritionScreen() {
               }}
             />
             <SecondaryButton
-              label="Clear"
+              label="Clear today’s draft"
               onPress={() => {
                 setForm(toFormState(null));
               }}
             />
             {pendingCount > 0 ? (
               <PrimaryButton
-                label={isSyncing ? "Syncing..." : "Sync now"}
+                label={isSyncing ? "Syncing..." : "Sync saved logs"}
                 loading={isSyncing}
                 disabled={isOffline || isSyncing}
                 onPress={() => {
@@ -796,6 +851,14 @@ export default function NutritionScreen() {
             ) : null}
           </View>
         </Card>
+
+        <View style={styles.sectionIntro}>
+          <Text style={styles.sectionTitle}>Recent pattern</Text>
+          <Text style={styles.sectionHelper}>
+            These weekly markers help you see consistency over the last seven days without turning
+            today’s check into a long report.
+          </Text>
+        </View>
 
         <Card variant="outlined" padding={tokens.spacing.md}>
           <View style={styles.summaryGrid}>
@@ -850,6 +913,10 @@ export default function NutritionScreen() {
     isSaving,
     isSyncing,
     notice,
+    nutritionStatusLabel,
+    nutritionStatusTone,
+    nutritionStoryNote,
+    nutritionStoryTitle,
     nutritionLoadError.clear,
     nutritionLoadError.label,
     nutritionLoadError.lastError?.message,
@@ -866,16 +933,29 @@ export default function NutritionScreen() {
     styles.chipSelected,
     styles.chipText,
     styles.chipTextSelected,
+    styles.cardHelper,
+    styles.cardTitle,
     styles.diagContent,
     styles.diagTitle,
     styles.diagTitleRow,
     styles.diagToggle,
     styles.formCard,
+    styles.formHeader,
+    styles.formHeaderText,
     styles.label,
     styles.listHeader,
     styles.metaText,
     styles.notesInput,
     styles.pressed,
+    styles.sectionHelper,
+    styles.sectionIntro,
+    styles.sectionTitle,
+    styles.storyCard,
+    styles.storyEyebrow,
+    styles.storyHeader,
+    styles.storyHeaderText,
+    styles.storyNote,
+    styles.storyTitle,
     styles.stepperButtonWrap,
     styles.stepperRow,
     styles.stepperValue,
@@ -916,7 +996,7 @@ export default function NutritionScreen() {
         <HeroHeader
           variant="compact"
           title="Nutrition"
-          subtitle="Quick daily log"
+          subtitle="Daily support"
           left={<Avatar size={40} name="Nutrition" fallback="icon" iconKey="nutrition" />}
           rightActions={[
             {
@@ -936,7 +1016,13 @@ export default function NutritionScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerMetaRow}>
+            <StatusPill label={nutritionStatusLabel} variant={nutritionStatusTone} />
+            <StatusPill label={`${summary.trackedDays}/7 tracked`} variant="info" />
+            <StatusPill label={isOffline ? "Offline" : `${pendingCount} pending`} variant={isOffline ? "warning" : pendingCount > 0 ? "warning" : "neutral"} />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -965,10 +1051,62 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     listHeader: {
       gap: tokens.spacing.md,
     },
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     centered: {
       minHeight: 100,
       alignItems: "center",
       justifyContent: "center",
+    },
+    storyCard: {
+      gap: tokens.spacing.sm,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     trackerGrid: {
       flexDirection: "row",
@@ -988,6 +1126,28 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     formCard: {
       gap: tokens.spacing.sm,
+    },
+    formHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
+    },
+    formHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    cardTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    cardHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     label: {
       color: tokens.colors.text,

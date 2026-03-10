@@ -284,10 +284,38 @@ export default function CaregiverWeeklyReportScreen() {
     void loadReport("initial");
   }, [caregiverSession.status, loadReport, selectedWeek]);
 
+  const exerciseProgress =
+    report && report.exercises.totalExercises > 0
+      ? clamp01(report.exercises.completedExercises / report.exercises.totalExercises)
+      : 0;
+  const medicationProgress = clamp01((report?.medications.adherencePct ?? 0) / 100);
+  const weeklyStatus =
+    report && (report.safety.alertsCreatedThisWeek > 0 || report.safety.highRiskAlertsThisWeek > 0)
+      ? "Needs attention"
+      : report
+        ? "Steady week"
+        : "Summary pending";
+  const weeklyStatusTone =
+    report && (report.safety.alertsCreatedThisWeek > 0 || report.safety.highRiskAlertsThisWeek > 0)
+      ? "warning"
+      : report
+        ? "success"
+        : "neutral";
+  const weeklyStoryTitle =
+    selectedWeek === "this" ? "Caregiver summary" : "Last week at a glance";
+  const weeklyStoryText = report?.summary.headline
+    ? report.summary.headline
+    : selectedWeek === "this"
+      ? "This weekly summary will highlight what changed and what may need support."
+      : "Last week’s summary will appear here when it’s available.";
+  const weeklyStoryNote =
+    report?.summary.highlights[0] ??
+    "Use this view to stay informed about recovery trends, safety context, and what may need support next.";
+
   const header = (
     <HeroHeader
       variant="compact"
-      title="Weekly report"
+      title="Weekly summary"
       subtitle={selectedWeek === "this" ? "This week" : "Last week"}
       left={<Avatar size={40} name="Weekly report" fallback="icon" iconKey="weekly" />}
       rightActions={[
@@ -304,7 +332,13 @@ export default function CaregiverWeeklyReportScreen() {
           onPress: () => router.push("/safety" as Href),
         },
       ]}
-    />
+    >
+      <View style={styles.headerMetaRow}>
+        <StatusPill label={selectedWeek === "this" ? "This week" : "Last week"} variant="info" />
+        <StatusPill label={weeklyStatus} variant={weeklyStatusTone} />
+        <StatusPill label={isOffline ? "Offline" : "Read-only"} variant={isOffline ? "warning" : "neutral"} />
+      </View>
+    </HeroHeader>
   );
 
   if (caregiverSession.status === "loading") {
@@ -320,12 +354,6 @@ export default function CaregiverWeeklyReportScreen() {
   if (caregiverSession.status === "signedOut") {
     return <Redirect href={"/caregiver-login" as Href} />;
   }
-
-  const exerciseProgress =
-    report && report.exercises.totalExercises > 0
-      ? clamp01(report.exercises.completedExercises / report.exercises.totalExercises)
-      : 0;
-  const medicationProgress = clamp01((report?.medications.adherencePct ?? 0) / 100);
 
   return (
     <Screen scroll={false} header={header}>
@@ -369,6 +397,14 @@ export default function CaregiverWeeklyReportScreen() {
               </View>
             ) : null}
 
+            <View style={styles.sectionIntro}>
+              <Text style={styles.sectionTitle}>Summary window</Text>
+              <Text style={styles.sectionHelper}>
+                Move between this week and last week to keep track of recovery changes without
+                losing the bigger picture.
+              </Text>
+            </View>
+
             <SegmentedControl
               value={selectedWeek}
               onChange={setSelectedWeek}
@@ -396,16 +432,46 @@ export default function CaregiverWeeklyReportScreen() {
               </View>
             ) : report ? (
               <>
+                <View style={styles.storyCard}>
+                  <View style={styles.storyHeader}>
+                    <View style={styles.storyHeaderText}>
+                      <Text style={styles.storyEyebrow}>{weeklyStoryTitle}</Text>
+                      <Text style={styles.storyTitle}>{weeklyStoryText}</Text>
+                    </View>
+                    <StatusPill label={weeklyStatus} variant={weeklyStatusTone} />
+                  </View>
+                  <Text style={styles.storyNote}>{weeklyStoryNote}</Text>
+                </View>
+
+                <View style={styles.sectionIntro}>
+                  <Text style={styles.sectionTitle}>
+                    {selectedWeek === "this" ? "This week at a glance" : "Last week at a glance"}
+                  </Text>
+                  <Text style={styles.sectionHelper}>
+                    Start here for the main caregiver takeaways, then use the detailed summary below
+                    for supporting context.
+                  </Text>
+                </View>
+
                 <MediaCard
                   variant="emphasis"
                   leading={{ type: "icon", icon: "weekly", tone: "accent" }}
-                  title={report.summary.headline}
-                  subtitle={report.summary.highlights[0] ?? "No highlights yet."}
+                  title="Weekly takeaway"
+                  subtitle={report.summary.headline}
                   chips={report.summary.highlights.slice(0, 2).map((item) => ({
                     text: item,
                     tone: "muted" as const,
                   }))}
+                  statusPill={{ text: weeklyStatus, tone: weeklyStatusTone }}
                 />
+
+                <View style={styles.sectionIntro}>
+                  <Text style={styles.sectionTitle}>Current signals</Text>
+                  <Text style={styles.sectionHelper}>
+                    These highlights show how the patient has been feeling and how consistently
+                    recovery tasks were followed this week.
+                  </Text>
+                </View>
 
                 <View style={styles.trackerGrid}>
                   <View style={styles.trackerTileWrap}>
@@ -450,9 +516,17 @@ export default function CaregiverWeeklyReportScreen() {
                   </View>
                 </View>
 
+                <View style={styles.sectionIntro}>
+                  <Text style={styles.sectionTitle}>Detailed summary</Text>
+                  <Text style={styles.sectionHelper}>
+                    Use these cards when you want a more detailed caregiver view of check-ins,
+                    safety, assessments, exercises, and daily habits.
+                  </Text>
+                </View>
+
                 <MediaCard
                   leading={{ type: "icon", icon: "checkin", tone: "muted" }}
-                  title="Check-ins"
+                  title="Check-ins this week"
                   subtitle={`Count: ${report.checkins.count} · Avg pain: ${numberOrDash(report.checkins.avgPain)} · Avg mood: ${numberOrDash(report.checkins.avgMood)}`}
                   chips={[
                     { text: `${report.checkins.count} logs`, tone: "muted" },
@@ -465,14 +539,24 @@ export default function CaregiverWeeklyReportScreen() {
 
                 <MediaCard
                   leading={{ type: "icon", icon: "safety", tone: "warning" }}
-                  title="Safety"
+                  title="Safety signals"
                   subtitle={`Opened alerts: ${report.safety.alertsCreatedThisWeek} · High-risk: ${report.safety.highRiskAlertsThisWeek}`}
                   chips={[{ text: "Weekly alert view", tone: "muted" }]}
+                  statusPill={{
+                    text:
+                      report.safety.alertsCreatedThisWeek > 0 || report.safety.highRiskAlertsThisWeek > 0
+                        ? "Needs attention"
+                        : "Stable",
+                    tone:
+                      report.safety.alertsCreatedThisWeek > 0 || report.safety.highRiskAlertsThisWeek > 0
+                        ? "warning"
+                        : "success",
+                  }}
                 />
 
                 <MediaCard
                   leading={{ type: "icon", icon: "proms", tone: "accent" }}
-                  title="Questionnaires"
+                  title="Assessment updates"
                   subtitle={`Due now: ${report.proms.dueNowCount} · Completed: ${report.proms.completedThisWeekCount}`}
                   chips={
                     report.proms.latestCompleted
@@ -484,11 +568,15 @@ export default function CaregiverWeeklyReportScreen() {
                         ]
                       : [{ text: "No score yet", tone: "muted" }]
                   }
+                  statusPill={{
+                    text: report.proms.dueNowCount > 0 ? "Due now" : "Up to date",
+                    tone: report.proms.dueNowCount > 0 ? "info" : "success",
+                  }}
                 />
 
                 <MediaCard
                   leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-                  title="Exercises"
+                  title="Exercise follow-through"
                   subtitle={`Sessions: ${report.exercises.sessionCount} · Avg pain during: ${numberOrDash(report.exercises.avgPainDuring)}`}
                   chips={[
                     {
@@ -504,7 +592,7 @@ export default function CaregiverWeeklyReportScreen() {
 
                 <MediaCard
                   leading={{ type: "icon", icon: "hydration", tone: "primary" }}
-                  title="Habits"
+                  title="Daily habits"
                   subtitle={`Hydration avg: ${numberOrDash(report.hydration.avgDailyMl)} ml · Fruit/veg avg: ${numberOrDash(report.nutrition.avgFruitVegServings)}`}
                   chips={[
                     {
@@ -521,8 +609,8 @@ export default function CaregiverWeeklyReportScreen() {
             ) : (
               <Banner
                 variant="info"
-                title="No report"
-                message="No weekly report is available for this week yet."
+                title="No weekly summary"
+                message="A caregiver summary will appear here when there is enough weekly recovery information to show."
               />
             )}
           </View>
@@ -530,6 +618,13 @@ export default function CaregiverWeeklyReportScreen() {
       />
 
       <GlassPanel style={styles.footerPanel}>
+        <View style={styles.footerCopy}>
+          <Text style={styles.footerTitle}>Refresh when you need the latest summary</Text>
+          <Text style={styles.footerText}>
+            This view stays read-only and highlights the most recent caregiver summary available for
+            the selected week.
+          </Text>
+        </View>
         <PrimaryButton
           label={isRefreshing ? "Refreshing…" : "Refresh"}
           disabled={isRefreshing || isOffline}
@@ -550,6 +645,63 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     content: {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.md,
+    },
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    storyCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     centered: {
       flex: 1,
@@ -573,6 +725,21 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     footerPanel: {
       marginTop: tokens.spacing.sm,
+      gap: tokens.spacing.sm,
+    },
+    footerCopy: {
+      gap: tokens.spacing.xs,
+    },
+    footerTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    footerText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     devCard: {
       borderWidth: 1,

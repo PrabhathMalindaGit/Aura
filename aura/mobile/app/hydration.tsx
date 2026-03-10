@@ -193,6 +193,23 @@ export default function HydrationScreen() {
   const targetMl = todayState?.targetMl ?? 2000;
   const progressPercent = Math.min(100, Math.round((totalTodayMl / targetMl) * 100));
   const progressRatio = targetMl > 0 ? Math.max(0, Math.min(1, totalTodayMl / targetMl)) : 0;
+  const remainingMl = Math.max(0, targetMl - totalTodayMl);
+  const hydrationStatusLabel =
+    progressRatio >= 1 ? "Goal reached" : progressRatio >= 0.7 ? "On track" : "Keep sipping";
+  const hydrationStatusTone =
+    progressRatio >= 1 ? "success" : progressRatio >= 0.7 ? "info" : "warning";
+  const hydrationStoryTitle =
+    progressRatio >= 1
+      ? "Today’s hydration is on target"
+      : totalTodayMl > 0
+        ? `${remainingMl} ml left to reach today’s goal`
+        : "Start today’s hydration with one quick log";
+  const hydrationStoryNote =
+    progressRatio >= 1
+      ? "You’ve reached today’s hydration target. Keep using the log if you want to capture additional water intake."
+      : totalTodayMl > 0
+        ? "Use quick add to keep today’s hydration moving steadily toward the target."
+        : "Log the first glass when you’re ready. Today’s total and recent entries will build here.";
 
   const recentAmountSeries = useMemo(
     () =>
@@ -577,6 +594,27 @@ export default function HydrationScreen() {
           />
         ) : null}
 
+        <Card variant="outlined" padding={tokens.spacing.md}>
+          <View style={styles.storyCard}>
+            <View style={styles.storyHeader}>
+              <View style={styles.storyHeaderText}>
+                <Text style={styles.storyEyebrow}>Today&apos;s hydration</Text>
+                <Text style={styles.storyTitle}>{hydrationStoryTitle}</Text>
+              </View>
+              <StatusPill label={hydrationStatusLabel} variant={hydrationStatusTone} />
+            </View>
+            <Text style={styles.storyNote}>{hydrationStoryNote}</Text>
+          </View>
+        </Card>
+
+        <View style={styles.sectionIntro}>
+          <Text style={styles.sectionTitle}>Today at a glance</Text>
+          <Text style={styles.sectionHelper}>
+            Start here to see how much you&apos;ve logged, what the target is, and whether anything
+            is still waiting to sync.
+          </Text>
+        </View>
+
         <View style={styles.trackerGrid}>
           <View style={styles.trackerTileWrap}>
             <TrackerTile
@@ -626,12 +664,23 @@ export default function HydrationScreen() {
 
         <Card variant="outlined" padding={tokens.spacing.md}>
           <View style={styles.quickAddCard}>
-            <Text style={styles.cardTitle}>Quick add</Text>
+            <View style={styles.quickAddHeader}>
+              <View style={styles.quickAddHeaderText}>
+                <Text style={styles.cardTitle}>Add water</Text>
+                <Text style={styles.cardHelper}>
+                  Tap a quick amount to update today&apos;s total without opening a longer form.
+                </Text>
+              </View>
+              <StatusPill
+                label={pendingEntries.length > 0 ? `${pendingEntries.length} pending` : "Ready"}
+                variant={pendingEntries.length > 0 ? "warning" : "neutral"}
+              />
+            </View>
             <View style={styles.quickAddRow}>
               {[250, 500, 750].map((amount) => (
                 <View key={`add-${amount}`} style={styles.quickButtonWrap}>
                   <SecondaryButton
-                    label={`+${amount}`}
+                    label={`Add ${amount} ml`}
                     onPress={() => {
                       void handleQuickAdd(amount);
                     }}
@@ -641,7 +690,7 @@ export default function HydrationScreen() {
             </View>
             {pendingEntries.length > 0 ? (
               <PrimaryButton
-                label={isSyncing ? "Syncing..." : "Sync now"}
+                label={isSyncing ? "Syncing..." : "Sync saved entries"}
                 loading={isSyncing}
                 disabled={isOffline || isSyncing}
                 onPress={() => {
@@ -651,6 +700,14 @@ export default function HydrationScreen() {
             ) : null}
           </View>
         </Card>
+
+        <View style={styles.sectionIntro}>
+          <Text style={styles.sectionTitle}>Recent log</Text>
+          <Text style={styles.sectionHelper}>
+            These are the water entries recorded for today. Pending entries stay on this device
+            until they sync.
+          </Text>
+        </View>
       </View>
     );
   }, [
@@ -665,6 +722,10 @@ export default function HydrationScreen() {
     hydrationLogError.lastError?.message,
     hydrationLogError.lastError?.title,
     hydrationRefresh.label,
+    hydrationStatusLabel,
+    hydrationStatusTone,
+    hydrationStoryNote,
+    hydrationStoryTitle,
     isOffline,
     isSyncing,
     notice,
@@ -674,15 +735,27 @@ export default function HydrationScreen() {
     recentAmountSeries,
     showDiagnostics,
     styles.cardTitle,
+    styles.cardHelper,
     styles.diagContent,
     styles.diagTitle,
     styles.diagTitleRow,
     styles.diagToggle,
     styles.listHeader,
     styles.pressed,
+    styles.quickAddHeader,
+    styles.quickAddHeaderText,
     styles.quickAddCard,
     styles.quickAddRow,
     styles.quickButtonWrap,
+    styles.sectionHelper,
+    styles.sectionIntro,
+    styles.sectionTitle,
+    styles.storyCard,
+    styles.storyEyebrow,
+    styles.storyHeader,
+    styles.storyHeaderText,
+    styles.storyNote,
+    styles.storyTitle,
     styles.trackerGrid,
     styles.trackerTileWrap,
     targetMl,
@@ -714,7 +787,7 @@ export default function HydrationScreen() {
         <HeroHeader
           variant="compact"
           title="Hydration"
-          subtitle="Track water intake"
+          subtitle="Daily support"
           left={<Avatar size={40} name="Hydration" fallback="icon" iconKey="hydration" />}
           rightActions={[
             {
@@ -734,7 +807,13 @@ export default function HydrationScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerMetaRow}>
+            <StatusPill label={`${totalTodayMl} ml today`} variant="info" />
+            <StatusPill label={`${targetMl} ml goal`} variant="neutral" />
+            <StatusPill label={isOffline ? "Offline" : hydrationStatusLabel} variant={isOffline ? "warning" : hydrationStatusTone} />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -743,10 +822,22 @@ export default function HydrationScreen() {
         renderItem={({ item }) => (
           <MediaCard
             leading={{ type: "icon", icon: "hydration", tone: item.pending ? "warning" : "muted" }}
-            title={`${item.amountMl} ml`}
-            subtitle={formatTime(item.createdAt)}
-            chips={[{ text: item.pending ? "Pending sync" : "Saved", tone: item.pending ? "warning" : "muted" }]}
-            statusPill={{ text: item.pending ? "Pending" : "Saved", tone: item.pending ? "warning" : "info" }}
+            title={`${item.amountMl} ml added`}
+            subtitle={
+              item.pending
+                ? `Saved on this device at ${formatTime(item.createdAt)}`
+                : `Logged at ${formatTime(item.createdAt)}`
+            }
+            chips={[
+              {
+                text: item.pending ? "Awaiting sync" : "Included in today’s total",
+                tone: item.pending ? "warning" : "muted",
+              },
+            ]}
+            statusPill={{
+              text: item.pending ? "Pending" : "Logged",
+              tone: item.pending ? "warning" : "info",
+            }}
             actions={[
               {
                 label: "Remove",
@@ -775,7 +866,13 @@ export default function HydrationScreen() {
             </View>
           ) : (
             <Card variant="outlined" padding={tokens.spacing.md}>
-              <Text style={styles.subText}>No hydration entries yet for today.</Text>
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>No water logged yet</Text>
+                <Text style={styles.subText}>
+                  Add the first glass when you&apos;re ready. Today&apos;s hydration entries will appear
+                  here.
+                </Text>
+              </View>
             </Card>
           )
         }
@@ -796,6 +893,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       marginBottom: tokens.spacing.md,
     },
+    headerMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     listSeparator: {
       height: tokens.spacing.md,
     },
@@ -804,7 +906,63 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       justifyContent: "center",
       minHeight: 96,
     },
+    emptyCard: {
+      gap: tokens.spacing.xs,
+    },
+    emptyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
     subText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    storyCard: {
+      gap: tokens.spacing.sm,
+    },
+    storyHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    storyHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    sectionIntro: {
+      gap: tokens.spacing.xs,
+      paddingHorizontal: tokens.spacing.xs,
+    },
+    sectionTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionHelper: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
@@ -821,6 +979,16 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     quickAddCard: {
       gap: tokens.spacing.md,
     },
+    quickAddHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    quickAddHeaderText: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
     quickAddRow: {
       flexDirection: "row",
       gap: tokens.spacing.sm,
@@ -834,6 +1002,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    cardHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     diagToggle: {
       flexDirection: "row",

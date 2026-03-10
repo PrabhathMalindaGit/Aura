@@ -15,7 +15,7 @@ const STATUS_OPTIONS: Array<{ value: PatientStatus; label: string }> = [
 ];
 
 const BACKEND_REQUIRED_TITLE =
-  'Requires backend endpoint: PATCH /clinician/patients/:id/status { status }';
+  'Status updates are visible here, but saving still requires the patient status endpoint.';
 
 export function PatientStatusMenu({ currentStatus, compact = false }: PatientStatusMenuProps): JSX.Element {
   const [draftStatus, setDraftStatus] = useState<PatientStatus>(currentStatus);

@@ -58,14 +58,14 @@ export function PatientsFiltersBar({
         <section className="patients-filters patients-filters--compact" aria-label="Patient filters">
           <div className="patients-filters__clusters">
             <div className="patients-filters__cluster patients-filters__cluster--search-source">
-              <span className="patients-filters__cluster-label">Search roster</span>
+              <span className="patients-filters__cluster-label">Find patients</span>
               <label className="patients-filters__search form-field">
-                <span className="patients-filters__label">Search</span>
+                <span className="patients-filters__label">Search roster</span>
                 <input
                   aria-label="Search patients"
                   type="search"
                   value={filters.search}
-                  placeholder="Search by patient ID or name"
+                  placeholder="Search by name or patient ID"
                   onChange={(event) => onSearchChange(event.target.value)}
                   disabled={disabled}
                 />
@@ -80,7 +80,7 @@ export function PatientsFiltersBar({
                 disabled={disabled}
                 aria-label="Open patient filters"
               >
-                Filters
+                More filters
               </Button>
               <Button className="patients-filters__reset" variant="ghost" onClick={onReset} disabled={disabled}>
                 Reset filters
@@ -91,7 +91,7 @@ export function PatientsFiltersBar({
 
         <Drawer
           open={filtersDrawerOpen}
-          title="Patient filters"
+          title="Roster filters"
           mobileFullscreen
           onClose={() => setFiltersDrawerOpen(false)}
           footer={
@@ -146,7 +146,7 @@ export function PatientsFiltersBar({
             </label>
 
             <label className="patients-filters__control form-field">
-              <span className="patients-filters__label">Recently active</span>
+              <span className="patients-filters__label">Recent activity</span>
               <select
                 aria-label="Filter by recently active"
                 value={draftFilters.recentlyActive}
@@ -166,7 +166,7 @@ export function PatientsFiltersBar({
             </label>
 
             <label className="patients-filters__control form-field">
-              <span className="patients-filters__label">Sort</span>
+              <span className="patients-filters__label">Sort roster</span>
               <select
                 aria-label="Sort patients"
                 value={draftFilters.sort}
@@ -198,7 +198,7 @@ export function PatientsFiltersBar({
                 }
                 disabled={disabled}
               />
-              <span>Has open alerts</span>
+              <span>Open alerts only</span>
             </label>
 
             <label className="patients-filters__toggle">
@@ -214,7 +214,7 @@ export function PatientsFiltersBar({
                 }
                 disabled={disabled}
               />
-              <span>Missed check-ins</span>
+              <span>Missed check-ins only</span>
             </label>
           </section>
         </Drawer>
@@ -226,14 +226,14 @@ export function PatientsFiltersBar({
     <section className="patients-filters" aria-label="Patient filters">
       <div className="patients-filters__clusters">
         <div className="patients-filters__cluster patients-filters__cluster--search-source">
-          <span className="patients-filters__cluster-label">Search</span>
+          <span className="patients-filters__cluster-label">Find patients</span>
           <label className="patients-filters__search form-field">
-            <span className="patients-filters__label">Search</span>
+            <span className="patients-filters__label">Search roster</span>
             <input
               aria-label="Search patients"
               type="search"
               value={filters.search}
-              placeholder="Search by patient ID or name"
+              placeholder="Search by name or patient ID"
               onChange={(event) => onSearchChange(event.target.value)}
               disabled={disabled}
             />
@@ -241,7 +241,7 @@ export function PatientsFiltersBar({
         </div>
 
         <div className="patients-filters__cluster patients-filters__cluster--workflow">
-          <span className="patients-filters__cluster-label">Workflow filters</span>
+          <span className="patients-filters__cluster-label">Roster filters</span>
           <div className="patients-filters__cluster-body patients-filters__cluster-body--workflow">
             <label className="patients-filters__control form-field">
               <span className="patients-filters__label">Status</span>
@@ -260,7 +260,7 @@ export function PatientsFiltersBar({
             </label>
 
             <label className="patients-filters__control form-field">
-              <span className="patients-filters__label">Recently active</span>
+              <span className="patients-filters__label">Recent activity</span>
               <select
                 aria-label="Filter by recently active"
                 value={filters.recentlyActive}
@@ -283,7 +283,7 @@ export function PatientsFiltersBar({
                   onChange={(event) => onHasOpenAlertsOnlyChange(event.target.checked)}
                   disabled={disabled}
                 />
-                <span>Has open alerts</span>
+                <span>Open alerts only</span>
               </label>
 
               <label className="patients-filters__toggle">
@@ -294,17 +294,17 @@ export function PatientsFiltersBar({
                   onChange={(event) => onMissedCheckinsOnlyChange(event.target.checked)}
                   disabled={disabled}
                 />
-                <span>Missed check-ins</span>
+                <span>Missed check-ins only</span>
               </label>
             </div>
           </div>
         </div>
 
         <div className="patients-filters__cluster patients-filters__cluster--view">
-          <span className="patients-filters__cluster-label">View controls</span>
+          <span className="patients-filters__cluster-label">Roster view</span>
           <div className="patients-filters__cluster-body patients-filters__cluster-body--view">
             <label className="patients-filters__control form-field">
-              <span className="patients-filters__label">Sort</span>
+              <span className="patients-filters__label">Sort roster</span>
               <select
                 aria-label="Sort patients"
                 value={filters.sort}

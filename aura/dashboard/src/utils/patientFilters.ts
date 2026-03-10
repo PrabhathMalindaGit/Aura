@@ -59,6 +59,36 @@ export function hasOpenAlerts(patient: PatientSummary): boolean {
   return (patient.openAlertCount ?? 0) > 0;
 }
 
+export function getPatientRosterReason(patient: PatientSummary, nowMs: number = Date.now()): string {
+  const openAlertCount = patient.openAlertCount ?? 0;
+  if (openAlertCount > 0) {
+    return `${openAlertCount} active alert${openAlertCount === 1 ? '' : 's'}`;
+  }
+
+  if (isMissedCheckin(patient, nowMs)) {
+    return 'Missed recent check-in';
+  }
+
+  if (isRecentlyActive(patient, '7d', nowMs)) {
+    return 'Recently active this week';
+  }
+
+  const status = getPatientStatus(patient);
+  if (status === 'on_hold') {
+    return 'On-hold monitoring';
+  }
+
+  if (status === 'discharged') {
+    return 'Discharged from active care';
+  }
+
+  if (status === 'inactive') {
+    return 'Inactive record';
+  }
+
+  return 'Active monitoring';
+}
+
 export function isMissedCheckin(patient: PatientSummary, nowMs: number = Date.now()): boolean {
   return isOlderThanDays(patient.lastCheckinAt, MISSED_CHECKIN_DAYS, nowMs);
 }

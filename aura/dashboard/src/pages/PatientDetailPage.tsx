@@ -1805,14 +1805,56 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </section>
 
+      <section className="patient-detail-reference-bridge" aria-label="Deeper clinical context">
+        <div className="patient-detail-reference-bridge__copy">
+          <p className="patient-detail-reference-bridge__eyebrow">Deeper context</p>
+          <strong className="patient-detail-reference-bridge__title">
+            Move from immediate follow-up into supporting daily history and plan detail.
+          </strong>
+          <p className="patient-detail-reference-bridge__text">
+            The next sections are slower reference panels. Use them after the priority and follow-up workspace above
+            when you need recent symptom detail, adherence context, or care-plan review.
+          </p>
+        </div>
+        <div className="patient-detail-reference-bridge__facts">
+          <div className="patient-detail-reference-bridge__fact">
+            <span>Symptom detail</span>
+            <strong>
+              {recentSleepRows.length > 0 || recentBodyMapRows.length > 0 || recentPhotos.length > 0
+                ? 'Available this week'
+                : 'No recent entries'}
+            </strong>
+          </div>
+          <div className="patient-detail-reference-bridge__fact">
+            <span>Support signals</span>
+            <strong>
+              {recentHydrationDays.length > 0 ||
+              recentNutritionDays.length > 0 ||
+              recentWearablesDays.length > 0 ||
+              recentMedicationDays.length > 0
+                ? 'Tracked this week'
+                : 'No support logs'}
+            </strong>
+          </div>
+          <div className="patient-detail-reference-bridge__fact">
+            <span>Care review</span>
+            <strong>
+              {patientPromDue.length > 0 || patientPendingInsights.length > 0
+                ? `${patientPromDue.length} due · ${patientPendingInsights.length} pending`
+                : 'No open review items'}
+            </strong>
+          </div>
+        </div>
+      </section>
+
       <section className="patient-detail-section-block patient-detail-section-block--signals">
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
-            <p className="patient-detail-section-eyebrow">Check-in detail</p>
+            <p className="patient-detail-section-eyebrow">Reference detail</p>
             <h2 className="patient-detail-section-title">Recent symptom signals</h2>
           </div>
           <p className="patient-detail-section-note">
-            Sleep, body map, and photos from the last 7 days.
+            Use sleep, body-map, and photo history to support the trend review when daily symptom context matters.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--signals">
@@ -1965,11 +2007,11 @@ export function PatientDetailPage(): JSX.Element {
       <section className="patient-detail-section-block patient-detail-section-block--habits">
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
-            <p className="patient-detail-section-eyebrow">Habits and adherence</p>
+            <p className="patient-detail-section-eyebrow">Support trends</p>
             <h2 className="patient-detail-section-title">Daily support signals</h2>
           </div>
           <p className="patient-detail-section-note">
-            Hydration, nutrition, wearables, and medication trends for adherence review.
+            Hydration, nutrition, wearables, and medication patterns provide slower recovery and adherence context.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--habits">
@@ -2164,11 +2206,12 @@ export function PatientDetailPage(): JSX.Element {
       <section className="patient-detail-section-block patient-detail-section-block--operations">
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
-            <p className="patient-detail-section-eyebrow">Care operations</p>
-            <h2 className="patient-detail-section-title">Plan, review, and follow-up</h2>
+            <p className="patient-detail-section-eyebrow">Care planning</p>
+            <h2 className="patient-detail-section-title">Plan, questionnaires, and review detail</h2>
           </div>
           <p className="patient-detail-section-note">
-            Keep care plans, PROMs, insights, and sessions aligned for the next clinician action.
+            Use these panels to align rehab phase, questionnaires, insights, and sessions after reviewing immediate
+            priorities.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--workflow">

@@ -1,6 +1,12 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
 import type { PatientSummary } from '../../types/models';
-import { getPatientDisplayName, getPatientStatus, hasOpenAlerts, isMissedCheckin } from '../../utils/patientFilters';
+import {
+  getPatientDisplayName,
+  getPatientRosterReason,
+  getPatientStatus,
+  hasOpenAlerts,
+  isMissedCheckin,
+} from '../../utils/patientFilters';
 import { formatDateTime, formatRelativeDate } from '../../utils/date';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -18,6 +24,10 @@ function asPainText(value: number | undefined): string {
   }
 
   return value.toFixed(1);
+}
+
+function formatOpenAlertsText(count: number): string {
+  return count === 0 ? 'No active alerts' : `${count} active alert${count === 1 ? '' : 's'}`;
 }
 
 function moveFocusToRow(
@@ -46,19 +56,19 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
               Patient
             </th>
             <th scope="col" className="patients-table__head patients-table__head--status">
-              Status
+              Care state
             </th>
             <th scope="col" className="patients-table__head patients-table__head--checkin">
-              Last check-in
+              Recent activity
             </th>
             <th scope="col" className="patients-table__head patients-table__head--alerts">
-              Open alerts
+              Alert burden
             </th>
             <th scope="col" className="patients-table__head patients-table__head--pain">
-              Last 7d pain
+              Pain trend
             </th>
             <th scope="col" className="patients-table__head patients-table__head--actions">
-              Actions
+              Next step
             </th>
           </tr>
         </thead>
@@ -70,6 +80,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
             const missedCheckin = isMissedCheckin(patient);
             const openAlertCount = patient.openAlertCount ?? 0;
             const hasOpenAlertCount = hasOpenAlerts(patient);
+            const rosterReason = getPatientRosterReason(patient);
             const painSeverity =
               typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
                 ? patient.lastPain >= 7
@@ -120,11 +131,23 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                         {displayName}
                       </strong>
                       {showIdSubline ? <span className="patient-id-text patients-table__patient-id">ID: {patient.id}</span> : null}
+                      <span className="patients-table__patient-support">{rosterReason}</span>
                     </div>
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--status">
-                  <PatientStatusBadge className="patients-status-badge" status={status} />
+                  <div className="patients-table__metric">
+                    <PatientStatusBadge className="patients-status-badge" status={status} />
+                    <p className="patients-table__support">
+                      {status === 'active'
+                        ? 'Currently in active care'
+                        : status === 'on_hold'
+                          ? 'Temporarily paused'
+                          : status === 'discharged'
+                            ? 'Completed care cycle'
+                            : 'Not currently active'}
+                    </p>
+                  </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--checkin">
                   <div className="patients-table__checkin">
@@ -135,6 +158,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                     >
                       {formatRelativeDate(patient.lastCheckinAt)}
                     </time>
+                    <span className="patients-table__checkin-detail">{formatDateTime(patient.lastCheckinAt)}</span>
                     {missedCheckin ? (
                       <Badge className="patients-table__missed-badge" variant="warning" icon>
                         Missed check-in
@@ -143,17 +167,27 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--alerts">
-                  <Badge
-                    className={`patients-table__alerts-badge${hasOpenAlertCount ? ' patients-table__alerts-badge--active' : ''}`}
-                    variant={hasOpenAlertCount ? 'danger' : 'default'}
-                  >
-                    {openAlertCount} open
-                  </Badge>
+                  <div className="patients-table__metric patients-table__metric--alerts">
+                    <Badge
+                      className={`patients-table__alerts-badge${hasOpenAlertCount ? ' patients-table__alerts-badge--active' : ''}`}
+                      variant={hasOpenAlertCount ? 'danger' : 'default'}
+                    >
+                      {hasOpenAlertCount ? `${openAlertCount} open` : 'Clear'}
+                    </Badge>
+                    <p className="patients-table__support">{formatOpenAlertsText(openAlertCount)}</p>
+                  </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--pain">
-                  <span className={`patients-table__pain-value patients-table__pain-value--${painSeverity}`}>
-                    {asPainText(patient.lastPain)}
-                  </span>
+                  <div className="patients-table__metric patients-table__metric--pain">
+                    <span className={`patients-table__pain-value patients-table__pain-value--${painSeverity}`}>
+                      {asPainText(patient.lastPain)}
+                    </span>
+                    <p className="patients-table__support">
+                      {typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
+                        ? 'Last 7-day average'
+                        : 'No pain trend yet'}
+                    </p>
+                  </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--actions">
                   <div
@@ -162,13 +196,13 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                   >
                     <Button
                       className="patients-table__view"
-                      variant="ghost"
+                      variant="secondary"
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenPatient(patient.id);
                       }}
                     >
-                      View
+                      Open
                     </Button>
                     <PatientStatusMenu currentStatus={status} compact />
                   </div>

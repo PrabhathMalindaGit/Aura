@@ -17,11 +17,63 @@ import { usePatients } from '../services/clinicianApi';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { asAppError } from '../utils/errors';
 import { toErrorView } from '../utils/errorView';
-import { applyPatientFilters, defaultPatientFilters, type PatientFilters } from '../utils/patientFilters';
+import {
+  applyPatientFilters,
+  defaultPatientFilters,
+  hasOpenAlerts,
+  isMissedCheckin,
+  isRecentlyActive,
+  type PatientFilters,
+  type PatientSortOption,
+  type PatientStatusFilter,
+  type RecentlyActiveFilter,
+} from '../utils/patientFilters';
 
 const PATIENTS_ENDPOINT_HINT =
   'Add GET /clinician/patients returning { ok: true, patients: [...] }';
 const RETRY_EVENT = 'aura:retry';
+
+function formatPatientStatusFilterLabel(status: PatientStatusFilter): string {
+  if (status === 'all') {
+    return 'All statuses';
+  }
+  if (status === 'active') {
+    return 'Active only';
+  }
+  if (status === 'on_hold') {
+    return 'On hold only';
+  }
+  if (status === 'discharged') {
+    return 'Discharged only';
+  }
+  return 'Inactive only';
+}
+
+function formatRecentActivityLabel(value: RecentlyActiveFilter): string {
+  if (value === 'all') {
+    return 'All activity windows';
+  }
+  if (value === '24h') {
+    return 'Active in 24h';
+  }
+  if (value === '7d') {
+    return 'Active in 7d';
+  }
+  return 'Active in 30d';
+}
+
+function formatPatientSortLabel(value: PatientSortOption): string {
+  if (value === 'alerts-desc') {
+    return 'Sorted by alert burden';
+  }
+  if (value === 'last-checkin-desc') {
+    return 'Sorted by recent check-in';
+  }
+  if (value === 'name-asc') {
+    return 'Sorted A-Z';
+  }
+  return 'Sorted by care state';
+}
 
 function isEndpointMissing(error: unknown): boolean {
   const appError = asAppError(error);
@@ -45,6 +97,8 @@ export function PatientsPage(): JSX.Element {
       onHold: 0,
       discharged: 0,
       openAlerts: 0,
+      recentlyActive: 0,
+      needsReview: 0,
     };
 
     allPatients.forEach((patient) => {
@@ -58,6 +112,14 @@ export function PatientsPage(): JSX.Element {
 
       if ((patient.openAlertCount ?? 0) > 0) {
         summary.openAlerts += 1;
+      }
+
+      if (isRecentlyActive(patient, '7d')) {
+        summary.recentlyActive += 1;
+      }
+
+      if (hasOpenAlerts(patient) || isMissedCheckin(patient)) {
+        summary.needsReview += 1;
       }
     });
 
@@ -77,6 +139,12 @@ export function PatientsPage(): JSX.Element {
         minute: '2-digit',
       })
     : '--';
+  const rosterStateLabel =
+    filters.hasOpenAlertsOnly || filters.missedCheckinsOnly
+      ? 'Attention filters active'
+      : formatPatientStatusFilterLabel(filters.status);
+  const activityWindowLabel = formatRecentActivityLabel(filters.recentlyActive);
+  const sortLabel = formatPatientSortLabel(filters.sort);
 
   const retryPatients = useCallback((): void => {
     void patientsQuery.refetch();
@@ -99,13 +167,16 @@ export function PatientsPage(): JSX.Element {
     <Stack className="page-stack patients-page" gap="5">
       <Section
         className="dashboard-page-header patients-page-header"
-        eyebrow="Patient panel"
+        eyebrow="Care roster"
         title="Patients"
-        subtitle="Review patient status, recent activity, and alert burden before opening detail."
+        subtitle="Monitor the broader care roster, recent activity, and alert burden before moving into patient review or worklist triage."
         meta={
           <span className="patients-page__meta" aria-live="polite">
             <span className="patients-page__meta-pill patients-page__meta-pill--count">
               {visiblePatients.length} in view
+            </span>
+            <span className="patients-page__meta-pill">
+              {rosterSummary.needsReview} may need closer review
             </span>
             <span className="patients-page__meta-pill patients-page__meta-pill--updated">Updated {updatedAtLabel}</span>
           </span>
@@ -130,30 +201,58 @@ export function PatientsPage(): JSX.Element {
 
       <section className="patients-summary-strip" aria-label="Patient roster summary">
         <article className="patients-summary-strip__item patients-summary-strip__item--total">
-          <p className="patients-summary-strip__label">Total</p>
+          <p className="patients-summary-strip__label">Total roster</p>
           <p className="patients-summary-strip__value">{rosterSummary.total}</p>
+          <p className="patients-summary-strip__hint">{visiblePatients.length} currently in view</p>
         </article>
         <article className="patients-summary-strip__item patients-summary-strip__item--active">
-          <p className="patients-summary-strip__label">Active</p>
+          <p className="patients-summary-strip__label">Active care</p>
           <p className="patients-summary-strip__value">{rosterSummary.active}</p>
+          <p className="patients-summary-strip__hint">Patients currently in active rehab</p>
+        </article>
+        <article className="patients-summary-strip__item patients-summary-strip__item--active">
+          <p className="patients-summary-strip__label">Recently active</p>
+          <p className="patients-summary-strip__value">{rosterSummary.recentlyActive}</p>
+          <p className="patients-summary-strip__hint">Checked in during the last 7 days</p>
         </article>
         <article className="patients-summary-strip__item patients-summary-strip__item--on-hold">
           <p className="patients-summary-strip__label">On hold</p>
           <p className="patients-summary-strip__value">{rosterSummary.onHold}</p>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--discharged">
-          <p className="patients-summary-strip__label">Discharged</p>
-          <p className="patients-summary-strip__value">{rosterSummary.discharged}</p>
+          <p className="patients-summary-strip__hint">
+            {rosterSummary.discharged} discharged from active care
+          </p>
         </article>
         <article className="patients-summary-strip__item patients-summary-strip__item--attention">
-          <p className="patients-summary-strip__label">With open alerts</p>
-          <p className="patients-summary-strip__value">{rosterSummary.openAlerts}</p>
+          <p className="patients-summary-strip__label">Needs review</p>
+          <p className="patients-summary-strip__value">{rosterSummary.needsReview}</p>
+          <p className="patients-summary-strip__hint">
+            {rosterSummary.openAlerts} with active alerts
+          </p>
         </article>
+      </section>
+
+      <section className="patients-roster-note" aria-label="Patient roster context">
+        <div className="patients-roster-note__copy">
+          <p className="patients-roster-note__eyebrow">How this roster is used</p>
+          <p className="patients-roster-note__text">
+            Use Patients for broad population review and current status checks. Switch to Worklist when someone needs issue-driven follow-up, then open the patient cockpit for detailed clinical context.
+          </p>
+        </div>
+        <div className="patients-roster-note__facts">
+          <span className="patients-roster-note__fact">{rosterStateLabel}</span>
+          <span className="patients-roster-note__fact">{activityWindowLabel}</span>
+          <span className="patients-roster-note__fact">{sortLabel}</span>
+        </div>
       </section>
 
       <Card
         className="patients-workspace-card"
-        title="Patients"
+        title={
+          <span className="patients-card-title">
+            Patients
+            <span className="patients-card-title__meta">Roster workspace</span>
+          </span>
+        }
         action={
           <Button
             className="patients-workspace-card__refresh"
@@ -169,8 +268,15 @@ export function PatientsPage(): JSX.Element {
       >
         <Stack gap="4">
           <div className="patients-workspace-card__controls">
+            <div className="patients-workspace-card__context">
+              <div className="patients-workspace-card__facts">
+                <span className="patients-workspace-card__fact">{rosterStateLabel}</span>
+                <span className="patients-workspace-card__fact">{activityWindowLabel}</span>
+                <span className="patients-workspace-card__fact">{sortLabel}</span>
+              </div>
+            </div>
             <p className="patients-queue-intro">
-              Start with open-alert and activity filters to prioritize who needs follow-up first.
+              Review the wider roster here, then narrow by alert burden, missed check-ins, or recent activity before opening an individual patient record.
             </p>
             <PatientsFiltersBar
               filters={filters}
@@ -255,7 +361,7 @@ export function PatientsPage(): JSX.Element {
                 <h3 className="patients-empty-state__title">Roster clear</h3>
               </div>
               <p className="patients-empty-state__description">
-                No patients are available yet. They will appear here after check-ins or alerts are recorded.
+                No patient records are available yet. This roster fills in as check-ins, alerts, and care activity are recorded.
               </p>
               <p className="patients-empty-state__meta">Last updated {updatedAtLabel}</p>
             </div>
@@ -268,7 +374,7 @@ export function PatientsPage(): JSX.Element {
                 <h3 className="patients-empty-state__title">No matching patients</h3>
               </div>
               <p className="patients-empty-state__description">
-                Try adjusting filters or searching by a different patient ID.
+                This roster view is narrower than the current patient set. Adjust a filter or search by a different name or patient ID.
               </p>
               <div className="patients-empty-state__actions">
                 <Button

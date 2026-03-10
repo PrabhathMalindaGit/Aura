@@ -74,11 +74,14 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Manage clinician preferences, appearance, and session security in one place."
+        subtitle="Manage clinician preferences, identity, and session protection for this browser workspace."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
               {themeSummaryLabel} mode
+            </span>
+            <span className="settings-page__meta-pill settings-page__meta-pill--local">
+              This browser only
             </span>
             <span
               className={`settings-page__meta-pill settings-page__meta-pill--status ${
@@ -120,6 +123,22 @@ export function SettingsPage(): JSX.Element {
         </article>
       </section>
 
+      <section className="settings-workspace-note" aria-label="How settings apply">
+        <div className="settings-workspace-note__copy">
+          <p className="settings-workspace-note__eyebrow">How this workspace is configured</p>
+          <p className="settings-workspace-note__text">
+            These controls update the current browser workspace immediately. They shape how this
+            clinician view looks, how session protection behaves on this device, and which identity
+            appears for ownership and review actions.
+          </p>
+        </div>
+        <div className="settings-workspace-note__facts" aria-label="Settings behavior facts">
+          <span className="settings-workspace-note__fact">Applies immediately</span>
+          <span className="settings-workspace-note__fact">Stored locally</span>
+          <span className="settings-workspace-note__fact">{identityStateLabel}</span>
+        </div>
+      </section>
+
       <section className="settings-groups" aria-label="Settings groups">
         <Card
           className="settings-group-card settings-group-card--preferences"
@@ -130,8 +149,14 @@ export function SettingsPage(): JSX.Element {
             </span>
           }
         >
+          <div className="settings-group-card__context">
+            <span className="settings-group-card__context-pill">Personal defaults</span>
+            <p className="settings-group-card__context-note">
+              Stored locally for this browser workspace.
+            </p>
+          </div>
           <div className="settings-group-card__intro">
-            Configure workspace preferences for display behavior and warning cues.
+            Configure appearance and day-to-day workspace behavior without changing shared product data.
           </div>
           <div className="settings-list settings-list--refined">
             <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
@@ -223,9 +248,14 @@ export function SettingsPage(): JSX.Element {
             </label>
           </div>
 
-          <div className="inline-actions settings-actions settings-actions--primary settings-actions--preferences">
-            <Button>Save Preferences</Button>
-            <Button variant="ghost">Reset</Button>
+          <div className="settings-card-footer">
+            <div className="inline-actions settings-actions settings-actions--primary settings-actions--preferences">
+              <Button>Save Preferences</Button>
+              <Button variant="ghost">Reset</Button>
+            </div>
+            <p className="settings-card-footer__note">
+              Theme, density, and warning preferences are saved locally for this browser.
+            </p>
           </div>
 
           {themeNotice ? (
@@ -244,8 +274,12 @@ export function SettingsPage(): JSX.Element {
             </span>
           }
         >
+          <div className="settings-group-card__context">
+            <span className="settings-group-card__context-pill">Local protection</span>
+            <p className="settings-group-card__context-note">Takes effect immediately in this workspace.</p>
+          </div>
           <div className="settings-group-card__intro">
-            Session controls are enforced locally in this browser to protect patient context during clinician workflows.
+            Session controls protect patient context in this browser and reduce the risk of unattended access during clinician work.
           </div>
           <div className="settings-list settings-list--refined">
             <label className="setting-item setting-item--toggle" htmlFor="idle-timeout-enabled-toggle">
@@ -303,17 +337,22 @@ export function SettingsPage(): JSX.Element {
             </label>
           </div>
 
-          <div className="inline-actions settings-actions settings-actions--security">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                const reset = setSessionSettings(DEFAULT_SESSION_SETTINGS);
-                setLocalSessionSettings(reset);
-                setSessionNotice('Session security settings reset to defaults.');
-              }}
-            >
-              Reset session defaults
-            </Button>
+          <div className="settings-card-footer">
+            <div className="inline-actions settings-actions settings-actions--security">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const reset = setSessionSettings(DEFAULT_SESSION_SETTINGS);
+                  setLocalSessionSettings(reset);
+                  setSessionNotice('Session security settings reset to defaults.');
+                }}
+              >
+                Reset session defaults
+              </Button>
+            </div>
+            <p className="settings-card-footer__note">
+              Auto-logout timing updates the current browser session manager right away.
+            </p>
           </div>
 
           {sessionNotice ? (
@@ -332,8 +371,14 @@ export function SettingsPage(): JSX.Element {
             </span>
           }
         >
+          <div className="settings-group-card__context">
+            <span className="settings-group-card__context-pill">Assignment labels</span>
+            <p className="settings-group-card__context-note">
+              Used for ownership and review actions on this device.
+            </p>
+          </div>
           <div className="settings-group-card__intro">
-            Set the identity shown for assignment ownership and review actions on this device.
+            Set the clinician identity shown for assignments and review activity in this browser workspace.
           </div>
           <div className="settings-list settings-list--refined">
             <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
@@ -367,28 +412,33 @@ export function SettingsPage(): JSX.Element {
             </label>
           </div>
 
-          <div className="inline-actions settings-actions settings-actions--primary settings-actions--identity">
-            <Button
-              onClick={() => {
-                setClinicianIdentity(clinicianId, clinicianName);
-                setClinicianId(getClinicianId());
-                setClinicianName(getClinicianName());
-                setIdentityNotice('Clinician identity saved.');
-              }}
-            >
-              Save identity
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setClinicianId('clinician-1');
-                setClinicianName('Clinician 1');
-                setClinicianIdentity('clinician-1', 'Clinician 1');
-                setIdentityNotice('Clinician identity reset to defaults.');
-              }}
-            >
-              Reset identity
-            </Button>
+          <div className="settings-card-footer">
+            <div className="inline-actions settings-actions settings-actions--primary settings-actions--identity">
+              <Button
+                onClick={() => {
+                  setClinicianIdentity(clinicianId, clinicianName);
+                  setClinicianId(getClinicianId());
+                  setClinicianName(getClinicianName());
+                  setIdentityNotice('Clinician identity saved.');
+                }}
+              >
+                Save identity
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setClinicianId('clinician-1');
+                  setClinicianName('Clinician 1');
+                  setClinicianIdentity('clinician-1', 'Clinician 1');
+                  setIdentityNotice('Clinician identity reset to defaults.');
+                }}
+              >
+                Reset identity
+              </Button>
+            </div>
+            <p className="settings-card-footer__note">
+              This does not update a shared profile record. It controls how you appear in this browser.
+            </p>
           </div>
 
           {identityNotice ? (
@@ -398,8 +448,8 @@ export function SettingsPage(): JSX.Element {
           ) : null}
         </Card>
 
-        <AlertBanner className="settings-guidance-banner" variant="info" title="Security guidance">
-          Session settings are stored locally in this browser and take effect immediately for this clinician workspace.
+        <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
+          Settings on this page are browser-backed. They change how this clinician workspace behaves on this device, but they do not publish shared product-wide preferences.
         </AlertBanner>
       </section>
     </div>

@@ -56,6 +56,23 @@ function formatWorkspaceUpdatedAt(slotsUpdatedAt: number, requestsUpdatedAt: num
   });
 }
 
+function formatSlotViewLabel(status: 'available' | 'closed'): string {
+  return status === 'available' ? 'Open capacity' : 'Closed capacity';
+}
+
+function formatRequestViewLabel(status: 'pending' | 'approved' | 'rejected' | 'canceled'): string {
+  if (status === 'pending') {
+    return 'Needs review';
+  }
+  if (status === 'approved') {
+    return 'Approved';
+  }
+  if (status === 'rejected') {
+    return 'Declined';
+  }
+  return 'Canceled';
+}
+
 export function AppointmentsPage(): JSX.Element {
   const [slotStatus, setSlotStatus] = useState<'available' | 'closed'>('available');
   const [requestStatus, setRequestStatus] = useState<'pending' | 'approved' | 'rejected' | 'canceled'>(
@@ -99,6 +116,8 @@ export function AppointmentsPage(): JSX.Element {
   const refreshedAtLabel = formatWorkspaceUpdatedAt(slotsQuery.dataUpdatedAt, requestsQuery.dataUpdatedAt);
   const isRefreshingWorkspace = slotsQuery.isFetching || requestsQuery.isFetching;
   const schedulingStatusLabel = pendingRequestsCount > 0 ? 'Needs attention' : 'Steady';
+  const slotViewLabel = formatSlotViewLabel(slotStatus);
+  const requestViewLabel = formatRequestViewLabel(requestStatus);
   const nextAvailableSlotLabel = useMemo(() => {
     const nextSlot = slots
       .filter((slot) => (slot.status ?? 'available') === 'available')
@@ -108,6 +127,28 @@ export function AppointmentsPage(): JSX.Element {
 
     return nextSlot ? formatDateTime(nextSlot.slot.startsAt) : '--';
   }, [slots]);
+  const nextAvailableSlotMeta =
+    nextAvailableSlotLabel === '--' ? 'No open slot yet' : `Next open ${nextAvailableSlotLabel}`;
+  const slotsSectionNote =
+    slotStatus === 'available'
+      ? `${slots.length} ready to book`
+      : `${slots.length} unavailable or completed`;
+  const requestsSectionNote =
+    requestStatus === 'pending'
+      ? `${requests.length} waiting for review`
+      : `${requests.length} in this status`;
+  const slotsEmptyTitle =
+    slotStatus === 'available' ? 'No open slots right now' : 'No closed slots in this view';
+  const slotsEmptyDescription =
+    slotStatus === 'available'
+      ? 'Create a new availability window to publish bookable capacity for patients.'
+      : 'Closed or completed availability will appear here after scheduling changes or past sessions.';
+  const requestsEmptyTitle =
+    requestStatus === 'pending' ? 'No requests need review' : `No ${requestStatus} requests`;
+  const requestsEmptyDescription =
+    requestStatus === 'pending'
+      ? 'New patient booking requests will appear here when they need clinician review.'
+      : 'Requests matching this workflow state will appear here when the queue changes.';
 
   async function handleCreateSlot(): Promise<void> {
     setErrorMessage(null);
@@ -159,12 +200,13 @@ export function AppointmentsPage(): JSX.Element {
         className="dashboard-page-header appointments-page-header"
         eyebrow="Care coordination"
         title="Appointments"
-        subtitle="Create clinician availability, review patient requests, and manage tele-rehab scheduling."
+        subtitle="Plan clinician availability, review booking requests, and keep tele-rehab scheduling clear and timely."
         meta={
           <span className="appointments-page__meta" aria-live="polite">
             <span className="appointments-page__meta-pill appointments-page__meta-pill--count">
               {pendingRequestsCount} pending requests
             </span>
+            <span className="appointments-page__meta-pill">{availableSlotsCount} open slots</span>
             <span
               className={`appointments-page__meta-pill appointments-page__meta-pill--status ${
                 pendingRequestsCount > 0
@@ -211,10 +253,22 @@ export function AppointmentsPage(): JSX.Element {
         <article className="appointments-summary-strip__item appointments-summary-strip__item--attention">
           <p className="appointments-summary-strip__label">Pending requests</p>
           <p className="appointments-summary-strip__value">{pendingRequestsCount}</p>
-          <p className="appointments-summary-strip__hint">
-            Next available {nextAvailableSlotLabel}
-          </p>
+          <p className="appointments-summary-strip__hint">{nextAvailableSlotMeta}</p>
         </article>
+      </section>
+
+      <section className="appointments-workspace-note" aria-label="Scheduling workspace context">
+        <div className="appointments-workspace-note__copy">
+          <p className="appointments-workspace-note__eyebrow">How this workspace flows</p>
+          <p className="appointments-workspace-note__text">
+            Publish availability first, then review booking requests in the same workspace so scheduling decisions stay quick, traceable, and clinically calm.
+          </p>
+        </div>
+        <div className="appointments-workspace-note__facts">
+          <span className="appointments-workspace-note__fact">{slotViewLabel}</span>
+          <span className="appointments-workspace-note__fact">{requestViewLabel}</span>
+          <span className="appointments-workspace-note__fact">{nextAvailableSlotMeta}</span>
+        </div>
       </section>
 
       {errorMessage ? (
@@ -229,10 +283,24 @@ export function AppointmentsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card className="appointments-composer-card" title="Create availability slot">
+      <Card
+        className="appointments-composer-card"
+        title={
+          <span className="appointments-card-title">
+            Create availability
+            <span className="appointments-card-title__meta">Planning</span>
+          </span>
+        }
+      >
         <div className="appointments-composer">
+          <div className="appointments-composer__context">
+            <span className="appointments-composer__context-pill">New bookable slot</span>
+            <p className="appointments-composer__context-note">
+              Published slots appear in the booking queue immediately and are offered as video visits.
+            </p>
+          </div>
           <p className="appointments-composer__intro">
-            Set local date and time first, then share an optional tele-rehab meeting link for the slot.
+            Set the local schedule window first, then attach an optional visit link for the patient-facing slot.
           </p>
           <div className="appointments-composer__surface">
             <div className="appointments-composer__cluster">
@@ -254,6 +322,11 @@ export function AppointmentsPage(): JSX.Element {
                     onChange={(event) => setEndsAtInput(event.target.value)}
                   />
                 </label>
+              </div>
+            </div>
+            <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
+              <p className="appointments-composer__cluster-label">Visit details</p>
+              <div className="appointments-composer__grid appointments-composer__grid--supporting">
                 <label className="appointments-composer__field appointments-composer__field--wide form-field">
                   <span className="appointments-composer__label">Meeting link (optional)</span>
                   <input
@@ -264,15 +337,18 @@ export function AppointmentsPage(): JSX.Element {
                   />
                 </label>
               </div>
+              <p className="appointments-composer__cluster-note">
+                Add a meeting link only when the slot should open directly into a tele-rehab session.
+              </p>
             </div>
           </div>
           <div className="appointments-composer__actions">
             <div className="appointments-composer__hint-group">
               <p className="appointments-composer__hint">
-                Slots are created as video visits and become visible in the booking queue immediately.
+                Slots become visible in the booking queue immediately after creation.
               </p>
               <p className="appointments-composer__hint appointments-composer__hint--quiet">
-                Last refresh {refreshedAtLabel}
+                {nextAvailableSlotMeta} · Last refresh {refreshedAtLabel}
               </p>
             </div>
             <Button
@@ -288,20 +364,34 @@ export function AppointmentsPage(): JSX.Element {
         </div>
       </Card>
 
-      <Card className="appointments-workspace-card" title="Scheduling workspace">
+      <Card
+        className="appointments-workspace-card"
+        title={
+          <span className="appointments-card-title">
+            Scheduling workspace
+            <span className="appointments-card-title__meta">Review & coordination</span>
+          </span>
+        }
+      >
         <div className="appointments-workspace">
+          <div className="appointments-workspace__context">
+            <div className="appointments-workspace__context-facts">
+              <span className="appointments-workspace__context-pill">{slotViewLabel}</span>
+              <span className="appointments-workspace__context-pill">{requestViewLabel}</span>
+            </div>
+          </div>
           <p className="appointments-workspace__intro">
-            Review availability and patient booking requests together to keep scheduling decisions quick and clear.
+            Review availability and patient booking requests together so planning and follow-up stay in one calm operational view.
           </p>
           <div className="appointments-workspace__panels">
             <section className="appointments-workspace__section appointments-workspace__section--slots" aria-label="Appointment slots">
               <header className="appointments-workspace__section-header">
                 <div className="appointments-workspace__section-heading">
                   <h3 className="appointments-workspace__section-title">Slots</h3>
-                  <p className="appointments-workspace__section-note">{slots.length} in this view</p>
+                  <p className="appointments-workspace__section-note">{slotsSectionNote}</p>
                 </div>
                 <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
-                  {slotStatus === 'available' ? 'Available view' : 'Closed view'}
+                  {slotViewLabel}
                 </Badge>
               </header>
               <div className="appointments-filter-group appointments-filter-group--segmented">
@@ -339,10 +429,10 @@ export function AppointmentsPage(): JSX.Element {
                     <span className="appointments-empty-state__icon" aria-hidden="true">
                       ⏱
                     </span>
-                    <h3 className="appointments-empty-state__title">No slots in this view</h3>
+                    <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
                   </div>
                   <p className="appointments-empty-state__description">
-                    Create a new availability slot to start accepting patient booking requests.
+                    {slotsEmptyDescription}
                   </p>
                   <div className="appointments-empty-state__footer">
                     <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
@@ -368,6 +458,11 @@ export function AppointmentsPage(): JSX.Element {
                           <p className="appointments-item__title">{formatDateTime(slot.startsAt)}</p>
                           <p className="appointments-item__subtitle">
                             Ends {formatDateTime(slot.endsAt)}
+                          </p>
+                          <p className="appointments-item__support">
+                            {slotStatus === 'available'
+                              ? 'Ready for patient booking'
+                              : 'Unavailable for new bookings'}
                           </p>
                         </div>
                         <Badge variant={toStatusVariant(slot.status ?? 'available')}>
@@ -403,10 +498,10 @@ export function AppointmentsPage(): JSX.Element {
               <header className="appointments-workspace__section-header">
                 <div className="appointments-workspace__section-heading">
                   <h3 className="appointments-workspace__section-title">Requests</h3>
-                  <p className="appointments-workspace__section-note">{requests.length} in this view</p>
+                  <p className="appointments-workspace__section-note">{requestsSectionNote}</p>
                 </div>
                 <Badge variant={requestStatus === 'pending' ? 'warning' : 'default'}>
-                  {requestStatus}
+                  {requestViewLabel}
                 </Badge>
               </header>
               <div className="appointments-filter-group appointments-filter-group--segmented">
@@ -440,10 +535,10 @@ export function AppointmentsPage(): JSX.Element {
                     <span className="appointments-empty-state__icon" aria-hidden="true">
                       ✓
                     </span>
-                    <h3 className="appointments-empty-state__title">No requests in this view</h3>
+                    <h3 className="appointments-empty-state__title">{requestsEmptyTitle}</h3>
                   </div>
                   <p className="appointments-empty-state__description">
-                    Requests matching the current status filter will appear here when patients book slots.
+                    {requestsEmptyDescription}
                   </p>
                   <div className="appointments-empty-state__footer">
                     <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
@@ -469,6 +564,13 @@ export function AppointmentsPage(): JSX.Element {
                           <p className="appointments-item__title">{formatDateTime(item.startsAt)}</p>
                           <p className="appointments-item__subtitle">
                             Ends {formatDateTime(item.endsAt)}
+                          </p>
+                          <p className="appointments-item__support">
+                            {item.status === 'pending'
+                              ? 'Awaiting clinician review'
+                              : item.reviewedAt
+                                ? `Reviewed ${formatDateTime(item.reviewedAt)}`
+                                : 'Decision recorded'}
                           </p>
                         </div>
                         <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>

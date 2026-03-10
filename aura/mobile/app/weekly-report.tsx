@@ -14,6 +14,7 @@ import { isApiError, type ApiError } from "@/src/api/client";
 import { getWeeklyReport, type WeeklyReport } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -23,6 +24,8 @@ import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
+import { Section } from "@/src/components/Section";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
@@ -216,14 +219,14 @@ export default function WeeklyReportScreen() {
           setNotice({
             variant: "warning",
             title: "Offline",
-            message: "Offline — showing saved weekly report.",
+            message: "Offline — showing a saved weekly summary.",
           });
         } else {
           setReport(null);
           setNotice({
             variant: "warning",
             title: "Offline",
-            message: "Offline — no saved report is available for this week yet.",
+            message: "Offline — no saved weekly summary is available for this week yet.",
           });
         }
 
@@ -243,7 +246,7 @@ export default function WeeklyReportScreen() {
         await weeklyRefresh.refreshLocal();
         await weeklyLoadError.clear();
       } catch (error) {
-        const friendly = toFriendlyError(error, "Couldn’t load weekly report");
+        const friendly = toFriendlyError(error, "Couldn’t load weekly summary");
         await weeklyLoadError.setLocalError({
           title: friendly.title,
           message: friendly.message,
@@ -257,7 +260,7 @@ export default function WeeklyReportScreen() {
           setNotice({
             variant: "warning",
             title: friendly.title,
-            message: "Showing saved report. Live refresh failed.",
+            message: "Showing a saved summary. Live refresh failed.",
             actionLabel: friendly.retryable ? "Retry" : undefined,
             onAction: friendly.retryable
               ? () => {
@@ -488,7 +491,7 @@ export default function WeeklyReportScreen() {
         header={
           <HeroHeader
             variant="compact"
-            title="Weekly report"
+            title="Weekly summary"
             subtitle="Loading"
             left={<Avatar size={40} name={auth.patient?.displayName ?? "Patient"} fallback="icon" iconKey="weekly" />}
           />
@@ -509,6 +512,13 @@ export default function WeeklyReportScreen() {
   const headerSubtitle = report
     ? `${report.period.weekStart} to ${report.period.weekEnd}`
     : selectedWeekLabel;
+  const safetySummaryLabel = report
+    ? report.safety.highRiskAlertsThisWeek > 0
+      ? "Needs attention"
+      : "Stable week"
+    : "Summary pending";
+  const weeklyTakeawayTitle =
+    selectedWeek === "this" ? "This week at a glance" : "Last week at a glance";
 
   return (
     <Screen
@@ -516,7 +526,7 @@ export default function WeeklyReportScreen() {
       header={
         <HeroHeader
           variant="compact"
-          title="Weekly report"
+          title="Weekly summary"
           subtitle={headerSubtitle}
           left={
             <Avatar
@@ -547,7 +557,29 @@ export default function WeeklyReportScreen() {
               onPress: () => router.push("/safety" as never),
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill label={selectedWeekLabel} variant="info" accessible={false} />
+            {report ? (
+              <StatusPill
+                label={`${report.checkins.count} check-ins`}
+                variant={report.checkins.count > 0 ? "success" : "neutral"}
+                accessible={false}
+              />
+            ) : null}
+            <StatusPill
+              label={safetySummaryLabel}
+              variant={
+                report
+                  ? report.safety.highRiskAlertsThisWeek > 0
+                    ? "warning"
+                    : "success"
+                  : "neutral"
+              }
+              accessible={false}
+            />
+          </View>
+        </HeroHeader>
       }
     >
       <FlatList
@@ -566,8 +598,8 @@ export default function WeeklyReportScreen() {
         )}
         ListHeaderComponent={
           <View style={styles.stack}>
-            {__DEV__ ? (
-              <View style={styles.devBlock}>
+        {__DEV__ ? (
+          <View style={styles.devBlock}>
                 <SecondaryButton
                   label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
                   onPress={() => {
@@ -586,72 +618,79 @@ export default function WeeklyReportScreen() {
                     />
                   </View>
                 ) : null}
-              </View>
-            ) : null}
+          </View>
+        ) : null}
 
-            <SegmentedControl
-              value={selectedWeek}
-              options={[
-                { value: "this", label: "This week", icon: "weekly" },
-                { value: "last", label: "Last week", icon: "weekly" },
-              ]}
-              onChange={(nextValue) => {
-                setSelectedWeek(nextValue);
-              }}
-              accessibilityLabel="Weekly report range"
-            />
+        {isOffline ? (
+          <Banner
+            variant="warning"
+            title="Offline"
+            message="Offline — showing a saved weekly summary when available."
+          />
+        ) : null}
 
-            <View style={styles.actionRow}>
-              <View style={styles.actionButtonWrap}>
-                <PrimaryButton
-                  label={isRefreshing ? "Refreshing..." : "Refresh report"}
-                  loading={isRefreshing}
-                  disabled={isRefreshing}
-                  onPress={() => {
-                    void loadReport("refresh");
-                  }}
-                />
-              </View>
-              <View style={styles.actionButtonWrap}>
-                <SecondaryButton
-                  label="Share report"
-                  disabled={!report}
-                  onPress={() => {
-                    void shareReport();
-                  }}
-                />
-              </View>
-            </View>
-
-            {isOffline ? (
-              <Banner
-                variant="warning"
-                title="Offline"
-                message="Offline — showing cached report when available."
-              />
-            ) : null}
-
-            {notice ? (
-              <Banner
-                variant={toBannerVariant(notice.variant)}
-                title={notice.title}
+        {notice ? (
+          <Banner
+            variant={toBannerVariant(notice.variant)}
+            title={notice.title}
                 message={notice.message}
                 actionLabel={notice.actionLabel}
-                onAction={notice.onAction}
-              />
-            ) : null}
+            onAction={notice.onAction}
+          />
+        ) : null}
 
-            {isLoading ? (
-              <View style={styles.centered}>
-                <ActivityIndicator size="small" />
+        <Section
+          title="Review window"
+          subtitle="Switch weeks, refresh the summary, or share it when you’re ready."
+          right={<StatusPill label={selectedWeekLabel} variant="info" accessible={false} />}
+          card
+        >
+          <SegmentedControl
+            value={selectedWeek}
+            options={[
+              { value: "this", label: "This week", icon: "weekly" },
+              { value: "last", label: "Last week", icon: "weekly" },
+            ]}
+            onChange={(nextValue) => {
+              setSelectedWeek(nextValue);
+            }}
+            accessibilityLabel="Weekly summary range"
+          />
+
+          <View style={styles.actionRow}>
+            <View style={styles.actionButtonWrap}>
+              <PrimaryButton
+                label={isRefreshing ? "Refreshing..." : "Refresh summary"}
+                loading={isRefreshing}
+                disabled={isRefreshing}
+                onPress={() => {
+                  void loadReport("refresh");
+                }}
+              />
+            </View>
+            <View style={styles.actionButtonWrap}>
+              <SecondaryButton
+                label="Share summary"
+                disabled={!report}
+                onPress={() => {
+                  void shareReport();
+                }}
+              />
+            </View>
+          </View>
+        </Section>
+
+        {isLoading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="small" />
               </View>
             ) : null}
 
             {!isLoading && !report ? (
               <EmptyState
                 illustrationKey="weekly"
-                title="No report available"
-                description="Connect online and refresh to load this weekly report."
+                title="No weekly summary available"
+                description="Connect online and refresh when you’re ready. Your weekly summary will appear here once it’s available."
                 ctaLabel="Retry"
                 onCtaPress={() => {
                   void loadReport("refresh");
@@ -661,94 +700,128 @@ export default function WeeklyReportScreen() {
 
             {report ? (
               <>
-                <MediaCard
-                  variant="emphasis"
-                  leading={{ type: "icon", icon: "weekly", tone: "accent" }}
-                  title={report.summary.headline || "This week at a glance"}
-                  subtitle={`${report.period.weekStart} to ${report.period.weekEnd}`}
-                  chips={[
-                    ...report.summary.highlights.slice(0, 2).map((item) => ({
-                      text: item,
-                      tone: "muted" as const,
-                    })),
-                    {
-                      text: `${report.checkins.count} check-ins`,
-                      tone: "info" as const,
-                    },
-                  ]}
-                />
+                <Section
+                  title={weeklyTakeawayTitle}
+                  subtitle="Start with the headline summary, then scan the detailed breakdown below for supporting context."
+                  right={
+                    <StatusPill
+                      label={report.safety.highRiskAlertsThisWeek > 0 ? "Needs attention" : "Stable"}
+                      variant={report.safety.highRiskAlertsThisWeek > 0 ? "warning" : "success"}
+                      accessible={false}
+                    />
+                  }
+                  card
+                  cardVariant="elevated"
+                >
+                  <Card variant="outlined" style={styles.storyCard}>
+                    <Text style={styles.storyEyebrow}>Weekly takeaway</Text>
+                    <Text style={styles.storyTitle}>
+                      {report.summary.headline || "This week at a glance"}
+                    </Text>
+                    <Text style={styles.storyText}>
+                      {report.summary.highlights.length > 0
+                        ? report.summary.highlights.slice(0, 2).join(" ")
+                        : "This summary brings together your recent check-ins, recovery habits, and follow-through signals."}
+                    </Text>
+                  </Card>
 
-                <View style={styles.metricGrid}>
-                  <View style={styles.metricTileWrap}>
-                    <TrackerTile
-                      icon="checkin"
-                      label="Pain avg"
-                      value={
-                        report.checkins.avgPain !== null
-                          ? `${report.checkins.avgPain.toFixed(1)}/10`
-                          : "—"
-                      }
-                      delta="Weekly"
-                      tone="warning"
-                      micro={{ type: "dots", values: [0.4, 0.6, 0.5, 0.7, 0.55, 0.52, 0.6] }}
+                  <View style={styles.summaryPills}>
+                    <StatusPill
+                      label={`${report.checkins.count} check-ins`}
+                      variant={report.checkins.count > 0 ? "success" : "neutral"}
+                      accessible={false}
+                    />
+                    <StatusPill
+                      label={`${report.exercises.sessionCount} sessions`}
+                      variant={report.exercises.sessionCount > 0 ? "info" : "neutral"}
+                      accessible={false}
+                    />
+                    <StatusPill
+                      label={`${report.proms.completedThisWeekCount} assessments`}
+                      variant={report.proms.completedThisWeekCount > 0 ? "info" : "neutral"}
+                      accessible={false}
                     />
                   </View>
-                  <View style={styles.metricTileWrap}>
-                    <TrackerTile
-                      icon="checkin"
-                      label="Mood avg"
-                      value={
-                        report.checkins.avgMood !== null
-                          ? `${report.checkins.avgMood.toFixed(1)}/5`
-                          : "—"
-                      }
-                      delta="Weekly"
-                      tone="success"
-                      micro={{ type: "dots", values: [0.45, 0.5, 0.55, 0.52, 0.6, 0.65, 0.62] }}
-                    />
-                  </View>
-                  <View style={styles.metricTileWrap}>
-                    <TrackerTile
-                      icon="exercise"
-                      label="Exercise"
-                      value={pctOrDash(report.checkins.avgExercisesPct)}
-                      delta="Adherence"
-                      tone="accent"
-                      micro={{
-                        type: "ring",
-                        progress: clamp01((report.checkins.avgExercisesPct ?? 0) / 100),
-                      }}
-                    />
-                  </View>
-                  <View style={styles.metricTileWrap}>
-                    <TrackerTile
-                      icon="meds"
-                      label="Medication"
-                      value={pctOrDash(report.medications.adherencePct)}
-                      delta="Taken"
-                      tone="primary"
-                      micro={{
-                        type: "ring",
-                        progress: clamp01((report.medications.adherencePct ?? 0) / 100),
-                      }}
-                    />
-                  </View>
-                </View>
 
-                {report.summary.nextSteps.length > 0 ? (
-                  <View style={styles.nextStepsWrap}>
-                    <Text style={styles.nextStepsTitle}>Next steps</Text>
-                    <View style={styles.nextStepsRow}>
-                      {report.summary.nextSteps.slice(0, 3).map((step, index) => (
-                        <View key={`${step}-${index}`} style={styles.nextStepChip}>
-                          <Text numberOfLines={1} style={styles.nextStepText}>
-                            {step}
-                          </Text>
-                        </View>
-                      ))}
+                  <View style={styles.metricGrid}>
+                    <View style={styles.metricTileWrap}>
+                      <TrackerTile
+                        icon="checkin"
+                        label="Pain avg"
+                        value={
+                          report.checkins.avgPain !== null
+                            ? `${report.checkins.avgPain.toFixed(1)}/10`
+                            : "—"
+                        }
+                        delta="Weekly"
+                        tone="warning"
+                        micro={{ type: "dots", values: [0.4, 0.6, 0.5, 0.7, 0.55, 0.52, 0.6] }}
+                      />
+                    </View>
+                    <View style={styles.metricTileWrap}>
+                      <TrackerTile
+                        icon="checkin"
+                        label="Mood avg"
+                        value={
+                          report.checkins.avgMood !== null
+                            ? `${report.checkins.avgMood.toFixed(1)}/5`
+                            : "—"
+                        }
+                        delta="Weekly"
+                        tone="success"
+                        micro={{ type: "dots", values: [0.45, 0.5, 0.55, 0.52, 0.6, 0.65, 0.62] }}
+                      />
+                    </View>
+                    <View style={styles.metricTileWrap}>
+                      <TrackerTile
+                        icon="exercise"
+                        label="Exercise"
+                        value={pctOrDash(report.checkins.avgExercisesPct)}
+                        delta="Adherence"
+                        tone="accent"
+                        micro={{
+                          type: "ring",
+                          progress: clamp01((report.checkins.avgExercisesPct ?? 0) / 100),
+                        }}
+                      />
+                    </View>
+                    <View style={styles.metricTileWrap}>
+                      <TrackerTile
+                        icon="meds"
+                        label="Medication"
+                        value={pctOrDash(report.medications.adherencePct)}
+                        delta="Taken"
+                        tone="primary"
+                        micro={{
+                          type: "ring",
+                          progress: clamp01((report.medications.adherencePct ?? 0) / 100),
+                        }}
+                      />
                     </View>
                   </View>
-                ) : null}
+
+                  {report.summary.nextSteps.length > 0 ? (
+                    <View style={styles.nextStepsWrap}>
+                      <Text style={styles.nextStepsTitle}>What to focus on next</Text>
+                      <View style={styles.nextStepsRow}>
+                        {report.summary.nextSteps.slice(0, 3).map((step, index) => (
+                          <View key={`${step}-${index}`} style={styles.nextStepChip}>
+                            <Text numberOfLines={1} style={styles.nextStepText}>
+                              {step}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
+                </Section>
+
+                <View style={styles.detailIntro}>
+                  <Text style={styles.detailIntroTitle}>Detailed breakdown</Text>
+                  <Text style={styles.detailIntroText}>
+                    Use the sections below for deeper weekly context behind the summary above.
+                  </Text>
+                </View>
               </>
             ) : null}
           </View>
@@ -768,6 +841,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     stack: {
       gap: tokens.spacing.md,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
     centered: {
       alignItems: "center",
       justifyContent: "center",
@@ -782,6 +860,34 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       backgroundColor: tokens.colors.surfaceElevated,
     },
     devMetaWrap: {
+      gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    summaryPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.xs,
     },
     actionRow: {
@@ -806,8 +912,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     nextStepsTitle: {
       color: tokens.colors.text,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
     },
     nextStepsRow: {
@@ -829,6 +935,21 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    detailIntro: {
+      gap: tokens.spacing.xs,
+      marginTop: tokens.spacing.xs,
+    },
+    detailIntroTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    detailIntroText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     bottomSpacer: {
       height: tokens.spacing.md,

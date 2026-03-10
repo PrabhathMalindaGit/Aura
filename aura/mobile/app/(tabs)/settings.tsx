@@ -12,6 +12,7 @@ import { useRouter, type Href } from "expo-router";
 
 import { Banner } from "@/src/components/Banner";
 import { Avatar } from "@/src/components/Avatar";
+import { Card } from "@/src/components/Card";
 import { DomainIcon } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { FadeSlideIn } from "@/src/components/Motion";
@@ -220,6 +221,7 @@ export default function SettingsScreen() {
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
   const rehabPhaseLabel = useMemo(() => getRehabPhaseLabel(auth.patient), [auth.patient]);
   const caregiverInfo = useMemo(() => getCaregiverLabel(auth.patient), [auth.patient]);
+  const connectionLabel = network.isOffline ? "Offline" : "Connected";
 
   const timePreview = useMemo(() => {
     const normalized = normalizeInputs(hourInput, minuteInput);
@@ -585,7 +587,7 @@ export default function SettingsScreen() {
         <HeroHeader
           variant="compact"
           title="Settings"
-          subtitle={patientName ? `Hi, ${patientName}` : "Account & preferences"}
+          subtitle="Preferences for this app and device"
           left={
             <Avatar
               size={44}
@@ -604,16 +606,59 @@ export default function SettingsScreen() {
               },
             },
           ]}
-        />
+        >
+          <View style={styles.headerPills}>
+            <StatusPill
+              label={connectionLabel}
+              variant={network.isOffline ? "warning" : "success"}
+              accessible={false}
+            />
+            <StatusPill
+              label={reminderEnabled ? "Reminders on" : "Reminders off"}
+              variant={reminderEnabled ? "info" : "neutral"}
+              accessible={false}
+            />
+            <StatusPill
+              label={caregiverInfo.value === "Off" ? "Caregiver off" : "Caregiver on"}
+              variant={caregiverInfo.value === "Off" ? "neutral" : "info"}
+              accessible={false}
+            />
+          </View>
+
+          <Card variant="outlined" style={styles.storyCard}>
+            <Text style={styles.storyEyebrow}>Personal workspace</Text>
+            <Text style={styles.storyTitle}>Adjust how Aura feels on this device</Text>
+            <Text style={styles.storyText}>
+              Use these settings to manage reminders, support access, and local app preferences.
+              Changes here affect this app experience on your current device.
+            </Text>
+          </Card>
+        </HeroHeader>
       }
     >
       <View style={styles.heroSpacing}>
         <Section
-          title="Account / Profile"
+          title="Profile and sign-in"
+          subtitle="Your account context, care team access, and current session."
           card
           left={<DomainIcon icon="login" tone="muted" accessibilityLabel="Account section icon" />}
+          right={
+            <StatusPill
+              label={auth.status === "signedIn" ? "Signed in" : auth.status}
+              variant={auth.status === "signedIn" ? "success" : "neutral"}
+            />
+          }
         >
+          <Card variant="outlined" style={styles.sectionContextCard}>
+            <Text style={styles.sectionContextTitle}>Current profile</Text>
+            <Text style={styles.sectionContextText}>
+              Review who is signed in, your rehab phase, and how to reach your care team from
+              this app.
+            </Text>
+          </Card>
+
           <MediaCard
+            variant="emphasis"
             leading={{
               type: "avatar",
               name: patientName,
@@ -637,12 +682,6 @@ export default function SettingsScreen() {
               },
             ]}
             actions={[
-              {
-                label: isSigningOut ? "Signing out…" : "Log out",
-                kind: "secondary",
-                onPress: confirmSignOut,
-                disabled: isSigningOut,
-              },
               {
                 label: "Open Safety",
                 kind: "primary",
@@ -671,132 +710,164 @@ export default function SettingsScreen() {
           {logoutError ? (
             <Banner variant="warning" title="Logout failed" message={logoutError} />
           ) : null}
+
+          <SecondaryButton
+            label={isSigningOut ? "Signing out…" : "Log out"}
+            loading={isSigningOut}
+            disabled={isSigningOut}
+            onPress={confirmSignOut}
+          />
         </Section>
 
-      <Section
-        title="Reminders"
-        card
-        left={<DomainIcon icon="weekly" tone="muted" accessibilityLabel="Reminders section icon" />}
-        right={
-          <StatusPill
-            label={reminderEnabled ? "On" : "Off"}
-            variant={reminderEnabled ? "success" : "neutral"}
-          />
-        }
-      >
-        <View style={styles.stack}>
-          <Row
-            title="Daily reminders"
-            subtitle={reminderEnabled ? "Enabled" : "Disabled"}
-            leftIcon={<DomainIcon icon="weekly" tone="accent" accessibilityLabel="Daily reminders icon" />}
-            right={
-              <Switch
-                value={reminderEnabled}
-                onValueChange={handleReminderToggle}
-                disabled={!patientId || isReminderBusy}
+        <Section
+          title="Reminder preferences"
+          subtitle="Manage daily reminder timing for this device."
+          card
+          left={<DomainIcon icon="weekly" tone="muted" accessibilityLabel="Reminders section icon" />}
+          right={
+            <StatusPill
+              label={reminderEnabled ? "On" : "Off"}
+              variant={reminderEnabled ? "success" : "neutral"}
+            />
+          }
+        >
+          <Card variant="outlined" style={styles.sectionContextCard}>
+            <Text style={styles.sectionContextTitle}>Daily reminder</Text>
+            <Text style={styles.sectionContextText}>
+              Reminder timing is stored on this device. Enable notifications here, then pick a
+              time that fits your recovery routine.
+            </Text>
+          </Card>
+
+          <View style={styles.stack}>
+            <Row
+              title="Daily reminders"
+              subtitle={reminderEnabled ? "Enabled" : "Disabled"}
+              leftIcon={<DomainIcon icon="weekly" tone="accent" accessibilityLabel="Daily reminders icon" />}
+              right={
+                <Switch
+                  value={reminderEnabled}
+                  onValueChange={handleReminderToggle}
+                  disabled={!patientId || isReminderBusy}
+                />
+              }
+              accessory="none"
+            />
+
+            <Row
+              title="Reminder time"
+              subtitle={reminderEnabled ? "Update your daily reminder time" : "Turn reminders on first"}
+              leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="Reminder time icon" />}
+              right={<Text style={styles.rowValue}>{reminderEnabled ? timePreview : "Off"}</Text>}
+              accessory="none"
+            />
+          </View>
+
+          <Card variant="outlined" style={styles.timeCard}>
+            <Text style={styles.timeCardTitle}>Reminder time</Text>
+            <Text style={styles.timeCardSubtitle}>
+              {reminderEnabled
+                ? `Current reminder set for ${timePreview}.`
+                : "Set a daily reminder time once reminders are enabled."}
+            </Text>
+
+            <View style={styles.timeRow}>
+              <View style={styles.timeInputWrap}>
+                <Text style={styles.timeLabel}>Hour (0-23)</Text>
+                <TextInput
+                  value={hourInput}
+                  onChangeText={setHourInput}
+                  onBlur={handleHourBlur}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  style={styles.timeInput}
+                  editable={!isReminderBusy}
+                />
+              </View>
+              <View style={styles.timeInputWrap}>
+                <Text style={styles.timeLabel}>Minute (0-59)</Text>
+                <TextInput
+                  value={minuteInput}
+                  onChangeText={setMinuteInput}
+                  onBlur={handleMinuteBlur}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  style={styles.timeInput}
+                  editable={!isReminderBusy}
+                />
+              </View>
+            </View>
+          </Card>
+
+          {timeValidationError ? (
+            <Banner variant="warning" title="Invalid time" message={timeValidationError} />
+          ) : null}
+
+          {reminderEnabled && !timeValidationError ? (
+            <Banner
+              variant="info"
+              title="Reminder active"
+              message={`Daily reminder set for ${timePreview}.`}
+            />
+          ) : null}
+
+          {reminderPermissionError.lastError ? (
+            <Banner
+              variant="warning"
+              title="Notifications need permission"
+              message="Enable notifications in device settings to use reminders."
+              actionLabel="Open Settings"
+              onAction={() => {
+                void openSystemSettings();
+              }}
+            />
+          ) : null}
+
+          {reminderPermissionError.lastError || reminderScheduleError.lastError ? (
+            <View style={styles.diagnosticsCard}>
+              <Text style={styles.diagnosticsTitle}>Reminder diagnostics</Text>
+              <LastFailedAttempt
+                label="Last reminder permission issue"
+                value={reminderPermissionError.label}
+                title={reminderPermissionError.lastError?.title}
+                message={reminderPermissionError.lastError?.message}
+                onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
+                compact
               />
-            }
-            accessory="none"
-          />
+              <LastFailedAttempt
+                label="Last reminder scheduling issue"
+                value={reminderScheduleError.label}
+                title={reminderScheduleError.lastError?.title}
+                message={reminderScheduleError.lastError?.message}
+                onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
+                compact
+              />
+            </View>
+          ) : null}
 
-          <Row
-            title="Reminder time"
-            subtitle={reminderEnabled ? "Update your daily reminder time" : "Turn reminders on first"}
-            leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="Reminder time icon" />}
-            right={<Text style={styles.rowValue}>{reminderEnabled ? timePreview : "Off"}</Text>}
-            accessory="none"
-          />
-        </View>
-
-        <View style={styles.timeRow}>
-          <View style={styles.timeInputWrap}>
-            <Text style={styles.timeLabel}>Hour (0-23)</Text>
-            <TextInput
-              value={hourInput}
-              onChangeText={setHourInput}
-              onBlur={handleHourBlur}
-              keyboardType="number-pad"
-              maxLength={2}
-              style={styles.timeInput}
-              editable={!isReminderBusy}
+          {reminderNotice ? (
+            <Banner
+              variant={toBannerVariant(reminderNotice.variant)}
+              title={reminderNotice.title}
+              message={reminderNotice.message}
+              actionLabel={reminderNotice.actionLabel}
+              onAction={reminderNotice.onAction}
             />
-          </View>
-          <View style={styles.timeInputWrap}>
-            <Text style={styles.timeLabel}>Minute (0-59)</Text>
-            <TextInput
-              value={minuteInput}
-              onChangeText={setMinuteInput}
-              onBlur={handleMinuteBlur}
-              keyboardType="number-pad"
-              maxLength={2}
-              style={styles.timeInput}
-              editable={!isReminderBusy}
+          ) : null}
+        </Section>
+
+        <Section
+          title="Caregiver"
+          subtitle="Share progress summaries and invite a trusted supporter."
+          card
+          left={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver section icon" />}
+          right={
+            <StatusPill
+              label={caregiverInfo.value === "Off" ? "Off" : "On"}
+              variant={caregiverInfo.value === "Off" ? "neutral" : "info"}
             />
-          </View>
-        </View>
-
-        {timeValidationError ? (
-          <Banner variant="warning" title="Invalid time" message={timeValidationError} />
-        ) : null}
-
-        {reminderEnabled && !timeValidationError ? (
-          <Banner
-            variant="info"
-            title="Reminder active"
-            message={`Daily reminder set for ${timePreview}.`}
-          />
-        ) : null}
-
-        {reminderPermissionError.lastError ? (
-          <Banner
-            variant="warning"
-            title="Notifications need permission"
-            message="Enable notifications in device settings to use reminders."
-            actionLabel="Open Settings"
-            onAction={() => {
-              void openSystemSettings();
-            }}
-          />
-        ) : null}
-
-        {reminderPermissionError.lastError || reminderScheduleError.lastError ? (
-          <View style={styles.diagnosticsCard}>
-            <Text style={styles.diagnosticsTitle}>Reminder diagnostics</Text>
-            <LastFailedAttempt
-              label="Last reminder permission issue"
-              value={reminderPermissionError.label}
-              title={reminderPermissionError.lastError?.title}
-              message={reminderPermissionError.lastError?.message}
-              onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
-              compact
-            />
-            <LastFailedAttempt
-              label="Last reminder scheduling issue"
-              value={reminderScheduleError.label}
-              title={reminderScheduleError.lastError?.title}
-              message={reminderScheduleError.lastError?.message}
-              onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
-              compact
-            />
-          </View>
-        ) : null}
-
-        {reminderNotice ? (
-          <Banner
-            variant={toBannerVariant(reminderNotice.variant)}
-            title={reminderNotice.title}
-            message={reminderNotice.message}
-            actionLabel={reminderNotice.actionLabel}
-            onAction={reminderNotice.onAction}
-          />
-        ) : null}
-      </Section>
-
-      <Section
-        title="Caregiver"
-        card
-        left={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver section icon" />}
-      >
+          }
+        >
         <MediaCard
           variant="compact"
           leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
@@ -819,7 +890,8 @@ export default function SettingsScreen() {
       </Section>
 
       <Section
-        title="Support & Safety plan"
+        title="Support and safety"
+        subtitle="Quick access to guided support, care-team contact, and urgent-help guidance."
         card
         left={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Support and safety section icon" />}
       >
@@ -863,12 +935,14 @@ export default function SettingsScreen() {
           />
         </View>
         <Text style={styles.supportNote}>
-          If you feel unsafe or overwhelmed, open your Safety plan for guided steps.
+          If you feel unsafe or overwhelmed, open your Safety plan for guided next steps and the
+          quickest support actions.
         </Text>
       </Section>
 
       <Section
         title="App info"
+        subtitle="Version and local app context for this device."
         card
         left={<DomainIcon icon="info" tone="muted" accessibilityLabel="App info section icon" />}
       >
@@ -892,7 +966,7 @@ export default function SettingsScreen() {
       {isDeveloperModeVisible ? (
         <Section
           title="Developer Mode"
-          subtitle="Dev builds only"
+          subtitle="Local demo and debug tools for development builds."
           card
           cardVariant="outlined"
           left={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Developer mode section icon" />}
@@ -1070,20 +1144,77 @@ export default function SettingsScreen() {
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     container: {
-      gap: tokens.spacing.xs,
+      gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
     },
     heroSpacing: {
-      gap: 0,
+      gap: tokens.spacing.sm,
+    },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
+    },
+    storyCard: {
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     stack: {
       gap: tokens.spacing.sm,
+    },
+    sectionContextCard: {
+      gap: tokens.spacing.xs,
+      backgroundColor: tokens.colors.surface,
+    },
+    sectionContextTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    sectionContextText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     rowValue: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,
+    },
+    timeCard: {
+      gap: tokens.spacing.sm,
+    },
+    timeCardTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    timeCardSubtitle: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     timeRow: {
       flexDirection: "row",

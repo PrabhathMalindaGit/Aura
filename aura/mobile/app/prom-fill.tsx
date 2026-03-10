@@ -35,6 +35,7 @@ import { getCachedPromInstance, setCachedPromInstance } from "@/src/state/promsC
 import { clearPromDraft, getPromDraft, setPromDraft } from "@/src/state/promDrafts";
 import { addPendingPromSubmission } from "@/src/state/pendingPromSubmissions";
 import { useTokens } from "@/src/theme/tokens";
+import { formatISOToHuman } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -255,6 +256,14 @@ export default function PromFillScreen() {
   const safeIndex = Math.min(Math.max(currentIndex, 0), Math.max(questions.length - 1, 0));
   const currentQuestion = questions[safeIndex] ?? null;
   const currentValue = currentQuestion ? answersMap[currentQuestion.id] : undefined;
+  const answeredCount = questions.reduce(
+    (count, question) => count + (typeof answersMap[question.id] === "number" ? 1 : 0),
+    0,
+  );
+  const remainingCount = Math.max(questions.length - answeredCount, 0);
+  const isLastQuestion = questions.length > 0 && safeIndex === questions.length - 1;
+  const dueLabel = instance ? `Due ${formatISOToHuman(instance.dueAt)}` : undefined;
+  const hasLocalDraft = answeredCount > 0 && instance?.status !== "completed";
 
   const progressLabel = useMemo(() => {
     if (!currentQuestion || questions.length === 0) {
@@ -434,7 +443,7 @@ export default function PromFillScreen() {
         <HeroHeader
           variant="compact"
           title={instance?.title ?? "Questionnaire"}
-          subtitle={`Progress · ${progressLabel}`}
+          subtitle={instance ? "Guided care check" : "Questionnaire"}
           left={
             <Avatar
               size={40}
@@ -462,7 +471,32 @@ export default function PromFillScreen() {
               },
             },
           ]}
-        />
+        >
+          {instance && instance.status !== "completed" ? (
+            <>
+              <View style={styles.headerPills}>
+                <StatusPill label={progressLabel} variant="info" />
+                {dueLabel ? <StatusPill label={dueLabel} variant="neutral" /> : null}
+                <StatusPill
+                  label={isOffline ? "Offline" : hasLocalDraft ? "Saved on this device" : "Ready to answer"}
+                  variant={isOffline ? "warning" : hasLocalDraft ? "success" : "neutral"}
+                />
+              </View>
+
+              <Card variant="outlined" padding={tokens.spacing.md} style={styles.headerStoryCard}>
+                <Text style={styles.storyEyebrow}>Assessment flow</Text>
+                <Text style={styles.storyTitle}>
+                  {remainingCount <= 1 ? "You are close to finishing this care check" : "Take one question at a time"}
+                </Text>
+                <Text style={styles.storyText}>
+                  {remainingCount <= 1
+                    ? "Answer the current question, then review and submit your responses when you are ready."
+                    : `You’ve answered ${answeredCount} of ${questions.length}. Keep moving at a steady pace — ${remainingCount} questions are left in this check.`}
+                </Text>
+              </Card>
+            </>
+          ) : null}
+        </HeroHeader>
       }
     >
       <View style={styles.body}>
@@ -489,8 +523,8 @@ export default function PromFillScreen() {
             <View style={styles.stack}>
               <Banner
                 variant="warning"
-                title="Questionnaire unavailable"
-                message="Open this questionnaire while online first, then you can continue offline."
+                title="Assessment unavailable"
+                message="Open this care check while online first, then you can continue it later from this device."
               />
               <SecondaryButton
                 label="Back"
@@ -502,10 +536,18 @@ export default function PromFillScreen() {
           ) : instance.status === "completed" ? (
             <Card variant="outlined" padding={tokens.spacing.lg}>
               <View style={styles.completedContainer}>
-                <Text style={styles.completedTitle}>Already submitted</Text>
-                <Text style={styles.completedMessage}>This questionnaire is already completed.</Text>
+                <View style={styles.completedPills}>
+                  <StatusPill label="Submitted" variant="success" />
+                  {instance.completedAt ? (
+                    <StatusPill label={`Completed ${formatISOToHuman(instance.completedAt)}`} variant="neutral" />
+                  ) : null}
+                </View>
+                <Text style={styles.completedTitle}>This care check is already complete</Text>
+                <Text style={styles.completedMessage}>
+                  Your answers have already been submitted. Return to Assessments to review what is due next.
+                </Text>
                 <PrimaryButton
-                  label="Back to questionnaires"
+                  label="Back to assessments"
                   onPress={() => {
                     router.replace("/proms" as never);
                   }}
@@ -514,25 +556,61 @@ export default function PromFillScreen() {
             </Card>
           ) : currentQuestion ? (
             <View style={styles.stack}>
-              <View style={styles.progressCardWrap}>
-                <TrackerTile
-                  icon="proms"
-                  tone="accent"
-                  label="Progress"
-                  value={`${safeIndex + 1}/${questions.length}`}
-                  delta={instance.title}
-                  micro={{ type: "ring", progress: progressRatio }}
-                  variant="compact"
-                />
-              </View>
+              <Card variant="outlined" padding={tokens.spacing.md}>
+                <View style={styles.flowCardContent}>
+                  <View style={styles.flowHeader}>
+                    <View style={styles.flowCopy}>
+                      <Text style={styles.flowEyebrow}>Current step</Text>
+                      <Text style={styles.flowTitle}>
+                        {isLastQuestion ? "Final question" : `Question ${safeIndex + 1}`}
+                      </Text>
+                      <Text style={styles.flowText}>
+                        {isLastQuestion
+                          ? "Answer this final question, then submit when you are ready."
+                          : `${Math.max(questions.length - (safeIndex + 1), 0)} questions will remain after this one.`}
+                      </Text>
+                    </View>
+
+                    <View style={styles.progressCardWrap}>
+                      <TrackerTile
+                        icon="proms"
+                        tone="accent"
+                        label="Progress"
+                        value={`${safeIndex + 1}/${questions.length}`}
+                        delta={remainingCount > 0 ? `${remainingCount} left` : "Ready to submit"}
+                        micro={{ type: "ring", progress: progressRatio }}
+                        variant="compact"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        {
+                          width: `${Math.max(8, Math.round(progressRatio * 100))}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </Card>
 
               <View style={styles.pillRow}>
                 <StatusPill label={isOffline ? "Offline" : "Online"} variant={isOffline ? "warning" : "neutral"} />
                 {currentQuestion.required ? <StatusPill label="Required" variant="warning" /> : null}
+                {typeof currentValue === "number" ? <StatusPill label={`Selected ${currentValue}`} variant="success" /> : null}
               </View>
 
               <Card variant="outlined" padding={tokens.spacing.md}>
                 <View style={styles.questionCardContent}>
+                  <View style={styles.questionIntro}>
+                    <Text style={styles.questionEyebrow}>Answer this question</Text>
+                    <Text style={styles.questionSupport}>
+                      Choose the response that best fits how things feel right now. You can move through one question at a time.
+                    </Text>
+                  </View>
                   <Text style={styles.questionText}>{currentQuestion.text}</Text>
 
                   <View style={styles.optionsRow}>
@@ -584,7 +662,7 @@ export default function PromFillScreen() {
               <Banner
                 variant="danger"
                 title="No questions available"
-                message="This questionnaire has no questions configured."
+                message="This care check does not have any questions available right now."
               />
               <SecondaryButton
                 label="Back"
@@ -603,16 +681,24 @@ export default function PromFillScreen() {
             fallbackOpacity={0.78}
             accessibilityLabel="Questionnaire actions"
           >
+            <Text style={styles.footerTitle}>
+              {isLastQuestion ? "Review and submit" : "Continue when you’re ready"}
+            </Text>
+            <Text style={styles.footerText}>
+              {isLastQuestion
+                ? "Your answers are saved on this device as you go. Submit when this final response looks right."
+                : "You can go back to adjust the previous answer or continue to the next question."}
+            </Text>
             {isOffline ? (
               <Banner
                 variant="warning"
                 title="Offline"
-                message="If you submit now, it will be saved and sent later."
+                message="If you submit now, your answers will stay saved here and send later."
               />
             ) : null}
             <View style={styles.footerButtons}>
               <SecondaryButton
-                label="Back"
+                label="Previous"
                 disabled={safeIndex === 0 || isSubmitting}
                 onPress={() => {
                   setCurrentIndex((prev) => Math.max(0, prev - 1));
@@ -620,7 +706,7 @@ export default function PromFillScreen() {
               />
               {safeIndex < questions.length - 1 ? (
                 <PrimaryButton
-                  label="Next"
+                  label="Continue"
                   disabled={!canMoveNext || isSubmitting}
                   onPress={() => {
                     setCurrentIndex((prev) => Math.min(questions.length - 1, prev + 1));
@@ -628,7 +714,7 @@ export default function PromFillScreen() {
                 />
               ) : (
                 <PrimaryButton
-                  label={isSubmitting ? "Submitting…" : "Submit"}
+                  label={isSubmitting ? "Submitting…" : "Submit answers"}
                   loading={isSubmitting}
                   disabled={!canMoveNext || isSubmitting}
                   onPress={() => {
@@ -664,6 +750,33 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingBottom: tokens.spacing.lg,
       gap: tokens.spacing.md,
     },
+    headerPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    headerStoryCard: {
+      gap: tokens.spacing.xs,
+    },
+    storyEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    storyTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    storyText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
     centered: {
       minHeight: 180,
       alignItems: "center",
@@ -675,6 +788,51 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     progressCardWrap: {
       minWidth: 0,
     },
+    flowCardContent: {
+      gap: tokens.spacing.md,
+    },
+    flowHeader: {
+      flexDirection: "row",
+      gap: tokens.spacing.md,
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+    },
+    flowCopy: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
+    flowEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    flowTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    flowText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    progressTrack: {
+      height: 8,
+      borderRadius: tokens.radius.xl,
+      backgroundColor: tokens.colors.surfaceElevated,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: tokens.radius.xl,
+      backgroundColor: tokens.colors.primary,
+    },
     pillRow: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -683,11 +841,27 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     questionCardContent: {
       gap: tokens.spacing.md,
     },
+    questionIntro: {
+      gap: tokens.spacing.xs,
+    },
+    questionEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
     questionText: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
+    },
+    questionSupport: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
     },
     optionsRow: {
       flexDirection: "row",
@@ -744,6 +918,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     completedContainer: {
       gap: tokens.spacing.sm,
     },
+    completedPills: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
     completedTitle: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
@@ -757,6 +936,19 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     footerPanel: {
       borderRadius: tokens.radius.lg,
+    },
+    footerTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      marginBottom: tokens.spacing.xs,
+    },
+    footerText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      marginBottom: tokens.spacing.sm,
     },
     footerButtons: {
       flexDirection: "row",

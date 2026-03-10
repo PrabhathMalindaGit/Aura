@@ -11,6 +11,14 @@ For the current demo-ready product state, use these repo sources as truth:
 
 This README remains useful for local service startup, but it is no longer the full product walkthrough on its own.
 
+## Current implementation truth note
+
+- Current AI safety routing is live and used by check-ins and chat through the FastAPI `/classify` endpoint.
+- The supportive `/rag/reply` path is still a stub response and should not be presented as retrieval-backed AI.
+- `aura_pgvector` is provisioned in Docker for future retrieval work, but the current demo flows do not depend on vector storage or retrieval.
+- Canonical n8n workflow exports live in `/Users/University/Final Project/aura/n8n/workflows/`.
+- Legacy reference folders such as `/Users/University/Final Project/aura/n8n_workflows/` and `/Users/University/Final Project/aura/mobile_backup_20260223_123515/` are not active runtime sources.
+
 ## Prerequisites
 - Docker Desktop
 - VSCode
@@ -36,7 +44,7 @@ pwd
 - `Terminal 1` means one VSCode terminal tab/window dedicated to AI service.
 - `Terminal 2` means a separate VSCode terminal tab/window dedicated to Node backend.
 
-### 1) Start Docker services (Mongo + Postgres + n8n)
+### 1) Start Docker services (Mongo + pgvector + n8n)
 1. Run:
 ```bash
 cd "/Users/University/Final Project/aura"
@@ -50,13 +58,15 @@ docker ps
 - `aura_mongo` is `Up`
 - `aura_pgvector` is `Up`
 - `aura_n8n` is `Up`
-4. Quick checks:
+4. Note:
+- `aura_pgvector` is included for future retrieval experiments. The current local demo does not require it to be populated with vectors.
+5. Quick checks:
 - Open n8n in browser: `http://localhost:5678`
 - Check port:
 ```bash
 lsof -i :5678
 ```
-5. If not running, inspect logs:
+6. If not running, inspect logs:
 ```bash
 docker logs aura_n8n --tail 50
 docker logs aura_mongo --tail 50

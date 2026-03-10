@@ -306,9 +306,7 @@ export function AlertDetailDrawer({
                   onTakeOver={onTakeOver}
                   onUnassign={onUnassign}
                 />
-                <span className="muted-text">
-                  Local adapter active. Endpoint pending: PATCH /clinician/alerts/:id/assignment
-                </span>
+                <span className="muted-text">Assignment changes save to the live alert record.</span>
               </div>
             </section>
 

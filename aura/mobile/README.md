@@ -193,11 +193,11 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 5. Turn offline and submit:
    - verify block message and last failed attempt update.
 
-### Emergency call placeholders
+### Safety contact defaults
 
-- `EMERGENCY_NUMBER_PLACEHOLDER` currently defaults to `911`.
-- `SUPPORT_PHONE_PLACEHOLDER` currently defaults to `+0000000000`.
-- Replace both in `/Users/University/Final Project/aura/mobile/src/config/constants.ts` before production.
+- Safety contact values live in `/Users/University/Final Project/aura/mobile/src/config/constants.ts`.
+- Demo defaults are intentionally blank so the app does not imply a real clinic line or a region-specific emergency number by accident.
+- Replace both values with deployment-specific contacts before production or public testing.
 
 ## Step 5: Safety-Gated Chat
 

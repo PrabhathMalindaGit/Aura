@@ -6,6 +6,27 @@
 - Secondary clinician login: `clinician2@example.com` / `devpass123`
 - Patient access codes: `P1-DEMO`, `P2-DEMO`, `P3-DEMO`
 
+## Demo-readiness truth note
+
+### Implemented now
+
+- Backend remains the source of truth for alerts, tasks, appointments, worklist state, communication review metadata, and automation callbacks.
+- Dashboard command center, worklist, alerts, patients, patient detail, appointments, insights, and settings routes are implemented.
+- Mobile check-in, tasks, appointments, reminders, chat workflow prompts, and safety routing are implemented.
+- Canonical n8n follow-through workflow exports live in `/Users/University/Final Project/aura/n8n/workflows/`.
+
+### Implemented but still needs live runtime verification
+
+- Live n8n import/activation state in the local n8n workspace.
+- Provider-side delivery for Telegram or any notification channel used during demos.
+- Device-specific local notification behavior on a real phone or simulator.
+
+### Intentionally stubbed or future-facing
+
+- AI safety classification is implemented and in use. The supportive `/rag/reply` path is still a stub and should not be presented as retrieval-backed.
+- `aura_pgvector` is provisioned for future retrieval work, but the current demo does not depend on vector storage or vector-backed retrieval.
+- Legacy reference folders such as `/Users/University/Final Project/aura/n8n_workflows/` and `/Users/University/Final Project/aura/mobile_backup_20260223_123515/` are not active runtime sources.
+
 ## Screenshot checklist
 
 Capture the following against the current local build:

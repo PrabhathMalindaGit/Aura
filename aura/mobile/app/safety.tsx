@@ -112,13 +112,11 @@ async function openPhoneDialer(number: string): Promise<void> {
 }
 
 function isConfiguredSupportNumber(value: string): boolean {
-  const trimmed = value.trim();
-  return Boolean(trimmed) && trimmed !== "+0000000000";
+  return Boolean(value.trim());
 }
 
 function isConfiguredEmergencyNumber(value: string): boolean {
-  const trimmed = value.trim();
-  return Boolean(trimmed) && trimmed !== "000";
+  return Boolean(value.trim());
 }
 
 export default function SafetyScreen() {
@@ -267,12 +265,12 @@ export default function SafetyScreen() {
               leading={{ type: "icon", icon: "appointments", tone: "muted" }}
               title="Call clinic"
               subtitle={
-                clinicNumberConfigured ? "Use your support line" : "Not configured"
+                clinicNumberConfigured ? "Use your support line" : "Use chat for support contact details"
               }
               chips={
                 clinicNumberConfigured
                   ? [{ text: "Available", tone: "info" }]
-                  : [{ text: "Unavailable", tone: "muted" }]
+                  : [{ text: "Use chat", tone: "muted" }]
               }
               showChevron={clinicNumberConfigured}
               onPress={
@@ -318,7 +316,7 @@ export default function SafetyScreen() {
             subtitle={
               clinicNumberConfigured
                 ? "Use your clinic support line"
-                : "Clinic phone is not configured in this demo"
+                : "Use chat or your care plan for the correct support number"
             }
             leftIcon={<DomainIcon icon="appointments" tone="muted" accessibilityLabel="Call clinic icon" />}
             onPress={
@@ -333,8 +331,8 @@ export default function SafetyScreen() {
         </View>
 
         <Text style={styles.supportNote}>
-          If you&apos;re in immediate danger, contact local emergency services.
-          {emergencyNumberConfigured ? ` (${EMERGENCY_NUMBER_PLACEHOLDER})` : ""}
+          If you&apos;re in immediate danger, call your local emergency services
+          {emergencyNumberConfigured ? ` (${EMERGENCY_NUMBER_PLACEHOLDER})` : ""}.
         </Text>
       </Section>
 

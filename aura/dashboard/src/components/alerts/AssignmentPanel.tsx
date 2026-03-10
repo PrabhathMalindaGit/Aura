@@ -14,7 +14,7 @@ interface AssignmentPanelProps {
 export function AssignmentPanel({
   assignedTo,
   currentClinicianId,
-  backendReady = false,
+  backendReady = true,
   busy = false,
   actionButtonRef,
   onAssignToMe,
@@ -48,9 +48,11 @@ export function AssignmentPanel({
             Assign to me
           </Button>
         )}
-        {!backendReady ? (
-          <span className="muted-text">Local only. Endpoint pending: PATCH /clinician/alerts/:id/assign</span>
-        ) : null}
+        <span className="muted-text">
+          {backendReady
+            ? 'Assignment updates save to the live alert record.'
+            : 'Assignment controls are visible here, but this surface is not using the live alert assignment API.'}
+        </span>
       </div>
     </section>
   );

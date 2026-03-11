@@ -10990,3 +10990,315 @@ button.dashboard-summary-card:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final dashboard polish sweep */
+
+.topbar__search,
+.topbar__datetime,
+.topbar__status-cluster,
+.topbar__identity {
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.topbar__search:focus-within {
+  border-color: hsl(var(--primary) / 0.36);
+  background: hsl(var(--card) / 0.92);
+  box-shadow:
+    0 12px 26px hsl(252 28% 67% / 0.08),
+    inset 0 1px 0 hsl(0 0% 100% / 0.76);
+}
+
+.topbar__search:hover,
+.topbar__identity:hover,
+.topbar__status-cluster:hover,
+.topbar__datetime:hover {
+  border-color: hsl(var(--border) / 0.6);
+}
+
+.dashboard-home-summary-shell,
+.dashboard-home-zone,
+:is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header),
+:is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip),
+:is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note),
+:is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface) {
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+:is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap) {
+  box-shadow:
+    0 20px 40px hsl(248 30% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+:is(.alerts-table__row, .patients-table__row) {
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+:is(.alerts-table__row:hover, .patients-table__row:hover) {
+  transform: translateY(-1px);
+}
+
+.alerts-filters__chip,
+.alerts-filters__toggle,
+.patients-filters__toggle,
+.worklist-filters__toggle {
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.alerts-filters__chip:hover,
+.alerts-filters__toggle:hover,
+.patients-filters__toggle:hover,
+.worklist-filters__toggle:hover {
+  transform: translateY(-1px);
+}
+
+.dashboard-module-card .empty-state,
+.patients-empty-state,
+.alerts-empty-state {
+  box-shadow:
+    0 16px 30px hsl(248 30% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.dark .topbar__search:focus-within {
+  border-color: hsl(var(--primary) / 0.4);
+  background: hsl(var(--card) / 0.82);
+  box-shadow:
+    0 16px 30px hsl(224 52% 4% / 0.3),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .dashboard-home-summary-shell,
+.dark .dashboard-home-zone,
+.dark :is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip),
+.dark :is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note),
+.dark :is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface) {
+  box-shadow:
+    0 22px 42px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark :is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap) {
+  box-shadow:
+    0 20px 38px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark :is(.alerts-table__row:hover, .patients-table__row:hover) {
+  transform: translateY(-1px);
+}
+
+.dark :is(
+    .patients-roster-note__fact,
+    .worklist-workspace-note__fact,
+    .appointments-workspace-note__fact,
+    .patients-workspace-card__fact,
+    .worklist-card-title__meta,
+    .appointments-card-title__meta,
+    .alerts-card-title__meta,
+    .alerts-workspace-card__queue-pill,
+    .alerts-workspace-card__queue-count
+  ) {
+  background: hsl(var(--muted) / 0.42);
+  border-color: hsl(var(--border) / 0.48);
+}
+
+.dark .dashboard-widget-bar__item {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.78)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.14), transparent 76%);
+  border-color: hsl(var(--border) / 0.44);
+  box-shadow:
+    0 10px 22px hsl(224 52% 4% / 0.2),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .dashboard-list-item__tag {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.76)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.18), transparent 80%);
+  border-color: hsl(var(--border) / 0.46);
+}
+
+.dark .dashboard-module-card .empty-state,
+.dark .patients-empty-state,
+.dark .alerts-empty-state {
+  box-shadow:
+    0 18px 32px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+@media (max-width: 1420px) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: flex-start;
+    gap: var(--space-3);
+    min-height: auto;
+  }
+
+  .topbar__left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .topbar__status {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+    align-self: start;
+  }
+
+  .topbar__search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+
+  .dashboard-home-page {
+    width: min(100%, 1560px);
+  }
+
+  .dashboard-home-layout {
+    grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.92fr);
+  }
+
+  .patients-summary-strip,
+  .worklist-summary-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: var(--space-3);
+    min-height: auto;
+  }
+
+  .topbar__left,
+  .topbar__status,
+  .topbar__search {
+    grid-column: auto;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .topbar__status {
+    justify-content: flex-start;
+  }
+
+  .topbar__utility {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .topbar__identity {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .topbar__status-cluster {
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  .topbar__updated {
+    padding-inline: var(--space-2);
+  }
+
+  .dashboard-home-hero,
+  .dashboard-home-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-home-summary-shell {
+    padding: clamp(18px, 2.5vw, 24px);
+  }
+
+  :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header) .section__header {
+    display: grid;
+    gap: var(--space-3);
+    align-items: start;
+  }
+
+  :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header) .section__meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header) .section__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  :is(.patients-page__meta, .worklist-page__meta, .alerts-page__meta, .appointments-page__meta) {
+    width: 100%;
+  }
+
+  .patients-summary-strip,
+  .worklist-summary-strip,
+  .appointments-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patients-roster-note,
+  .worklist-workspace-note,
+  .appointments-workspace-note,
+  .alerts-workspace-card__heading-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  :is(
+      .patients-roster-note__facts,
+      .worklist-workspace-note__facts,
+      .appointments-workspace-note__facts,
+      .patients-workspace-card__facts,
+      .alerts-workspace-card__queue-meta
+    ) {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  :is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls) {
+    padding: var(--space-3);
+  }
+
+  :is(.patients-filters__clusters, .worklist-filters__clusters, .alerts-filters__clusters) {
+    gap: var(--space-3);
+  }
+}
+
+@media (max-width: 960px) {
+  .topbar__utility,
+  .topbar__identity {
+    gap: var(--space-2);
+  }
+
+  .topbar__utility {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .topbar__status-cluster,
+  .topbar__datetime {
+    width: fit-content;
+  }
+
+  .topbar__identity {
+    align-items: center;
+  }
+}

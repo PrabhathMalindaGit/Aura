@@ -202,6 +202,15 @@
   --workspace-note-facts-gap: var(--space-2);
   --workspace-note-fact-height: 2rem;
   --workspace-note-copy-max: 68ch;
+  --control-shell-radius: calc(var(--radius-xl) - 5px);
+  --control-shell-padding: clamp(14px, 1.2vw, 18px);
+  --control-shell-gap: clamp(12px, 1vw, 16px);
+  --control-cluster-radius: calc(var(--radius-lg) - 1px);
+  --control-cluster-padding: clamp(12px, 0.95vw, 15px);
+  --control-cluster-gap: var(--space-2);
+  --control-surface-height: 46px;
+  --control-chip-gap: var(--space-sm);
+  --control-chip-padding-x: var(--space-3);
 
   --font-family-base: var(--font-sans);
   --font-size-xs: var(--text-xs);

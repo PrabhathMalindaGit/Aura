@@ -862,7 +862,12 @@ export function AlertsPage(): JSX.Element {
 
       <Card
         className="alerts-workspace-card"
-        title="Alerts queue"
+        title={
+          <span className="alerts-card-title">
+            Alerts queue
+            <span className="alerts-card-title__meta">Safety workspace</span>
+          </span>
+        }
         action={
           <Button className="alerts-workspace-card__export" variant="secondary" onClick={openAlertsExportModal}>
             Export CSV

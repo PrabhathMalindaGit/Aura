@@ -34,6 +34,38 @@ function isEndpointMissing(error: unknown): boolean {
   return appError.kind === 'HTTP' && appError.status === 404;
 }
 
+function formatWorklistStatusLabel(status: WorklistFiltersState['status']): string {
+  if (status === 'all') {
+    return 'All care states';
+  }
+  if (status === 'active') {
+    return 'Active only';
+  }
+  if (status === 'on_hold') {
+    return 'On hold only';
+  }
+  if (status === 'discharged') {
+    return 'Discharged only';
+  }
+  return 'Inactive only';
+}
+
+function formatWorklistSortLabel(sort: WorklistFiltersState['sort']): string {
+  if (sort === 'updatedAt') {
+    return 'Sorted by recent activity';
+  }
+  if (sort === 'lastCheckinAt') {
+    return 'Sorted by recent check-in';
+  }
+  if (sort === 'patientName') {
+    return 'Sorted A-Z';
+  }
+  if (sort === 'nextAppointmentAt') {
+    return 'Sorted by next appointment';
+  }
+  return 'Sorted by priority';
+}
+
 export function WorklistPage(): JSX.Element {
   const navigate = useNavigate();
   const connection = useConnectionStatus();
@@ -75,6 +107,9 @@ export function WorklistPage(): JSX.Element {
         minute: '2-digit',
       })
     : '--';
+  const queueFocusLabel = activeFilterConstraints ? 'Focused queue' : 'Full review queue';
+  const statusViewLabel = formatWorklistStatusLabel(filters.status);
+  const sortViewLabel = formatWorklistSortLabel(filters.sort);
 
   const showInitialLoading = worklistQuery.isLoading && items.length === 0;
   const endpointMissing = Boolean(worklistQuery.error) && isEndpointMissing(worklistQuery.error);
@@ -137,28 +172,52 @@ export function WorklistPage(): JSX.Element {
         <article className="worklist-summary-strip__item worklist-summary-strip__item--total">
           <p className="worklist-summary-strip__label">In view</p>
           <p className="worklist-summary-strip__value">{total}</p>
+          <p className="worklist-summary-strip__hint">{items.length} rows loaded in the current queue</p>
         </article>
         <article className="worklist-summary-strip__item worklist-summary-strip__item--risk">
           <p className="worklist-summary-strip__label">High risk</p>
           <p className="worklist-summary-strip__value">{summary.highRisk}</p>
+          <p className="worklist-summary-strip__hint">Latest patient risk currently marked high</p>
         </article>
         <article className="worklist-summary-strip__item worklist-summary-strip__item--response">
           <p className="worklist-summary-strip__label">Needs response</p>
           <p className="worklist-summary-strip__value">{summary.needsResponse}</p>
+          <p className="worklist-summary-strip__hint">Communication follow-up still waiting</p>
         </article>
         <article className="worklist-summary-strip__item worklist-summary-strip__item--alerts">
           <p className="worklist-summary-strip__label">With alerts</p>
           <p className="worklist-summary-strip__value">{summary.openAlerts}</p>
+          <p className="worklist-summary-strip__hint">Patients with open alert burden</p>
         </article>
         <article className="worklist-summary-strip__item worklist-summary-strip__item--tasks">
           <p className="worklist-summary-strip__label">With tasks</p>
           <p className="worklist-summary-strip__value">{summary.activeTasks}</p>
+          <p className="worklist-summary-strip__hint">Linked follow-up work still active</p>
         </article>
+      </section>
+
+      <section className="worklist-workspace-note" aria-label="Worklist context">
+        <div className="worklist-workspace-note__copy">
+          <p className="worklist-workspace-note__eyebrow">How this queue is used</p>
+          <p className="worklist-workspace-note__text">
+            Worklist is the immediate attention queue for issues that need follow-through now. Use it to narrow the next patient to open, then move into the patient record for deeper review.
+          </p>
+        </div>
+        <div className="worklist-workspace-note__facts">
+          <span className="worklist-workspace-note__fact">{queueFocusLabel}</span>
+          <span className="worklist-workspace-note__fact">{statusViewLabel}</span>
+          <span className="worklist-workspace-note__fact">{sortViewLabel}</span>
+        </div>
       </section>
 
       <Card
         className="worklist-workspace-card"
-        title="Active review queue"
+        title={
+          <span className="worklist-card-title">
+            Active review queue
+            <span className="worklist-card-title__meta">Attention workspace</span>
+          </span>
+        }
         action={
           <Button variant="ghost" size="sm" onClick={() => setFilters(defaultWorklistFilters())} disabled={worklistQuery.isFetching}>
             Clear view

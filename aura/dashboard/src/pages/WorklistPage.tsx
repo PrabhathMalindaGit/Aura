@@ -142,7 +142,7 @@ export function WorklistPage(): JSX.Element {
         className="dashboard-page-header worklist-page-header"
         eyebrow="Operational roster"
         title="Worklist"
-        subtitle="Review active patient issues across safety, adherence, communication, tasks, and appointments."
+        subtitle="Review active follow-up needs across safety, adherence, communication, tasks, and appointments."
         meta={
           <span className="worklist-page__meta" aria-live="polite">
             <span className="worklist-page__meta-pill worklist-page__meta-pill--count">

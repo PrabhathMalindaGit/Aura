@@ -73,7 +73,7 @@ export function TodayAppointmentsCard({
       action={
         <div className="dashboard-module-card__action-shell">
           <Button variant="ghost" size="sm" onClick={onOpenAppointments}>
-            View all
+            Open appointments
           </Button>
         </div>
       }

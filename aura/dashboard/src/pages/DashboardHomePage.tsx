@@ -191,7 +191,7 @@ export function DashboardHomePage(): JSX.Element {
           {connection.online ? 'Connected' : 'Offline snapshot'}
         </span>
         <span className="dashboard-home-page__meta-pill">
-          Messages waiting {summaryQuery.data?.messagesNeedingResponseCount ?? '—'}
+          {summaryQuery.data?.messagesNeedingResponseCount ?? '—'} messages to review
         </span>
         <span className="dashboard-home-page__meta-pill">Updated {formatUpdatedAt(connection.lastSuccessAt)}</span>
       </span>

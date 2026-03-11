@@ -200,7 +200,7 @@ export function AppointmentsPage(): JSX.Element {
         className="dashboard-page-header appointments-page-header"
         eyebrow="Care coordination"
         title="Appointments"
-        subtitle="Plan clinician availability, review booking requests, and keep tele-rehab scheduling clear and timely."
+        subtitle="Plan clinician availability, review booking requests, and keep tele-rehab scheduling clear."
         meta={
           <span className="appointments-page__meta" aria-live="polite">
             <span className="appointments-page__meta-pill appointments-page__meta-pill--count">

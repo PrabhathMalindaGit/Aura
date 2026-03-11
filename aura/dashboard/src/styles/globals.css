@@ -836,10 +836,10 @@ time,
 }
 
 :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header) .section__subtitle {
-  max-width: 70ch;
+  max-width: 64ch;
   color: hsl(var(--muted-foreground));
   font-size: var(--text-sm);
-  line-height: 1.55;
+  line-height: 1.52;
 }
 
 :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header) .section__actions {
@@ -9388,7 +9388,7 @@ button.dashboard-summary-card:hover {
   color: hsl(var(--muted-foreground));
   font-size: var(--text-sm);
   line-height: 1.58;
-  max-width: 36ch;
+  max-width: 34ch;
 }
 
 .dashboard-module-card__title-row {

@@ -68,7 +68,7 @@ export function RecentSafetyEventsModule({
       action={
         <div className="dashboard-module-card__action-shell">
           <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
-            View alerts
+            Open alerts
           </Button>
         </div>
       }

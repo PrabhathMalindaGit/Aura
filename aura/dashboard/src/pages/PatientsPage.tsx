@@ -169,7 +169,7 @@ export function PatientsPage(): JSX.Element {
         className="dashboard-page-header patients-page-header"
         eyebrow="Care roster"
         title="Patients"
-        subtitle="Monitor the broader care roster, recent activity, and alert burden before moving into patient review or worklist triage."
+        subtitle="Monitor the broader care roster, recent activity, and alert burden before opening deeper patient review."
         meta={
           <span className="patients-page__meta" aria-live="polite">
             <span className="patients-page__meta-pill patients-page__meta-pill--count">

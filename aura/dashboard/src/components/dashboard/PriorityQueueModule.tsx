@@ -55,19 +55,32 @@ export function PriorityQueueModule({
   onOpenItem,
   onOpenAlerts,
 }: PriorityQueueModuleProps): JSX.Element {
+  const urgentCount = items.filter((item) => item.priority === 'urgent' || item.priority === 'high').length;
+  const alertCount = items.filter((item) => item.itemType === 'alert').length;
+
   return (
     <Card
       className="dashboard-module-card dashboard-priority-card"
       title={
-        <span className="dashboard-module-card__title">
-          Priority queue
-          <span className="dashboard-module-card__count">{items.length}</span>
+        <span className="dashboard-widget-heading dashboard-widget-heading--priority">
+          <span className="dashboard-widget-heading__eyebrow">Attention now</span>
+          <span className="dashboard-module-card__title-row">
+            <span className="dashboard-module-card__title">
+              Priority queue
+              <span className="dashboard-module-card__count">{items.length}</span>
+            </span>
+          </span>
+          <span className="dashboard-widget-heading__copy">
+            Escalations, appointment exceptions, and high-priority follow-up that need the next clinician action.
+          </span>
         </span>
       }
       action={
-        <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
-          Open alerts
-        </Button>
+        <div className="dashboard-module-card__action-shell">
+          <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+            Open alerts
+          </Button>
+        </div>
       }
     >
       {loading && items.length === 0 ? (
@@ -92,9 +105,25 @@ export function PriorityQueueModule({
           }
         />
       ) : (
-        <div className="dashboard-list dashboard-list--priority" role="list">
-          {items.map((item) => (
-            <article key={item.id} className="dashboard-list-item dashboard-list-item--priority" role="listitem">
+        <div className="dashboard-priority-card__content">
+          <div className="dashboard-widget-bar dashboard-widget-bar--priority" aria-label="Priority queue summary">
+            <span className="dashboard-widget-bar__item">
+              <strong>{urgentCount}</strong>
+              <span>urgent or high</span>
+            </span>
+            <span className="dashboard-widget-bar__item">
+              <strong>{alertCount}</strong>
+              <span>alerts</span>
+            </span>
+            <span className="dashboard-widget-bar__item">
+              <strong>{Math.max(items.length - alertCount, 0)}</strong>
+              <span>follow-up items</span>
+            </span>
+          </div>
+
+          <div className="dashboard-list dashboard-list--priority" role="list">
+            {items.map((item) => (
+              <article key={item.id} className="dashboard-list-item dashboard-list-item--priority" role="listitem">
               <div className="dashboard-list-item__content">
                 <div className="dashboard-list-item__eyebrow">
                   <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
@@ -107,7 +136,12 @@ export function PriorityQueueModule({
                   <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
                 </div>
                 {item.subtitle ? <p className="dashboard-list-item__description">{item.subtitle}</p> : null}
-                <div className="dashboard-list-item__meta">
+                <div className="dashboard-list-item__tag-row">
+                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.source)}</span>
+                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.status)}</span>
+                  {item.dueAt ? <span className="dashboard-list-item__tag">Due {formatDashboardDateTime(item.dueAt)}</span> : null}
+                </div>
+                <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
                   <span>{humanizeDashboardLabel(item.source)}</span>
                   <span>{humanizeDashboardLabel(item.status)}</span>
                   {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : null}
@@ -119,7 +153,8 @@ export function PriorityQueueModule({
                 </Button>
               </div>
             </article>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </Card>

@@ -45,19 +45,32 @@ export function RecentSafetyEventsModule({
   resolvePatientLabel,
   onOpenAlerts,
 }: RecentSafetyEventsModuleProps): JSX.Element {
+  const alertEventsCount = items.filter((item) => item.alertStatus).length;
+  const notificationEventsCount = items.filter((item) => item.notificationStatus).length;
+
   return (
     <Card
       className="dashboard-module-card dashboard-safety-card"
       title={
-        <span className="dashboard-module-card__title">
-          Recent safety events
-          <span className="dashboard-module-card__count">{items.length}</span>
+        <span className="dashboard-widget-heading dashboard-widget-heading--safety">
+          <span className="dashboard-widget-heading__eyebrow">Safety timeline</span>
+          <span className="dashboard-module-card__title-row">
+            <span className="dashboard-module-card__title">
+              Recent safety events
+              <span className="dashboard-module-card__count">{items.length}</span>
+            </span>
+          </span>
+          <span className="dashboard-widget-heading__copy">
+            Latest alert creation and notification activity recorded by the Safety Spine.
+          </span>
         </span>
       }
       action={
-        <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
-          View alerts
-        </Button>
+        <div className="dashboard-module-card__action-shell">
+          <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+            View alerts
+          </Button>
+        </div>
       }
     >
       {loading && items.length === 0 ? (
@@ -76,9 +89,21 @@ export function RecentSafetyEventsModule({
           description="Alert creation and notification activity will appear here when the Safety Spine records a new event."
         />
       ) : (
-        <div className="dashboard-list dashboard-list--timeline" role="list">
-          {items.map((item) => (
-            <article key={item.id} className="dashboard-list-item dashboard-list-item--timeline" role="listitem">
+        <div className="dashboard-safety-card__content">
+          <div className="dashboard-widget-bar dashboard-widget-bar--timeline" aria-label="Recent safety event summary">
+            <span className="dashboard-widget-bar__item">
+              <strong>{alertEventsCount}</strong>
+              <span>alert events</span>
+            </span>
+            <span className="dashboard-widget-bar__item">
+              <strong>{notificationEventsCount}</strong>
+              <span>notification updates</span>
+            </span>
+          </div>
+
+          <div className="dashboard-list dashboard-list--timeline" role="list">
+            {items.map((item) => (
+              <article key={item.id} className="dashboard-list-item dashboard-list-item--timeline" role="listitem">
               <div className="dashboard-list-item__timeline-dot" aria-hidden="true" />
               <div className="dashboard-list-item__content">
                 <div className="dashboard-list-item__eyebrow">
@@ -91,7 +116,15 @@ export function RecentSafetyEventsModule({
                   <h3 className="dashboard-list-item__title">{humanizeDashboardLabel(item.type)}</h3>
                 </div>
                 <p className="dashboard-list-item__description">{item.summary}</p>
-                <div className="dashboard-list-item__meta">
+                <div className="dashboard-list-item__tag-row">
+                  {item.alertStatus ? <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.alertStatus)}</span> : null}
+                  {item.notificationStatus ? (
+                    <Badge variant={notificationVariant(item.notificationStatus)}>
+                      {humanizeDashboardLabel(item.notificationStatus)}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
                   {item.alertStatus ? <span>{humanizeDashboardLabel(item.alertStatus)}</span> : null}
                   {item.notificationStatus ? (
                     <Badge variant={notificationVariant(item.notificationStatus)}>
@@ -101,7 +134,8 @@ export function RecentSafetyEventsModule({
                 </div>
               </div>
             </article>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </Card>

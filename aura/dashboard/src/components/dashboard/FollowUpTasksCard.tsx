@@ -54,19 +54,45 @@ export function FollowUpTasksCard({
   onOpenTaskItem,
   onOpenPatients,
 }: FollowUpTasksCardProps): JSX.Element {
+  const urgentCount = items.filter((item) => item.priority === 'urgent' || item.priority === 'high').length;
+  const dueTodayCount = items.filter((item) => {
+    if (!item.dueAt) {
+      return false;
+    }
+
+    const due = new Date(item.dueAt);
+    const now = new Date();
+
+    return (
+      due.getFullYear() === now.getFullYear() &&
+      due.getMonth() === now.getMonth() &&
+      due.getDate() === now.getDate()
+    );
+  }).length;
+
   return (
     <Card
       className="dashboard-module-card dashboard-tasks-card"
       title={
-        <span className="dashboard-module-card__title">
-          Follow-up tasks
-          <span className="dashboard-module-card__count">{items.length}</span>
+        <span className="dashboard-widget-heading dashboard-widget-heading--tasks">
+          <span className="dashboard-widget-heading__eyebrow">Follow-through</span>
+          <span className="dashboard-module-card__title-row">
+            <span className="dashboard-module-card__title">
+              Follow-up tasks
+              <span className="dashboard-module-card__count">{items.length}</span>
+            </span>
+          </span>
+          <span className="dashboard-widget-heading__copy">
+            Action items to keep appointment, adherence, and communication follow-up moving.
+          </span>
         </span>
       }
       action={
-        <Button variant="ghost" size="sm" onClick={onOpenPatients}>
-          Open worklist
-        </Button>
+        <div className="dashboard-module-card__action-shell">
+          <Button variant="ghost" size="sm" onClick={onOpenPatients}>
+            Open worklist
+          </Button>
+        </div>
       }
     >
       {loading && items.length === 0 ? (
@@ -86,9 +112,21 @@ export function FollowUpTasksCard({
           tone="success"
         />
       ) : (
-        <div className="dashboard-list" role="list">
-          {items.map((item) => (
-            <article key={item.id} className="dashboard-list-item" role="listitem">
+        <div className="dashboard-tasks-card__content">
+          <div className="dashboard-widget-bar dashboard-widget-bar--tasks" aria-label="Follow-up task summary">
+            <span className="dashboard-widget-bar__item">
+              <strong>{urgentCount}</strong>
+              <span>urgent or high</span>
+            </span>
+            <span className="dashboard-widget-bar__item">
+              <strong>{dueTodayCount}</strong>
+              <span>due today</span>
+            </span>
+          </div>
+
+          <div className="dashboard-list dashboard-list--tasks" role="list">
+            {items.map((item) => (
+              <article key={item.id} className="dashboard-list-item dashboard-list-item--tasks" role="listitem">
               <div className="dashboard-list-item__content">
                 <div className="dashboard-list-item__eyebrow">
                   <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
@@ -100,7 +138,11 @@ export function FollowUpTasksCard({
                   <h3 className="dashboard-list-item__title">{item.title}</h3>
                   <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
                 </div>
-                <div className="dashboard-list-item__meta">
+                <div className="dashboard-list-item__tag-row">
+                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.type)}</span>
+                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.status)}</span>
+                </div>
+                <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
                   <span>{humanizeDashboardLabel(item.type)}</span>
                   <span>{humanizeDashboardLabel(item.status)}</span>
                 </div>
@@ -111,7 +153,8 @@ export function FollowUpTasksCard({
                 </Button>
               </div>
             </article>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </Card>

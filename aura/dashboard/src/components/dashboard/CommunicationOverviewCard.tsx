@@ -35,15 +35,25 @@ export function CommunicationOverviewCard({
     <Card
       className="dashboard-module-card dashboard-communication-card"
       title={
-        <span className="dashboard-module-card__title">
-          Communication review
-          <span className="dashboard-module-card__count">{counts?.needsResponseCount ?? items.length}</span>
+        <span className="dashboard-widget-heading dashboard-widget-heading--communication">
+          <span className="dashboard-widget-heading__eyebrow">Communication</span>
+          <span className="dashboard-module-card__title-row">
+            <span className="dashboard-module-card__title">
+              Communication review
+              <span className="dashboard-module-card__count">{counts?.needsResponseCount ?? items.length}</span>
+            </span>
+          </span>
+          <span className="dashboard-widget-heading__copy">
+            Messages and follow-up requests that still need clinician review or response.
+          </span>
         </span>
       }
       action={
-        <Button variant="ghost" size="sm" onClick={onOpenPatients}>
-          Open worklist
-        </Button>
+        <div className="dashboard-module-card__action-shell">
+          <Button variant="ghost" size="sm" onClick={onOpenPatients}>
+            Open worklist
+          </Button>
+        </div>
       }
     >
       {loading && items.length === 0 ? (
@@ -81,9 +91,9 @@ export function CommunicationOverviewCard({
             </div>
           ) : null}
 
-          <div className="dashboard-list" role="list">
+          <div className="dashboard-list dashboard-list--communication" role="list">
             {items.map((item) => (
-              <article key={item.id} className="dashboard-list-item" role="listitem">
+              <article key={item.id} className="dashboard-list-item dashboard-list-item--communication" role="listitem">
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">
                     <span className="dashboard-list-item__patient">{item.patientName}</span>
@@ -98,9 +108,9 @@ export function CommunicationOverviewCard({
                   <p className="dashboard-list-item__description">
                     {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
                   </p>
-                  <div className="dashboard-list-item__meta">
-                    {item.followUpRequested ? <span>Follow-up requested</span> : null}
-                    {item.linkedTaskId ? <span>Task linked</span> : null}
+                  <div className="dashboard-list-item__tag-row">
+                    {item.followUpRequested ? <span className="dashboard-list-item__tag">Follow-up requested</span> : null}
+                    {item.linkedTaskId ? <span className="dashboard-list-item__tag">Task linked</span> : null}
                   </div>
                 </div>
                 <div className="dashboard-list-item__action">

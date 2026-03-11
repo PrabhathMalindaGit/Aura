@@ -22,9 +22,14 @@ export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
       <header className="sidebar__header">
         <div className="sidebar__brand">
           <span className="sidebar__brand-mark" aria-hidden="true">
-            A
+            <span className="sidebar__brand-mark-core">A</span>
           </span>
-          {iconOnly ? null : <span className="sidebar__brand-text">Aura Clinician</span>}
+          {iconOnly ? null : (
+            <span className="sidebar__brand-copy">
+              <span className="sidebar__brand-text">Aura Clinician</span>
+              <span className="sidebar__brand-subtitle">Clinical workspace</span>
+            </span>
+          )}
         </div>
         <IconButton
           className="sidebar__toggle"

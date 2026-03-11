@@ -24,6 +24,7 @@ import {
   subscribeSessionSettings,
   type SessionSettings,
 } from '../services/sessionSettings';
+import { getClinicianName } from '../services/clinicianIdentity';
 import { clearDashboardSessionData } from '../utils/storageKeys';
 import { cn } from '../utils/cn';
 
@@ -39,8 +40,35 @@ function formatLastUpdated(lastSuccessAt: number | null): string {
   });
 }
 
+function formatWorkspaceDateTime(nowMs: number): string {
+  return new Intl.DateTimeFormat([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(nowMs);
+}
+
+function getInitials(name: string): string {
+  const segments = name
+    .split(/\s+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (segments.length === 0) {
+    return 'AC';
+  }
+
+  return segments
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
 export function AppShell(): JSX.Element {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [sessionSettings, setSessionSettings] = useState<SessionSettings>(() => getSessionSettings());
   const [sessionWarning, setSessionWarning] = useState<SessionTimeoutWarning | null>(null);
   const { pathname } = useLocation();
@@ -76,6 +104,16 @@ export function AppShell(): JSX.Element {
       state: { reason: 'signedOut' },
     });
   }, [navigate]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const manager = createSessionTimeoutManager({
@@ -160,6 +198,9 @@ export function AppShell(): JSX.Element {
     return 'Dashboard';
   }, [pathname]);
 
+  const clinicianName = useMemo(() => getClinicianName(), []);
+  const clinicianInitials = useMemo(() => getInitials(clinicianName), [clinicianName]);
+
   return (
     <div
       className={cn(
@@ -185,19 +226,60 @@ export function AppShell(): JSX.Element {
               </IconButton>
             ) : null}
             <div className="topbar__title-group">
-              <h1 className="topbar__title">Aura Clinician Dashboard</h1>
-              <p className="topbar__subtitle">{pageTitle}</p>
+              <p className="topbar__eyebrow">Aura Clinician</p>
+              <h1 className="topbar__title">{pageTitle}</h1>
+              <p className="topbar__subtitle">Calm clinical workspace for today&apos;s follow-up.</p>
             </div>
           </div>
+
+          <form
+            className="topbar__search"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <span className="topbar__search-icon" aria-hidden="true">
+              ⌕
+            </span>
+            <label className="visually-hidden" htmlFor="dashboard-shell-search">
+              Search patients, alerts, and IDs
+            </label>
+            <input
+              id="dashboard-shell-search"
+              type="search"
+              className="topbar__search-input"
+              placeholder="Search patient name, ID, alert"
+              value={searchValue}
+              onChange={(event) => {
+                setSearchValue(event.target.value);
+              }}
+              autoComplete="off"
+            />
+          </form>
+
           <div className="topbar__status">
-            <div className="topbar__status-cluster">
-              <Badge variant={connection.online ? 'success' : 'danger'} icon>
-                {connection.online ? 'Online' : 'Offline'}
-              </Badge>
-              <span className="topbar__updated" aria-live="polite">
-                Last updated: {formatLastUpdated(connection.lastSuccessAt)}
+            <div className="topbar__utility">
+              <span className="topbar__datetime">{formatWorkspaceDateTime(nowMs)}</span>
+              <div className="topbar__status-cluster">
+                <Badge variant={connection.online ? 'success' : 'danger'} icon>
+                  {connection.online ? 'Connected' : 'Offline'}
+                </Badge>
+                <span className="topbar__updated" aria-live="polite">
+                  Updated {formatLastUpdated(connection.lastSuccessAt)}
+                </span>
+              </div>
+            </div>
+
+            <div className="topbar__identity">
+              <span className="topbar__avatar" aria-hidden="true">
+                {clinicianInitials}
               </span>
-              <Button className="topbar__signout" variant="secondary" size="sm" onClick={handleSignOut}>
+              <div className="topbar__identity-copy">
+                <strong className="topbar__identity-name">{clinicianName}</strong>
+                <span className="topbar__identity-role">Clinician workspace</span>
+              </div>
+              <Button className="topbar__signout" variant="ghost" size="sm" onClick={handleSignOut}>
                 Sign out
               </Button>
             </div>

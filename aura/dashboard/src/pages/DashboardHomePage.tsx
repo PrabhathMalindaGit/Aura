@@ -9,6 +9,7 @@ import { TodayAppointmentsCard } from '../components/dashboard/TodayAppointments
 import { Button } from '../components/ui/Button';
 import { Section } from '../components/ui/Section';
 import { Stack } from '../components/ui/Stack';
+import { getClinicianName } from '../services/clinicianIdentity';
 import {
   useDashboardCommunicationOverview,
   useDashboardFollowUpTasks,
@@ -35,6 +36,7 @@ function formatUpdatedAt(lastSuccessAt: number | null): string {
 export function DashboardHomePage(): JSX.Element {
   const navigate = useNavigate();
   const connection = useConnectionStatus();
+  const clinicianName = useMemo(() => getClinicianName(), []);
   const summaryQuery = useDashboardSummary();
   const priorityQueueQuery = useDashboardPriorityQueue(7);
   const safetyEventsQuery = useDashboardRecentSafetyEvents(6);
@@ -205,20 +207,73 @@ export function DashboardHomePage(): JSX.Element {
     followUpTasksQuery.isFetching ||
     communicationQuery.isFetching;
 
+  const heroFacts = useMemo(
+    () => [
+      {
+        key: 'alerts',
+        label: 'Open alerts',
+        value: summaryQuery.data?.openAlertsCount ?? '—',
+      },
+      {
+        key: 'tasks',
+        label: 'Follow-up tasks',
+        value: summaryQuery.data?.openFollowUpTasksCount ?? '—',
+      },
+      {
+        key: 'appointments',
+        label: 'Today’s appointments',
+        value: summaryQuery.data?.todayAppointmentsCount ?? '—',
+      },
+    ],
+    [
+      summaryQuery.data?.openAlertsCount,
+      summaryQuery.data?.openFollowUpTasksCount,
+      summaryQuery.data?.todayAppointmentsCount,
+    ],
+  );
+
   return (
     <Stack className="page-stack dashboard-home-page" gap="5">
-      <Section
-        className="dashboard-page-header dashboard-home-page__header"
-        eyebrow="Command center"
-        title="Dashboard"
-        subtitle="Today’s clinical overview, safety events, and follow-up workload."
-        meta={headerMeta}
-        actions={
-          <Button variant="secondary" size="sm" onClick={refreshAll} disabled={isRefreshing}>
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
-        }
-      />
+      <section className="dashboard-home-hero glass-card" aria-label="Dashboard overview">
+        <div className="dashboard-home-hero__main">
+          <Section
+            className="dashboard-page-header dashboard-home-page__header"
+            eyebrow={`Welcome back, ${clinicianName}`}
+            title="Dashboard"
+            subtitle="Your clinical workspace for today’s safety signals, follow-up decisions, and schedule context."
+            meta={headerMeta}
+            actions={
+              <Button variant="secondary" size="sm" onClick={refreshAll} disabled={isRefreshing}>
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            }
+          />
+        </div>
+
+        <aside className="dashboard-home-hero__aside" aria-label="Today in focus">
+          <div className="dashboard-home-hero__aside-card">
+            <p className="dashboard-home-hero__aside-eyebrow">Today in focus</p>
+            <h3 className="dashboard-home-hero__aside-title">
+              {summaryQuery.data?.openAlertsCount
+                ? 'Safety review and follow-up need attention.'
+                : 'The care workspace is stable right now.'}
+            </h3>
+            <p className="dashboard-home-hero__aside-copy">
+              {summaryQuery.data?.openAlertsCount
+                ? 'Start with the priority queue, then confirm today’s schedule and communication follow-up.'
+                : 'Use the summary cards to scan the day quickly, then move into follow-up tasks and communication review.'}
+            </p>
+            <div className="dashboard-home-hero__facts" role="list" aria-label="Dashboard focus facts">
+              {heroFacts.map((fact) => (
+                <div key={fact.key} className="dashboard-home-hero__fact" role="listitem">
+                  <span className="dashboard-home-hero__fact-label">{fact.label}</span>
+                  <strong className="dashboard-home-hero__fact-value">{fact.value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      </section>
 
       <DashboardSummaryCards
         metrics={summaryMetrics}

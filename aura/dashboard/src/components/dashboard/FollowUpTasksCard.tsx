@@ -127,32 +127,33 @@ export function FollowUpTasksCard({
           <div className="dashboard-list dashboard-list--tasks" role="list">
             {items.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--tasks" role="listitem">
-              <div className="dashboard-list-item__content">
-                <div className="dashboard-list-item__eyebrow">
-                  <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                  <span className="dashboard-list-item__timestamp">
-                    {item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Updated ${formatDashboardDateTime(item.updatedAt)}`}
-                  </span>
+                <div className="dashboard-list-item__content">
+                  <div className="dashboard-list-item__eyebrow">
+                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+                    <span className="dashboard-list-item__timestamp">
+                      {item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Updated ${formatDashboardDateTime(item.updatedAt)}`}
+                    </span>
+                  </div>
+                  <div className="dashboard-list-item__title-row">
+                    <h3 className="dashboard-list-item__title">{item.title}</h3>
+                    <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
+                  </div>
+                  <div className="dashboard-list-item__tag-row">
+                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.type)}</span>
+                  </div>
+                  <div className="dashboard-list-item__footer">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
+                      <span>{humanizeDashboardLabel(item.status)}</span>
+                      {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>}
+                    </div>
+                    <div className="dashboard-list-item__action">
+                      <Button variant="secondary" size="sm" onClick={() => onOpenTaskItem(item)}>
+                        {actionLabel(item)}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="dashboard-list-item__title-row">
-                  <h3 className="dashboard-list-item__title">{item.title}</h3>
-                  <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
-                </div>
-                <div className="dashboard-list-item__tag-row">
-                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.type)}</span>
-                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.status)}</span>
-                </div>
-                <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                  <span>{humanizeDashboardLabel(item.type)}</span>
-                  <span>{humanizeDashboardLabel(item.status)}</span>
-                </div>
-              </div>
-              <div className="dashboard-list-item__action">
-                <Button variant="secondary" size="sm" onClick={() => onOpenTaskItem(item)}>
-                  {actionLabel(item)}
-                </Button>
-              </div>
-            </article>
+              </article>
             ))}
           </div>
         </div>

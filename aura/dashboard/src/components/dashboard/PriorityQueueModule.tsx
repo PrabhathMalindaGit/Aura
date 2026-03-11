@@ -124,35 +124,39 @@ export function PriorityQueueModule({
           <div className="dashboard-list dashboard-list--priority" role="list">
             {items.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--priority" role="listitem">
-              <div className="dashboard-list-item__content">
-                <div className="dashboard-list-item__eyebrow">
-                  <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                  <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
-                    {formatDashboardRelativeTime(item.createdAt)}
-                  </span>
+                <div className="dashboard-list-item__content">
+                  <div className="dashboard-list-item__eyebrow">
+                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+                    <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
+                      {formatDashboardRelativeTime(item.createdAt)}
+                    </span>
+                  </div>
+                  <div className="dashboard-list-item__title-row">
+                    <h3 className="dashboard-list-item__title">{item.title}</h3>
+                    <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
+                  </div>
+                  {item.subtitle ? <p className="dashboard-list-item__description">{item.subtitle}</p> : null}
+                  <div className="dashboard-list-item__tag-row">
+                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.source)}</span>
+                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.itemType)}</span>
+                  </div>
+                  <div className="dashboard-list-item__footer">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
+                      <span>{humanizeDashboardLabel(item.status)}</span>
+                      {item.dueAt ? (
+                        <span>Due {formatDashboardDateTime(item.dueAt)}</span>
+                      ) : (
+                        <span>Opened {formatDashboardDateTime(item.createdAt)}</span>
+                      )}
+                    </div>
+                    <div className="dashboard-list-item__action">
+                      <Button variant="secondary" size="sm" onClick={() => onOpenItem(item)}>
+                        {actionLabel(item)}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="dashboard-list-item__title-row">
-                  <h3 className="dashboard-list-item__title">{item.title}</h3>
-                  <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
-                </div>
-                {item.subtitle ? <p className="dashboard-list-item__description">{item.subtitle}</p> : null}
-                <div className="dashboard-list-item__tag-row">
-                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.source)}</span>
-                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.status)}</span>
-                  {item.dueAt ? <span className="dashboard-list-item__tag">Due {formatDashboardDateTime(item.dueAt)}</span> : null}
-                </div>
-                <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                  <span>{humanizeDashboardLabel(item.source)}</span>
-                  <span>{humanizeDashboardLabel(item.status)}</span>
-                  {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : null}
-                </div>
-              </div>
-              <div className="dashboard-list-item__action">
-                <Button variant="secondary" size="sm" onClick={() => onOpenItem(item)}>
-                  {actionLabel(item)}
-                </Button>
-              </div>
-            </article>
+              </article>
             ))}
           </div>
         </div>

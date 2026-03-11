@@ -104,36 +104,32 @@ export function RecentSafetyEventsModule({
           <div className="dashboard-list dashboard-list--timeline" role="list">
             {items.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--timeline" role="listitem">
-              <div className="dashboard-list-item__timeline-dot" aria-hidden="true" />
-              <div className="dashboard-list-item__content">
-                <div className="dashboard-list-item__eyebrow">
-                  <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                  <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
-                    {formatDashboardRelativeTime(item.createdAt)}
-                  </span>
+                <div className="dashboard-list-item__timeline-dot" aria-hidden="true" />
+                <div className="dashboard-list-item__content">
+                  <div className="dashboard-list-item__eyebrow">
+                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+                    <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
+                      {formatDashboardRelativeTime(item.createdAt)}
+                    </span>
+                  </div>
+                  <div className="dashboard-list-item__title-row">
+                    <h3 className="dashboard-list-item__title">{humanizeDashboardLabel(item.type)}</h3>
+                  </div>
+                  <p className="dashboard-list-item__description">{item.summary}</p>
+                  <div className="dashboard-list-item__tag-row">
+                    {item.alertStatus ? <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.alertStatus)}</span> : null}
+                    {item.notificationStatus ? (
+                      <Badge variant={notificationVariant(item.notificationStatus)}>
+                        {humanizeDashboardLabel(item.notificationStatus)}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
+                    {item.alertStatus ? <span>Alert lifecycle recorded</span> : null}
+                    {item.notificationStatus ? <span>Notification callback recorded</span> : null}
+                  </div>
                 </div>
-                <div className="dashboard-list-item__title-row">
-                  <h3 className="dashboard-list-item__title">{humanizeDashboardLabel(item.type)}</h3>
-                </div>
-                <p className="dashboard-list-item__description">{item.summary}</p>
-                <div className="dashboard-list-item__tag-row">
-                  {item.alertStatus ? <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.alertStatus)}</span> : null}
-                  {item.notificationStatus ? (
-                    <Badge variant={notificationVariant(item.notificationStatus)}>
-                      {humanizeDashboardLabel(item.notificationStatus)}
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                  {item.alertStatus ? <span>{humanizeDashboardLabel(item.alertStatus)}</span> : null}
-                  {item.notificationStatus ? (
-                    <Badge variant={notificationVariant(item.notificationStatus)}>
-                      {humanizeDashboardLabel(item.notificationStatus)}
-                    </Badge>
-                  ) : null}
-                </div>
-              </div>
-            </article>
+              </article>
             ))}
           </div>
         </div>

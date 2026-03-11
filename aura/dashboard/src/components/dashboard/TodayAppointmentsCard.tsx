@@ -113,31 +113,37 @@ export function TodayAppointmentsCard({
           <div className="dashboard-list dashboard-list--appointments" role="list">
             {items.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--appointments" role="listitem">
-              <div className="dashboard-list-item__content">
-                <div className="dashboard-list-item__eyebrow">
-                  <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                  <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.updatedAt)}>
-                    Updated {formatDashboardDateTime(item.updatedAt)}
-                  </span>
+                <div className="dashboard-list-item__content">
+                  <div className="dashboard-list-item__eyebrow">
+                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+                    <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.updatedAt)}>
+                      Updated {formatDashboardDateTime(item.updatedAt)}
+                    </span>
+                  </div>
+                  <div className="dashboard-list-item__title-row">
+                    <h3 className="dashboard-list-item__title">{formatDashboardTimeRange(item.startsAt, item.endsAt)}</h3>
+                    <Badge variant={statusVariant(item.status)}>{humanizeDashboardLabel(item.status)}</Badge>
+                  </div>
+                  <p className="dashboard-list-item__description">
+                    {item.note?.trim() || `${humanizeDashboardLabel(item.requestStatus)} ${item.modality} visit`}
+                  </p>
+                  <div className="dashboard-list-item__tag-row">
+                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.requestStatus)}</span>
+                    <span className="dashboard-list-item__tag">{item.modality}</span>
+                  </div>
+                  <div className="dashboard-list-item__footer">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
+                      <span>{humanizeDashboardLabel(item.status)} visit</span>
+                      <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>
+                    </div>
+                    <div className="dashboard-list-item__action">
+                      <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
+                        Open patient
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="dashboard-list-item__title-row">
-                  <h3 className="dashboard-list-item__title">{formatDashboardTimeRange(item.startsAt, item.endsAt)}</h3>
-                  <Badge variant={statusVariant(item.status)}>{humanizeDashboardLabel(item.status)}</Badge>
-                </div>
-                <p className="dashboard-list-item__description">
-                  {item.note?.trim() || `${humanizeDashboardLabel(item.requestStatus)} ${item.modality} visit`}
-                </p>
-                <div className="dashboard-list-item__tag-row">
-                  <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.requestStatus)}</span>
-                  <span className="dashboard-list-item__tag">{item.modality}</span>
-                </div>
-              </div>
-              <div className="dashboard-list-item__action">
-                <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
-                  Open patient
-                </Button>
-              </div>
-            </article>
+              </article>
             ))}
           </div>
         </div>

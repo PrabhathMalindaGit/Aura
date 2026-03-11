@@ -112,11 +112,19 @@ export function CommunicationOverviewCard({
                     {item.followUpRequested ? <span className="dashboard-list-item__tag">Follow-up requested</span> : null}
                     {item.linkedTaskId ? <span className="dashboard-list-item__tag">Task linked</span> : null}
                   </div>
-                </div>
-                <div className="dashboard-list-item__action">
-                  <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
-                    Open patient
-                  </Button>
+                  <div className="dashboard-list-item__footer">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
+                      <span>Needs response</span>
+                      <span title={formatDashboardDateTime(item.messageCreatedAt)}>
+                        Latest message {formatDashboardRelativeTime(item.messageCreatedAt)}
+                      </span>
+                    </div>
+                    <div className="dashboard-list-item__action">
+                      <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
+                        Open patient
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </article>
             ))}

@@ -8916,12 +8916,14 @@ time,
   }
 
   .appointments-workspace-note__facts,
+  .settings-workspace-note__facts,
   .appointments-workspace__context-facts {
     display: grid;
     grid-template-columns: 1fr;
   }
 
   .appointments-workspace-note__fact,
+  .settings-workspace-note__fact,
   .appointments-workspace__context-pill {
     width: 100%;
     justify-content: flex-start;
@@ -11364,6 +11366,209 @@ button.dashboard-summary-card:hover {
   background: transparent;
 }
 
+/* Aura Clinician workspace-note consistency */
+
+.patients-roster-note {
+  --workspace-note-accent: hsl(var(--primary) / 0.09);
+}
+
+.worklist-workspace-note {
+  --workspace-note-accent: hsl(var(--warning) / 0.09);
+}
+
+.appointments-workspace-note {
+  --workspace-note-accent: hsl(var(--success) / 0.09);
+}
+
+.settings-workspace-note {
+  --workspace-note-accent: hsl(266 62% 84% / 0.14);
+}
+
+:is(
+    .patients-roster-note,
+    .worklist-workspace-note,
+    .appointments-workspace-note,
+    .settings-workspace-note
+  ) {
+  display: grid;
+  gap: var(--workspace-note-gap);
+  padding: var(--workspace-note-padding);
+  border-radius: var(--workspace-note-radius);
+  border: 1px solid hsl(var(--border) / 0.56);
+  background:
+    radial-gradient(circle at top right, var(--workspace-note-accent), transparent 44%),
+    linear-gradient(145deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.2));
+  box-shadow:
+    0 18px 36px hsl(248 30% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+@media (min-width: 980px) {
+  :is(
+      .patients-roster-note,
+      .worklist-workspace-note,
+      .appointments-workspace-note,
+      .settings-workspace-note
+    ) {
+    grid-template-columns: minmax(0, 1.5fr) auto;
+    align-items: start;
+    column-gap: clamp(14px, 1.25vw, 20px);
+  }
+}
+
+:is(
+    .patients-roster-note__copy,
+    .worklist-workspace-note__copy,
+    .appointments-workspace-note__copy,
+    .settings-workspace-note__copy
+  ) {
+  display: grid;
+  gap: var(--workspace-note-copy-gap);
+  align-content: start;
+}
+
+:is(
+    .patients-roster-note__eyebrow,
+    .worklist-workspace-note__eyebrow,
+    .appointments-workspace-note__eyebrow,
+    .settings-workspace-note__eyebrow
+  ) {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
+}
+
+:is(
+    .patients-roster-note__text,
+    .worklist-workspace-note__text,
+    .appointments-workspace-note__text,
+    .settings-workspace-note__text
+  ) {
+  margin: 0;
+  max-width: var(--workspace-note-copy-max);
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+:is(
+    .patients-roster-note__facts,
+    .worklist-workspace-note__facts,
+    .appointments-workspace-note__facts,
+    .settings-workspace-note__facts
+  ) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: var(--workspace-note-facts-gap);
+  max-width: min(25rem, 100%);
+}
+
+:is(
+    .patients-roster-note__fact,
+    .worklist-workspace-note__fact,
+    .appointments-workspace-note__fact,
+    .settings-workspace-note__fact
+  ) {
+  min-height: var(--workspace-note-fact-height);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.56);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.88));
+  color: hsl(var(--muted-foreground));
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  line-height: 1.2;
+  font-feature-settings: var(--nums);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.alerts-workspace-card__heading-row {
+  gap: var(--workspace-note-gap);
+  padding-bottom: var(--space-3);
+}
+
+@media (min-width: 980px) {
+  .alerts-workspace-card__heading-row {
+    grid-template-columns: minmax(0, 1.45fr) auto;
+    align-items: start;
+    column-gap: clamp(14px, 1.25vw, 20px);
+  }
+}
+
+.alerts-workspace-card__heading-copy {
+  gap: var(--workspace-note-copy-gap);
+}
+
+.alerts-workspace-card__eyebrow {
+  line-height: 1.25;
+}
+
+.alerts-queue-intro {
+  line-height: 1.55;
+  max-width: var(--workspace-note-copy-max);
+}
+
+.alerts-workspace-card__heading-actions {
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.alerts-workspace-card__queue-meta {
+  gap: var(--workspace-note-facts-gap);
+  align-content: flex-start;
+}
+
+.alerts-workspace-card__queue-pill,
+.alerts-workspace-card__queue-count {
+  min-height: var(--workspace-note-fact-height);
+  font-weight: var(--font-medium);
+  line-height: 1.2;
+}
+
+.alerts-workspace-card__queue-pill {
+  background: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.88));
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.alerts-workspace-card__queue-count {
+  background: linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.9));
+}
+
+.dark :is(
+    .patients-roster-note,
+    .worklist-workspace-note,
+    .appointments-workspace-note,
+    .settings-workspace-note
+  ) {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    radial-gradient(circle at top right, var(--workspace-note-accent), transparent 46%),
+    linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.78));
+  box-shadow:
+    0 22px 42px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark :is(
+    .patients-roster-note__fact,
+    .worklist-workspace-note__fact,
+    .appointments-workspace-note__fact,
+    .settings-workspace-note__fact
+  ) {
+  border-color: hsl(var(--border) / 0.48);
+  background: hsl(var(--muted) / 0.42);
+}
+
 @media (max-width: 1180px) {
   .insights-summary-strip,
   .settings-summary-strip {
@@ -11468,7 +11673,7 @@ button.dashboard-summary-card:hover {
 .dashboard-home-zone,
 :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header),
 :is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip, .insights-summary-strip, .settings-summary-strip),
-:is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note),
+:is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .settings-workspace-note),
 :is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface) {
   transition:
     border-color var(--transition-fast),
@@ -11527,7 +11732,7 @@ button.dashboard-summary-card:hover {
 .dark .dashboard-home-summary-shell,
 .dark .dashboard-home-zone,
 .dark :is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip, .insights-summary-strip, .settings-summary-strip),
-.dark :is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note),
+.dark :is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .settings-workspace-note),
 .dark :is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface) {
   box-shadow:
     0 22px 42px hsl(224 52% 4% / 0.28),
@@ -11548,6 +11753,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__fact,
     .worklist-workspace-note__fact,
     .appointments-workspace-note__fact,
+    .settings-workspace-note__fact,
     .patients-workspace-card__fact,
     .worklist-card-title__meta,
     .appointments-card-title__meta,
@@ -11709,6 +11915,7 @@ button.dashboard-summary-card:hover {
   .patients-roster-note,
   .worklist-workspace-note,
   .appointments-workspace-note,
+  .settings-workspace-note,
   .alerts-workspace-card__heading-row {
     grid-template-columns: 1fr;
     align-items: start;
@@ -11718,10 +11925,13 @@ button.dashboard-summary-card:hover {
       .patients-roster-note__facts,
       .worklist-workspace-note__facts,
       .appointments-workspace-note__facts,
+      .settings-workspace-note__facts,
       .patients-workspace-card__facts,
       .alerts-workspace-card__queue-meta
     ) {
     width: 100%;
+    max-width: none;
+    justify-self: stretch;
     justify-content: flex-start;
   }
 

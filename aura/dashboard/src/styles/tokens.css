@@ -195,6 +195,13 @@
   --summary-item-min-height: 5.5rem;
   --summary-value-size: clamp(1.08rem, 1.35vw, 1.22rem);
   --summary-helper-line-height: 1.42;
+  --workspace-note-radius: calc(var(--radius-xl) - 4px);
+  --workspace-note-padding: clamp(14px, 1.2vw, 18px);
+  --workspace-note-gap: clamp(12px, 1vw, 16px);
+  --workspace-note-copy-gap: var(--space-xs);
+  --workspace-note-facts-gap: var(--space-2);
+  --workspace-note-fact-height: 2rem;
+  --workspace-note-copy-max: 68ch;
 
   --font-family-base: var(--font-sans);
   --font-size-xs: var(--text-xs);

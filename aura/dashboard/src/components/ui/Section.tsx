@@ -22,14 +22,14 @@ export function Section({
   return (
     <section className={cn('section', className)} {...props}>
       <header className="section__header">
-        <div className="stack stack--1">
+        <div className="section__title-group stack stack--1">
           {eyebrow ? <p className="section__eyebrow">{eyebrow}</p> : null}
           <h2 className="section__title">{title}</h2>
           {subtitle ? <p className="section__subtitle">{subtitle}</p> : null}
         </div>
         {actions || meta ? (
           <div className="section__meta">
-            {meta ? <p className="section__meta-text">{meta}</p> : null}
+            {meta ? <div className="section__meta-text">{meta}</div> : null}
             {actions ? <div className="section__actions">{actions}</div> : null}
           </div>
         ) : null}

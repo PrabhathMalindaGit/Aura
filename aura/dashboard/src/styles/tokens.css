@@ -186,6 +186,15 @@
   --nav-active-bg: var(--gradient-primary);
   --shell-frame-padding: clamp(12px, 1.8vw, 22px);
   --shell-surface-gap: clamp(12px, 1.5vw, 18px);
+  --summary-shell-radius: calc(var(--radius-xl) - 3px);
+  --summary-shell-padding: clamp(10px, 1vw, 12px);
+  --summary-shell-gap: clamp(10px, 1vw, 12px);
+  --summary-item-radius: calc(var(--radius-lg) + 2px);
+  --summary-item-padding: clamp(14px, 1.15vw, 17px);
+  --summary-item-gap: clamp(4px, 0.5vw, 6px);
+  --summary-item-min-height: 5.5rem;
+  --summary-value-size: clamp(1.08rem, 1.35vw, 1.22rem);
+  --summary-helper-line-height: 1.42;
 
   --font-family-base: var(--font-sans);
   --font-size-xs: var(--text-xs);

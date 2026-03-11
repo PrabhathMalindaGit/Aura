@@ -116,6 +116,7 @@ export function InsightsQueuePage(): JSX.Element {
         actions={
           <Button
             variant="secondary"
+            size="sm"
             disabled={queueQuery.isFetching}
             onClick={() => {
               void queueQuery.refetch();
@@ -130,6 +131,7 @@ export function InsightsQueuePage(): JSX.Element {
         <article className="insights-summary-strip__item insights-summary-strip__item--pending">
           <p className="insights-summary-strip__label">Pending suggestions</p>
           <p className="insights-summary-strip__value">{pendingCount}</p>
+          <p className="insights-summary-strip__hint">Awaiting clinician review</p>
         </article>
         <article className="insights-summary-strip__item insights-summary-strip__item--status">
           <p className="insights-summary-strip__label">Queue status</p>
@@ -147,6 +149,7 @@ export function InsightsQueuePage(): JSX.Element {
         <article className="insights-summary-strip__item insights-summary-strip__item--updated">
           <p className="insights-summary-strip__label">Last refresh</p>
           <p className="insights-summary-strip__value">{updatedAtLabel}</p>
+          <p className="insights-summary-strip__hint">Queue freshness for this review view</p>
         </article>
       </section>
 

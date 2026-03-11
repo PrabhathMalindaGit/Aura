@@ -224,6 +224,7 @@ export function AppointmentsPage(): JSX.Element {
         actions={
           <Button
             variant="secondary"
+            size="sm"
             disabled={isRefreshingWorkspace}
             onClick={() => {
               void Promise.all([slotsQuery.refetch(), requestsQuery.refetch()]);

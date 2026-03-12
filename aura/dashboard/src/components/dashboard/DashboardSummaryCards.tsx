@@ -107,11 +107,15 @@ export function DashboardSummaryCards({
 
   return (
     <section className="dashboard-summary-grid" aria-label="Dashboard summary">
-      {metrics.map((metric, index) => {
+      {metrics.map((metric) => {
         const tierClass =
-          index < 4
-            ? 'dashboard-summary-card--primary-tier'
-            : 'dashboard-summary-card--secondary-tier';
+          metric.key === 'open-alerts'
+            ? 'dashboard-summary-card--featured'
+            : metric.key === 'today-appointments'
+              ? 'dashboard-summary-card--overview'
+              : metric.key === 'assigned-to-me' || metric.key === 'pending-insights'
+                ? 'dashboard-summary-card--support'
+                : 'dashboard-summary-card--secondary-tier';
 
         const content = (
           <>
@@ -126,8 +130,10 @@ export function DashboardSummaryCards({
               ) : null}
             </div>
             <div className="dashboard-summary-card__content">
-              <p className="dashboard-summary-card__label">{metric.label}</p>
-              <p className="dashboard-summary-card__value">{metric.value}</p>
+              <div className="dashboard-summary-card__metric">
+                <p className="dashboard-summary-card__label">{metric.label}</p>
+                <p className="dashboard-summary-card__value">{metric.value}</p>
+              </div>
               <p className="dashboard-summary-card__helper">{metric.helper}</p>
             </div>
           </>

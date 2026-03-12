@@ -74,7 +74,7 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Configure this browser workspace for appearance, local identity, and session protection."
+        subtitle="Configure this local clinician workspace for appearance, assignment labels, and session protection."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
@@ -128,8 +128,8 @@ export function SettingsPage(): JSX.Element {
           <div className="settings-workspace-note__copy">
             <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
             <p className="settings-workspace-note__text">
-              These controls affect this browser workspace, not a shared clinician profile. Use them to
-              adjust appearance, ownership labels, and session protection on this device.
+              These controls shape this browser workspace. Appearance, assignment labels, and session
+              protection update here immediately, but they do not sync to a shared clinician profile.
             </p>
           </div>
           <div className="settings-workspace-note__facts" aria-label="Settings behavior facts">
@@ -485,6 +485,10 @@ export function SettingsPage(): JSX.Element {
 
           <section className="settings-column-shell__support" aria-label="Workspace guidance">
             <p className="settings-column-shell__support-label">Workspace guidance</p>
+            <p className="settings-column-shell__support-text">
+              Use these reminders to keep the local scope of this browser workspace clear for the
+              clinician using it.
+            </p>
             <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
               Settings on this page are browser-backed. They change how this clinician workspace
               behaves on this device, but they do not publish shared product-wide preferences.

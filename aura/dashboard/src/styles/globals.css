@@ -12739,6 +12739,10 @@ button.dashboard-summary-card:hover {
 .btn {
   font-weight: var(--font-semibold);
   letter-spacing: -0.012em;
+  gap: calc(var(--space-sm) - 2px);
+  box-shadow:
+    var(--action-shadow-soft),
+    inset 0 1px 0 hsl(0 0% 100% / 0.32);
 }
 
 .btn--primary {
@@ -12758,7 +12762,7 @@ button.dashboard-summary-card:hover {
   border-color: hsl(var(--border) / 0.5);
   box-shadow:
     var(--action-shadow-soft),
-    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+    inset 0 1px 0 hsl(0 0% 100% / 0.42);
 }
 
 .btn--secondary:hover {
@@ -12768,6 +12772,7 @@ button.dashboard-summary-card:hover {
 .btn--ghost {
   border-color: hsl(var(--border) / 0.38);
   background: linear-gradient(180deg, hsl(var(--card) / 0.8), hsl(var(--muted) / 0.14));
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.44);
 }
 
 .btn--ghost:hover {
@@ -12806,6 +12811,7 @@ button.dashboard-summary-card:hover {
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   letter-spacing: 0;
+  gap: calc(var(--space-xs) + 2px);
   box-shadow:
     var(--action-shadow-shell),
     inset 0 1px 0 hsl(0 0% 100% / 0.64);
@@ -12887,11 +12893,12 @@ button.dashboard-summary-card:hover {
   ) {
   min-height: var(--action-height-compact);
   padding-inline: var(--space-3);
-  border-radius: var(--action-pill-radius);
+  border-radius: var(--action-compact-radius);
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   line-height: 1;
   letter-spacing: 0;
+  gap: calc(var(--space-xs) + 1px);
   box-shadow:
     var(--action-shadow-compact),
     inset 0 1px 0 hsl(0 0% 100% / 0.58);
@@ -12963,7 +12970,7 @@ button.dashboard-summary-card:hover {
   color: hsl(var(--warning-foreground));
   box-shadow:
     0 10px 20px hsl(var(--warning) / 0.12),
-    inset 0 1px 0 hsl(var(--foreground) / 0.02);
+    inset 0 1px 0 hsl(0 0% 100% / 0.4);
 }
 
 .alerts-actions__ack.btn:hover {
@@ -13037,6 +13044,12 @@ button.dashboard-summary-card:hover {
     0 0 0 1px hsl(var(--ring) / 0.64),
     0 0 0 4px hsl(var(--ring) / 0.18),
     0 10px 20px hsl(222 56% 2% / 0.26);
+}
+
+.dark .btn {
+  box-shadow:
+    0 10px 20px hsl(222 56% 2% / 0.2),
+    inset 0 1px 0 hsl(0 0% 100% / 0.05);
 }
 
 .dark :is(
@@ -13167,6 +13180,35 @@ button.dashboard-summary-card:hover {
   border-color: hsl(var(--border) / 0.42);
 }
 
+.dark :is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--secondary:hover,
+.dark :is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--ghost:hover,
+.dark .patients-table__view.btn:hover,
+.dark .patients-card-list__view.btn:hover,
+.dark .alerts-actions__open.btn:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.32)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.08), transparent 78%);
+}
+
 .dark .alerts-actions__ack.btn {
   border-color: hsl(var(--warning) / 0.32);
   background:
@@ -13197,4 +13239,14 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--muted) / 0.42), hsl(var(--muted) / 0.28)),
     linear-gradient(135deg, hsl(var(--warning) / 0.08), transparent 76%);
+}
+
+@media (max-width: 1180px) {
+  .section__actions {
+    gap: var(--space-2);
+  }
+
+  .section__actions .btn {
+    flex: 0 0 auto;
+  }
 }

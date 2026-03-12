@@ -74,7 +74,7 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Manage clinician preferences, local identity, and session protection for this browser workspace."
+        subtitle="Configure this browser workspace for appearance, local identity, and session protection."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
@@ -126,11 +126,10 @@ export function SettingsPage(): JSX.Element {
 
         <section className="settings-workspace-note" aria-label="How settings apply">
           <div className="settings-workspace-note__copy">
-            <p className="settings-workspace-note__eyebrow">How this workspace is configured</p>
+            <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
             <p className="settings-workspace-note__text">
-              These controls update the current browser workspace immediately. They shape how this
-              clinician view looks, how session protection behaves on this device, and which identity
-              appears for ownership and review actions.
+              These controls affect this browser workspace, not a shared clinician profile. Use them to
+              adjust appearance, ownership labels, and session protection on this device.
             </p>
           </div>
           <div className="settings-workspace-note__facts" aria-label="Settings behavior facts">
@@ -152,7 +151,7 @@ export function SettingsPage(): JSX.Element {
               Appearance and local identity
             </h3>
             <p className="settings-column-shell__text">
-              Shape how this clinician workspace looks and how ownership labels appear during review on
+              Set how this workspace looks and which clinician identity appears in ownership labels on
               this device.
             </p>
           </div>
@@ -172,8 +171,8 @@ export function SettingsPage(): JSX.Element {
               </p>
             </div>
             <div className="settings-group-card__intro">
-              Configure appearance and day-to-day workspace behavior for this browser without changing
-              shared product data.
+              Adjust appearance and daily workspace behavior for this browser without changing shared
+              product data.
             </div>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
@@ -267,11 +266,11 @@ export function SettingsPage(): JSX.Element {
 
             <div className="settings-card-footer">
               <div className="inline-actions settings-actions settings-actions--primary settings-actions--preferences">
-                <Button>Save Preferences</Button>
-                <Button variant="ghost">Reset</Button>
+                <Button>Save preferences</Button>
+                <Button variant="ghost">Restore defaults</Button>
               </div>
               <p className="settings-card-footer__note">
-                Theme, density, and warning preferences are saved locally for this browser.
+                Theme, density, and warning preferences stay in this browser workspace.
               </p>
             </div>
 
@@ -294,7 +293,7 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">Assignment labels</span>
               <p className="settings-group-card__context-note">
-                Used for ownership and review actions on this device.
+                Used for assignments and review actions in this browser.
               </p>
             </div>
             <div className="settings-group-card__intro">
@@ -343,7 +342,7 @@ export function SettingsPage(): JSX.Element {
                     setIdentityNotice('Clinician identity saved.');
                   }}
                 >
-                  Save Identity
+                  Save identity
                 </Button>
                 <Button
                   variant="ghost"
@@ -354,11 +353,11 @@ export function SettingsPage(): JSX.Element {
                     setIdentityNotice('Clinician identity reset to defaults.');
                   }}
                 >
-                  Reset Identity
+                  Restore identity
                 </Button>
               </div>
               <p className="settings-card-footer__note">
-                This does not update a shared profile record. It controls how you appear in this browser.
+                This only changes how you appear in this browser workspace.
               </p>
             </div>
 
@@ -469,7 +468,7 @@ export function SettingsPage(): JSX.Element {
                     setSessionNotice('Session security settings reset to defaults.');
                   }}
                 >
-                  Reset Session Defaults
+                  Restore session defaults
                 </Button>
               </div>
               <p className="settings-card-footer__note">
@@ -484,9 +483,13 @@ export function SettingsPage(): JSX.Element {
             ) : null}
           </Card>
 
-          <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
-            Settings on this page are browser-backed. They change how this clinician workspace behaves on this device, but they do not publish shared product-wide preferences.
-          </AlertBanner>
+          <section className="settings-column-shell__support" aria-label="Workspace guidance">
+            <p className="settings-column-shell__support-label">Workspace guidance</p>
+            <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
+              Settings on this page are browser-backed. They change how this clinician workspace
+              behaves on this device, but they do not publish shared product-wide preferences.
+            </AlertBanner>
+          </section>
         </section>
       </section>
     </div>

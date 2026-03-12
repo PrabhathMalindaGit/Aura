@@ -84,6 +84,32 @@ function timelineTone(item: DashboardSafetyEvent): 'success' | 'warning' | 'dang
   return 'neutral';
 }
 
+function timelineSupportLine(item: DashboardSafetyEvent): string {
+  if (item.notificationStatus) {
+    return 'Notification workflow recorded';
+  }
+
+  if (item.alertStatus) {
+    return 'Alert workflow updated';
+  }
+
+  return 'Safety workflow recorded';
+}
+
+function timelineTags(item: DashboardSafetyEvent): string[] {
+  const tags: string[] = [];
+
+  if (item.notificationStatus && item.alertStatus) {
+    tags.push(humanizeDashboardLabel(item.alertStatus));
+  }
+
+  if (item.alertId) {
+    tags.push('Linked alert');
+  }
+
+  return tags;
+}
+
 export function RecentSafetyEventsModule({
   items,
   loading,
@@ -152,6 +178,7 @@ export function RecentSafetyEventsModule({
           <div className="dashboard-list dashboard-list--timeline" role="list">
             {items.map((item) => {
               const streamLabel = eventStreamLabel(item);
+              const supportingTags = timelineTags(item);
               const primaryBadge = item.notificationStatus ? (
                 <Badge variant={notificationVariant(item.notificationStatus)}>
                   {humanizeDashboardLabel(item.notificationStatus)}
@@ -178,10 +205,13 @@ export function RecentSafetyEventsModule({
                         <span className="dashboard-list-item__timeline-kind">{streamLabel}</span>
                       </div>
                       <div className="dashboard-list-item__timeline-meta">
-                        {primaryBadge}
-                        <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
+                        <span
+                          className="dashboard-list-item__timestamp dashboard-list-item__timestamp--timeline"
+                          title={formatDashboardDateTime(item.createdAt)}
+                        >
                           {formatDashboardRelativeTime(item.createdAt)}
                         </span>
+                        {primaryBadge}
                       </div>
                     </div>
 
@@ -193,16 +223,19 @@ export function RecentSafetyEventsModule({
 
                     <p className="dashboard-list-item__description dashboard-list-item__description--timeline">{item.summary}</p>
 
-                    <div className="dashboard-list-item__tag-row dashboard-list-item__tag-row--timeline">
-                      {item.alertStatus ? <span className="dashboard-list-item__tag">Alert recorded</span> : null}
-                      {item.notificationStatus ? <span className="dashboard-list-item__tag">Callback logged</span> : null}
-                      {item.alertId ? <span className="dashboard-list-item__tag">Alert linked</span> : null}
-                    </div>
+                    {supportingTags.length > 0 ? (
+                      <div className="dashboard-list-item__tag-row dashboard-list-item__tag-row--timeline">
+                        {supportingTags.map((tag) => (
+                          <span key={tag} className="dashboard-list-item__tag dashboard-list-item__tag--timeline">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
 
                     <div className="dashboard-list-item__footer dashboard-list-item__footer--timeline">
                       <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--timeline">
-                        {item.alertStatus ? <span>Alert workflow updated</span> : null}
-                        {item.notificationStatus ? <span>Notification status captured</span> : null}
+                        <span>{timelineSupportLine(item)}</span>
                         <span>{formatDashboardDateTime(item.createdAt)}</span>
                       </div>
                       <div className="dashboard-list-item__action dashboard-list-item__action--timeline">

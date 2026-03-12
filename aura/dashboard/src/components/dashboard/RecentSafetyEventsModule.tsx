@@ -36,6 +36,54 @@ function notificationVariant(status?: string): 'neutral' | 'warning' | 'success'
   return 'neutral';
 }
 
+function alertStatusVariant(status?: string): 'neutral' | 'status-open' | 'status-ack' | 'status-resolved' {
+  if (status === 'open') {
+    return 'status-open';
+  }
+
+  if (status === 'acknowledged' || status === 'in_review') {
+    return 'status-ack';
+  }
+
+  if (status === 'resolved' || status === 'closed') {
+    return 'status-resolved';
+  }
+
+  return 'neutral';
+}
+
+function eventStreamLabel(item: DashboardSafetyEvent): string {
+  if (item.notificationStatus) {
+    return 'Notification activity';
+  }
+
+  if (item.type.toUpperCase().includes('ALERT')) {
+    return 'Alert lifecycle';
+  }
+
+  return 'Safety workflow';
+}
+
+function timelineTone(item: DashboardSafetyEvent): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (item.notificationStatus === 'failed') {
+    return 'danger';
+  }
+
+  if (item.notificationStatus === 'sent') {
+    return 'success';
+  }
+
+  if (item.notificationStatus === 'attempted' || item.notificationStatus === 'skipped') {
+    return 'warning';
+  }
+
+  if (item.type.toUpperCase().includes('ALERT') || item.alertStatus === 'open') {
+    return 'danger';
+  }
+
+  return 'neutral';
+}
+
 export function RecentSafetyEventsModule({
   items,
   loading,
@@ -102,35 +150,71 @@ export function RecentSafetyEventsModule({
           </div>
 
           <div className="dashboard-list dashboard-list--timeline" role="list">
-            {items.map((item) => (
-              <article key={item.id} className="dashboard-list-item dashboard-list-item--timeline" role="listitem">
-                <div className="dashboard-list-item__timeline-dot" aria-hidden="true" />
-                <div className="dashboard-list-item__content">
-                  <div className="dashboard-list-item__eyebrow">
-                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                    <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
-                      {formatDashboardRelativeTime(item.createdAt)}
-                    </span>
+            {items.map((item) => {
+              const streamLabel = eventStreamLabel(item);
+              const primaryBadge = item.notificationStatus ? (
+                <Badge variant={notificationVariant(item.notificationStatus)}>
+                  {humanizeDashboardLabel(item.notificationStatus)}
+                </Badge>
+              ) : item.alertStatus ? (
+                <Badge variant={alertStatusVariant(item.alertStatus)}>
+                  {humanizeDashboardLabel(item.alertStatus)}
+                </Badge>
+              ) : null;
+
+              return (
+                <article
+                  key={item.id}
+                  className={`dashboard-list-item dashboard-list-item--timeline dashboard-list-item--timeline-${timelineTone(item)}`}
+                  role="listitem"
+                >
+                  <div className="dashboard-list-item__timeline-rail" aria-hidden="true">
+                    <div className="dashboard-list-item__timeline-dot" />
                   </div>
-                  <div className="dashboard-list-item__title-row">
-                    <h3 className="dashboard-list-item__title">{humanizeDashboardLabel(item.type)}</h3>
+                  <div className="dashboard-list-item__content dashboard-list-item__content--timeline">
+                    <div className="dashboard-list-item__timeline-header">
+                      <div className="dashboard-list-item__patient-block dashboard-list-item__patient-block--timeline">
+                        <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+                        <span className="dashboard-list-item__timeline-kind">{streamLabel}</span>
+                      </div>
+                      <div className="dashboard-list-item__timeline-meta">
+                        {primaryBadge}
+                        <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
+                          {formatDashboardRelativeTime(item.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="dashboard-list-item__title-row dashboard-list-item__title-row--timeline">
+                      <h3 className="dashboard-list-item__title dashboard-list-item__title--timeline">
+                        {humanizeDashboardLabel(item.type)}
+                      </h3>
+                    </div>
+
+                    <p className="dashboard-list-item__description dashboard-list-item__description--timeline">{item.summary}</p>
+
+                    <div className="dashboard-list-item__tag-row dashboard-list-item__tag-row--timeline">
+                      {item.alertStatus ? <span className="dashboard-list-item__tag">Alert recorded</span> : null}
+                      {item.notificationStatus ? <span className="dashboard-list-item__tag">Callback logged</span> : null}
+                      {item.alertId ? <span className="dashboard-list-item__tag">Alert linked</span> : null}
+                    </div>
+
+                    <div className="dashboard-list-item__footer dashboard-list-item__footer--timeline">
+                      <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--timeline">
+                        {item.alertStatus ? <span>Alert workflow updated</span> : null}
+                        {item.notificationStatus ? <span>Notification status captured</span> : null}
+                        <span>{formatDashboardDateTime(item.createdAt)}</span>
+                      </div>
+                      <div className="dashboard-list-item__action dashboard-list-item__action--timeline">
+                        <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+                          Open alerts
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="dashboard-list-item__description">{item.summary}</p>
-                  <div className="dashboard-list-item__tag-row">
-                    {item.alertStatus ? <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.alertStatus)}</span> : null}
-                    {item.notificationStatus ? (
-                      <Badge variant={notificationVariant(item.notificationStatus)}>
-                        {humanizeDashboardLabel(item.notificationStatus)}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                    {item.alertStatus ? <span>Alert lifecycle recorded</span> : null}
-                    {item.notificationStatus ? <span>Notification callback recorded</span> : null}
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </div>
       )}

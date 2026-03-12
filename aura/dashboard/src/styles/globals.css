@@ -10786,14 +10786,14 @@ button.dashboard-summary-card:hover {
 .dashboard-home-page {
   width: min(100%, 1640px);
   margin-inline: auto;
-  gap: clamp(22px, 2.4vw, 32px);
+  gap: clamp(18px, 1.95vw, 24px);
 }
 
 .dashboard-home-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.52fr) minmax(300px, 0.88fr);
-  gap: clamp(18px, 2vw, 28px);
-  padding: clamp(20px, 2.4vw, 30px);
+  gap: clamp(15px, 1.6vw, 21px);
+  padding: clamp(17px, 1.95vw, 24px);
   border-radius: var(--radius-2xl);
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9)),
@@ -10807,11 +10807,11 @@ button.dashboard-summary-card:hover {
 }
 
 .dashboard-home-page__header {
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .dashboard-home-page__header .section__header {
-  gap: var(--space-4);
+  gap: var(--space-3);
   align-items: flex-start;
 }
 
@@ -10823,9 +10823,9 @@ button.dashboard-summary-card:hover {
 }
 
 .dashboard-home-page__header .section__subtitle {
-  max-width: 62ch;
+  max-width: 56ch;
   font-size: var(--text-base);
-  line-height: 1.56;
+  line-height: 1.48;
   color: hsl(var(--foreground) / 0.82);
 }
 
@@ -10836,10 +10836,10 @@ button.dashboard-summary-card:hover {
 .dashboard-home-hero__aside-card {
   border: 1px solid hsl(var(--border) / 0.42);
   border-radius: calc(var(--radius-xl) + 2px);
-  padding: var(--space-5);
+  padding: calc(var(--space-4) + 2px);
   display: grid;
   align-content: start;
-  gap: var(--space-4);
+  gap: var(--space-3);
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.92)),
     linear-gradient(135deg, hsl(var(--primary) / 0.08), transparent 70%);
@@ -10873,7 +10873,7 @@ button.dashboard-summary-card:hover {
 
 .dashboard-home-hero__facts {
   display: grid;
-  gap: var(--space-2);
+  gap: calc(var(--space-1) + 3px);
 }
 
 .dashboard-home-hero__fact {
@@ -10881,7 +10881,7 @@ button.dashboard-summary-card:hover {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: 3.125rem;
+  min-height: 3rem;
   border: 1px solid hsl(var(--border) / 0.46);
   border-radius: calc(var(--radius-lg) - 2px);
   padding: 0 var(--space-3);
@@ -10904,8 +10904,8 @@ button.dashboard-summary-card:hover {
 
 .dashboard-home-summary-shell {
   display: grid;
-  gap: clamp(18px, 1.9vw, 24px);
-  padding: clamp(22px, 2.4vw, 32px);
+  gap: clamp(16px, 1.65vw, 21px);
+  padding: clamp(20px, 2.15vw, 28px);
   border-radius: var(--radius-2xl);
   background:
     linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--card) / 0.96)),
@@ -10919,12 +10919,12 @@ button.dashboard-summary-card:hover {
 
 .dashboard-home-summary-shell__header {
   display: grid;
-  gap: var(--space-3);
+  gap: calc(var(--space-2) + 2px);
 }
 
 .dashboard-home-summary-shell__intro {
   display: grid;
-  gap: var(--space-3);
+  gap: calc(var(--space-2) + 1px);
   max-width: 72ch;
 }
 
@@ -10962,15 +10962,15 @@ button.dashboard-summary-card:hover {
 }
 
 .dashboard-home-layout {
-  gap: calc(var(--card-gap) + 4px);
+  gap: calc(var(--card-gap) - 2px);
   grid-template-columns: minmax(0, 1.54fr) minmax(320px, 0.9fr);
   align-items: start;
 }
 
 .dashboard-home-zone {
   display: grid;
-  gap: var(--space-5);
-  padding: clamp(16px, 1.9vw, 24px);
+  gap: calc(var(--space-4) + 2px);
+  padding: clamp(15px, 1.7vw, 21px);
   border: 1px solid hsl(var(--border) / 0.38);
   border-radius: var(--radius-2xl);
   background:
@@ -10993,17 +10993,54 @@ button.dashboard-summary-card:hover {
 
 .dashboard-home-zone__header {
   display: grid;
-  gap: var(--space-2);
+  gap: calc(var(--space-1) + 3px);
 }
 
 .dashboard-home-zone__intro {
   display: grid;
-  gap: var(--space-2);
+  gap: calc(var(--space-1) + 2px);
 }
 
 .dashboard-home-layout__primary,
 .dashboard-home-layout__secondary {
-  gap: calc(var(--card-gap) + 2px);
+  gap: calc(var(--card-gap) - 4px);
+}
+
+.dashboard-home-layout .dashboard-module-card.card {
+  border-color: hsl(var(--border) / 0.42);
+  box-shadow:
+    0 14px 28px hsl(252 28% 60% / 0.06),
+    0 4px 10px hsl(216 34% 20% / 0.03),
+    inset 0 1px 0 hsl(0 0% 100% / 0.58);
+}
+
+.dashboard-home-layout .dashboard-module-card .card__header {
+  padding: calc(var(--space-4) + 2px) calc(var(--space-4) + 2px) var(--space-3);
+}
+
+.dashboard-home-layout .dashboard-module-card .card__body {
+  padding: 0 calc(var(--space-4) + 2px) calc(var(--space-4) + 2px);
+}
+
+.dashboard-home-layout .dashboard-widget-heading {
+  gap: calc(var(--space-1) + 2px);
+}
+
+.dashboard-home-layout .dashboard-widget-heading__copy {
+  max-width: 35ch;
+}
+
+.dashboard-home-layout .dashboard-module-card__title-row {
+  gap: calc(var(--space-1) + 6px);
+}
+
+.dashboard-home-layout .dashboard-module-card__action-shell {
+  align-self: start;
+}
+
+.dashboard-home-layout .dashboard-module-card__action-shell .btn {
+  min-height: 2.28rem;
+  padding-inline: 0.92rem;
 }
 
 .dashboard-module-card.card {
@@ -14903,4 +14940,199 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--primary) / 0.2), hsl(var(--card) / 0.8)),
     linear-gradient(145deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.78));
+}
+
+/* Homepage final polish and restraint pass */
+.dashboard-home-page__header .section__title {
+  letter-spacing: -0.028em;
+}
+
+.dashboard-home-page__header .section__subtitle {
+  max-width: 54ch;
+  line-height: 1.44;
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.dashboard-home-hero__aside-title {
+  letter-spacing: -0.02em;
+}
+
+.dashboard-home-hero__aside-copy {
+  color: hsl(var(--foreground) / 0.82);
+  line-height: 1.54;
+}
+
+.dashboard-home-hero__fact-label {
+  color: hsl(var(--foreground) / 0.78);
+}
+
+.dashboard-home-summary-shell__copy,
+.dashboard-home-zone__copy,
+.dashboard-home-layout .dashboard-widget-heading__copy {
+  color: hsl(var(--foreground) / 0.82);
+  line-height: 1.52;
+}
+
+.dashboard-home-summary-shell .dashboard-summary-card__label {
+  font-weight: 640;
+  color: hsl(var(--foreground) / 0.9);
+  line-height: 1.36;
+}
+
+.dashboard-home-summary-shell .dashboard-summary-card__value {
+  font-weight: 740;
+}
+
+.dashboard-home-summary-shell .dashboard-summary-card__helper {
+  color: hsl(var(--foreground) / 0.79);
+  line-height: 1.48;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__patient,
+.dashboard-home-layout__secondary .dashboard-list-item__patient {
+  font-weight: 675;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__timestamp,
+.dashboard-home-layout__secondary .dashboard-list-item__timestamp {
+  color: hsl(var(--foreground) / 0.7);
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__queue-kind {
+  color: hsl(var(--foreground) / 0.78);
+  font-weight: 650;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__headline {
+  line-height: 1.26;
+  font-weight: 720;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item--priority .dashboard-list-item__description {
+  color: hsl(var(--foreground) / 0.82);
+  line-height: 1.5;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__title--timeline {
+  font-weight: 715;
+  line-height: 1.28;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__description--timeline {
+  color: hsl(var(--foreground) / 0.84);
+  line-height: 1.52;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__timestamp--timeline {
+  font-weight: 675;
+}
+
+.dashboard-home-layout__primary .dashboard-list-item__meta--timeline > span:first-child {
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.dashboard-home-page .dashboard-list-item__tag {
+  color: hsl(var(--foreground) / 0.95);
+}
+
+.dashboard-home-page .dashboard-list-item__meta {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.dashboard-home-support-rail .dashboard-widget-heading__copy {
+  max-width: 29ch;
+  color: hsl(var(--foreground) / 0.8);
+  line-height: 1.46;
+}
+
+.dashboard-home-support-rail .dashboard-widget-bar__item span,
+.dashboard-home-support-rail .dashboard-communication-card__metric-label {
+  color: hsl(var(--foreground) / 0.76);
+}
+
+.dashboard-home-support-rail .dashboard-communication-card__metric-label {
+  font-weight: 625;
+}
+
+.dashboard-home-support-rail .dashboard-list-item__patient {
+  color: hsl(var(--foreground) / 0.88);
+}
+
+.dashboard-home-support-rail .dashboard-list-item__timestamp {
+  color: hsl(var(--foreground) / 0.66);
+}
+
+.dashboard-home-support-rail .dashboard-list-item__title {
+  font-size: 1rem;
+  font-weight: 690;
+}
+
+.dashboard-home-support-rail .dashboard-list-item__description {
+  max-width: 32ch;
+  color: hsl(var(--foreground) / 0.81);
+  line-height: 1.45;
+}
+
+.dashboard-home-support-rail .dashboard-list-item__meta--rail {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.dark .dashboard-home-page__header .section__subtitle {
+  color: hsl(var(--foreground) / 0.84);
+}
+
+.dark .dashboard-home-hero__aside-copy,
+.dark .dashboard-home-summary-shell__copy,
+.dark .dashboard-home-zone__copy,
+.dark .dashboard-home-layout .dashboard-widget-heading__copy {
+  color: hsl(var(--foreground) / 0.82);
+}
+
+.dark .dashboard-home-hero__fact-label {
+  color: hsl(var(--foreground) / 0.76);
+}
+
+.dark .dashboard-home-summary-shell .dashboard-summary-card__label {
+  color: hsl(var(--foreground) / 0.9);
+}
+
+.dark .dashboard-home-summary-shell .dashboard-summary-card__helper {
+  color: hsl(var(--foreground) / 0.82);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__timestamp,
+.dark .dashboard-home-layout__secondary .dashboard-list-item__timestamp {
+  color: hsl(var(--foreground) / 0.7);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__description {
+  color: hsl(var(--foreground) / 0.82);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__meta,
+.dark .dashboard-home-layout__secondary .dashboard-list-item__meta {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__queue-kind {
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__description--timeline {
+  color: hsl(var(--foreground) / 0.84);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__timestamp--timeline {
+  color: hsl(var(--foreground) / 0.76);
+}
+
+.dark .dashboard-home-layout__primary .dashboard-list-item__meta--timeline > span:first-child {
+  color: hsl(var(--foreground) / 0.88);
+}
+
+.dark .dashboard-home-support-rail .dashboard-widget-heading__copy,
+.dark .dashboard-home-support-rail .dashboard-list-item__description,
+.dark .dashboard-home-support-rail .dashboard-widget-bar__item span,
+.dark .dashboard-home-support-rail .dashboard-list-item__meta--rail {
+  color: hsl(var(--foreground) / 0.8);
 }

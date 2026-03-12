@@ -2897,6 +2897,11 @@ time,
   box-shadow: var(--shadow-1), inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
+.settings-overview-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
 .settings-page .settings-summary-strip__item {
   border: 1px solid hsl(var(--border) / 0.58);
   border-radius: var(--radius-lg);
@@ -3010,16 +3015,17 @@ time,
   gap: var(--space-4);
 }
 
-@media (min-width: 1080px) {
+@media (min-width: 1120px) {
   .settings-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
     align-items: start;
   }
+}
 
-  .settings-group-card--security,
-  .settings-guidance-banner {
-    grid-column: 1 / -1;
-  }
+.settings-groups__column {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
 }
 
 .settings-page .settings-group-card {
@@ -3057,17 +3063,18 @@ time,
 }
 
 .settings-page .settings-group-card .card__header {
-  padding: var(--space-3) var(--space-4);
-  align-items: center;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  align-items: start;
 }
 
 .settings-page .settings-group-card .card__body {
+  padding: 0 var(--space-4) var(--space-4);
   gap: var(--space-4);
 }
 
 .settings-group-card__title {
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 
 .settings-group-card__title-meta {
@@ -3083,7 +3090,7 @@ time,
   color: hsl(var(--muted-foreground));
   font-size: var(--text-sm);
   line-height: 1.5;
-  max-width: 52rem;
+  max-width: 54ch;
 }
 
 .settings-group-card__context {
@@ -3122,7 +3129,7 @@ time,
   border: 1px solid hsl(var(--border) / 0.58);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--muted) / 0.2));
-  padding: var(--space-3);
+  padding: var(--space-4);
   box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
   gap: var(--space-3);
 }
@@ -3132,7 +3139,8 @@ time,
   justify-content: space-between;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-3) var(--space-3);
+  min-height: 4.125rem;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid hsl(var(--border) / 0.56);
   border-radius: var(--radius-md);
   background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9));
@@ -3287,6 +3295,8 @@ time,
 .settings-card-footer {
   display: grid;
   gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid hsl(var(--border) / 0.48);
 }
 
 .settings-card-footer__note {
@@ -3294,6 +3304,7 @@ time,
   color: hsl(var(--muted-foreground));
   font-size: var(--text-xs);
   line-height: 1.45;
+  max-width: 46ch;
 }
 
 .settings-actions .btn {
@@ -3316,7 +3327,7 @@ time,
   border-radius: var(--radius-md);
   background: hsl(var(--muted) / 0.34);
   padding: var(--space-2) var(--space-3);
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
 }
 
@@ -3325,6 +3336,7 @@ time,
   border-color: hsl(var(--primary) / 0.3);
   background: linear-gradient(180deg, hsl(var(--primary) / 0.11), hsl(var(--card) / 0.95));
   box-shadow: var(--shadow-1), inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  align-self: start;
 }
 
 .settings-guidance-banner .alert-banner__title {
@@ -3434,6 +3446,10 @@ time,
 .dark .settings-page .settings-inline-notice {
   border-color: hsl(var(--border) / 0.5);
   background: hsl(var(--muted) / 0.36);
+}
+
+.dark .settings-card-footer {
+  border-top-color: hsl(var(--border) / 0.42);
 }
 
 .dark .settings-guidance-banner {
@@ -4395,11 +4411,36 @@ time,
 }
 
 .insights-page {
+  width: min(100%, 96rem);
+  margin-inline: auto;
   gap: var(--space-5);
 }
 
 .insights-page .section__subtitle {
-  max-width: 64ch;
+  max-width: 62ch;
+}
+
+.insights-overview-stack {
+  display: grid;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 1280px) {
+  .insights-overview-stack {
+    grid-template-columns: minmax(0, 1.24fr) minmax(19rem, 0.92fr);
+  }
+
+  .insights-overview-stack .insights-workspace-note {
+    min-height: 100%;
+    align-content: start;
+  }
+
+  .insights-overview-stack .insights-workspace-note__facts {
+    justify-content: flex-start;
+    justify-self: stretch;
+    align-content: start;
+  }
 }
 
 .insights-page__meta {
@@ -4532,24 +4573,39 @@ time,
 
 .insights-workspace-card {
   border-color: hsl(var(--border) / 0.56);
+  background:
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.06), transparent 38%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--card) / 0.94));
+  box-shadow:
+    0 22px 40px hsl(248 30% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .insights-workspace-card .card__header {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-5) var(--space-5) var(--space-3);
   align-items: center;
 }
 
 .insights-workspace-card .card__body {
-  gap: var(--space-4);
+  padding: 0 var(--space-5) var(--space-5);
+  gap: var(--space-5);
 }
 
 .insights-workspace-card__title {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: auto auto;
   align-items: center;
-  gap: var(--space-2);
+  gap: 2px var(--space-2);
+}
+
+.insights-workspace-card__title-text {
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .insights-workspace-card__title-count {
+  grid-column: 2;
+  grid-row: 1;
   min-height: 1.5rem;
   min-width: 1.5rem;
   border-radius: 999px;
@@ -4565,11 +4621,23 @@ time,
   font-feature-settings: var(--nums);
 }
 
+.insights-workspace-card__title-meta {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
 .insights-queue-intro {
   margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: var(--text-sm);
   line-height: 1.45;
+  max-width: 60ch;
 }
 
 .insights-page__error {
@@ -4589,6 +4657,8 @@ time,
   padding: var(--space-4);
   display: grid;
   gap: var(--space-3);
+  min-height: 16rem;
+  align-content: start;
   box-shadow: var(--shadow-1), inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
@@ -4632,6 +4702,8 @@ time,
   justify-content: space-between;
   gap: var(--space-2);
   flex-wrap: wrap;
+  padding-top: var(--space-2);
+  border-top: 1px solid hsl(var(--success) / 0.18);
 }
 
 .insights-empty-state__meta-group {
@@ -4651,16 +4723,18 @@ time,
 }
 
 .insights-queue-list {
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .insights-queue__item {
   border: 1px solid hsl(var(--border) / 0.58);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
   display: grid;
   gap: var(--space-3);
-  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.92));
+  background:
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.04), transparent 42%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--card) / 0.93));
   box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
   transition:
     border-color var(--transition-fast),
@@ -4756,6 +4830,7 @@ time,
 .insights-queue__message {
   color: hsl(var(--foreground));
   line-height: 1.5;
+  max-width: 68ch;
 }
 
 .insights-queue__meta {
@@ -4789,6 +4864,8 @@ time,
   gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: flex-end;
+  padding-top: var(--space-2);
+  border-top: 1px solid hsl(var(--border) / 0.44);
 }
 
 .insights-queue__action.btn {
@@ -4850,6 +4927,20 @@ time,
   color: hsl(var(--primary-foreground));
 }
 
+.dark .insights-workspace-card {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.12), transparent 42%),
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82));
+  box-shadow:
+    0 22px 42px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .insights-workspace-card__title-meta {
+  color: hsl(var(--muted-foreground));
+}
+
 .dark .insights-empty-state {
   border-color: hsl(var(--success) / 0.42);
   background: linear-gradient(
@@ -4864,9 +4955,15 @@ time,
   color: hsl(var(--foreground));
 }
 
+.dark .insights-empty-state__footer {
+  border-top-color: hsl(var(--success) / 0.22);
+}
+
 .dark .insights-queue__item {
   border-color: hsl(var(--border) / 0.5);
-  background: hsl(var(--card) / 0.92);
+  background:
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.12), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.84));
 }
 
 .dark .insights-queue__item:hover {
@@ -4885,6 +4982,10 @@ time,
   color: hsl(var(--primary-foreground));
 }
 
+.dark .insights-queue__actions {
+  border-top-color: hsl(var(--border) / 0.4);
+}
+
 .dark .insights-queue__action--reject.btn {
   border-color: hsl(var(--border) / 0.48);
   background: hsl(var(--muted) / 0.46);
@@ -4892,6 +4993,32 @@ time,
 
 .dark .insights-queue__action--reject.btn:hover {
   background: hsl(var(--muted) / 0.66);
+}
+
+@media (max-width: 1279px) {
+  .insights-workspace-card .card__header {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+
+  .insights-workspace-card .card__body {
+    padding: 0 var(--space-4) var(--space-4);
+    gap: var(--space-4);
+  }
+}
+
+@media (max-width: 900px) {
+  .insights-overview-stack .insights-workspace-note__facts {
+    justify-content: flex-start;
+    justify-self: stretch;
+  }
+
+  .insights-empty-state__footer {
+    align-items: stretch;
+  }
+
+  .insights-queue__actions {
+    justify-content: flex-start;
+  }
 }
 
 .patient-insight-item {
@@ -11444,6 +11571,10 @@ button.dashboard-summary-card:hover {
   --workspace-note-accent: hsl(var(--success) / 0.09);
 }
 
+.insights-workspace-note {
+  --workspace-note-accent: hsl(var(--primary) / 0.09);
+}
+
 .settings-workspace-note {
   --workspace-note-accent: hsl(266 62% 84% / 0.14);
 }
@@ -11452,6 +11583,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note,
     .worklist-workspace-note,
     .appointments-workspace-note,
+    .insights-workspace-note,
     .settings-workspace-note
   ) {
   display: grid;
@@ -11472,6 +11604,7 @@ button.dashboard-summary-card:hover {
       .patients-roster-note,
       .worklist-workspace-note,
       .appointments-workspace-note,
+      .insights-workspace-note,
       .settings-workspace-note
     ) {
     grid-template-columns: minmax(0, 1.5fr) auto;
@@ -11484,6 +11617,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__copy,
     .worklist-workspace-note__copy,
     .appointments-workspace-note__copy,
+    .insights-workspace-note__copy,
     .settings-workspace-note__copy
   ) {
   display: grid;
@@ -11495,6 +11629,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__eyebrow,
     .worklist-workspace-note__eyebrow,
     .appointments-workspace-note__eyebrow,
+    .insights-workspace-note__eyebrow,
     .settings-workspace-note__eyebrow
   ) {
   margin: 0;
@@ -11510,6 +11645,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__text,
     .worklist-workspace-note__text,
     .appointments-workspace-note__text,
+    .insights-workspace-note__text,
     .settings-workspace-note__text
   ) {
   margin: 0;
@@ -11523,6 +11659,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__facts,
     .worklist-workspace-note__facts,
     .appointments-workspace-note__facts,
+    .insights-workspace-note__facts,
     .settings-workspace-note__facts
   ) {
   display: flex;
@@ -11539,6 +11676,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__fact,
     .worklist-workspace-note__fact,
     .appointments-workspace-note__fact,
+    .insights-workspace-note__fact,
     .settings-workspace-note__fact
   ) {
   min-height: var(--workspace-note-fact-height);
@@ -11612,6 +11750,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note,
     .worklist-workspace-note,
     .appointments-workspace-note,
+    .insights-workspace-note,
     .settings-workspace-note
   ) {
   border-color: hsl(var(--border) / 0.44);
@@ -11627,6 +11766,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__fact,
     .worklist-workspace-note__fact,
     .appointments-workspace-note__fact,
+    .insights-workspace-note__fact,
     .settings-workspace-note__fact
   ) {
   border-color: hsl(var(--border) / 0.48);
@@ -11737,7 +11877,7 @@ button.dashboard-summary-card:hover {
 .dashboard-home-zone,
 :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header),
 :is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip, .insights-summary-strip, .settings-summary-strip),
-:is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .settings-workspace-note),
+:is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .insights-workspace-note, .settings-workspace-note),
 :is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface),
 :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card),
 :is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section),
@@ -12420,7 +12560,7 @@ button.dashboard-summary-card:hover {
 .dark .dashboard-home-summary-shell,
 .dark .dashboard-home-zone,
 .dark :is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip, .insights-summary-strip, .settings-summary-strip),
-.dark :is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .settings-workspace-note),
+.dark :is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .insights-workspace-note, .settings-workspace-note),
 .dark :is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface) {
   box-shadow:
     0 22px 42px hsl(224 52% 4% / 0.28),
@@ -12441,6 +12581,7 @@ button.dashboard-summary-card:hover {
     .patients-roster-note__fact,
     .worklist-workspace-note__fact,
     .appointments-workspace-note__fact,
+    .insights-workspace-note__fact,
     .settings-workspace-note__fact,
     .patients-workspace-card__fact,
     .worklist-card-title__meta,
@@ -13249,4 +13390,151 @@ button.dashboard-summary-card:hover {
   .section__actions .btn {
     flex: 0 0 auto;
   }
+}
+
+/* Settings page consistency pass */
+
+.settings-page {
+  width: min(100%, 96rem);
+  margin-inline: auto;
+  gap: var(--space-5);
+}
+
+.settings-page > * {
+  min-width: 0;
+}
+
+.settings-overview-stack {
+  align-items: start;
+}
+
+@media (min-width: 1280px) {
+  .settings-overview-stack {
+    grid-template-columns: minmax(0, 1.24fr) minmax(20rem, 0.92fr);
+    gap: var(--space-4);
+  }
+
+  .settings-overview-stack .settings-workspace-note {
+    min-height: 100%;
+    align-content: start;
+  }
+
+  .settings-overview-stack .settings-workspace-note__facts {
+    align-content: start;
+    justify-content: flex-start;
+  }
+}
+
+.settings-page .settings-group-card .card__header {
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+
+.settings-page .settings-group-card .card__body {
+  padding: 0 var(--space-5) var(--space-5);
+  gap: var(--space-5);
+}
+
+.settings-group-card__context {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2) var(--space-3);
+}
+
+.settings-group-card__context-pill {
+  align-self: start;
+}
+
+.settings-group-card__context-note {
+  max-width: 44ch;
+}
+
+.settings-group-card__intro {
+  max-width: 58ch;
+}
+
+.settings-list--refined {
+  padding: var(--space-5);
+  gap: var(--space-3);
+}
+
+.setting-item {
+  min-height: 4.375rem;
+}
+
+.setting-item--field {
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem);
+  gap: var(--space-lg);
+}
+
+.settings-card-footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+}
+
+.settings-card-footer__note {
+  max-width: 52ch;
+}
+
+.settings-actions {
+  justify-self: end;
+}
+
+.settings-group-card--security .settings-card-footer {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.settings-guidance-banner {
+  margin-top: calc(var(--space-1) * -1);
+}
+
+.settings-page .settings-inline-notice {
+  max-width: none;
+}
+
+@media (max-width: 1279px) {
+  .settings-page .settings-group-card .card__header {
+    padding: var(--space-4) var(--space-4) var(--space-3);
+  }
+
+  .settings-page .settings-group-card .card__body {
+    padding: 0 var(--space-4) var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .settings-list--refined {
+    padding: var(--space-4);
+  }
+}
+
+@media (max-width: 980px) {
+  .settings-group-card__context {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .settings-card-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-actions {
+    justify-self: stretch;
+  }
+
+  .settings-guidance-banner {
+    margin-top: 0;
+  }
+}
+
+.dark .settings-overview-stack .settings-workspace-note {
+  box-shadow:
+    0 24px 42px hsl(224 52% 4% / 0.24),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .settings-page .settings-group-card {
+  box-shadow:
+    0 24px 42px hsl(224 52% 4% / 0.24),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }

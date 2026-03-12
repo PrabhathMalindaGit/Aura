@@ -211,6 +211,14 @@
   --control-surface-height: 46px;
   --control-chip-gap: var(--space-sm);
   --control-chip-padding-x: var(--space-3);
+  --data-region-shell-radius: calc(var(--radius-2xl) - 5px);
+  --data-region-shell-padding: clamp(15px, 1.15vw, 19px);
+  --data-region-shell-gap: clamp(15px, 1vw, 19px);
+  --data-region-surface-radius: calc(var(--radius-xl) - 3px);
+  --data-region-surface-padding: clamp(15px, 0.95vw, 17px);
+  --data-region-empty-padding: clamp(20px, 1.2vw, 26px);
+  --data-region-header-gap: clamp(10px, 0.75vw, 14px);
+  --data-region-surface-gap: clamp(12px, 0.85vw, 16px);
 
   --font-family-base: var(--font-sans);
   --font-size-xs: var(--text-xs);

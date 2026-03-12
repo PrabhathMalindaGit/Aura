@@ -11692,17 +11692,14 @@ button.dashboard-summary-card:hover {
 :is(.patients-page-header, .worklist-page-header, .alerts-page__header, .appointments-page-header),
 :is(.patients-summary-strip, .worklist-summary-strip, .alerts-summary-strip, .appointments-summary-strip, .insights-summary-strip, .settings-summary-strip),
 :is(.patients-roster-note, .worklist-workspace-note, .appointments-workspace-note, .settings-workspace-note),
-:is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface) {
+:is(.patients-filters, .worklist-filters, .alerts-filters, .patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls, .appointments-composer__surface),
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card),
+:is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section),
+:is(.worklist-workspace-card .empty-state, .patients-empty-state, .alerts-empty-state, .appointments-empty-state) {
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast),
     background var(--transition-fast);
-}
-
-:is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap) {
-  box-shadow:
-    0 20px 40px hsl(248 30% 20% / 0.08),
-    inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 :is(.alerts-table__row, .patients-table__row) {
@@ -11720,6 +11717,9 @@ button.dashboard-summary-card:hover {
 .worklist-workspace-card__controls,
 .alerts-workspace-card__controls,
 .appointments-composer__surface {
+  position: relative;
+  isolation: isolate;
+  display: grid;
   gap: var(--control-shell-gap);
   padding: var(--control-shell-padding);
   border-radius: var(--control-shell-radius);
@@ -11761,6 +11761,8 @@ button.dashboard-summary-card:hover {
 }
 
 :is(.patients-filters__cluster, .alerts-filters__cluster, .worklist-filters__cluster, .appointments-composer__cluster) {
+  min-width: 0;
+  align-content: start;
   gap: var(--control-cluster-gap);
   padding: var(--control-cluster-padding);
   border: 1px solid hsl(var(--border) / 0.54);
@@ -11795,6 +11797,7 @@ button.dashboard-summary-card:hover {
 }
 
 :is(.patients-filters__cluster-body, .alerts-filters__cluster-body, .appointments-composer__grid, .appointments-composer__cluster) {
+  min-width: 0;
   gap: var(--control-cluster-gap);
 }
 
@@ -11819,6 +11822,9 @@ button.dashboard-summary-card:hover {
   box-shadow:
     inset 0 1px 0 hsl(var(--foreground) / 0.03),
     0 10px 22px hsl(var(--foreground) / 0.025);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  padding-inline: clamp(0.85rem, 0.85vw, 1rem);
 }
 
 :is(.patients-filters__search, .patients-filters__control, .alerts-filters__search, .alerts-filters__control, .worklist-filters__search, .worklist-filters__control, .appointments-composer__field.form-field) :is(input, select):focus-visible {
@@ -11830,6 +11836,14 @@ button.dashboard-summary-card:hover {
 
 :is(.patients-filters__toggle-group, .alerts-filters__toggle-group, .worklist-filters__toggles, .appointments-filter-group--segmented) {
   gap: var(--control-chip-gap);
+}
+
+.worklist-filters__toggles,
+.alerts-filters__toggle-group,
+.patients-filters__toggle-group,
+.alerts-filters__group,
+.appointments-filter-group--segmented {
+  align-items: stretch;
 }
 
 .alerts-filters__group,
@@ -11853,9 +11867,17 @@ button.dashboard-summary-card:hover {
   padding-inline: var(--control-chip-padding-x);
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
+  line-height: 1.25;
 }
 
 .alerts-filters__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--muted) / 0.18)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.08), transparent 78%);
   color: hsl(var(--muted-foreground));
   transition:
     border-color var(--transition-fast),
@@ -11869,18 +11891,46 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--primary) / 0.16), hsl(var(--primary) / 0.1)),
     linear-gradient(135deg, hsl(var(--primary) / 0.08), transparent 70%);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.02);
+  border-color: hsl(var(--primary) / 0.28);
+  box-shadow:
+    0 10px 22px hsl(var(--primary) / 0.12),
+    inset 0 1px 0 hsl(var(--foreground) / 0.02);
 }
 
 .alerts-filters__toggle,
 .patients-filters__toggle {
   padding-inline: var(--space-3);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .alerts-filters__toggle input[type='checkbox'],
 .patients-filters__toggle input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;
+  accent-color: hsl(var(--primary));
+}
+
+.alerts-filters__toggle:has(input:checked),
+.patients-filters__toggle:has(input:checked) {
+  border-color: hsl(var(--primary) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.16), hsl(var(--primary) / 0.08)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.08), transparent 76%);
+  box-shadow:
+    0 10px 22px hsl(var(--primary) / 0.1),
+    inset 0 1px 0 hsl(var(--foreground) / 0.02);
+}
+
+.alerts-filters__toggle:has(input:focus-visible),
+.patients-filters__toggle:has(input:focus-visible) {
+  box-shadow:
+    0 0 0 1px hsl(var(--ring) / 0.56),
+    0 0 0 4px hsl(var(--ring) / 0.14),
+    0 10px 22px hsl(var(--ring) / 0.1);
 }
 
 .worklist-filters__toggle.btn--secondary,
@@ -11906,6 +11956,7 @@ button.dashboard-summary-card:hover {
 .alerts-filters__refresh .btn,
 .appointments-composer__actions .btn {
   min-height: var(--control-surface-height);
+  border-radius: 999px;
 }
 
 .patients-filters__compact-actions,
@@ -11921,6 +11972,184 @@ button.dashboard-summary-card:hover {
 .appointments-composer__hint-group {
   display: grid;
   gap: var(--space-xs);
+}
+
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  border: 1px solid hsl(var(--border) / 0.58);
+  border-radius: var(--data-region-shell-radius);
+  overflow: hidden;
+  box-shadow:
+    0 24px 46px hsl(248 30% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, hsl(var(--card) / 0.1), transparent 18%, transparent 100%);
+  pointer-events: none;
+}
+
+.patients-workspace-card {
+  background:
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.16));
+}
+
+.worklist-workspace-card {
+  background:
+    radial-gradient(circle at top right, hsl(var(--warning) / 0.09), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.18));
+}
+
+.alerts-workspace-card {
+  background:
+    radial-gradient(circle at top right, hsl(var(--danger) / 0.08), transparent 42%),
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.18));
+}
+
+.appointments-workspace-card {
+  background:
+    radial-gradient(circle at top right, hsl(var(--success) / 0.08), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.16));
+}
+
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__header {
+  padding: var(--data-region-shell-padding) var(--data-region-shell-padding) calc(var(--data-region-shell-padding) - 2px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--data-region-header-gap);
+  align-items: flex-start;
+  border-bottom-color: hsl(var(--border) / 0.42);
+}
+
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__title {
+  max-width: 64ch;
+  line-height: 1.18;
+}
+
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__header > div:last-child {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+:is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__body {
+  padding: var(--space-2) var(--data-region-shell-padding) var(--data-region-shell-padding);
+  gap: var(--data-region-shell-gap);
+}
+
+:is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section) {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid hsl(var(--border) / 0.56);
+  border-radius: var(--data-region-surface-radius);
+  box-shadow:
+    0 18px 34px hsl(248 30% 20% / 0.07),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+:is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, hsl(var(--card) / 0.1), transparent 18%, transparent 100%);
+  pointer-events: none;
+}
+
+.patients-table-wrap {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  scrollbar-gutter: stable both-edges;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.05), transparent 56%);
+}
+
+.worklist-table-wrap {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  scrollbar-gutter: stable both-edges;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--warning) / 0.05), transparent 56%);
+}
+
+.alerts-table-wrap {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  scrollbar-gutter: stable both-edges;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--card) / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--danger) / 0.05), transparent 52%);
+}
+
+.appointments-workspace__section {
+  padding: var(--data-region-surface-padding);
+  display: grid;
+  gap: var(--data-region-surface-gap);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--success) / 0.05), transparent 54%);
+}
+
+.appointments-workspace__section--requests {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--warning) / 0.08), transparent 52%);
+}
+
+:is(.patients-workspace-card__controls, .worklist-workspace-card__controls, .alerts-workspace-card__controls) {
+  margin-bottom: 0;
+}
+
+.appointments-workspace__panels {
+  gap: var(--data-region-shell-gap);
+}
+
+.appointments-workspace__section-header {
+  padding-bottom: calc(var(--data-region-surface-padding) - var(--space-3));
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+}
+
+.appointments-workspace__section-heading {
+  max-width: 58ch;
+  gap: 4px;
+}
+
+.appointments-workspace__section-note {
+  max-width: 52ch;
+}
+
+.appointments-workspace__section .appointments-filter-group--segmented + * {
+  margin-top: var(--space-xs);
+}
+
+:is(.worklist-workspace-card .empty-state, .patients-empty-state, .alerts-empty-state, .appointments-empty-state) {
+  border-radius: var(--data-region-surface-radius);
+  padding: var(--data-region-empty-padding);
+  min-height: clamp(176px, 22vh, 220px);
+  align-content: start;
+  box-shadow:
+    0 18px 34px hsl(248 30% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.worklist-workspace-card .empty-state {
+  border: 1px solid hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(145deg, hsl(var(--warning) / 0.08) 0%, hsl(var(--warning) / 0.03) 58%, hsl(var(--card) / 0.96) 100%);
+}
+
+.worklist-workspace-card .empty-state--success {
+  border-color: hsl(var(--success) / 0.28);
+  background:
+    linear-gradient(145deg, hsl(var(--success) / 0.12) 0%, hsl(var(--success) / 0.04) 60%, hsl(var(--card) / 0.95) 100%);
 }
 
 .dark .patients-filters,
@@ -11980,6 +12209,21 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--primary) / 0.22), hsl(var(--primary) / 0.14)),
     linear-gradient(135deg, hsl(var(--primary) / 0.12), transparent 70%);
+  border-color: hsl(var(--primary) / 0.32);
+  box-shadow:
+    0 12px 24px hsl(var(--primary) / 0.14),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .alerts-filters__toggle:has(input:checked),
+.dark .patients-filters__toggle:has(input:checked) {
+  border-color: hsl(var(--primary) / 0.32);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.24), hsl(var(--primary) / 0.16)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.12), transparent 72%);
+  box-shadow:
+    0 12px 24px hsl(var(--primary) / 0.12),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }
 
 .dark .alerts-filters__count {
@@ -12002,6 +12246,95 @@ button.dashboard-summary-card:hover {
   box-shadow:
     0 14px 26px hsl(var(--primary) / 0.18),
     inset 0 1px 0 hsl(var(--primary-foreground) / 0.16);
+}
+
+.dark :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) {
+  border-color: hsl(var(--border) / 0.46);
+  box-shadow:
+    0 24px 42px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .patients-workspace-card {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.14), transparent 76%);
+}
+
+.dark .worklist-workspace-card {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.14), transparent 76%);
+}
+
+.dark .alerts-workspace-card {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--danger) / 0.14), transparent 74%);
+}
+
+.dark .appointments-workspace-card {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--success) / 0.12), transparent 76%);
+}
+
+.dark :is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section) {
+  border-color: hsl(var(--border) / 0.44);
+  box-shadow:
+    0 20px 38px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .patients-table-wrap {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.12), transparent 76%);
+}
+
+.dark .worklist-table-wrap {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.14), transparent 76%);
+}
+
+.dark .alerts-table-wrap {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--danger) / 0.14), transparent 74%);
+}
+
+.dark .appointments-workspace__section {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--success) / 0.12), transparent 76%);
+}
+
+.dark .appointments-workspace__section--requests {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.74)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.14), transparent 74%);
+}
+
+.dark .worklist-workspace-card .empty-state,
+.dark .patients-empty-state,
+.dark .alerts-empty-state,
+.dark .appointments-empty-state {
+  box-shadow:
+    0 18px 34px hsl(224 52% 4% / 0.28),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .worklist-workspace-card .empty-state {
+  border-color: hsl(var(--warning) / 0.3);
+  background:
+    linear-gradient(145deg, hsl(var(--warning) / 0.14) 0%, hsl(var(--warning) / 0.06) 62%, hsl(var(--card) / 0.9) 100%);
+}
+
+.dark .worklist-workspace-card .empty-state--success {
+  border-color: hsl(var(--success) / 0.34);
+  background:
+    linear-gradient(145deg, hsl(var(--success) / 0.16) 0%, hsl(var(--success) / 0.06) 62%, hsl(var(--card) / 0.9) 100%);
 }
 
 .alerts-filters__chip,
@@ -12097,6 +12430,30 @@ button.dashboard-summary-card:hover {
   box-shadow:
     0 18px 32px hsl(224 52% 4% / 0.28),
     inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+@media (max-width: 1180px) {
+  :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__header {
+    padding: var(--space-3);
+    grid-template-columns: 1fr;
+  }
+
+  :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__body {
+    padding: 0 var(--space-3) var(--space-3);
+    gap: var(--space-4);
+  }
+
+  :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__header > div:last-child {
+    justify-content: flex-start;
+  }
+
+  .appointments-workspace__section {
+    padding: var(--space-3);
+  }
+
+  :is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap) {
+    padding: var(--space-2);
+  }
 }
 
 @media (max-width: 1420px) {
@@ -12251,6 +12608,22 @@ button.dashboard-summary-card:hover {
   :is(.patients-filters__clusters, .worklist-filters__clusters, .alerts-filters__clusters) {
     gap: var(--space-3);
   }
+
+  .worklist-filters__select-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  .worklist-filters__reset {
+    width: 100%;
+    margin-left: 0;
+    grid-column: 1 / -1;
+  }
+
+  :is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section) {
+    border-radius: calc(var(--data-region-surface-radius) - 2px);
+  }
 }
 
 @media (max-width: 960px) {
@@ -12278,6 +12651,10 @@ button.dashboard-summary-card:hover {
     padding: var(--space-3);
   }
 
+  .worklist-filters__select-row {
+    grid-template-columns: 1fr;
+  }
+
   .worklist-filters__toggles {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -12286,5 +12663,27 @@ button.dashboard-summary-card:hover {
   .worklist-filters__toggle {
     width: 100%;
     justify-content: center;
+  }
+
+  .alerts-filters__group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .alerts-filters__chip {
+    width: 100%;
+  }
+
+  :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) {
+    border-radius: calc(var(--data-region-shell-radius) - 4px);
+  }
+
+  .appointments-workspace__section-header {
+    padding-bottom: var(--space-2);
+  }
+
+  :is(.worklist-workspace-card .empty-state, .patients-empty-state, .alerts-empty-state, .appointments-empty-state) {
+    padding: var(--space-4);
   }
 }

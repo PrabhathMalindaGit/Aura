@@ -128,12 +128,12 @@ export function TodayAppointmentsCard({
                     {item.note?.trim() || `${humanizeDashboardLabel(item.requestStatus)} ${item.modality} visit`}
                   </p>
                   <div className="dashboard-list-item__tag-row">
-                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.requestStatus)}</span>
                     <span className="dashboard-list-item__tag">{item.modality}</span>
+                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.requestStatus)}</span>
                   </div>
-                  <div className="dashboard-list-item__footer">
-                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                      <span>{humanizeDashboardLabel(item.status)} visit</span>
+                  <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
+                      <span>{item.note?.trim() ? 'Patient note added' : 'Today’s schedule item'}</span>
                       <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>
                     </div>
                     <div className="dashboard-list-item__action">

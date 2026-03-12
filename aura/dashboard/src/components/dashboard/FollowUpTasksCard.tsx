@@ -138,12 +138,14 @@ export function FollowUpTasksCard({
                     <h3 className="dashboard-list-item__title">{item.title}</h3>
                     <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
                   </div>
+                  <p className="dashboard-list-item__description">
+                    {humanizeDashboardLabel(item.status)} clinician workflow item.
+                  </p>
                   <div className="dashboard-list-item__tag-row">
                     <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.type)}</span>
                   </div>
-                  <div className="dashboard-list-item__footer">
-                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                      <span>{humanizeDashboardLabel(item.status)}</span>
+                  <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
                       {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>}
                     </div>
                     <div className="dashboard-list-item__action">

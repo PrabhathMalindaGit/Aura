@@ -112,9 +112,8 @@ export function CommunicationOverviewCard({
                     {item.followUpRequested ? <span className="dashboard-list-item__tag">Follow-up requested</span> : null}
                     {item.linkedTaskId ? <span className="dashboard-list-item__tag">Task linked</span> : null}
                   </div>
-                  <div className="dashboard-list-item__footer">
-                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting">
-                      <span>Needs response</span>
+                  <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
                       <span title={formatDashboardDateTime(item.messageCreatedAt)}>
                         Latest message {formatDashboardRelativeTime(item.messageCreatedAt)}
                       </span>

@@ -382,7 +382,7 @@ export function DashboardHomePage(): JSX.Element {
             </div>
           </div>
 
-          <div className="dashboard-home-layout__secondary">
+          <div className="dashboard-home-layout__secondary dashboard-home-support-rail">
           <TodayAppointmentsCard
             items={appointmentsQuery.data ?? []}
             loading={appointmentsQuery.isLoading}

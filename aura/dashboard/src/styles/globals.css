@@ -234,6 +234,15 @@ time,
   flex-wrap: wrap;
 }
 
+.section__actions .btn {
+  min-height: var(--action-height-shell);
+  border-radius: var(--action-pill-radius);
+  padding-inline: var(--action-padding-sm);
+  box-shadow:
+    0 8px 18px hsl(248 28% 66% / 0.07),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
 .glass-card,
 .glass-popover {
   position: relative;
@@ -1413,12 +1422,16 @@ time,
 
 .btn {
   border: 1px solid hsl(var(--border) / 0.62);
-  border-radius: var(--radius-md);
-  min-height: 44px;
-  padding: 0 var(--space-4);
+  border-radius: var(--action-radius);
+  min-height: var(--action-height-md);
+  padding: 0 var(--action-padding-md);
   font-family: inherit;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1430,22 +1443,24 @@ time,
     color var(--transition-fast),
     box-shadow var(--transition-fast),
     transform var(--transition-fast);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  box-shadow:
+    var(--action-shadow-soft),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 .btn--sm {
-  min-height: 40px;
-  padding: 0 var(--space-3);
+  min-height: var(--action-height-sm);
+  padding: 0 var(--action-padding-sm);
 }
 
 .btn--md {
-  min-height: 44px;
-  padding: 0 var(--space-4);
+  min-height: var(--action-height-md);
+  padding: 0 var(--action-padding-md);
 }
 
 .btn--lg {
-  min-height: 48px;
-  padding: 0 var(--space-6);
+  min-height: var(--action-height-lg);
+  padding: 0 var(--action-padding-lg);
 }
 
 .btn:disabled {
@@ -1457,8 +1472,21 @@ time,
   box-shadow: none;
 }
 
+.btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px hsl(var(--ring) / 0.56),
+    0 0 0 4px hsl(var(--ring) / 0.16),
+    var(--action-shadow-soft);
+}
+
 .btn__icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 1em;
+  line-height: 1;
 }
 
 .btn--full-width {
@@ -1468,61 +1496,79 @@ time,
 .btn--primary {
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, hsl(var(--primary)), white 10%),
-    hsl(var(--primary))
+    color-mix(in srgb, hsl(var(--primary)), white 22%),
+    color-mix(in srgb, hsl(var(--primary)), white 8%)
   );
-  border-color: color-mix(in srgb, hsl(var(--primary)), hsl(var(--foreground)) 6%);
+  border-color: color-mix(in srgb, hsl(var(--primary)), hsl(var(--foreground)) 3%);
   color: var(--color-primary-contrast);
-  box-shadow: 0 6px 14px hsl(var(--primary) / 0.24), inset 0 1px 0 hsl(var(--primary-foreground) / 0.2);
+  box-shadow:
+    var(--action-shadow-primary),
+    inset 0 1px 0 hsl(var(--primary-foreground) / 0.22);
 }
 
 .btn--primary:hover {
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, hsl(var(--primary)), white 14%),
-    color-mix(in srgb, hsl(var(--primary)), hsl(var(--foreground)) 8%)
+    color-mix(in srgb, hsl(var(--primary)), white 28%),
+    color-mix(in srgb, hsl(var(--primary)), white 12%)
   );
-  border-color: color-mix(in srgb, hsl(var(--primary)), hsl(var(--foreground)) 10%);
+  border-color: color-mix(in srgb, hsl(var(--primary)), hsl(var(--foreground)) 8%);
   transform: translateY(-1px);
 }
 
 .btn--secondary {
-  background: hsl(var(--card) / 0.9);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.24)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.1), transparent 78%);
   color: hsl(var(--foreground));
-  border-color: hsl(var(--border) / 0.58);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03), 0 2px 7px hsl(var(--foreground) / 0.05);
+  border-color: hsl(var(--border) / 0.54);
+  box-shadow:
+    0 10px 20px hsl(248 28% 66% / 0.06),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
-.btn--secondary:hover,
-.btn--ghost:hover {
-  background: hsl(var(--muted) / 0.68);
-  border-color: hsl(var(--border) / 0.72);
+.btn--secondary:hover {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--muted) / 0.32)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.06), transparent 78%);
+  border-color: hsl(var(--primary) / 0.22);
+  transform: translateY(-1px);
 }
 
 .btn--ghost {
-  background: hsl(var(--muted) / 0.28);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.76), hsl(var(--muted) / 0.16));
   color: hsl(var(--foreground));
-  border-color: hsl(var(--border) / 0.4);
+  border-color: hsl(var(--border) / 0.42);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.02);
+}
+
+.btn--ghost:hover {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.24)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.05), transparent 78%);
+  border-color: hsl(var(--primary) / 0.2);
 }
 
 .btn--danger {
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, hsl(var(--danger)), white 8%),
-    hsl(var(--danger))
+    color-mix(in srgb, hsl(var(--danger)), white 20%),
+    color-mix(in srgb, hsl(var(--danger)), white 8%)
   );
-  border-color: color-mix(in srgb, hsl(var(--danger)), hsl(var(--foreground)) 6%);
+  border-color: color-mix(in srgb, hsl(var(--danger)), hsl(var(--foreground)) 4%);
   color: var(--color-primary-contrast);
-  box-shadow: 0 5px 12px hsl(var(--danger) / 0.24), inset 0 1px 0 hsl(var(--danger-foreground) / 0.18);
+  box-shadow:
+    var(--action-shadow-danger),
+    inset 0 1px 0 hsl(var(--danger-foreground) / 0.18);
 }
 
 .btn--danger:hover {
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, hsl(var(--danger)), white 12%),
-    color-mix(in srgb, hsl(var(--danger)), hsl(var(--foreground)) 14%)
+    color-mix(in srgb, hsl(var(--danger)), white 26%),
+    color-mix(in srgb, hsl(var(--danger)), white 12%)
   );
-  border-color: color-mix(in srgb, hsl(var(--danger)), hsl(var(--foreground)) 16%);
+  border-color: color-mix(in srgb, hsl(var(--danger)), hsl(var(--foreground)) 10%);
   transform: translateY(-1px);
 }
 
@@ -12686,4 +12732,469 @@ button.dashboard-summary-card:hover {
   :is(.worklist-workspace-card .empty-state, .patients-empty-state, .alerts-empty-state, .appointments-empty-state) {
     padding: var(--space-4);
   }
+}
+
+/* Shared button / CTA hierarchy pass */
+
+.btn {
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.012em;
+}
+
+.btn--primary {
+  border-color: color-mix(in srgb, hsl(var(--primary)), hsl(var(--foreground)) 6%);
+  box-shadow:
+    0 12px 24px hsl(var(--primary) / 0.16),
+    inset 0 1px 0 hsl(var(--primary-foreground) / 0.22);
+}
+
+.btn--primary:hover {
+  box-shadow:
+    0 14px 28px hsl(var(--primary) / 0.18),
+    inset 0 1px 0 hsl(var(--primary-foreground) / 0.22);
+}
+
+.btn--secondary {
+  border-color: hsl(var(--border) / 0.5);
+  box-shadow:
+    var(--action-shadow-soft),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.btn--secondary:hover {
+  border-color: hsl(var(--primary) / 0.24);
+}
+
+.btn--ghost {
+  border-color: hsl(var(--border) / 0.38);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.8), hsl(var(--muted) / 0.14));
+}
+
+.btn--ghost:hover {
+  border-color: hsl(var(--primary) / 0.22);
+}
+
+.btn--danger {
+  border-color: color-mix(in srgb, hsl(var(--danger)), hsl(var(--foreground)) 6%);
+  box-shadow:
+    0 12px 24px hsl(var(--danger) / 0.15),
+    inset 0 1px 0 hsl(var(--danger-foreground) / 0.16);
+}
+
+.btn--danger:hover {
+  box-shadow:
+    0 14px 28px hsl(var(--danger) / 0.18),
+    inset 0 1px 0 hsl(var(--danger-foreground) / 0.18);
+}
+
+:is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ) {
+  min-height: var(--action-height-shell);
+  padding-inline: var(--action-padding-sm);
+  border-radius: var(--action-pill-radius);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0;
+  box-shadow:
+    var(--action-shadow-shell),
+    inset 0 1px 0 hsl(0 0% 100% / 0.64);
+}
+
+:is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--secondary,
+:is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--ghost {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.22)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 76%);
+}
+
+:is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--secondary:hover,
+:is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--ghost:hover {
+  border-color: hsl(var(--primary) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.06), transparent 76%);
+}
+
+:is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ) {
+  min-height: var(--action-height-compact);
+  padding-inline: var(--space-3);
+  border-radius: var(--action-pill-radius);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow:
+    var(--action-shadow-compact),
+    inset 0 1px 0 hsl(0 0% 100% / 0.58);
+}
+
+:is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--secondary,
+:is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--ghost,
+.patients-table__view.btn,
+.patients-card-list__view.btn,
+.alerts-actions__open.btn {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--muted) / 0.22)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 78%);
+}
+
+:is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--secondary:hover,
+:is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--ghost:hover,
+.patients-table__view.btn:hover,
+.patients-card-list__view.btn:hover,
+.alerts-actions__open.btn:hover {
+  border-color: hsl(var(--primary) / 0.26);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.06), transparent 78%);
+}
+
+.alerts-actions__ack.btn {
+  border-color: hsl(var(--warning) / 0.26);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.18), hsl(var(--warning) / 0.1)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.08), transparent 76%);
+  color: hsl(var(--warning-foreground));
+  box-shadow:
+    0 10px 20px hsl(var(--warning) / 0.12),
+    inset 0 1px 0 hsl(var(--foreground) / 0.02);
+}
+
+.alerts-actions__ack.btn:hover {
+  border-color: hsl(var(--warning) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.22), hsl(var(--warning) / 0.13)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.1), transparent 76%);
+}
+
+:is(
+    .dashboard-list-item__action .btn--danger,
+    .alerts-actions__resolve.btn,
+    .patients-table__actions .btn--danger,
+    .patients-card-list__actions .btn--danger,
+    .worklist-table__actions .btn--danger,
+    .worklist-card__actions .btn--danger,
+    .appointments-item__actions .btn--danger
+  ) {
+  box-shadow:
+    0 10px 20px hsl(var(--danger) / 0.14),
+    inset 0 1px 0 hsl(var(--danger-foreground) / 0.16);
+}
+
+.appointments-item__actions--pending .btn--ghost {
+  border-color: hsl(var(--border) / 0.48);
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.38), hsl(var(--muted) / 0.24)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.04), transparent 76%);
+}
+
+.appointments-item__actions--pending .btn--ghost:hover {
+  border-color: hsl(var(--warning) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.46), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.06), transparent 76%);
+}
+
+@media (max-width: 900px) {
+  :is(
+      .section__actions .btn,
+      .topbar__signout.btn,
+      .dashboard-module-card__action-shell .btn,
+      .patients-workspace-card__refresh.btn,
+      .alerts-all-clear__refresh.btn,
+      .alerts-workspace-card__export.btn,
+      .patients-filters__open.btn,
+      .patients-filters__reset.btn,
+      .worklist-filters__reset.btn,
+      .alerts-filters__refresh .btn,
+      .appointments-empty-state__footer .btn
+    ) {
+    min-height: var(--action-height-shell);
+  }
+
+  :is(
+      .dashboard-list-item__action .btn,
+      .patients-table__actions .btn,
+      .patients-card-list__actions .btn,
+      .worklist-table__actions .btn,
+      .worklist-card__actions .btn,
+      .alerts-actions .btn,
+      .appointments-item__actions .btn,
+      .alerts-notification-retry.btn
+    ) {
+    min-height: var(--action-height-compact);
+  }
+}
+
+.dark .btn:focus-visible {
+  box-shadow:
+    0 0 0 1px hsl(var(--ring) / 0.64),
+    0 0 0 4px hsl(var(--ring) / 0.18),
+    0 10px 20px hsl(222 56% 2% / 0.26);
+}
+
+.dark :is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ) {
+  border-color: hsl(var(--border) / 0.46);
+  box-shadow:
+    0 8px 18px hsl(222 56% 2% / 0.22),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark :is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--secondary,
+.dark :is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--ghost {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.78), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.06), transparent 78%);
+  border-color: hsl(var(--border) / 0.42);
+}
+
+.dark :is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--secondary:hover,
+.dark :is(
+    .section__actions .btn,
+    .topbar__signout.btn,
+    .dashboard-module-card__action-shell .btn,
+    .patients-workspace-card__refresh.btn,
+    .alerts-all-clear__refresh.btn,
+    .alerts-workspace-card__export.btn,
+    .patients-filters__open.btn,
+    .patients-filters__reset.btn,
+    .worklist-filters__reset.btn,
+    .alerts-filters__refresh .btn,
+    .appointments-empty-state__footer .btn
+  ).btn--ghost:hover {
+  border-color: hsl(var(--primary) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--muted) / 0.34)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.08), transparent 78%);
+}
+
+.dark :is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ) {
+  border-color: hsl(var(--border) / 0.44);
+  box-shadow:
+    0 8px 16px hsl(222 56% 2% / 0.22),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark :is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--secondary,
+.dark :is(
+    .dashboard-list-item__action .btn,
+    .patients-table__actions .btn,
+    .patients-card-list__actions .btn,
+    .worklist-table__actions .btn,
+    .worklist-card__actions .btn,
+    .alerts-actions .btn,
+    .appointments-item__actions .btn,
+    .alerts-notification-retry.btn
+  ).btn--ghost,
+.dark .patients-table__view.btn,
+.dark .patients-card-list__view.btn,
+.dark .alerts-actions__open.btn {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.26)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.05), transparent 78%);
+  border-color: hsl(var(--border) / 0.42);
+}
+
+.dark .alerts-actions__ack.btn {
+  border-color: hsl(var(--warning) / 0.32);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.2), hsl(var(--warning) / 0.12)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.1), transparent 76%);
+  color: hsl(var(--warning-foreground));
+  box-shadow:
+    0 10px 18px hsl(var(--warning) / 0.16),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.dark :is(
+    .dashboard-list-item__action .btn--danger,
+    .alerts-actions__resolve.btn,
+    .patients-table__actions .btn--danger,
+    .patients-card-list__actions .btn--danger,
+    .worklist-table__actions .btn--danger,
+    .worklist-card__actions .btn--danger,
+    .appointments-item__actions .btn--danger
+  ) {
+  box-shadow:
+    0 10px 20px hsl(var(--danger) / 0.2),
+    inset 0 1px 0 hsl(var(--danger-foreground) / 0.16);
+}
+
+.dark .appointments-item__actions--pending .btn--ghost {
+  border-color: hsl(var(--warning) / 0.2);
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.42), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--warning) / 0.08), transparent 76%);
 }

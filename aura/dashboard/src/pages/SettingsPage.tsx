@@ -74,7 +74,7 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Manage clinician preferences, identity, and session protection for this browser workspace."
+        subtitle="Manage clinician preferences, local identity, and session protection for this browser workspace."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
@@ -136,13 +136,26 @@ export function SettingsPage(): JSX.Element {
           <div className="settings-workspace-note__facts" aria-label="Settings behavior facts">
             <span className="settings-workspace-note__fact">Applies immediately</span>
             <span className="settings-workspace-note__fact">Stored locally</span>
-            <span className="settings-workspace-note__fact">{identityStateLabel}</span>
+            <span className="settings-workspace-note__fact">No shared profile sync</span>
           </div>
         </section>
       </section>
 
       <section className="settings-groups" aria-label="Settings groups">
-        <div className="settings-groups__column settings-groups__column--primary">
+        <section
+          className="settings-groups__column settings-groups__column--primary settings-column-shell settings-column-shell--workspace"
+          aria-labelledby="settings-workspace-shell-heading"
+        >
+          <div className="settings-column-shell__intro">
+            <p className="settings-column-shell__eyebrow">Workspace defaults</p>
+            <h3 id="settings-workspace-shell-heading" className="settings-column-shell__title">
+              Appearance and local identity
+            </h3>
+            <p className="settings-column-shell__text">
+              Shape how this clinician workspace looks and how ownership labels appear during review on
+              this device.
+            </p>
+          </div>
           <Card
             className="settings-group-card settings-group-card--preferences"
             title={
@@ -159,7 +172,8 @@ export function SettingsPage(): JSX.Element {
               </p>
             </div>
             <div className="settings-group-card__intro">
-              Configure appearance and day-to-day workspace behavior without changing shared product data.
+              Configure appearance and day-to-day workspace behavior for this browser without changing
+              shared product data.
             </div>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
@@ -284,7 +298,8 @@ export function SettingsPage(): JSX.Element {
               </p>
             </div>
             <div className="settings-group-card__intro">
-              Set the clinician identity shown for assignments and review activity in this browser workspace.
+              Set the local clinician identity shown for assignments and review activity in this browser
+              workspace.
             </div>
             <div className="settings-list settings-list--refined">
               <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
@@ -353,9 +368,22 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
           </Card>
-        </div>
+        </section>
 
-        <div className="settings-groups__column settings-groups__column--secondary">
+        <section
+          className="settings-groups__column settings-groups__column--secondary settings-column-shell settings-column-shell--protection"
+          aria-labelledby="settings-protection-shell-heading"
+        >
+          <div className="settings-column-shell__intro">
+            <p className="settings-column-shell__eyebrow">Local protection</p>
+            <h3 id="settings-protection-shell-heading" className="settings-column-shell__title">
+              Session safety and workspace guidance
+            </h3>
+            <p className="settings-column-shell__text">
+              Keep patient context protected in this browser and make the local session behavior clear to
+              the clinician using it.
+            </p>
+          </div>
           <Card
             className="settings-group-card settings-group-card--security"
             title={
@@ -372,7 +400,8 @@ export function SettingsPage(): JSX.Element {
               </p>
             </div>
             <div className="settings-group-card__intro">
-              Session controls protect patient context in this browser and reduce the risk of unattended access during clinician work.
+              Session controls protect patient context in this browser and reduce risk during unattended
+              workstation use.
             </div>
             <div className="settings-list settings-list--refined">
               <label className="setting-item setting-item--toggle" htmlFor="idle-timeout-enabled-toggle">
@@ -458,7 +487,7 @@ export function SettingsPage(): JSX.Element {
           <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
             Settings on this page are browser-backed. They change how this clinician workspace behaves on this device, but they do not publish shared product-wide preferences.
           </AlertBanner>
-        </div>
+        </section>
       </section>
     </div>
   );

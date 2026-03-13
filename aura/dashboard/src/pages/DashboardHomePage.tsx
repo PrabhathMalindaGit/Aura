@@ -175,6 +175,16 @@ export function DashboardHomePage(): JSX.Element {
     ];
   }, [navigate, summaryQuery.data]);
 
+  const followUpInFlightCount = useMemo(() => {
+    if (!summaryQuery.data) {
+      return null;
+    }
+
+    return (
+      summaryQuery.data.openFollowUpTasksCount + summaryQuery.data.messagesNeedingResponseCount
+    );
+  }, [summaryQuery.data]);
+
   const messagesReviewLabel = useMemo(() => {
     if (!summaryQuery.data) {
       return 'Messages updating';
@@ -193,8 +203,8 @@ export function DashboardHomePage(): JSX.Element {
 
     const count = summaryQuery.data.assignedToMeAlertsCount;
     return count === 0
-      ? 'No alert ownership yet'
-      : `${count} ${count === 1 ? 'alert is' : 'alerts are'} assigned to you`;
+      ? 'No owned alerts'
+      : `${count} ${count === 1 ? 'alert assigned' : 'alerts assigned'}`;
   }, [summaryQuery.data]);
 
   const headerMeta = useMemo(
@@ -223,23 +233,39 @@ export function DashboardHomePage(): JSX.Element {
     () => [
       {
         key: 'alerts',
-        label: 'Open alerts',
+        label: 'Needs attention now',
+        note:
+          summaryQuery.data?.openAlertsCount && summaryQuery.data.openAlertsCount > 0
+            ? `${summaryQuery.data.openAlertsCount} ${
+                summaryQuery.data.openAlertsCount === 1 ? 'open alert' : 'open alerts'
+              }`
+            : 'No open alerts',
         value: summaryQuery.data?.openAlertsCount ?? '—',
       },
       {
         key: 'tasks',
-        label: 'Follow-up tasks',
-        value: summaryQuery.data?.openFollowUpTasksCount ?? '—',
+        label: 'Follow-up waiting',
+        note:
+          followUpInFlightCount && followUpInFlightCount > 0
+            ? `${followUpInFlightCount} ${followUpInFlightCount === 1 ? 'item' : 'items'} across tasks and messages`
+            : 'No tasks or messages waiting',
+        value: followUpInFlightCount ?? '—',
       },
       {
         key: 'appointments',
-        label: 'Today’s appointments',
+        label: 'Matters today',
+        note:
+          summaryQuery.data?.todayAppointmentsCount && summaryQuery.data.todayAppointmentsCount > 0
+            ? `${summaryQuery.data.todayAppointmentsCount} ${
+                summaryQuery.data.todayAppointmentsCount === 1 ? 'appointment' : 'appointments'
+              } on today’s schedule`
+            : 'No appointments scheduled',
         value: summaryQuery.data?.todayAppointmentsCount ?? '—',
       },
     ],
     [
+      followUpInFlightCount,
       summaryQuery.data?.openAlertsCount,
-      summaryQuery.data?.openFollowUpTasksCount,
       summaryQuery.data?.todayAppointmentsCount,
     ],
   );
@@ -253,10 +279,7 @@ export function DashboardHomePage(): JSX.Element {
       return 'alerts';
     }
 
-    if (
-      summaryQuery.data.openFollowUpTasksCount > 0 ||
-      summaryQuery.data.messagesNeedingResponseCount > 0
-    ) {
+    if ((followUpInFlightCount ?? 0) > 0) {
       return 'tasks';
     }
 
@@ -265,94 +288,89 @@ export function DashboardHomePage(): JSX.Element {
     }
 
     return null;
-  }, [summaryQuery.data]);
+  }, [followUpInFlightCount, summaryQuery.data]);
 
   const heroSubtitle = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Start with the live snapshot, then move into the queue.';
+      return 'Review what needs attention now, then move through follow-up and today’s schedule.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
       return `${summaryQuery.data.openAlertsCount} ${
         summaryQuery.data.openAlertsCount === 1 ? 'open alert needs' : 'open alerts need'
-      } review before the rest of the day moves forward.`;
+      } review first. The live snapshot below keeps follow-up and today’s schedule in view.`;
     }
 
-    if (
-      summaryQuery.data.openFollowUpTasksCount > 0 ||
-      summaryQuery.data.messagesNeedingResponseCount > 0
-    ) {
-      return 'Safety pressure is lighter. Move through follow-up, communication, and today’s schedule next.';
+    if ((followUpInFlightCount ?? 0) > 0) {
+      return `${followUpInFlightCount} ${
+        followUpInFlightCount === 1 ? 'follow-up item needs' : 'follow-up items need'
+      } movement today. Scan the live snapshot, then clear the next actions below.`;
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'Safety pressure is light. Confirm today’s schedule first, then scan the remaining follow-up.';
+      return `${summaryQuery.data.todayAppointmentsCount} ${
+        summaryQuery.data.todayAppointmentsCount === 1 ? 'appointment shapes' : 'appointments shape'
+      } today’s schedule. Confirm visits first, then move through the remaining follow-up.`;
     }
 
-    return 'No immediate safety pressure. Use the live snapshot to confirm the workspace is still quiet.';
-  }, [summaryQuery.data]);
+    return 'No urgent safety pressure. Confirm the live snapshot, then move straight into today’s work below.';
+  }, [followUpInFlightCount, summaryQuery.data]);
 
   const focusTitle = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Today’s review is still loading';
+      return 'Loading today’s operating summary';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Safety review leads the day';
+      return 'Open alerts lead the first pass';
     }
 
-    if (
-      summaryQuery.data.openFollowUpTasksCount > 0 ||
-      summaryQuery.data.messagesNeedingResponseCount > 0
-    ) {
-      return 'Follow-through leads the day';
+    if ((followUpInFlightCount ?? 0) > 0) {
+      return 'Follow-up leads the first pass';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'The schedule is the first check';
+      return 'The schedule leads the first pass';
     }
 
-    return 'The day is steady';
-  }, [summaryQuery.data]);
+    return 'The workspace is steady';
+  }, [followUpInFlightCount, summaryQuery.data]);
 
   const focusCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Use the live counts below, then open the queue.';
+      return 'Use the live counts to confirm what needs attention first.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Start in the priority queue. Then confirm follow-up and today’s schedule.';
+      return 'Start in the priority queue, then move into follow-up and schedule confirmation.';
     }
 
-    if (
-      summaryQuery.data.openFollowUpTasksCount > 0 ||
-      summaryQuery.data.messagesNeedingResponseCount > 0
-    ) {
-      return 'Safety pressure is lighter. Move through tasks and communication next.';
+    if ((followUpInFlightCount ?? 0) > 0) {
+      return 'Safety pressure is lighter. Clear the waiting follow-up next and keep the day moving.';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'Confirm today’s visits, then scan the remaining follow-up.';
+      return 'Confirm today’s visits first, then scan the remaining follow-up.';
     }
 
-    return 'Start with the live snapshot and confirm the workspace is still quiet.';
-  }, [summaryQuery.data]);
+    return 'No urgent items are leading the day. Use the snapshot below to confirm a steady start.';
+  }, [followUpInFlightCount, summaryQuery.data]);
 
   const primaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Use the queue and recent safety events to review what needs attention first.';
+      return 'Priority queue and recent safety activity.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Open alerts and recent safety events stay together for fast review.';
+      return 'Priority queue and recent safety events, kept together for fast review.';
     }
 
-    return 'This area stays ready for urgent review when safety pressure changes.';
+    return 'Priority queue and recent safety activity, ready if pressure changes.';
   }, [summaryQuery.data]);
 
   const secondaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Appointments, tasks, and communication stay grouped here for the rest of the day.';
+      return 'Appointments, tasks, and communication in one place.';
     }
 
     if (
@@ -360,10 +378,10 @@ export function DashboardHomePage(): JSX.Element {
       summaryQuery.data.openFollowUpTasksCount > 0 ||
       summaryQuery.data.messagesNeedingResponseCount > 0
     ) {
-      return 'Appointments, tasks, and communication stay grouped here for coordinated follow-through.';
+      return 'Appointments, tasks, and communication for today’s follow-through.';
     }
 
-    return 'This rail holds the remaining follow-through and schedule context.';
+    return 'Appointments, tasks, and communication stay here for the rest of the day.';
   }, [summaryQuery.data]);
 
   return (
@@ -372,7 +390,7 @@ export function DashboardHomePage(): JSX.Element {
         <div className="dashboard-home-hero__main">
           <Section
             className="dashboard-page-header dashboard-home-page__header"
-            eyebrow={`Today’s operating picture for ${clinicianFirstName}`}
+            eyebrow={`Command center for ${clinicianFirstName}`}
             title="Dashboard"
             subtitle={heroSubtitle}
             meta={headerMeta}
@@ -386,7 +404,7 @@ export function DashboardHomePage(): JSX.Element {
 
         <aside className="dashboard-home-hero__aside" aria-label="Today in focus">
           <div className="dashboard-home-hero__aside-card">
-            <p className="dashboard-home-hero__aside-eyebrow">Today in focus</p>
+            <p className="dashboard-home-hero__aside-eyebrow">Today’s operational summary</p>
             <h3 className="dashboard-home-hero__aside-title">{focusTitle}</h3>
             <p className="dashboard-home-hero__aside-copy">{focusCopy}</p>
             <div className="dashboard-home-hero__facts" role="list" aria-label="Dashboard focus facts">
@@ -398,7 +416,10 @@ export function DashboardHomePage(): JSX.Element {
                   }`}
                   role="listitem"
                 >
-                  <span className="dashboard-home-hero__fact-label">{fact.label}</span>
+                  <div className="dashboard-home-hero__fact-copy">
+                    <span className="dashboard-home-hero__fact-label">{fact.label}</span>
+                    <span className="dashboard-home-hero__fact-note">{fact.note}</span>
+                  </div>
                   <strong className="dashboard-home-hero__fact-value">{fact.value}</strong>
                 </div>
               ))}
@@ -423,87 +444,87 @@ export function DashboardHomePage(): JSX.Element {
         <section className="dashboard-home-zone dashboard-home-zone--primary" aria-label="Attention and safety">
           <div className="dashboard-home-zone__header">
             <div className="dashboard-home-zone__intro">
-              <p className="dashboard-home-zone__eyebrow">Attention and safety</p>
-              <h2 className="dashboard-home-zone__title">Review what needs action now</h2>
+              <p className="dashboard-home-zone__eyebrow">Attention now</p>
+              <h2 className="dashboard-home-zone__title">Needs review now</h2>
               <p className="dashboard-home-zone__copy">{primaryZoneCopy}</p>
             </div>
           </div>
 
           <div className="dashboard-home-layout__primary">
-          <PriorityQueueModule
-            items={priorityQueueQuery.data ?? []}
-            loading={priorityQueueQuery.isLoading}
-            hasError={Boolean(priorityQueueQuery.error)}
-            onRetry={() => {
-              void priorityQueueQuery.refetch();
-            }}
-            retrying={priorityQueueQuery.isFetching}
-            resolvePatientLabel={resolvePatientLabel}
-            onOpenItem={openPriorityItem}
-            onOpenAlerts={() => navigate('/alerts')}
-          />
+            <PriorityQueueModule
+              items={priorityQueueQuery.data ?? []}
+              loading={priorityQueueQuery.isLoading}
+              hasError={Boolean(priorityQueueQuery.error)}
+              onRetry={() => {
+                void priorityQueueQuery.refetch();
+              }}
+              retrying={priorityQueueQuery.isFetching}
+              resolvePatientLabel={resolvePatientLabel}
+              onOpenItem={openPriorityItem}
+              onOpenAlerts={() => navigate('/alerts')}
+            />
 
-          <RecentSafetyEventsModule
-            items={safetyEventsQuery.data ?? []}
-            loading={safetyEventsQuery.isLoading}
-            hasError={Boolean(safetyEventsQuery.error)}
-            onRetry={() => {
-              void safetyEventsQuery.refetch();
-            }}
-            retrying={safetyEventsQuery.isFetching}
-            resolvePatientLabel={resolvePatientLabel}
-            onOpenAlerts={() => navigate('/alerts')}
-          />
+            <RecentSafetyEventsModule
+              items={safetyEventsQuery.data ?? []}
+              loading={safetyEventsQuery.isLoading}
+              hasError={Boolean(safetyEventsQuery.error)}
+              onRetry={() => {
+                void safetyEventsQuery.refetch();
+              }}
+              retrying={safetyEventsQuery.isFetching}
+              resolvePatientLabel={resolvePatientLabel}
+              onOpenAlerts={() => navigate('/alerts')}
+            />
           </div>
         </section>
 
         <aside className="dashboard-home-zone dashboard-home-zone--secondary" aria-label="Follow-through and schedule">
           <div className="dashboard-home-zone__header">
             <div className="dashboard-home-zone__intro">
-              <p className="dashboard-home-zone__eyebrow">Follow-through and schedule</p>
+              <p className="dashboard-home-zone__eyebrow">Follow-through today</p>
               <h2 className="dashboard-home-zone__title">Keep the day moving</h2>
               <p className="dashboard-home-zone__copy">{secondaryZoneCopy}</p>
             </div>
           </div>
 
           <div className="dashboard-home-layout__secondary dashboard-home-support-rail">
-          <TodayAppointmentsCard
-            items={appointmentsQuery.data ?? []}
-            loading={appointmentsQuery.isLoading}
-            hasError={Boolean(appointmentsQuery.error)}
-            onRetry={() => {
-              void appointmentsQuery.refetch();
-            }}
-            retrying={appointmentsQuery.isFetching}
-            resolvePatientLabel={resolvePatientLabel}
-            onOpenPatient={openPatient}
-            onOpenAppointments={() => navigate('/appointments')}
-          />
+            <TodayAppointmentsCard
+              items={appointmentsQuery.data ?? []}
+              loading={appointmentsQuery.isLoading}
+              hasError={Boolean(appointmentsQuery.error)}
+              onRetry={() => {
+                void appointmentsQuery.refetch();
+              }}
+              retrying={appointmentsQuery.isFetching}
+              resolvePatientLabel={resolvePatientLabel}
+              onOpenPatient={openPatient}
+              onOpenAppointments={() => navigate('/appointments')}
+            />
 
-          <FollowUpTasksCard
-            items={followUpTasksQuery.data ?? []}
-            loading={followUpTasksQuery.isLoading}
-            hasError={Boolean(followUpTasksQuery.error)}
-            onRetry={() => {
-              void followUpTasksQuery.refetch();
-            }}
-            retrying={followUpTasksQuery.isFetching}
-            resolvePatientLabel={resolvePatientLabel}
-            onOpenTaskItem={openTaskItem}
-            onOpenPatients={() => navigate('/worklist')}
-          />
+            <FollowUpTasksCard
+              items={followUpTasksQuery.data ?? []}
+              loading={followUpTasksQuery.isLoading}
+              hasError={Boolean(followUpTasksQuery.error)}
+              onRetry={() => {
+                void followUpTasksQuery.refetch();
+              }}
+              retrying={followUpTasksQuery.isFetching}
+              resolvePatientLabel={resolvePatientLabel}
+              onOpenTaskItem={openTaskItem}
+              onOpenPatients={() => navigate('/worklist')}
+            />
 
-          <CommunicationOverviewCard
-            overview={communicationQuery.data}
-            loading={communicationQuery.isLoading}
-            hasError={Boolean(communicationQuery.error)}
-            onRetry={() => {
-              void communicationQuery.refetch();
-            }}
-            retrying={communicationQuery.isFetching}
-            onOpenPatient={openPatient}
-            onOpenPatients={() => navigate('/worklist')}
-          />
+            <CommunicationOverviewCard
+              overview={communicationQuery.data}
+              loading={communicationQuery.isLoading}
+              hasError={Boolean(communicationQuery.error)}
+              onRetry={() => {
+                void communicationQuery.refetch();
+              }}
+              retrying={communicationQuery.isFetching}
+              onOpenPatient={openPatient}
+              onOpenPatients={() => navigate('/worklist')}
+            />
           </div>
         </aside>
       </div>

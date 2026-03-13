@@ -229,6 +229,10 @@ describe('DashboardHomePage', () => {
     renderDashboardHome();
 
     expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByText('Today’s operational summary')).toBeInTheDocument();
+    expect(screen.getByText('Needs attention now')).toBeInTheDocument();
+    expect(screen.getByText('Follow-up waiting')).toBeInTheDocument();
+    expect(screen.getByText('Matters today')).toBeInTheDocument();
     expect(await screen.findByText('Assigned to me')).toBeInTheDocument();
     expect(screen.getByText('Priority queue')).toBeInTheDocument();
     expect(screen.getByText('Assigned high-risk alert')).toBeInTheDocument();

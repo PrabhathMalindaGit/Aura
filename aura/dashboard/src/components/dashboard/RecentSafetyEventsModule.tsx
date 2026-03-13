@@ -135,7 +135,7 @@ export function RecentSafetyEventsModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Latest alert creation and notification activity recorded by the Safety Spine.
+            Recent alert and notification activity recorded by the Safety Spine.
           </span>
         </span>
       }
@@ -204,42 +204,34 @@ export function RecentSafetyEventsModule({
                         <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
                         <span className="dashboard-list-item__timeline-kind">{streamLabel}</span>
                       </div>
-                      <div className="dashboard-list-item__timeline-meta">
-                        <span
-                          className="dashboard-list-item__timestamp dashboard-list-item__timestamp--timeline"
-                          title={formatDashboardDateTime(item.createdAt)}
-                        >
-                          {formatDashboardRelativeTime(item.createdAt)}
-                        </span>
-                        {primaryBadge}
-                      </div>
+                      <span
+                        className="dashboard-list-item__timestamp dashboard-list-item__timestamp--timeline"
+                        title={formatDashboardDateTime(item.createdAt)}
+                      >
+                        {formatDashboardRelativeTime(item.createdAt)}
+                      </span>
                     </div>
 
                     <div className="dashboard-list-item__title-row dashboard-list-item__title-row--timeline">
                       <h3 className="dashboard-list-item__title dashboard-list-item__title--timeline">
                         {humanizeDashboardLabel(item.type)}
                       </h3>
+                      {primaryBadge}
                     </div>
 
                     <p className="dashboard-list-item__description dashboard-list-item__description--timeline">{item.summary}</p>
 
-                    {supportingTags.length > 0 ? (
-                      <div className="dashboard-list-item__tag-row dashboard-list-item__tag-row--timeline">
-                        {supportingTags.map((tag) => (
-                          <span key={tag} className="dashboard-list-item__tag dashboard-list-item__tag--timeline">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-
                     <div className="dashboard-list-item__footer dashboard-list-item__footer--timeline">
                       <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--timeline">
                         <span>{timelineSupportLine(item)}</span>
+                        {supportingTags.map((tag) => (
+                          <span key={tag}>{tag}</span>
+                        ))}
                         <span>{formatDashboardDateTime(item.createdAt)}</span>
                       </div>
                       <div className="dashboard-list-item__action dashboard-list-item__action--timeline">
-                        <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+                        <span className="dashboard-list-item__action-label">Review</span>
+                        <Button variant="secondary" size="sm" onClick={onOpenAlerts}>
                           Open alerts
                         </Button>
                       </div>

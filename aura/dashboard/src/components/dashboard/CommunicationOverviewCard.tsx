@@ -44,7 +44,7 @@ export function CommunicationOverviewCard({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Messages and follow-up requests that still need clinician review or response.
+            Messages still waiting for clinician review or response.
           </span>
         </span>
       }
@@ -96,27 +96,24 @@ export function CommunicationOverviewCard({
               <article key={item.id} className="dashboard-list-item dashboard-list-item--communication" role="listitem">
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">
-                    <span className="dashboard-list-item__patient">{item.patientName}</span>
+                    <span className="dashboard-list-item__context-note">Latest patient message</span>
                     <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.messageCreatedAt)}>
                       {formatDashboardRelativeTime(item.messageCreatedAt)}
                     </span>
                   </div>
                   <div className="dashboard-list-item__title-row">
-                    <h3 className="dashboard-list-item__title">Needs clinician response</h3>
-                    {item.flaggedBySafety ? <Badge variant="risk-high">Safety flagged</Badge> : <Badge variant="warning">Review</Badge>}
+                    <h3 className="dashboard-list-item__title">{item.patientName}</h3>
+                    {item.flaggedBySafety ? <Badge variant="risk-high">Safety flagged</Badge> : <Badge variant="warning">Needs response</Badge>}
                   </div>
                   <p className="dashboard-list-item__description">
                     {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
                   </p>
-                  <div className="dashboard-list-item__tag-row">
-                    {item.followUpRequested ? <span className="dashboard-list-item__tag">Follow-up requested</span> : null}
-                    {item.linkedTaskId ? <span className="dashboard-list-item__tag">Task linked</span> : null}
-                  </div>
                   <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
                     <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
-                      <span title={formatDashboardDateTime(item.messageCreatedAt)}>
-                        Latest message {formatDashboardRelativeTime(item.messageCreatedAt)}
-                      </span>
+                      <span>Needs clinician response</span>
+                      {item.followUpRequested ? <span>Follow-up requested</span> : null}
+                      {item.linkedTaskId ? <span>Task linked</span> : null}
+                      <span>Received {formatDashboardDateTime(item.messageCreatedAt)}</span>
                     </div>
                     <div className="dashboard-list-item__action">
                       <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>

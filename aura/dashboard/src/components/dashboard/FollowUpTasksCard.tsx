@@ -6,6 +6,7 @@ import { DashboardModuleState } from './DashboardModuleState';
 import type { DashboardFollowUpTaskItem } from '../../types/models';
 import {
   formatDashboardDateTime,
+  formatDashboardRelativeTime,
   humanizeDashboardLabel,
 } from '../../utils/dashboard';
 
@@ -83,7 +84,7 @@ export function FollowUpTasksCard({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Action items to keep appointment, adherence, and communication follow-up moving.
+            Open task work across safety, adherence, and appointments.
           </span>
         </span>
       }
@@ -130,22 +131,21 @@ export function FollowUpTasksCard({
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">
                     <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                    <span className="dashboard-list-item__timestamp">
-                      {item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Updated ${formatDashboardDateTime(item.updatedAt)}`}
+                    <span
+                      className="dashboard-list-item__timestamp"
+                      title={item.dueAt ? formatDashboardDateTime(item.dueAt) : formatDashboardDateTime(item.updatedAt)}
+                    >
+                      {item.dueAt ? `Due ${formatDashboardRelativeTime(item.dueAt)}` : `Updated ${formatDashboardRelativeTime(item.updatedAt)}`}
                     </span>
                   </div>
                   <div className="dashboard-list-item__title-row">
                     <h3 className="dashboard-list-item__title">{item.title}</h3>
                     <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
                   </div>
-                  <p className="dashboard-list-item__description">
-                    {humanizeDashboardLabel(item.status)} clinician workflow item.
-                  </p>
-                  <div className="dashboard-list-item__tag-row">
-                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.type)}</span>
-                  </div>
                   <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
                     <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
+                      <span>{humanizeDashboardLabel(item.type)}</span>
+                      <span>{humanizeDashboardLabel(item.status)}</span>
                       {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>}
                     </div>
                     <div className="dashboard-list-item__action">

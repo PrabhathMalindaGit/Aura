@@ -6,6 +6,7 @@ import { DashboardModuleState } from './DashboardModuleState';
 import type { DashboardTodayAppointmentItem } from '../../types/models';
 import {
   formatDashboardDateTime,
+  formatDashboardRelativeTime,
   formatDashboardTimeRange,
   humanizeDashboardLabel,
 } from '../../utils/dashboard';
@@ -66,7 +67,7 @@ export function TodayAppointmentsCard({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Confirmed, pending, and exception visits that shape today&apos;s schedule.
+            Visits and exceptions shaping today&apos;s schedule.
           </span>
         </span>
       }
@@ -115,25 +116,22 @@ export function TodayAppointmentsCard({
               <article key={item.id} className="dashboard-list-item dashboard-list-item--appointments" role="listitem">
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">
-                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+                    <span className="dashboard-list-item__context-note">
+                      {formatDashboardTimeRange(item.startsAt, item.endsAt)}
+                    </span>
                     <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.updatedAt)}>
-                      Updated {formatDashboardDateTime(item.updatedAt)}
+                      Updated {formatDashboardRelativeTime(item.updatedAt)}
                     </span>
                   </div>
                   <div className="dashboard-list-item__title-row">
-                    <h3 className="dashboard-list-item__title">{formatDashboardTimeRange(item.startsAt, item.endsAt)}</h3>
+                    <h3 className="dashboard-list-item__title">{resolvePatientLabel(item.patientId)}</h3>
                     <Badge variant={statusVariant(item.status)}>{humanizeDashboardLabel(item.status)}</Badge>
                   </div>
-                  <p className="dashboard-list-item__description">
-                    {item.note?.trim() || `${humanizeDashboardLabel(item.requestStatus)} ${item.modality} visit`}
-                  </p>
-                  <div className="dashboard-list-item__tag-row">
-                    <span className="dashboard-list-item__tag">{item.modality}</span>
-                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.requestStatus)}</span>
-                  </div>
+                  {item.note?.trim() ? <p className="dashboard-list-item__description">{item.note.trim()}</p> : null}
                   <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
                     <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
-                      <span>{item.note?.trim() ? 'Patient note added' : 'Today’s schedule item'}</span>
+                      <span>{`${humanizeDashboardLabel(item.modality)} visit`}</span>
+                      <span>{`${humanizeDashboardLabel(item.requestStatus)} request`}</span>
                       <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>
                     </div>
                     <div className="dashboard-list-item__action">

@@ -73,6 +73,22 @@ function priorityToneClass(priority: DashboardPriorityQueueItem['priority']): st
   return 'neutral';
 }
 
+function queueTimestampLabel(item: DashboardPriorityQueueItem): string {
+  if (item.dueAt) {
+    return `Due ${formatDashboardRelativeTime(item.dueAt)}`;
+  }
+
+  return formatDashboardRelativeTime(item.createdAt);
+}
+
+function queueTimestampTitle(item: DashboardPriorityQueueItem): string {
+  if (item.dueAt) {
+    return `Due ${formatDashboardDateTime(item.dueAt)}`;
+  }
+
+  return formatDashboardDateTime(item.createdAt);
+}
+
 export function PriorityQueueModule({
   items,
   loading,
@@ -99,7 +115,7 @@ export function PriorityQueueModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Escalations, appointment exceptions, and high-priority follow-up that need the next clinician action.
+            Escalations and high-priority follow-up that need the next clinician action.
           </span>
         </span>
       }
@@ -159,35 +175,34 @@ export function PriorityQueueModule({
                 role="listitem"
               >
                 <div className="dashboard-list-item__content dashboard-list-item__content--priority">
-                  <div className="dashboard-list-item__eyebrow">
+                  <div className="dashboard-list-item__eyebrow dashboard-list-item__eyebrow--priority">
                     <span className="dashboard-list-item__patient-block">
                       <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
                       <span className="dashboard-list-item__queue-kind">{queueKindLabel(item.itemType)}</span>
                     </span>
-                  </div>
-                  <h3 className="dashboard-list-item__headline">{item.title}</h3>
-                  {item.subtitle ? <p className="dashboard-list-item__description">{item.subtitle}</p> : null}
-                  <div className="dashboard-list-item__tag-row">
-                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.source)}</span>
-                    <span className="dashboard-list-item__tag">{humanizeDashboardLabel(item.status)}</span>
-                  </div>
-                  <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--priority">
-                    <span>{item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Opened ${formatDashboardDateTime(item.createdAt)}`}</span>
-                  </div>
-                </div>
-                <div className="dashboard-list-item__aside dashboard-list-item__aside--priority">
-                  <div className="dashboard-list-item__aside-meta">
-                    <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.createdAt)}>
-                      {formatDashboardRelativeTime(item.createdAt)}
+                    <span className="dashboard-list-item__timestamp" title={queueTimestampTitle(item)}>
+                      {queueTimestampLabel(item)}
                     </span>
+                  </div>
+                  <div className="dashboard-list-item__title-row dashboard-list-item__title-row--priority">
+                    <h3 className="dashboard-list-item__headline">{item.title}</h3>
                     <Badge className="dashboard-list-item__priority-badge" variant={priorityVariant(item.priority)}>
                       {humanizeDashboardLabel(item.priority)}
                     </Badge>
                   </div>
-                  <div className="dashboard-list-item__action">
-                    <Button variant="secondary" size="sm" onClick={() => onOpenItem(item)}>
-                      {actionLabel(item)}
-                    </Button>
+                  {item.subtitle ? <p className="dashboard-list-item__description">{item.subtitle}</p> : null}
+                  <div className="dashboard-list-item__footer dashboard-list-item__footer--priority">
+                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--priority">
+                      <span>{humanizeDashboardLabel(item.source)}</span>
+                      <span>{humanizeDashboardLabel(item.status)}</span>
+                      <span>{item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Opened ${formatDashboardDateTime(item.createdAt)}`}</span>
+                    </div>
+                    <div className="dashboard-list-item__action dashboard-list-item__action--priority">
+                      <span className="dashboard-list-item__action-label">Next step</span>
+                      <Button variant="secondary" size="sm" onClick={() => onOpenItem(item)}>
+                        {actionLabel(item)}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </article>

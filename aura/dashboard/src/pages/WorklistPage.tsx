@@ -166,8 +166,8 @@ export function WorklistPage(): JSX.Element {
         <div className="worklist-workspace-note__copy">
           <p className="worklist-workspace-note__eyebrow">Active review workspace</p>
           <p className="worklist-workspace-note__text">
-            Use the queue to move from review focus to patient action quickly. Keep the primary
-            issue obvious and supporting operational signals compressed.
+            Move from review focus to patient action quickly. Keep the lead issue obvious and the
+            supporting signals compressed.
           </p>
         </div>
         <div className="worklist-workspace-note__facts" aria-live="polite">
@@ -194,8 +194,7 @@ export function WorklistPage(): JSX.Element {
         <Stack gap="4">
           <div className="worklist-workspace-card__controls">
             <p className="worklist-queue-intro">
-              Narrow the queue without diluting the scan order: review focus first, operational
-              signals second, and patient action last.
+              Review focus first, operational signals second, patient action last.
             </p>
             <WorklistFilters
               filters={filters}

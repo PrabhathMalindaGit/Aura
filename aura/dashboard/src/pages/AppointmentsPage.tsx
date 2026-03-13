@@ -274,8 +274,8 @@ export function AppointmentsPage(): JSX.Element {
         <div className="appointments-workspace-note__copy">
           <p className="appointments-workspace-note__eyebrow">Scheduling workspace</p>
           <p className="appointments-workspace-note__text">
-            Review booking requests before publishing more capacity so the scheduling surface reads
-            like coordination work, not a form-first composer.
+            Review booking requests before publishing more capacity so the scheduling surface stays
+            coordination-first.
           </p>
         </div>
         <div className="appointments-workspace-note__facts" aria-live="polite">
@@ -303,8 +303,7 @@ export function AppointmentsPage(): JSX.Element {
             </div>
           </div>
           <p className="appointments-workspace__intro">
-            Keep request review in the lead position, then confirm how much open capacity is still
-            available for new bookings.
+            Keep request review in the lead position, then confirm how much capacity is still open.
           </p>
           <div className="appointments-workspace__panels">
             <section className="appointments-workspace__section appointments-workspace__section--requests" aria-label="Appointment requests">
@@ -576,7 +575,7 @@ export function AppointmentsPage(): JSX.Element {
             <span className="appointments-composer__context-pill">Secondary planning panel</span>
             <p className="appointments-composer__context-note">
               Add capacity after review decisions are clear so the queue stays centered on clinician
-              coordination instead of form entry.
+              coordination.
             </p>
           </div>
           <p className="appointments-composer__intro">
@@ -618,14 +617,14 @@ export function AppointmentsPage(): JSX.Element {
                 </label>
               </div>
               <p className="appointments-composer__cluster-note">
-                Add a meeting link only when the slot should open directly into a tele-rehab session.
+                Add a meeting link only when the slot should open directly into a tele-rehab visit.
               </p>
             </div>
           </div>
           <div className="appointments-composer__actions">
             <div className="appointments-composer__hint-group">
               <p className="appointments-composer__hint">
-                Slots become visible in the booking queue immediately after creation.
+                New slots appear in the booking queue immediately after creation.
               </p>
               <p className="appointments-composer__hint appointments-composer__hint--quiet">
                 {nextAvailableSlotMeta} · Last refresh {refreshedAtLabel}

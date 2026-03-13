@@ -292,13 +292,13 @@ export function DashboardHomePage(): JSX.Element {
 
   const heroSubtitle = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Start with the live operational snapshot, then move through queue review, follow-up, and today’s schedule.';
+      return 'Confirm the live snapshot, then move through queue review, follow-up, and today’s schedule.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
       return `${summaryQuery.data.openAlertsCount} ${
         summaryQuery.data.openAlertsCount === 1 ? 'open alert needs' : 'open alerts need'
-      } first review. Use the snapshot to confirm pressure, then clear the queue below.`;
+      } first review. Confirm pressure, then clear the queue below.`;
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
@@ -342,7 +342,7 @@ export function DashboardHomePage(): JSX.Element {
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Start in the priority queue, then move through tasks and schedule confirmation.';
+      return 'Start in the priority queue, then move into tasks and schedule confirmation.';
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
@@ -358,14 +358,14 @@ export function DashboardHomePage(): JSX.Element {
 
   const primaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Priority queue and recent safety activity, kept together for the first pass.';
+      return 'Priority queue and safety activity for the first pass.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
       return 'Priority queue and safety activity aligned for immediate review.';
     }
 
-    return 'Priority queue and recent safety activity, ready if pressure changes.';
+    return 'Priority queue and safety activity, ready if pressure changes.';
   }, [summaryQuery.data]);
 
   const secondaryZoneCopy = useMemo(() => {
@@ -381,7 +381,7 @@ export function DashboardHomePage(): JSX.Element {
       return 'Appointments, tasks, and communication for today’s follow-through.';
     }
 
-    return 'Appointments, tasks, and communication stay here for the rest of the day.';
+    return 'Appointments, tasks, and communication stay ready for the rest of the day.';
   }, [summaryQuery.data]);
 
   return (

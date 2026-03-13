@@ -129,7 +129,7 @@ export function SettingsPage(): JSX.Element {
             <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
             <p className="settings-workspace-note__text">
               Keep this page aligned with the rest of Aura Clinician while staying truthful: every
-              preference here is local to this browser workspace.
+              preference here is local to this browser.
             </p>
           </div>
           <div className="settings-workspace-note__facts" aria-live="polite">
@@ -150,7 +150,7 @@ export function SettingsPage(): JSX.Element {
             <h3 className="settings-column-shell__title">Personal workspace controls</h3>
             <p className="settings-column-shell__text">
               Keep appearance, density, and assignment labels consistent for the clinician using
-              this browser workspace.
+              this browser.
             </p>
           </div>
           <Card
@@ -165,12 +165,12 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">Personal defaults</span>
               <p className="settings-group-card__context-note">
-                Stored locally for this browser workspace.
+                Stored locally in this browser.
               </p>
             </div>
             <p className="settings-group-card__intro">
-              Use these controls to keep the product comfortable to review without drifting away
-              from Aura’s shared operational style.
+              Keep the workspace comfortable to review without drifting away from Aura’s shared
+              operational style.
             </p>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
@@ -268,7 +268,7 @@ export function SettingsPage(): JSX.Element {
                 <Button variant="ghost">Restore defaults</Button>
               </div>
               <p className="settings-card-footer__note">
-                Theme, density, and warning preferences stay in this browser workspace.
+                Theme, density, and warning preferences stay in this browser.
               </p>
             </div>
 
@@ -354,7 +354,7 @@ export function SettingsPage(): JSX.Element {
                 </Button>
               </div>
               <p className="settings-card-footer__note">
-                This only changes how you appear in this browser workspace.
+                This only changes how you appear in this browser.
               </p>
             </div>
 
@@ -374,8 +374,7 @@ export function SettingsPage(): JSX.Element {
             <p className="settings-column-shell__eyebrow">Protection</p>
             <h3 className="settings-column-shell__title">Session safety controls</h3>
             <p className="settings-column-shell__text">
-              Keep unattended access risk low while preserving the local, browser-backed scope of
-              this workspace.
+              Keep unattended access risk low while preserving the local scope of this browser.
             </p>
           </div>
           <Card
@@ -390,7 +389,7 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">Local protection</span>
               <p className="settings-group-card__context-note">
-                Takes effect immediately in this workspace.
+                Takes effect immediately in this browser.
               </p>
             </div>
             <p className="settings-group-card__intro">
@@ -481,8 +480,8 @@ export function SettingsPage(): JSX.Element {
           <section className="settings-column-shell__support" aria-label="Workspace guidance">
             <p className="settings-column-shell__support-label">Workspace guidance</p>
             <p className="settings-column-shell__support-text">
-              Use these reminders to keep the local scope of this browser workspace clear for the
-              clinician using it.
+              Use these reminders to keep the local scope of this browser clear for the clinician
+              using it.
             </p>
             <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
               Settings on this page are browser-backed. They change how this clinician workspace

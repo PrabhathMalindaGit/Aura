@@ -158,8 +158,8 @@ export function InsightsQueuePage(): JSX.Element {
           <div className="insights-workspace-note__copy">
             <p className="insights-workspace-note__eyebrow">Review workspace</p>
             <p className="insights-workspace-note__text">
-              Treat this queue like operational review, not a placeholder. Approve what should
-              surface to clinicians and reject low-signal suggestions decisively.
+              Treat this like operational review. Approve what belongs in clinician workflow and
+              reject low-signal suggestions decisively.
             </p>
           </div>
           <div className="insights-workspace-note__facts" aria-live="polite">
@@ -209,7 +209,7 @@ export function InsightsQueuePage(): JSX.Element {
         }
       >
         <p className="insights-queue-intro">
-          Review each suggestion in context before it enters the clinician workflow.
+          Review each suggestion in context before it enters clinician workflow.
         </p>
         {queueQuery.isLoading && pendingCount === 0 ? (
           <div className="patient-detail-skeleton-grid" aria-label="Insights queue loading placeholder">

@@ -26,6 +26,7 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
   --page-padding: clamp(12px, 2vw, 24px);
@@ -52,18 +53,18 @@
   --shadow-3: 0 20px 48px hsl(248 22% 40% / 0.18), 0 6px 18px hsl(216 34% 20% / 0.08);
 
   /* Semantic color tokens (HSL triplets only) */
-  --background: 208 30% 97%;
+  --background: 210 26% 96%;
   --foreground: 220 34% 14%;
-  --muted: 210 28% 93%;
-  --muted-foreground: 216 16% 37%;
+  --muted: 210 24% 91%;
+  --muted-foreground: 218 17% 31%;
   --card: 0 0% 100%;
   --card-foreground: 220 34% 14%;
   --popover: 210 30% 99%;
   --popover-foreground: 220 34% 14%;
-  --border: 214 22% 80%;
-  --input: 214 22% 80%;
+  --border: 214 20% 74%;
+  --input: 214 20% 74%;
   --ring: 204 84% 44%;
-  --ring-offset: 208 30% 97%;
+  --ring-offset: 210 26% 96%;
 
   --primary: 204 88% 36%;
   --primary-foreground: 0 0% 100%;
@@ -101,15 +102,15 @@
 
   --gradient-page: linear-gradient(
     160deg,
-    hsl(var(--primary) / 0.08),
-    hsl(var(--background) / 0.96) 44%,
-    hsl(var(--info) / 0.05)
+    hsl(var(--primary) / 0.07),
+    hsl(var(--background) / 0.985) 42%,
+    hsl(var(--info) / 0.04)
   );
-  --gradient-shell: radial-gradient(circle at top left, hsl(268 58% 92% / 0.92), transparent 34%),
-    radial-gradient(circle at top right, hsl(206 76% 95% / 0.88), transparent 28%),
-    linear-gradient(180deg, hsl(256 36% 95%), hsl(var(--background) / 0.98) 42%, hsl(248 30% 96%));
-  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(255 44% 98% / 0.94));
-  --gradient-surface-lilac: linear-gradient(135deg, hsl(264 62% 95% / 0.92), hsl(var(--card) / 0.96) 58%);
+  --gradient-shell: radial-gradient(circle at top left, hsl(208 52% 93% / 0.82), transparent 32%),
+    radial-gradient(circle at top right, hsl(194 54% 95% / 0.74), transparent 28%),
+    linear-gradient(180deg, hsl(214 28% 95%), hsl(var(--background) / 0.985) 42%, hsl(210 26% 95%));
+  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(210 36% 98% / 0.95));
+  --gradient-surface-lilac: linear-gradient(135deg, hsl(210 48% 96% / 0.88), hsl(var(--card) / 0.97) 58%);
   --gradient-primary: linear-gradient(
     135deg,
     hsl(var(--primary) / 0.18),
@@ -222,9 +223,9 @@
   --action-padding-sm: var(--space-3);
   --action-padding-md: var(--space-4);
   --action-padding-lg: var(--space-6);
-  --action-shadow-soft: 0 10px 22px hsl(248 28% 66% / 0.08);
-  --action-shadow-shell: 0 8px 18px hsl(248 28% 66% / 0.07);
-  --action-shadow-compact: 0 8px 16px hsl(248 28% 66% / 0.06);
+  --action-shadow-soft: 0 8px 18px hsl(216 26% 30% / 0.08);
+  --action-shadow-shell: 0 7px 16px hsl(216 26% 30% / 0.07);
+  --action-shadow-compact: 0 6px 14px hsl(216 26% 30% / 0.06);
   --action-shadow-primary: 0 14px 28px hsl(var(--primary) / 0.18);
   --action-shadow-danger: 0 14px 28px hsl(var(--danger) / 0.16);
   --data-region-shell-radius: calc(var(--radius-2xl) - 5px);
@@ -265,23 +266,23 @@
 
 .dark {
   /* Level 0 surface */
-  --background: 222 28% 10%;
+  --background: 221 28% 10%;
   --foreground: 210 24% 95%;
-  --muted: 222 19% 16%;
-  --muted-foreground: 216 18% 72%;
+  --muted: 221 18% 16%;
+  --muted-foreground: 215 17% 76%;
 
   /* Level 1 surface */
-  --card: 223 23% 14%;
+  --card: 222 23% 14%;
   --card-foreground: 210 24% 95%;
 
   /* Level 2 surface */
-  --popover: 222 22% 18%;
+  --popover: 221 22% 18%;
   --popover-foreground: 210 24% 96%;
 
-  --border: 218 20% 36%;
-  --input: 218 20% 36%;
+  --border: 218 18% 32%;
+  --input: 218 18% 32%;
   --ring: 202 92% 66%;
-  --ring-offset: 222 28% 10%;
+  --ring-offset: 221 28% 10%;
 
   --primary: 202 92% 64%;
   --primary-foreground: 222 47% 11%;
@@ -312,15 +313,15 @@
 
   --gradient-page: linear-gradient(
     160deg,
-    hsl(var(--primary) / 0.14),
-    hsl(var(--background) / 0.98) 44%,
-    hsl(var(--info) / 0.1)
+    hsl(var(--primary) / 0.13),
+    hsl(var(--background) / 0.985) 44%,
+    hsl(var(--info) / 0.08)
   );
-  --gradient-shell: radial-gradient(circle at top left, hsl(264 42% 24% / 0.72), transparent 34%),
-    radial-gradient(circle at top right, hsl(214 40% 23% / 0.56), transparent 28%),
-    linear-gradient(180deg, hsl(248 20% 12%), hsl(var(--background) / 0.98) 42%, hsl(235 22% 11%));
-  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(250 20% 16% / 0.92));
-  --gradient-surface-lilac: linear-gradient(135deg, hsl(264 34% 20% / 0.72), hsl(var(--card) / 0.92) 58%);
+  --gradient-shell: radial-gradient(circle at top left, hsl(208 42% 22% / 0.44), transparent 34%),
+    radial-gradient(circle at top right, hsl(195 38% 20% / 0.3), transparent 28%),
+    linear-gradient(180deg, hsl(225 24% 12%), hsl(var(--background) / 0.985) 42%, hsl(224 22% 11%));
+  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(220 18% 16% / 0.92));
+  --gradient-surface-lilac: linear-gradient(135deg, hsl(208 30% 19% / 0.7), hsl(var(--card) / 0.92) 58%);
   --gradient-primary: linear-gradient(
     135deg,
     hsl(var(--primary) / 0.28),

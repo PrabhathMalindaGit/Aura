@@ -17913,3 +17913,742 @@ button.dashboard-summary-card:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final polish pass */
+body {
+  background-color: hsl(var(--background));
+}
+
+.app-shell {
+  gap: clamp(10px, 1.1vw, 16px);
+}
+
+.sidebar {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--card) / 0.92)),
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.07), transparent 34%);
+  box-shadow:
+    0 24px 40px hsl(216 28% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.82);
+}
+
+.sidebar__section-label,
+.topbar__eyebrow,
+.section__eyebrow {
+  color: hsl(var(--muted-foreground) / 0.94);
+}
+
+.sidebar-item {
+  min-height: 46px;
+  padding-inline: var(--space-3);
+  border-color: hsl(var(--border) / 0);
+  background: transparent;
+}
+
+.sidebar-item:hover {
+  border-color: hsl(var(--border) / 0.52);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--muted) / 0.42)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.05), transparent 72%);
+  box-shadow: 0 8px 18px hsl(216 22% 32% / 0.08), inset 0 1px 0 hsl(var(--card) / 0.82);
+  transform: translateY(-1px);
+}
+
+.sidebar-item--active {
+  border-color: hsl(var(--primary) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--card)), hsl(var(--muted) / 0.44)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.14), transparent 76%);
+  box-shadow:
+    0 12px 24px hsl(var(--primary) / 0.12),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.sidebar-item__icon {
+  color: hsl(var(--muted-foreground));
+}
+
+.sidebar-item--active .sidebar-item__icon {
+  color: hsl(var(--primary));
+}
+
+.shell-main {
+  border-color: hsl(var(--border) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--background) / 0.975) 18%, hsl(var(--background) / 0.99)),
+    radial-gradient(circle at top right, hsl(var(--info) / 0.05), transparent 28%);
+  box-shadow:
+    0 26px 44px hsl(216 28% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.82);
+}
+
+.topbar {
+  min-height: 88px;
+  padding: var(--space-4) clamp(18px, 1.8vw, 28px);
+  border-bottom-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--card) / 0.88)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 56%);
+}
+
+.topbar__subtitle,
+.section__subtitle,
+.muted-text,
+small {
+  color: hsl(var(--muted-foreground));
+}
+
+.topbar__search {
+  min-height: 3rem;
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--muted) / 0.3)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.03), transparent 80%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.84);
+}
+
+.topbar__search:focus-within {
+  border-color: hsl(var(--primary) / 0.48);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.12),
+    0 8px 20px hsl(var(--primary) / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.topbar__datetime,
+.topbar__status-cluster,
+.topbar__identity {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.03), transparent 78%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.84);
+}
+
+.topbar__updated {
+  min-height: 1.8rem;
+  font-size: var(--text-xs);
+}
+
+.dashboard-page-header .section__title {
+  letter-spacing: -0.02em;
+}
+
+.dashboard-page-header .section__subtitle {
+  max-width: 58ch;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.card {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.94)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 78%);
+  box-shadow:
+    0 18px 34px hsl(216 28% 20% / 0.08),
+    0 2px 8px hsl(var(--foreground) / 0.03),
+    inset 0 1px 0 hsl(var(--card) / 0.86);
+}
+
+.card__header {
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  align-items: center;
+  border-bottom-color: hsl(var(--border) / 0.42);
+}
+
+.card__title {
+  font-size: clamp(0.96rem, 1.02vw, 1.02rem);
+}
+
+.card__body {
+  padding: clamp(14px, 1.35vw, 18px);
+  gap: var(--space-3);
+}
+
+.btn {
+  border-color: hsl(var(--border) / 0.66);
+  box-shadow: var(--action-shadow-soft), inset 0 1px 0 hsl(var(--card) / 0.9);
+}
+
+.btn--primary {
+  box-shadow:
+    0 12px 24px hsl(var(--primary) / 0.18),
+    inset 0 1px 0 hsl(var(--primary-foreground) / 0.18);
+}
+
+.btn--secondary {
+  border-color: hsl(var(--border) / 0.62);
+  background:
+    linear-gradient(180deg, hsl(var(--card)), hsl(var(--muted) / 0.34)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 78%);
+  box-shadow:
+    0 8px 16px hsl(216 24% 26% / 0.06),
+    inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.btn--ghost {
+  border-color: hsl(var(--border) / 0.46);
+  background: transparent;
+  box-shadow: none;
+}
+
+.btn--ghost:hover {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.26)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 80%);
+  border-color: hsl(var(--border) / 0.62);
+}
+
+.worklist-page__meta-pill,
+.patients-page__meta-pill,
+.alerts-page__meta-pill,
+.appointments-page .appointments-page__meta-pill,
+.insights-page .insights-page__meta-pill,
+.settings-page .settings-page__meta-pill {
+  border-color: hsl(var(--border) / 0.62);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.32)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.04), transparent 82%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.worklist-summary-strip,
+.patients-summary-strip,
+.appointments-summary-strip,
+.insights-summary-strip,
+.settings-summary-strip,
+.alerts-summary-strip,
+.worklist-workspace-note,
+.patients-roster-note,
+.appointments-workspace-note,
+.insights-workspace-note,
+.settings-workspace-note {
+  border-color: hsl(var(--border) / 0.64);
+  box-shadow:
+    0 18px 34px hsl(216 28% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.86);
+}
+
+.worklist-summary-strip__item,
+.patients-summary-strip__item,
+.appointments-page .appointments-summary-strip__item,
+.insights-page .insights-summary-strip__item,
+.settings-page .settings-summary-strip__item {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.28)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 78%);
+  min-height: 4.65rem;
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.worklist-summary-strip__hint,
+.patients-summary-strip__hint,
+.appointments-summary-strip__hint,
+.insights-summary-strip__hint,
+.settings-summary-strip__hint,
+.appointments-workspace-note__text,
+.insights-workspace-note__text,
+.patients-roster-note__text,
+.worklist-workspace-note__text,
+.settings-workspace-note__text {
+  line-height: 1.4;
+}
+
+.worklist-workspace-note__fact,
+.patients-roster-note__fact,
+.appointments-workspace-note__fact,
+.insights-workspace-note__fact,
+.settings-workspace-note__fact {
+  border-color: hsl(var(--border) / 0.6);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.24));
+  color: hsl(var(--foreground));
+}
+
+.patients-workspace-card,
+.worklist-workspace-card,
+.alerts-workspace-card,
+.appointments-workspace-card,
+.insights-workspace-card,
+.settings-page .settings-group-card,
+.patient-detail-section-block,
+.patient-detail-summary-shell,
+.patient-detail-reference-bridge,
+.patient-detail-current-context,
+.patient-detail-hero-card,
+.appointments-composer-card,
+.auth-surface-card,
+.login-context {
+  border-color: hsl(var(--border) / 0.58);
+  box-shadow:
+    0 20px 36px hsl(216 28% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.86);
+}
+
+.patients-workspace-card__controls,
+.worklist-workspace-card__controls,
+.alerts-workspace-card__controls,
+.patients-filters,
+.worklist-filters,
+.alerts-filters,
+.appointments-workspace__section,
+.appointments-composer-card .appointments-composer__surface,
+.settings-column-shell__intro {
+  border-color: hsl(var(--border) / 0.62);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 78%);
+  box-shadow:
+    0 16px 28px hsl(216 24% 26% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.86);
+}
+
+.patients-filters__cluster,
+.worklist-filters__cluster,
+.alerts-filters__cluster {
+  border-color: hsl(var(--border) / 0.58);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.86);
+}
+
+.worklist-filters__toggle,
+.patients-filters__toggle,
+.appointments-filter-group--segmented .btn {
+  min-height: 40px;
+}
+
+.alerts-table th,
+.alerts-table td,
+.patients-table th,
+.patients-table td,
+.worklist-table th,
+.worklist-table td {
+  padding-block: 10px;
+}
+
+.alerts-table th,
+.patients-table th,
+.worklist-table th {
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.76), hsl(var(--muted) / 0.56)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.06em;
+}
+
+.alerts-table__row,
+.patients-table__row,
+.worklist-table__row {
+  background: linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.88));
+}
+
+.alerts-table__row:hover,
+.patients-table__row:hover,
+.worklist-table__row:hover {
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.38), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 82%);
+}
+
+.worklist-table__patient-meta,
+.worklist-table__reason-support,
+.worklist-table__activity-label,
+.patients-table__patient-support,
+.patients-table__support,
+.alerts-time-cell__meta,
+.alerts-reason-cell__meta,
+.alerts-source-cell__id,
+.alerts-status-cell__meta,
+.alerts-assignment-cell__meta,
+.alerts-notification-cell__meta {
+  font-size: 11px;
+}
+
+.worklist-table__actions,
+.patients-table__actions,
+.alerts-actions {
+  gap: 6px;
+}
+
+.worklist-table__open.btn,
+.worklist-card__actions .btn--primary {
+  box-shadow:
+    0 10px 20px hsl(var(--primary) / 0.16),
+    inset 0 1px 0 hsl(var(--primary-foreground) / 0.16);
+}
+
+.alerts-actions__open.btn,
+.patients-table__view.btn {
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.28)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.alerts-actions__ack.btn,
+.recent-alert-list__ack.btn {
+  border-color: hsl(var(--status-ack) / 0.38);
+  background: linear-gradient(180deg, hsl(var(--status-ack) / 0.14), hsl(var(--card) / 0.98));
+}
+
+.worklist-card__body,
+.appointments-workspace,
+.insights-workspace-card .card__body {
+  gap: var(--space-3);
+}
+
+.worklist-card__signals,
+.alerts-card-list__top-badges,
+.patients-card-list__actions {
+  row-gap: 6px;
+}
+
+.dashboard-home-hero {
+  border-color: hsl(var(--border) / 0.58);
+  box-shadow:
+    0 24px 40px hsl(216 28% 20% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.86);
+}
+
+.dashboard-home-hero__aside-card,
+.dashboard-home-zone {
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.94)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 78%);
+  box-shadow:
+    0 18px 32px hsl(216 28% 20% / 0.07),
+    inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.dashboard-home-hero__aside-copy,
+.dashboard-home-zone__copy,
+.dashboard-summary-card__helper {
+  max-width: 38ch;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dashboard-home-hero__fact {
+  min-height: 4rem;
+  padding: var(--space-3);
+}
+
+.dashboard-summary-card {
+  border-color: hsl(var(--border) / 0.54);
+  min-height: 6rem;
+}
+
+.appointments-page,
+.insights-page,
+.patients-page,
+.worklist-page {
+  gap: var(--space-4);
+}
+
+.appointments-workspace__intro,
+.patients-queue-intro,
+.worklist-queue-intro,
+.insights-queue-intro,
+.settings-group-card__intro,
+.settings-group-card__context-note,
+.settings-card-footer__note,
+.settings-column-shell__text,
+.settings-column-shell__support-text,
+.appointments-composer__context-note,
+.appointments-composer__intro,
+.appointments-composer__cluster-note,
+.appointments-composer__hint,
+.appointments-item__support,
+.insights-empty-state__meta,
+.insights-page__error,
+.patient-detail-section-note,
+.patient-detail-reference-bridge__text,
+.patient-detail-current-context__text {
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.appointments-workspace__section {
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+
+.appointments-item,
+.insights-queue__item {
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+
+.appointments-item__actions {
+  justify-content: flex-end;
+}
+
+.appointments-composer-card {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.03), transparent 82%);
+}
+
+.appointments-composer__context {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.appointments-composer__context-note,
+.appointments-composer__intro,
+.appointments-composer__hint {
+  max-width: 44ch;
+}
+
+.insights-workspace-card .card__body {
+  gap: var(--space-4);
+}
+
+.insights-queue__actions {
+  justify-content: flex-start;
+}
+
+.insights-queue__meta-chip {
+  border-color: hsl(var(--border) / 0.6);
+}
+
+.settings-groups {
+  gap: var(--space-4);
+}
+
+.settings-column-shell__intro,
+.settings-page .settings-group-card {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.settings-actions .btn {
+  min-width: 9.75rem;
+}
+
+.settings-guidance-banner {
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--info) / 0.04), transparent 80%);
+}
+
+.patient-detail-section-block,
+.patient-detail-summary-shell,
+.patient-detail-reference-bridge {
+  padding: clamp(14px, 1.5vw, 20px);
+  gap: var(--space-3);
+  border-radius: calc(var(--radius-xl) - 2px);
+}
+
+.patient-detail-section-header {
+  padding-bottom: 10px;
+  gap: var(--space-2);
+}
+
+.patient-detail-section-note {
+  max-width: 30ch;
+}
+
+.patient-detail-current-context {
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.patient-detail-current-context__fact,
+.patient-detail-reference-bridge__fact,
+.patient-summary-card {
+  min-height: 4.35rem;
+  padding: var(--space-2) var(--space-3);
+}
+
+.patient-detail-section-grid > .card .card__title {
+  letter-spacing: 0.08em;
+}
+
+.day-detail-intro,
+.day-detail-section {
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.auth-entry-page {
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.06), transparent 28%),
+    radial-gradient(circle at top right, hsl(var(--info) / 0.04), transparent 24%),
+    linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.26) 54%, hsl(var(--background)));
+}
+
+.auth-entry-intro__fact {
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.login-field input {
+  border-color: hsl(var(--border) / 0.6);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.dark .sidebar,
+.dark .shell-main,
+.dark .topbar,
+.dark .card,
+.dark .patients-workspace-card,
+.dark .worklist-workspace-card,
+.dark .alerts-workspace-card,
+.dark .appointments-workspace-card,
+.dark .insights-workspace-card,
+.dark .settings-page .settings-group-card,
+.dark .patient-detail-section-block,
+.dark .patient-detail-summary-shell,
+.dark .patient-detail-reference-bridge,
+.dark .patient-detail-current-context,
+.dark .appointments-composer-card,
+.dark .auth-surface-card,
+.dark .login-context {
+  box-shadow:
+    0 24px 40px hsl(222 54% 3% / 0.3),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .sidebar-item {
+  background: transparent;
+}
+
+.dark .sidebar-item:hover {
+  border-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.42)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .sidebar-item--active {
+  border-color: hsl(var(--primary) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.5)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.18), transparent 82%);
+}
+
+.dark .topbar__search,
+.dark .topbar__datetime,
+.dark .topbar__status-cluster,
+.dark .topbar__identity,
+.dark .worklist-page__meta-pill,
+.dark .patients-page__meta-pill,
+.dark .alerts-page__meta-pill,
+.dark .appointments-page .appointments-page__meta-pill,
+.dark .insights-page .insights-page__meta-pill,
+.dark .settings-page .settings-page__meta-pill,
+.dark .worklist-workspace-note__fact,
+.dark .patients-roster-note__fact,
+.dark .appointments-workspace-note__fact,
+.dark .insights-workspace-note__fact,
+.dark .settings-workspace-note__fact {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.34)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .btn--secondary {
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.34)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .btn--ghost {
+  border-color: hsl(var(--border) / 0.42);
+  background: hsl(var(--muted) / 0.18);
+}
+
+.dark .btn--ghost:hover {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--muted) / 0.34)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .worklist-summary-strip,
+.dark .patients-summary-strip,
+.dark .appointments-summary-strip,
+.dark .insights-summary-strip,
+.dark .settings-summary-strip,
+.dark .alerts-summary-strip,
+.dark .worklist-workspace-note,
+.dark .patients-roster-note,
+.dark .appointments-workspace-note,
+.dark .insights-workspace-note,
+.dark .settings-workspace-note,
+.dark .patients-workspace-card__controls,
+.dark .worklist-workspace-card__controls,
+.dark .alerts-workspace-card__controls,
+.dark .patients-filters,
+.dark .worklist-filters,
+.dark .alerts-filters,
+.dark .appointments-workspace__section,
+.dark .settings-column-shell__intro,
+.dark .day-detail-intro,
+.dark .day-detail-section {
+  border-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .worklist-summary-strip__item,
+.dark .patients-summary-strip__item,
+.dark .appointments-page .appointments-summary-strip__item,
+.dark .insights-page .insights-summary-strip__item,
+.dark .settings-page .settings-summary-strip__item,
+.dark .patient-detail-current-context__fact,
+.dark .patient-detail-reference-bridge__fact,
+.dark .patient-summary-card,
+.dark .appointments-item,
+.dark .insights-queue__item {
+  border-color: hsl(var(--border) / 0.48);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.34)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .alerts-table th,
+.dark .patients-table th,
+.dark .worklist-table th {
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.62), hsl(var(--muted) / 0.48)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .alerts-table__row,
+.dark .patients-table__row,
+.dark .worklist-table__row {
+  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.84));
+}
+
+.dark .alerts-table__row:hover,
+.dark .patients-table__row:hover,
+.dark .worklist-table__row:hover {
+  background:
+    linear-gradient(180deg, hsl(var(--muted) / 0.34), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+@media (max-width: 920px) {
+  .patient-detail-current-context {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-section-note {
+    max-width: none;
+  }
+}

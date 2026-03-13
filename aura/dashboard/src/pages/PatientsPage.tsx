@@ -186,8 +186,8 @@ export function PatientsPage(): JSX.Element {
         <div className="patients-roster-note__copy">
           <p className="patients-roster-note__eyebrow">Roster workspace</p>
           <p className="patients-roster-note__text">
-            Keep the roster calm but decisive: scan recent activity, alert burden, and current care
-            state before opening a full patient review.
+            Keep the roster calm but decisive: scan activity, alert burden, and care state before
+            opening a full patient review.
           </p>
         </div>
         <div className="patients-roster-note__facts" aria-live="polite">
@@ -228,8 +228,8 @@ export function PatientsPage(): JSX.Element {
               </div>
             </div>
             <p className="patients-queue-intro">
-              Refine the roster view without losing fast scan order between patient identity,
-              activity, alert burden, and the next review step.
+              Refine the roster view without losing scan order between patient identity, activity,
+              alert burden, and the next review step.
             </p>
             <PatientsFiltersBar
               filters={filters}

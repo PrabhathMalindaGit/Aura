@@ -1661,7 +1661,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Current priorities and next steps</h2>
           </div>
           <p className="patient-detail-section-note">
-            Start here to understand what needs attention now before reviewing the full detail.
+            Start here before moving into the full detail.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--attention">
@@ -1716,7 +1716,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Trends and alert context</h2>
           </div>
           <p className="patient-detail-section-note">
-            Start with trajectory and recent safety events before drilling into daily details.
+            Start with trajectory and recent safety events before drilling into daily detail.
           </p>
         </div>
 
@@ -1766,7 +1766,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Communication, tasks, and appointments</h2>
           </div>
           <p className="patient-detail-section-note">
-            Review the patient’s active follow-up burden before moving into deeper historical detail.
+            Review the active follow-up burden before moving into deeper historical detail.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--operational">
@@ -1812,8 +1812,9 @@ export function PatientDetailPage(): JSX.Element {
             Move from immediate follow-up into supporting daily history and plan detail.
           </strong>
           <p className="patient-detail-reference-bridge__text">
-            The next sections are slower reference panels. Use them after the priority and follow-up workspace above
-            when you need recent symptom detail, adherence context, or care-plan review.
+            The next sections are slower reference panels. Use them after the priority and
+            follow-up workspace when you need symptom detail, adherence context, or care-plan
+            review.
           </p>
         </div>
         <div className="patient-detail-reference-bridge__facts">

@@ -19,24 +19,12 @@ import {
   useDashboardTodayAppointments,
   usePatients,
 } from '../services/clinicianApi';
-import { useConnectionStatus } from '../services/connection';
 import type { DashboardFollowUpTaskItem, DashboardPriorityQueueItem } from '../types/models';
-
-function formatUpdatedAt(lastSuccessAt: number | null): string {
-  if (!lastSuccessAt) {
-    return 'Waiting for data';
-  }
-
-  return new Date(lastSuccessAt).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export function DashboardHomePage(): JSX.Element {
   const navigate = useNavigate();
-  const connection = useConnectionStatus();
   const clinicianName = useMemo(() => getClinicianName(), []);
+  const clinicianFirstName = useMemo(() => clinicianName.split(' ')[0] ?? clinicianName, [clinicianName]);
   const summaryQuery = useDashboardSummary();
   const priorityQueueQuery = useDashboardPriorityQueue(7);
   const safetyEventsQuery = useDashboardRecentSafetyEvents(6);
@@ -131,72 +119,96 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Open alerts',
         value: summaryQuery.data.openAlertsCount,
         helper:
-          summaryQuery.data.openAlertsCount > 0 ? 'Safety triage queue' : 'No open safety alerts',
+          summaryQuery.data.openAlertsCount > 0 ? 'Needs safety review' : 'No safety queue',
         tone: 'risk',
         onSelect: () => navigate('/alerts'),
-      },
-      {
-        key: 'assigned-to-me',
-        label: 'Assigned to me',
-        value: summaryQuery.data.assignedToMeAlertsCount,
-        helper: 'Current alert ownership',
-        tone: 'primary',
-        onSelect: () => navigate('/alerts'),
-      },
-      {
-        key: 'pending-insights',
-        label: 'Pending insights',
-        value: summaryQuery.data.pendingInsightsCount,
-        helper: 'Suggested review items',
-        tone: 'neutral',
-        onSelect: () => navigate('/insights'),
-      },
-      {
-        key: 'today-appointments',
-        label: 'Today’s appointments',
-        value: summaryQuery.data.todayAppointmentsCount,
-        helper: 'Schedule and confirmations',
-        tone: 'success',
-        onSelect: () => navigate('/appointments'),
-      },
-      {
-        key: 'missed-checkins',
-        label: 'Missed check-ins',
-        value: summaryQuery.data.missedCheckinsCount,
-        helper: 'Patients needing outreach',
-        tone: 'warning',
-        onSelect: () => navigate('/worklist'),
       },
       {
         key: 'follow-up-tasks',
         label: 'Follow-up tasks',
         value: summaryQuery.data.openFollowUpTasksCount,
-        helper: 'Open clinician workflow items',
+        helper:
+          summaryQuery.data.openFollowUpTasksCount > 0
+            ? 'Actionable follow-up'
+            : 'No follow-up waiting',
         tone: 'primary',
         onSelect: () => navigate('/worklist'),
+      },
+      {
+        key: 'today-appointments',
+        label: 'Today’s appointments',
+        value: summaryQuery.data.todayAppointmentsCount,
+        helper:
+          summaryQuery.data.todayAppointmentsCount > 0 ? 'Schedule to confirm' : 'No visits today',
+        tone: 'success',
+        onSelect: () => navigate('/appointments'),
+      },
+      {
+        key: 'assigned-to-me',
+        label: 'Assigned to me',
+        value: summaryQuery.data.assignedToMeAlertsCount,
+        helper:
+          summaryQuery.data.assignedToMeAlertsCount > 0
+            ? 'Current ownership'
+            : 'No owned alerts',
+        tone: 'neutral',
+        onSelect: () => navigate('/alerts'),
+      },
+      {
+        key: 'missed-checkins',
+        label: 'Missed check-ins',
+        value: summaryQuery.data.missedCheckinsCount,
+        helper:
+          summaryQuery.data.missedCheckinsCount > 0 ? 'Needs outreach' : 'No missed check-ins',
+        tone: 'warning',
+        onSelect: () => navigate('/worklist'),
+      },
+      {
+        key: 'pending-insights',
+        label: 'Pending insights',
+        value: summaryQuery.data.pendingInsightsCount,
+        helper:
+          summaryQuery.data.pendingInsightsCount > 0 ? 'Awaiting review' : 'No suggested review',
+        tone: 'neutral',
+        onSelect: () => navigate('/insights'),
       },
     ];
   }, [navigate, summaryQuery.data]);
 
+  const messagesReviewLabel = useMemo(() => {
+    if (!summaryQuery.data) {
+      return 'Messages updating';
+    }
+
+    const count = summaryQuery.data.messagesNeedingResponseCount;
+    return count === 0
+      ? 'No messages waiting'
+      : `${count} ${count === 1 ? 'message needs' : 'messages need'} response`;
+  }, [summaryQuery.data]);
+
+  const ownershipLabel = useMemo(() => {
+    if (!summaryQuery.data) {
+      return 'Ownership updating';
+    }
+
+    const count = summaryQuery.data.assignedToMeAlertsCount;
+    return count === 0
+      ? 'No alert ownership yet'
+      : `${count} ${count === 1 ? 'alert is' : 'alerts are'} assigned to you`;
+  }, [summaryQuery.data]);
+
   const headerMeta = useMemo(
     () => (
       <span className="dashboard-home-page__meta" aria-live="polite">
-        <span
-          className={`dashboard-home-page__meta-pill ${
-            connection.online
-              ? 'dashboard-home-page__meta-pill--online'
-              : 'dashboard-home-page__meta-pill--offline'
-          }`}
-        >
-          {connection.online ? 'Connected' : 'Offline snapshot'}
+        <span className="dashboard-home-page__meta-pill dashboard-home-page__meta-pill--attention">
+          {messagesReviewLabel}
         </span>
-        <span className="dashboard-home-page__meta-pill">
-          {summaryQuery.data?.messagesNeedingResponseCount ?? '—'} messages to review
+        <span className="dashboard-home-page__meta-pill dashboard-home-page__meta-pill--quiet">
+          {ownershipLabel}
         </span>
-        <span className="dashboard-home-page__meta-pill">Updated {formatUpdatedAt(connection.lastSuccessAt)}</span>
       </span>
     ),
-    [connection.lastSuccessAt, connection.online, summaryQuery.data?.messagesNeedingResponseCount],
+    [messagesReviewLabel, ownershipLabel],
   );
 
   const isRefreshing =
@@ -232,55 +244,160 @@ export function DashboardHomePage(): JSX.Element {
     ],
   );
 
-  const summaryBandCopy = useMemo(() => {
+  const heroLeadKey = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Review the live counters to orient safety load, follow-up pressure, and schedule context before opening the queue.';
+      return null;
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Use this layer to size today’s safety workload first, then move into the live queue and follow-through rail.';
+      return 'alerts';
     }
 
-    if (summaryQuery.data.openFollowUpTasksCount > 0 || summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'The safety queue is quieter right now, so the day shifts toward follow-up actions and the active schedule.';
+    if (
+      summaryQuery.data.openFollowUpTasksCount > 0 ||
+      summaryQuery.data.messagesNeedingResponseCount > 0
+    ) {
+      return 'tasks';
     }
 
-    return 'Today’s overview is light, with no immediate safety pressure and a lower follow-up burden across the workspace.';
+    if (summaryQuery.data.todayAppointmentsCount > 0) {
+      return 'appointments';
+    }
+
+    return null;
+  }, [summaryQuery.data]);
+
+  const heroSubtitle = useMemo(() => {
+    if (!summaryQuery.data) {
+      return 'Start with the live snapshot, then move into the queue.';
+    }
+
+    if (summaryQuery.data.openAlertsCount > 0) {
+      return `${summaryQuery.data.openAlertsCount} ${
+        summaryQuery.data.openAlertsCount === 1 ? 'open alert needs' : 'open alerts need'
+      } review before the rest of the day moves forward.`;
+    }
+
+    if (
+      summaryQuery.data.openFollowUpTasksCount > 0 ||
+      summaryQuery.data.messagesNeedingResponseCount > 0
+    ) {
+      return 'Safety pressure is lighter. Move through follow-up, communication, and today’s schedule next.';
+    }
+
+    if (summaryQuery.data.todayAppointmentsCount > 0) {
+      return 'Safety pressure is light. Confirm today’s schedule first, then scan the remaining follow-up.';
+    }
+
+    return 'No immediate safety pressure. Use the live snapshot to confirm the workspace is still quiet.';
+  }, [summaryQuery.data]);
+
+  const focusTitle = useMemo(() => {
+    if (!summaryQuery.data) {
+      return 'Today’s review is still loading';
+    }
+
+    if (summaryQuery.data.openAlertsCount > 0) {
+      return 'Safety review leads the day';
+    }
+
+    if (
+      summaryQuery.data.openFollowUpTasksCount > 0 ||
+      summaryQuery.data.messagesNeedingResponseCount > 0
+    ) {
+      return 'Follow-through leads the day';
+    }
+
+    if (summaryQuery.data.todayAppointmentsCount > 0) {
+      return 'The schedule is the first check';
+    }
+
+    return 'The day is steady';
+  }, [summaryQuery.data]);
+
+  const focusCopy = useMemo(() => {
+    if (!summaryQuery.data) {
+      return 'Use the live counts below, then open the queue.';
+    }
+
+    if (summaryQuery.data.openAlertsCount > 0) {
+      return 'Start in the priority queue. Then confirm follow-up and today’s schedule.';
+    }
+
+    if (
+      summaryQuery.data.openFollowUpTasksCount > 0 ||
+      summaryQuery.data.messagesNeedingResponseCount > 0
+    ) {
+      return 'Safety pressure is lighter. Move through tasks and communication next.';
+    }
+
+    if (summaryQuery.data.todayAppointmentsCount > 0) {
+      return 'Confirm today’s visits, then scan the remaining follow-up.';
+    }
+
+    return 'Start with the live snapshot and confirm the workspace is still quiet.';
+  }, [summaryQuery.data]);
+
+  const summaryBandCopy = useMemo(() => {
+    if (!summaryQuery.data) {
+      return 'Safety, follow-up, and schedule pressure in one read.';
+    }
+
+    if (summaryQuery.data.openAlertsCount > 0) {
+      return 'Scan the live counts, then move straight into safety review.';
+    }
+
+    if (
+      summaryQuery.data.openFollowUpTasksCount > 0 ||
+      summaryQuery.data.messagesNeedingResponseCount > 0
+    ) {
+      return 'Safety is steadier. Use the counts below to balance follow-up and the day’s schedule.';
+    }
+
+    if (summaryQuery.data.todayAppointmentsCount > 0) {
+      return 'Use the counts below to confirm today’s schedule and the remaining follow-up.';
+    }
+
+    return 'A quick read of the live counts before moving into the workspace.';
   }, [summaryQuery.data]);
 
   const primaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Use the live queue and recent safety timeline to review what needs clinical attention first.';
+      return 'Use the queue and recent safety events to review what needs attention first.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Open alerts and recent safety events stay together here so review decisions can happen quickly and with context.';
+      return 'Open alerts and recent safety events stay together for fast review.';
     }
 
-    return 'This area still anchors urgent review, even when the current safety queue is lighter and the day is more stable.';
+    return 'This area stays ready for urgent review when safety pressure changes.';
   }, [summaryQuery.data]);
 
   const secondaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Appointments, follow-up tasks, and communication review stay grouped here for a fast read on the rest of the day.';
+      return 'Appointments, tasks, and communication stay grouped here for the rest of the day.';
     }
 
-    if (summaryQuery.data.todayAppointmentsCount > 0 || summaryQuery.data.openFollowUpTasksCount > 0) {
-      return 'Keep the schedule, clinician tasks, and communication review in one quieter rail so follow-through stays coordinated.';
+    if (
+      summaryQuery.data.todayAppointmentsCount > 0 ||
+      summaryQuery.data.openFollowUpTasksCount > 0 ||
+      summaryQuery.data.messagesNeedingResponseCount > 0
+    ) {
+      return 'Appointments, tasks, and communication stay grouped here for coordinated follow-through.';
     }
 
-    return 'When the schedule is lighter, this rail becomes a calm reference for the remaining follow-up and communication context.';
+    return 'This rail holds the remaining follow-through and schedule context.';
   }, [summaryQuery.data]);
 
   return (
-    <Stack className="page-stack dashboard-home-page" gap="5">
+    <Stack className="page-stack dashboard-home-page" gap="4">
       <section className="dashboard-home-hero glass-card" aria-label="Dashboard overview">
         <div className="dashboard-home-hero__main">
           <Section
             className="dashboard-page-header dashboard-home-page__header"
-            eyebrow={`Welcome back, ${clinicianName}`}
+            eyebrow={`Today’s operating picture for ${clinicianFirstName}`}
             title="Dashboard"
-            subtitle="Your clinical workspace for today’s safety signals, follow-up decisions, and schedule context."
+            subtitle={heroSubtitle}
             meta={headerMeta}
             actions={
               <Button variant="secondary" size="sm" onClick={refreshAll} disabled={isRefreshing}>
@@ -293,19 +410,17 @@ export function DashboardHomePage(): JSX.Element {
         <aside className="dashboard-home-hero__aside" aria-label="Today in focus">
           <div className="dashboard-home-hero__aside-card">
             <p className="dashboard-home-hero__aside-eyebrow">Today in focus</p>
-            <h3 className="dashboard-home-hero__aside-title">
-              {summaryQuery.data?.openAlertsCount
-                ? 'Safety review and follow-up need attention.'
-                : 'The care workspace is stable right now.'}
-            </h3>
-            <p className="dashboard-home-hero__aside-copy">
-              {summaryQuery.data?.openAlertsCount
-                ? 'Start with the priority queue, then confirm today’s schedule and communication follow-up.'
-                : 'Use the summary cards to scan the day quickly, then move into follow-up tasks and communication review.'}
-            </p>
+            <h3 className="dashboard-home-hero__aside-title">{focusTitle}</h3>
+            <p className="dashboard-home-hero__aside-copy">{focusCopy}</p>
             <div className="dashboard-home-hero__facts" role="list" aria-label="Dashboard focus facts">
               {heroFacts.map((fact) => (
-                <div key={fact.key} className="dashboard-home-hero__fact" role="listitem">
+                <div
+                  key={fact.key}
+                  className={`dashboard-home-hero__fact${
+                    heroLeadKey === fact.key ? ' dashboard-home-hero__fact--primary' : ''
+                  }`}
+                  role="listitem"
+                >
                   <span className="dashboard-home-hero__fact-label">{fact.label}</span>
                   <strong className="dashboard-home-hero__fact-value">{fact.value}</strong>
                 </div>
@@ -319,7 +434,7 @@ export function DashboardHomePage(): JSX.Element {
         <div className="dashboard-home-summary-shell__header">
           <div className="dashboard-home-summary-shell__intro">
             <p className="dashboard-home-summary-shell__eyebrow">Clinical snapshot</p>
-            <h2 className="dashboard-home-summary-shell__title">Today&apos;s overview</h2>
+            <h2 className="dashboard-home-summary-shell__title">Start with the live snapshot</h2>
             <p className="dashboard-home-summary-shell__copy">{summaryBandCopy}</p>
           </div>
         </div>

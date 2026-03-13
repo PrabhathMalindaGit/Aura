@@ -111,9 +111,9 @@ export function DashboardSummaryCards({
         const tierClass =
           metric.key === 'open-alerts'
             ? 'dashboard-summary-card--featured'
-            : metric.key === 'today-appointments'
+            : metric.key === 'follow-up-tasks'
               ? 'dashboard-summary-card--overview'
-              : metric.key === 'assigned-to-me' || metric.key === 'pending-insights'
+              : metric.key === 'today-appointments' || metric.key === 'assigned-to-me'
                 ? 'dashboard-summary-card--support'
                 : 'dashboard-summary-card--secondary-tier';
 

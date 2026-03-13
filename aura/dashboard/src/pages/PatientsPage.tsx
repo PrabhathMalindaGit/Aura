@@ -88,6 +88,8 @@ export function PatientsPage(): JSX.Element {
   const staleErrorBannerVisible = Boolean(genericError && staleDataAvailable);
   const blockingOfflineVisible = !connection.online && !staleDataAvailable && !patientsQuery.error;
   const errorView = genericError ? toErrorView(genericError) : null;
+  const rosterViewLabel =
+    visiblePatients.length === rosterSummary.total ? 'Full roster view' : 'Filtered roster view';
   const updatedAtLabel = connection.lastSuccessAt
     ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
         hour: '2-digit',
@@ -180,6 +182,21 @@ export function PatientsPage(): JSX.Element {
         </article>
       </section>
 
+      <section className="patients-roster-note" aria-label="Roster workspace guidance">
+        <div className="patients-roster-note__copy">
+          <p className="patients-roster-note__eyebrow">Roster workspace</p>
+          <p className="patients-roster-note__text">
+            Keep the roster calm but decisive: scan recent activity, alert burden, and current care
+            state before opening a full patient review.
+          </p>
+        </div>
+        <div className="patients-roster-note__facts" aria-live="polite">
+          <span className="patients-roster-note__fact">{rosterViewLabel}</span>
+          <span className="patients-roster-note__fact">{rosterSummary.needsReview} review candidates</span>
+          <span className="patients-roster-note__fact">{rosterSummary.recentlyActive} active in 7d</span>
+        </div>
+      </section>
+
       <Card
         className="patients-workspace-card"
         title={
@@ -202,22 +219,35 @@ export function PatientsPage(): JSX.Element {
         }
       >
         <Stack gap="4">
-          <PatientsFiltersBar
-            filters={filters}
-            onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
-            onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
-            onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-              setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
-            }
-            onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-              setFilters((current) => ({ ...current, missedCheckinsOnly }))
-            }
-            onRecentlyActiveChange={(recentlyActive) =>
-              setFilters((current) => ({ ...current, recentlyActive }))
-            }
-            onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-            onReset={() => setFilters(defaultPatientFilters())}
-          />
+          <div className="patients-workspace-card__controls">
+            <div className="patients-workspace-card__context">
+              <div className="patients-workspace-card__facts" aria-live="polite">
+                <span className="patients-workspace-card__fact">Showing {visiblePatients.length}</span>
+                <span className="patients-workspace-card__fact">{rosterSummary.openAlerts} with alerts</span>
+                <span className="patients-workspace-card__fact">{rosterViewLabel}</span>
+              </div>
+            </div>
+            <p className="patients-queue-intro">
+              Refine the roster view without losing fast scan order between patient identity,
+              activity, alert burden, and the next review step.
+            </p>
+            <PatientsFiltersBar
+              filters={filters}
+              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+              onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
+                setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
+              }
+              onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
+                setFilters((current) => ({ ...current, missedCheckinsOnly }))
+              }
+              onRecentlyActiveChange={(recentlyActive) =>
+                setFilters((current) => ({ ...current, recentlyActive }))
+              }
+              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
+              onReset={() => setFilters(defaultPatientFilters())}
+            />
+          </div>
 
           {showInitialLoading ? (
             <div className="patients-skeleton" aria-label="Patients loading placeholder">

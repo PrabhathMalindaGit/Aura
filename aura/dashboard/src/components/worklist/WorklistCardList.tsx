@@ -128,7 +128,7 @@ export function WorklistCardList({
               </dl>
 
               <div className="worklist-card__actions">
-                <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
+                <Button variant="primary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
                   Open patient
                 </Button>
                 {item.openAlertsCount > 0 ? (

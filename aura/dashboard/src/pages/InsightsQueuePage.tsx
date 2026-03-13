@@ -127,31 +127,48 @@ export function InsightsQueuePage(): JSX.Element {
         }
       />
 
-      <section className="insights-summary-strip" aria-label="Insights queue summary">
-        <article className="insights-summary-strip__item insights-summary-strip__item--pending">
-          <p className="insights-summary-strip__label">Pending suggestions</p>
-          <p className="insights-summary-strip__value">{pendingCount}</p>
-          <p className="insights-summary-strip__hint">Awaiting clinician review</p>
-        </article>
-        <article className="insights-summary-strip__item insights-summary-strip__item--status">
-          <p className="insights-summary-strip__label">Queue status</p>
-          <p
-            className={`insights-summary-strip__value ${
-              pendingCount === 0
-                ? 'insights-summary-strip__value--clear'
-                : 'insights-summary-strip__value--attention'
-            }`}
-          >
-            {queueStatusLabel}
-          </p>
-          <p className="insights-summary-strip__hint">{queueStatusHint}</p>
-        </article>
-        <article className="insights-summary-strip__item insights-summary-strip__item--updated">
-          <p className="insights-summary-strip__label">Last refresh</p>
-          <p className="insights-summary-strip__value">{updatedAtLabel}</p>
-          <p className="insights-summary-strip__hint">Queue freshness for this review view</p>
-        </article>
-      </section>
+      <div className="insights-overview-stack">
+        <section className="insights-summary-strip" aria-label="Insights queue summary">
+          <article className="insights-summary-strip__item insights-summary-strip__item--pending">
+            <p className="insights-summary-strip__label">Pending suggestions</p>
+            <p className="insights-summary-strip__value">{pendingCount}</p>
+            <p className="insights-summary-strip__hint">Awaiting clinician review</p>
+          </article>
+          <article className="insights-summary-strip__item insights-summary-strip__item--status">
+            <p className="insights-summary-strip__label">Queue status</p>
+            <p
+              className={`insights-summary-strip__value ${
+                pendingCount === 0
+                  ? 'insights-summary-strip__value--clear'
+                  : 'insights-summary-strip__value--attention'
+              }`}
+            >
+              {queueStatusLabel}
+            </p>
+            <p className="insights-summary-strip__hint">{queueStatusHint}</p>
+          </article>
+          <article className="insights-summary-strip__item insights-summary-strip__item--updated">
+            <p className="insights-summary-strip__label">Last refresh</p>
+            <p className="insights-summary-strip__value">{updatedAtLabel}</p>
+            <p className="insights-summary-strip__hint">Queue freshness for this review view</p>
+          </article>
+        </section>
+
+        <section className="insights-workspace-note" aria-label="Insights workspace guidance">
+          <div className="insights-workspace-note__copy">
+            <p className="insights-workspace-note__eyebrow">Review workspace</p>
+            <p className="insights-workspace-note__text">
+              Treat this queue like operational review, not a placeholder. Approve what should
+              surface to clinicians and reject low-signal suggestions decisively.
+            </p>
+          </div>
+          <div className="insights-workspace-note__facts" aria-live="polite">
+            <span className="insights-workspace-note__fact">{pendingCount} pending</span>
+            <span className="insights-workspace-note__fact">{queueStatusLabel}</span>
+            <span className="insights-workspace-note__fact">Updated {updatedAtLabel}</span>
+          </div>
+        </section>
+      </div>
 
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not update insight">
@@ -187,9 +204,13 @@ export function InsightsQueuePage(): JSX.Element {
           <span className="insights-workspace-card__title">
             <span className="insights-workspace-card__title-text">Pending suggestions</span>
             <span className="insights-workspace-card__title-count">{pendingCount}</span>
+            <span className="insights-workspace-card__title-meta">Operational review queue</span>
           </span>
         }
       >
+        <p className="insights-queue-intro">
+          Review each suggestion in context before it enters the clinician workflow.
+        </p>
         {queueQuery.isLoading && pendingCount === 0 ? (
           <div className="patient-detail-skeleton-grid" aria-label="Insights queue loading placeholder">
             <Skeleton height={52} />

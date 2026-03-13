@@ -156,6 +156,10 @@ export function ClinicianLoginPage(): JSX.Element {
           <p className="auth-entry-intro__subtitle">
             Secure access for clinician review, triage, and patient monitoring.
           </p>
+          <div className="auth-entry-intro__facts" aria-label="Clinician access context">
+            <span className="auth-entry-intro__fact">Secure clinician access</span>
+            <span className="auth-entry-intro__fact">Operational review workspace</span>
+          </div>
         </section>
 
         <Card className="login-card auth-surface-card" title="Clinician sign in">

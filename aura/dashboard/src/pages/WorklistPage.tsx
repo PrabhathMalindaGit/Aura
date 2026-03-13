@@ -68,6 +68,7 @@ export function WorklistPage(): JSX.Element {
       activeTasks: items.filter((item) => item.activeTaskCount > 0).length,
     };
   }, [items]);
+  const queueViewLabel = activeFilterConstraints ? 'Focused queue view' : 'Full review queue';
 
   const updatedAtLabel = connection.lastSuccessAt
     ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
@@ -161,6 +162,21 @@ export function WorklistPage(): JSX.Element {
         </article>
       </section>
 
+      <section className="worklist-workspace-note" aria-label="Worklist workspace guidance">
+        <div className="worklist-workspace-note__copy">
+          <p className="worklist-workspace-note__eyebrow">Active review workspace</p>
+          <p className="worklist-workspace-note__text">
+            Use the queue to move from review focus to patient action quickly. Keep the primary
+            issue obvious and supporting operational signals compressed.
+          </p>
+        </div>
+        <div className="worklist-workspace-note__facts" aria-live="polite">
+          <span className="worklist-workspace-note__fact">{queueViewLabel}</span>
+          <span className="worklist-workspace-note__fact">{summary.highRisk} high risk</span>
+          <span className="worklist-workspace-note__fact">{summary.needsResponse} need response</span>
+        </div>
+      </section>
+
       <Card
         className="worklist-workspace-card"
         title={
@@ -176,20 +192,26 @@ export function WorklistPage(): JSX.Element {
         }
       >
         <Stack gap="4">
-          <WorklistFilters
-            filters={filters}
-            disabled={worklistQuery.isFetching && items.length === 0}
-            onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
-            onToggleFilter={(key) =>
-              setFilters((current) => ({
-                ...current,
-                [key]: !current[key],
-              }))
-            }
-            onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
-            onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-            onReset={() => setFilters(defaultWorklistFilters())}
-          />
+          <div className="worklist-workspace-card__controls">
+            <p className="worklist-queue-intro">
+              Narrow the queue without diluting the scan order: review focus first, operational
+              signals second, and patient action last.
+            </p>
+            <WorklistFilters
+              filters={filters}
+              disabled={worklistQuery.isFetching && items.length === 0}
+              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+              onToggleFilter={(key) =>
+                setFilters((current) => ({
+                  ...current,
+                  [key]: !current[key],
+                }))
+              }
+              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
+              onReset={() => setFilters(defaultWorklistFilters())}
+            />
+          </div>
 
           {showInitialLoading ? (
             <div className="worklist-skeleton" aria-label="Worklist loading placeholder">

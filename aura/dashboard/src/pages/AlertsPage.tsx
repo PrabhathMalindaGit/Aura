@@ -877,6 +877,9 @@ export function AlertsPage(): JSX.Element {
         <div className="alerts-workspace-card__heading-row">
           <div className="alerts-workspace-card__heading-copy">
             <span className="alerts-workspace-card__eyebrow">Current queue</span>
+            <p className="alerts-queue-intro">
+              Review first visibility, ownership, and disposition from one tighter operational queue.
+            </p>
           </div>
           <div className="alerts-workspace-card__heading-actions">
             <div className="alerts-workspace-card__queue-meta" aria-live="polite">
@@ -889,40 +892,42 @@ export function AlertsPage(): JSX.Element {
           </div>
         </div>
 
-        <FiltersBar
-          status={status}
-          searchValue={searchValue}
-          sourceFilter={sourceFilter}
-          timeRange={timeRange}
-          sortOrder={sortOrder}
-          unseenOnly={unseenOnly}
-          unseenCount={unseenCount}
-          assignedToMeOnly={assignedToMeOnly}
-          unassignedOnly={unassignedOnly}
-          overriddenOnly={overriddenOnly}
-          refreshing={alertsQuery.isFetching}
-          onSearchValueChange={setSearchValue}
-          onSourceFilterChange={setSourceFilter}
-          onTimeRangeChange={setTimeRange}
-          onSortOrderChange={setSortOrder}
-          onUnseenOnlyChange={setUnseenOnly}
-          onAssignedToMeOnlyChange={(value) => {
-            setAssignedToMeOnly(value);
-            if (value) {
-              setUnassignedOnly(false);
-            }
-          }}
-          onUnassignedOnlyChange={(value) => {
-            setUnassignedOnly(value);
-            if (value) {
-              setAssignedToMeOnly(false);
-            }
-          }}
-          onOverriddenOnlyChange={setOverriddenOnly}
-          onRefresh={() => {
-            void alertsQuery.refetch();
-          }}
-        />
+        <div className="alerts-workspace-card__controls">
+          <FiltersBar
+            status={status}
+            searchValue={searchValue}
+            sourceFilter={sourceFilter}
+            timeRange={timeRange}
+            sortOrder={sortOrder}
+            unseenOnly={unseenOnly}
+            unseenCount={unseenCount}
+            assignedToMeOnly={assignedToMeOnly}
+            unassignedOnly={unassignedOnly}
+            overriddenOnly={overriddenOnly}
+            refreshing={alertsQuery.isFetching}
+            onSearchValueChange={setSearchValue}
+            onSourceFilterChange={setSourceFilter}
+            onTimeRangeChange={setTimeRange}
+            onSortOrderChange={setSortOrder}
+            onUnseenOnlyChange={setUnseenOnly}
+            onAssignedToMeOnlyChange={(value) => {
+              setAssignedToMeOnly(value);
+              if (value) {
+                setUnassignedOnly(false);
+              }
+            }}
+            onUnassignedOnlyChange={(value) => {
+              setUnassignedOnly(value);
+              if (value) {
+                setAssignedToMeOnly(false);
+              }
+            }}
+            onOverriddenOnlyChange={setOverriddenOnly}
+            onRefresh={() => {
+              void alertsQuery.refetch();
+            }}
+          />
+        </div>
 
         {showInitialLoading ? (
           <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">

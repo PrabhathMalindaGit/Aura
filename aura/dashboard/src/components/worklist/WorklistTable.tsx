@@ -193,7 +193,7 @@ export function WorklistTable({
                   <div className="worklist-table__actions" onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}>
                     <Button
                       className="worklist-table__open"
-                      variant="secondary"
+                      variant="primary"
                       size="sm"
                       onClick={() => onOpenPatient(item.patientId)}
                     >

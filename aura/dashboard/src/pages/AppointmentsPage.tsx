@@ -270,77 +270,20 @@ export function AppointmentsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card
-        className="appointments-composer-card"
-        title={
-          <span className="appointments-card-title">
-            Create availability
-            <span className="appointments-card-title__meta">Planning</span>
-          </span>
-        }
-      >
-        <div className="appointments-composer">
-          <div className="appointments-composer__surface">
-            <div className="appointments-composer__cluster">
-              <p className="appointments-composer__cluster-label">Schedule window</p>
-              <div className="appointments-composer__grid">
-                <label className="appointments-composer__field form-field">
-                  <span className="appointments-composer__label">Start (local datetime)</span>
-                  <input
-                    type="datetime-local"
-                    value={startsAtInput}
-                    onChange={(event) => setStartsAtInput(event.target.value)}
-                  />
-                </label>
-                <label className="appointments-composer__field form-field">
-                  <span className="appointments-composer__label">End (local datetime)</span>
-                  <input
-                    type="datetime-local"
-                    value={endsAtInput}
-                    onChange={(event) => setEndsAtInput(event.target.value)}
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
-              <p className="appointments-composer__cluster-label">Visit details</p>
-              <div className="appointments-composer__grid appointments-composer__grid--supporting">
-                <label className="appointments-composer__field appointments-composer__field--wide form-field">
-                  <span className="appointments-composer__label">Meeting link (optional)</span>
-                  <input
-                    type="text"
-                    value={meetingLinkInput}
-                    placeholder="https://..."
-                    onChange={(event) => setMeetingLinkInput(event.target.value)}
-                  />
-                </label>
-              </div>
-              <p className="appointments-composer__cluster-note">
-                Add a meeting link only when the slot should open directly into a tele-rehab session.
-              </p>
-            </div>
-          </div>
-          <div className="appointments-composer__actions">
-            <div className="appointments-composer__hint-group">
-              <p className="appointments-composer__hint">
-                Slots become visible in the booking queue immediately after creation.
-              </p>
-              <p className="appointments-composer__hint appointments-composer__hint--quiet">
-                {nextAvailableSlotMeta} · Last refresh {refreshedAtLabel}
-              </p>
-            </div>
-            <Button
-              variant="primary"
-              disabled={!canCreate}
-              onClick={() => {
-                void handleCreateSlot();
-              }}
-            >
-              {isCreating ? 'Creating...' : 'Create slot'}
-            </Button>
-          </div>
+      <section className="appointments-workspace-note" aria-label="Appointments workspace guidance">
+        <div className="appointments-workspace-note__copy">
+          <p className="appointments-workspace-note__eyebrow">Scheduling workspace</p>
+          <p className="appointments-workspace-note__text">
+            Review booking requests before publishing more capacity so the scheduling surface reads
+            like coordination work, not a form-first composer.
+          </p>
         </div>
-      </Card>
+        <div className="appointments-workspace-note__facts" aria-live="polite">
+          <span className="appointments-workspace-note__fact">{pendingRequestsCount} pending requests</span>
+          <span className="appointments-workspace-note__fact">{availableSlotsCount} open slots</span>
+          <span className="appointments-workspace-note__fact">{nextAvailableSlotMeta}</span>
+        </div>
+      </section>
 
       <Card
         className="appointments-workspace-card"
@@ -352,7 +295,153 @@ export function AppointmentsPage(): JSX.Element {
         }
       >
         <div className="appointments-workspace">
+          <div className="appointments-workspace__context">
+            <div className="appointments-workspace__context-facts" aria-live="polite">
+              <span className="appointments-workspace__context-pill">{requestViewLabel}</span>
+              <span className="appointments-workspace__context-pill">{slotViewLabel}</span>
+              <span className="appointments-workspace__context-pill">{schedulingStatusLabel}</span>
+            </div>
+          </div>
+          <p className="appointments-workspace__intro">
+            Keep request review in the lead position, then confirm how much open capacity is still
+            available for new bookings.
+          </p>
           <div className="appointments-workspace__panels">
+            <section className="appointments-workspace__section appointments-workspace__section--requests" aria-label="Appointment requests">
+              <header className="appointments-workspace__section-header">
+                <div className="appointments-workspace__section-heading">
+                  <h3 className="appointments-workspace__section-title">Requests</h3>
+                  <p className="appointments-workspace__section-note">{requestsSectionNote}</p>
+                </div>
+                <Badge variant={requestStatus === 'pending' ? 'warning' : 'default'}>
+                  {requestViewLabel}
+                </Badge>
+              </header>
+              <div className="appointments-filter-group appointments-filter-group--segmented">
+                {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
+                  <Button
+                    key={status}
+                    variant={requestStatus === status ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setRequestStatus(status)}
+                  >
+                    {status}
+                  </Button>
+                ))}
+              </div>
+
+              {requestsQuery.error ? (
+                <AlertBanner variant="error" title="Could not load requests">
+                  {toUserMessage(requestsQuery.error)}
+                </AlertBanner>
+              ) : null}
+
+              {requestsQuery.isLoading && requests.length === 0 ? (
+                <div className="appointments-skeleton" aria-label="Appointment requests loading placeholder">
+                  <Skeleton height={72} />
+                  <Skeleton height={72} />
+                  <Skeleton height={72} />
+                </div>
+              ) : requests.length === 0 ? (
+                <div className="appointments-empty-state" role="status" aria-live="polite">
+                  <div className="appointments-empty-state__title-row">
+                    <span className="appointments-empty-state__icon" aria-hidden="true">
+                      ✓
+                    </span>
+                    <h3 className="appointments-empty-state__title">{requestsEmptyTitle}</h3>
+                  </div>
+                  <p className="appointments-empty-state__description">
+                    {requestsEmptyDescription}
+                  </p>
+                  <div className="appointments-empty-state__footer">
+                    <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={isRefreshingWorkspace}
+                      onClick={() => {
+                        void Promise.all([slotsQuery.refetch(), requestsQuery.refetch()]);
+                      }}
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="stack stack--2">
+                  {requests.map((item) => (
+                    <div
+                      key={item.requestId}
+                      className={`appointments-item appointments-item--request${
+                        item.status === 'pending' ? ' appointments-item--request-pending' : ''
+                      }`}
+                    >
+                      <div className="appointments-item__header">
+                        <div className="appointments-item__title-group">
+                          <p className="appointments-item__eyebrow">Booking request</p>
+                          <p className="appointments-item__title">{formatDateTime(item.startsAt)}</p>
+                          <p className="appointments-item__subtitle">
+                            Ends {formatDateTime(item.endsAt)}
+                          </p>
+                          <p className="appointments-item__support">
+                            {item.status === 'pending'
+                              ? 'Awaiting clinician review'
+                              : item.reviewedAt
+                                ? `Reviewed ${formatDateTime(item.reviewedAt)}`
+                                : 'Decision recorded'}
+                          </p>
+                        </div>
+                        <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
+                      </div>
+                      <div className="appointments-item__meta-row appointments-item__meta-row--primary">
+                        <span className="appointments-item__meta-chip appointments-item__meta-chip--patient">
+                          Patient: {item.patientId}
+                        </span>
+                        <span className="appointments-item__meta-chip">Video visit</span>
+                        <span className="appointments-item__meta-chip">
+                          Created {formatDateTime(item.createdAt)}
+                        </span>
+                        {item.reviewedAt ? (
+                          <span className="appointments-item__meta-chip">
+                            Reviewed {formatDateTime(item.reviewedAt)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {item.note ? (
+                        <p className="appointments-item__meta appointments-item__meta--note">
+                          Note: {item.note}
+                        </p>
+                      ) : null}
+                      {item.status === 'pending' ? (
+                        <div className="appointments-item__actions appointments-item__actions--pending">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            disabled={reviewingKey !== null}
+                            onClick={() => {
+                              void handleReview(item.requestId, 'approved');
+                            }}
+                          >
+                            {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={reviewingKey !== null}
+                            onClick={() => {
+                              void handleReview(item.requestId, 'rejected');
+                            }}
+                          >
+                            {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <section className="appointments-workspace__section appointments-workspace__section--slots" aria-label="Appointment slots">
               <header className="appointments-workspace__section-header">
                 <div className="appointments-workspace__section-heading">
@@ -420,7 +509,14 @@ export function AppointmentsPage(): JSX.Element {
               ) : (
                 <div className="stack stack--2">
                   {slots.map((slot) => (
-                    <div key={slot.slotId} className="appointments-item appointments-item--slot">
+                    <div
+                      key={slot.slotId}
+                      className={`appointments-item appointments-item--slot${
+                        (slot.status ?? 'available') === 'available'
+                          ? ' appointments-item--slot-available'
+                          : ''
+                      }`}
+                    >
                       <div className="appointments-item__header">
                         <div className="appointments-item__title-group">
                           <p className="appointments-item__eyebrow">Availability slot</p>
@@ -462,136 +558,88 @@ export function AppointmentsPage(): JSX.Element {
                 </div>
               )}
             </section>
+          </div>
+        </div>
+      </Card>
 
-            <section className="appointments-workspace__section appointments-workspace__section--requests" aria-label="Appointment requests">
-              <header className="appointments-workspace__section-header">
-                <div className="appointments-workspace__section-heading">
-                  <h3 className="appointments-workspace__section-title">Requests</h3>
-                  <p className="appointments-workspace__section-note">{requestsSectionNote}</p>
-                </div>
-                <Badge variant={requestStatus === 'pending' ? 'warning' : 'default'}>
-                  {requestViewLabel}
-                </Badge>
-              </header>
-              <div className="appointments-filter-group appointments-filter-group--segmented">
-                {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
-                  <Button
-                    key={status}
-                    variant={requestStatus === status ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => setRequestStatus(status)}
-                  >
-                    {status}
-                  </Button>
-                ))}
+      <Card
+        className="appointments-composer-card"
+        title={
+          <span className="appointments-card-title">
+            Create availability
+            <span className="appointments-card-title__meta">Capacity planning</span>
+          </span>
+        }
+      >
+        <div className="appointments-composer">
+          <div className="appointments-composer__context">
+            <span className="appointments-composer__context-pill">Secondary planning panel</span>
+            <p className="appointments-composer__context-note">
+              Add capacity after review decisions are clear so the queue stays centered on clinician
+              coordination instead of form entry.
+            </p>
+          </div>
+          <p className="appointments-composer__intro">
+            Publish bookable windows for new visits and optional tele-rehab links when needed.
+          </p>
+          <div className="appointments-composer__surface">
+            <div className="appointments-composer__cluster">
+              <p className="appointments-composer__cluster-label">Schedule window</p>
+              <div className="appointments-composer__grid">
+                <label className="appointments-composer__field form-field">
+                  <span className="appointments-composer__label">Start (local datetime)</span>
+                  <input
+                    type="datetime-local"
+                    value={startsAtInput}
+                    onChange={(event) => setStartsAtInput(event.target.value)}
+                  />
+                </label>
+                <label className="appointments-composer__field form-field">
+                  <span className="appointments-composer__label">End (local datetime)</span>
+                  <input
+                    type="datetime-local"
+                    value={endsAtInput}
+                    onChange={(event) => setEndsAtInput(event.target.value)}
+                  />
+                </label>
               </div>
-
-              {requestsQuery.error ? (
-                <AlertBanner variant="error" title="Could not load requests">
-                  {toUserMessage(requestsQuery.error)}
-                </AlertBanner>
-              ) : null}
-
-              {requestsQuery.isLoading && requests.length === 0 ? (
-                <div className="appointments-skeleton" aria-label="Appointment requests loading placeholder">
-                  <Skeleton height={72} />
-                  <Skeleton height={72} />
-                  <Skeleton height={72} />
-                </div>
-              ) : requests.length === 0 ? (
-                <div className="appointments-empty-state" role="status" aria-live="polite">
-                  <div className="appointments-empty-state__title-row">
-                    <span className="appointments-empty-state__icon" aria-hidden="true">
-                      ✓
-                    </span>
-                    <h3 className="appointments-empty-state__title">{requestsEmptyTitle}</h3>
-                  </div>
-                  <p className="appointments-empty-state__description">
-                    {requestsEmptyDescription}
-                  </p>
-                  <div className="appointments-empty-state__footer">
-                    <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={isRefreshingWorkspace}
-                      onClick={() => {
-                        void Promise.all([slotsQuery.refetch(), requestsQuery.refetch()]);
-                      }}
-                    >
-                      Refresh
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="stack stack--2">
-                  {requests.map((item) => (
-                    <div key={item.requestId} className="appointments-item appointments-item--request">
-                      <div className="appointments-item__header">
-                        <div className="appointments-item__title-group">
-                          <p className="appointments-item__eyebrow">Booking request</p>
-                          <p className="appointments-item__title">{formatDateTime(item.startsAt)}</p>
-                          <p className="appointments-item__subtitle">
-                            Ends {formatDateTime(item.endsAt)}
-                          </p>
-                          <p className="appointments-item__support">
-                            {item.status === 'pending'
-                              ? 'Awaiting clinician review'
-                              : item.reviewedAt
-                                ? `Reviewed ${formatDateTime(item.reviewedAt)}`
-                                : 'Decision recorded'}
-                          </p>
-                        </div>
-                        <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
-                      </div>
-                      <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                        <span className="appointments-item__meta-chip appointments-item__meta-chip--patient">
-                          Patient: {item.patientId}
-                        </span>
-                        <span className="appointments-item__meta-chip">Video visit</span>
-                        <span className="appointments-item__meta-chip">
-                          Created {formatDateTime(item.createdAt)}
-                        </span>
-                        {item.reviewedAt ? (
-                          <span className="appointments-item__meta-chip">
-                            Reviewed {formatDateTime(item.reviewedAt)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {item.note ? (
-                        <p className="appointments-item__meta appointments-item__meta--note">
-                          Note: {item.note}
-                        </p>
-                      ) : null}
-                      {item.status === 'pending' ? (
-                        <div className="appointments-item__actions appointments-item__actions--pending">
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            disabled={reviewingKey !== null}
-                            onClick={() => {
-                              void handleReview(item.requestId, 'approved');
-                            }}
-                          >
-                            {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={reviewingKey !== null}
-                            onClick={() => {
-                              void handleReview(item.requestId, 'rejected');
-                            }}
-                          >
-                            {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
+            </div>
+            <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
+              <p className="appointments-composer__cluster-label">Visit details</p>
+              <div className="appointments-composer__grid appointments-composer__grid--supporting">
+                <label className="appointments-composer__field appointments-composer__field--wide form-field">
+                  <span className="appointments-composer__label">Meeting link (optional)</span>
+                  <input
+                    type="text"
+                    value={meetingLinkInput}
+                    placeholder="https://..."
+                    onChange={(event) => setMeetingLinkInput(event.target.value)}
+                  />
+                </label>
+              </div>
+              <p className="appointments-composer__cluster-note">
+                Add a meeting link only when the slot should open directly into a tele-rehab session.
+              </p>
+            </div>
+          </div>
+          <div className="appointments-composer__actions">
+            <div className="appointments-composer__hint-group">
+              <p className="appointments-composer__hint">
+                Slots become visible in the booking queue immediately after creation.
+              </p>
+              <p className="appointments-composer__hint appointments-composer__hint--quiet">
+                {nextAvailableSlotMeta} · Last refresh {refreshedAtLabel}
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              disabled={!canCreate}
+              onClick={() => {
+                void handleCreateSlot();
+              }}
+            >
+              {isCreating ? 'Creating...' : 'Create slot'}
+            </Button>
           </div>
         </div>
       </Card>

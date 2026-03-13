@@ -99,35 +99,60 @@ export function SettingsPage(): JSX.Element {
         }
       />
 
-      <section className="settings-summary-strip" aria-label="Settings summary">
-        <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
-          <p className="settings-summary-strip__label">Appearance</p>
-          <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
-          <p className="settings-summary-strip__hint">
-            {preferencesSummaryLabel} · Offline warning {showOfflineWarning ? 'on' : 'off'}
-          </p>
-        </article>
-        <article className="settings-summary-strip__item settings-summary-strip__item--security">
-          <p className="settings-summary-strip__label">Session security</p>
-          <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
-          <p className="settings-summary-strip__hint">
-            {sessionSettings.enabled
-              ? 'Auto-lock warning enabled'
-              : 'Enable guard for unattended sessions'}
-          </p>
-        </article>
-        <article className="settings-summary-strip__item settings-summary-strip__item--identity">
-          <p className="settings-summary-strip__label">Identity</p>
-          <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
-          <p className="settings-summary-strip__hint">{identityStateLabel}</p>
-        </article>
-      </section>
+      <div className="settings-overview-stack">
+        <section className="settings-summary-strip" aria-label="Settings summary">
+          <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
+            <p className="settings-summary-strip__label">Appearance</p>
+            <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
+            <p className="settings-summary-strip__hint">
+              {preferencesSummaryLabel} · Offline warning {showOfflineWarning ? 'on' : 'off'}
+            </p>
+          </article>
+          <article className="settings-summary-strip__item settings-summary-strip__item--security">
+            <p className="settings-summary-strip__label">Session security</p>
+            <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
+            <p className="settings-summary-strip__hint">
+              {sessionSettings.enabled
+                ? 'Auto-lock warning enabled'
+                : 'Enable guard for unattended sessions'}
+            </p>
+          </article>
+          <article className="settings-summary-strip__item settings-summary-strip__item--identity">
+            <p className="settings-summary-strip__label">Identity</p>
+            <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
+            <p className="settings-summary-strip__hint">{identityStateLabel}</p>
+          </article>
+        </section>
+
+        <section className="settings-workspace-note" aria-label="Settings workspace guidance">
+          <div className="settings-workspace-note__copy">
+            <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
+            <p className="settings-workspace-note__text">
+              Keep this page aligned with the rest of Aura Clinician while staying truthful: every
+              preference here is local to this browser workspace.
+            </p>
+          </div>
+          <div className="settings-workspace-note__facts" aria-live="polite">
+            <span className="settings-workspace-note__fact">{themeSummaryLabel} mode</span>
+            <span className="settings-workspace-note__fact">{securityStateLabel}</span>
+            <span className="settings-workspace-note__fact">{identityStateLabel}</span>
+          </div>
+        </section>
+      </div>
 
       <section className="settings-groups" aria-label="Settings groups">
         <section
           className="settings-groups__column settings-groups__column--primary settings-column-shell settings-column-shell--workspace"
           aria-label="Workspace defaults settings"
         >
+          <div className="settings-column-shell__intro">
+            <p className="settings-column-shell__eyebrow">Workspace defaults</p>
+            <h3 className="settings-column-shell__title">Personal workspace controls</h3>
+            <p className="settings-column-shell__text">
+              Keep appearance, density, and assignment labels consistent for the clinician using
+              this browser workspace.
+            </p>
+          </div>
           <Card
             className="settings-group-card settings-group-card--preferences"
             title={
@@ -143,6 +168,10 @@ export function SettingsPage(): JSX.Element {
                 Stored locally for this browser workspace.
               </p>
             </div>
+            <p className="settings-group-card__intro">
+              Use these controls to keep the product comfortable to review without drifting away
+              from Aura’s shared operational style.
+            </p>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
                 <legend>
@@ -265,6 +294,9 @@ export function SettingsPage(): JSX.Element {
                 Used for assignments and review actions in this browser.
               </p>
             </div>
+            <p className="settings-group-card__intro">
+              These labels determine how ownership appears in the review workflow on this device.
+            </p>
             <div className="settings-list settings-list--refined">
               <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
                 <span>
@@ -338,6 +370,14 @@ export function SettingsPage(): JSX.Element {
           className="settings-groups__column settings-groups__column--secondary settings-column-shell settings-column-shell--protection"
           aria-label="Session protection settings"
         >
+          <div className="settings-column-shell__intro">
+            <p className="settings-column-shell__eyebrow">Protection</p>
+            <h3 className="settings-column-shell__title">Session safety controls</h3>
+            <p className="settings-column-shell__text">
+              Keep unattended access risk low while preserving the local, browser-backed scope of
+              this workspace.
+            </p>
+          </div>
           <Card
             className="settings-group-card settings-group-card--security"
             title={
@@ -353,6 +393,10 @@ export function SettingsPage(): JSX.Element {
                 Takes effect immediately in this workspace.
               </p>
             </div>
+            <p className="settings-group-card__intro">
+              Session safeguards apply immediately to this browser and do not publish a shared
+              organization-wide policy.
+            </p>
             <div className="settings-list settings-list--refined">
               <label className="setting-item setting-item--toggle" htmlFor="idle-timeout-enabled-toggle">
                 <span>

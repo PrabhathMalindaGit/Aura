@@ -24,56 +24,11 @@ import {
   isMissedCheckin,
   isRecentlyActive,
   type PatientFilters,
-  type PatientSortOption,
-  type PatientStatusFilter,
-  type RecentlyActiveFilter,
 } from '../utils/patientFilters';
 
 const PATIENTS_ENDPOINT_HINT =
   'Add GET /clinician/patients returning { ok: true, patients: [...] }';
 const RETRY_EVENT = 'aura:retry';
-
-function formatPatientStatusFilterLabel(status: PatientStatusFilter): string {
-  if (status === 'all') {
-    return 'All statuses';
-  }
-  if (status === 'active') {
-    return 'Active only';
-  }
-  if (status === 'on_hold') {
-    return 'On hold only';
-  }
-  if (status === 'discharged') {
-    return 'Discharged only';
-  }
-  return 'Inactive only';
-}
-
-function formatRecentActivityLabel(value: RecentlyActiveFilter): string {
-  if (value === 'all') {
-    return 'All activity windows';
-  }
-  if (value === '24h') {
-    return 'Active in 24h';
-  }
-  if (value === '7d') {
-    return 'Active in 7d';
-  }
-  return 'Active in 30d';
-}
-
-function formatPatientSortLabel(value: PatientSortOption): string {
-  if (value === 'alerts-desc') {
-    return 'Sorted by alert burden';
-  }
-  if (value === 'last-checkin-desc') {
-    return 'Sorted by recent check-in';
-  }
-  if (value === 'name-asc') {
-    return 'Sorted A-Z';
-  }
-  return 'Sorted by care state';
-}
 
 function isEndpointMissing(error: unknown): boolean {
   const appError = asAppError(error);
@@ -139,12 +94,6 @@ export function PatientsPage(): JSX.Element {
         minute: '2-digit',
       })
     : '--';
-  const rosterStateLabel =
-    filters.hasOpenAlertsOnly || filters.missedCheckinsOnly
-      ? 'Attention filters active'
-      : formatPatientStatusFilterLabel(filters.status);
-  const activityWindowLabel = formatRecentActivityLabel(filters.recentlyActive);
-  const sortLabel = formatPatientSortLabel(filters.sort);
 
   const retryPatients = useCallback((): void => {
     void patientsQuery.refetch();
@@ -231,20 +180,6 @@ export function PatientsPage(): JSX.Element {
         </article>
       </section>
 
-      <section className="patients-roster-note" aria-label="Patient roster context">
-        <div className="patients-roster-note__copy">
-          <p className="patients-roster-note__eyebrow">How this roster is used</p>
-          <p className="patients-roster-note__text">
-            Use Patients for broad population review and current status checks. Switch to Worklist when someone needs issue-driven follow-up, then open the patient cockpit for detailed clinical context.
-          </p>
-        </div>
-        <div className="patients-roster-note__facts">
-          <span className="patients-roster-note__fact">{rosterStateLabel}</span>
-          <span className="patients-roster-note__fact">{activityWindowLabel}</span>
-          <span className="patients-roster-note__fact">{sortLabel}</span>
-        </div>
-      </section>
-
       <Card
         className="patients-workspace-card"
         title={
@@ -268,13 +203,6 @@ export function PatientsPage(): JSX.Element {
       >
         <Stack gap="4">
           <div className="patients-workspace-card__controls">
-            <div className="patients-workspace-card__context">
-              <div className="patients-workspace-card__facts">
-                <span className="patients-workspace-card__fact">{rosterStateLabel}</span>
-                <span className="patients-workspace-card__fact">{activityWindowLabel}</span>
-                <span className="patients-workspace-card__fact">{sortLabel}</span>
-              </div>
-            </div>
             <p className="patients-queue-intro">
               Review the wider roster here, then narrow by alert burden, missed check-ins, or recent activity before opening an individual patient record.
             </p>

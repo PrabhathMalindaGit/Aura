@@ -34,38 +34,6 @@ function isEndpointMissing(error: unknown): boolean {
   return appError.kind === 'HTTP' && appError.status === 404;
 }
 
-function formatWorklistStatusLabel(status: WorklistFiltersState['status']): string {
-  if (status === 'all') {
-    return 'All care states';
-  }
-  if (status === 'active') {
-    return 'Active only';
-  }
-  if (status === 'on_hold') {
-    return 'On hold only';
-  }
-  if (status === 'discharged') {
-    return 'Discharged only';
-  }
-  return 'Inactive only';
-}
-
-function formatWorklistSortLabel(sort: WorklistFiltersState['sort']): string {
-  if (sort === 'updatedAt') {
-    return 'Sorted by recent activity';
-  }
-  if (sort === 'lastCheckinAt') {
-    return 'Sorted by recent check-in';
-  }
-  if (sort === 'patientName') {
-    return 'Sorted A-Z';
-  }
-  if (sort === 'nextAppointmentAt') {
-    return 'Sorted by next appointment';
-  }
-  return 'Sorted by priority';
-}
-
 export function WorklistPage(): JSX.Element {
   const navigate = useNavigate();
   const connection = useConnectionStatus();
@@ -107,9 +75,6 @@ export function WorklistPage(): JSX.Element {
         minute: '2-digit',
       })
     : '--';
-  const queueFocusLabel = activeFilterConstraints ? 'Focused queue' : 'Full review queue';
-  const statusViewLabel = formatWorklistStatusLabel(filters.status);
-  const sortViewLabel = formatWorklistSortLabel(filters.sort);
 
   const showInitialLoading = worklistQuery.isLoading && items.length === 0;
   const endpointMissing = Boolean(worklistQuery.error) && isEndpointMissing(worklistQuery.error);
@@ -194,20 +159,6 @@ export function WorklistPage(): JSX.Element {
           <p className="worklist-summary-strip__value">{summary.activeTasks}</p>
           <p className="worklist-summary-strip__hint">Linked follow-up work still active</p>
         </article>
-      </section>
-
-      <section className="worklist-workspace-note" aria-label="Worklist context">
-        <div className="worklist-workspace-note__copy">
-          <p className="worklist-workspace-note__eyebrow">How this queue is used</p>
-          <p className="worklist-workspace-note__text">
-            Worklist is the immediate attention queue for issues that need follow-through now. Use it to narrow the next patient to open, then move into the patient record for deeper review.
-          </p>
-        </div>
-        <div className="worklist-workspace-note__facts">
-          <span className="worklist-workspace-note__fact">{queueFocusLabel}</span>
-          <span className="worklist-workspace-note__fact">{statusViewLabel}</span>
-          <span className="worklist-workspace-note__fact">{sortViewLabel}</span>
-        </div>
       </section>
 
       <Card

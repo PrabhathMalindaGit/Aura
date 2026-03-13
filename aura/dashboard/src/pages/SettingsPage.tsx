@@ -99,62 +99,35 @@ export function SettingsPage(): JSX.Element {
         }
       />
 
-      <section className="settings-overview-stack" aria-label="Settings overview">
-        <section className="settings-summary-strip" aria-label="Settings summary">
-          <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
-            <p className="settings-summary-strip__label">Appearance</p>
-            <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">
-              {preferencesSummaryLabel} · Offline warning {showOfflineWarning ? 'on' : 'off'}
-            </p>
-          </article>
-          <article className="settings-summary-strip__item settings-summary-strip__item--security">
-            <p className="settings-summary-strip__label">Session security</p>
-            <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">
-              {sessionSettings.enabled
-                ? 'Auto-lock warning enabled'
-                : 'Enable guard for unattended sessions'}
-            </p>
-          </article>
-          <article className="settings-summary-strip__item settings-summary-strip__item--identity">
-            <p className="settings-summary-strip__label">Identity</p>
-            <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
-            <p className="settings-summary-strip__hint">{identityStateLabel}</p>
-          </article>
-        </section>
-
-        <section className="settings-workspace-note" aria-label="How settings apply">
-          <div className="settings-workspace-note__copy">
-            <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
-            <p className="settings-workspace-note__text">
-              These controls shape this browser workspace. Appearance, assignment labels, and session
-              protection update here immediately, but they do not sync to a shared clinician profile.
-            </p>
-          </div>
-          <div className="settings-workspace-note__facts" aria-label="Settings behavior facts">
-            <span className="settings-workspace-note__fact">Applies immediately</span>
-            <span className="settings-workspace-note__fact">Stored locally</span>
-            <span className="settings-workspace-note__fact">No shared profile sync</span>
-          </div>
-        </section>
+      <section className="settings-summary-strip" aria-label="Settings summary">
+        <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
+          <p className="settings-summary-strip__label">Appearance</p>
+          <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
+          <p className="settings-summary-strip__hint">
+            {preferencesSummaryLabel} · Offline warning {showOfflineWarning ? 'on' : 'off'}
+          </p>
+        </article>
+        <article className="settings-summary-strip__item settings-summary-strip__item--security">
+          <p className="settings-summary-strip__label">Session security</p>
+          <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
+          <p className="settings-summary-strip__hint">
+            {sessionSettings.enabled
+              ? 'Auto-lock warning enabled'
+              : 'Enable guard for unattended sessions'}
+          </p>
+        </article>
+        <article className="settings-summary-strip__item settings-summary-strip__item--identity">
+          <p className="settings-summary-strip__label">Identity</p>
+          <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
+          <p className="settings-summary-strip__hint">{identityStateLabel}</p>
+        </article>
       </section>
 
       <section className="settings-groups" aria-label="Settings groups">
         <section
           className="settings-groups__column settings-groups__column--primary settings-column-shell settings-column-shell--workspace"
-          aria-labelledby="settings-workspace-shell-heading"
+          aria-label="Workspace defaults settings"
         >
-          <div className="settings-column-shell__intro">
-            <p className="settings-column-shell__eyebrow">Workspace defaults</p>
-            <h3 id="settings-workspace-shell-heading" className="settings-column-shell__title">
-              Appearance and local identity
-            </h3>
-            <p className="settings-column-shell__text">
-              Set how this workspace looks and which clinician identity appears in ownership labels on
-              this device.
-            </p>
-          </div>
           <Card
             className="settings-group-card settings-group-card--preferences"
             title={
@@ -371,18 +344,8 @@ export function SettingsPage(): JSX.Element {
 
         <section
           className="settings-groups__column settings-groups__column--secondary settings-column-shell settings-column-shell--protection"
-          aria-labelledby="settings-protection-shell-heading"
+          aria-label="Session protection settings"
         >
-          <div className="settings-column-shell__intro">
-            <p className="settings-column-shell__eyebrow">Local protection</p>
-            <h3 id="settings-protection-shell-heading" className="settings-column-shell__title">
-              Session safety and workspace guidance
-            </h3>
-            <p className="settings-column-shell__text">
-              Keep patient context protected in this browser and make the local session behavior clear to
-              the clinician using it.
-            </p>
-          </div>
           <Card
             className="settings-group-card settings-group-card--security"
             title={

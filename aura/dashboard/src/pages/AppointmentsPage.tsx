@@ -258,20 +258,6 @@ export function AppointmentsPage(): JSX.Element {
         </article>
       </section>
 
-      <section className="appointments-workspace-note" aria-label="Scheduling workspace context">
-        <div className="appointments-workspace-note__copy">
-          <p className="appointments-workspace-note__eyebrow">How this workspace flows</p>
-          <p className="appointments-workspace-note__text">
-            Publish availability first, then review booking requests in the same workspace so scheduling decisions stay quick, traceable, and clinically calm.
-          </p>
-        </div>
-        <div className="appointments-workspace-note__facts">
-          <span className="appointments-workspace-note__fact">{slotViewLabel}</span>
-          <span className="appointments-workspace-note__fact">{requestViewLabel}</span>
-          <span className="appointments-workspace-note__fact">{nextAvailableSlotMeta}</span>
-        </div>
-      </section>
-
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not complete action">
           {errorMessage}

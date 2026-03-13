@@ -176,25 +176,20 @@ export function WorklistPage(): JSX.Element {
         }
       >
         <Stack gap="4">
-          <div className="worklist-workspace-card__controls">
-            <p className="worklist-queue-intro">
-              Focus the queue by risk, alerts, communication, missed check-ins, and ownership to decide what to open next.
-            </p>
-            <WorklistFilters
-              filters={filters}
-              disabled={worklistQuery.isFetching && items.length === 0}
-              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
-              onToggleFilter={(key) =>
-                setFilters((current) => ({
-                  ...current,
-                  [key]: !current[key],
-                }))
-              }
-              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
-              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-              onReset={() => setFilters(defaultWorklistFilters())}
-            />
-          </div>
+          <WorklistFilters
+            filters={filters}
+            disabled={worklistQuery.isFetching && items.length === 0}
+            onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+            onToggleFilter={(key) =>
+              setFilters((current) => ({
+                ...current,
+                [key]: !current[key],
+              }))
+            }
+            onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+            onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
+            onReset={() => setFilters(defaultWorklistFilters())}
+          />
 
           {showInitialLoading ? (
             <div className="worklist-skeleton" aria-label="Worklist loading placeholder">

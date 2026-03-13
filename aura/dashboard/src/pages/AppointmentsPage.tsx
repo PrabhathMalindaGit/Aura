@@ -280,15 +280,6 @@ export function AppointmentsPage(): JSX.Element {
         }
       >
         <div className="appointments-composer">
-          <div className="appointments-composer__context">
-            <span className="appointments-composer__context-pill">New bookable slot</span>
-            <p className="appointments-composer__context-note">
-              Published slots appear in the booking queue immediately and are offered as video visits.
-            </p>
-          </div>
-          <p className="appointments-composer__intro">
-            Set the local schedule window first, then attach an optional visit link for the patient-facing slot.
-          </p>
           <div className="appointments-composer__surface">
             <div className="appointments-composer__cluster">
               <p className="appointments-composer__cluster-label">Schedule window</p>
@@ -361,15 +352,6 @@ export function AppointmentsPage(): JSX.Element {
         }
       >
         <div className="appointments-workspace">
-          <div className="appointments-workspace__context">
-            <div className="appointments-workspace__context-facts">
-              <span className="appointments-workspace__context-pill">{slotViewLabel}</span>
-              <span className="appointments-workspace__context-pill">{requestViewLabel}</span>
-            </div>
-          </div>
-          <p className="appointments-workspace__intro">
-            Review availability and patient booking requests together so planning and follow-up stay in one calm operational view.
-          </p>
           <div className="appointments-workspace__panels">
             <section className="appointments-workspace__section appointments-workspace__section--slots" aria-label="Appointment slots">
               <header className="appointments-workspace__section-header">

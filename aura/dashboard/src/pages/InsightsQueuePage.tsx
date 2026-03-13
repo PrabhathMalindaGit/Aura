@@ -187,15 +187,9 @@ export function InsightsQueuePage(): JSX.Element {
           <span className="insights-workspace-card__title">
             <span className="insights-workspace-card__title-text">Pending suggestions</span>
             <span className="insights-workspace-card__title-count">{pendingCount}</span>
-            <span className="insights-workspace-card__title-meta">Reviewed guidance queue</span>
           </span>
         }
       >
-        <p className="insights-queue-intro">
-          Review clinically meaningful suggestions, then approve or reject with patient context
-          before they enter active clinician workflow.
-        </p>
-
         {queueQuery.isLoading && pendingCount === 0 ? (
           <div className="patient-detail-skeleton-grid" aria-label="Insights queue loading placeholder">
             <Skeleton height={52} />

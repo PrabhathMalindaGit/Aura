@@ -202,27 +202,22 @@ export function PatientsPage(): JSX.Element {
         }
       >
         <Stack gap="4">
-          <div className="patients-workspace-card__controls">
-            <p className="patients-queue-intro">
-              Review the wider roster here, then narrow by alert burden, missed check-ins, or recent activity before opening an individual patient record.
-            </p>
-            <PatientsFiltersBar
-              filters={filters}
-              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
-              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
-              onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-                setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
-              }
-              onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-                setFilters((current) => ({ ...current, missedCheckinsOnly }))
-              }
-              onRecentlyActiveChange={(recentlyActive) =>
-                setFilters((current) => ({ ...current, recentlyActive }))
-              }
-              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-              onReset={() => setFilters(defaultPatientFilters())}
-            />
-          </div>
+          <PatientsFiltersBar
+            filters={filters}
+            onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+            onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+            onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
+              setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
+            }
+            onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
+              setFilters((current) => ({ ...current, missedCheckinsOnly }))
+            }
+            onRecentlyActiveChange={(recentlyActive) =>
+              setFilters((current) => ({ ...current, recentlyActive }))
+            }
+            onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
+            onReset={() => setFilters(defaultPatientFilters())}
+          />
 
           {showInitialLoading ? (
             <div className="patients-skeleton" aria-label="Patients loading placeholder">

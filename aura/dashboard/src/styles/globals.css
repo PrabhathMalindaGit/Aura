@@ -3827,17 +3827,13 @@ time,
 }
 
 .appointments-composer__surface {
-  border: 1px solid hsl(var(--border) / 0.6);
-  border-radius: calc(var(--radius-xl) - 6px);
-  background:
-    radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 44%),
-    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18));
-  padding: var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
   display: grid;
   gap: var(--space-3);
-  box-shadow:
-    0 14px 28px hsl(248 30% 20% / 0.06),
-    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  box-shadow: none;
 }
 
 .appointments-composer__cluster {
@@ -3860,14 +3856,14 @@ time,
 }
 
 .appointments-composer__grid {
-  border: 1px solid hsl(var(--border) / 0.5);
-  border-radius: var(--radius-md);
-  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.12));
-  padding: var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
   display: grid;
   gap: var(--space-3);
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.02);
+  box-shadow: none;
 }
 
 .appointments-composer__field {
@@ -4321,8 +4317,7 @@ time,
 }
 
 .dark .appointments-composer__surface {
-  border-color: hsl(var(--border) / 0.48);
-  background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.24));
+  background: transparent;
 }
 
 .dark .appointments-composer__context-pill {
@@ -4336,8 +4331,7 @@ time,
 }
 
 .dark .appointments-composer__grid {
-  border-color: hsl(var(--border) / 0.5);
-  background: hsl(var(--card) / 0.74);
+  background: transparent;
 }
 
 .dark .appointments-filter-group--segmented {
@@ -12400,15 +12394,11 @@ button.dashboard-summary-card:hover {
   display: grid;
   align-items: stretch;
   gap: var(--summary-shell-gap);
-  padding: var(--summary-shell-padding);
-  border-radius: var(--summary-shell-radius);
-  border: 1px solid hsl(var(--border) / 0.52);
-  background:
-    radial-gradient(circle at top right, var(--summary-strip-accent), transparent 44%),
-    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--card) / 0.925));
-  box-shadow:
-    0 18px 34px hsl(248 30% 20% / 0.075),
-    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
 }
 
 :is(
@@ -12420,17 +12410,15 @@ button.dashboard-summary-card:hover {
   ) {
   display: grid;
   align-content: start;
-  min-height: var(--summary-item-min-height);
+  min-height: calc(var(--summary-item-min-height) - 0.35rem);
   padding: var(--summary-item-padding);
   gap: var(--summary-item-gap);
   border-radius: var(--summary-item-radius);
-  border: 1px solid hsl(var(--border) / 0.48);
+  border: 1px solid hsl(var(--border) / 0.42);
   background:
-    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
-    linear-gradient(135deg, hsl(var(--muted) / 0.16), transparent 76%);
-  box-shadow:
-    inset 0 1px 0 hsl(var(--foreground) / 0.03),
-    0 12px 26px hsl(248 30% 20% / 0.05);
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.14)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.1), transparent 76%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03), 0 10px 22px hsl(248 30% 20% / 0.045);
 }
 
 :is(
@@ -12483,12 +12471,12 @@ button.dashboard-summary-card:hover {
 
 .alerts-summary-strip {
   gap: var(--summary-shell-gap);
-  padding: clamp(12px, 1.2vw, 14px);
+  padding: 0;
 }
 
 .alerts-summary-strip__header {
   gap: var(--space-1);
-  padding-inline: var(--space-1);
+  padding-inline: 0;
 }
 
 .alerts-overview-note {
@@ -12613,13 +12601,8 @@ button.dashboard-summary-card:hover {
     .insights-summary-strip,
     .settings-summary-strip
   ) {
-  border-color: hsl(var(--border) / 0.44);
-  background:
-    radial-gradient(circle at top right, var(--summary-strip-accent), transparent 46%),
-    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.8));
-  box-shadow:
-    0 20px 36px hsl(224 52% 4% / 0.26),
-    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  background: none;
+  box-shadow: none;
 }
 
 .dark :is(
@@ -12631,11 +12614,9 @@ button.dashboard-summary-card:hover {
   ) {
   border-color: hsl(var(--border) / 0.42);
   background:
-    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
-    linear-gradient(135deg, hsl(var(--muted) / 0.18), transparent 78%);
-  box-shadow:
-    inset 0 1px 0 hsl(var(--foreground) / 0.05),
-    0 14px 30px hsl(224 52% 4% / 0.18);
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.8)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.14), transparent 78%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05), 0 12px 24px hsl(224 52% 4% / 0.16);
 }
 
 .dark .patients-summary-strip__item--attention {
@@ -13035,28 +13016,11 @@ button.dashboard-summary-card:hover {
   isolation: isolate;
   display: grid;
   gap: var(--control-shell-gap);
-  padding: calc(var(--control-shell-padding) - 2px);
-  border-radius: var(--control-shell-radius);
-  border: 1px solid hsl(var(--border) / 0.46);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
-}
-
-.patients-filters {
-  background:
-    radial-gradient(circle at top right, hsl(var(--primary) / 0.05), transparent 48%),
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.12));
-}
-
-.worklist-filters {
-  background:
-    radial-gradient(circle at top right, hsl(var(--warning) / 0.06), transparent 48%),
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.12));
-}
-
-.alerts-filters {
-  background:
-    radial-gradient(circle at top right, hsl(var(--danger) / 0.05), transparent 46%),
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.12));
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .patients-workspace-card__controls,
@@ -13082,21 +13046,19 @@ button.dashboard-summary-card:hover {
   min-width: 0;
   align-content: start;
   gap: var(--control-cluster-gap);
-  padding: calc(var(--control-cluster-padding) - 2px);
-  border: 1px solid hsl(var(--border) / 0.4);
+  padding: calc(var(--control-cluster-padding) - 3px);
+  border: 1px solid hsl(var(--border) / 0.34);
   border-radius: var(--control-cluster-radius);
-  background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.1));
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.06));
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.025);
 }
 
 .worklist-filters__cluster {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--warning) / 0.08));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--warning) / 0.05));
 }
 
 .alerts-filters__cluster {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--danger) / 0.08));
+  background: linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--danger) / 0.05));
 }
 
 :is(.patients-filters__cluster-label, .alerts-filters__cluster-label, .worklist-filters__cluster-label, .appointments-composer__cluster-label) {
@@ -13130,9 +13092,7 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
     linear-gradient(135deg, hsl(var(--muted) / 0.1), transparent 76%);
-  box-shadow:
-    inset 0 1px 0 hsl(var(--foreground) / 0.03),
-    0 10px 22px hsl(var(--foreground) / 0.025);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
   font-size: var(--text-sm);
   line-height: 1.35;
   padding-inline: clamp(0.85rem, 0.85vw, 1rem);
@@ -13289,12 +13249,10 @@ button.dashboard-summary-card:hover {
   position: relative;
   isolation: isolate;
   display: grid;
-  border: 1px solid hsl(var(--border) / 0.58);
+  border: 1px solid hsl(var(--border) / 0.46);
   border-radius: var(--data-region-shell-radius);
   overflow: hidden;
-  box-shadow:
-    0 24px 46px hsl(248 30% 20% / 0.08),
-    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  box-shadow: 0 16px 30px hsl(248 30% 20% / 0.06), inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
 :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card)::before {
@@ -13308,26 +13266,26 @@ button.dashboard-summary-card:hover {
 
 .patients-workspace-card {
   background:
-    radial-gradient(circle at top right, hsl(var(--primary) / 0.08), transparent 44%),
-    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.16));
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.05), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.1));
 }
 
 .worklist-workspace-card {
   background:
-    radial-gradient(circle at top right, hsl(var(--warning) / 0.09), transparent 44%),
-    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.18));
+    radial-gradient(circle at top right, hsl(var(--warning) / 0.06), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.11));
 }
 
 .alerts-workspace-card {
   background:
-    radial-gradient(circle at top right, hsl(var(--danger) / 0.08), transparent 42%),
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.18));
+    radial-gradient(circle at top right, hsl(var(--danger) / 0.05), transparent 42%),
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.12));
 }
 
 .appointments-workspace-card {
   background:
-    radial-gradient(circle at top right, hsl(var(--success) / 0.08), transparent 44%),
-    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.16));
+    radial-gradient(circle at top right, hsl(var(--success) / 0.05), transparent 44%),
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.1));
 }
 
 :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) .card__header {
@@ -13466,11 +13424,8 @@ button.dashboard-summary-card:hover {
 .dark .patients-filters,
 .dark .worklist-filters,
 .dark .alerts-filters {
-  border-color: hsl(var(--border) / 0.4);
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.76)),
-    linear-gradient(135deg, hsl(var(--muted) / 0.12), transparent 78%);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  background: transparent;
+  box-shadow: none;
 }
 
 .dark .patients-workspace-card__controls,
@@ -13485,8 +13440,8 @@ button.dashboard-summary-card:hover {
 .dark :is(.patients-filters__cluster, .alerts-filters__cluster, .worklist-filters__cluster) {
   border-color: hsl(var(--border) / 0.38);
   background:
-    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.12)),
-    linear-gradient(135deg, hsl(var(--muted) / 0.14), transparent 78%);
+    linear-gradient(180deg, hsl(var(--card) / 0.8), hsl(var(--muted) / 0.1)),
+    linear-gradient(135deg, hsl(var(--muted) / 0.12), transparent 78%);
   box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }
 
@@ -13495,9 +13450,7 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.78)),
     linear-gradient(135deg, hsl(var(--muted) / 0.16), transparent 78%);
-  box-shadow:
-    inset 0 1px 0 hsl(var(--foreground) / 0.05),
-    0 12px 24px hsl(224 52% 4% / 0.18);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }
 
 .dark .alerts-filters__group,
@@ -13565,33 +13518,31 @@ button.dashboard-summary-card:hover {
 
 .dark :is(.patients-workspace-card, .worklist-workspace-card, .alerts-workspace-card, .appointments-workspace-card) {
   border-color: hsl(var(--border) / 0.46);
-  box-shadow:
-    0 24px 42px hsl(224 52% 4% / 0.28),
-    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  box-shadow: 0 18px 34px hsl(224 52% 4% / 0.2), inset 0 1px 0 hsl(var(--foreground) / 0.05);
 }
 
 .dark .patients-workspace-card {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
-    linear-gradient(135deg, hsl(var(--primary) / 0.14), transparent 76%);
+    linear-gradient(135deg, hsl(var(--primary) / 0.1), transparent 76%);
 }
 
 .dark .worklist-workspace-card {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
-    linear-gradient(135deg, hsl(var(--warning) / 0.14), transparent 76%);
+    linear-gradient(135deg, hsl(var(--warning) / 0.1), transparent 76%);
 }
 
 .dark .alerts-workspace-card {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
-    linear-gradient(135deg, hsl(var(--danger) / 0.14), transparent 74%);
+    linear-gradient(135deg, hsl(var(--danger) / 0.1), transparent 74%);
 }
 
 .dark .appointments-workspace-card {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.74)),
-    linear-gradient(135deg, hsl(var(--success) / 0.12), transparent 76%);
+    linear-gradient(135deg, hsl(var(--success) / 0.08), transparent 76%);
 }
 
 .dark :is(.alerts-table-wrap, .patients-table-wrap, .worklist-table-wrap, .appointments-workspace__section) {
@@ -14555,13 +14506,11 @@ button.dashboard-summary-card:hover {
   display: grid;
   align-content: start;
   gap: clamp(var(--space-4), 1.3vw, var(--space-5));
-  padding: clamp(var(--space-4), 1.8vw, var(--space-6));
-  border: 1px solid hsl(var(--border) / 0.34);
-  border-radius: calc(var(--radius-xl) + 2px);
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.76), hsl(var(--muted) / 0.08)),
-    linear-gradient(150deg, hsl(var(--primary) / 0.025), transparent 72%);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .settings-column-shell::after {
@@ -14569,9 +14518,7 @@ button.dashboard-summary-card:hover {
 }
 
 .settings-column-shell--protection {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.76), hsl(var(--muted) / 0.08)),
-    linear-gradient(150deg, hsl(var(--success) / 0.03), transparent 72%);
+  background: transparent;
 }
 
 .settings-column-shell__intro {
@@ -14614,11 +14561,11 @@ button.dashboard-summary-card:hover {
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid hsl(var(--border) / 0.48);
+  border: 1px solid hsl(var(--border) / 0.42);
   border-radius: var(--radius-lg);
   background:
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9)),
-    linear-gradient(155deg, hsl(var(--primary) / 0.03), transparent 74%);
+    linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--muted) / 0.08)),
+    linear-gradient(155deg, hsl(var(--primary) / 0.02), transparent 74%);
   box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
 }
 
@@ -14667,7 +14614,7 @@ button.dashboard-summary-card:hover {
 
 .settings-page .settings-group-card .card__body {
   padding: 0 var(--space-5) var(--space-5);
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .settings-group-card__context {
@@ -14675,8 +14622,8 @@ button.dashboard-summary-card:hover {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid hsl(var(--border) / 0.4);
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .settings-group-card__context-pill {
@@ -14695,12 +14642,11 @@ button.dashboard-summary-card:hover {
 }
 
 .settings-list--refined {
-  padding: var(--space-4);
+  padding: 0;
   gap: var(--space-3);
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.1)),
-    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 74%);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  background: transparent;
+  box-shadow: none;
+  border: 0;
 }
 
 .setting-item {
@@ -14718,8 +14664,8 @@ button.dashboard-summary-card:hover {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: var(--space-3) var(--space-4);
-  padding-top: var(--space-4);
-  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  margin-top: 0;
 }
 
 .settings-card-footer__note {
@@ -14751,7 +14697,7 @@ button.dashboard-summary-card:hover {
 
 @media (max-width: 1279px) {
   .settings-column-shell {
-    padding: var(--space-4);
+    padding: 0;
   }
 
   .settings-column-shell::after {
@@ -14769,7 +14715,7 @@ button.dashboard-summary-card:hover {
   }
 
   .settings-list--refined {
-    padding: var(--space-4);
+    padding: 0;
   }
 
   .settings-column-shell__intro,
@@ -14819,8 +14765,8 @@ button.dashboard-summary-card:hover {
   }
 
   .settings-column-shell {
-    padding: var(--space-3);
-    border-radius: var(--radius-xl);
+    padding: 0;
+    border-radius: 0;
   }
 
   .settings-column-shell::after {
@@ -14838,7 +14784,7 @@ button.dashboard-summary-card:hover {
   }
 
   .settings-list--refined {
-    padding: var(--space-3);
+    padding: 0;
   }
 }
 
@@ -14849,17 +14795,12 @@ button.dashboard-summary-card:hover {
 }
 
 .dark .settings-column-shell {
-  border-color: hsl(var(--border) / 0.4);
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.78), hsl(var(--muted) / 0.1)),
-    linear-gradient(155deg, hsl(var(--primary) / 0.06), transparent 76%);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  background: transparent;
+  box-shadow: none;
 }
 
 .dark .settings-column-shell--protection {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.78), hsl(var(--muted) / 0.1)),
-    linear-gradient(155deg, hsl(var(--success) / 0.07), transparent 76%);
+  background: transparent;
 }
 
 .dark .settings-column-shell::after {
@@ -14889,10 +14830,8 @@ button.dashboard-summary-card:hover {
 }
 
 .dark .settings-list--refined {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.12)),
-    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 76%);
-  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.04);
+  background: transparent;
+  box-shadow: none;
 }
 
 .dark .settings-page .setting-item {
@@ -14902,13 +14841,31 @@ button.dashboard-summary-card:hover {
 }
 
 .dark .settings-group-card__context {
-  border-bottom-color: hsl(var(--border) / 0.34);
+  border-bottom-color: transparent;
 }
 
 .dark .settings-guidance-banner {
   background:
     linear-gradient(180deg, hsl(var(--primary) / 0.2), hsl(var(--card) / 0.8)),
     linear-gradient(145deg, hsl(var(--card) / 0.84), hsl(var(--card) / 0.78));
+}
+
+.alerts-all-clear {
+  padding: var(--summary-item-padding);
+  border-radius: var(--summary-item-radius);
+  border: 1px solid hsl(var(--success) / 0.26);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--success) / 0.05)),
+    linear-gradient(145deg, hsl(var(--success) / 0.08), transparent 72%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03), 0 12px 24px hsl(var(--success) / 0.08);
+}
+
+.dark .alerts-all-clear {
+  border-color: hsl(var(--success) / 0.3);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--success) / 0.12)),
+    linear-gradient(145deg, hsl(var(--success) / 0.12), transparent 72%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05), 0 14px 28px hsl(224 52% 4% / 0.18);
 }
 
 /* Homepage final polish and restraint pass */
@@ -15249,35 +15206,9 @@ button.dashboard-summary-card:hover {
 
 .dashboard-home-summary-shell {
   gap: clamp(12px, 1.35vw, 16px);
-  padding: clamp(16px, 1.75vw, 20px);
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.975)),
-    linear-gradient(135deg, hsl(258 54% 96.8% / 0.46), transparent 60%);
-  box-shadow:
-    0 16px 30px hsl(252 28% 60% / 0.09),
-    0 4px 12px hsl(216 34% 20% / 0.04),
-    inset 0 1px 0 hsl(0 0% 100% / 0.82);
-}
-
-.dashboard-home-summary-shell__header {
-  gap: 0.35rem;
-}
-
-.dashboard-home-summary-shell__intro {
-  gap: 0.35rem;
-  max-width: 44ch;
-}
-
-.dashboard-home-summary-shell__title {
-  font-size: clamp(1.08rem, 1.18vw, 1.22rem);
-  line-height: 1.16;
-}
-
-.dashboard-home-summary-shell__copy {
-  max-width: 42ch;
-  font-size: 0.89rem;
-  line-height: 1.42;
-  color: hsl(var(--foreground) / 0.76);
+  padding: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .dashboard-summary-grid {
@@ -15430,13 +15361,8 @@ button.dashboard-summary-card:hover {
 }
 
 .dark .dashboard-home-summary-shell {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.84)),
-    linear-gradient(135deg, hsl(257 42% 18% / 0.26), transparent 62%);
-  box-shadow:
-    0 20px 36px hsl(224 48% 4% / 0.2),
-    0 4px 12px hsl(224 48% 4% / 0.08),
-    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  background: none;
+  box-shadow: none;
 }
 
 .dark .dashboard-summary-card {
@@ -15486,8 +15412,7 @@ button.dashboard-summary-card:hover {
     gap: var(--space-4);
   }
 
-  .dashboard-home-hero,
-  .dashboard-home-summary-shell {
+  .dashboard-home-hero {
     padding: var(--space-4);
   }
 

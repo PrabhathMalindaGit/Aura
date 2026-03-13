@@ -873,61 +873,56 @@ export function AlertsPage(): JSX.Element {
             Export CSV
           </Button>
         }
-        >
-        <div className="alerts-workspace-card__controls">
-          <div className="alerts-workspace-card__heading-row">
-            <div className="alerts-workspace-card__heading-copy">
-              <span className="alerts-workspace-card__eyebrow">Current queue</span>
-              <p className="alerts-queue-intro">
-                Start with open alerts, then narrow by workflow, ownership, and delivery needs to focus the next safe action.
-              </p>
+      >
+        <div className="alerts-workspace-card__heading-row">
+          <div className="alerts-workspace-card__heading-copy">
+            <span className="alerts-workspace-card__eyebrow">Current queue</span>
+          </div>
+          <div className="alerts-workspace-card__heading-actions">
+            <div className="alerts-workspace-card__queue-meta" aria-live="polite">
+              <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
+              <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
             </div>
-            <div className="alerts-workspace-card__heading-actions">
-              <div className="alerts-workspace-card__queue-meta" aria-live="polite">
-                <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
-                <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
-              </div>
-              <div className="alerts-status-tabs-wrap">
-                <StatusTabs value={status} onChange={setStatus} />
-              </div>
+            <div className="alerts-status-tabs-wrap">
+              <StatusTabs value={status} onChange={setStatus} />
             </div>
           </div>
-
-          <FiltersBar
-            status={status}
-            searchValue={searchValue}
-            sourceFilter={sourceFilter}
-            timeRange={timeRange}
-            sortOrder={sortOrder}
-            unseenOnly={unseenOnly}
-            unseenCount={unseenCount}
-            assignedToMeOnly={assignedToMeOnly}
-            unassignedOnly={unassignedOnly}
-            overriddenOnly={overriddenOnly}
-            refreshing={alertsQuery.isFetching}
-            onSearchValueChange={setSearchValue}
-            onSourceFilterChange={setSourceFilter}
-            onTimeRangeChange={setTimeRange}
-            onSortOrderChange={setSortOrder}
-            onUnseenOnlyChange={setUnseenOnly}
-            onAssignedToMeOnlyChange={(value) => {
-              setAssignedToMeOnly(value);
-              if (value) {
-                setUnassignedOnly(false);
-              }
-            }}
-            onUnassignedOnlyChange={(value) => {
-              setUnassignedOnly(value);
-              if (value) {
-                setAssignedToMeOnly(false);
-              }
-            }}
-            onOverriddenOnlyChange={setOverriddenOnly}
-            onRefresh={() => {
-              void alertsQuery.refetch();
-            }}
-          />
         </div>
+
+        <FiltersBar
+          status={status}
+          searchValue={searchValue}
+          sourceFilter={sourceFilter}
+          timeRange={timeRange}
+          sortOrder={sortOrder}
+          unseenOnly={unseenOnly}
+          unseenCount={unseenCount}
+          assignedToMeOnly={assignedToMeOnly}
+          unassignedOnly={unassignedOnly}
+          overriddenOnly={overriddenOnly}
+          refreshing={alertsQuery.isFetching}
+          onSearchValueChange={setSearchValue}
+          onSourceFilterChange={setSourceFilter}
+          onTimeRangeChange={setTimeRange}
+          onSortOrderChange={setSortOrder}
+          onUnseenOnlyChange={setUnseenOnly}
+          onAssignedToMeOnlyChange={(value) => {
+            setAssignedToMeOnly(value);
+            if (value) {
+              setUnassignedOnly(false);
+            }
+          }}
+          onUnassignedOnlyChange={(value) => {
+            setUnassignedOnly(value);
+            if (value) {
+              setAssignedToMeOnly(false);
+            }
+          }}
+          onOverriddenOnlyChange={setOverriddenOnly}
+          onRefresh={() => {
+            void alertsQuery.refetch();
+          }}
+        />
 
         {showInitialLoading ? (
           <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">

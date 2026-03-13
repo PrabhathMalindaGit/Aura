@@ -143,10 +143,6 @@ export function SettingsPage(): JSX.Element {
                 Stored locally for this browser workspace.
               </p>
             </div>
-            <div className="settings-group-card__intro">
-              Adjust appearance and daily workspace behavior for this browser without changing shared
-              product data.
-            </div>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
                 <legend>
@@ -269,10 +265,6 @@ export function SettingsPage(): JSX.Element {
                 Used for assignments and review actions in this browser.
               </p>
             </div>
-            <div className="settings-group-card__intro">
-              Set the local clinician identity shown for assignments and review activity in this browser
-              workspace.
-            </div>
             <div className="settings-list settings-list--refined">
               <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
                 <span>
@@ -360,10 +352,6 @@ export function SettingsPage(): JSX.Element {
               <p className="settings-group-card__context-note">
                 Takes effect immediately in this workspace.
               </p>
-            </div>
-            <div className="settings-group-card__intro">
-              Session controls protect patient context in this browser and reduce risk during unattended
-              workstation use.
             </div>
             <div className="settings-list settings-list--refined">
               <label className="setting-item setting-item--toggle" htmlFor="idle-timeout-enabled-toggle">

@@ -338,29 +338,6 @@ export function DashboardHomePage(): JSX.Element {
     return 'Start with the live snapshot and confirm the workspace is still quiet.';
   }, [summaryQuery.data]);
 
-  const summaryBandCopy = useMemo(() => {
-    if (!summaryQuery.data) {
-      return 'Safety, follow-up, and schedule pressure in one read.';
-    }
-
-    if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Scan the live counts, then move straight into safety review.';
-    }
-
-    if (
-      summaryQuery.data.openFollowUpTasksCount > 0 ||
-      summaryQuery.data.messagesNeedingResponseCount > 0
-    ) {
-      return 'Safety is steadier. Use the counts below to balance follow-up and the day’s schedule.';
-    }
-
-    if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'Use the counts below to confirm today’s schedule and the remaining follow-up.';
-    }
-
-    return 'A quick read of the live counts before moving into the workspace.';
-  }, [summaryQuery.data]);
-
   const primaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
       return 'Use the queue and recent safety events to review what needs attention first.';
@@ -430,15 +407,7 @@ export function DashboardHomePage(): JSX.Element {
         </aside>
       </section>
 
-      <section className="dashboard-home-summary-shell glass-card" aria-label="Clinical snapshot">
-        <div className="dashboard-home-summary-shell__header">
-          <div className="dashboard-home-summary-shell__intro">
-            <p className="dashboard-home-summary-shell__eyebrow">Clinical snapshot</p>
-            <h2 className="dashboard-home-summary-shell__title">Start with the live snapshot</h2>
-            <p className="dashboard-home-summary-shell__copy">{summaryBandCopy}</p>
-          </div>
-        </div>
-
+      <section className="dashboard-home-summary-shell" aria-label="Clinical snapshot">
         <DashboardSummaryCards
           metrics={summaryMetrics}
           loading={summaryQuery.isLoading}

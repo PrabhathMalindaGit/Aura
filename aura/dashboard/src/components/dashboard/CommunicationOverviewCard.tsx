@@ -11,6 +11,7 @@ import {
 
 interface CommunicationOverviewCardProps {
   overview?: DashboardCommunicationOverview;
+  visibleItemCount?: number;
   loading: boolean;
   hasError: boolean;
   onRetry: () => void;
@@ -21,6 +22,7 @@ interface CommunicationOverviewCardProps {
 
 export function CommunicationOverviewCard({
   overview,
+  visibleItemCount,
   loading,
   hasError,
   onRetry,
@@ -29,6 +31,7 @@ export function CommunicationOverviewCard({
   onOpenPatients,
 }: CommunicationOverviewCardProps): JSX.Element {
   const items = overview?.items ?? [];
+  const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
   const counts = overview?.counts;
 
   return (
@@ -44,7 +47,7 @@ export function CommunicationOverviewCard({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Messages still waiting for clinician review or response.
+            Messages waiting for clinician review or response.
           </span>
         </span>
       }
@@ -92,7 +95,7 @@ export function CommunicationOverviewCard({
           ) : null}
 
           <div className="dashboard-list dashboard-list--communication" role="list">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--communication" role="listitem">
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">

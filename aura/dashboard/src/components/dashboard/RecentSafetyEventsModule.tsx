@@ -12,6 +12,7 @@ import {
 
 interface RecentSafetyEventsModuleProps {
   items: DashboardSafetyEvent[];
+  visibleItemCount?: number;
   loading: boolean;
   hasError: boolean;
   onRetry: () => void;
@@ -86,14 +87,14 @@ function timelineTone(item: DashboardSafetyEvent): 'success' | 'warning' | 'dang
 
 function timelineSupportLine(item: DashboardSafetyEvent): string {
   if (item.notificationStatus) {
-    return 'Notification workflow recorded';
+    return 'Notification activity recorded';
   }
 
   if (item.alertStatus) {
-    return 'Alert workflow updated';
+    return 'Alert state updated';
   }
 
-  return 'Safety workflow recorded';
+  return 'Safety event recorded';
 }
 
 function timelineTags(item: DashboardSafetyEvent): string[] {
@@ -103,15 +104,12 @@ function timelineTags(item: DashboardSafetyEvent): string[] {
     tags.push(humanizeDashboardLabel(item.alertStatus));
   }
 
-  if (item.alertId) {
-    tags.push('Linked alert');
-  }
-
   return tags;
 }
 
 export function RecentSafetyEventsModule({
   items,
+  visibleItemCount,
   loading,
   hasError,
   onRetry,
@@ -119,6 +117,7 @@ export function RecentSafetyEventsModule({
   resolvePatientLabel,
   onOpenAlerts,
 }: RecentSafetyEventsModuleProps): JSX.Element {
+  const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
   const alertEventsCount = items.filter((item) => item.alertStatus).length;
   const notificationEventsCount = items.filter((item) => item.notificationStatus).length;
 
@@ -135,7 +134,7 @@ export function RecentSafetyEventsModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Recent alert and notification activity recorded by the Safety Spine.
+            Latest alert and notification activity from the Safety Spine.
           </span>
         </span>
       }
@@ -176,7 +175,7 @@ export function RecentSafetyEventsModule({
           </div>
 
           <div className="dashboard-list dashboard-list--timeline" role="list">
-            {items.map((item) => {
+            {visibleItems.map((item) => {
               const streamLabel = eventStreamLabel(item);
               const supportingTags = timelineTags(item);
               const primaryBadge = item.notificationStatus ? (
@@ -228,12 +227,6 @@ export function RecentSafetyEventsModule({
                           <span key={tag}>{tag}</span>
                         ))}
                         <span>{formatDashboardDateTime(item.createdAt)}</span>
-                      </div>
-                      <div className="dashboard-list-item__action dashboard-list-item__action--timeline">
-                        <span className="dashboard-list-item__action-label">Review</span>
-                        <Button variant="secondary" size="sm" onClick={onOpenAlerts}>
-                          Open alerts
-                        </Button>
                       </div>
                     </div>
                   </div>

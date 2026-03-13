@@ -12,6 +12,7 @@ import {
 
 interface PriorityQueueModuleProps {
   items: DashboardPriorityQueueItem[];
+  visibleItemCount?: number;
   loading: boolean;
   hasError: boolean;
   onRetry: () => void;
@@ -91,6 +92,7 @@ function queueTimestampTitle(item: DashboardPriorityQueueItem): string {
 
 export function PriorityQueueModule({
   items,
+  visibleItemCount,
   loading,
   hasError,
   onRetry,
@@ -99,6 +101,7 @@ export function PriorityQueueModule({
   onOpenItem,
   onOpenAlerts,
 }: PriorityQueueModuleProps): JSX.Element {
+  const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
   const urgentCount = items.filter((item) => item.priority === 'urgent' || item.priority === 'high').length;
   const alertCount = items.filter((item) => item.itemType === 'alert').length;
 
@@ -115,7 +118,7 @@ export function PriorityQueueModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Escalations and high-priority follow-up that need the next clinician action.
+            Escalations and high-priority follow-up ready for clinician action.
           </span>
         </span>
       }
@@ -166,7 +169,7 @@ export function PriorityQueueModule({
           </div>
 
           <div className="dashboard-list dashboard-list--priority" role="list">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <article
                 key={item.id}
                 className={`dashboard-list-item dashboard-list-item--priority dashboard-list-item--priority-${priorityToneClass(
@@ -193,12 +196,10 @@ export function PriorityQueueModule({
                   {item.subtitle ? <p className="dashboard-list-item__description">{item.subtitle}</p> : null}
                   <div className="dashboard-list-item__footer dashboard-list-item__footer--priority">
                     <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--priority">
-                      <span>{humanizeDashboardLabel(item.source)}</span>
-                      <span>{humanizeDashboardLabel(item.status)}</span>
+                      <span>{`${humanizeDashboardLabel(item.source)} · ${humanizeDashboardLabel(item.status)}`}</span>
                       <span>{item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Opened ${formatDashboardDateTime(item.createdAt)}`}</span>
                     </div>
                     <div className="dashboard-list-item__action dashboard-list-item__action--priority">
-                      <span className="dashboard-list-item__action-label">Next step</span>
                       <Button variant="secondary" size="sm" onClick={() => onOpenItem(item)}>
                         {actionLabel(item)}
                       </Button>

@@ -292,19 +292,19 @@ export function DashboardHomePage(): JSX.Element {
 
   const heroSubtitle = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Review what needs attention now, then move through follow-up and today’s schedule.';
+      return 'Start with the live operational snapshot, then move through queue review, follow-up, and today’s schedule.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
       return `${summaryQuery.data.openAlertsCount} ${
         summaryQuery.data.openAlertsCount === 1 ? 'open alert needs' : 'open alerts need'
-      } review first. The live snapshot below keeps follow-up and today’s schedule in view.`;
+      } first review. Use the snapshot to confirm pressure, then clear the queue below.`;
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
       return `${followUpInFlightCount} ${
         followUpInFlightCount === 1 ? 'follow-up item needs' : 'follow-up items need'
-      } movement today. Scan the live snapshot, then clear the next actions below.`;
+      } movement today. Clear the next actions below and keep schedule risk in view.`;
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
@@ -313,56 +313,56 @@ export function DashboardHomePage(): JSX.Element {
       } today’s schedule. Confirm visits first, then move through the remaining follow-up.`;
     }
 
-    return 'No urgent safety pressure. Confirm the live snapshot, then move straight into today’s work below.';
+    return 'Safety pressure is steady. Confirm the snapshot, then move directly into today’s work below.';
   }, [followUpInFlightCount, summaryQuery.data]);
 
   const focusTitle = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Loading today’s operating summary';
+      return 'Building today’s operating view';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Open alerts lead the first pass';
+      return 'Alerts set the first priority';
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
-      return 'Follow-up leads the first pass';
+      return 'Follow-up sets the first priority';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'The schedule leads the first pass';
+      return 'The schedule sets the first priority';
     }
 
-    return 'The workspace is steady';
+    return 'The day opens steady';
   }, [followUpInFlightCount, summaryQuery.data]);
 
   const focusCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Use the live counts to confirm what needs attention first.';
+      return 'Live counts are still updating.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Start in the priority queue, then move into follow-up and schedule confirmation.';
+      return 'Start in the priority queue, then move through tasks and schedule confirmation.';
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
-      return 'Safety pressure is lighter. Clear the waiting follow-up next and keep the day moving.';
+      return 'Safety pressure is lighter. Clear the waiting follow-up next and keep response time tight.';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'Confirm today’s visits first, then scan the remaining follow-up.';
+      return 'Confirm the schedule first, then work through the remaining follow-up.';
     }
 
-    return 'No urgent items are leading the day. Use the snapshot below to confirm a steady start.';
+    return 'No urgent items are leading. Use the snapshot to confirm a calm start.';
   }, [followUpInFlightCount, summaryQuery.data]);
 
   const primaryZoneCopy = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Priority queue and recent safety activity.';
+      return 'Priority queue and recent safety activity, kept together for the first pass.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Priority queue and recent safety events, kept together for fast review.';
+      return 'Priority queue and safety activity aligned for immediate review.';
     }
 
     return 'Priority queue and recent safety activity, ready if pressure changes.';
@@ -453,6 +453,7 @@ export function DashboardHomePage(): JSX.Element {
           <div className="dashboard-home-layout__primary">
             <PriorityQueueModule
               items={priorityQueueQuery.data ?? []}
+              visibleItemCount={5}
               loading={priorityQueueQuery.isLoading}
               hasError={Boolean(priorityQueueQuery.error)}
               onRetry={() => {
@@ -466,6 +467,7 @@ export function DashboardHomePage(): JSX.Element {
 
             <RecentSafetyEventsModule
               items={safetyEventsQuery.data ?? []}
+              visibleItemCount={4}
               loading={safetyEventsQuery.isLoading}
               hasError={Boolean(safetyEventsQuery.error)}
               onRetry={() => {
@@ -490,6 +492,8 @@ export function DashboardHomePage(): JSX.Element {
           <div className="dashboard-home-layout__secondary dashboard-home-support-rail">
             <TodayAppointmentsCard
               items={appointmentsQuery.data ?? []}
+              totalCount={summaryQuery.data?.todayAppointmentsCount}
+              visibleItemCount={3}
               loading={appointmentsQuery.isLoading}
               hasError={Boolean(appointmentsQuery.error)}
               onRetry={() => {
@@ -503,6 +507,8 @@ export function DashboardHomePage(): JSX.Element {
 
             <FollowUpTasksCard
               items={followUpTasksQuery.data ?? []}
+              totalCount={summaryQuery.data?.openFollowUpTasksCount}
+              visibleItemCount={3}
               loading={followUpTasksQuery.isLoading}
               hasError={Boolean(followUpTasksQuery.error)}
               onRetry={() => {
@@ -516,6 +522,7 @@ export function DashboardHomePage(): JSX.Element {
 
             <CommunicationOverviewCard
               overview={communicationQuery.data}
+              visibleItemCount={3}
               loading={communicationQuery.isLoading}
               hasError={Boolean(communicationQuery.error)}
               onRetry={() => {

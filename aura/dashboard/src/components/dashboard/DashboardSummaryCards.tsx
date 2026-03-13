@@ -146,6 +146,7 @@ export function DashboardSummaryCards({
               className={cn(
                 'dashboard-summary-card',
                 tierClass,
+                `dashboard-summary-card--metric-${metric.key}`,
                 metric.tone && `dashboard-summary-card--${metric.tone}`,
               )}
             >
@@ -161,6 +162,7 @@ export function DashboardSummaryCards({
             className={cn(
               'dashboard-summary-card',
               tierClass,
+              `dashboard-summary-card--metric-${metric.key}`,
               metric.tone && `dashboard-summary-card--${metric.tone}`,
             )}
             onClick={metric.onSelect}

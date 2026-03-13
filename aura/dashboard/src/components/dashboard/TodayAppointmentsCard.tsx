@@ -13,6 +13,8 @@ import {
 
 interface TodayAppointmentsCardProps {
   items: DashboardTodayAppointmentItem[];
+  totalCount?: number;
+  visibleItemCount?: number;
   loading: boolean;
   hasError: boolean;
   onRetry: () => void;
@@ -40,6 +42,8 @@ function statusVariant(status: DashboardTodayAppointmentItem['status']): 'warnin
 
 export function TodayAppointmentsCard({
   items,
+  totalCount,
+  visibleItemCount,
   loading,
   hasError,
   onRetry,
@@ -48,6 +52,8 @@ export function TodayAppointmentsCard({
   onOpenPatient,
   onOpenAppointments,
 }: TodayAppointmentsCardProps): JSX.Element {
+  const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
+  const appointmentsCount = totalCount ?? items.length;
   const upcomingCount = items.filter((item) => item.status === 'upcoming').length;
   const reviewCount = items.filter(
     (item) => item.status === 'awaiting_confirmation' || item.status === 'reschedule_requested',
@@ -63,11 +69,11 @@ export function TodayAppointmentsCard({
           <span className="dashboard-module-card__title-row">
             <span className="dashboard-module-card__title">
               Today&apos;s appointments
-              <span className="dashboard-module-card__count">{items.length}</span>
+              <span className="dashboard-module-card__count">{appointmentsCount}</span>
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Visits and exceptions shaping today&apos;s schedule.
+            Visits and exceptions shaping today.
           </span>
         </span>
       }
@@ -112,7 +118,7 @@ export function TodayAppointmentsCard({
           </div>
 
           <div className="dashboard-list dashboard-list--appointments" role="list">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--appointments" role="listitem">
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">
@@ -130,8 +136,7 @@ export function TodayAppointmentsCard({
                   {item.note?.trim() ? <p className="dashboard-list-item__description">{item.note.trim()}</p> : null}
                   <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
                     <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
-                      <span>{`${humanizeDashboardLabel(item.modality)} visit`}</span>
-                      <span>{`${humanizeDashboardLabel(item.requestStatus)} request`}</span>
+                      <span>{`${humanizeDashboardLabel(item.modality)} visit · ${humanizeDashboardLabel(item.requestStatus)} request`}</span>
                       <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>
                     </div>
                     <div className="dashboard-list-item__action">

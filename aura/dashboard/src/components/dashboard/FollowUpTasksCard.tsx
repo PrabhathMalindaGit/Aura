@@ -12,6 +12,8 @@ import {
 
 interface FollowUpTasksCardProps {
   items: DashboardFollowUpTaskItem[];
+  totalCount?: number;
+  visibleItemCount?: number;
   loading: boolean;
   hasError: boolean;
   onRetry: () => void;
@@ -47,6 +49,8 @@ function actionLabel(item: DashboardFollowUpTaskItem): string {
 
 export function FollowUpTasksCard({
   items,
+  totalCount,
+  visibleItemCount,
   loading,
   hasError,
   onRetry,
@@ -55,6 +59,8 @@ export function FollowUpTasksCard({
   onOpenTaskItem,
   onOpenPatients,
 }: FollowUpTasksCardProps): JSX.Element {
+  const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
+  const taskCount = totalCount ?? items.length;
   const urgentCount = items.filter((item) => item.priority === 'urgent' || item.priority === 'high').length;
   const dueTodayCount = items.filter((item) => {
     if (!item.dueAt) {
@@ -80,11 +86,11 @@ export function FollowUpTasksCard({
           <span className="dashboard-module-card__title-row">
             <span className="dashboard-module-card__title">
               Follow-up tasks
-              <span className="dashboard-module-card__count">{items.length}</span>
+              <span className="dashboard-module-card__count">{taskCount}</span>
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Open task work across safety, adherence, and appointments.
+            Open tasks across safety, adherence, and appointments.
           </span>
         </span>
       }
@@ -116,6 +122,10 @@ export function FollowUpTasksCard({
         <div className="dashboard-tasks-card__content">
           <div className="dashboard-widget-bar dashboard-widget-bar--tasks" aria-label="Follow-up task summary">
             <span className="dashboard-widget-bar__item">
+              <strong>{taskCount}</strong>
+              <span>open tasks</span>
+            </span>
+            <span className="dashboard-widget-bar__item">
               <strong>{urgentCount}</strong>
               <span>urgent or high</span>
             </span>
@@ -126,7 +136,7 @@ export function FollowUpTasksCard({
           </div>
 
           <div className="dashboard-list dashboard-list--tasks" role="list">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <article key={item.id} className="dashboard-list-item dashboard-list-item--tasks" role="listitem">
                 <div className="dashboard-list-item__content">
                   <div className="dashboard-list-item__eyebrow">
@@ -144,8 +154,7 @@ export function FollowUpTasksCard({
                   </div>
                   <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
                     <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
-                      <span>{humanizeDashboardLabel(item.type)}</span>
-                      <span>{humanizeDashboardLabel(item.status)}</span>
+                      <span>{`${humanizeDashboardLabel(item.type)} · ${humanizeDashboardLabel(item.status)}`}</span>
                       {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>}
                     </div>
                     <div className="dashboard-list-item__action">

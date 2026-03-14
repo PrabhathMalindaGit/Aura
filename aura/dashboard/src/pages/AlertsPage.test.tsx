@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertsPage } from './AlertsPage';
 import { clearAssignmentStoreForTests, setAssignment } from '../services/assignmentStore';
@@ -43,13 +44,15 @@ function createQueryClient(): QueryClient {
   });
 }
 
-function renderAlertsPage(): void {
+function renderAlertsPage(initialEntry: string = '/alerts'): void {
   const queryClient = createQueryClient();
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <AlertsPage />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <QueryClientProvider client={queryClient}>
+        <AlertsPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -276,6 +279,70 @@ describe('AlertsPage queue flow', () => {
       const hasVisiblePollingInterval = setIntervalSpy.mock.calls.some((call) => call[1] === 12_000);
       expect(hasVisiblePollingInterval).toBe(true);
     });
+  });
+
+  it('hydrates the search filter from a patientId query parameter', async () => {
+    const matchingAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-match-1',
+      patientId: 'patient-42',
+    };
+    const otherAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-other-1',
+      patientId: 'patient-99',
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [matchingAlert, otherAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage('/alerts?patientId=patient-42');
+
+    const searchInput = await screen.findByRole('searchbox', { name: 'Search alerts' });
+    expect(searchInput).toHaveValue('patient-42');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Alert alt-match-1 for patient patient-42')).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText('Alert alt-other-1 for patient patient-99')).not.toBeInTheDocument();
+  });
+
+  it('hydrates the search filter from a search query parameter', async () => {
+    const matchingAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-match-2',
+      patientId: 'patient-42',
+    };
+    const otherAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-other-2',
+      patientId: 'patient-77',
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [matchingAlert, otherAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage('/alerts?search=alt-match-2');
+
+    const searchInput = await screen.findByRole('searchbox', { name: 'Search alerts' });
+    expect(searchInput).toHaveValue('alt-match-2');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Alert alt-match-2 for patient patient-42')).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText('Alert alt-other-2 for patient patient-77')).not.toBeInTheDocument();
   });
 
   it('optimistic update rollback restores row on failure', async () => {

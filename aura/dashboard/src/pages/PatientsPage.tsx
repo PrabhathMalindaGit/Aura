@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PatientCardList } from '../components/patients/PatientCardList';
 import { PatientsFiltersBar } from '../components/patients/PatientsFiltersBar';
 import { PatientsTable } from '../components/patients/PatientsTable';
@@ -36,12 +36,14 @@ function isEndpointMissing(error: unknown): boolean {
 }
 
 export function PatientsPage(): JSX.Element {
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const patientsQuery = usePatients();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
 
   const [filters, setFilters] = useState<PatientFilters>(defaultPatientFilters());
+  const initialSearchValue = useMemo(() => searchParams.get('search')?.trim() ?? '', [searchParams]);
 
   const allPatients = useMemo(() => patientsQuery.data ?? [], [patientsQuery.data]);
   const visiblePatients = useMemo(() => applyPatientFilters(allPatients, filters), [allPatients, filters]);
@@ -113,6 +115,12 @@ export function PatientsPage(): JSX.Element {
     window.addEventListener(RETRY_EVENT, onRetry);
     return () => window.removeEventListener(RETRY_EVENT, onRetry);
   }, [retryPatients]);
+
+  useEffect(() => {
+    setFilters((current) =>
+      current.search === initialSearchValue ? current : { ...current, search: initialSearchValue },
+    );
+  }, [initialSearchValue]);
 
   return (
     <Stack className="page-stack patients-page" gap="5">

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
@@ -219,6 +220,7 @@ function filterAlerts(
 }
 
 export function AlertsPage(): JSX.Element {
+  const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<AlertStatus>('open');
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
   const [searchValue, setSearchValue] = useState('');
@@ -264,6 +266,11 @@ export function AlertsPage(): JSX.Element {
   const documentHidden = useDocumentHidden();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
+  const initialSearchValue = useMemo(() => {
+    const searchQuery = searchParams.get('search')?.trim();
+    const patientIdQuery = searchParams.get('patientId')?.trim();
+    return searchQuery || patientIdQuery || '';
+  }, [searchParams]);
 
   const shouldPollOpenAlerts = status === 'open' && connection.online && !documentHidden;
 
@@ -322,6 +329,10 @@ export function AlertsPage(): JSX.Element {
       window.removeEventListener('storage', onStorage);
     };
   }, [clinicianId]);
+
+  useEffect(() => {
+    setSearchValue(initialSearchValue);
+  }, [initialSearchValue]);
 
   useEffect(() => {
     setSelectedAlert(null);

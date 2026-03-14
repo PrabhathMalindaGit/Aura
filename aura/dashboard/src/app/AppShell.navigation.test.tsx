@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from './AppShell';
 
@@ -40,6 +40,12 @@ function installMatchMediaPreset(preset: BreakpointPreset): void {
   });
 }
 
+function RouteEcho(): JSX.Element {
+  const location = useLocation();
+
+  return <div>{`${location.pathname}${location.search}`}</div>;
+}
+
 function renderShell(entry: string): void {
   render(
     <MemoryRouter initialEntries={[entry]}>
@@ -48,8 +54,10 @@ function renderShell(entry: string): void {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<div>Dashboard workspace</div>} />
           <Route path="worklist" element={<div>Worklist workspace</div>} />
-          <Route path="alerts" element={<div>Alerts workspace</div>} />
-          <Route path="patients" element={<div>Patients workspace</div>} />
+          <Route path="alerts" element={<RouteEcho />} />
+          <Route path="patients" element={<RouteEcho />} />
+          <Route path="appointments" element={<div>Appointments workspace</div>} />
+          <Route path="insights" element={<div>Insights workspace</div>} />
           <Route path="settings" element={<div>Settings workspace</div>} />
         </Route>
       </Routes>
@@ -102,6 +110,53 @@ describe('AppShell navigation', () => {
     const activeLink = screen.getByRole('link', { name: 'Worklist' });
     expect(activeLink).toHaveClass('sidebar-item--active');
     expect(screen.getByText('Worklist workspace')).toBeInTheDocument();
+  });
+
+  it('shows the alerts title and subtitle for the alerts workspace', () => {
+    installMatchMediaPreset('desktop');
+    renderShell('/alerts');
+
+    expect(screen.getByRole('heading', { name: 'Alerts' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Triage safety alerts with assignment, acknowledgment, and follow-up context.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('quick open routes patient-like searches into the patients workspace filter', async () => {
+    installMatchMediaPreset('desktop');
+    const user = userEvent.setup();
+    renderShell('/dashboard');
+
+    const quickOpen = screen.getByRole('searchbox', {
+      name: 'Quick open: page, patient ID, or alert ID',
+    });
+
+    await user.type(quickOpen, 'patient-42');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('/patients?search=patient-42')).toBeInTheDocument();
+    });
+    expect(quickOpen).toHaveValue('');
+  });
+
+  it('quick open routes alert-like searches into the alerts workspace filter', async () => {
+    installMatchMediaPreset('desktop');
+    const user = userEvent.setup();
+    renderShell('/dashboard');
+
+    const quickOpen = screen.getByRole('searchbox', {
+      name: 'Quick open: page, patient ID, or alert ID',
+    });
+
+    await user.type(quickOpen, 'alt-001');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('/alerts?search=alt-001')).toBeInTheDocument();
+    });
   });
 
   it('redirects the shell index route to dashboard workspace', async () => {

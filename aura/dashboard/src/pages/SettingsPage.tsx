@@ -22,8 +22,6 @@ import {
 } from '../services/theme';
 
 export function SettingsPage(): JSX.Element {
-  const [showOfflineWarning, setShowOfflineWarning] = useState(true);
-  const [compactTableMode, setCompactTableMode] = useState(false);
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getThemeMode());
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
   const [clinicianId, setClinicianId] = useState(() => getClinicianId());
@@ -61,7 +59,7 @@ export function SettingsPage(): JSX.Element {
     : 'Auto-logout off';
 
   const identitySummaryLabel = clinicianName.trim() || clinicianId.trim() || 'Not configured';
-  const preferencesSummaryLabel = compactTableMode ? 'Compact density' : 'Comfortable density';
+  const preferencesSummaryLabel = 'Theme preference stored locally';
   const securityStateLabel = sessionSettings.enabled ? 'Session guard on' : 'Session guard off';
   const identityStateLabel =
     clinicianId.trim().length > 0 && clinicianName.trim().length > 0
@@ -104,9 +102,7 @@ export function SettingsPage(): JSX.Element {
           <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
             <p className="settings-summary-strip__label">Appearance</p>
             <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">
-              {preferencesSummaryLabel} · Offline warning {showOfflineWarning ? 'on' : 'off'}
-            </p>
+            <p className="settings-summary-strip__hint">{preferencesSummaryLabel}</p>
           </article>
           <article className="settings-summary-strip__item settings-summary-strip__item--security">
             <p className="settings-summary-strip__label">Session security</p>
@@ -165,12 +161,12 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">Personal defaults</span>
               <p className="settings-group-card__context-note">
-                Stored locally in this browser.
+                Only real browser-backed preferences are interactive here.
               </p>
             </div>
             <p className="settings-group-card__intro">
-              Keep the workspace comfortable to review without drifting away from Aura’s shared
-              operational style.
+              Keep the workspace comfortable to review without drifting away from Aura's shared
+              operational style. Preferences that are not wired yet stay read-only.
             </p>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
@@ -235,40 +231,33 @@ export function SettingsPage(): JSX.Element {
                 </div>
               </fieldset>
 
-              <label className="setting-item setting-item--toggle" htmlFor="offline-warning-toggle">
+              <div className="setting-item setting-item--note" aria-label="Offline warning banner setting status">
                 <span>
                   <strong>Offline warning banner</strong>
-                  <small>Show a warning when API connection drops.</small>
+                  <small>
+                    Warning display follows the live connection state in the shared shell and is
+                    not configurable in this browser yet.
+                  </small>
                 </span>
-                <input
-                  id="offline-warning-toggle"
-                  type="checkbox"
-                  checked={showOfflineWarning}
-                  onChange={(event) => setShowOfflineWarning(event.target.checked)}
-                />
-              </label>
+                <span className="setting-item__status-note">Shared shell behavior</span>
+              </div>
 
-              <label className="setting-item setting-item--toggle" htmlFor="compact-table-toggle">
+              <div className="setting-item setting-item--note" aria-label="Compact table density setting status">
                 <span>
                   <strong>Compact table mode</strong>
-                  <small>Reduce vertical spacing for denser patient lists.</small>
+                  <small>
+                    Table density still follows the shared dashboard default. A browser-level
+                    density preference is planned, but not active in this pass.
+                  </small>
                 </span>
-                <input
-                  id="compact-table-toggle"
-                  type="checkbox"
-                  checked={compactTableMode}
-                  onChange={(event) => setCompactTableMode(event.target.checked)}
-                />
-              </label>
+                <span className="setting-item__status-note">Not configurable yet</span>
+              </div>
             </div>
 
-            <div className="settings-card-footer">
-              <div className="inline-actions settings-actions settings-actions--primary settings-actions--preferences">
-                <Button>Save preferences</Button>
-                <Button variant="ghost">Restore defaults</Button>
-              </div>
+            <div className="settings-card-footer settings-card-footer--quiet">
               <p className="settings-card-footer__note">
-                Theme, density, and warning preferences stay in this browser.
+                Theme changes apply immediately. Other appearance controls stay read-only until
+                they are wired to real browser-backed behavior.
               </p>
             </div>
 

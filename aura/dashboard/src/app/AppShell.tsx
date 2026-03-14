@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SessionTimeoutModal } from '../components/auth/SessionTimeoutModal';
 import { PageTransition } from '../components/motion/PageTransition';
@@ -27,6 +27,84 @@ import {
 import { getClinicianName } from '../services/clinicianIdentity';
 import { clearDashboardSessionData } from '../utils/storageKeys';
 import { cn } from '../utils/cn';
+
+interface ShellPageConfig {
+  title: string;
+  subtitle: string;
+}
+
+const SHELL_PAGE_CONFIGS: Array<{
+  matches: (pathname: string) => boolean;
+  config: ShellPageConfig;
+}> = [
+  {
+    matches: (pathname) => pathname.startsWith('/patients/'),
+    config: {
+      title: 'Patient Detail',
+      subtitle: 'Longitudinal patient review with alerts, communication, tasks, and trends.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/worklist'),
+    config: {
+      title: 'Worklist',
+      subtitle:
+        'Active review queue across safety, adherence, communication, tasks, and appointments.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/alerts'),
+    config: {
+      title: 'Alerts',
+      subtitle: 'Triage safety alerts with assignment, acknowledgment, and follow-up context.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/insights'),
+    config: {
+      title: 'Insights',
+      subtitle: 'Review pending guidance before clinician approval.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/appointments'),
+    config: {
+      title: 'Appointments',
+      subtitle: 'Scheduling and capacity coordination for patient follow-up.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/patients'),
+    config: {
+      title: 'Patients',
+      subtitle: 'Broad care roster before deeper patient review.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/settings'),
+    config: {
+      title: 'Settings',
+      subtitle: 'Local browser-only workspace preferences and session protection.',
+    },
+  },
+  {
+    matches: (pathname) => pathname.startsWith('/dashboard'),
+    config: {
+      title: 'Dashboard',
+      subtitle: "Command center for today's safety, follow-up, and coordination.",
+    },
+  },
+];
+
+const QUICK_OPEN_ROUTES: Record<string, string> = {
+  dashboard: '/dashboard',
+  worklist: '/worklist',
+  alerts: '/alerts',
+  patients: '/patients',
+  appointments: '/appointments',
+  insights: '/insights',
+  settings: '/settings',
+};
 
 function formatLastUpdated(lastSuccessAt: number | null): string {
   if (!lastSuccessAt) {
@@ -166,40 +244,43 @@ export function AppShell(): JSX.Element {
     });
   }, [navigate, pathname]);
 
-  const pageTitle = useMemo(() => {
-    if (pathname.startsWith('/dashboard')) {
-      return 'Dashboard';
-    }
-
-    if (pathname.startsWith('/worklist')) {
-      return 'Worklist';
-    }
-
-    if (pathname.startsWith('/patients/')) {
-      return 'Patient Detail';
-    }
-
-    if (pathname.startsWith('/insights')) {
-      return 'Insights Queue';
-    }
-
-    if (pathname.startsWith('/appointments')) {
-      return 'Appointments';
-    }
-
-    if (pathname.startsWith('/patients')) {
-      return 'Patients';
-    }
-
-    if (pathname.startsWith('/settings')) {
-      return 'Settings';
-    }
-
-    return 'Dashboard';
+  const pageConfig = useMemo<ShellPageConfig>(() => {
+    const match = SHELL_PAGE_CONFIGS.find((entry) => entry.matches(pathname));
+    return match?.config ?? SHELL_PAGE_CONFIGS[SHELL_PAGE_CONFIGS.length - 1].config;
   }, [pathname]);
 
   const clinicianName = useMemo(() => getClinicianName(), []);
   const clinicianInitials = useMemo(() => getInitials(clinicianName), [clinicianName]);
+
+  const handleQuickOpenSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      const trimmedValue = searchValue.trim();
+      if (!trimmedValue) {
+        return;
+      }
+
+      const normalizedValue = trimmedValue.toLowerCase();
+      const directRoute = QUICK_OPEN_ROUTES[normalizedValue];
+
+      if (directRoute) {
+        navigate(directRoute);
+        setSearchValue('');
+        return;
+      }
+
+      if (normalizedValue.startsWith('alt-') || normalizedValue.includes('alert')) {
+        navigate(`/alerts?search=${encodeURIComponent(trimmedValue)}`);
+        setSearchValue('');
+        return;
+      }
+
+      navigate(`/patients?search=${encodeURIComponent(trimmedValue)}`);
+      setSearchValue('');
+    },
+    [navigate, searchValue],
+  );
 
   return (
     <div
@@ -227,29 +308,23 @@ export function AppShell(): JSX.Element {
             ) : null}
             <div className="topbar__title-group">
               <p className="topbar__eyebrow">Aura Clinician</p>
-              <h1 className="topbar__title">{pageTitle}</h1>
-              <p className="topbar__subtitle">Calm clinical workspace for today&apos;s follow-up.</p>
+              <h1 className="topbar__title">{pageConfig.title}</h1>
+              <p className="topbar__subtitle">{pageConfig.subtitle}</p>
             </div>
           </div>
 
-          <form
-            className="topbar__search"
-            role="search"
-            onSubmit={(event) => {
-              event.preventDefault();
-            }}
-          >
+          <form className="topbar__search" role="search" onSubmit={handleQuickOpenSubmit}>
             <span className="topbar__search-icon" aria-hidden="true">
               ⌕
             </span>
             <label className="visually-hidden" htmlFor="dashboard-shell-search">
-              Search patients, alerts, and IDs
+              Quick open: page, patient ID, or alert ID
             </label>
             <input
               id="dashboard-shell-search"
               type="search"
               className="topbar__search-input"
-              placeholder="Search patient name, ID, alert"
+              placeholder="Quick open: page, patient ID, or alert ID"
               value={searchValue}
               onChange={(event) => {
                 setSearchValue(event.target.value);

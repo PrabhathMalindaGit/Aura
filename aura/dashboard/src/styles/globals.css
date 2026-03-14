@@ -19594,3 +19594,195 @@ small {
     justify-content: flex-start;
   }
 }
+
+/* Aura Clinician pass 4: patient detail hierarchy and compression */
+
+.patient-detail-section-block--operations {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.patient-detail-section-block--operations .patient-detail-section-header {
+  border-bottom-color: hsl(var(--border) / 0.34);
+}
+
+.patient-detail-panel--operations-primary {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.92)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+}
+
+.patient-detail-panel--operations-secondary {
+  border-color: hsl(var(--border) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.018), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.patient-detail-section-block--reference {
+  gap: var(--space-2);
+  padding: clamp(12px, 1.3vw, 18px);
+  border-color: hsl(var(--border) / 0.52);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.015), transparent 84%);
+}
+
+.patient-detail-section-block--reference::before {
+  left: var(--space-3);
+  right: var(--space-3);
+  background: linear-gradient(90deg, transparent, hsl(var(--border) / 0.28), transparent);
+}
+
+.patient-detail-section-header--reference {
+  border-bottom: none;
+  padding-bottom: 0;
+  gap: var(--space-2);
+}
+
+.patient-detail-section-header__aside {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.patient-detail-section-block--reference .patient-detail-section-note {
+  max-width: 48ch;
+}
+
+.patient-detail-disclosure__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.patient-detail-disclosure__state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border) / 0.54);
+  border-radius: 999px;
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.24));
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.patient-detail-disclosure__summary {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-disclosure__fact {
+  min-height: 3.8rem;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid hsl(var(--border) / 0.46);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18));
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.patient-detail-disclosure__fact span {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.patient-detail-disclosure__fact strong {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-disclosure__hint {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  line-height: 1.42;
+  max-width: 60ch;
+}
+
+.patient-detail-section-block--reference .patient-detail-section-grid {
+  gap: var(--space-2);
+}
+
+.patient-detail-section-block--reference .card__header {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.patient-detail-section-block--reference .card__body {
+  padding-top: var(--space-2);
+  gap: var(--space-2);
+}
+
+.patient-detail-section-grid--workflow .patient-detail-panel--operations-secondary {
+  grid-column: auto;
+}
+
+@media (min-width: 920px) {
+  .patient-detail-section-header--reference {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .patient-detail-section-header__aside {
+    justify-items: end;
+  }
+
+  .patient-detail-section-header__aside .patient-detail-section-note {
+    text-align: right;
+  }
+
+  .patient-detail-disclosure__summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .patient-detail-section-block--reference.patient-detail-section-block--habits .patient-detail-disclosure__summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dark .patient-detail-section-block--operations {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.8)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.07), transparent 84%);
+}
+
+.dark .patient-detail-panel--operations-primary {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.07), transparent 84%);
+}
+
+.dark .patient-detail-panel--operations-secondary {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.26)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.05), transparent 84%);
+}
+
+.dark .patient-detail-section-block--reference {
+  border-color: hsl(var(--border) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.8)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+}
+
+.dark .patient-detail-disclosure__state,
+.dark .patient-detail-disclosure__fact {
+  border-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+}

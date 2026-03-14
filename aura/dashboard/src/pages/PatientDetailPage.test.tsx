@@ -366,6 +366,48 @@ describe('PatientDetailPage', () => {
     expect(within(screen.getByTestId('patient-appointments-panel')).getByText('Awaiting confirmation')).toBeInTheDocument();
   }, 20_000);
 
+  it('keeps care review visible and collapses slower reference panels by default', async () => {
+    installFetchMock();
+
+    renderPatientDetail();
+
+    const operationalHeading = await screen.findByRole('heading', {
+      name: 'Communication, tasks, and appointments',
+    });
+    const careReviewHeading = screen.getByRole('heading', {
+      name: 'Care plan, questionnaires, and insight review',
+    });
+    const referenceBridge = screen.getByTestId('patient-detail-reference-bridge');
+
+    expect(
+      operationalHeading.compareDocumentPosition(careReviewHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      careReviewHeading.compareDocumentPosition(referenceBridge) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    expect(screen.getByRole('button', { name: 'Show symptom detail' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: 'Show support signals' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('heading', { name: 'Sleep (recent)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Hydration (last 7 days)' })).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('reveals compressed reference panels when requested', async () => {
+    installFetchMock();
+
+    const user = userEvent.setup();
+    renderPatientDetail();
+
+    await screen.findByRole('button', { name: 'Show symptom detail' });
+    await user.click(screen.getByRole('button', { name: 'Show symptom detail' }));
+    expect(await screen.findByRole('heading', { name: 'Sleep (recent)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide symptom detail' })).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Show support signals' }));
+    expect(await screen.findByRole('heading', { name: 'Hydration (last 7 days)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide support signals' })).toHaveAttribute('aria-expanded', 'true');
+  }, 20_000);
+
   it('click-through day detail opens with selected date content', async () => {
     installFetchMock();
 

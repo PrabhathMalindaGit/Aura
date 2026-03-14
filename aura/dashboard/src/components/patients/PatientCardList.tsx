@@ -58,7 +58,9 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
         return (
           <Card
             key={patient.id}
-            className={hasOpenAlertCount ? 'patients-card-list__card patients-card-list__card--attention' : 'patients-card-list__card'}
+            className={`patients-card-list__card${hasOpenAlertCount ? ' patients-card-list__card--attention' : ''}${
+              missedCheckin ? ' patients-card-list__card--missed' : ''
+            }`}
             title={
               <span className="patients-card-list__title">
                 <span className="patients-card-list__avatar" aria-hidden="true">
@@ -118,9 +120,9 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
 
               <div className="patients-card-list__actions">
                 <Button className="patients-card-list__view" variant="secondary" fullWidth onClick={() => onOpenPatient(patient.id)}>
-                  Open record
+                  Open review
                 </Button>
-                <PatientStatusMenu currentStatus={status} />
+                <PatientStatusMenu currentStatus={status} compact />
               </div>
             </div>
           </Card>

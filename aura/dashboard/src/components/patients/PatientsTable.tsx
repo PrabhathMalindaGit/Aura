@@ -202,7 +202,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                         onOpenPatient(patient.id);
                       }}
                     >
-                      Open
+                      Open review
                     </Button>
                     <PatientStatusMenu currentStatus={status} compact />
                   </div>

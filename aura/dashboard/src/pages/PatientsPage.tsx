@@ -15,6 +15,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useConnectionStatus } from '../services/connection';
 import { usePatients } from '../services/clinicianApi';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
+import type { PatientSummary } from '../types/models';
 import { asAppError } from '../utils/errors';
 import { toErrorView } from '../utils/errorView';
 import {
@@ -29,6 +30,50 @@ import {
 const PATIENTS_ENDPOINT_HINT =
   'Add GET /clinician/patients returning { ok: true, patients: [...] }';
 const RETRY_EVENT = 'aura:retry';
+
+function summarizePatients(patients: PatientSummary[]): {
+  total: number;
+  active: number;
+  onHold: number;
+  discharged: number;
+  openAlerts: number;
+  recentlyActive: number;
+  needsReview: number;
+} {
+  const summary = {
+    total: patients.length,
+    active: 0,
+    onHold: 0,
+    discharged: 0,
+    openAlerts: 0,
+    recentlyActive: 0,
+    needsReview: 0,
+  };
+
+  patients.forEach((patient) => {
+    if (patient.status === 'active') {
+      summary.active += 1;
+    } else if (patient.status === 'on_hold') {
+      summary.onHold += 1;
+    } else if (patient.status === 'discharged') {
+      summary.discharged += 1;
+    }
+
+    if ((patient.openAlertCount ?? 0) > 0) {
+      summary.openAlerts += 1;
+    }
+
+    if (isRecentlyActive(patient, '7d')) {
+      summary.recentlyActive += 1;
+    }
+
+    if (hasOpenAlerts(patient) || isMissedCheckin(patient)) {
+      summary.needsReview += 1;
+    }
+  });
+
+  return summary;
+}
 
 function isEndpointMissing(error: unknown): boolean {
   const appError = asAppError(error);
@@ -47,41 +92,8 @@ export function PatientsPage(): JSX.Element {
 
   const allPatients = useMemo(() => patientsQuery.data ?? [], [patientsQuery.data]);
   const visiblePatients = useMemo(() => applyPatientFilters(allPatients, filters), [allPatients, filters]);
-  const rosterSummary = useMemo(() => {
-    const summary = {
-      total: allPatients.length,
-      active: 0,
-      onHold: 0,
-      discharged: 0,
-      openAlerts: 0,
-      recentlyActive: 0,
-      needsReview: 0,
-    };
-
-    allPatients.forEach((patient) => {
-      if (patient.status === 'active') {
-        summary.active += 1;
-      } else if (patient.status === 'on_hold') {
-        summary.onHold += 1;
-      } else if (patient.status === 'discharged') {
-        summary.discharged += 1;
-      }
-
-      if ((patient.openAlertCount ?? 0) > 0) {
-        summary.openAlerts += 1;
-      }
-
-      if (isRecentlyActive(patient, '7d')) {
-        summary.recentlyActive += 1;
-      }
-
-      if (hasOpenAlerts(patient) || isMissedCheckin(patient)) {
-        summary.needsReview += 1;
-      }
-    });
-
-    return summary;
-  }, [allPatients]);
+  const rosterSummary = useMemo(() => summarizePatients(allPatients), [allPatients]);
+  const visibleSummary = useMemo(() => summarizePatients(visiblePatients), [visiblePatients]);
 
   const showInitialLoading = patientsQuery.isLoading && allPatients.length === 0;
   const endpointMissing = Boolean(patientsQuery.error) && isEndpointMissing(patientsQuery.error);
@@ -92,6 +104,22 @@ export function PatientsPage(): JSX.Element {
   const errorView = genericError ? toErrorView(genericError) : null;
   const rosterViewLabel =
     visiblePatients.length === rosterSummary.total ? 'Full roster view' : 'Filtered roster view';
+  const reviewBurdenLabel =
+    visibleSummary.needsReview === 0
+      ? 'No closer review signaled in this view'
+      : `${visibleSummary.needsReview} ${
+          visibleSummary.needsReview === 1 ? 'patient needs' : 'patients need'
+        } closer review`;
+  const workspaceStatusLine =
+    visiblePatients.length === rosterSummary.total
+      ? `Showing all ${rosterSummary.total} patients`
+      : `Showing ${visiblePatients.length} of ${rosterSummary.total} patients`;
+  const workspaceSupportLine =
+    visibleSummary.needsReview > 0
+      ? `${reviewBurdenLabel}${visibleSummary.openAlerts > 0 ? ` · ${visibleSummary.openAlerts} with active alerts` : ''}`
+      : visibleSummary.recentlyActive > 0
+        ? `${visibleSummary.recentlyActive} ${visibleSummary.recentlyActive === 1 ? 'patient checked in' : 'patients checked in'} during the last 7 days`
+        : 'The current roster view is steady';
   const updatedAtLabel = connection.lastSuccessAt
     ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
         hour: '2-digit',
@@ -128,14 +156,14 @@ export function PatientsPage(): JSX.Element {
         className="dashboard-page-header patients-page-header"
         eyebrow="Care roster"
         title="Patients"
-        subtitle="Monitor the broader care roster, recent activity, and alert burden before opening deeper patient review."
+        subtitle="Scan the broader care roster before opening a deeper patient review."
         meta={
           <span className="patients-page__meta" aria-live="polite">
             <span className="patients-page__meta-pill patients-page__meta-pill--count">
               {visiblePatients.length} in view
             </span>
             <span className="patients-page__meta-pill">
-              {rosterSummary.needsReview} may need closer review
+              {reviewBurdenLabel}
             </span>
             <span className="patients-page__meta-pill patients-page__meta-pill--updated">Updated {updatedAtLabel}</span>
           </span>
@@ -160,33 +188,28 @@ export function PatientsPage(): JSX.Element {
 
       <section className="patients-summary-strip" aria-label="Patient roster summary">
         <article className="patients-summary-strip__item patients-summary-strip__item--total">
-          <p className="patients-summary-strip__label">Total roster</p>
-          <p className="patients-summary-strip__value">{rosterSummary.total}</p>
-          <p className="patients-summary-strip__hint">{visiblePatients.length} currently in view</p>
+          <p className="patients-summary-strip__label">Roster in view</p>
+          <p className="patients-summary-strip__value">{visiblePatients.length}</p>
+          <p className="patients-summary-strip__hint">of {rosterSummary.total} total patients</p>
         </article>
         <article className="patients-summary-strip__item patients-summary-strip__item--active">
           <p className="patients-summary-strip__label">Active care</p>
-          <p className="patients-summary-strip__value">{rosterSummary.active}</p>
-          <p className="patients-summary-strip__hint">Patients currently in active rehab</p>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--active">
-          <p className="patients-summary-strip__label">Recently active</p>
-          <p className="patients-summary-strip__value">{rosterSummary.recentlyActive}</p>
-          <p className="patients-summary-strip__hint">Checked in during the last 7 days</p>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--on-hold">
-          <p className="patients-summary-strip__label">On hold</p>
-          <p className="patients-summary-strip__value">{rosterSummary.onHold}</p>
+          <p className="patients-summary-strip__value">{visibleSummary.active}</p>
           <p className="patients-summary-strip__hint">
-            {rosterSummary.discharged} discharged from active care
+            {visibleSummary.onHold} on hold · {visibleSummary.discharged} discharged
           </p>
         </article>
         <article className="patients-summary-strip__item patients-summary-strip__item--attention">
           <p className="patients-summary-strip__label">Needs review</p>
-          <p className="patients-summary-strip__value">{rosterSummary.needsReview}</p>
+          <p className="patients-summary-strip__value">{visibleSummary.needsReview}</p>
           <p className="patients-summary-strip__hint">
-            {rosterSummary.openAlerts} with active alerts
+            {visibleSummary.openAlerts} with active alerts in view
           </p>
+        </article>
+        <article className="patients-summary-strip__item patients-summary-strip__item--active">
+          <p className="patients-summary-strip__label">Recently active</p>
+          <p className="patients-summary-strip__value">{visibleSummary.recentlyActive}</p>
+          <p className="patients-summary-strip__hint">Checked in during the last 7 days</p>
         </article>
       </section>
 
@@ -194,14 +217,12 @@ export function PatientsPage(): JSX.Element {
         <div className="patients-roster-note__copy">
           <p className="patients-roster-note__eyebrow">Roster workspace</p>
           <p className="patients-roster-note__text">
-            Keep the roster calm but decisive: scan activity, alert burden, and care state before
-            opening a full patient review.
+            Use the roster to decide which patient needs deeper review next.
           </p>
         </div>
         <div className="patients-roster-note__facts" aria-live="polite">
           <span className="patients-roster-note__fact">{rosterViewLabel}</span>
-          <span className="patients-roster-note__fact">{rosterSummary.needsReview} review candidates</span>
-          <span className="patients-roster-note__fact">{rosterSummary.recentlyActive} active in 7d</span>
+          <span className="patients-roster-note__fact">{reviewBurdenLabel}</span>
         </div>
       </section>
 
@@ -210,7 +231,7 @@ export function PatientsPage(): JSX.Element {
         title={
           <span className="patients-card-title">
             Patients
-            <span className="patients-card-title__meta">Roster workspace</span>
+            <span className="patients-card-title__meta">Broad review</span>
           </span>
         }
         action={
@@ -229,15 +250,15 @@ export function PatientsPage(): JSX.Element {
         <Stack gap="4">
           <div className="patients-workspace-card__controls">
             <div className="patients-workspace-card__context">
-              <div className="patients-workspace-card__facts" aria-live="polite">
-                <span className="patients-workspace-card__fact">Showing {visiblePatients.length}</span>
-                <span className="patients-workspace-card__fact">{rosterSummary.openAlerts} with alerts</span>
-                <span className="patients-workspace-card__fact">{rosterViewLabel}</span>
-              </div>
+              <p className="patients-workspace-card__status-line" aria-live="polite">
+                {rosterViewLabel} · {workspaceStatusLine}
+              </p>
+              <p className="patients-workspace-card__support-line" aria-live="polite">
+                {workspaceSupportLine}
+              </p>
             </div>
             <p className="patients-queue-intro">
-              Refine the roster view without losing scan order between patient identity, activity,
-              alert burden, and the next review step.
+              Scan identity, recent activity, alert burden, and the next review step from one roster view.
             </p>
             <PatientsFiltersBar
               filters={filters}
@@ -319,10 +340,10 @@ export function PatientsPage(): JSX.Element {
                 <span className="patients-empty-state__icon" aria-hidden="true">
                   ✓
                 </span>
-                <h3 className="patients-empty-state__title">Roster clear</h3>
+                <h3 className="patients-empty-state__title">No patient records yet</h3>
               </div>
               <p className="patients-empty-state__description">
-                No patient records are available yet. This roster fills in as check-ins, alerts, and care activity are recorded.
+                No patient records are available yet. This roster will populate as patient check-ins, alerts, and care activity begin to appear.
               </p>
               <p className="patients-empty-state__meta">Last updated {updatedAtLabel}</p>
             </div>
@@ -332,10 +353,10 @@ export function PatientsPage(): JSX.Element {
                 <span className="patients-empty-state__icon" aria-hidden="true">
                   ⌕
                 </span>
-                <h3 className="patients-empty-state__title">No matching patients</h3>
+                <h3 className="patients-empty-state__title">No patients match this view</h3>
               </div>
               <p className="patients-empty-state__description">
-                This roster view is narrower than the current patient set. Adjust a filter or search by a different name or patient ID.
+                The current filters narrow the roster beyond the available patients. Broaden the view or search by a different patient name or ID.
               </p>
               <div className="patients-empty-state__actions">
                 <Button

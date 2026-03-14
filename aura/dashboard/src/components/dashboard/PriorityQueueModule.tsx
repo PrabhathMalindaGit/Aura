@@ -124,7 +124,7 @@ export function PriorityQueueModule({
       }
       action={
         <div className="dashboard-module-card__action-shell">
-          <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+          <Button variant="secondary" size="sm" onClick={onOpenAlerts}>
             Open alerts
           </Button>
         </div>

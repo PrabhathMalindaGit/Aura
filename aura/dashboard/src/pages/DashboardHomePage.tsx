@@ -119,7 +119,7 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Open alerts',
         value: summaryQuery.data.openAlertsCount,
         helper:
-          summaryQuery.data.openAlertsCount > 0 ? 'Needs safety review' : 'No safety queue',
+          summaryQuery.data.openAlertsCount > 0 ? 'First review' : 'Safety queue clear',
         tone: 'risk',
         onSelect: () => navigate('/alerts'),
       },
@@ -128,9 +128,7 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Follow-up tasks',
         value: summaryQuery.data.openFollowUpTasksCount,
         helper:
-          summaryQuery.data.openFollowUpTasksCount > 0
-            ? 'Actionable follow-up'
-            : 'No follow-up waiting',
+          summaryQuery.data.openFollowUpTasksCount > 0 ? 'Move next' : 'No follow-up waiting',
         tone: 'primary',
         onSelect: () => navigate('/worklist'),
       },
@@ -139,7 +137,7 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Today’s appointments',
         value: summaryQuery.data.todayAppointmentsCount,
         helper:
-          summaryQuery.data.todayAppointmentsCount > 0 ? 'Schedule to confirm' : 'No visits today',
+          summaryQuery.data.todayAppointmentsCount > 0 ? 'Confirm today' : 'No visits today',
         tone: 'success',
         onSelect: () => navigate('/appointments'),
       },
@@ -149,7 +147,7 @@ export function DashboardHomePage(): JSX.Element {
         value: summaryQuery.data.assignedToMeAlertsCount,
         helper:
           summaryQuery.data.assignedToMeAlertsCount > 0
-            ? 'Current ownership'
+            ? 'Owned now'
             : 'No owned alerts',
         tone: 'neutral',
         onSelect: () => navigate('/alerts'),
@@ -159,7 +157,7 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Missed check-ins',
         value: summaryQuery.data.missedCheckinsCount,
         helper:
-          summaryQuery.data.missedCheckinsCount > 0 ? 'Needs outreach' : 'No missed check-ins',
+          summaryQuery.data.missedCheckinsCount > 0 ? 'Outreach needed' : 'No missed check-ins',
         tone: 'warning',
         onSelect: () => navigate('/worklist'),
       },
@@ -168,7 +166,7 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Pending insights',
         value: summaryQuery.data.pendingInsightsCount,
         helper:
-          summaryQuery.data.pendingInsightsCount > 0 ? 'Awaiting review' : 'No suggested review',
+          summaryQuery.data.pendingInsightsCount > 0 ? 'Review queue' : 'No review waiting',
         tone: 'neutral',
         onSelect: () => navigate('/insights'),
       },
@@ -236,10 +234,8 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Needs attention now',
         note:
           summaryQuery.data?.openAlertsCount && summaryQuery.data.openAlertsCount > 0
-            ? `${summaryQuery.data.openAlertsCount} ${
-                summaryQuery.data.openAlertsCount === 1 ? 'open alert' : 'open alerts'
-              }`
-            : 'No open alerts',
+            ? 'Open safety queue first'
+            : 'Safety queue clear',
         value: summaryQuery.data?.openAlertsCount ?? '—',
       },
       {
@@ -247,8 +243,8 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Follow-up waiting',
         note:
           followUpInFlightCount && followUpInFlightCount > 0
-            ? `${followUpInFlightCount} ${followUpInFlightCount === 1 ? 'item' : 'items'} across tasks and messages`
-            : 'No tasks or messages waiting',
+            ? 'Tasks and messages waiting'
+            : 'No task or message backlog',
         value: followUpInFlightCount ?? '—',
       },
       {
@@ -256,9 +252,7 @@ export function DashboardHomePage(): JSX.Element {
         label: 'Matters today',
         note:
           summaryQuery.data?.todayAppointmentsCount && summaryQuery.data.todayAppointmentsCount > 0
-            ? `${summaryQuery.data.todayAppointmentsCount} ${
-                summaryQuery.data.todayAppointmentsCount === 1 ? 'appointment' : 'appointments'
-              } on today’s schedule`
+            ? 'Confirm today’s schedule'
             : 'No appointments scheduled',
         value: summaryQuery.data?.todayAppointmentsCount ?? '—',
       },
@@ -292,28 +286,28 @@ export function DashboardHomePage(): JSX.Element {
 
   const heroSubtitle = useMemo(() => {
     if (!summaryQuery.data) {
-      return 'Confirm the live snapshot, then move through queue review, follow-up, and today’s schedule.';
+      return 'Confirm the live snapshot, then move into queue review, safety activity, and today’s follow-through.';
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
       return `${summaryQuery.data.openAlertsCount} ${
-        summaryQuery.data.openAlertsCount === 1 ? 'open alert needs' : 'open alerts need'
-      } first review. Confirm pressure, then clear the queue below.`;
+        summaryQuery.data.openAlertsCount === 1 ? 'open alert is' : 'open alerts are'
+      } leading today. Confirm safety pressure first, then work the queue below.`;
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
       return `${followUpInFlightCount} ${
-        followUpInFlightCount === 1 ? 'follow-up item needs' : 'follow-up items need'
-      } movement today. Clear the next actions below and keep schedule risk in view.`;
+        followUpInFlightCount === 1 ? 'follow-up item is' : 'follow-up items are'
+      } setting the pace today. Clear the waiting work, then confirm today’s schedule.`;
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
       return `${summaryQuery.data.todayAppointmentsCount} ${
         summaryQuery.data.todayAppointmentsCount === 1 ? 'appointment shapes' : 'appointments shape'
-      } today’s schedule. Confirm visits first, then move through the remaining follow-up.`;
+      } today’s coordination. Confirm the schedule first, then move through follow-up.`;
     }
 
-    return 'Safety pressure is steady. Confirm the snapshot, then move directly into today’s work below.';
+    return 'No urgent pressure is leading. Use the snapshot below to confirm a steady start.';
   }, [followUpInFlightCount, summaryQuery.data]);
 
   const focusTitle = useMemo(() => {
@@ -322,18 +316,18 @@ export function DashboardHomePage(): JSX.Element {
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Alerts set the first priority';
+      return 'Safety review leads now';
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
-      return 'Follow-up sets the first priority';
+      return 'Follow-up leads now';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'The schedule sets the first priority';
+      return 'Schedule review leads now';
     }
 
-    return 'The day opens steady';
+    return 'Queue is steady';
   }, [followUpInFlightCount, summaryQuery.data]);
 
   const focusCopy = useMemo(() => {
@@ -342,47 +336,23 @@ export function DashboardHomePage(): JSX.Element {
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Start in the priority queue, then move into tasks and schedule confirmation.';
+      return 'Start in the priority queue, then confirm the waiting tasks and visits.';
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
-      return 'Safety pressure is lighter. Clear the waiting follow-up next and keep response time tight.';
+      return 'Clear the waiting follow-up next and keep schedule risk in view.';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
-      return 'Confirm the schedule first, then work through the remaining follow-up.';
+      return 'Confirm today’s visits first, then move through the remaining work.';
     }
 
-    return 'No urgent items are leading. Use the snapshot to confirm a calm start.';
+    return 'No urgent item is leading. Confirm the snapshot and start with the queue below.';
   }, [followUpInFlightCount, summaryQuery.data]);
 
-  const primaryZoneCopy = useMemo(() => {
-    if (!summaryQuery.data) {
-      return 'Priority queue and safety activity for the first pass.';
-    }
+  const primaryZoneCopy = 'Priority queue and recent safety activity for the first review pass.';
 
-    if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Priority queue and safety activity aligned for immediate review.';
-    }
-
-    return 'Priority queue and safety activity, ready if pressure changes.';
-  }, [summaryQuery.data]);
-
-  const secondaryZoneCopy = useMemo(() => {
-    if (!summaryQuery.data) {
-      return 'Appointments, tasks, and communication in one place.';
-    }
-
-    if (
-      summaryQuery.data.todayAppointmentsCount > 0 ||
-      summaryQuery.data.openFollowUpTasksCount > 0 ||
-      summaryQuery.data.messagesNeedingResponseCount > 0
-    ) {
-      return 'Appointments, tasks, and communication for today’s follow-through.';
-    }
-
-    return 'Appointments, tasks, and communication stay ready for the rest of the day.';
-  }, [summaryQuery.data]);
+  const secondaryZoneCopy = 'Appointments, tasks, and communication that keep the rest of the day moving.';
 
   return (
     <Stack className="page-stack dashboard-home-page" gap="4">
@@ -404,7 +374,7 @@ export function DashboardHomePage(): JSX.Element {
 
         <aside className="dashboard-home-hero__aside" aria-label="Today in focus">
           <div className="dashboard-home-hero__aside-card">
-            <p className="dashboard-home-hero__aside-eyebrow">Today’s operational summary</p>
+            <p className="dashboard-home-hero__aside-eyebrow">Today in focus</p>
             <h3 className="dashboard-home-hero__aside-title">{focusTitle}</h3>
             <p className="dashboard-home-hero__aside-copy">{focusCopy}</p>
             <div className="dashboard-home-hero__facts" role="list" aria-label="Dashboard focus facts">

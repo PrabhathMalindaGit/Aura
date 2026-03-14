@@ -17,14 +17,16 @@ export function PatientStatusMenu({ currentStatus, compact = false }: PatientSta
   return (
     <div className={`patient-status-menu${compact ? ' patient-status-menu--compact' : ''}`}>
       <div className="patient-status-menu__current">
-        <span className="patient-status-menu__eyebrow">Status</span>
+        {!compact ? <span className="patient-status-menu__eyebrow">Status</span> : null}
         <Badge className="patient-status-menu__badge" variant="neutral">
           {STATUS_LABELS[currentStatus]}
         </Badge>
       </div>
-      <p className="patient-status-menu__note">
-        Editing stays unavailable until the patient status endpoint is connected.
-      </p>
+      {!compact ? (
+        <p className="patient-status-menu__note">
+          Editing stays unavailable until the patient status endpoint is connected.
+        </p>
+      ) : null}
     </div>
   );
 }

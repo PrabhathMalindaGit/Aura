@@ -20773,6 +20773,121 @@ button.dashboard-summary-card:hover {
   line-height: 1.45;
 }
 
+.appointments-publish-outcome {
+  display: grid;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.66);
+  border-radius: calc(var(--radius-xl) - 4px);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--card) / 0.92),
+    0 10px 22px hsl(216 28% 20% / 0.05);
+}
+
+.appointments-publish-outcome--attention {
+  border-color: hsl(var(--warning) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.08), hsl(var(--card) / 0.99)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.05), transparent 84%);
+}
+
+.appointments-publish-outcome--clear {
+  border-color: hsl(var(--primary) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.06), hsl(var(--card) / 0.995)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+}
+
+.appointments-publish-outcome--quiet {
+  border-color: hsl(var(--border) / 0.66);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.04), transparent 84%);
+}
+
+.appointments-publish-outcome__copy {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.appointments-publish-outcome__eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.64);
+  font-size: 0.69rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.appointments-publish-outcome__heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.appointments-publish-outcome__title {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.94);
+  font-size: 0.96rem;
+  font-weight: var(--font-semibold);
+}
+
+.appointments-publish-outcome__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.2rem 0.58rem;
+  border: 1px solid hsl(var(--border) / 0.66);
+  border-radius: 999px;
+  color: hsl(var(--foreground) / 0.76);
+  font-size: 0.72rem;
+  font-weight: var(--font-medium);
+  line-height: 1.2;
+}
+
+.appointments-publish-outcome__status--attention {
+  border-color: hsl(var(--warning) / 0.3);
+  background: hsl(var(--warning) / 0.12);
+}
+
+.appointments-publish-outcome__status--clear {
+  border-color: hsl(var(--primary) / 0.28);
+  background: hsl(var(--primary) / 0.1);
+}
+
+.appointments-publish-outcome__status--quiet {
+  border-color: hsl(var(--border) / 0.66);
+  background: hsl(var(--muted) / 0.28);
+}
+
+.appointments-publish-outcome__text,
+.appointments-publish-outcome__next-step {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.8);
+  font-size: 0.79rem;
+  line-height: 1.48;
+}
+
+.appointments-publish-outcome__text--status {
+  color: hsl(var(--foreground) / 0.86);
+  font-weight: var(--font-medium);
+}
+
+.appointments-publish-outcome__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.appointments-publish-outcome__actions .btn--ghost,
+.appointments-publish-outcome__actions .btn--secondary {
+  border-color: hsl(var(--border) / 0.68);
+}
+
 .appointments-workspace__section--requests-active {
   border-color: hsl(var(--warning) / 0.2);
 }
@@ -20985,6 +21100,52 @@ button.dashboard-summary-card:hover {
     linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 84%);
 }
 
+.dark .appointments-publish-outcome {
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.28)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--foreground) / 0.04),
+    0 14px 30px hsl(224 48% 4% / 0.18);
+}
+
+.dark .appointments-publish-outcome--attention {
+  border-color: hsl(var(--warning) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.12), hsl(var(--card) / 0.9)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.08), transparent 84%);
+}
+
+.dark .appointments-publish-outcome--clear {
+  border-color: hsl(var(--primary) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.14), hsl(var(--card) / 0.9)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.1), transparent 84%);
+}
+
+.dark .appointments-publish-outcome--quiet {
+  border-color: hsl(var(--border) / 0.52);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 84%);
+}
+
+.dark .appointments-publish-outcome__status--attention {
+  border-color: hsl(var(--warning) / 0.36);
+  background: hsl(var(--warning) / 0.18);
+}
+
+.dark .appointments-publish-outcome__status--clear {
+  border-color: hsl(var(--primary) / 0.38);
+  background: hsl(var(--primary) / 0.2);
+}
+
+.dark .appointments-publish-outcome__status--quiet {
+  border-color: hsl(var(--border) / 0.54);
+  background: hsl(var(--muted) / 0.34);
+}
+
 .dark .insights-queue__item--high {
   border-color: hsl(var(--warning) / 0.38);
   background:
@@ -21047,6 +21208,14 @@ button.dashboard-summary-card:hover {
 
 .appointments-item--slot-available {
   border-color: hsl(var(--primary) / 0.22);
+}
+
+.appointments-item--slot-just-published {
+  border-color: hsl(var(--primary) / 0.32);
+  box-shadow:
+    0 14px 28px hsl(var(--primary) / 0.12),
+    inset 0 0 0 1px hsl(var(--primary) / 0.14),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
 }
 
 .appointments-item--slot-closed {
@@ -21131,6 +21300,14 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.28)),
     linear-gradient(145deg, hsl(var(--info) / 0.08), transparent 84%);
+}
+
+.dark .appointments-item--slot-just-published {
+  border-color: hsl(var(--primary) / 0.38);
+  box-shadow:
+    0 16px 30px hsl(224 48% 4% / 0.18),
+    inset 0 0 0 1px hsl(var(--primary) / 0.22),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
 }
 
 .dark .appointments-item__open.btn {

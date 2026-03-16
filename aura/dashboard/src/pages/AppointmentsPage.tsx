@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
 import { AlertBanner } from '../components/ui/AlertBanner';
@@ -16,6 +16,7 @@ import {
   usePatients,
 } from '../services/clinicianApi';
 import { readWorkspaceState, writeWorkspaceState } from '../services/workspaceState';
+import type { AppointmentSlot } from '../types/models';
 import { appointmentWorkflowLabel, appointmentWorkflowTone } from '../utils/patientDetail';
 import { createPatientEntryState } from '../utils/patientEntryContext';
 import { getPatientDisplayName } from '../utils/patientFilters';
@@ -40,6 +41,12 @@ interface CoverageState {
   note: string;
   publishNote: string;
   tone: CoordinationTone;
+}
+
+interface PublishOutcome {
+  slotId: string;
+  startsAt: string;
+  endsAt: string;
 }
 
 function toIsoDateTime(value: string): string {
@@ -265,6 +272,62 @@ function describeNextOpenSlot(slots: Array<{ startsAt: string; endsAt: string }>
   };
 }
 
+function matchPublishedOpenSlot(
+  createdSlot: AppointmentSlot,
+  openSlots: AppointmentSlot[],
+): AppointmentSlot | null {
+  const normalizedCreatedId = createdSlot.slotId?.trim();
+  if (normalizedCreatedId) {
+    const directMatch = openSlots.find((slot) => slot.slotId === normalizedCreatedId);
+    if (directMatch) {
+      return directMatch;
+    }
+  }
+
+  return (
+    openSlots.find(
+      (slot) =>
+        (slot.status ?? 'available') === 'available' &&
+        slot.startsAt === createdSlot.startsAt &&
+        slot.endsAt === createdSlot.endsAt,
+    ) ?? null
+  );
+}
+
+function describePublishCoverage(
+  pendingRequestsCount: number,
+  availableSlotsCount: number,
+): {
+  coverageText: string;
+  nextStepText: string;
+} {
+  if (pendingRequestsCount > availableSlotsCount) {
+    return {
+      coverageText: 'Open capacity is published, but some requests are still waiting without enough coverage.',
+      nextStepText: 'Review requests to confirm where more scheduling time is still needed.',
+    };
+  }
+
+  if (pendingRequestsCount > 0) {
+    return {
+      coverageText: 'Open capacity is published and current demand now appears covered.',
+      nextStepText: 'Review requests to confirm the next scheduling step.',
+    };
+  }
+
+  if (availableSlotsCount > 0) {
+    return {
+      coverageText: 'The queue is quiet and open capacity is now available if new demand arrives.',
+      nextStepText: 'Open capacity is ready while the request queue stays quiet.',
+    };
+  }
+
+  return {
+    coverageText: 'Availability is published in the current workspace.',
+    nextStepText: 'Review the queue to confirm the next scheduling step.',
+  };
+}
+
 function normalizeAppointmentsWorkspaceState(value: unknown): {
   requestStatus: RequestStatusFilter;
   slotStatus: SlotStatusFilter;
@@ -291,6 +354,7 @@ function normalizeAppointmentsWorkspaceState(value: unknown): {
 
 export function AppointmentsPage(): JSX.Element {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [slotStatus, setSlotStatus] = useState<SlotStatusFilter>(() =>
     readWorkspaceState(
       APPOINTMENTS_WORKSPACE_PAGE,
@@ -311,7 +375,8 @@ export function AppointmentsPage(): JSX.Element {
   const [isCreating, setIsCreating] = useState(false);
   const [reviewingKey, setReviewingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [reviewNoticeMessage, setReviewNoticeMessage] = useState<string | null>(null);
+  const [lastPublishOutcome, setLastPublishOutcome] = useState<PublishOutcome | null>(null);
 
   const patientsQuery = usePatients();
 
@@ -412,6 +477,18 @@ export function AppointmentsPage(): JSX.Element {
   const coverageState = describeCoverageState(pendingRequestsCount, availableSlotsCount);
   const nextOpenSlotSummary = describeNextOpenSlot(openSlots);
   const capacityNeedsPublishing = pendingRequestsCount > availableSlotsCount;
+  const publishOutcomeCopy = lastPublishOutcome
+    ? describePublishCoverage(pendingRequestsCount, availableSlotsCount)
+    : null;
+  const publishOutcomeSlotLabel = lastPublishOutcome
+    ? `${formatCalendarDay(lastPublishOutcome.startsAt)} · ${formatTimeRange(
+        lastPublishOutcome.startsAt,
+        lastPublishOutcome.endsAt,
+      )}`
+    : null;
+  const showViewOpenCapacityAction = lastPublishOutcome !== null && slotStatus !== 'available';
+  const showReviewRequestsAction =
+    lastPublishOutcome !== null && pendingRequestsCount > 0 && requestStatus !== 'pending';
   const requestCountLabel = `${pendingRequestsCount} request${pendingRequestsCount === 1 ? '' : 's'} waiting`;
   const openCapacityLabel = `${availableSlotsCount} open slot${availableSlotsCount === 1 ? '' : 's'}`;
   const capacityStatusLabel = coverageState.label;
@@ -481,37 +558,89 @@ export function AppointmentsPage(): JSX.Element {
         : 'Queue is quiet. New booking requests will appear here when clinician review is needed.'
       : 'Requests matching this review state will appear here when scheduling activity changes.';
 
-  async function handleRefreshWorkspace(): Promise<void> {
-    await Promise.all([
+  function handleRequestStatusChange(status: RequestStatusFilter): void {
+    setRequestStatus(status);
+    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
+      requestStatus: status,
+      slotStatus,
+    });
+  }
+
+  function handleSlotStatusChange(status: SlotStatusFilter): void {
+    setSlotStatus(status);
+    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
+      requestStatus,
+      slotStatus: status,
+    });
+  }
+
+  async function handleRefreshWorkspace() {
+    const [slotsResult, requestsResult, openSlotsResult, pendingRequestsResult, patientsResult] =
+      await Promise.all([
       slotsQuery.refetch(),
       requestsQuery.refetch(),
       openSlotsSummaryQuery.refetch(),
       pendingRequestsSummaryQuery.refetch(),
       patientsQuery.refetch(),
     ]);
+
+    return {
+      slotsResult,
+      requestsResult,
+      openSlotsResult,
+      pendingRequestsResult,
+      patientsResult,
+    };
   }
 
   async function handleCreateSlot(): Promise<void> {
     setErrorMessage(null);
-    setNoticeMessage(null);
+    setLastPublishOutcome(null);
     setIsCreating(true);
     try {
       const startsAt = toIsoDateTime(startsAtInput);
       const endsAt = toIsoDateTime(endsAtInput);
 
-      await createAppointmentSlot({
+      const createdSlot = await createAppointmentSlot({
         startsAt,
         endsAt,
         meetingLink: meetingLinkInput.trim() || undefined,
       });
 
-      setNoticeMessage('Availability published.');
       setStartsAtInput('');
       setEndsAtInput('');
       setMeetingLinkInput('');
-      await handleRefreshWorkspace();
+      const refreshResults = await handleRefreshWorkspace();
+      const openSlotsData = refreshResults.openSlotsResult.data;
+      const pendingRequestsData = refreshResults.pendingRequestsResult.data;
+      const canConfirmOutcome =
+        !refreshResults.pendingRequestsResult.error &&
+        Array.isArray(pendingRequestsData);
+
+      if (canConfirmOutcome) {
+        let refreshedOpenSlots = Array.isArray(openSlotsData) ? openSlotsData : null;
+        let matchedSlot = refreshedOpenSlots
+          ? matchPublishedOpenSlot(createdSlot, refreshedOpenSlots)
+          : null;
+
+        if (!matchedSlot) {
+          refreshedOpenSlots = await listAppointmentSlots({ status: 'available', limit: 100 });
+          matchedSlot = matchPublishedOpenSlot(createdSlot, refreshedOpenSlots);
+        }
+
+        if (matchedSlot) {
+          queryClient.setQueryData(['appointments-slots-summary', 'available'], refreshedOpenSlots);
+          queryClient.setQueryData(['appointments-slots', 'available'], refreshedOpenSlots);
+          setLastPublishOutcome({
+            slotId: matchedSlot.slotId,
+            startsAt: matchedSlot.startsAt,
+            endsAt: matchedSlot.endsAt,
+          });
+        }
+      }
     } catch (error) {
       setErrorMessage(toUserMessage(asAppError(error)));
+      setLastPublishOutcome(null);
     } finally {
       setIsCreating(false);
     }
@@ -519,11 +648,11 @@ export function AppointmentsPage(): JSX.Element {
 
   async function handleReview(requestId: string, status: 'approved' | 'rejected'): Promise<void> {
     setErrorMessage(null);
-    setNoticeMessage(null);
+    setReviewNoticeMessage(null);
     setReviewingKey(`${requestId}:${status}`);
     try {
       await reviewAppointmentRequest(requestId, status);
-      setNoticeMessage(status === 'approved' ? 'Request approved.' : 'Request rejected.');
+      setReviewNoticeMessage(status === 'approved' ? 'Request approved.' : 'Request rejected.');
       await handleRefreshWorkspace();
     } catch (error) {
       setErrorMessage(toUserMessage(asAppError(error)));
@@ -602,9 +731,9 @@ export function AppointmentsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      {noticeMessage ? (
+      {reviewNoticeMessage ? (
         <AlertBanner variant="success" title="Updated">
-          {noticeMessage}
+          {reviewNoticeMessage}
         </AlertBanner>
       ) : null}
 
@@ -666,6 +795,62 @@ export function AppointmentsPage(): JSX.Element {
             Start with request review, use open capacity to judge whether demand is covered, then
             publish new availability only if the waiting queue still needs clinician time.
           </p>
+          {lastPublishOutcome && publishOutcomeCopy ? (
+            <section
+              className={`appointments-publish-outcome appointments-publish-outcome--${coverageState.tone}`}
+              aria-label="Latest publish outcome"
+              aria-live="polite"
+            >
+              <div className="appointments-publish-outcome__copy">
+                <p className="appointments-publish-outcome__eyebrow">Latest publish</p>
+                <div className="appointments-publish-outcome__heading-row">
+                  <h3 className="appointments-publish-outcome__title">Availability published</h3>
+                  <span
+                    className={`appointments-publish-outcome__status appointments-publish-outcome__status--${coverageState.tone}`}
+                  >
+                    {coverageState.label}
+                  </span>
+                </div>
+                <p className="appointments-publish-outcome__text">
+                  {publishOutcomeSlotLabel
+                    ? `${publishOutcomeSlotLabel} is now open in this workspace.`
+                    : 'New open capacity is now available in this workspace.'}
+                </p>
+                <p className="appointments-publish-outcome__text appointments-publish-outcome__text--status">
+                  {publishOutcomeCopy.coverageText}
+                </p>
+                <p className="appointments-publish-outcome__next-step">
+                  {publishOutcomeCopy.nextStepText}
+                </p>
+              </div>
+              {showViewOpenCapacityAction || showReviewRequestsAction ? (
+                <div className="appointments-publish-outcome__actions">
+                  {showViewOpenCapacityAction ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        handleSlotStatusChange('available');
+                      }}
+                    >
+                      View open capacity
+                    </Button>
+                  ) : null}
+                  {showReviewRequestsAction ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        handleRequestStatusChange('pending');
+                      }}
+                    >
+                      Review requests
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           <div className="appointments-workspace__panels">
             <section
               className={`appointments-workspace__section appointments-workspace__section--requests${
@@ -689,11 +874,7 @@ export function AppointmentsPage(): JSX.Element {
                     variant={requestStatus === status ? 'primary' : 'secondary'}
                     size="sm"
                     onClick={() => {
-                      setRequestStatus(status);
-                      writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
-                        requestStatus: status,
-                        slotStatus,
-                      });
+                      handleRequestStatusChange(status);
                     }}
                   >
                     {status}
@@ -879,11 +1060,7 @@ export function AppointmentsPage(): JSX.Element {
                   variant={slotStatus === 'available' ? 'primary' : 'secondary'}
                   size="sm"
                   onClick={() => {
-                    setSlotStatus('available');
-                    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
-                      requestStatus,
-                      slotStatus: 'available',
-                    });
+                    handleSlotStatusChange('available');
                   }}
                 >
                   Open capacity
@@ -892,11 +1069,7 @@ export function AppointmentsPage(): JSX.Element {
                   variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
                   size="sm"
                   onClick={() => {
-                    setSlotStatus('closed');
-                    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
-                      requestStatus,
-                      slotStatus: 'closed',
-                    });
+                    handleSlotStatusChange('closed');
                   }}
                 >
                   Closed capacity
@@ -954,6 +1127,10 @@ export function AppointmentsPage(): JSX.Element {
                           resolvedStatus === 'available'
                             ? ' appointments-item--slot-available'
                             : ' appointments-item--slot-closed'
+                        }${
+                          slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
+                            ? ' appointments-item--slot-just-published'
+                            : ''
                         }`}
                       >
                         <div className="appointments-item__header">

@@ -1,16 +1,22 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppointmentsPage } from './AppointmentsPage';
 
+interface PublishBehavior {
+  kind?: 'success' | 'error' | 'unconfirmed';
+  errorMessage?: string;
+}
+
 interface RenderOptions {
   requests?: Array<Record<string, unknown>>;
   slots?: Array<Record<string, unknown>>;
   patients?: Array<Record<string, unknown>>;
+  publishBehaviors?: PublishBehavior[];
 }
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
@@ -50,19 +56,72 @@ function installMatchMediaMock(): void {
   });
 }
 
-function installFetchMock({ requests = [], slots = [], patients = [] }: RenderOptions): void {
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-    const url = String(input);
+function installFetchMock({
+  requests = [],
+  slots = [],
+  patients = [],
+  publishBehaviors = [],
+}: RenderOptions): void {
+  const requestItems = [...requests];
+  let slotItems = [...slots];
+  const queuedPublishBehaviors = [...publishBehaviors];
 
-    if (url.includes('/clinician/appointments/requests')) {
-      return createJsonResponse({ ok: true, items: requests });
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const href = String(input);
+    const url = new URL(href, 'http://localhost');
+    const method = String(init?.method ?? 'GET').toUpperCase();
+
+    if (href.includes('/clinician/appointments/requests')) {
+      const status = url.searchParams.get('status');
+      const filteredItems = status
+        ? requestItems.filter((item) => String(item.status ?? '') === status)
+        : requestItems;
+
+      return createJsonResponse({ ok: true, items: filteredItems });
     }
 
-    if (url.includes('/clinician/appointments/slots')) {
-      return createJsonResponse({ ok: true, items: slots });
+    if (href.includes('/clinician/appointments/slots') && method === 'POST') {
+      const behavior = queuedPublishBehaviors.shift() ?? { kind: 'success' };
+
+      if (behavior.kind === 'error') {
+        return createJsonResponse({ ok: false, message: behavior.errorMessage ?? 'Publish failed' }, 500);
+      }
+
+      const payload =
+        typeof init?.body === 'string' && init.body.length > 0
+          ? (JSON.parse(init.body) as Record<string, unknown>)
+          : {};
+      const createdSlot = {
+        slotId: `slot-created-${slotItems.length + 1}`,
+        clinicianName: 'Dr. Rivera',
+        startsAt: String(payload.startsAt ?? ''),
+        endsAt: String(payload.endsAt ?? ''),
+        modality: 'video',
+        meetingLink:
+          typeof payload.meetingLink === 'string' && payload.meetingLink.trim().length > 0
+            ? payload.meetingLink
+            : undefined,
+        status: 'available',
+        createdAt: '2026-03-16T12:05:00.000Z',
+      };
+
+      if (behavior.kind !== 'unconfirmed') {
+        slotItems = [createdSlot, ...slotItems];
+      }
+
+      return createJsonResponse({ ok: true, slot: createdSlot });
     }
 
-    if (url.includes('/clinician/patients')) {
+    if (href.includes('/clinician/appointments/slots')) {
+      const status = url.searchParams.get('status');
+      const filteredItems = status
+        ? slotItems.filter((item) => String(item.status ?? 'available') === status)
+        : slotItems;
+
+      return createJsonResponse({ ok: true, items: filteredItems });
+    }
+
+    if (href.includes('/clinician/patients')) {
       return createJsonResponse({ ok: true, patients });
     }
 
@@ -83,6 +142,33 @@ function renderAppointmentsPage(options: RenderOptions = {}): void {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+function fillAndPublishAvailability(options: {
+  startsAt: string;
+  endsAt: string;
+  meetingLink?: string;
+}): void {
+  const startsAtInput = screen.getByLabelText('Start (local datetime)') as HTMLInputElement;
+  const endsAtInput = screen.getByLabelText('End (local datetime)') as HTMLInputElement;
+  const meetingLinkInput = screen.getByLabelText('Meeting link (optional)') as HTMLInputElement;
+
+  fireEvent.input(startsAtInput, {
+    target: { value: options.startsAt },
+  });
+  fireEvent.input(endsAtInput, {
+    target: { value: options.endsAt },
+  });
+  fireEvent.change(meetingLinkInput, {
+    target: { value: options.meetingLink ?? '' },
+  });
+
+  expect(startsAtInput.value).toBe(options.startsAt);
+  expect(endsAtInput.value).toBe(options.endsAt);
+
+  const publishButton = screen.getByRole('button', { name: 'Publish availability' });
+  expect(publishButton).not.toBeDisabled();
+  fireEvent.click(publishButton);
 }
 
 beforeEach(() => {
@@ -265,5 +351,192 @@ describe('AppointmentsPage', () => {
     expect(
       screen.getByText('Published slots become immediately visible to the booking queue after creation.'),
     ).toBeInTheDocument();
+  });
+
+  it('shows publish outcome continuity without auto-switching views and keeps follow-through actions explicit', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-10',
+          slotId: 'slot-10',
+          patientId: 'patient-10',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-17T09:00:00.000Z',
+          endsAt: '2026-03-17T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T08:00:00.000Z',
+        },
+        {
+          requestId: 'req-11',
+          slotId: 'slot-11',
+          patientId: 'patient-11',
+          status: 'pending',
+          workflowStatus: 'reschedule_requested',
+          startsAt: '2026-03-17T11:00:00.000Z',
+          endsAt: '2026-03-17T11:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T09:00:00.000Z',
+        },
+      ],
+      slots: [
+        {
+          slotId: 'slot-closed-1',
+          clinicianName: 'Dr. Hall',
+          startsAt: '2026-03-18T15:00:00.000Z',
+          endsAt: '2026-03-18T15:30:00.000Z',
+          modality: 'video',
+          status: 'closed',
+          createdAt: '2026-03-14T10:30:00.000Z',
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /approved/i }));
+    expect(await screen.findByText('No approved requests')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Closed capacity' }));
+
+    fillAndPublishAvailability({
+      startsAt: '2026-03-19T09:00',
+      endsAt: '2026-03-19T09:30',
+      meetingLink: 'https://visit.example/published-1',
+    });
+
+    expect(await screen.findByText('Availability published')).toBeInTheDocument();
+    expect(
+      screen.getByText('Open capacity is published, but some requests are still waiting without enough coverage.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View open capacity' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review requests' })).toBeInTheDocument();
+    expect(screen.getByText('No approved requests')).toBeInTheDocument();
+    expect(screen.queryByText('https://visit.example/published-1')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review requests' }));
+    expect(await screen.findByText('Patient ID patient-10')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'View open capacity' }));
+    await waitFor(() => {
+      expect(document.querySelectorAll('.appointments-item--slot-just-published')).toHaveLength(1);
+    });
+    const publishedSlot = document.querySelector('.appointments-item--slot-just-published');
+    expect(publishedSlot).not.toBeNull();
+    expect(publishedSlot).toHaveTextContent('9:00 AM to 9:30 AM');
+  });
+
+  it('explains when the new publish now appears to cover current demand and marks only the latest slot', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-20',
+          slotId: 'slot-20',
+          patientId: 'patient-20',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-17T09:00:00.000Z',
+          endsAt: '2026-03-17T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T08:00:00.000Z',
+        },
+      ],
+      slots: [
+        {
+          slotId: 'slot-open-1',
+          clinicianName: 'Dr. Hall',
+          startsAt: '2026-03-18T14:00:00.000Z',
+          endsAt: '2026-03-18T14:30:00.000Z',
+          modality: 'video',
+          meetingLink: 'https://visit.example/existing',
+          status: 'available',
+          createdAt: '2026-03-14T10:30:00.000Z',
+        },
+      ],
+    });
+
+    fillAndPublishAvailability({
+      startsAt: '2026-03-19T10:00',
+      endsAt: '2026-03-19T10:30',
+      meetingLink: 'https://visit.example/published-2',
+    });
+
+    expect(await screen.findByText('Availability published')).toBeInTheDocument();
+    expect(
+      screen.getByText('Open capacity is published and current demand now appears covered.'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(document.querySelectorAll('.appointments-item--slot-just-published')).toHaveLength(1);
+    });
+    const latestSlot = document.querySelector('.appointments-item--slot-just-published');
+    const existingLink = screen.getByText('https://visit.example/existing');
+    expect(latestSlot).not.toBeNull();
+    expect(latestSlot).toHaveTextContent('10:00 AM to 10:30 AM');
+    expect(existingLink.closest('.appointments-item--slot')).not.toHaveClass(
+      'appointments-item--slot-just-published',
+    );
+  });
+
+  it('explains when published capacity lands into a quiet queue', async () => {
+    renderAppointmentsPage({
+      requests: [],
+      slots: [],
+      patients: [],
+    });
+
+    fillAndPublishAvailability({
+      startsAt: '2026-03-19T11:00',
+      endsAt: '2026-03-19T11:30',
+      meetingLink: 'https://visit.example/published-quiet',
+    });
+
+    expect(await screen.findByText('Availability published')).toBeInTheDocument();
+    expect(
+      screen.getByText('The queue is quiet and open capacity is now available if new demand arrives.'),
+    ).toBeInTheDocument();
+  });
+
+  it('clears stale publish outcome state after a failed publish attempt', async () => {
+    renderAppointmentsPage({
+      requests: [],
+      slots: [],
+      publishBehaviors: [{ kind: 'success' }, { kind: 'error', errorMessage: 'Publish failed' }],
+    });
+
+    fillAndPublishAvailability({
+      startsAt: '2026-03-19T12:00',
+      endsAt: '2026-03-19T12:30',
+      meetingLink: 'https://visit.example/published-success',
+    });
+
+    expect(await screen.findByText('Availability published')).toBeInTheDocument();
+
+    fillAndPublishAvailability({
+      startsAt: '2026-03-19T13:00',
+      endsAt: '2026-03-19T13:30',
+      meetingLink: 'https://visit.example/published-error',
+    });
+
+    expect(await screen.findByText('Could not complete action')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Availability published')).not.toBeInTheDocument();
+    });
+  });
+
+  it('suppresses the publish outcome when refreshed open capacity cannot confirm the destination slot', async () => {
+    renderAppointmentsPage({
+      requests: [],
+      slots: [],
+      publishBehaviors: [{ kind: 'unconfirmed' }],
+    });
+
+    fillAndPublishAvailability({
+      startsAt: '2026-03-19T14:00',
+      endsAt: '2026-03-19T14:30',
+      meetingLink: 'https://visit.example/unconfirmed',
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Availability published')).not.toBeInTheDocument();
+    });
   });
 });

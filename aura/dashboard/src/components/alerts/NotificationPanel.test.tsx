@@ -44,7 +44,7 @@ describe('NotificationPanel', () => {
     );
 
     expect(screen.getByText('Notification')).toBeInTheDocument();
-    expect(screen.getByText('Notif failed')).toBeInTheDocument();
+    expect(screen.getByText('Delivery failed')).toBeInTheDocument();
     expect(screen.getByText('Telegram')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry notification' })).toBeDisabled();
 
@@ -59,7 +59,7 @@ describe('NotificationPanel', () => {
   it('shows unknown tracking helper and no retry action for unknown', () => {
     render(<NotificationPanel alert={{ ...baseAlert, notificationStatus: 'unknown' }} onRetry={vi.fn()} />);
 
-    expect(screen.getByText('Notif unknown')).toBeInTheDocument();
+    expect(screen.getByText('Delivery status unknown')).toBeInTheDocument();
     expect(screen.getByText('Notification delivery not yet tracked. Add notificationStatus to backend alerts.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry notification' })).not.toBeInTheDocument();
   });

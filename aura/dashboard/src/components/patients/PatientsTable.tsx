@@ -30,6 +30,18 @@ function formatOpenAlertsText(count: number): string {
   return count === 0 ? 'No active alerts' : `${count} active alert${count === 1 ? '' : 's'}`;
 }
 
+function alertBurdenTone(count: number): 'clear' | 'elevated' | 'high' {
+  if (count >= 3) {
+    return 'high';
+  }
+
+  if (count > 0) {
+    return 'elevated';
+  }
+
+  return 'clear';
+}
+
 function moveFocusToRow(
   event: KeyboardEvent<HTMLTableRowElement>,
   direction: 'next' | 'prev',
@@ -80,6 +92,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
             const missedCheckin = isMissedCheckin(patient);
             const openAlertCount = patient.openAlertCount ?? 0;
             const hasOpenAlertCount = hasOpenAlerts(patient);
+            const alertsTone = alertBurdenTone(openAlertCount);
             const rosterReason = getPatientRosterReason(patient);
             const painSeverity =
               typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
@@ -169,7 +182,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                 <td className="patients-table__cell patients-table__cell--alerts">
                   <div className="patients-table__metric patients-table__metric--alerts">
                     <Badge
-                      className={`patients-table__alerts-badge${hasOpenAlertCount ? ' patients-table__alerts-badge--active' : ''}`}
+                      className={`patients-table__alerts-badge${hasOpenAlertCount ? ' patients-table__alerts-badge--active' : ''} patients-table__alerts-badge--${alertsTone}`}
                       variant={hasOpenAlertCount ? 'danger' : 'default'}
                     >
                       {hasOpenAlertCount ? `${openAlertCount} open` : 'Clear'}

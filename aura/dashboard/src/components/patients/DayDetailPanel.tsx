@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 import type { AlertItem, TrendPointNormalized } from '../../types/models';
+import { alertSourceLabel, alertStatusLabel, shortReferenceLabel } from '../../utils/notification';
 import { formatDateKey, formatMedication, formatMoodValue, formatPainValue, formatPercent } from '../../utils/format';
 import { trendPointHasAnyData } from '../../utils/trends';
 import { Badge } from '../ui/Badge';
@@ -150,18 +151,18 @@ export function DayDetailPanel({
                   <li key={alert._id} className="day-detail-alert-list__item">
                     <div className="day-detail-alert-list__body">
                       <p>
-                        <strong className="day-detail-alert-list__id">{alert._id}</strong>
+                        <strong className="day-detail-alert-list__id">{shortReferenceLabel(alert._id) ?? alert._id}</strong>
                       </p>
                       <p className="muted-text day-detail-alert-list__reason">{reasonText(alert.reason)}</p>
                       <p className="muted-text day-detail-alert-list__meta">
-                        {alert.source.type} · {new Date(alert.createdAt).toLocaleTimeString([], {
+                        {alertSourceLabel(alert.source.type)} · {new Date(alert.createdAt).toLocaleTimeString([], {
                           hour: 'numeric',
                           minute: '2-digit',
                         })}
                       </p>
                     </div>
                     <Badge className="day-detail-alert-list__status" variant={statusBadgeVariant(alert.status)} icon>
-                      {alert.status}
+                      {alertStatusLabel(alert.status)}
                     </Badge>
                   </li>
                 ))}

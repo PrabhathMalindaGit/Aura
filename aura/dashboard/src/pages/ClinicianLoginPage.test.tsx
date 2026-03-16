@@ -31,6 +31,24 @@ describe('ClinicianLoginPage', () => {
     expect(screen.getByText('Your clinician session expired. Sign in again to continue.')).toBeInTheDocument();
   });
 
+  it('supports password visibility and inline recovery guidance without exposing debug text', async () => {
+    renderPage();
+
+    const passwordInput = screen.getByLabelText('Password');
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(screen.queryByText(/Backend login endpoint/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'text');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }));
+    expect(
+      await screen.findByText(
+        "Password recovery is handled outside this dashboard right now. Use your clinic administrator's recovery process before trying again.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('signs in and routes to alerts on valid credentials', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(

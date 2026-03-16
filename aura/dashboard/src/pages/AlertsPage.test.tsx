@@ -737,7 +737,7 @@ describe('AlertsPage queue flow', () => {
     });
   });
 
-  it('queue row shows "Notif failed" with retry control when notification failed', async () => {
+  it('queue row shows "Delivery failed" with retry control when notification failed', async () => {
     const failedNotificationAlert: AlertItem = {
       ...baseAlert,
       _id: 'alt-notif-failed',
@@ -760,7 +760,7 @@ describe('AlertsPage queue flow', () => {
     const rowLabel = `Alert ${failedNotificationAlert._id} for patient ${failedNotificationAlert.patientId}`;
     const row = await screen.findByLabelText(rowLabel);
 
-    expect(within(row).getByText('Notif failed')).toBeInTheDocument();
+    expect(within(row).getByText('Delivery failed')).toBeInTheDocument();
     expect(
       within(row).getByRole('button', {
         name: `Retry notification for alert ${failedNotificationAlert._id}`,
@@ -768,7 +768,7 @@ describe('AlertsPage queue flow', () => {
     ).toBeDisabled();
   });
 
-  it('queue row shows "Notif unknown" and no retry control when notification state is unknown', async () => {
+  it('queue row shows "Delivery status unknown" and no retry control when notification state is unknown', async () => {
     const unknownNotificationAlert: AlertItem = {
       ...baseAlert,
       _id: 'alt-notif-unknown',
@@ -789,7 +789,7 @@ describe('AlertsPage queue flow', () => {
     const rowLabel = `Alert ${unknownNotificationAlert._id} for patient ${unknownNotificationAlert.patientId}`;
     const row = await screen.findByLabelText(rowLabel);
 
-    expect(within(row).getByText('Notif unknown')).toBeInTheDocument();
+    expect(within(row).getByText('Delivery status unknown')).toBeInTheDocument();
     expect(
       within(row).queryByRole('button', {
         name: `Retry notification for alert ${unknownNotificationAlert._id}`,

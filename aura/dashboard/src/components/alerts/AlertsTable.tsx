@@ -5,7 +5,10 @@ import { isAlertUnseenForUi } from '../../utils/seen';
 import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import {
   NOTIFICATION_RETRY_ENABLED,
+  alertSourceLabel,
+  alertStatusLabel,
   resolveNotificationStatus,
+  shortReferenceLabel,
   shouldShowNotificationRetry,
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
@@ -77,7 +80,7 @@ function notificationSupportLabel(status: AlertItem['notificationStatus']): stri
   const normalized = resolveNotificationStatus(status);
 
   if (normalized === 'sent') {
-    return 'Callback recorded';
+    return 'Delivery recorded';
   }
 
   if (normalized === 'failed') {
@@ -88,7 +91,7 @@ function notificationSupportLabel(status: AlertItem['notificationStatus']): stri
     return 'Delivery skipped';
   }
 
-  return 'Awaiting delivery signal';
+  return 'Delivery state not yet reported';
 }
 
 function moveFocusToRow(
@@ -164,6 +167,8 @@ export function AlertsTable({
             const assignedToOther = Boolean(alert.assignedTo && alert.assignedTo !== clinicianId);
             const effectiveRisk = getEffectiveRisk(alert);
             const showRetry = shouldShowNotificationRetry(alert.notificationStatus);
+            const alertReference = shortReferenceLabel(alert._id);
+            const sourceReference = shortReferenceLabel(alert.source.sourceId, 'Source ref');
 
             return (
               <tr
@@ -225,7 +230,7 @@ export function AlertsTable({
                 <td className="alerts-table__cell alerts-table__cell--patient">
                   <div className="alerts-patient-cell">
                     <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
-                    <span className="alerts-patient-cell__meta">Alert {alert._id}</span>
+                    <span className="alerts-patient-cell__meta">{alertReference ?? alert._id}</span>
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--reason" title={reasonText}>
@@ -236,8 +241,10 @@ export function AlertsTable({
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--source">
                   <div className="alerts-source-cell">
-                    <span className="alerts-source-pill alerts-source-pill--row">{alert.source.type}</span>
-                    <span className="alerts-source-cell__id">{alert.source.sourceId}</span>
+                    <span className="alerts-source-pill alerts-source-pill--row">
+                      {alertSourceLabel(alert.source.type)}
+                    </span>
+                    {sourceReference ? <span className="alerts-source-cell__id">{sourceReference}</span> : null}
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--risk">
@@ -251,7 +258,7 @@ export function AlertsTable({
                 <td className="alerts-table__cell alerts-table__cell--status">
                   <div className="alerts-status-cell">
                     <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                      {alert.status}
+                      {alertStatusLabel(alert.status)}
                     </Badge>
                     <span className="alerts-status-cell__meta">{statusSupportLabel(alert.status)}</span>
                   </div>
@@ -325,7 +332,7 @@ export function AlertsTable({
                       </Button>
                       <Button
                         className="alerts-actions__resolve"
-                        variant="danger"
+                        variant="secondary"
                         disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
                         onClick={(event) => {
                           event.stopPropagation();

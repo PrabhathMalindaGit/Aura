@@ -17,7 +17,12 @@ import { RiskOverrideForm } from './RiskOverrideForm';
 import { TriggeringEventPanel } from './TriggeringEventPanel';
 import { asAppError, toUserMessage } from '../../utils/errors';
 import { formatRiskLabel } from '../../utils/risk';
-import { NOTIFICATION_RETRY_ENABLED } from '../../utils/notification';
+import {
+  NOTIFICATION_RETRY_ENABLED,
+  alertSourceLabel,
+  alertStatusLabel,
+  shortReferenceLabel,
+} from '../../utils/notification';
 import { truncateText } from '../../utils/text';
 
 interface AlertDetailDrawerProps {
@@ -258,7 +263,7 @@ export function AlertDetailDrawer({
               <div className="drawer-meta__badges">
                 <span className="drawer-meta__patient">Patient {effectiveAlert.patientId}</span>
                 <Badge variant={statusBadgeVariant(effectiveAlert.status)} icon>
-                  {effectiveAlert.status}
+                  {alertStatusLabel(effectiveAlert.status)}
                 </Badge>
                 <Badge variant={seen ? 'success' : 'new'} icon>
                   {seen ? 'Seen' : 'Unseen'}
@@ -266,7 +271,8 @@ export function AlertDetailDrawer({
                 <AssignmentChip alert={effectiveAlert} clinicianId={clinicianId} />
               </div>
               <p id={DRAWER_DESCRIPTION_ID} className="muted-text">
-                Alert {effectiveAlert._id}. Source {effectiveAlert.source.type}.
+                {shortReferenceLabel(effectiveAlert._id) ?? effectiveAlert._id}. Source{' '}
+                {alertSourceLabel(effectiveAlert.source.type)}.
               </p>
             </section>
 
@@ -360,7 +366,10 @@ export function AlertDetailDrawer({
                 <div>
                   <dt>Source</dt>
                   <dd>
-                    {effectiveAlert.source.type} ({effectiveAlert.source.sourceId})
+                    {alertSourceLabel(effectiveAlert.source.type)}
+                    {effectiveAlert.source.sourceId
+                      ? ` (${shortReferenceLabel(effectiveAlert.source.sourceId, 'Source ref')})`
+                      : ''}
                   </dd>
                 </div>
                 <div>

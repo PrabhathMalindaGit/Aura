@@ -46,6 +46,18 @@ function actionLabel(item: DashboardPriorityQueueItem): string {
   return 'Open patient';
 }
 
+function actionClassName(item: DashboardPriorityQueueItem): string {
+  if (item.itemType === 'alert') {
+    return 'dashboard-list-item__action-btn dashboard-list-item__action-btn--alert';
+  }
+
+  if (item.itemType === 'appointment_exception') {
+    return 'dashboard-list-item__action-btn dashboard-list-item__action-btn--appointment';
+  }
+
+  return 'dashboard-list-item__action-btn dashboard-list-item__action-btn--patient';
+}
+
 function queueKindLabel(itemType: DashboardPriorityQueueItem['itemType']): string {
   switch (itemType) {
     case 'alert':
@@ -200,7 +212,12 @@ export function PriorityQueueModule({
                       <span>{item.dueAt ? `Due ${formatDashboardDateTime(item.dueAt)}` : `Opened ${formatDashboardDateTime(item.createdAt)}`}</span>
                     </div>
                     <div className="dashboard-list-item__action dashboard-list-item__action--priority">
-                      <Button variant="secondary" size="sm" onClick={() => onOpenItem(item)}>
+                      <Button
+                        className={actionClassName(item)}
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onOpenItem(item)}
+                      >
                         {actionLabel(item)}
                       </Button>
                     </div>

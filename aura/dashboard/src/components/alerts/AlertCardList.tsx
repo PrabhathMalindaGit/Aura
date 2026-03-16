@@ -5,7 +5,10 @@ import { isAlertUnseenForUi } from '../../utils/seen';
 import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import {
   NOTIFICATION_RETRY_ENABLED,
+  alertSourceLabel,
+  alertStatusLabel,
   resolveNotificationStatus,
+  shortReferenceLabel,
   shouldShowNotificationRetry,
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
@@ -54,7 +57,7 @@ function notificationSupportLabel(status: AlertItem['notificationStatus']): stri
   const normalized = resolveNotificationStatus(status);
 
   if (normalized === 'sent') {
-    return 'Callback recorded';
+    return 'Delivery recorded';
   }
 
   if (normalized === 'failed') {
@@ -65,7 +68,7 @@ function notificationSupportLabel(status: AlertItem['notificationStatus']): stri
     return 'Delivery skipped';
   }
 
-  return 'Awaiting delivery signal';
+  return 'Delivery state not yet reported';
 }
 
 export function AlertCardList({
@@ -93,6 +96,8 @@ export function AlertCardList({
         const showRetry = shouldShowNotificationRetry(alert.notificationStatus);
         const isReasonExpanded = Boolean(expandedReasonByAlertId[alert._id]);
         const showReasonToggle = reasonText.length > 120;
+        const alertReference = shortReferenceLabel(alert._id);
+        const sourceReference = shortReferenceLabel(alert.source.sourceId, 'Source ref');
 
         return (
           <Card
@@ -113,7 +118,7 @@ export function AlertCardList({
                   <strong className="alerts-card-list__patient patient-id-text">
                     Patient {alert.patientId}
                   </strong>
-                  <span className="muted-text alerts-card-list__meta-line">Alert {alert._id}</span>
+                  <span className="muted-text alerts-card-list__meta-line">{alertReference ?? alert._id}</span>
                   <span className="muted-text alerts-card-list__meta-line">
                     Created{' '}
                     <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
@@ -130,7 +135,7 @@ export function AlertCardList({
                     <span className="alerts-seen alerts-seen--quiet">Seen</span>
                   )}
                   <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                    {alert.status}
+                    {alertStatusLabel(alert.status)}
                   </Badge>
                 </div>
               </div>
@@ -168,8 +173,10 @@ export function AlertCardList({
                     <AssignmentChip alert={alert} clinicianId={clinicianId} />
                   </div>
                   <div className="alerts-card-list__meta-secondary">
-                    <span className="alerts-source-pill alerts-source-pill--row">{alert.source.type}</span>
-                    <span className="alerts-card-list__source-id">{alert.source.sourceId}</span>
+                    <span className="alerts-source-pill alerts-source-pill--row">
+                      {alertSourceLabel(alert.source.type)}
+                    </span>
+                    {sourceReference ? <span className="alerts-card-list__source-id">{sourceReference}</span> : null}
                   </div>
                 </div>
 
@@ -223,7 +230,7 @@ export function AlertCardList({
                   </Button>
                   <Button
                     className="alerts-actions__resolve"
-                    variant="danger"
+                    variant="secondary"
                     disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
                     onClick={() => onResolve(alert)}
                     fullWidth

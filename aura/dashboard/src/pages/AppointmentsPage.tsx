@@ -826,7 +826,7 @@ export function AppointmentsPage(): JSX.Element {
       >
         <div className="appointments-composer">
           <div className="appointments-composer__context">
-            <span className="appointments-composer__context-pill">Secondary publishing panel</span>
+            <span className="appointments-composer__context-pill">Publish after queue review</span>
             <p className="appointments-composer__context-note">{composerGuidance}</p>
           </div>
           <p className="appointments-composer__intro">
@@ -885,6 +885,7 @@ export function AppointmentsPage(): JSX.Element {
               </p>
             </div>
             <Button
+              className="appointments-composer__publish"
               variant="primary"
               disabled={!canCreate}
               onClick={() => {

@@ -88,6 +88,18 @@ function describeQueueState(pendingCount: number, hasError: boolean): QueueState
   };
 }
 
+function insightPriorityTone(priority: number): 'high' | 'medium' | 'low' {
+  if (priority >= 3) {
+    return 'high';
+  }
+
+  if (priority === 2) {
+    return 'medium';
+  }
+
+  return 'low';
+}
+
 export function InsightsQueuePage(): JSX.Element {
   const navigate = useNavigate();
   const [isSubmittingId, setIsSubmittingId] = useState<string | null>(null);
@@ -371,9 +383,13 @@ export function InsightsQueuePage(): JSX.Element {
                 item.patientDisplayName?.trim() ||
                 patientNameById.get(item.patientId) ||
                 item.patientId;
+              const priorityTone = insightPriorityTone(item.priority);
 
               return (
-                <div key={item.id} className="insights-queue__item">
+                <div
+                  key={item.id}
+                  className={`insights-queue__item insights-queue__item--${priorityTone}`}
+                >
                   <div className="insights-queue__item-head">
                     <div className="insights-queue__item-main">
                       <p className="insights-queue__eyebrow">Guidance suggestion</p>
@@ -442,6 +458,14 @@ export function InsightsQueuePage(): JSX.Element {
                         {isSubmittingId === `${item.id}:approved` ? 'Approving…' : 'Approve for workflow'}
                       </Button>
                       <Button
+                        className="insights-queue__action insights-queue__action--open"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
+                      >
+                        Open patient
+                      </Button>
+                      <Button
                         className="insights-queue__action insights-queue__action--reject"
                         variant="ghost"
                         size="sm"
@@ -451,14 +475,6 @@ export function InsightsQueuePage(): JSX.Element {
                         }}
                       >
                         {isSubmittingId === `${item.id}:rejected` ? 'Rejecting…' : 'Reject suggestion'}
-                      </Button>
-                      <Button
-                        className="insights-queue__action insights-queue__action--open"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
-                      >
-                        Open patient
                       </Button>
                     </div>
                   </div>

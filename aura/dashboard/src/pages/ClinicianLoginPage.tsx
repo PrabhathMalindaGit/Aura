@@ -73,6 +73,8 @@ export function ClinicianLoginPage(): JSX.Element {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [forgotPasswordHelpOpen, setForgotPasswordHelpOpen] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -189,18 +191,46 @@ export function ClinicianLoginPage(): JSX.Element {
                 />
               </label>
 
-              <label className="login-field" htmlFor="login-password">
-                <span>Password</span>
+              <div className="login-field login-field--password">
+                <div className="login-field__header">
+                  <label htmlFor="login-password">Password</label>
+                  <button
+                    type="button"
+                    className="login-field__toggle"
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-controls="login-password"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 <input
                   id="login-password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   autoComplete="current-password"
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
                   required
                 />
-              </label>
+              </div>
+
+              <div className="login-form__support">
+                <button
+                  type="button"
+                  className="login-form__link"
+                  aria-expanded={forgotPasswordHelpOpen}
+                  onClick={() => setForgotPasswordHelpOpen((current) => !current)}
+                >
+                  Forgot password?
+                </button>
+                {forgotPasswordHelpOpen ? (
+                  <p className="login-form__help" role="note">
+                    Password recovery is handled outside this dashboard right now. Use your clinic
+                    administrator&apos;s recovery process before trying again.
+                  </p>
+                ) : null}
+              </div>
 
               <div className="inline-actions login-actions">
                 <Button type="submit" disabled={isSubmitting}>
@@ -218,10 +248,6 @@ export function ClinicianLoginPage(): JSX.Element {
                 </Button>
               </div>
             </form>
-
-            <p className="muted-text login-support-note">
-              Backend login endpoint: POST /auth/clinician/login
-            </p>
           </div>
         </Card>
       </div>

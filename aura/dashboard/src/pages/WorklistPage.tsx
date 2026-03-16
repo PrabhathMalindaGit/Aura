@@ -140,7 +140,11 @@ export function WorklistPage(): JSX.Element {
           <p className="worklist-summary-strip__value">{total}</p>
           <p className="worklist-summary-strip__hint">{items.length} rows loaded in the current queue</p>
         </article>
-        <article className="worklist-summary-strip__item worklist-summary-strip__item--risk">
+        <article
+          className={`worklist-summary-strip__item worklist-summary-strip__item--risk${
+            summary.highRisk > 0 ? ' worklist-summary-strip__item--risk-hot' : ''
+          }`}
+        >
           <p className="worklist-summary-strip__label">High risk</p>
           <p className="worklist-summary-strip__value">{summary.highRisk}</p>
           <p className="worklist-summary-strip__hint">Latest patient risk currently marked high</p>

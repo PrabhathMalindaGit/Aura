@@ -260,6 +260,10 @@ export function PatientsPage(): JSX.Element {
             <p className="patients-queue-intro">
               Scan identity, recent activity, alert burden, and the next review step from one roster view.
             </p>
+            <p className="patients-pain-legend" aria-label="Pain trend guide">
+              Pain trend guide: <strong>7+ elevated</strong> · <strong>4-6.9 moderate</strong> ·{' '}
+              <strong>under 4 lower</strong>
+            </p>
             <PatientsFiltersBar
               filters={filters}
               onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
@@ -356,7 +360,8 @@ export function PatientsPage(): JSX.Element {
                 <h3 className="patients-empty-state__title">No patients match this view</h3>
               </div>
               <p className="patients-empty-state__description">
-                The current filters narrow the roster beyond the available patients. Broaden the view or search by a different patient name or ID.
+                This roster view is narrower than the patients currently available. Broaden the
+                filters or search by a different patient name or ID.
               </p>
               <div className="patients-empty-state__actions">
                 <Button

@@ -1,4 +1,5 @@
 import type { AlertItem } from '../../types/models';
+import { alertSourceLabel, alertStatusLabel, shortReferenceLabel } from '../../utils/notification';
 import type { SeenAlertMap } from '../../services/seenStore';
 import { formatDateKey } from '../../utils/format';
 import { toDateKey } from '../../utils/trends';
@@ -71,10 +72,12 @@ export function RecentAlertsPanel({
               <li key={alert._id} className="recent-alert-list__item">
                 <div className="recent-alert-list__body">
                   <p>
-                    <strong className="recent-alert-list__id">{alert._id}</strong>
+                    <strong className="recent-alert-list__id">{shortReferenceLabel(alert._id) ?? alert._id}</strong>
                   </p>
                   <p className="muted-text recent-alert-list__reason">{reasonText(alert.reason)}</p>
-                  <p className="muted-text recent-alert-list__date">Date: {formatDateKey(toDateKey(alert.createdAt))}</p>
+                  <p className="muted-text recent-alert-list__date">
+                    {alertSourceLabel(alert.source.type)} · {formatDateKey(toDateKey(alert.createdAt))}
+                  </p>
                 </div>
                 <div className="recent-alert-list__meta">
                   <div className="recent-alert-list__badges">
@@ -86,7 +89,7 @@ export function RecentAlertsPanel({
                       <span className="alerts-seen recent-alert-list__seen">Seen</span>
                     )}
                     <Badge className="recent-alert-list__status" variant={statusBadgeVariant(alert.status)} icon>
-                      {alert.status}
+                      {alertStatusLabel(alert.status)}
                     </Badge>
                   </div>
                   <div className="recent-alert-list__actions">
@@ -100,7 +103,7 @@ export function RecentAlertsPanel({
                     </Button>
                     <Button
                       className="recent-alert-list__resolve"
-                      variant="danger"
+                      variant="secondary"
                       disabled={alert.status === 'resolved' || mutationPending}
                       onClick={() => onResolve(alert)}
                     >

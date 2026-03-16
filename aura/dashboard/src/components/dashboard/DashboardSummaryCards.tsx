@@ -8,6 +8,7 @@ export interface DashboardSummaryMetric {
   value: number;
   helper: string;
   tone?: 'primary' | 'risk' | 'warning' | 'success' | 'neutral';
+  emphasis?: 'lead';
   onSelect?: () => void;
 }
 
@@ -147,6 +148,7 @@ export function DashboardSummaryCards({
                 'dashboard-summary-card',
                 tierClass,
                 `dashboard-summary-card--metric-${metric.key}`,
+                metric.emphasis && `dashboard-summary-card--${metric.emphasis}`,
                 metric.tone && `dashboard-summary-card--${metric.tone}`,
               )}
             >
@@ -163,6 +165,7 @@ export function DashboardSummaryCards({
               'dashboard-summary-card',
               tierClass,
               `dashboard-summary-card--metric-${metric.key}`,
+              metric.emphasis && `dashboard-summary-card--${metric.emphasis}`,
               metric.tone && `dashboard-summary-card--${metric.tone}`,
             )}
             onClick={metric.onSelect}

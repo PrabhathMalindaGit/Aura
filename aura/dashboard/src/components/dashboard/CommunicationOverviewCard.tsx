@@ -33,10 +33,15 @@ export function CommunicationOverviewCard({
   const items = overview?.items ?? [];
   const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
   const counts = overview?.counts;
+  const communicationNeedsAttention = Boolean(
+    (counts?.flaggedBySafetyCount ?? 0) > 0 || (counts?.needsResponseCount ?? 0) > 0,
+  );
 
   return (
     <Card
-      className="dashboard-module-card dashboard-communication-card"
+      className={`dashboard-module-card dashboard-communication-card${
+        communicationNeedsAttention ? ' dashboard-communication-card--attention' : ''
+      }`}
       title={
         <span className="dashboard-widget-heading dashboard-widget-heading--communication">
           <span className="dashboard-widget-heading__eyebrow">Communication</span>

@@ -42,7 +42,7 @@ export function KpiRow({ summary, loading = false }: KpiRowProps): JSX.Element {
       </div>
       <div className="kpi-row__item cq">
         <KpiCard
-          label="Notif failed"
+          label="Delivery failed"
           value={summary.notifFailedCount}
           helper="Delivery needs attention"
           tone="warning"

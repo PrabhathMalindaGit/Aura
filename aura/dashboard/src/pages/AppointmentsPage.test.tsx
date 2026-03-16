@@ -204,7 +204,7 @@ describe('AppointmentsPage', () => {
     expect(
       screen.getByText('The review queue is quiet and open capacity is already available for future bookings.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Secondary publishing panel')).toBeInTheDocument();
+    expect(screen.getByText('Publish after queue review')).toBeInTheDocument();
     expect(
       screen.getByText('Add bookable clinician time only after the current review queue and published capacity are clear.'),
     ).toBeInTheDocument();

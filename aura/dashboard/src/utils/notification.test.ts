@@ -8,10 +8,10 @@ import {
 
 describe('notification helpers', () => {
   it('maps status labels and badge variants correctly', () => {
-    expect(notificationStatusLabel('sent')).toBe('Notified');
-    expect(notificationStatusLabel('failed')).toBe('Notif failed');
-    expect(notificationStatusLabel('skipped')).toBe('Notif skipped');
-    expect(notificationStatusLabel('unknown')).toBe('Notif unknown');
+    expect(notificationStatusLabel('sent')).toBe('Delivered');
+    expect(notificationStatusLabel('failed')).toBe('Delivery failed');
+    expect(notificationStatusLabel('skipped')).toBe('Delivery skipped');
+    expect(notificationStatusLabel('unknown')).toBe('Delivery status unknown');
 
     expect(notificationStatusBadgeVariant('sent')).toBe('success');
     expect(notificationStatusBadgeVariant('failed')).toBe('danger');
@@ -22,9 +22,9 @@ describe('notification helpers', () => {
   it('keeps unknown truthful and never marks it as success', () => {
     expect(resolveNotificationStatus(undefined)).toBe('unknown');
     expect(resolveNotificationStatus('unknown')).toBe('unknown');
-    expect(notificationStatusLabel(undefined)).toBe('Notif unknown');
+    expect(notificationStatusLabel(undefined)).toBe('Delivery status unknown');
     expect(notificationStatusBadgeVariant(undefined)).toBe('default');
     expect(shouldShowNotificationRetry(undefined)).toBe(false);
-    expect(notificationStatusLabel(undefined)).not.toBe('Notified');
+    expect(notificationStatusLabel(undefined)).not.toBe('Delivered');
   });
 });

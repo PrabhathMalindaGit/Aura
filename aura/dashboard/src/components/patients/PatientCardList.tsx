@@ -30,6 +30,18 @@ function formatOpenAlertsText(count: number): string {
   return count === 0 ? 'No active alerts' : `${count} active alert${count === 1 ? '' : 's'}`;
 }
 
+function alertBurdenTone(count: number): 'clear' | 'elevated' | 'high' {
+  if (count >= 3) {
+    return 'high';
+  }
+
+  if (count > 0) {
+    return 'elevated';
+  }
+
+  return 'clear';
+}
+
 export function PatientCardList({ patients, onOpenPatient }: PatientCardListProps): JSX.Element {
   return (
     <div className="patients-card-list" aria-label="Patients card list">
@@ -39,6 +51,7 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
         const displayName = getPatientDisplayName(patient);
         const openAlertCount = patient.openAlertCount ?? 0;
         const hasOpenAlertCount = hasOpenAlerts(patient);
+        const alertsTone = alertBurdenTone(openAlertCount);
         const rosterReason = getPatientRosterReason(patient);
         const painSeverity =
           typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
@@ -83,7 +96,7 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
                   </Badge>
                 ) : null}
                 <Badge
-                  className={`patients-card-list__alerts-badge${hasOpenAlertCount ? ' patients-card-list__alerts-badge--active' : ''}`}
+                  className={`patients-card-list__alerts-badge${hasOpenAlertCount ? ' patients-card-list__alerts-badge--active' : ''} patients-card-list__alerts-badge--${alertsTone}`}
                   variant={hasOpenAlertCount ? 'danger' : 'default'}
                 >
                   {openAlertCount} open alerts

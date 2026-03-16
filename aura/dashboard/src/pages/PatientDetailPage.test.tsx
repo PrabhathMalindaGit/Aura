@@ -414,7 +414,7 @@ describe('PatientDetailPage', () => {
     const user = userEvent.setup();
     renderPatientDetail();
 
-    await screen.findByText('alt-patient-1');
+    await screen.findByText('Ref alt-pati');
     const detailButtons = await screen.findAllByRole('button', {
       name: /View details|Open day detail/i,
     });
@@ -431,7 +431,7 @@ describe('PatientDetailPage', () => {
     const user = userEvent.setup();
     renderPatientDetail(`/patients/${patientId}?days=14`);
 
-    await screen.findByText('alt-patient-1');
+    await screen.findByText('Ref alt-pati');
     const detailButtons = await screen.findAllByRole('button', {
       name: /View details|Open day detail/i,
     });
@@ -455,8 +455,8 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
-    expect(await screen.findByText('alt-patient-1')).toBeInTheDocument();
-    expect(screen.queryByText('alt-other-1')).not.toBeInTheDocument();
+    expect(await screen.findByText('Ref alt-pati')).toBeInTheDocument();
+    expect(screen.queryByText('Ref alt-othe')).not.toBeInTheDocument();
   });
 
   it('renders calm empty states for communication, tasks, and appointments when no follow-up exists', async () => {

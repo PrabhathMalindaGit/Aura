@@ -19,18 +19,18 @@ export function notificationStatusLabel(status: AlertItem['notificationStatus'])
   const normalized = resolveNotificationStatus(status);
 
   if (normalized === 'sent') {
-    return 'Notified';
+    return 'Delivered';
   }
 
   if (normalized === 'failed') {
-    return 'Notif failed';
+    return 'Delivery failed';
   }
 
   if (normalized === 'skipped') {
-    return 'Notif skipped';
+    return 'Delivery skipped';
   }
 
-  return 'Notif unknown';
+  return 'Delivery status unknown';
 }
 
 export function notificationStatusBadgeVariant(
@@ -67,6 +67,40 @@ export function notificationChannelLabel(channel: AlertItem['notificationChannel
   }
 
   return channel[0].toUpperCase() + channel.slice(1);
+}
+
+export function alertSourceLabel(sourceType: AlertItem['source']['type']): string {
+  if (sourceType === 'checkin') {
+    return 'Check-in';
+  }
+
+  if (sourceType === 'chat') {
+    return 'Chat';
+  }
+
+  return sourceType;
+}
+
+export function alertStatusLabel(status: AlertItem['status']): string {
+  if (status === 'acknowledged') {
+    return 'Acknowledged';
+  }
+
+  if (status === 'resolved') {
+    return 'Resolved';
+  }
+
+  return 'Open';
+}
+
+export function shortReferenceLabel(value: string | undefined, prefix: string = 'Ref'): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const shortValue = trimmed.length > 8 ? trimmed.slice(0, 8) : trimmed;
+  return `${prefix} ${shortValue}`;
 }
 
 export function toSafeNotificationError(value: string | undefined, maxLength: number = 200): string | undefined {

@@ -165,8 +165,9 @@ export function SettingsPage(): JSX.Element {
               </p>
             </div>
             <p className="settings-group-card__intro">
-              Keep the workspace comfortable to review without drifting away from Aura's shared
-              operational style. Preferences that are not wired yet stay read-only.
+              Keep the workspace comfortable to review without drifting away from Aura&apos;s shared
+              operational style. Browser-backed preferences stay interactive here, while shared
+              workspace behaviors remain read-only on this device.
             </p>
             <div className="settings-list settings-list--refined">
               <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
@@ -235,29 +236,29 @@ export function SettingsPage(): JSX.Element {
                 <span>
                   <strong>Offline warning banner</strong>
                   <small>
-                    Warning display follows the live connection state in the shared shell and is
-                    not configurable in this browser yet.
+                    Warning display follows the live connection state in Aura&apos;s shared shell for
+                    this browser.
                   </small>
                 </span>
-                <span className="setting-item__status-note">Shared shell behavior</span>
+                <span className="setting-item__status-note">Shared shell default</span>
               </div>
 
               <div className="setting-item setting-item--note" aria-label="Compact table density setting status">
                 <span>
                   <strong>Compact table mode</strong>
                   <small>
-                    Table density still follows the shared dashboard default. A browser-level
-                    density preference is planned, but not active in this pass.
+                    Table density currently follows Aura Clinician&apos;s shared workspace default in
+                    this browser.
                   </small>
                 </span>
-                <span className="setting-item__status-note">Not configurable yet</span>
+                <span className="setting-item__status-note">Shared workspace default</span>
               </div>
             </div>
 
             <div className="settings-card-footer settings-card-footer--quiet">
               <p className="settings-card-footer__note">
-                Theme changes apply immediately. Other appearance controls stay read-only until
-                they are wired to real browser-backed behavior.
+                Theme changes apply immediately. Other appearance settings in this section stay
+                aligned with current browser defaults.
               </p>
             </div>
 

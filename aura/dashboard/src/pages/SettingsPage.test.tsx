@@ -26,12 +26,12 @@ describe('SettingsPage truthfulness', () => {
 
     expect(
       screen.getByText(
-        'Warning display follows the live connection state in the shared shell and is not configurable in this browser yet.',
+        "Warning display follows the live connection state in Aura's shared shell for this browser.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Table density still follows the shared dashboard default. A browser-level density preference is planned, but not active in this pass.',
+        "Table density currently follows Aura Clinician's shared workspace default in this browser.",
       ),
     ).toBeInTheDocument();
   });

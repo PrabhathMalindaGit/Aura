@@ -113,6 +113,15 @@ export function DashboardHomePage(): JSX.Element {
       return [];
     }
 
+    const leadMetricKey =
+      summaryQuery.data.openAlertsCount > 0
+        ? 'open-alerts'
+        : summaryQuery.data.openFollowUpTasksCount > 0
+          ? 'follow-up-tasks'
+          : summaryQuery.data.todayAppointmentsCount > 0
+            ? 'today-appointments'
+            : undefined;
+
     return [
       {
         key: 'open-alerts',
@@ -121,6 +130,7 @@ export function DashboardHomePage(): JSX.Element {
         helper:
           summaryQuery.data.openAlertsCount > 0 ? 'First review' : 'Safety queue clear',
         tone: 'risk',
+        emphasis: leadMetricKey === 'open-alerts' ? 'lead' : undefined,
         onSelect: () => navigate('/alerts'),
       },
       {
@@ -130,6 +140,7 @@ export function DashboardHomePage(): JSX.Element {
         helper:
           summaryQuery.data.openFollowUpTasksCount > 0 ? 'Move next' : 'No follow-up waiting',
         tone: 'primary',
+        emphasis: leadMetricKey === 'follow-up-tasks' ? 'lead' : undefined,
         onSelect: () => navigate('/worklist'),
       },
       {
@@ -139,6 +150,7 @@ export function DashboardHomePage(): JSX.Element {
         helper:
           summaryQuery.data.todayAppointmentsCount > 0 ? 'Confirm today' : 'No visits today',
         tone: 'success',
+        emphasis: leadMetricKey === 'today-appointments' ? 'lead' : undefined,
         onSelect: () => navigate('/appointments'),
       },
       {
@@ -365,7 +377,13 @@ export function DashboardHomePage(): JSX.Element {
             subtitle={heroSubtitle}
             meta={headerMeta}
             actions={
-              <Button variant="secondary" size="sm" onClick={refreshAll} disabled={isRefreshing}>
+              <Button
+                className="dashboard-home-page__refresh"
+                variant="secondary"
+                size="sm"
+                onClick={refreshAll}
+                disabled={isRefreshing}
+              >
                 {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
             }

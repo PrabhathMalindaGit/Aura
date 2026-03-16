@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -109,7 +109,7 @@ afterEach(() => {
 });
 
 describe('InsightsQueuePage', () => {
-  it('renders stronger patient context, reason framing, and all review actions for a pending suggestion', async () => {
+  it('renders pending review with patient context and clinician actions', async () => {
     renderInsightsPage({
       pending: [
         {
@@ -117,7 +117,8 @@ describe('InsightsQueuePage', () => {
           patientId: 'patient-42',
           status: 'pending',
           title: 'Follow-up questionnaire may be due',
-          message: 'Recent recovery updates suggest a follow-up questionnaire could help confirm rehab progress.',
+          message:
+            'Recent recovery updates suggest a follow-up questionnaire could help confirm rehab progress.',
           category: 'questionnaires',
           confidence: 'medium',
           priority: 2,
@@ -138,6 +139,7 @@ describe('InsightsQueuePage', () => {
     });
 
     expect(await screen.findByText('Taylor Moss')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Pending (1)' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Patient ID patient-42')).toBeInTheDocument();
     expect(screen.getByText('Reason for review')).toBeInTheDocument();
     expect(
@@ -154,7 +156,7 @@ describe('InsightsQueuePage', () => {
     expect(await screen.findByText('Patient detail workspace')).toBeInTheDocument();
   });
 
-  it('shows approved and rejected counts as current queue-view summary context', async () => {
+  it('shows approved and rejected items as reviewed outcomes via lifecycle tabs', async () => {
     renderInsightsPage({
       pending: [
         {
@@ -199,17 +201,60 @@ describe('InsightsQueuePage', () => {
           createdAt: '2026-03-12T08:00:00.000Z',
         },
       ],
+      patients: [
+        {
+          id: 'patient-88',
+          displayName: 'Morgan Diaz',
+          status: 'active',
+          lastCheckinAt: '2026-03-13T09:00:00.000Z',
+          openAlertCount: 0,
+          lastPain: 2.1,
+        },
+        {
+          id: 'patient-99',
+          displayName: 'Casey Brown',
+          status: 'active',
+          lastCheckinAt: '2026-03-13T09:00:00.000Z',
+          openAlertCount: 0,
+          lastPain: 3.1,
+        },
+      ],
     });
 
-    expect(await screen.findByText('Reviewed in current queue view')).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Approved (1)' })).toBeInTheDocument();
     expect(
       await screen.findByText('Approved 1 · Rejected 1 in current queue view.', {
         selector: '.insights-summary-strip__hint',
       }),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Approved (1)' }));
+
+    const approvedTitle = await screen.findByText('Approved guidance');
+    const approvedCard = approvedTitle.closest('.insights-queue__item');
+    expect(approvedCard).not.toBeNull();
+    expect(within(approvedCard as HTMLElement).getByText('Approved for workflow')).toBeInTheDocument();
+    expect(within(approvedCard as HTMLElement).getByText('Reason snapshot')).toBeInTheDocument();
+    expect(
+      within(approvedCard as HTMLElement).queryByRole('button', { name: 'Approve for workflow' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(approvedCard as HTMLElement).queryByRole('button', { name: 'Reject suggestion' }),
+    ).not.toBeInTheDocument();
+    expect(within(approvedCard as HTMLElement).getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect(within(approvedCard as HTMLElement).queryByText(/^Reviewed /)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Rejected (1)' }));
+
+    const rejectedTitle = await screen.findByText('Rejected guidance');
+    const rejectedCard = rejectedTitle.closest('.insights-queue__item');
+    expect(rejectedCard).not.toBeNull();
+    expect(within(rejectedCard as HTMLElement).getByText('Rejected from workflow')).toBeInTheDocument();
+    expect(within(rejectedCard as HTMLElement).getByText('Reason snapshot')).toBeInTheDocument();
+    expect(within(rejectedCard as HTMLElement).getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
   });
 
-  it('keeps an empty pending queue purposeful when reviewed-state summary exists', async () => {
+  it('treats an empty pending queue with reviewed items as queue cleared', async () => {
     renderInsightsPage({
       pending: [],
       approved: [
@@ -242,26 +287,42 @@ describe('InsightsQueuePage', () => {
       ],
     });
 
-    expect(await screen.findByText('Queue is clear')).toBeInTheDocument();
+    expect((await screen.findAllByText('Queue cleared')).length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        'No pending suggestions are waiting now. Reviewed-state counts above reflect the current queue view only and do not represent a full history.',
+        'No pending suggestions are waiting now. Approved and rejected views below reflect what was already handled in this current queue view only.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Approved 1 · Rejected 1 in current queue view.').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Approved (1)' }));
+    expect(
+      await screen.findByText('Approved item', {
+        selector: '.insights-queue__title',
+      }),
+    ).toBeInTheDocument();
   });
 
-  it('uses a monitoring-active empty state when there is no pending or reviewed guidance', async () => {
+  it('uses quiet and per-state empty views when no lifecycle items are present', async () => {
     renderInsightsPage({
       pending: [],
       approved: [],
       rejected: [],
     });
 
-    expect(await screen.findByText('No guidance suggestions are waiting')).toBeInTheDocument();
+    expect((await screen.findAllByText('Quiet queue')).length).toBeGreaterThan(0);
     expect(
-      screen.getByText('Monitoring remains active and new guidance suggestions will appear here when they are generated.'),
+      await screen.findByText('No guidance suggestions are waiting'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Monitoring remains active.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Monitoring remains active and new guidance suggestions will appear here when they are generated.',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Approved (0)' }));
+    expect(await screen.findByText('No approved suggestions in this queue view')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Rejected (0)' }));
+    expect(await screen.findByText('No rejected suggestions in this queue view')).toBeInTheDocument();
   });
 });

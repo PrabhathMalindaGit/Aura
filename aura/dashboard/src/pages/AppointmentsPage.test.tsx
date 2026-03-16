@@ -87,6 +87,7 @@ function renderAppointmentsPage(options: RenderOptions = {}): void {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-16T12:00:00.000Z').getTime());
   installMatchMediaMock();
 });
 
@@ -95,7 +96,7 @@ afterEach(() => {
 });
 
 describe('AppointmentsPage', () => {
-  it('prioritizes request review with resolved patient identity and patient navigation', async () => {
+  it('prioritizes request review with resolved patient identity, waiting context, and patient navigation', async () => {
     renderAppointmentsPage({
       requests: [
         {
@@ -135,12 +136,15 @@ describe('AppointmentsPage', () => {
     });
 
     expect(await screen.findByText('Taylor Moss')).toBeInTheDocument();
+    expect(screen.getByText('Pending review')).toBeInTheDocument();
+    expect(screen.getByText('Waiting 2d')).toBeInTheDocument();
+    expect(screen.getByText('Request note')).toBeInTheDocument();
     expect(
       await screen.findByText('Requests waiting', {
         selector: '.appointments-summary-strip__value--state',
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Open capacity is available').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Demand currently covered').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Open patient' }));
@@ -172,11 +176,58 @@ describe('AppointmentsPage', () => {
         selector: '.appointments-summary-strip__value--state',
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('No open capacity is published').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Demand uncovered').length).toBeGreaterThan(0);
     expect(
-      screen.getByText('Requests are waiting but there are no open slots in this view. Review the queue, then publish availability below.'),
+      screen.getByText('Requests are waiting and no open capacity is published. Review the queue, then publish availability if coverage is needed.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Publish more availability')).toBeInTheDocument();
+    expect(screen.getByText('Publish after review')).toBeInTheDocument();
+  });
+
+  it('calls out when demand exceeds currently published capacity', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-3',
+          slotId: 'slot-4',
+          patientId: 'patient-13',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-17T09:00:00.000Z',
+          endsAt: '2026-03-17T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T08:00:00.000Z',
+        },
+        {
+          requestId: 'req-4',
+          slotId: 'slot-5',
+          patientId: 'patient-14',
+          status: 'pending',
+          workflowStatus: 'reschedule_requested',
+          startsAt: '2026-03-17T11:00:00.000Z',
+          endsAt: '2026-03-17T11:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T09:00:00.000Z',
+        },
+      ],
+      slots: [
+        {
+          slotId: 'slot-4',
+          clinicianName: 'Dr. Hall',
+          startsAt: '2026-03-17T14:00:00.000Z',
+          endsAt: '2026-03-17T14:30:00.000Z',
+          modality: 'video',
+          status: 'available',
+          createdAt: '2026-03-14T10:30:00.000Z',
+        },
+      ],
+      patients: [],
+    });
+
+    expect((await screen.findAllByText('Demand exceeds open capacity')).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText('Some open slots are published, but more coverage may still be needed.'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Publish after review').length).toBeGreaterThan(0);
   });
 
   it('treats open capacity as useful even when the queue is quiet and keeps publishing secondary', async () => {
@@ -201,17 +252,16 @@ describe('AppointmentsPage', () => {
         selector: '.appointments-summary-strip__value--state',
       }),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('Queue quiet with open capacity').length).toBeGreaterThan(0);
     expect(
-      screen.getByText('The review queue is quiet and open capacity is already available for future bookings.'),
+      screen.getByText('Queue is quiet and published capacity is ready if new demand arrives.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Publish after queue review')).toBeInTheDocument();
     expect(
-      screen.getByText('Add bookable clinician time only after the current review queue and published capacity are clear.'),
+      screen.getByText('Use this panel after request review to publish only the clinician time the queue still needs.'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Capacity is already published and ready. Add more availability only if additional follow-up time needs to be opened.',
-      ),
+      screen.getByText('Published slots become immediately visible to the booking queue after creation.'),
     ).toBeInTheDocument();
   });
 });

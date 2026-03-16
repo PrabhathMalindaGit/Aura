@@ -18,6 +18,7 @@ import {
 import { appointmentWorkflowLabel, appointmentWorkflowTone } from '../utils/patientDetail';
 import { getPatientDisplayName } from '../utils/patientFilters';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
+import { formatRelativeTime } from '../utils/time';
 
 type SlotStatusFilter = 'available' | 'closed';
 type RequestStatusFilter = 'pending' | 'approved' | 'rejected' | 'canceled';
@@ -27,6 +28,14 @@ type CoordinationTone = 'attention' | 'clear' | 'quiet';
 interface CoordinationState {
   label: string;
   note: string;
+  tone: CoordinationTone;
+}
+
+interface CoverageState {
+  label: string;
+  summaryHint: string;
+  note: string;
+  publishNote: string;
   tone: CoordinationTone;
 }
 
@@ -125,6 +134,20 @@ function formatTimeRange(startsAt: string, endsAt: string): string {
   })}`;
 }
 
+function formatWaitingDuration(value: string): string {
+  const relative = formatRelativeTime(value);
+
+  if (relative === 'Unknown') {
+    return 'Waiting';
+  }
+
+  if (relative === 'Just now') {
+    return 'Waiting now';
+  }
+
+  return `Waiting ${relative.replace(/\s+ago$/, '')}`;
+}
+
 function describeCoordinationState(
   pendingRequestsCount: number,
   availableSlotsCount: number,
@@ -156,6 +179,63 @@ function describeCoordinationState(
   return {
     label: 'Quiet queue',
     note: 'No requests are waiting and no open capacity is currently published.',
+    tone: 'quiet',
+  };
+}
+
+function describeCoverageState(
+  pendingRequestsCount: number,
+  availableSlotsCount: number,
+): CoverageState {
+  if (pendingRequestsCount > 0 && availableSlotsCount === 0) {
+    return {
+      label: 'Demand uncovered',
+      summaryHint: 'Requests are waiting and there are no open slots published yet.',
+      note: 'Published capacity does not yet cover the waiting queue.',
+      publishNote:
+        'Review the waiting requests first, then publish availability so the queue has real coverage.',
+      tone: 'attention',
+    };
+  }
+
+  if (pendingRequestsCount > availableSlotsCount) {
+    return {
+      label: 'Demand exceeds open capacity',
+      summaryHint: 'Some open slots are published, but they do not yet cover all waiting requests.',
+      note: 'Published capacity does not yet cover the waiting queue.',
+      publishNote:
+        'Review the queue, then publish more availability if the current open slots will not absorb the waiting demand.',
+      tone: 'attention',
+    };
+  }
+
+  if (pendingRequestsCount > 0) {
+    return {
+      label: 'Demand currently covered',
+      summaryHint: 'Open capacity appears sufficient for the requests already waiting.',
+      note: 'Current open slots appear sufficient for the waiting queue while clinician review continues.',
+      publishNote:
+        'Additional publishing is optional right now. Use this panel only if more follow-up time truly needs to be opened.',
+      tone: 'clear',
+    };
+  }
+
+  if (availableSlotsCount > 0) {
+    return {
+      label: 'Queue quiet with open capacity',
+      summaryHint: 'Open capacity is already published even though no requests are waiting right now.',
+      note: 'No requests are waiting and published capacity is ready if new demand arrives.',
+      publishNote:
+        'Capacity is already published. Add more availability only if additional clinician time needs to be opened.',
+      tone: 'quiet',
+    };
+  }
+
+  return {
+    label: 'Queue quiet with no published capacity',
+    summaryHint: 'The queue is quiet and there is no open capacity published right now.',
+    note: 'No requests are waiting and no capacity is currently published.',
+    publishNote: 'Leave capacity unpublished until new demand needs coverage.',
     tone: 'quiet',
   };
 }
@@ -266,66 +346,76 @@ export function AppointmentsPage(): JSX.Element {
   const slotViewLabel = formatSlotViewLabel(slotStatus);
   const requestViewLabel = formatRequestViewLabel(requestStatus);
   const coordinationState = describeCoordinationState(pendingRequestsCount, availableSlotsCount);
+  const coverageState = describeCoverageState(pendingRequestsCount, availableSlotsCount);
   const nextOpenSlotSummary = describeNextOpenSlot(openSlots);
   const capacityNeedsPublishing = pendingRequestsCount > availableSlotsCount;
   const requestCountLabel = `${pendingRequestsCount} request${pendingRequestsCount === 1 ? '' : 's'} waiting`;
   const openCapacityLabel = `${availableSlotsCount} open slot${availableSlotsCount === 1 ? '' : 's'}`;
-  const capacityStatusLabel =
-    availableSlotsCount > 0 ? 'Open capacity is available' : 'No open capacity is published';
-  const workspaceActionLabel = capacityNeedsPublishing
-    ? 'Publish more availability'
-    : availableSlotsCount > 0
-      ? 'Open capacity is available'
-      : 'Review demand before publishing';
+  const capacityStatusLabel = coverageState.label;
+  const workspaceActionLabel = capacityNeedsPublishing ? 'Publish after review' : 'Coverage ready';
   const requestsSummaryHint =
     pendingRequestsCount > 0
-      ? 'Booking requests still needing clinician review.'
-      : 'No booking requests are currently waiting.';
+      ? 'Requests still need clinician review before scheduling decisions are final.'
+      : 'No booking requests are waiting for clinician review right now.';
   const openCapacitySummaryHint =
     availableSlotsCount > 0
-      ? 'Published slots ready to absorb demand.'
+      ? pendingRequestsCount > availableSlotsCount
+        ? 'Some open slots are published, but more coverage may still be needed.'
+        : pendingRequestsCount > 0
+          ? 'Open capacity appears sufficient for the requests already waiting.'
+          : 'Published slots are ready if new demand arrives.'
       : pendingRequestsCount > 0
         ? 'No open slots are published for the waiting queue.'
-        : 'No availability is published yet.';
-  const composerGuidance =
-    pendingRequestsCount > availableSlotsCount
-      ? 'Requests are outpacing current open capacity. Publishing another slot is likely the next clinician step after review.'
-      : pendingRequestsCount > 0 && availableSlotsCount > 0
-        ? 'There is some open capacity while requests wait. Publish more only if the current schedule will not absorb demand.'
-        : pendingRequestsCount === 0 && availableSlotsCount > 0
-          ? 'Capacity is already published and ready. Add more availability only if additional follow-up time needs to be opened.'
-          : 'No availability is currently published. Use this panel when new clinician time is ready to be offered.';
+        : 'No capacity is currently published.';
+  const composerGuidance = coverageState.publishNote;
+  const composerMetaLabel = capacityNeedsPublishing
+    ? 'Demand needs coverage'
+    : pendingRequestsCount > 0
+      ? 'Demand appears covered'
+      : availableSlotsCount > 0
+        ? 'Capacity already published'
+        : 'Publish only when needed';
   const slotsSectionNote =
     slotStatus === 'available'
       ? availableSlotsCount > 0
-        ? `${availableSlotsCount} open slots are ready for booking review.`
-        : 'No open capacity is currently published.'
+        ? pendingRequestsCount > availableSlotsCount
+          ? `${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published, but more coverage may be needed after review.`
+          : pendingRequestsCount > 0
+            ? `${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published for ${pendingRequestsCount} waiting request${pendingRequestsCount === 1 ? '' : 's'}.`
+            : `${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published and ready if new demand arrives.`
+        : pendingRequestsCount > 0
+          ? 'No open capacity is published for the waiting queue.'
+          : 'No open capacity is currently published.'
       : slots.length > 0
-        ? `${slots.length} closed or archived slots remain in this view.`
-        : 'No archived or unavailable capacity is in this view.';
+        ? `${slots.length} closed slot${slots.length === 1 ? '' : 's'} remain in this view for schedule reference.`
+        : 'No archived or closed capacity is in this view.';
   const requestsSectionNote =
     requestStatus === 'pending'
       ? pendingRequestsCount > 0
-        ? `${pendingRequestsCount} requests are waiting for clinician review.`
+        ? availableSlotsCount === 0
+          ? `${pendingRequestsCount} request${pendingRequestsCount === 1 ? ' is' : 's are'} waiting and no open capacity is published yet.`
+          : pendingRequestsCount > availableSlotsCount
+            ? `${pendingRequestsCount} request${pendingRequestsCount === 1 ? ' is' : 's are'} waiting while only ${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published.`
+            : `${pendingRequestsCount} request${pendingRequestsCount === 1 ? ' is' : 's are'} waiting and open capacity appears sufficient while review continues.`
         : availableSlotsCount > 0
-          ? 'No requests are waiting right now and open capacity is already published.'
+          ? 'No requests are waiting right now and published capacity is ready if new demand arrives.'
           : 'No requests are waiting right now.'
-      : `${requests.length} requests are shown in this status view.`;
+      : `${requests.length} requests are shown in this status view for reference.`;
   const slotsEmptyTitle =
     slotStatus === 'available' ? 'No open capacity is published' : 'No closed capacity in this view';
   const slotsEmptyDescription =
     slotStatus === 'available'
       ? pendingRequestsCount > 0
-        ? 'Requests are waiting but there are no open slots in this view. Review the queue, then publish availability below.'
-        : 'No open slots are currently published. Add availability below when new clinician time is ready.'
-      : 'Archived or unavailable slots will appear here after schedule changes or completed sessions.';
+        ? 'Requests are waiting and no open capacity is published. Review the queue, then publish availability if coverage is needed.'
+        : 'No open capacity is currently published. Keep capacity unpublished until demand needs coverage.'
+      : 'No archived or closed capacity is in this view.';
   const requestsEmptyTitle =
-    requestStatus === 'pending' ? 'No requests need review' : `No ${requestStatus} requests`;
+    requestStatus === 'pending' ? 'No requests are waiting right now' : `No ${requestStatus} requests`;
   const requestsEmptyDescription =
     requestStatus === 'pending'
       ? availableSlotsCount > 0
-        ? 'The review queue is quiet and open capacity is already available for future bookings.'
-        : 'New patient booking requests will appear here when clinician review is needed.'
+        ? 'Queue is quiet and published capacity is ready if new demand arrives.'
+        : 'Queue is quiet. New booking requests will appear here when clinician review is needed.'
       : 'Requests matching this review state will appear here when scheduling activity changes.';
 
   async function handleRefreshWorkspace(): Promise<void> {
@@ -424,7 +514,7 @@ export function AppointmentsPage(): JSX.Element {
           <p className="appointments-summary-strip__value appointments-summary-strip__value--state">
             {coordinationState.label}
           </p>
-          <p className="appointments-summary-strip__hint">{coordinationState.note}</p>
+          <p className="appointments-summary-strip__hint">{coverageState.summaryHint}</p>
         </article>
         <article className="appointments-summary-strip__item appointments-summary-strip__item--attention">
           <p className="appointments-summary-strip__label">Requests waiting</p>
@@ -459,15 +549,18 @@ export function AppointmentsPage(): JSX.Element {
         <div className="appointments-workspace-note__copy">
           <p className="appointments-workspace-note__eyebrow">Scheduling workspace</p>
           <p className="appointments-workspace-note__text">
-            Review incoming demand before publishing more availability. This workspace keeps request
-            review and capacity decisions side by side without pretending to assign requests directly
-            into slots.
+            Requests create scheduling demand. Open capacity responds to that demand. Publish new
+            availability only when the current queue still needs coverage.
           </p>
         </div>
         <div className="appointments-workspace-note__facts" aria-live="polite">
           <span className="appointments-workspace-note__fact">{requestCountLabel}</span>
           <span className="appointments-workspace-note__fact">{openCapacityLabel}</span>
-          <span className="appointments-workspace-note__fact">{capacityStatusLabel}</span>
+          <span
+            className={`appointments-workspace-note__fact appointments-workspace-note__fact--status appointments-workspace-note__fact--status-${coverageState.tone}`}
+          >
+            {capacityStatusLabel}
+          </span>
         </div>
       </section>
 
@@ -476,7 +569,7 @@ export function AppointmentsPage(): JSX.Element {
         title={
           <span className="appointments-card-title">
             Scheduling coordination
-            <span className="appointments-card-title__meta">Review before publishing</span>
+            <span className="appointments-card-title__meta">Review demand before publishing</span>
           </span>
         }
       >
@@ -485,6 +578,7 @@ export function AppointmentsPage(): JSX.Element {
             <div className="appointments-workspace__context-copy">
               <p className="appointments-workspace__context-eyebrow">What needs attention now</p>
               <p className="appointments-workspace__context-text">{coordinationState.note}</p>
+              <p className="appointments-workspace__coverage-text">{coverageState.note}</p>
             </div>
             <div className="appointments-workspace__context-facts" aria-live="polite">
               <span className="appointments-workspace__context-pill appointments-workspace__context-pill--demand">
@@ -493,8 +587,10 @@ export function AppointmentsPage(): JSX.Element {
               <span className="appointments-workspace__context-pill appointments-workspace__context-pill--capacity">
                 {openCapacityLabel}
               </span>
-              <span className="appointments-workspace__context-pill appointments-workspace__context-pill--status">
-                {capacityStatusLabel}
+              <span
+                className={`appointments-workspace__context-pill appointments-workspace__context-pill--status appointments-workspace__context-pill--status-${coverageState.tone}`}
+              >
+                {coverageState.label}
               </span>
               {capacityNeedsPublishing ? (
                 <span className="appointments-workspace__context-pill appointments-workspace__context-pill--action">
@@ -504,8 +600,8 @@ export function AppointmentsPage(): JSX.Element {
             </div>
           </div>
           <p className="appointments-workspace__intro">
-            Start with booking requests, confirm how much open capacity is already published, then add
-            new availability only when the queue actually needs it.
+            Start with request review, use open capacity to judge whether demand is covered, then
+            publish new availability only if the waiting queue still needs clinician time.
           </p>
           <div className="appointments-workspace__panels">
             <section
@@ -575,18 +671,25 @@ export function AppointmentsPage(): JSX.Element {
                 <div className="stack stack--2">
                   {requests.map((item) => {
                     const patientName = patientNameById.get(item.patientId) ?? item.patientId;
-                    const reviewLabel =
-                      item.status === 'pending'
-                        ? 'Awaiting clinician review'
-                        : item.reviewedAt
-                          ? `Reviewed ${formatDateTime(item.reviewedAt)}`
-                          : 'Decision recorded';
+                    const isPendingRequest = item.status === 'pending';
+                    const lifecycleLabel = isPendingRequest
+                      ? 'Pending review'
+                      : item.status === 'approved'
+                        ? 'Approved for workflow'
+                        : item.status === 'rejected'
+                          ? 'Rejected'
+                          : 'Canceled';
+                    const lifecycleTiming = isPendingRequest
+                      ? formatWaitingDuration(item.createdAt)
+                      : item.reviewedAt
+                        ? `Reviewed ${formatDateTime(item.reviewedAt)}`
+                        : `Recorded ${formatDateTime(item.createdAt)}`;
 
                     return (
                       <div
                         key={item.requestId}
                         className={`appointments-item appointments-item--request${
-                          item.status === 'pending' ? ' appointments-item--request-pending' : ''
+                          isPendingRequest ? ' appointments-item--request-pending' : ''
                         }`}
                       >
                         <div className="appointments-item__header">
@@ -594,10 +697,16 @@ export function AppointmentsPage(): JSX.Element {
                             <p className="appointments-item__eyebrow">Booking request</p>
                             <p className="appointments-item__title">{patientName}</p>
                             <p className="appointments-item__subtitle">Patient ID {item.patientId}</p>
-                            <p className="appointments-item__support">{reviewLabel}</p>
+                            <p className="appointments-item__support">
+                              <span className="appointments-item__support-label">{lifecycleLabel}</span>
+                              <span className="appointments-item__support-divider" aria-hidden="true">
+                                ·
+                              </span>
+                              <span className="appointments-item__support-detail">{lifecycleTiming}</span>
+                            </p>
                           </div>
                           <div className="appointments-item__badge-stack">
-                            <Badge variant={toStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
+                            <Badge variant={toStatusVariant(item.status)}>{formatRequestViewLabel(item.status)}</Badge>
                             <Badge variant={toWorkflowVariant(item.workflowStatus)}>
                               {appointmentWorkflowLabel(item.workflowStatus)}
                             </Badge>
@@ -609,13 +718,10 @@ export function AppointmentsPage(): JSX.Element {
                             {formatTimeRange(item.startsAt, item.endsAt)}
                           </p>
                           <p className="appointments-item__schedule-support">
-                            {formatCalendarDay(item.startsAt)} · Video visit
+                            {formatCalendarDay(item.startsAt)} · Video visit requested
                           </p>
                         </div>
                         <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                          <span className="appointments-item__meta-chip appointments-item__meta-chip--patient">
-                            Patient ID {item.patientId}
-                          </span>
                           <span className="appointments-item__meta-chip">
                             Workflow {appointmentWorkflowLabel(item.workflowStatus)}
                           </span>
@@ -629,9 +735,12 @@ export function AppointmentsPage(): JSX.Element {
                           ) : null}
                         </div>
                         {item.note ? (
-                          <p className="appointments-item__meta appointments-item__meta--note">Note: {item.note}</p>
+                          <div className="appointments-item__reason">
+                            <p className="appointments-item__reason-label">Request note</p>
+                            <p className="appointments-item__reason-text">{item.note}</p>
+                          </div>
                         ) : null}
-                        {item.status === 'pending' ? (
+                        {isPendingRequest ? (
                           <div className="appointments-item__actions appointments-item__actions--pending">
                             <Button
                               size="sm"
@@ -644,6 +753,14 @@ export function AppointmentsPage(): JSX.Element {
                               {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
                             </Button>
                             <Button
+                              className="appointments-item__open"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
+                            >
+                              Open patient
+                            </Button>
+                            <Button
                               size="sm"
                               variant="ghost"
                               disabled={reviewingKey !== null}
@@ -653,17 +770,11 @@ export function AppointmentsPage(): JSX.Element {
                             >
                               {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
-                            >
-                              Open patient
-                            </Button>
                           </div>
                         ) : (
                           <div className="appointments-item__actions">
                             <Button
+                              className="appointments-item__open"
                               size="sm"
                               variant="secondary"
                               onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
@@ -752,8 +863,8 @@ export function AppointmentsPage(): JSX.Element {
                     const resolvedStatus = slot.status ?? 'available';
                     const readinessLabel =
                       resolvedStatus === 'available'
-                        ? 'Published and ready for booking'
-                        : 'Closed to new bookings';
+                        ? 'Ready to absorb demand'
+                        : 'Not open for new bookings';
 
                     return (
                       <div
@@ -778,12 +889,14 @@ export function AppointmentsPage(): JSX.Element {
                           </Badge>
                         </div>
                         <div className="appointments-item__schedule appointments-item__schedule--capacity">
-                          <p className="appointments-item__schedule-label">Capacity state</p>
+                          <p className="appointments-item__schedule-label">
+                            {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
+                          </p>
                           <p className="appointments-item__schedule-value">{readinessLabel}</p>
                           <p className="appointments-item__schedule-support">
                             {slotStatus === 'available'
-                              ? 'Visible to absorb future demand.'
-                              : 'Retained for historical scheduling context.'}
+                              ? 'Ready if reviewed demand needs this time.'
+                              : 'Kept for schedule reference after changes or completed sessions.'}
                           </p>
                         </div>
                         <div className="appointments-item__meta-row appointments-item__meta-row--primary">
@@ -820,18 +933,22 @@ export function AppointmentsPage(): JSX.Element {
         title={
           <span className="appointments-card-title">
             Publish availability
-            <span className="appointments-card-title__meta">After coordination review</span>
+            <span className="appointments-card-title__meta">{composerMetaLabel}</span>
           </span>
         }
       >
         <div className="appointments-composer">
           <div className="appointments-composer__context">
-            <span className="appointments-composer__context-pill">Publish after queue review</span>
+            <span
+              className={`appointments-composer__context-pill appointments-composer__context-pill--${coverageState.tone}`}
+            >
+              Publish after queue review
+            </span>
             <p className="appointments-composer__context-note">{composerGuidance}</p>
           </div>
           <p className="appointments-composer__intro">
-            Add bookable clinician time only after the current review queue and published capacity are
-            clear.
+            Use this panel after request review to publish only the clinician time the queue still
+            needs.
           </p>
           <div className="appointments-composer__surface">
             <div className="appointments-composer__cluster">
@@ -877,11 +994,10 @@ export function AppointmentsPage(): JSX.Element {
           <div className="appointments-composer__actions">
             <div className="appointments-composer__hint-group">
               <p className="appointments-composer__hint">
-                Published slots become visible to the booking queue immediately after creation.
+                Published slots become immediately visible to the booking queue after creation.
               </p>
               <p className="appointments-composer__hint appointments-composer__hint--quiet">
-                {capacityNeedsPublishing ? 'Demand currently exceeds open capacity.' : capacityStatusLabel} ·
-                Last refresh {refreshedAtLabel}
+                Queue state: {coverageState.label} · Last refresh {refreshedAtLabel}
               </p>
             </div>
             <Button

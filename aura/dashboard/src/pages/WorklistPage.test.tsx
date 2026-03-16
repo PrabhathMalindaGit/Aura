@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorklistPage } from './WorklistPage';
+import { getWorkspaceStateStorageKey } from '../services/workspaceState';
 import { createJsonResponse, installMatchMediaMock } from '../test/mocks';
 import type { WorklistRecord } from '../types/models';
 
@@ -228,5 +229,50 @@ describe('WorklistPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
 
     expect(await screen.findByText('Jordan Lee')).toBeInTheDocument();
+  });
+
+  it('restores saved workspace filters and clears local continuity on clear view', async () => {
+    const { requests } = installWorklistFetchMock();
+    window.localStorage.setItem(
+      getWorkspaceStateStorageKey('worklist', 'clinician-1'),
+      JSON.stringify({
+        search: 'Jordan',
+        highRiskOnly: true,
+        hasOpenAlerts: false,
+        needsResponse: false,
+        missedCheckins: false,
+        assignedToMe: false,
+        status: 'all',
+        sort: 'patientName',
+      }),
+    );
+
+    renderWorklistPage();
+
+    const searchInput = await screen.findByRole('searchbox', { name: 'Search worklist' });
+    expect(searchInput).toHaveValue('Jordan');
+
+    await waitFor(() => {
+      expect(
+        requests.some(
+          (request) =>
+            request.searchParams.get('search') === 'Jordan' &&
+            request.searchParams.get('highRiskOnly') === 'true' &&
+            request.searchParams.get('sort') === 'patientName',
+        ),
+      ).toBe(true);
+    });
+
+    expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
+    expect(screen.queryByText('Avery Chen')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear view' }));
+
+    expect(window.localStorage.getItem(getWorkspaceStateStorageKey('worklist', 'clinician-1'))).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByRole('searchbox', { name: 'Search worklist' })).toHaveValue('');
+      expect(screen.getByText('Avery Chen')).toBeInTheDocument();
+    });
   });
 });

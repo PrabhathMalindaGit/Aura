@@ -4,6 +4,7 @@ export const RISK_OVERRIDES_STORAGE_KEY = 'aura_risk_overrides_v1';
 export const CLINICIAN_ID_STORAGE_KEY = 'aura_clinician_id';
 export const CLINICIAN_NAME_STORAGE_KEY = 'aura_clinician_name';
 export const SESSION_SETTINGS_STORAGE_KEY = 'aura_session_settings_v1';
+export const WORKSPACE_STATE_STORAGE_PREFIX = 'aura_clinician_workspace_v1';
 
 const TOKEN_STORAGE_KEYS = ['aura_auth_token', 'aura_access_token', 'aura_refresh_token', 'clinicianToken'];
 

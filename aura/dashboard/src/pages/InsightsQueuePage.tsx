@@ -14,6 +14,7 @@ import {
   reviewInsight,
   usePatients,
 } from '../services/clinicianApi';
+import { readWorkspaceState, writeWorkspaceState } from '../services/workspaceState';
 import type { InsightItem, InsightStatus } from '../types/models';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
 import { getPatientDisplayName } from '../utils/patientFilters';
@@ -21,6 +22,7 @@ import { getPatientDisplayName } from '../utils/patientFilters';
 type QueueStateTone = 'active' | 'blocked' | 'clear' | 'quiet';
 type QueueView = 'pending' | 'approved' | 'rejected';
 type BadgeVariant = 'warning' | 'success' | 'neutral';
+const INSIGHTS_WORKSPACE_PAGE = 'insights';
 
 interface QueueState {
   label: string;
@@ -280,9 +282,29 @@ function describeQueueView(
   };
 }
 
+function normalizeInsightsWorkspaceState(value: unknown): { activeView: QueueView } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { activeView: 'pending' };
+  }
+
+  const candidate = value as { activeView?: string };
+  return {
+    activeView:
+      candidate.activeView === 'approved' || candidate.activeView === 'rejected'
+        ? candidate.activeView
+        : 'pending',
+  };
+}
+
 export function InsightsQueuePage(): JSX.Element {
   const navigate = useNavigate();
-  const [activeView, setActiveView] = useState<QueueView>('pending');
+  const [activeView, setActiveView] = useState<QueueView>(() =>
+    readWorkspaceState(
+      INSIGHTS_WORKSPACE_PAGE,
+      { activeView: 'pending' as QueueView },
+      normalizeInsightsWorkspaceState,
+    ).activeView,
+  );
   const [isSubmittingId, setIsSubmittingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
@@ -673,7 +695,12 @@ export function InsightsQueuePage(): JSX.Element {
           <Tabs
             tabs={tabs}
             value={activeView}
-            onValueChange={(id) => setActiveView(id as QueueView)}
+            onValueChange={(id) => {
+              const nextView =
+                id === 'approved' || id === 'rejected' ? (id as QueueView) : 'pending';
+              setActiveView(nextView);
+              writeWorkspaceState(INSIGHTS_WORKSPACE_PAGE, { activeView: nextView });
+            }}
             getTabTestId={(id) => `insights-tab-${id}`}
           />
         </div>

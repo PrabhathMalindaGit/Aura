@@ -11,6 +11,7 @@ import { clearAssignmentStoreForTests, setAssignment } from '../services/assignm
 import { clearClinicianIdentityForTests, setClinicianIdentity } from '../services/clinicianIdentity';
 import { clearRiskOverrideStoreForTests, setRiskOverride } from '../services/overrideStore';
 import { clearSeenStoreForTests, getSeenStorageKey, markSeen } from '../services/seenStore';
+import { getWorkspaceStateStorageKey } from '../services/workspaceState';
 import type { AlertItem } from '../types/models';
 
 const baseAlert: AlertItem = {
@@ -91,6 +92,8 @@ beforeAll(() => {
 beforeEach(() => {
   vi.restoreAllMocks();
   installMatchMediaMock();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
   clearAssignmentStoreForTests();
   clearClinicianIdentityForTests();
   clearRiskOverrideStoreForTests();
@@ -218,6 +221,114 @@ describe('AlertsPage queue flow', () => {
       expect(screen.getByLabelText(unseenRowLabel)).toBeInTheDocument();
     });
   }, 12_000);
+
+  it('restores saved workspace framing and normalizes open-only filters outside the open queue', async () => {
+    const resolvedAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-resolved-1',
+      status: 'resolved',
+      resolvedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      source: { type: 'chat', sourceId: 'chat-1' },
+    };
+
+    window.localStorage.setItem(
+      getWorkspaceStateStorageKey('alerts', 'clinician-1'),
+      JSON.stringify({
+        status: 'resolved',
+        searchValue: 'patient-42',
+        sourceFilter: 'chat',
+        timeRange: '30d',
+        sortOrder: 'patient-asc',
+        unseenOnly: true,
+        assignedToMeOnly: true,
+        unassignedOnly: true,
+        overriddenOnly: true,
+      }),
+    );
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [] });
+      }
+
+      if (url.includes('/clinician/alerts?status=resolved')) {
+        return createJsonResponse({ ok: true, alerts: [resolvedAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    expect(await screen.findByRole('tab', { name: 'Resolved' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('searchbox', { name: 'Search alerts' })).toHaveValue('patient-42');
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Time range')).toHaveValue('30d');
+    expect(screen.getByLabelText('Sort')).toHaveValue('patient-asc');
+
+    await user.click(screen.getByRole('tab', { name: 'Open' }));
+
+    expect(await screen.findByRole('checkbox', { name: 'Unseen only' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Assigned to me' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Unassigned only' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Overridden only' })).not.toBeChecked();
+  });
+
+  it('lets URL search override saved state without writing it back until search is edited', async () => {
+    const workspaceKey = getWorkspaceStateStorageKey('alerts', 'clinician-1');
+
+    window.localStorage.setItem(
+      workspaceKey,
+      JSON.stringify({
+        status: 'open',
+        searchValue: 'saved-search',
+        sourceFilter: 'all',
+        timeRange: '7d',
+        sortOrder: 'newest',
+        unseenOnly: false,
+        assignedToMeOnly: false,
+        unassignedOnly: false,
+        overriddenOnly: false,
+      }),
+    );
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [baseAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage('/alerts?search=patient-42');
+
+    expect(await screen.findByRole('searchbox', { name: 'Search alerts' })).toHaveValue('patient-42');
+    expect(JSON.parse(window.localStorage.getItem(workspaceKey) ?? '{}').searchValue).toBe('saved-search');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check-in' }));
+
+    await waitFor(() => {
+      const stored = JSON.parse(window.localStorage.getItem(workspaceKey) ?? '{}');
+      expect(stored.searchValue).toBe('saved-search');
+      expect(stored.sourceFilter).toBe('checkin');
+    });
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search alerts' }), {
+      target: { value: 'patient-99' },
+    });
+
+    await waitFor(() => {
+      expect(JSON.parse(window.localStorage.getItem(workspaceKey) ?? '{}').searchValue).toBe(
+        'patient-99',
+      );
+    });
+  });
 
   it('acknowledged alerts do not show unseen indicator', async () => {
     const acknowledgedAlert: AlertItem = {

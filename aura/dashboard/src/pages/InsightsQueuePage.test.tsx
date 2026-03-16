@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InsightsQueuePage } from './InsightsQueuePage';
+import { getWorkspaceStateStorageKey } from '../services/workspaceState';
 
 interface RenderOptions {
   pending?: Array<Record<string, unknown>>;
@@ -102,6 +103,8 @@ function renderInsightsPage(options: RenderOptions = {}): void {
 beforeEach(() => {
   vi.restoreAllMocks();
   installMatchMediaMock();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -252,6 +255,69 @@ describe('InsightsQueuePage', () => {
     expect(within(rejectedCard as HTMLElement).getByText('Rejected from workflow')).toBeInTheDocument();
     expect(within(rejectedCard as HTMLElement).getByText('Reason snapshot')).toBeInTheDocument();
     expect(within(rejectedCard as HTMLElement).getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+  });
+
+  it('restores the saved lifecycle tab locally for the current clinician browser context', async () => {
+    window.localStorage.setItem(
+      getWorkspaceStateStorageKey('insights', 'clinician-1'),
+      JSON.stringify({ activeView: 'approved' }),
+    );
+
+    renderInsightsPage({
+      pending: [],
+      approved: [
+        {
+          id: 'approved-3',
+          patientId: 'patient-22',
+          status: 'approved',
+          title: 'Approved follow-up guidance',
+          message: 'Approved guidance snapshot.',
+          category: 'recovery',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-12T08:00:00.000Z',
+        },
+      ],
+      rejected: [],
+      patients: [],
+    });
+
+    const approvedTab = await screen.findByRole('tab', { name: 'Approved (1)' });
+    expect(approvedTab).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('Approved follow-up guidance')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve for workflow' })).not.toBeInTheDocument();
+  });
+
+  it('falls back safely when the saved lifecycle tab is invalid', async () => {
+    window.localStorage.setItem(
+      getWorkspaceStateStorageKey('insights', 'clinician-1'),
+      JSON.stringify({ activeView: 'archive' }),
+    );
+
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'pending-3',
+          patientId: 'patient-55',
+          status: 'pending',
+          title: 'Pending recovery guidance',
+          message: 'Pending review context.',
+          category: 'recovery',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+      ],
+      approved: [],
+      rejected: [],
+      patients: [],
+    });
+
+    const pendingTab = await screen.findByRole('tab', { name: 'Pending (1)' });
+    expect(pendingTab).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('Pending recovery guidance')).toBeInTheDocument();
   });
 
   it('treats an empty pending queue with reviewed items as queue cleared', async () => {

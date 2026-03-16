@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PatientCardList } from '../components/patients/PatientCardList';
 import { PatientsFiltersBar } from '../components/patients/PatientsFiltersBar';
@@ -11,9 +11,16 @@ import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useConnectionStatus } from '../services/connection';
 import { usePatients } from '../services/clinicianApi';
+import {
+  clearWorkspaceState,
+  normalizeWorkspaceSearch,
+  readWorkspaceState,
+  writeWorkspaceState,
+} from '../services/workspaceState';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import type { PatientSummary } from '../types/models';
 import { asAppError } from '../utils/errors';
@@ -30,6 +37,40 @@ import {
 const PATIENTS_ENDPOINT_HINT =
   'Add GET /clinician/patients returning { ok: true, patients: [...] }';
 const RETRY_EVENT = 'aura:retry';
+const PATIENTS_WORKSPACE_PAGE = 'patients';
+const PATIENT_STATUS_FILTERS = ['all', 'active', 'on_hold', 'discharged', 'inactive'] as const;
+const RECENTLY_ACTIVE_FILTERS = ['all', '24h', '7d', '30d'] as const;
+const PATIENT_SORT_OPTIONS = [
+  'alerts-desc',
+  'last-checkin-desc',
+  'name-asc',
+  'status-active-first',
+] as const;
+
+function normalizePatientsWorkspaceState(value: unknown): PatientFilters {
+  const fallback = defaultPatientFilters();
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return fallback;
+  }
+
+  const candidate = value as Partial<PatientFilters>;
+
+  return {
+    search: normalizeWorkspaceSearch(candidate.search),
+    status: PATIENT_STATUS_FILTERS.includes(candidate.status ?? 'all')
+      ? (candidate.status as PatientFilters['status'])
+      : fallback.status,
+    hasOpenAlertsOnly: candidate.hasOpenAlertsOnly === true,
+    missedCheckinsOnly: candidate.missedCheckinsOnly === true,
+    recentlyActive: RECENTLY_ACTIVE_FILTERS.includes(candidate.recentlyActive ?? 'all')
+      ? (candidate.recentlyActive as PatientFilters['recentlyActive'])
+      : fallback.recentlyActive,
+    sort: PATIENT_SORT_OPTIONS.includes(candidate.sort ?? 'alerts-desc')
+      ? (candidate.sort as PatientFilters['sort'])
+      : fallback.sort,
+  };
+}
 
 function summarizePatients(patients: PatientSummary[]): {
   total: number;
@@ -86,9 +127,25 @@ export function PatientsPage(): JSX.Element {
   const patientsQuery = usePatients();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
-
-  const [filters, setFilters] = useState<PatientFilters>(defaultPatientFilters());
   const initialSearchValue = useMemo(() => searchParams.get('search')?.trim() ?? '', [searchParams]);
+  const savedFiltersRef = useRef<PatientFilters>(defaultPatientFilters());
+  const liveFiltersRef = useRef<PatientFilters>(defaultPatientFilters());
+  const searchPersistenceEnabledRef = useRef(false);
+  const [filters, setFilters] = useState<PatientFilters>(() => {
+    const restored = readWorkspaceState(
+      PATIENTS_WORKSPACE_PAGE,
+      defaultPatientFilters(),
+      normalizePatientsWorkspaceState,
+    );
+    savedFiltersRef.current = restored;
+    return initialSearchValue
+      ? {
+          ...restored,
+          search: initialSearchValue,
+        }
+      : restored;
+  });
+  const debouncedPersistedSearch = useDebouncedValue(filters.search, 250);
 
   const allPatients = useMemo(() => patientsQuery.data ?? [], [patientsQuery.data]);
   const visiblePatients = useMemo(() => applyPatientFilters(allPatients, filters), [allPatients, filters]);
@@ -131,6 +188,24 @@ export function PatientsPage(): JSX.Element {
     void patientsQuery.refetch();
   }, [patientsQuery]);
 
+  const persistPatientsState = useCallback((nextFilters: PatientFilters): void => {
+    const normalized = normalizePatientsWorkspaceState(nextFilters);
+    savedFiltersRef.current = normalized;
+    writeWorkspaceState(PATIENTS_WORKSPACE_PAGE, normalized);
+  }, []);
+
+  const clearSavedPatientsState = useCallback((): void => {
+    const nextFilters = defaultPatientFilters();
+    savedFiltersRef.current = nextFilters;
+    searchPersistenceEnabledRef.current = false;
+    clearWorkspaceState(PATIENTS_WORKSPACE_PAGE);
+    setFilters(nextFilters);
+  }, []);
+
+  useEffect(() => {
+    liveFiltersRef.current = filters;
+  }, [filters]);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -145,10 +220,26 @@ export function PatientsPage(): JSX.Element {
   }, [retryPatients]);
 
   useEffect(() => {
+    if (!initialSearchValue) {
+      return;
+    }
+
+    searchPersistenceEnabledRef.current = false;
     setFilters((current) =>
       current.search === initialSearchValue ? current : { ...current, search: initialSearchValue },
     );
   }, [initialSearchValue]);
+
+  useEffect(() => {
+    if (!searchPersistenceEnabledRef.current) {
+      return;
+    }
+
+    persistPatientsState({
+      ...liveFiltersRef.current,
+      search: debouncedPersistedSearch,
+    });
+  }, [debouncedPersistedSearch, persistPatientsState]);
 
   return (
     <Stack className="page-stack patients-page" gap="5">
@@ -266,19 +357,81 @@ export function PatientsPage(): JSX.Element {
             </p>
             <PatientsFiltersBar
               filters={filters}
-              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
-              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
+              onSearchChange={(search) => {
+                searchPersistenceEnabledRef.current = true;
+                setFilters((current) => ({ ...current, search }));
+              }}
+              onStatusChange={(status) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    status,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistPatientsState(next);
+                  return {
+                    ...current,
+                    status,
+                  };
+                })
+              }
               onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-                setFilters((current) => ({ ...current, hasOpenAlertsOnly }))
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    hasOpenAlertsOnly,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistPatientsState(next);
+                  return {
+                    ...current,
+                    hasOpenAlertsOnly,
+                  };
+                })
               }
               onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-                setFilters((current) => ({ ...current, missedCheckinsOnly }))
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    missedCheckinsOnly,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistPatientsState(next);
+                  return {
+                    ...current,
+                    missedCheckinsOnly,
+                  };
+                })
               }
               onRecentlyActiveChange={(recentlyActive) =>
-                setFilters((current) => ({ ...current, recentlyActive }))
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    recentlyActive,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistPatientsState(next);
+                  return {
+                    ...current,
+                    recentlyActive,
+                  };
+                })
               }
-              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-              onReset={() => setFilters(defaultPatientFilters())}
+              onSortChange={(sort) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    sort,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistPatientsState(next);
+                  return {
+                    ...current,
+                    sort,
+                  };
+                })
+              }
+              onReset={clearSavedPatientsState}
             />
           </div>
 
@@ -368,7 +521,7 @@ export function PatientsPage(): JSX.Element {
                   className="patients-empty-state__reset"
                   variant="secondary"
                   size="sm"
-                  onClick={() => setFilters(defaultPatientFilters())}
+                  onClick={clearSavedPatientsState}
                 >
                   Reset filters
                 </Button>

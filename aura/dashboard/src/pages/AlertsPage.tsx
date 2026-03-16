@@ -22,6 +22,7 @@ import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useAssignment } from '../hooks/useAssignment';
 import { useRiskOverride } from '../hooks/useRiskOverride';
@@ -44,6 +45,11 @@ import {
   useUpdateAlertStatus,
 } from '../services/clinicianApi';
 import { useConnectionStatus } from '../services/connection';
+import {
+  normalizeWorkspaceSearch,
+  readWorkspaceState,
+  writeWorkspaceState,
+} from '../services/workspaceState';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { toCsv, downloadCsv } from '../utils/csv';
 import {
@@ -71,6 +77,19 @@ import { cn } from '../utils/cn';
 const POLLING_INTERVAL_MS = 12_000;
 const SEEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const RETRY_EVENT = 'aura:retry';
+const ALERTS_WORKSPACE_PAGE = 'alerts';
+
+interface AlertsWorkspaceState {
+  status: AlertStatus;
+  searchValue: string;
+  sourceFilter: SourceFilter;
+  timeRange: TimeRangeFilter;
+  sortOrder: SortOrder;
+  unseenOnly: boolean;
+  assignedToMeOnly: boolean;
+  unassignedOnly: boolean;
+  overriddenOnly: boolean;
+}
 
 function createDefaultExportStatuses(activeStatus: AlertStatus): Record<AlertStatus, boolean> {
   return {
@@ -167,6 +186,64 @@ function sortAlerts(alerts: AlertItem[], order: SortOrder): AlertItem[] {
   return next;
 }
 
+function normalizeAlertsWorkspaceState(value: unknown): AlertsWorkspaceState {
+  const fallback: AlertsWorkspaceState = {
+    status: 'open',
+    searchValue: '',
+    sourceFilter: 'all',
+    timeRange: '7d',
+    sortOrder: 'newest',
+    unseenOnly: false,
+    assignedToMeOnly: false,
+    unassignedOnly: false,
+    overriddenOnly: false,
+  };
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return fallback;
+  }
+
+  const candidate = value as Partial<AlertsWorkspaceState>;
+  const status =
+    candidate.status === 'acknowledged' || candidate.status === 'resolved'
+      ? candidate.status
+      : 'open';
+  const assignedToMeOnly = candidate.assignedToMeOnly === true;
+  const unassignedOnly = candidate.unassignedOnly === true && !assignedToMeOnly;
+  const openOnlyState =
+    status === 'open'
+      ? {
+          unseenOnly: candidate.unseenOnly === true,
+          assignedToMeOnly,
+          unassignedOnly,
+          overriddenOnly: candidate.overriddenOnly === true,
+        }
+      : {
+          unseenOnly: false,
+          assignedToMeOnly: false,
+          unassignedOnly: false,
+          overriddenOnly: false,
+        };
+
+  return {
+    status,
+    searchValue: normalizeWorkspaceSearch(candidate.searchValue),
+    sourceFilter:
+      candidate.sourceFilter === 'checkin' || candidate.sourceFilter === 'chat'
+        ? candidate.sourceFilter
+        : 'all',
+    timeRange:
+      candidate.timeRange === '24h' || candidate.timeRange === '30d'
+        ? candidate.timeRange
+        : '7d',
+    sortOrder:
+      candidate.sortOrder === 'oldest' || candidate.sortOrder === 'patient-asc'
+        ? candidate.sortOrder
+        : 'newest',
+    ...openOnlyState,
+  };
+}
+
 function filterAlerts(
   alerts: AlertItem[],
   options: {
@@ -221,16 +298,30 @@ function filterAlerts(
 
 export function AlertsPage(): JSX.Element {
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<AlertStatus>('open');
+  const initialSearchValue = useMemo(() => {
+    const searchQuery = searchParams.get('search')?.trim();
+    const patientIdQuery = searchParams.get('patientId')?.trim();
+    return searchQuery || patientIdQuery || '';
+  }, [searchParams]);
+  const savedWorkspaceRef = useRef<AlertsWorkspaceState>(
+    readWorkspaceState(
+      ALERTS_WORKSPACE_PAGE,
+      normalizeAlertsWorkspaceState(undefined),
+      normalizeAlertsWorkspaceState,
+    ),
+  );
+  const liveWorkspaceRef = useRef<AlertsWorkspaceState>(savedWorkspaceRef.current);
+  const searchPersistenceEnabledRef = useRef(false);
+  const [status, setStatus] = useState<AlertStatus>(() => savedWorkspaceRef.current.status);
   const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
-  const [searchValue, setSearchValue] = useState('');
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
-  const [timeRange, setTimeRange] = useState<TimeRangeFilter>('7d');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
-  const [unseenOnly, setUnseenOnly] = useState(false);
-  const [assignedToMeOnly, setAssignedToMeOnly] = useState(false);
-  const [unassignedOnly, setUnassignedOnly] = useState(false);
-  const [overriddenOnly, setOverriddenOnly] = useState(false);
+  const [searchValue, setSearchValue] = useState(() => initialSearchValue || savedWorkspaceRef.current.searchValue);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>(() => savedWorkspaceRef.current.sourceFilter);
+  const [timeRange, setTimeRange] = useState<TimeRangeFilter>(() => savedWorkspaceRef.current.timeRange);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(() => savedWorkspaceRef.current.sortOrder);
+  const [unseenOnly, setUnseenOnly] = useState(() => savedWorkspaceRef.current.unseenOnly);
+  const [assignedToMeOnly, setAssignedToMeOnly] = useState(() => savedWorkspaceRef.current.assignedToMeOnly);
+  const [unassignedOnly, setUnassignedOnly] = useState(() => savedWorkspaceRef.current.unassignedOnly);
+  const [overriddenOnly, setOverriddenOnly] = useState(() => savedWorkspaceRef.current.overriddenOnly);
   const [actionError, setActionError] = useState<string | null>(null);
   const [clinicianId, setClinicianId] = useState(() => getClinicianId());
   const [clinicianName, setClinicianName] = useState(() => getClinicianName());
@@ -249,6 +340,7 @@ export function AlertsPage(): JSX.Element {
   const [alertsExportPreviewCount, setAlertsExportPreviewCount] = useState(0);
   const [alertsExportError, setAlertsExportError] = useState<string | null>(null);
   const [highlightedAlertIds, setHighlightedAlertIds] = useState<string[]>([]);
+  const debouncedPersistedSearch = useDebouncedValue(searchValue, 250);
   const alertsExportRangeError = validateDateRange(alertsExportRange);
   const selectedAlertsExportStatuses = useMemo(
     () =>
@@ -266,11 +358,6 @@ export function AlertsPage(): JSX.Element {
   const documentHidden = useDocumentHidden();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
-  const initialSearchValue = useMemo(() => {
-    const searchQuery = searchParams.get('search')?.trim();
-    const patientIdQuery = searchParams.get('patientId')?.trim();
-    return searchQuery || patientIdQuery || '';
-  }, [searchParams]);
 
   const shouldPollOpenAlerts = status === 'open' && connection.online && !documentHidden;
 
@@ -283,6 +370,51 @@ export function AlertsPage(): JSX.Element {
   const overrides = useRiskOverride({ clinicianId, clinicianName });
   const applyAlertAssignments = assignments.applyAlertAssignments;
   const applyAlertOverrides = overrides.applyAlertOverrides;
+
+  const persistAlertsWorkspaceState = useCallback(
+    (
+      overridesState: Partial<AlertsWorkspaceState> = {},
+      options?: { persistSearch?: boolean },
+    ): void => {
+      const baseState = liveWorkspaceRef.current;
+      const normalized = normalizeAlertsWorkspaceState({
+        ...baseState,
+        searchValue:
+          options?.persistSearch === false
+            ? savedWorkspaceRef.current.searchValue
+            : baseState.searchValue,
+        ...overridesState,
+      });
+
+      savedWorkspaceRef.current = normalized;
+      writeWorkspaceState(ALERTS_WORKSPACE_PAGE, normalized);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    liveWorkspaceRef.current = normalizeAlertsWorkspaceState({
+      status,
+      searchValue,
+      sourceFilter,
+      timeRange,
+      sortOrder,
+      unseenOnly,
+      assignedToMeOnly,
+      unassignedOnly,
+      overriddenOnly,
+    });
+  }, [
+    assignedToMeOnly,
+    overriddenOnly,
+    searchValue,
+    sortOrder,
+    sourceFilter,
+    status,
+    timeRange,
+    unseenOnly,
+    unassignedOnly,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -331,6 +463,11 @@ export function AlertsPage(): JSX.Element {
   }, [clinicianId]);
 
   useEffect(() => {
+    if (!initialSearchValue) {
+      return;
+    }
+
+    searchPersistenceEnabledRef.current = false;
     setSearchValue(initialSearchValue);
   }, [initialSearchValue]);
 
@@ -339,15 +476,17 @@ export function AlertsPage(): JSX.Element {
   }, [status]);
 
   useEffect(() => {
-    if (status === 'open') {
+    if (!searchPersistenceEnabledRef.current) {
       return;
     }
 
-    setUnseenOnly(false);
-    setAssignedToMeOnly(false);
-    setUnassignedOnly(false);
-    setOverriddenOnly(false);
-  }, [status]);
+    persistAlertsWorkspaceState(
+      {
+        searchValue: debouncedPersistedSearch,
+      },
+      { persistSearch: true },
+    );
+  }, [debouncedPersistedSearch, persistAlertsWorkspaceState]);
 
   const collectAlertsForExport = useCallback(
     async (statusesToInclude: AlertStatus[]): Promise<AlertItem[]> => {
@@ -600,6 +739,31 @@ export function AlertsPage(): JSX.Element {
     window.addEventListener(RETRY_EVENT, onRetry);
     return () => window.removeEventListener(RETRY_EVENT, onRetry);
   }, [retryAlerts]);
+
+  function handleStatusChange(nextStatus: AlertStatus): void {
+    setStatus(nextStatus);
+    setSelectedAlert(null);
+
+    if (nextStatus === 'open') {
+      persistAlertsWorkspaceState({ status: nextStatus }, { persistSearch: false });
+      return;
+    }
+
+    setUnseenOnly(false);
+    setAssignedToMeOnly(false);
+    setUnassignedOnly(false);
+    setOverriddenOnly(false);
+    persistAlertsWorkspaceState(
+      {
+        status: nextStatus,
+        unseenOnly: false,
+        assignedToMeOnly: false,
+        unassignedOnly: false,
+        overriddenOnly: false,
+      },
+      { persistSearch: false },
+    );
+  }
 
   function markSeen(alert: AlertItem): void {
     if (alert.status !== 'open') {
@@ -892,16 +1056,16 @@ export function AlertsPage(): JSX.Element {
               Review first visibility, ownership, and disposition from one tighter operational queue.
             </p>
           </div>
-          <div className="alerts-workspace-card__heading-actions">
-            <div className="alerts-workspace-card__queue-meta" aria-live="polite">
-              <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
-              <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
-            </div>
-            <div className="alerts-status-tabs-wrap">
-              <StatusTabs value={status} onChange={setStatus} />
+            <div className="alerts-workspace-card__heading-actions">
+              <div className="alerts-workspace-card__queue-meta" aria-live="polite">
+                <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
+                <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
+              </div>
+              <div className="alerts-status-tabs-wrap">
+              <StatusTabs value={status} onChange={handleStatusChange} />
+              </div>
             </div>
           </div>
-        </div>
 
         <div className="alerts-workspace-card__controls">
           <FiltersBar
@@ -916,24 +1080,58 @@ export function AlertsPage(): JSX.Element {
             unassignedOnly={unassignedOnly}
             overriddenOnly={overriddenOnly}
             refreshing={alertsQuery.isFetching}
-            onSearchValueChange={setSearchValue}
-            onSourceFilterChange={setSourceFilter}
-            onTimeRangeChange={setTimeRange}
-            onSortOrderChange={setSortOrder}
-            onUnseenOnlyChange={setUnseenOnly}
+            onSearchValueChange={(value) => {
+              searchPersistenceEnabledRef.current = true;
+              setSearchValue(value);
+            }}
+            onSourceFilterChange={(value) => {
+              setSourceFilter(value);
+              persistAlertsWorkspaceState({ sourceFilter: value }, { persistSearch: false });
+            }}
+            onTimeRangeChange={(value) => {
+              setTimeRange(value);
+              persistAlertsWorkspaceState({ timeRange: value }, { persistSearch: false });
+            }}
+            onSortOrderChange={(value) => {
+              setSortOrder(value);
+              persistAlertsWorkspaceState({ sortOrder: value }, { persistSearch: false });
+            }}
+            onUnseenOnlyChange={(value) => {
+              setUnseenOnly(value);
+              persistAlertsWorkspaceState({ unseenOnly: value }, { persistSearch: false });
+            }}
             onAssignedToMeOnlyChange={(value) => {
               setAssignedToMeOnly(value);
+              const nextUnassignedOnly = value ? false : unassignedOnly;
               if (value) {
                 setUnassignedOnly(false);
               }
+              persistAlertsWorkspaceState(
+                {
+                  assignedToMeOnly: value,
+                  unassignedOnly: nextUnassignedOnly,
+                },
+                { persistSearch: false },
+              );
             }}
             onUnassignedOnlyChange={(value) => {
               setUnassignedOnly(value);
+              const nextAssignedToMeOnly = value ? false : assignedToMeOnly;
               if (value) {
                 setAssignedToMeOnly(false);
               }
+              persistAlertsWorkspaceState(
+                {
+                  assignedToMeOnly: nextAssignedToMeOnly,
+                  unassignedOnly: value,
+                },
+                { persistSearch: false },
+              );
             }}
-            onOverriddenOnlyChange={setOverriddenOnly}
+            onOverriddenOnlyChange={(value) => {
+              setOverriddenOnly(value);
+              persistAlertsWorkspaceState({ overriddenOnly: value }, { persistSearch: false });
+            }}
             onRefresh={() => {
               void alertsQuery.refetch();
             }}

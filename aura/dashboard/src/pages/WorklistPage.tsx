@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WorklistCardList } from '../components/worklist/WorklistCardList';
 import { WorklistFilters } from '../components/worklist/WorklistFilters';
@@ -16,6 +16,12 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useConnectionStatus } from '../services/connection';
 import { useClinicianWorklist } from '../services/clinicianApi';
+import {
+  clearWorkspaceState,
+  normalizeWorkspaceSearch,
+  readWorkspaceState,
+  writeWorkspaceState,
+} from '../services/workspaceState';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { asAppError } from '../utils/errors';
 import { toErrorView } from '../utils/errorView';
@@ -28,6 +34,40 @@ import {
 const WORKLIST_ENDPOINT_HINT =
   'Add GET /clinician/worklist returning { ok: true, items: [...], total }.';
 const RETRY_EVENT = 'aura:retry';
+const WORKLIST_WORKSPACE_PAGE = 'worklist';
+const WORKLIST_STATUS_FILTERS = ['all', 'active', 'on_hold', 'discharged', 'inactive'] as const;
+const WORKLIST_SORT_OPTIONS = [
+  'priority',
+  'updatedAt',
+  'lastCheckinAt',
+  'patientName',
+  'nextAppointmentAt',
+] as const;
+
+function normalizeWorklistWorkspaceState(value: unknown): WorklistFiltersState {
+  const fallback = defaultWorklistFilters();
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return fallback;
+  }
+
+  const candidate = value as Partial<WorklistFiltersState>;
+
+  return {
+    search: normalizeWorkspaceSearch(candidate.search),
+    highRiskOnly: candidate.highRiskOnly === true,
+    hasOpenAlerts: candidate.hasOpenAlerts === true,
+    needsResponse: candidate.needsResponse === true,
+    missedCheckins: candidate.missedCheckins === true,
+    assignedToMe: candidate.assignedToMe === true,
+    status: WORKLIST_STATUS_FILTERS.includes(candidate.status ?? 'all')
+      ? (candidate.status as WorklistFiltersState['status'])
+      : fallback.status,
+    sort: WORKLIST_SORT_OPTIONS.includes(candidate.sort ?? 'priority')
+      ? (candidate.sort as WorklistFiltersState['sort'])
+      : fallback.sort,
+  };
+}
 
 function isEndpointMissing(error: unknown): boolean {
   const appError = asAppError(error);
@@ -38,8 +78,20 @@ export function WorklistPage(): JSX.Element {
   const navigate = useNavigate();
   const connection = useConnectionStatus();
   const isCompactLayout = useMediaQuery(MEDIA_QUERIES.lgDown);
-  const [filters, setFilters] = useState<WorklistFiltersState>(defaultWorklistFilters());
+  const savedFiltersRef = useRef<WorklistFiltersState>(defaultWorklistFilters());
+  const liveFiltersRef = useRef<WorklistFiltersState>(defaultWorklistFilters());
+  const searchPersistenceEnabledRef = useRef(false);
+  const [filters, setFilters] = useState<WorklistFiltersState>(() => {
+    const restored = readWorkspaceState(
+      WORKLIST_WORKSPACE_PAGE,
+      defaultWorklistFilters(),
+      normalizeWorklistWorkspaceState,
+    );
+    savedFiltersRef.current = restored;
+    return restored;
+  });
   const debouncedSearch = useDebouncedValue(filters.search.trim(), 250);
+  const debouncedPersistedSearch = useDebouncedValue(filters.search, 250);
 
   const requestFilters = useMemo(
     () => ({
@@ -89,6 +141,24 @@ export function WorklistPage(): JSX.Element {
     void worklistQuery.refetch();
   }, [worklistQuery]);
 
+  const persistWorklistState = useCallback((nextFilters: WorklistFiltersState): void => {
+    const normalized = normalizeWorklistWorkspaceState(nextFilters);
+    savedFiltersRef.current = normalized;
+    writeWorkspaceState(WORKLIST_WORKSPACE_PAGE, normalized);
+  }, []);
+
+  const clearSavedWorklistState = useCallback((): void => {
+    const nextFilters = defaultWorklistFilters();
+    savedFiltersRef.current = nextFilters;
+    searchPersistenceEnabledRef.current = false;
+    clearWorkspaceState(WORKLIST_WORKSPACE_PAGE);
+    setFilters(nextFilters);
+  }, []);
+
+  useEffect(() => {
+    liveFiltersRef.current = filters;
+  }, [filters]);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -101,6 +171,17 @@ export function WorklistPage(): JSX.Element {
     window.addEventListener(RETRY_EVENT, onRetry);
     return () => window.removeEventListener(RETRY_EVENT, onRetry);
   }, [retryWorklist]);
+
+  useEffect(() => {
+    if (!searchPersistenceEnabledRef.current) {
+      return;
+    }
+
+    persistWorklistState({
+      ...liveFiltersRef.current,
+      search: debouncedPersistedSearch,
+    });
+  }, [debouncedPersistedSearch, persistWorklistState]);
 
   return (
     <Stack className="page-stack worklist-page" gap="5">
@@ -190,7 +271,7 @@ export function WorklistPage(): JSX.Element {
           </span>
         }
         action={
-          <Button variant="ghost" size="sm" onClick={() => setFilters(defaultWorklistFilters())} disabled={worklistQuery.isFetching}>
+          <Button variant="ghost" size="sm" onClick={clearSavedWorklistState} disabled={worklistQuery.isFetching}>
             Clear view
           </Button>
         }
@@ -203,16 +284,53 @@ export function WorklistPage(): JSX.Element {
             <WorklistFilters
               filters={filters}
               disabled={worklistQuery.isFetching && items.length === 0}
-              onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+              onSearchChange={(search) => {
+                searchPersistenceEnabledRef.current = true;
+                setFilters((current) => ({ ...current, search }));
+              }}
               onToggleFilter={(key) =>
-                setFilters((current) => ({
-                  ...current,
-                  [key]: !current[key],
-                }))
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    [key]: !current[key],
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistWorklistState(next);
+                  return {
+                    ...current,
+                    [key]: !current[key],
+                  };
+                })
               }
-              onStatusChange={(status) => setFilters((current) => ({ ...current, status }))}
-              onSortChange={(sort) => setFilters((current) => ({ ...current, sort }))}
-              onReset={() => setFilters(defaultWorklistFilters())}
+              onStatusChange={(status) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    status,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistWorklistState(next);
+                  return {
+                    ...current,
+                    status,
+                  };
+                })
+              }
+              onSortChange={(sort) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    sort,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistWorklistState(next);
+                  return {
+                    ...current,
+                    sort,
+                  };
+                })
+              }
+              onReset={clearSavedWorklistState}
             />
           </div>
 
@@ -278,7 +396,7 @@ export function WorklistPage(): JSX.Element {
                 description="Clear filters to return to the active review queue."
                 tone="warning"
                 action={
-                  <Button variant="secondary" size="sm" onClick={() => setFilters(defaultWorklistFilters())}>
+                  <Button variant="secondary" size="sm" onClick={clearSavedWorklistState}>
                     Reset filters
                   </Button>
                 }

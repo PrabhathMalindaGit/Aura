@@ -15,6 +15,7 @@ import {
   reviewAppointmentRequest,
   usePatients,
 } from '../services/clinicianApi';
+import { readWorkspaceState, writeWorkspaceState } from '../services/workspaceState';
 import { appointmentWorkflowLabel, appointmentWorkflowTone } from '../utils/patientDetail';
 import { getPatientDisplayName } from '../utils/patientFilters';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
@@ -24,6 +25,7 @@ type SlotStatusFilter = 'available' | 'closed';
 type RequestStatusFilter = 'pending' | 'approved' | 'rejected' | 'canceled';
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger';
 type CoordinationTone = 'attention' | 'clear' | 'quiet';
+const APPOINTMENTS_WORKSPACE_PAGE = 'appointments';
 
 interface CoordinationState {
   label: string;
@@ -262,10 +264,46 @@ function describeNextOpenSlot(slots: Array<{ startsAt: string; endsAt: string }>
   };
 }
 
+function normalizeAppointmentsWorkspaceState(value: unknown): {
+  requestStatus: RequestStatusFilter;
+  slotStatus: SlotStatusFilter;
+} {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      requestStatus: 'pending',
+      slotStatus: 'available',
+    };
+  }
+
+  const candidate = value as { requestStatus?: string; slotStatus?: string };
+
+  return {
+    requestStatus:
+      candidate.requestStatus === 'approved' ||
+      candidate.requestStatus === 'rejected' ||
+      candidate.requestStatus === 'canceled'
+        ? candidate.requestStatus
+        : 'pending',
+    slotStatus: candidate.slotStatus === 'closed' ? 'closed' : 'available',
+  };
+}
+
 export function AppointmentsPage(): JSX.Element {
   const navigate = useNavigate();
-  const [slotStatus, setSlotStatus] = useState<SlotStatusFilter>('available');
-  const [requestStatus, setRequestStatus] = useState<RequestStatusFilter>('pending');
+  const [slotStatus, setSlotStatus] = useState<SlotStatusFilter>(() =>
+    readWorkspaceState(
+      APPOINTMENTS_WORKSPACE_PAGE,
+      { requestStatus: 'pending' as RequestStatusFilter, slotStatus: 'available' as SlotStatusFilter },
+      normalizeAppointmentsWorkspaceState,
+    ).slotStatus,
+  );
+  const [requestStatus, setRequestStatus] = useState<RequestStatusFilter>(() =>
+    readWorkspaceState(
+      APPOINTMENTS_WORKSPACE_PAGE,
+      { requestStatus: 'pending' as RequestStatusFilter, slotStatus: 'available' as SlotStatusFilter },
+      normalizeAppointmentsWorkspaceState,
+    ).requestStatus,
+  );
   const [startsAtInput, setStartsAtInput] = useState('');
   const [endsAtInput, setEndsAtInput] = useState('');
   const [meetingLinkInput, setMeetingLinkInput] = useState('');
@@ -625,7 +663,13 @@ export function AppointmentsPage(): JSX.Element {
                     key={status}
                     variant={requestStatus === status ? 'primary' : 'secondary'}
                     size="sm"
-                    onClick={() => setRequestStatus(status)}
+                    onClick={() => {
+                      setRequestStatus(status);
+                      writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
+                        requestStatus: status,
+                        slotStatus,
+                      });
+                    }}
                   >
                     {status}
                   </Button>
@@ -809,14 +853,26 @@ export function AppointmentsPage(): JSX.Element {
                 <Button
                   variant={slotStatus === 'available' ? 'primary' : 'secondary'}
                   size="sm"
-                  onClick={() => setSlotStatus('available')}
+                  onClick={() => {
+                    setSlotStatus('available');
+                    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
+                      requestStatus,
+                      slotStatus: 'available',
+                    });
+                  }}
                 >
                   Open capacity
                 </Button>
                 <Button
                   variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
                   size="sm"
-                  onClick={() => setSlotStatus('closed')}
+                  onClick={() => {
+                    setSlotStatus('closed');
+                    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
+                      requestStatus,
+                      slotStatus: 'closed',
+                    });
+                  }}
                 >
                   Closed capacity
                 </Button>

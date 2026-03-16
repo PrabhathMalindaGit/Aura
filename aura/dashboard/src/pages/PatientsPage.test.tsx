@@ -59,6 +59,8 @@ function renderPatientsPage(initialEntry: string = '/patients'): void {
 beforeEach(() => {
   vi.restoreAllMocks();
   installMatchMediaMock();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 afterEach(() => {

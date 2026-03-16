@@ -21269,6 +21269,127 @@ button.dashboard-summary-card:hover {
   justify-content: flex-end;
 }
 
+.insights-review-outcome {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid hsl(var(--border) / 0.58);
+  border-radius: calc(var(--radius-xl) - 6px);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 82%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.9);
+}
+
+@media (min-width: 920px) {
+  .insights-review-outcome {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.insights-review-outcome--approved {
+  border-color: hsl(var(--primary) / 0.22);
+}
+
+.insights-review-outcome--rejected {
+  border-color: hsl(var(--border) / 0.68);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.03), transparent 84%);
+}
+
+.insights-review-outcome__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.insights-review-outcome__eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.insights-review-outcome__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.insights-review-outcome__title {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-tight);
+}
+
+.insights-review-outcome__patient {
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+}
+
+.insights-review-outcome__text,
+.insights-review-outcome__next {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.insights-review-outcome__item {
+  color: hsl(var(--foreground) / 0.88);
+  font-weight: var(--font-medium);
+}
+
+.insights-review-outcome__next {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.insights-review-outcome__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.insights-review-outcome__action.btn {
+  min-width: 8rem;
+}
+
+.insights-review-outcome__action--view.btn {
+  border-color: hsl(var(--border) / 0.62);
+}
+
+.insights-queue__state {
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+}
+
+.insights-queue__item--just-reviewed {
+  border-color: hsl(var(--primary) / 0.26);
+  box-shadow:
+    0 14px 26px hsl(var(--primary) / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.insights-queue__just-reviewed {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0 0.55rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.92);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.65rem;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .dark .insights-page .insights-page__meta-pill--status-quiet {
   border-color: hsl(var(--border) / 0.54);
   background:
@@ -21327,6 +21448,44 @@ button.dashboard-summary-card:hover {
   background:
     linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.34)),
     linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 82%);
+}
+
+.dark .insights-review-outcome {
+  border-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 82%);
+}
+
+.dark .insights-review-outcome--approved {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.dark .insights-review-outcome--rejected {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 82%);
+}
+
+.dark .insights-review-outcome__item,
+.dark .insights-review-outcome__next {
+  color: hsl(var(--foreground) / 0.82);
+}
+
+.dark .insights-queue__item--just-reviewed {
+  border-color: hsl(var(--primary) / 0.34);
+  box-shadow:
+    0 18px 30px hsl(224 48% 4% / 0.18),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.dark .insights-queue__just-reviewed {
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.34)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 82%);
+  color: hsl(var(--foreground) / 0.78);
 }
 
 /* Pass 10A: Worklist and Alerts action continuity */

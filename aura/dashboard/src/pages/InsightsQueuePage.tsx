@@ -42,6 +42,14 @@ interface QueueViewConfig {
   errorTitle: string;
 }
 
+interface LastReviewOutcome {
+  id: string;
+  status: 'approved' | 'rejected';
+  title: string;
+  patientId: string;
+  patientLabel: string;
+}
+
 function categoryLabel(value: string): string {
   if (value === 'questionnaires') {
     return 'Questionnaires';
@@ -177,7 +185,7 @@ function insightOutcomeText(status: InsightStatus): string {
   if (status === 'rejected') {
     return 'This suggestion has already been kept out of clinician workflow in the current review context.';
   }
-  return 'Approve to surface this guidance into clinician workflow. Reject when it should stay out of workflow or does not warrant clinician action.';
+  return 'Approve to surface this guidance into workflow. Reject to keep it out of workflow when it does not warrant clinician action.';
 }
 
 function describeQueueView(
@@ -308,7 +316,7 @@ export function InsightsQueuePage(): JSX.Element {
   );
   const [isSubmittingId, setIsSubmittingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [lastReviewOutcome, setLastReviewOutcome] = useState<LastReviewOutcome | null>(null);
 
   const patientsQuery = usePatients();
 
@@ -428,25 +436,77 @@ export function InsightsQueuePage(): JSX.Element {
     reviewedCount,
     reviewedCountsUnavailable,
   });
+  const lastReviewOutcomeView = lastReviewOutcome?.status === 'approved' ? 'approved' : 'rejected';
+  const outcomeDestinationLabel = lastReviewOutcome?.status === 'approved' ? 'Approved' : 'Rejected';
+  const outcomePanelTitle =
+    lastReviewOutcome?.status === 'approved' ? 'Approved into workflow' : 'Rejected from workflow';
+  const outcomeFollowThrough =
+    pendingCount > 0
+      ? 'Continue with the next pending suggestion below.'
+      : 'Pending review is clear.';
+  const normalizedOutcomePatientId = lastReviewOutcome?.patientId.trim() ?? '';
+  const canOpenOutcomePatient = normalizedOutcomePatientId.length > 0;
 
-  async function handleRefreshQueue(): Promise<void> {
-    await Promise.all([
+  function setQueueView(nextView: QueueView): void {
+    setActiveView(nextView);
+    writeWorkspaceState(INSIGHTS_WORKSPACE_PAGE, { activeView: nextView });
+  }
+
+  async function handleRefreshQueue() {
+    const [pendingResult, approvedResult, rejectedResult, patientsResult] = await Promise.all([
       queueQuery.refetch(),
       approvedInsightsQuery.refetch(),
       rejectedInsightsQuery.refetch(),
       patientsQuery.refetch(),
     ]);
+
+    return {
+      pendingResult,
+      approvedResult,
+      rejectedResult,
+      patientsResult,
+    };
   }
 
   async function handleReview(insightId: string, status: 'approved' | 'rejected'): Promise<void> {
     setErrorMessage(null);
-    setNoticeMessage(null);
+    setLastReviewOutcome(null);
     setIsSubmittingId(`${insightId}:${status}`);
+
+    const pendingItem = pendingItems.find((item) => item.id === insightId) ?? null;
     try {
-      await reviewInsight(insightId, status);
-      setNoticeMessage(status === 'approved' ? 'Insight approved.' : 'Insight rejected.');
-      await handleRefreshQueue();
+      const reviewedItem = await reviewInsight(insightId, status);
+      const refreshResult = await handleRefreshQueue();
+      const destinationResult =
+        status === 'approved' ? refreshResult.approvedResult : refreshResult.rejectedResult;
+      const destinationItems = destinationResult.data ?? [];
+      const refreshedPendingItems = refreshResult.pendingResult.data ?? [];
+      const movedIntoDestination = destinationItems.some((item) => item.id === reviewedItem.id);
+      const stillInPending = refreshedPendingItems.some((item) => item.id === reviewedItem.id);
+
+      if (
+        !refreshResult.pendingResult.error &&
+        !destinationResult.error &&
+        movedIntoDestination &&
+        !stillInPending
+      ) {
+        const patientId = reviewedItem.patientId.trim();
+        const patientLabel =
+          reviewedItem.patientDisplayName?.trim() ||
+          patientNameById.get(patientId) ||
+          pendingItem?.patientDisplayName?.trim() ||
+          patientId;
+
+        setLastReviewOutcome({
+          id: reviewedItem.id,
+          status,
+          title: reviewedItem.title,
+          patientId,
+          patientLabel,
+        });
+      }
     } catch (error) {
+      setLastReviewOutcome(null);
       setErrorMessage(toUserMessage(asAppError(error)));
     } finally {
       setIsSubmittingId(null);
@@ -466,6 +526,29 @@ export function InsightsQueuePage(): JSX.Element {
     });
   }
 
+  function openPatientFromOutcome(): void {
+    if (!lastReviewOutcome) {
+      return;
+    }
+
+    const patientId = lastReviewOutcome.patientId.trim();
+
+    if (!patientId) {
+      return;
+    }
+
+    navigate(`/patients/${encodeURIComponent(patientId)}`, {
+      state: createPatientEntryState({
+        patientId,
+        source: 'insights',
+        subtype: lastReviewOutcome.status,
+        hint: lastReviewOutcome.title.trim() || 'Guidance review',
+        focus: 'insights',
+        returnTo: '/insights',
+      }),
+    });
+  }
+
   function renderInsightCard(item: InsightItem): JSX.Element {
     const patientLabel =
       item.patientDisplayName?.trim() ||
@@ -473,11 +556,18 @@ export function InsightsQueuePage(): JSX.Element {
       item.patientId;
     const priorityTone = insightPriorityTone(item.priority);
     const isPending = item.status === 'pending';
+    const isJustReviewed =
+      !isPending &&
+      activeView === item.status &&
+      lastReviewOutcome?.status === item.status &&
+      lastReviewOutcome.id === item.id;
 
     return (
       <div
         key={item.id}
-        className={`insights-queue__item insights-queue__item--${priorityTone} insights-queue__item--state-${item.status}`}
+        className={`insights-queue__item insights-queue__item--${priorityTone} insights-queue__item--state-${item.status}${
+          isJustReviewed ? ' insights-queue__item--just-reviewed' : ''
+        }`}
       >
         <div className="insights-queue__item-head">
           <div className="insights-queue__item-main">
@@ -503,6 +593,14 @@ export function InsightsQueuePage(): JSX.Element {
             >
               {insightLifecycleLabel(item.status)}
             </Badge>
+            {isJustReviewed ? (
+              <span
+                className="insights-queue__just-reviewed"
+                data-testid={`insight-just-reviewed-${item.id}`}
+              >
+                Just reviewed
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -686,12 +784,6 @@ export function InsightsQueuePage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      {noticeMessage ? (
-        <AlertBanner variant="success" title="Insight updated">
-          {noticeMessage}
-        </AlertBanner>
-      ) : null}
-
       <Card
         className="insights-workspace-card"
         title={
@@ -718,6 +810,51 @@ export function InsightsQueuePage(): JSX.Element {
           </div>
         </div>
 
+        {lastReviewOutcome ? (
+          <div
+            className={`insights-review-outcome insights-review-outcome--${lastReviewOutcome.status}`}
+            data-testid="insights-review-outcome"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="insights-review-outcome__copy">
+              <p className="insights-review-outcome__eyebrow">Latest review</p>
+              <div className="insights-review-outcome__title-row">
+                <strong className="insights-review-outcome__title">{outcomePanelTitle}</strong>
+                <span className="insights-review-outcome__patient">{lastReviewOutcome.patientLabel}</span>
+              </div>
+              <p className="insights-review-outcome__text">
+                <span className="insights-review-outcome__item">{lastReviewOutcome.title}</span>{' '}
+                moved out of Pending and is now visible in {outcomeDestinationLabel} in this current
+                queue view.
+              </p>
+              <p className="insights-review-outcome__next">{outcomeFollowThrough}</p>
+            </div>
+            <div className="insights-review-outcome__actions">
+              <Button
+                className="insights-review-outcome__action insights-review-outcome__action--view"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setQueueView(lastReviewOutcomeView);
+                }}
+              >
+                {lastReviewOutcome.status === 'approved' ? 'View approved' : 'View rejected'}
+              </Button>
+              {canOpenOutcomePatient ? (
+                <Button
+                  className="insights-review-outcome__action insights-review-outcome__action--open"
+                  variant="secondary"
+                  size="sm"
+                  onClick={openPatientFromOutcome}
+                >
+                  Open patient
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <div className="insights-lifecycle-tabs">
           <Tabs
             tabs={tabs}
@@ -725,8 +862,7 @@ export function InsightsQueuePage(): JSX.Element {
             onValueChange={(id) => {
               const nextView =
                 id === 'approved' || id === 'rejected' ? (id as QueueView) : 'pending';
-              setActiveView(nextView);
-              writeWorkspaceState(INSIGHTS_WORKSPACE_PAGE, { activeView: nextView });
+              setQueueView(nextView);
             }}
             getTabTestId={(id) => `insights-tab-${id}`}
           />

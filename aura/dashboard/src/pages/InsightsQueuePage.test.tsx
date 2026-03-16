@@ -13,6 +13,7 @@ interface RenderOptions {
   approved?: Array<Record<string, unknown>>;
   rejected?: Array<Record<string, unknown>>;
   patients?: Array<Record<string, unknown>>;
+  failReviewIds?: string[];
 }
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
@@ -57,7 +58,13 @@ function installFetchMock({
   approved = [],
   rejected = [],
   patients = [],
+  failReviewIds = [],
 }: RenderOptions): void {
+  let pendingItems = [...pending];
+  let approvedItems = [...approved];
+  let rejectedItems = [...rejected];
+  const failingReviewIds = new Set(failReviewIds);
+
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const rawUrl = typeof input === 'string' ? input : input.url;
     const url = new URL(rawUrl, 'http://localhost');
@@ -65,12 +72,12 @@ function installFetchMock({
     if (url.pathname === '/clinician/insights' && (init?.method ?? 'GET') === 'GET') {
       const status = url.searchParams.get('status');
       if (status === 'approved') {
-        return createJsonResponse({ ok: true, items: approved });
+        return createJsonResponse({ ok: true, items: approvedItems });
       }
       if (status === 'rejected') {
-        return createJsonResponse({ ok: true, items: rejected });
+        return createJsonResponse({ ok: true, items: rejectedItems });
       }
-      return createJsonResponse({ ok: true, items: pending });
+      return createJsonResponse({ ok: true, items: pendingItems });
     }
 
     if (url.pathname === '/clinician/patients') {
@@ -78,7 +85,38 @@ function installFetchMock({
     }
 
     if (url.pathname.startsWith('/clinician/insights/') && (init?.method ?? 'PATCH') === 'PATCH') {
-      return createJsonResponse({ ok: true, item: pending[0] ?? null });
+      const insightId = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+
+      if (failingReviewIds.has(insightId)) {
+        return createJsonResponse({ ok: false }, 500);
+      }
+
+      const body =
+        typeof init?.body === 'string' ? (JSON.parse(init.body) as { status?: string }) : {};
+      const nextStatus = body.status === 'approved' ? 'approved' : 'rejected';
+      const sourceItem = pendingItems.find(
+        (item) => typeof item.id === 'string' && item.id === insightId,
+      );
+
+      if (!sourceItem) {
+        return createJsonResponse({ ok: false }, 404);
+      }
+
+      pendingItems = pendingItems.filter((item) => item.id !== insightId);
+
+      const reviewedItem = {
+        ...sourceItem,
+        status: nextStatus,
+        reviewedAt: '2026-03-16T09:30:00.000Z',
+      };
+
+      if (nextStatus === 'approved') {
+        approvedItems = [reviewedItem, ...approvedItems];
+      } else {
+        rejectedItems = [reviewedItem, ...rejectedItems];
+      }
+
+      return createJsonResponse({ ok: true, item: reviewedItem });
     }
 
     return createJsonResponse({ ok: true });
@@ -318,6 +356,177 @@ describe('InsightsQueuePage', () => {
     const pendingTab = await screen.findByRole('tab', { name: 'Pending (1)' });
     expect(pendingTab).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByText('Pending recovery guidance')).toBeInTheDocument();
+  });
+
+  it('keeps pending selected and shows approved outcome continuity after review', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'insight-approve',
+          patientId: 'patient-42',
+          status: 'pending',
+          title: 'Follow-up questionnaire may be due',
+          message: 'Recent recovery updates suggest follow-up review.',
+          category: 'questionnaires',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+      ],
+      patients: [
+        {
+          id: 'patient-42',
+          displayName: 'Taylor Moss',
+          status: 'active',
+        },
+      ],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve for workflow' }));
+
+    const outcomePanel = await screen.findByTestId('insights-review-outcome');
+    expect(within(outcomePanel).getByText('Approved into workflow')).toBeInTheDocument();
+    expect(outcomePanel).toHaveTextContent(
+      'Follow-up questionnaire may be due moved out of Pending and is now visible in Approved in this current queue view.',
+    );
+    expect(within(outcomePanel).getByText('Pending review is clear.')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Pending (0)' })).toHaveAttribute('aria-selected', 'true');
+    expect((await screen.findAllByText('Queue cleared')).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId('insight-just-reviewed-insight-approve')).not.toBeInTheDocument();
+
+    fireEvent.click(within(outcomePanel).getByRole('button', { name: 'View approved' }));
+
+    const approvedTitle = await screen.findByText('Follow-up questionnaire may be due', {
+      selector: '.insights-queue__title',
+    });
+    const approvedCard = approvedTitle.closest('.insights-queue__item');
+    expect(approvedCard).not.toBeNull();
+    expect(approvedCard).toHaveClass('insights-queue__item--just-reviewed');
+    expect(screen.getByTestId('insight-just-reviewed-insight-approve')).toBeInTheDocument();
+
+    fireEvent.click(within(outcomePanel).getByRole('button', { name: 'Open patient' }));
+
+    expect(await screen.findByText('Patient detail workspace')).toBeInTheDocument();
+  });
+
+  it('keeps pending selected and shows rejected outcome continuity after review', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'insight-reject-1',
+          patientId: 'patient-12',
+          status: 'pending',
+          title: 'Habit guidance should stay out',
+          message: 'This looks low-signal for current follow-up.',
+          category: 'habits',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T09:00:00.000Z',
+        },
+        {
+          id: 'insight-reject-2',
+          patientId: 'patient-13',
+          status: 'pending',
+          title: 'Another pending review item',
+          message: 'This one still needs clinician review.',
+          category: 'recovery',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-14T09:30:00.000Z',
+        },
+      ],
+    });
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Reject suggestion' }))[0]);
+
+    const outcomePanel = await screen.findByTestId('insights-review-outcome');
+    expect(within(outcomePanel).getByText('Rejected from workflow')).toBeInTheDocument();
+    expect(outcomePanel).toHaveTextContent(
+      'Habit guidance should stay out moved out of Pending and is now visible in Rejected in this current queue view.',
+    );
+    expect(
+      within(outcomePanel).getByText('Continue with the next pending suggestion below.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Pending (1)' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('Another pending review item')).toBeInTheDocument();
+    expect(screen.queryByTestId('insight-just-reviewed-insight-reject-1')).not.toBeInTheDocument();
+
+    fireEvent.click(within(outcomePanel).getByRole('button', { name: 'View rejected' }));
+
+    const rejectedTitle = await screen.findByText('Habit guidance should stay out', {
+      selector: '.insights-queue__title',
+    });
+    const rejectedCard = rejectedTitle.closest('.insights-queue__item');
+    expect(rejectedCard).not.toBeNull();
+    expect(rejectedCard).toHaveClass('insights-queue__item--just-reviewed');
+    expect(screen.getByTestId('insight-just-reviewed-insight-reject-1')).toBeInTheDocument();
+  });
+
+  it('clears the last review outcome when a later review attempt fails', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'insight-success',
+          patientId: 'patient-42',
+          status: 'pending',
+          title: 'Successful review first',
+          message: 'This one will move into workflow.',
+          category: 'recovery',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+        {
+          id: 'insight-fail',
+          patientId: 'patient-43',
+          status: 'pending',
+          title: 'Failing review second',
+          message: 'This review will fail.',
+          category: 'safety',
+          confidence: 'high',
+          priority: 3,
+          windowDays: 7,
+          createdAt: '2026-03-14T08:30:00.000Z',
+        },
+      ],
+      failReviewIds: ['insight-fail'],
+    });
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Approve for workflow' }))[0]);
+    expect(await screen.findByTestId('insights-review-outcome')).toBeInTheDocument();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Reject suggestion' }))[0]);
+
+    expect(await screen.findByText('Could not update insight')).toBeInTheDocument();
+    expect(screen.queryByTestId('insights-review-outcome')).not.toBeInTheDocument();
+  });
+
+  it('omits outcome panel Open patient when patient navigation context is not valid', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'insight-no-patient',
+          patientId: '   ',
+          status: 'pending',
+          title: 'Guidance without patient route',
+          message: 'Route context is missing here.',
+          category: 'habits',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+      ],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve for workflow' }));
+
+    const outcomePanel = await screen.findByTestId('insights-review-outcome');
+    expect(within(outcomePanel).queryByRole('button', { name: 'Open patient' })).not.toBeInTheDocument();
   });
 
   it('treats an empty pending queue with reviewed items as queue cleared', async () => {

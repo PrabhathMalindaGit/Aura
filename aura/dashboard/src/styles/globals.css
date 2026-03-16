@@ -6435,6 +6435,13 @@ time,
   width: 100%;
 }
 
+.patient-detail-title__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .patient-detail-title__context {
   display: grid;
   gap: var(--space-2);
@@ -6510,6 +6517,23 @@ time,
 
 .patient-detail-back-link:hover {
   background: hsl(var(--muted) / 0.64);
+}
+
+.patient-detail-back-link--source {
+  border-color: hsl(var(--border) / 0.64);
+}
+
+.patient-detail-entry-cue {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.58);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--muted) / 0.3));
+  padding: 0 var(--space-2);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
 }
 
 .patient-detail-header-actions {
@@ -6755,6 +6779,13 @@ time,
   line-height: 1.48;
 }
 
+.patient-detail-current-context__source-note {
+  margin: 2px 0 0;
+  color: hsl(var(--foreground) / 0.74);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
 .patient-detail-current-context__facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6783,6 +6814,31 @@ time,
 .patient-detail-current-context__fact strong {
   font-size: var(--text-sm);
   letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-hero-card--source-workflow,
+.patient-detail-current-context--source-workflow {
+  border-color: hsl(var(--primary) / 0.34);
+}
+
+.patient-detail-hero-card--source-alerts,
+.patient-detail-current-context--source-alerts {
+  border-color: hsl(var(--warning) / 0.34);
+}
+
+.patient-detail-hero-card--source-roster,
+.patient-detail-current-context--source-roster {
+  border-color: hsl(var(--info) / 0.3);
+}
+
+.patient-detail-hero-card--source-insights,
+.patient-detail-current-context--source-insights {
+  border-color: hsl(var(--success) / 0.32);
+}
+
+.patient-detail-hero-card--source-appointments,
+.patient-detail-current-context--source-appointments {
+  border-color: hsl(var(--chart-mood) / 0.32);
 }
 
 .patient-detail-reference-bridge {
@@ -7240,6 +7296,12 @@ time,
   background: linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.36));
 }
 
+.dark .patient-detail-entry-cue {
+  border-color: hsl(var(--border) / 0.48);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--muted) / 0.26));
+  color: hsl(var(--foreground) / 0.7);
+}
+
 .dark .patient-detail-title__id {
   border-color: hsl(var(--border) / 0.4);
 }
@@ -7366,6 +7428,35 @@ time,
 .dark .patient-appointment-callout {
   border-color: hsl(var(--border) / 0.44);
   background: linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.78));
+}
+
+.dark .patient-detail-current-context__source-note {
+  color: hsl(var(--foreground) / 0.76);
+}
+
+.dark .patient-detail-hero-card--source-workflow,
+.dark .patient-detail-current-context--source-workflow {
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+.dark .patient-detail-hero-card--source-alerts,
+.dark .patient-detail-current-context--source-alerts {
+  border-color: hsl(var(--warning) / 0.42);
+}
+
+.dark .patient-detail-hero-card--source-roster,
+.dark .patient-detail-current-context--source-roster {
+  border-color: hsl(var(--info) / 0.36);
+}
+
+.dark .patient-detail-hero-card--source-insights,
+.dark .patient-detail-current-context--source-insights {
+  border-color: hsl(var(--success) / 0.38);
+}
+
+.dark .patient-detail-hero-card--source-appointments,
+.dark .patient-detail-current-context--source-appointments {
+  border-color: hsl(var(--chart-mood) / 0.38);
 }
 
 .dark .patient-task-item--completed {

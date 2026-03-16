@@ -17,6 +17,7 @@ import {
 import { readWorkspaceState, writeWorkspaceState } from '../services/workspaceState';
 import type { InsightItem, InsightStatus } from '../types/models';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
+import { createPatientEntryState } from '../utils/patientEntryContext';
 import { getPatientDisplayName } from '../utils/patientFilters';
 
 type QueueStateTone = 'active' | 'blocked' | 'clear' | 'quiet';
@@ -452,6 +453,19 @@ export function InsightsQueuePage(): JSX.Element {
     }
   }
 
+  function buildInsightPatientEntryState(item: InsightItem) {
+    const normalizedPatientId = item.patientId.trim();
+
+    return createPatientEntryState({
+      patientId: normalizedPatientId,
+      source: 'insights',
+      subtype: item.status,
+      hint: item.title.trim() || `${categoryLabel(item.category)} guidance`,
+      focus: 'insights',
+      returnTo: '/insights',
+    });
+  }
+
   function renderInsightCard(item: InsightItem): JSX.Element {
     const patientLabel =
       item.patientDisplayName?.trim() ||
@@ -472,7 +486,12 @@ export function InsightsQueuePage(): JSX.Element {
             <div className="insights-queue__patient-row">
               <p className="insights-queue__patient">
                 <span className="insights-queue__patient-label">Patient</span>
-                <Link to={`/patients/${item.patientId}`}>{patientLabel}</Link>
+                <Link
+                  to={`/patients/${encodeURIComponent(item.patientId)}`}
+                  state={buildInsightPatientEntryState(item)}
+                >
+                  {patientLabel}
+                </Link>
               </p>
               <p className="insights-queue__patient-id">Patient ID {item.patientId}</p>
             </div>
@@ -538,7 +557,11 @@ export function InsightsQueuePage(): JSX.Element {
                   className="insights-queue__action insights-queue__action--open"
                   variant="secondary"
                   size="sm"
-                  onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
+                  onClick={() =>
+                    navigate(`/patients/${encodeURIComponent(item.patientId)}`, {
+                      state: buildInsightPatientEntryState(item),
+                    })
+                  }
                 >
                   Open patient
                 </Button>
@@ -559,7 +582,11 @@ export function InsightsQueuePage(): JSX.Element {
                 className="insights-queue__action insights-queue__action--open"
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
+                onClick={() =>
+                  navigate(`/patients/${encodeURIComponent(item.patientId)}`, {
+                    state: buildInsightPatientEntryState(item),
+                  })
+                }
               >
                 Open patient
               </Button>

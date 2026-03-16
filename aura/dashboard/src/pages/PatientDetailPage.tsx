@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -99,6 +99,13 @@ import {
 } from '../utils/trends';
 import { bodyMapRegionLabel } from '../utils/bodyMap';
 import { formatDashboardRelativeTime } from '../utils/dashboard';
+import type { PatientEntryContext } from '../utils/patientEntryContext';
+import {
+  formatPatientEntryReturnLabel,
+  formatPatientEntryReviewHint,
+  formatPatientEntrySourceCue,
+  readPatientEntryContextFromState,
+} from '../utils/patientEntryContext';
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 const CLINICIAN_BUCKET = 'anon';
@@ -283,10 +290,12 @@ async function fetchPatientAlerts(patientId: string): Promise<AlertItem[]> {
 
 export function PatientDetailPage(): JSX.Element {
   const { patientId } = useParams<{ patientId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDays = parseDays(searchParams.get('days'));
 
+  const [entryContext, setEntryContext] = useState<PatientEntryContext | null>(null);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedRehabKey, setSelectedRehabKey] = useState('');
@@ -320,8 +329,13 @@ export function PatientDetailPage(): JSX.Element {
   const [isSymptomSignalsOpen, setIsSymptomSignalsOpen] = useState(false);
   const [isSupportSignalsOpen, setIsSupportSignalsOpen] = useState(false);
   const dayDetailFocusRef = useRef<HTMLElement | null>(null);
+  const entryContextConsumedRef = useRef(false);
 
   const connection = useConnectionStatus();
+  const pendingEntryContext = useMemo(
+    () => readPatientEntryContextFromState(location.state, patientId),
+    [location.state, patientId],
+  );
 
   const patientsQuery = usePatients();
   const patientContext = useMemo(
@@ -1453,6 +1467,27 @@ export function PatientDetailPage(): JSX.Element {
     }
   }
 
+  useEffect(() => {
+    setEntryContext(null);
+    entryContextConsumedRef.current = false;
+  }, [patientId]);
+
+  useEffect(() => {
+    if (!pendingEntryContext || entryContextConsumedRef.current) {
+      return;
+    }
+
+    entryContextConsumedRef.current = true;
+    setEntryContext(pendingEntryContext);
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+      },
+      { replace: true, state: null },
+    );
+  }, [location.pathname, location.search, navigate, pendingEntryContext]);
+
   if (!patientId) {
     return (
       <EmptyState title="Patient not found" description="No patient identifier was provided in the route." />
@@ -1480,16 +1515,62 @@ export function PatientDetailPage(): JSX.Element {
           : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'success'
             ? 'success'
             : 'default';
+  const normalizedCurrentContextTitle = currentContextTitle.replace(/\s+/g, ' ').trim().toLowerCase();
+  const normalizedCurrentContextBody = currentContextBody.replace(/\s+/g, ' ').trim().toLowerCase();
+  const entryReviewHint = (() => {
+    if (!entryContext) {
+      return null;
+    }
+
+    const normalizedHint = entryContext.hint?.replace(/\s+/g, ' ').trim();
+
+    if (normalizedHint && normalizedHint.length <= 56) {
+      const hintLower = normalizedHint.toLowerCase();
+
+      if (
+        hintLower !== normalizedCurrentContextTitle &&
+        hintLower !== normalizedCurrentContextBody &&
+        !normalizedCurrentContextBody.includes(hintLower)
+      ) {
+        return normalizedHint;
+      }
+    }
+
+    return formatPatientEntryReviewHint(entryContext.source);
+  })();
+  const hasSourceReturnLink =
+    entryContext !== null && (entryContext.returnTo !== '/patients' || entryContext.source === 'patients');
+  const returnLinkTo = hasSourceReturnLink ? entryContext.returnTo : '/patients';
+  const returnLinkLabel =
+    entryContext && hasSourceReturnLink
+      ? formatPatientEntryReturnLabel(entryContext.source)
+      : 'Back to patients';
+  const entrySourceCue = entryContext ? formatPatientEntrySourceCue(entryContext.source) : null;
 
   return (
     <div className="page-stack patient-detail-page">
       <Card
-        className="patient-detail-hero-card"
+        className={`patient-detail-hero-card${
+          entryContext ? ` patient-detail-hero-card--source patient-detail-hero-card--source-${entryContext.focus}` : ''
+        }`}
         title={
           <div className="patient-detail-title">
-            <Link to="/patients" className="patient-detail-back-link">
-              Back to patients
-            </Link>
+            <div className="patient-detail-title__nav">
+              <Link
+                to={returnLinkTo}
+                className={`patient-detail-back-link${
+                  entryContext ? ' patient-detail-back-link--source' : ''
+                }`}
+                data-testid="patient-detail-return-link"
+              >
+                {returnLinkLabel}
+              </Link>
+              {entrySourceCue ? (
+                <span className="patient-detail-entry-cue" data-testid="patient-detail-entry-cue">
+                  {entrySourceCue}
+                </span>
+              ) : null}
+            </div>
             <div className="patient-detail-title__context">
               <p className="patient-detail-title__eyebrow">Patient review</p>
               <div className="patient-detail-title__row">
@@ -1591,11 +1672,24 @@ export function PatientDetailPage(): JSX.Element {
             </span>
           </div>
 
-          <div className="patient-detail-current-context" data-testid="patient-detail-current-context">
+          <div
+            className={`patient-detail-current-context${
+              entryContext ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}` : ''
+            }`}
+            data-testid="patient-detail-current-context"
+          >
             <div className="patient-detail-current-context__copy">
               <p className="patient-detail-current-context__eyebrow">Current context</p>
               <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
               <p className="patient-detail-current-context__text">{currentContextBody}</p>
+              {entryReviewHint ? (
+                <p
+                  className="patient-detail-current-context__source-note"
+                  data-testid="patient-detail-entry-hint"
+                >
+                  {entryReviewHint}
+                </p>
+              ) : null}
             </div>
             <div className="patient-detail-current-context__facts">
               <div className="patient-detail-current-context__fact">

@@ -25,6 +25,7 @@ import {
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import { asAppError } from '../utils/errors';
 import { toErrorView } from '../utils/errorView';
+import { createPatientEntryState } from '../utils/patientEntryContext';
 import {
   defaultWorklistFilters,
   hasWorklistFilterConstraints,
@@ -153,6 +154,44 @@ export function WorklistPage(): JSX.Element {
       navigate('/alerts');
     },
     [navigate],
+  );
+
+  const openPatientFromWorklist = useCallback(
+    (patientId: string): void => {
+      const normalizedPatientId = patientId.trim();
+
+      if (!normalizedPatientId) {
+        return;
+      }
+
+      const sourceItem =
+        items.find((item) => item.patientId.trim() === normalizedPatientId) ?? null;
+      const subtype = sourceItem
+        ? sourceItem.latestRiskLevel === 'high'
+          ? 'high-risk'
+          : sourceItem.communicationNeedsResponse
+            ? 'needs-response'
+            : sourceItem.openAlertsCount > 0
+              ? 'open-alerts'
+              : 'general'
+        : 'general';
+      const hint =
+        sourceItem?.topIssue?.trim() ||
+        sourceItem?.reviewReason?.trim() ||
+        'Queue handoff';
+
+      navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`, {
+        state: createPatientEntryState({
+          patientId: normalizedPatientId,
+          source: 'worklist',
+          subtype,
+          hint,
+          focus: 'workflow',
+          returnTo: '/worklist',
+        }),
+      });
+    },
+    [items, navigate],
   );
 
   const persistWorklistState = useCallback((nextFilters: WorklistFiltersState): void => {
@@ -430,14 +469,14 @@ export function WorklistPage(): JSX.Element {
           ) : isCompactLayout ? (
             <WorklistCardList
               items={items}
-              onOpenPatient={(patientId) => navigate(`/patients/${encodeURIComponent(patientId)}`)}
+              onOpenPatient={openPatientFromWorklist}
               onOpenAlerts={openAlertsWorkspace}
               onOpenAppointments={() => navigate('/appointments')}
             />
           ) : (
             <WorklistTable
               items={items}
-              onOpenPatient={(patientId) => navigate(`/patients/${encodeURIComponent(patientId)}`)}
+              onOpenPatient={openPatientFromWorklist}
               onOpenAlerts={openAlertsWorkspace}
               onOpenAppointments={() => navigate('/appointments')}
             />

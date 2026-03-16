@@ -17,6 +17,7 @@ import {
 } from '../services/clinicianApi';
 import { readWorkspaceState, writeWorkspaceState } from '../services/workspaceState';
 import { appointmentWorkflowLabel, appointmentWorkflowTone } from '../utils/patientDetail';
+import { createPatientEntryState } from '../utils/patientEntryContext';
 import { getPatientDisplayName } from '../utils/patientFilters';
 import { asAppError, isRetryable, toUserMessage } from '../utils/errors';
 import { formatRelativeTime } from '../utils/time';
@@ -375,6 +376,30 @@ export function AppointmentsPage(): JSX.Element {
     pendingRequestsSummaryQuery.dataUpdatedAt,
     patientsQuery.dataUpdatedAt,
   );
+
+  function openPatientFromAppointments(item: {
+    patientId: string;
+    workflowStatus?: string;
+    status?: string;
+    note?: string | null;
+  }): void {
+    const normalizedPatientId = item.patientId.trim();
+
+    if (!normalizedPatientId) {
+      return;
+    }
+
+    navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`, {
+      state: createPatientEntryState({
+        patientId: normalizedPatientId,
+        source: 'appointments',
+        subtype: item.workflowStatus?.trim() || item.status?.trim() || 'review',
+        hint: item.note?.trim() || 'Scheduling follow-through',
+        focus: 'appointments',
+        returnTo: '/appointments',
+      }),
+    });
+  }
   const isRefreshingWorkspace =
     slotsQuery.isFetching ||
     requestsQuery.isFetching ||
@@ -800,7 +825,7 @@ export function AppointmentsPage(): JSX.Element {
                               className="appointments-item__open"
                               size="sm"
                               variant="secondary"
-                              onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
+                              onClick={() => openPatientFromAppointments(item)}
                             >
                               Open patient
                             </Button>
@@ -821,7 +846,7 @@ export function AppointmentsPage(): JSX.Element {
                               className="appointments-item__open"
                               size="sm"
                               variant="secondary"
-                              onClick={() => navigate(`/patients/${encodeURIComponent(item.patientId)}`)}
+                              onClick={() => openPatientFromAppointments(item)}
                             >
                               Open patient
                             </Button>

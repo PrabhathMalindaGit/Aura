@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
@@ -73,6 +73,10 @@ import { isAlertSeenForUi, isAlertUnseenForUi } from '../utils/seen';
 import { isAfterWithinDays } from '../utils/time';
 import { toErrorView } from '../utils/errorView';
 import { cn } from '../utils/cn';
+import {
+  buildPatientEntryReturnTo,
+  createPatientEntryState,
+} from '../utils/patientEntryContext';
 
 const POLLING_INTERVAL_MS = 12_000;
 const SEEN_PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -297,6 +301,7 @@ function filterAlerts(
 }
 
 export function AlertsPage(): JSX.Element {
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSearchValue = useMemo(() => {
@@ -736,9 +741,23 @@ export function AlertsPage(): JSX.Element {
         return;
       }
 
-      navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`);
+      const sourceAlert =
+        (activeAlert && activeAlert.patientId.trim() === normalizedPatientId
+          ? activeAlert
+          : sourceAlerts.find((alert) => alert.patientId.trim() === normalizedPatientId)) ?? null;
+
+      navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`, {
+        state: createPatientEntryState({
+          patientId: normalizedPatientId,
+          source: 'alerts',
+          subtype: sourceAlert?.status ?? 'open',
+          hint: sourceAlert ? reasonText(sourceAlert.reason) : 'Alert follow-through',
+          focus: 'alerts',
+          returnTo: buildPatientEntryReturnTo(location.pathname, location.search),
+        }),
+      });
     },
-    [navigate],
+    [activeAlert, location.pathname, location.search, navigate, sourceAlerts],
   );
 
   useEffect(() => {

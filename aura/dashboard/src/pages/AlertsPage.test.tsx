@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertsPage } from './AlertsPage';
 import { clearAssignmentStoreForTests, setAssignment } from '../services/assignmentStore';
@@ -53,10 +53,23 @@ function renderAlertsPage(initialEntry: string = '/alerts'): void {
       <QueryClientProvider client={queryClient}>
         <Routes>
           <Route path="/alerts" element={<AlertsPage />} />
-          <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+          <Route path="/patients/:patientId" element={<PatientDetailRoute />} />
         </Routes>
       </QueryClientProvider>
     </MemoryRouter>,
+  );
+}
+
+function PatientDetailRoute(): JSX.Element {
+  const location = useLocation();
+
+  return (
+    <div>
+      <div>Patient detail workspace</div>
+      <pre data-testid="patient-detail-route-state">
+        {JSON.stringify(location.state ?? null)}
+      </pre>
+    </div>
   );
 }
 
@@ -196,7 +209,7 @@ describe('AlertsPage queue flow', () => {
     });
 
     const user = userEvent.setup();
-    renderAlertsPage();
+    renderAlertsPage('/alerts?patientId=patient-42');
 
     await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
 
@@ -206,6 +219,11 @@ describe('AlertsPage queue flow', () => {
     await waitFor(() => {
       expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
     });
+    expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"source":"alerts"');
+    expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"focus":"alerts"');
+    expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent(
+      '"returnTo":"/alerts?patientId=patient-42"',
+    );
 
     cleanup();
     renderAlertsPage();

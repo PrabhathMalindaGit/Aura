@@ -30,6 +30,19 @@ function AlertsWorkspaceRoute(): JSX.Element {
   return <div>{`Alerts workspace${location.search}`}</div>;
 }
 
+function PatientDetailRoute(): JSX.Element {
+  const location = useLocation();
+
+  return (
+    <div>
+      <div>Patient detail workspace</div>
+      <pre data-testid="patient-detail-route-state">
+        {JSON.stringify(location.state ?? null)}
+      </pre>
+    </div>
+  );
+}
+
 function renderWorklistPage(): void {
   const queryClient = createQueryClient();
 
@@ -38,7 +51,7 @@ function renderWorklistPage(): void {
       <MemoryRouter initialEntries={['/worklist']}>
         <Routes>
           <Route path="/worklist" element={<WorklistPage />} />
-          <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+          <Route path="/patients/:patientId" element={<PatientDetailRoute />} />
           <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
         </Routes>
@@ -190,6 +203,9 @@ describe('WorklistPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
     });
+    expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"source":"worklist"');
+    expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"focus":"workflow"');
+    expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"returnTo":"/worklist"');
   }, 10000);
 
   it('applies backend-backed filters and sort selections', async () => {

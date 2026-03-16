@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PatientCardList } from '../components/patients/PatientCardList';
 import { PatientsFiltersBar } from '../components/patients/PatientsFiltersBar';
 import { PatientsTable } from '../components/patients/PatientsTable';
@@ -25,6 +25,10 @@ import { MEDIA_QUERIES } from '../styles/breakpoints';
 import type { PatientSummary } from '../types/models';
 import { asAppError } from '../utils/errors';
 import { toErrorView } from '../utils/errorView';
+import {
+  buildPatientEntryReturnTo,
+  createPatientEntryState,
+} from '../utils/patientEntryContext';
 import {
   applyPatientFilters,
   defaultPatientFilters,
@@ -123,6 +127,7 @@ function isEndpointMissing(error: unknown): boolean {
 
 export function PatientsPage(): JSX.Element {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const patientsQuery = usePatients();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
@@ -187,6 +192,27 @@ export function PatientsPage(): JSX.Element {
   const retryPatients = useCallback((): void => {
     void patientsQuery.refetch();
   }, [patientsQuery]);
+
+  const openPatientFromRoster = useCallback(
+    (patientId: string): void => {
+      const normalizedPatientId = patientId.trim();
+
+      if (!normalizedPatientId) {
+        return;
+      }
+
+      navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`, {
+        state: createPatientEntryState({
+          patientId: normalizedPatientId,
+          source: 'patients',
+          subtype: 'roster',
+          focus: 'roster',
+          returnTo: buildPatientEntryReturnTo(location.pathname, location.search),
+        }),
+      });
+    },
+    [location.pathname, location.search, navigate],
+  );
 
   const persistPatientsState = useCallback((nextFilters: PatientFilters): void => {
     const normalized = normalizePatientsWorkspaceState(nextFilters);
@@ -530,12 +556,12 @@ export function PatientsPage(): JSX.Element {
           ) : isMobileLayout ? (
             <PatientCardList
               patients={visiblePatients}
-              onOpenPatient={(patientId) => navigate(`/patients/${patientId}`)}
+              onOpenPatient={openPatientFromRoster}
             />
           ) : (
             <PatientsTable
               patients={visiblePatients}
-              onOpenPatient={(patientId) => navigate(`/patients/${patientId}`)}
+              onOpenPatient={openPatientFromRoster}
             />
           )}
         </Stack>

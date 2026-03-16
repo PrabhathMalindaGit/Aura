@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   AlertItem,
@@ -13,6 +13,7 @@ import type {
   DashboardCommunicationOverviewItem,
   WorklistRecord,
 } from '../types/models';
+import { createPatientEntryState } from '../utils/patientEntryContext';
 import { PatientDetailPage } from './PatientDetailPage';
 
 const patientId = 'patient-42';
@@ -167,15 +168,44 @@ function installWindowMocks(): void {
   });
 }
 
-function renderPatientDetail(initialEntry: string = `/patients/${patientId}?days=14`): void {
+function PatientDetailHistoryHarness(): JSX.Element {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button type="button" onClick={() => navigate(-1)}>
+        Go back
+      </button>
+      <PatientDetailPage />
+    </>
+  );
+}
+
+function renderPatientDetail(
+  initialEntries:
+    | string
+    | Array<string | { pathname: string; search?: string; state?: unknown }> = [
+      `/patients/${patientId}?days=14`,
+    ],
+  options: {
+    withHistoryProbe?: boolean;
+  } = {},
+): void {
   const queryClient = createQueryClient();
+  const entries = Array.isArray(initialEntries) ? initialEntries : [initialEntries];
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initialEntry]}>
+      <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
         <Routes>
-          <Route path="/patients/:patientId" element={<PatientDetailPage />} />
+          <Route
+            path="/patients/:patientId"
+            element={options.withHistoryProbe ? <PatientDetailHistoryHarness /> : <PatientDetailPage />}
+          />
+          <Route path="/patients" element={<div>Patients workspace</div>} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
+          <Route path="/alerts" element={<div>Alerts workspace</div>} />
+          <Route path="/insights" element={<div>Insights workspace</div>} />
           <Route path="/worklist" element={<div>Worklist workspace</div>} />
           <Route path="/patients/:patientId/plan" element={<div>Plan workspace</div>} />
         </Routes>
@@ -503,5 +533,81 @@ describe('PatientDetailPage', () => {
     expect(
       within(screen.getByTestId('patient-tasks-panel')).getAllByText('Completed').length,
     ).toBeGreaterThan(0);
+  }, 20_000);
+
+  it('shows a subtle source cue and return link for alert follow-through', async () => {
+    installFetchMock();
+
+    renderPatientDetail([
+      {
+        pathname: `/patients/${patientId}`,
+        search: '?days=14',
+        state: createPatientEntryState({
+          patientId,
+          source: 'alerts',
+          focus: 'alerts',
+          returnTo: '/alerts?patientId=patient-42',
+        }),
+      },
+    ]);
+
+    expect(await screen.findByTestId('patient-detail-entry-cue')).toHaveTextContent('Opened from Alerts');
+    expect(screen.getByTestId('patient-detail-entry-hint')).toHaveTextContent('Alert follow-through.');
+    expect(screen.getByTestId('patient-detail-return-link')).toHaveTextContent('Return to Alerts');
+    expect(screen.getByTestId('patient-detail-return-link')).toHaveAttribute(
+      'href',
+      '/alerts?patientId=patient-42',
+    );
+  }, 20_000);
+
+  it('falls back to the generic patient entry when route state is invalid for this patient', async () => {
+    installFetchMock();
+
+    renderPatientDetail([
+      {
+        pathname: `/patients/${patientId}`,
+        search: '?days=14',
+        state: createPatientEntryState({
+          patientId: 'patient-other',
+          source: 'worklist',
+          focus: 'workflow',
+          returnTo: '/worklist',
+        }),
+      },
+    ]);
+
+    expect(await screen.findByTestId('patient-detail-current-context')).toBeInTheDocument();
+    expect(screen.queryByTestId('patient-detail-entry-cue')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('patient-detail-entry-hint')).not.toBeInTheDocument();
+    expect(screen.getByTestId('patient-detail-return-link')).toHaveTextContent('Back to patients');
+    expect(screen.getByTestId('patient-detail-return-link')).toHaveAttribute('href', '/patients');
+  }, 20_000);
+
+  it('clears handoff state with replace semantics so browser back returns to the source page', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(
+      [
+        '/worklist',
+        {
+          pathname: `/patients/${patientId}`,
+          search: '?days=14',
+          state: createPatientEntryState({
+            patientId,
+            source: 'worklist',
+            focus: 'workflow',
+            returnTo: '/worklist',
+          }),
+        },
+      ],
+      { withHistoryProbe: true },
+    );
+
+    expect(await screen.findByTestId('patient-detail-entry-cue')).toHaveTextContent('Opened from Worklist');
+
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+
+    expect(await screen.findByText('Worklist workspace')).toBeInTheDocument();
   }, 20_000);
 });

@@ -74,6 +74,7 @@ function renderDrawer(props?: Partial<ComponentProps<typeof AlertDetailDrawer>>)
         overridePending={false}
         clinicianId="clinician-1"
         seen={false}
+        onOpenPatient={vi.fn()}
         onClose={vi.fn()}
         onAssignToMe={vi.fn()}
         onTakeOver={vi.fn()}
@@ -151,6 +152,7 @@ describe('AlertDetailDrawer accessibility and actions', () => {
             clinicianId="clinician-1"
             seen={false}
             returnFocusRef={triggerRef as RefObject<HTMLElement | null>}
+            onOpenPatient={vi.fn()}
             onClose={() => setOpen(false)}
             onAssignToMe={vi.fn()}
             onTakeOver={vi.fn()}

@@ -207,7 +207,7 @@ export function AlertCardList({
                     onClick={(event) => onOpen(alert, event.currentTarget)}
                     fullWidth
                   >
-                    Open
+                    Review alert
                   </Button>
                   <AssignmentActions
                     alert={alert}

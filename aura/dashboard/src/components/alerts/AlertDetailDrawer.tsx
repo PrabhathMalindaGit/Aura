@@ -34,6 +34,7 @@ interface AlertDetailDrawerProps {
   clinicianId: string;
   seen: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  onOpenPatient: (patientId: string) => void;
   onClose: () => void;
   onAssignToMe: (alert: AlertItem) => void | Promise<void>;
   onTakeOver: (alert: AlertItem) => void | Promise<void>;
@@ -95,6 +96,7 @@ export function AlertDetailDrawer({
   clinicianId,
   seen,
   returnFocusRef,
+  onOpenPatient,
   onClose,
   onAssignToMe,
   onTakeOver,
@@ -178,6 +180,7 @@ export function AlertDetailDrawer({
     !effectiveAlert || effectiveAlert.status !== 'open' || mutationPending || assignmentBlocked;
   const resolveDisabled =
     !effectiveAlert || effectiveAlert.status === 'resolved' || mutationPending || assignmentBlocked;
+  const patientNavigationId = effectiveAlert?.patientId.trim() ? effectiveAlert.patientId.trim() : null;
 
   function handleAcknowledge(): void {
     if (!effectiveAlert || acknowledgeDisabled) {
@@ -230,9 +233,13 @@ export function AlertDetailDrawer({
         footer={
           effectiveAlert ? (
             <div className="drawer-footer-actions safe-bottom">
+              <Button variant="ghost" onClick={onClose} aria-label="Close alert drawer">
+                Close
+              </Button>
               <Button
                 ref={resolveActionRef}
-                variant="danger"
+                className="alerts-drawer__resolve"
+                variant="secondary"
                 disabled={resolveDisabled}
                 onClick={handleResolve}
                 aria-label="Resolve alert"
@@ -248,9 +255,6 @@ export function AlertDetailDrawer({
                 data-testid="alert-acknowledge"
               >
                 Acknowledge
-              </Button>
-              <Button variant="ghost" onClick={onClose} aria-label="Close alert drawer">
-                Close
               </Button>
             </div>
           ) : null
@@ -274,6 +278,18 @@ export function AlertDetailDrawer({
                 {shortReferenceLabel(effectiveAlert._id) ?? effectiveAlert._id}. Source{' '}
                 {alertSourceLabel(effectiveAlert.source.type)}.
               </p>
+              {patientNavigationId ? (
+                <div className="drawer-meta__actions">
+                  <Button
+                    className="alerts-drawer__open-patient"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onOpenPatient(patientNavigationId)}
+                  >
+                    Open patient
+                  </Button>
+                </div>
+              ) : null}
             </section>
 
             {assignmentBlocked ? (

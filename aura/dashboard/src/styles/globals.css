@@ -21237,3 +21237,133 @@ button.dashboard-summary-card:hover {
     linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.34)),
     linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 82%);
 }
+
+/* Pass 10A: Worklist and Alerts action continuity */
+.worklist-table__actions,
+.worklist-card__actions {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+}
+
+.worklist-table__actions-primary,
+.worklist-card__actions-primary {
+  display: flex;
+}
+
+.worklist-table__actions-primary .btn,
+.worklist-card__actions-primary .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.worklist-table__actions-secondary,
+.worklist-card__actions-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.worklist-table__actions-secondary .btn,
+.worklist-card__actions-secondary .btn {
+  min-height: 34px;
+  padding-inline: 0.75rem;
+}
+
+.worklist-card__actions-primary .btn--primary {
+  min-height: 42px;
+}
+
+.worklist-table__activity,
+.worklist-card__activity {
+  opacity: 0.94;
+}
+
+.worklist-table__activity-label,
+.worklist-card__activity dt {
+  color: hsl(var(--foreground) / 0.46);
+}
+
+.worklist-card__activity dd,
+.worklist-table__activity-line span:last-child,
+.worklist-table__activity-line time {
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.alerts-actions__open.btn {
+  font-weight: var(--font-semibold);
+  border-color: hsl(var(--primary) / 0.14);
+  box-shadow:
+    0 8px 16px hsl(var(--primary) / 0.06),
+    inset 0 1px 0 hsl(var(--card) / 0.84);
+}
+
+.alerts-table__actions .alerts-actions__primary-row,
+.alerts-card-list__actions-primary {
+  align-items: stretch;
+}
+
+.alerts-card-list__actions {
+  gap: 0.65rem;
+}
+
+.drawer-meta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.alerts-drawer__open-patient.btn {
+  min-height: 36px;
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+}
+
+.alerts-drawer__resolve.btn,
+.alerts-actions__resolve.btn {
+  border-color: hsl(var(--danger) / 0.24);
+  color: hsl(var(--danger));
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--danger) / 0.06)),
+    linear-gradient(145deg, hsl(var(--danger) / 0.04), transparent 84%);
+  box-shadow: none;
+}
+
+.drawer-footer-actions .alerts-drawer__resolve.btn {
+  order: 2;
+}
+
+.drawer-footer-actions .btn--primary {
+  order: 3;
+}
+
+.drawer-footer-actions .btn--ghost {
+  order: 1;
+}
+
+.dark .alerts-actions__open.btn {
+  border-color: hsl(var(--primary) / 0.24);
+  box-shadow:
+    0 10px 18px hsl(var(--primary) / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.dark .alerts-drawer__open-patient.btn {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--muted) / 0.28)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+}
+
+.dark .alerts-drawer__resolve.btn,
+.dark .alerts-actions__resolve.btn {
+  border-color: hsl(var(--danger) / 0.28);
+  color: hsl(var(--danger-foreground));
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--danger) / 0.14)),
+    linear-gradient(145deg, hsl(var(--danger) / 0.08), transparent 84%);
+}

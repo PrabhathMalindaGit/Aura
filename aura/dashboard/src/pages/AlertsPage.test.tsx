@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertsPage } from './AlertsPage';
 import { clearAssignmentStoreForTests, setAssignment } from '../services/assignmentStore';
@@ -51,7 +51,10 @@ function renderAlertsPage(initialEntry: string = '/alerts'): void {
   render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <QueryClientProvider client={queryClient}>
-        <AlertsPage />
+        <Routes>
+          <Route path="/alerts" element={<AlertsPage />} />
+          <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+        </Routes>
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -150,6 +153,69 @@ describe('AlertsPage queue flow', () => {
       expect(screen.queryByLabelText(rowLabel)).not.toBeInTheDocument();
     });
   }, 12_000);
+
+  it('review alert opens the drawer from the list action', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [baseAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    await user.click(screen.getByRole('button', { name: 'Review alert' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Alert' })).toBeInTheDocument();
+  });
+
+  it('shows drawer Open patient only with valid patient context and routes to patient detail', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({
+          ok: true,
+          alerts: [
+            baseAlert,
+            {
+              ...baseAlert,
+              _id: 'alt-no-patient',
+              patientId: '   ',
+            },
+          ],
+        });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+
+    await user.click(screen.getByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`));
+    await user.click(await screen.findByRole('button', { name: 'Open patient' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
+    });
+
+    cleanup();
+    renderAlertsPage();
+
+    await screen.findByTestId('alert-row-alt-no-patient');
+    await user.click(screen.getByTestId('alert-row-alt-no-patient'));
+    await screen.findByRole('dialog', { name: 'Alert' });
+
+    expect(screen.queryByRole('button', { name: 'Open patient' })).not.toBeInTheDocument();
+  });
 
   it('unseen becomes seen after opening drawer', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {

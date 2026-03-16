@@ -14,7 +14,7 @@ import { WorklistPriorityBadge } from './WorklistPriorityBadge';
 interface WorklistTableProps {
   items: WorklistRecord[];
   onOpenPatient: (patientId: string) => void;
-  onOpenAlerts: (patientId: string) => void;
+  onOpenAlerts: (patientId?: string) => void;
   onOpenAppointments: (patientId: string) => void;
 }
 
@@ -190,34 +190,43 @@ export function WorklistTable({
                 </td>
 
                 <td className="worklist-table__cell worklist-table__cell--actions">
-                  <div className="worklist-table__actions" onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}>
-                    <Button
-                      className="worklist-table__open"
-                      variant="primary"
-                      size="sm"
-                      onClick={() => onOpenPatient(item.patientId)}
-                    >
-                      Open patient
-                    </Button>
-                    {item.openAlertsCount > 0 ? (
+                  <div
+                    className="worklist-table__actions"
+                    onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
+                  >
+                    <div className="worklist-table__actions-primary">
                       <Button
-                        className="worklist-table__alerts"
-                        variant="ghost"
+                        className="worklist-table__open"
+                        variant="primary"
                         size="sm"
-                        onClick={() => onOpenAlerts(item.patientId)}
+                        onClick={() => onOpenPatient(item.patientId)}
                       >
-                        Alerts
+                        Open patient
                       </Button>
-                    ) : null}
-                    {hasAppointment ? (
-                      <Button
-                        className="worklist-table__appointments"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onOpenAppointments(item.patientId)}
-                      >
-                        Appointments
-                      </Button>
+                    </div>
+                    {item.openAlertsCount > 0 || hasAppointment ? (
+                      <div className="worklist-table__actions-secondary">
+                        {item.openAlertsCount > 0 ? (
+                          <Button
+                            className="worklist-table__alerts"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenAlerts(item.patientId)}
+                          >
+                            Open alerts
+                          </Button>
+                        ) : null}
+                        {hasAppointment ? (
+                          <Button
+                            className="worklist-table__appointments"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenAppointments(item.patientId)}
+                          >
+                            Appointments
+                          </Button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 </td>

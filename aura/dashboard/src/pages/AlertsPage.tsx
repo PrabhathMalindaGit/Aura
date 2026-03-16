@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
@@ -297,6 +297,7 @@ function filterAlerts(
 }
 
 export function AlertsPage(): JSX.Element {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSearchValue = useMemo(() => {
     const searchQuery = searchParams.get('search')?.trim();
@@ -726,6 +727,19 @@ export function AlertsPage(): JSX.Element {
   const retryAlerts = useCallback((): void => {
     void alertsQuery.refetch();
   }, [alertsQuery]);
+
+  const openPatientFromAlert = useCallback(
+    (patientId: string): void => {
+      const normalizedPatientId = patientId.trim();
+
+      if (!normalizedPatientId) {
+        return;
+      }
+
+      navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`);
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1279,6 +1293,7 @@ export function AlertsPage(): JSX.Element {
         clinicianId={clinicianId}
         seen={activeAlertSeen}
         returnFocusRef={drawerFocusReturnRef}
+        onOpenPatient={openPatientFromAlert}
         onClose={() => setSelectedAlert(null)}
         onAssignToMe={handleAssignToMe}
         onTakeOver={handleTakeOver}

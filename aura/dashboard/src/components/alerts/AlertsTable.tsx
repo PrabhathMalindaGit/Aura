@@ -308,7 +308,7 @@ export function AlertsTable({
                           onOpen(alert, event.currentTarget);
                         }}
                       >
-                        Open
+                        Review alert
                       </Button>
                       <AssignmentActions
                         alert={alert}

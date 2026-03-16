@@ -14,7 +14,7 @@ import { WorklistPriorityBadge } from './WorklistPriorityBadge';
 interface WorklistCardListProps {
   items: WorklistRecord[];
   onOpenPatient: (patientId: string) => void;
-  onOpenAlerts: (patientId: string) => void;
+  onOpenAlerts: (patientId?: string) => void;
   onOpenAppointments: (patientId: string) => void;
 }
 
@@ -128,18 +128,29 @@ export function WorklistCardList({
               </dl>
 
               <div className="worklist-card__actions">
-                <Button variant="primary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
-                  Open patient
-                </Button>
-                {item.openAlertsCount > 0 ? (
-                  <Button variant="ghost" size="sm" onClick={() => onOpenAlerts(item.patientId)}>
-                    Alerts
+                <div className="worklist-card__actions-primary">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => onOpenPatient(item.patientId)}
+                  >
+                    Open patient
                   </Button>
-                ) : null}
-                {hasAppointment ? (
-                  <Button variant="ghost" size="sm" onClick={() => onOpenAppointments(item.patientId)}>
-                    Appointments
-                  </Button>
+                </div>
+                {item.openAlertsCount > 0 || hasAppointment ? (
+                  <div className="worklist-card__actions-secondary">
+                    {item.openAlertsCount > 0 ? (
+                      <Button variant="ghost" size="sm" onClick={() => onOpenAlerts(item.patientId)}>
+                        Open alerts
+                      </Button>
+                    ) : null}
+                    {hasAppointment ? (
+                      <Button variant="ghost" size="sm" onClick={() => onOpenAppointments(item.patientId)}>
+                        Appointments
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </div>

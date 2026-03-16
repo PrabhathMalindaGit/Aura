@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorklistPage } from './WorklistPage';
 import { getWorkspaceStateStorageKey } from '../services/workspaceState';
@@ -24,6 +24,12 @@ function createQueryClient(): QueryClient {
   });
 }
 
+function AlertsWorkspaceRoute(): JSX.Element {
+  const location = useLocation();
+
+  return <div>{`Alerts workspace${location.search}`}</div>;
+}
+
 function renderWorklistPage(): void {
   const queryClient = createQueryClient();
 
@@ -33,7 +39,7 @@ function renderWorklistPage(): void {
         <Routes>
           <Route path="/worklist" element={<WorklistPage />} />
           <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
-          <Route path="/alerts" element={<div>Alerts workspace</div>} />
+          <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
         </Routes>
       </MemoryRouter>
@@ -93,7 +99,7 @@ const WORKLIST_ITEMS: WorklistRecord[] = [
   },
 ];
 
-function installWorklistFetchMock(): { requests: URL[] } {
+function installWorklistFetchMock(itemsSeed: WorklistRecord[] = WORKLIST_ITEMS): { requests: URL[] } {
   const requests: URL[] = [];
 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -101,7 +107,7 @@ function installWorklistFetchMock(): { requests: URL[] } {
 
     if (url.pathname === '/clinician/worklist') {
       requests.push(url);
-      let items = [...WORKLIST_ITEMS];
+      let items = [...itemsSeed];
 
       const search = url.searchParams.get('search')?.trim().toLowerCase();
       if (search) {
@@ -274,5 +280,39 @@ describe('WorklistPage', () => {
       expect(screen.getByRole('searchbox', { name: 'Search worklist' })).toHaveValue('');
       expect(screen.getByText('Avery Chen')).toBeInTheDocument();
     });
+  });
+
+  it('routes Open alerts with patient context when available and falls back safely otherwise', async () => {
+    installWorklistFetchMock([
+      WORKLIST_ITEMS[0],
+      {
+        ...WORKLIST_ITEMS[1],
+        openAlertsCount: 1,
+        patientId: '   ',
+        patientName: 'Fallback Patient',
+      },
+    ]);
+
+    renderWorklistPage();
+
+    const jordanRow = await screen.findByTestId('worklist-row-p1');
+    await userEvent.click(within(jordanRow).getByRole('button', { name: 'Open alerts' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Alerts workspace?patientId=p1')).toBeInTheDocument();
+    });
+
+    cleanup();
+    renderWorklistPage();
+
+    const fallbackPatientName = await screen.findByText('Fallback Patient');
+    const fallbackRow = fallbackPatientName.closest('tr');
+    expect(fallbackRow).not.toBeNull();
+    await userEvent.click(within(fallbackRow as HTMLElement).getByRole('button', { name: 'Open alerts' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Alerts workspace')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Alerts workspace?patientId=%20%20%20')).not.toBeInTheDocument();
   });
 });

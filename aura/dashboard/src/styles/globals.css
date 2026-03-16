@@ -17576,6 +17576,86 @@ button.dashboard-summary-card:hover {
   color: hsl(var(--foreground) / 0.68);
 }
 
+.alerts-queue-follow-through {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.alerts-triage-outcome {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0.9rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: calc(var(--radius-xl) - 6px);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 82%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+@media (min-width: 920px) {
+  .alerts-triage-outcome {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.alerts-triage-outcome--acknowledged {
+  border-color: hsl(var(--primary) / 0.22);
+}
+
+.alerts-triage-outcome--resolved {
+  border-color: hsl(var(--border) / 0.66);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.03), transparent 82%);
+}
+
+.alerts-triage-outcome__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.alerts-triage-outcome__eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.alerts-triage-outcome__title {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-tight);
+}
+
+.alerts-triage-outcome__text,
+.alerts-triage-outcome__next {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.alerts-triage-outcome__next {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.alerts-triage-outcome__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.alerts-triage-outcome__actions .btn {
+  min-width: 8rem;
+  border-color: hsl(var(--border) / 0.64);
+}
+
 .alerts-status-tabs {
   border-color: hsl(var(--border) / 0.62);
   background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.24));
@@ -20888,6 +20968,60 @@ button.dashboard-summary-card:hover {
   border-color: hsl(var(--border) / 0.68);
 }
 
+.appointments-request-outcome {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: calc(var(--radius-lg) - 4px);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.14)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.appointments-request-outcome--approved {
+  border-color: hsl(var(--primary) / 0.22);
+}
+
+.appointments-request-outcome--rejected {
+  border-color: hsl(var(--border) / 0.66);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.03), transparent 84%);
+}
+
+.appointments-request-outcome__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.appointments-request-outcome__eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.64);
+  font-size: 0.68rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.appointments-request-outcome__title {
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-tight);
+}
+
+.appointments-request-outcome__text,
+.appointments-request-outcome__next {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.appointments-request-outcome__next {
+  color: hsl(var(--foreground) / 0.72);
+}
+
 .appointments-workspace__section--requests-active {
   border-color: hsl(var(--warning) / 0.2);
 }
@@ -21144,6 +21278,58 @@ button.dashboard-summary-card:hover {
 .dark .appointments-publish-outcome__status--quiet {
   border-color: hsl(var(--border) / 0.54);
   background: hsl(var(--muted) / 0.34);
+}
+
+.dark .alerts-queue-follow-through {
+  color: hsl(var(--foreground) / 0.66);
+}
+
+.dark .alerts-triage-outcome {
+  border-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 82%);
+}
+
+.dark .alerts-triage-outcome--acknowledged {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.dark .alerts-triage-outcome--resolved {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 82%);
+}
+
+.dark .alerts-triage-outcome__next {
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.dark .alerts-triage-outcome__actions .btn {
+  border-color: hsl(var(--border) / 0.56);
+}
+
+.dark .appointments-request-outcome {
+  border-color: hsl(var(--border) / 0.52);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.28)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+}
+
+.dark .appointments-request-outcome--approved {
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.dark .appointments-request-outcome--rejected {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.08), transparent 84%);
+}
+
+.dark .appointments-request-outcome__next {
+  color: hsl(var(--foreground) / 0.8);
 }
 
 .dark .insights-queue__item--high {

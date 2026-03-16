@@ -122,6 +122,18 @@ export function WorklistPage(): JSX.Element {
     };
   }, [items]);
   const queueViewLabel = activeFilterConstraints ? 'Focused queue view' : 'Full review queue';
+  const worklistGuidanceLine =
+    items.length === 0
+      ? activeFilterConstraints
+        ? 'No patients match this current queue view.'
+        : 'Active review is clear right now.'
+      : summary.highRisk > 0
+        ? 'High-risk review still leads this current queue.'
+        : summary.needsResponse > 0
+          ? 'Response follow-up still leads this current queue.'
+          : summary.openAlerts > 0
+            ? 'Alert-linked review still remains in this current queue.'
+            : 'Continue with the next patient in this queue.';
 
   const updatedAtLabel = connection.lastSuccessAt
     ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
@@ -303,10 +315,7 @@ export function WorklistPage(): JSX.Element {
       <section className="worklist-workspace-note" aria-label="Worklist workspace guidance">
         <div className="worklist-workspace-note__copy">
           <p className="worklist-workspace-note__eyebrow">Active review workspace</p>
-          <p className="worklist-workspace-note__text">
-            Move from review focus to patient action quickly. Keep the lead issue obvious and the
-            supporting signals compressed.
-          </p>
+          <p className="worklist-workspace-note__text">{worklistGuidanceLine}</p>
         </div>
         <div className="worklist-workspace-note__facts" aria-live="polite">
           <span className="worklist-workspace-note__fact">{queueViewLabel}</span>
@@ -331,9 +340,6 @@ export function WorklistPage(): JSX.Element {
       >
         <Stack gap="4">
           <div className="worklist-workspace-card__controls">
-            <p className="worklist-queue-intro">
-              Review focus first, operational signals second, patient action last.
-            </p>
             <WorklistFilters
               filters={filters}
               disabled={worklistQuery.isFetching && items.length === 0}

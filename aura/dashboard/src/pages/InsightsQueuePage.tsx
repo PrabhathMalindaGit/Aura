@@ -291,6 +291,42 @@ function describeQueueView(
   };
 }
 
+function describePendingReviewRemaining(
+  pendingCount: number,
+  reviewedCount: number | null,
+): {
+  workspaceText: string;
+  outcomeText: string;
+} {
+  if (pendingCount > 0) {
+    const countLabel = `${pendingCount} pending suggestion${pendingCount === 1 ? '' : 's'}`;
+    const verb = pendingCount === 1 ? 'remains' : 'remain';
+    return {
+      workspaceText: `${countLabel} ${verb} below for clinician review.`,
+      outcomeText: `${countLabel} ${verb} below. Continue with the next clinician decision.`,
+    };
+  }
+
+  if (reviewedCount === null) {
+    return {
+      workspaceText: 'Pending review is clear in this current queue view.',
+      outcomeText: 'Pending review is clear in this current queue view.',
+    };
+  }
+
+  if (reviewedCount > 0) {
+    return {
+      workspaceText: 'Pending review is clear. Reviewed suggestions remain visible in this current queue view.',
+      outcomeText: 'Pending review is clear. Reviewed suggestions remain visible in this current queue view.',
+    };
+  }
+
+  return {
+    workspaceText: 'Pending review is quiet right now.',
+    outcomeText: 'Pending review is quiet right now.',
+  };
+}
+
 function normalizeInsightsWorkspaceState(value: unknown): { activeView: QueueView } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { activeView: 'pending' };
@@ -440,10 +476,8 @@ export function InsightsQueuePage(): JSX.Element {
   const outcomeDestinationLabel = lastReviewOutcome?.status === 'approved' ? 'Approved' : 'Rejected';
   const outcomePanelTitle =
     lastReviewOutcome?.status === 'approved' ? 'Approved into workflow' : 'Rejected from workflow';
-  const outcomeFollowThrough =
-    pendingCount > 0
-      ? 'Continue with the next pending suggestion below.'
-      : 'Pending review is clear.';
+  const pendingReviewRemaining = describePendingReviewRemaining(pendingCount, reviewedCount);
+  const outcomeFollowThrough = pendingReviewRemaining.outcomeText;
   const normalizedOutcomePatientId = lastReviewOutcome?.patientId.trim() ?? '';
   const canOpenOutcomePatient = normalizedOutcomePatientId.length > 0;
 
@@ -765,9 +799,7 @@ export function InsightsQueuePage(): JSX.Element {
           <div className="insights-workspace-note__copy">
             <p className="insights-workspace-note__eyebrow">Review workspace</p>
             <p className="insights-workspace-note__text">
-              Treat this as a living clinician review workflow. Pending items still need review,
-              approved items have already surfaced into workflow, and rejected items stay out of
-              active workflow in this current queue context.
+              {pendingReviewRemaining.workspaceText}
             </p>
           </div>
           <div className="insights-workspace-note__facts" aria-live="polite">

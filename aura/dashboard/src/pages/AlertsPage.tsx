@@ -95,6 +95,11 @@ interface AlertsWorkspaceState {
   overriddenOnly: boolean;
 }
 
+interface LastTriageOutcome {
+  patientId: string;
+  status: 'acknowledged' | 'resolved';
+}
+
 function createDefaultExportStatuses(activeStatus: AlertStatus): Record<AlertStatus, boolean> {
   return {
     open: activeStatus === 'open',
@@ -329,6 +334,7 @@ export function AlertsPage(): JSX.Element {
   const [unassignedOnly, setUnassignedOnly] = useState(() => savedWorkspaceRef.current.unassignedOnly);
   const [overriddenOnly, setOverriddenOnly] = useState(() => savedWorkspaceRef.current.overriddenOnly);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [lastTriageOutcome, setLastTriageOutcome] = useState<LastTriageOutcome | null>(null);
   const [clinicianId, setClinicianId] = useState(() => getClinicianId());
   const [clinicianName, setClinicianName] = useState(() => getClinicianName());
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(clinicianId));
@@ -821,33 +827,107 @@ export function AlertsPage(): JSX.Element {
     setSelectedAlert(alert);
   }
 
-  function handleStatusUpdate(nextStatus: 'acknowledged' | 'resolved', alert: AlertItem): void {
+  const queueFollowThroughText = useMemo(() => {
+    if (status === 'open') {
+      if (visibleAlerts.length > 0) {
+        return `${visibleAlerts.length} open alert${
+          visibleAlerts.length === 1 ? '' : 's'
+        } still need review in this queue.`;
+      }
+
+      if (sourceAlerts.length === 0) {
+        return 'Open triage is clear in this current view.';
+      }
+
+      return 'Current filters hide the remaining open alerts in this queue.';
+    }
+
+    if (visibleAlerts.length > 0) {
+      return `${visibleAlerts.length} ${status} alert${
+        visibleAlerts.length === 1 ? '' : 's'
+      } remain available in this view.`;
+    }
+
+    return `No ${status} alerts are in this current view right now.`;
+  }, [sourceAlerts.length, status, visibleAlerts.length]);
+
+  const triageOutcomeTitle =
+    lastTriageOutcome?.status === 'resolved' ? 'Alert resolved' : 'Alert acknowledged';
+  const triageOutcomeDestinationLabel =
+    lastTriageOutcome?.status === 'resolved' ? 'Resolved' : 'Acknowledged';
+  const triageOutcomeFollowThrough =
+    visibleAlerts.length > 0
+      ? 'Open triage still needs review in this queue.'
+      : 'Open triage is clear.';
+
+  async function handleStatusUpdate(
+    nextStatus: 'acknowledged' | 'resolved',
+    alert: AlertItem,
+  ): Promise<void> {
     setActionError(null);
+    setLastTriageOutcome(null);
     assignments.clearAssignmentError();
     overrides.clearOverrideError();
 
-    updateAlertMutation.mutate(
-      { id: alert._id, status: nextStatus },
-      {
-        onSuccess: (updatedAlert) => {
-          setSelectedAlert((current) => {
-            if (!current || current._id !== updatedAlert._id) {
-              return current;
-            }
+    try {
+      const updatedAlert = await updateAlertMutation.mutateAsync({
+        id: alert._id,
+        status: nextStatus,
+      });
 
-            if (status === 'open') {
-              return null;
-            }
+      setSelectedAlert((current) => {
+        if (!current || current._id !== updatedAlert._id) {
+          return current;
+        }
 
-            return updatedAlert;
-          });
-        },
-        onError: (error) => {
-          const appError = asAppError(error);
-          setActionError(toUserMessage(appError));
-        },
-      },
-    );
+        if (status === 'open') {
+          return null;
+        }
+
+        return updatedAlert;
+      });
+
+      if (status !== 'open') {
+        return;
+      }
+
+      const refreshedOpenResult = await alertsQuery.refetch();
+      if (refreshedOpenResult.error || !Array.isArray(refreshedOpenResult.data)) {
+        return;
+      }
+
+      const refreshedVisibleOpenAlerts = sortAlerts(
+        filterAlerts(
+          applyAlertOverrides(applyAlertAssignments(refreshedOpenResult.data)),
+          {
+            searchValue,
+            sourceFilter,
+            timeRange,
+            unseenOnly,
+            assignedToMeOnly,
+            unassignedOnly,
+            overriddenOnly,
+            clinicianId,
+            seenAlertMap,
+            status: 'open',
+          },
+        ),
+        sortOrder,
+      );
+
+      if (refreshedVisibleOpenAlerts.some((item) => item._id === updatedAlert._id)) {
+        return;
+      }
+
+      setLastTriageOutcome({
+        patientId: updatedAlert.patientId,
+        status: nextStatus,
+      });
+    } catch (error) {
+      setLastTriageOutcome(null);
+      const appError = asAppError(error);
+      setActionError(toUserMessage(appError));
+    }
   }
 
   async function handleAssignToMe(alert: AlertItem): Promise<void> {
@@ -1088,6 +1168,7 @@ export function AlertsPage(): JSX.Element {
             <p className="alerts-queue-intro">
               Review first visibility, ownership, and disposition from one tighter operational queue.
             </p>
+            <p className="alerts-queue-follow-through">{queueFollowThroughText}</p>
           </div>
             <div className="alerts-workspace-card__heading-actions">
               <div className="alerts-workspace-card__queue-meta" aria-live="polite">
@@ -1171,6 +1252,36 @@ export function AlertsPage(): JSX.Element {
           />
         </div>
 
+        {status === 'open' && lastTriageOutcome ? (
+          <div
+            className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status}`}
+            data-testid="alerts-triage-outcome"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="alerts-triage-outcome__copy">
+              <p className="alerts-triage-outcome__eyebrow">Latest triage</p>
+              <strong className="alerts-triage-outcome__title">{triageOutcomeTitle}</strong>
+              <p className="alerts-triage-outcome__text">
+                Alert for {lastTriageOutcome.patientId} moved out of Open and is now visible in{' '}
+                {triageOutcomeDestinationLabel}.
+              </p>
+              <p className="alerts-triage-outcome__next">{triageOutcomeFollowThrough}</p>
+            </div>
+            <div className="alerts-triage-outcome__actions">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  handleStatusChange(lastTriageOutcome.status);
+                }}
+              >
+                {lastTriageOutcome.status === 'resolved' ? 'View resolved' : 'View acknowledged'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {showInitialLoading ? (
           <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
             <Skeleton height={72} />
@@ -1239,8 +1350,12 @@ export function AlertsPage(): JSX.Element {
             onOpen={openAlert}
             onAssignToMe={handleAssignToMe}
             onTakeOver={handleTakeOver}
-            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+            onAcknowledge={(alert) => {
+              void handleStatusUpdate('acknowledged', alert);
+            }}
+            onResolve={(alert) => {
+              void handleStatusUpdate('resolved', alert);
+            }}
           />
         ) : (
           <AlertsTable
@@ -1253,8 +1368,12 @@ export function AlertsPage(): JSX.Element {
             onOpen={openAlert}
             onAssignToMe={handleAssignToMe}
             onTakeOver={handleTakeOver}
-            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+            onAcknowledge={(alert) => {
+              void handleStatusUpdate('acknowledged', alert);
+            }}
+            onResolve={(alert) => {
+              void handleStatusUpdate('resolved', alert);
+            }}
           />
         )}
       </Card>
@@ -1319,8 +1438,12 @@ export function AlertsPage(): JSX.Element {
         onUnassign={handleUnassign}
         onSaveRiskOverride={handleSaveRiskOverride}
         onClearRiskOverride={handleClearRiskOverride}
-        onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-        onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+        onAcknowledge={(alert) => {
+          void handleStatusUpdate('acknowledged', alert);
+        }}
+        onResolve={(alert) => {
+          void handleStatusUpdate('resolved', alert);
+        }}
       />
     </Stack>
   );

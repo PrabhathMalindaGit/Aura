@@ -101,6 +101,79 @@ function installMatchMediaMock(
   });
 }
 
+function installStatefulAlertsFetchMock(options: {
+  open?: AlertItem[];
+  acknowledged?: AlertItem[];
+  resolved?: AlertItem[];
+  failUpdateIds?: string[];
+}): void {
+  let openAlerts = [...(options.open ?? [])];
+  let acknowledgedAlerts = [...(options.acknowledged ?? [])];
+  let resolvedAlerts = [...(options.resolved ?? [])];
+  const failingIds = new Set(options.failUpdateIds ?? []);
+
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const url = new URL(String(input), 'http://localhost');
+    const method = String(init?.method ?? 'GET').toUpperCase();
+
+    if (url.pathname === '/clinician/alerts' && method === 'GET') {
+      const status = url.searchParams.get('status') ?? 'open';
+      if (status === 'acknowledged') {
+        return createJsonResponse({ ok: true, alerts: acknowledgedAlerts });
+      }
+      if (status === 'resolved') {
+        return createJsonResponse({ ok: true, alerts: resolvedAlerts });
+      }
+      return createJsonResponse({ ok: true, alerts: openAlerts });
+    }
+
+    if (url.pathname.startsWith('/clinician/alerts/') && method === 'PATCH') {
+      const alertId = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+
+      if (failingIds.has(alertId)) {
+        return createJsonResponse({ ok: false }, 500);
+      }
+
+      const body =
+        typeof init?.body === 'string' && init.body.length > 0
+          ? (JSON.parse(init.body) as { status?: AlertStatus })
+          : {};
+      const nextStatus = body.status === 'resolved' ? 'resolved' : 'acknowledged';
+      const sourceAlert =
+        openAlerts.find((alert) => alert._id === alertId) ??
+        acknowledgedAlerts.find((alert) => alert._id === alertId) ??
+        resolvedAlerts.find((alert) => alert._id === alertId);
+
+      if (!sourceAlert) {
+        return createJsonResponse({ ok: false }, 404);
+      }
+
+      openAlerts = openAlerts.filter((alert) => alert._id !== alertId);
+      acknowledgedAlerts = acknowledgedAlerts.filter((alert) => alert._id !== alertId);
+      resolvedAlerts = resolvedAlerts.filter((alert) => alert._id !== alertId);
+
+      const updatedAlert: AlertItem = {
+        ...sourceAlert,
+        status: nextStatus,
+        updatedAt: new Date().toISOString(),
+        acknowledgedAt:
+          nextStatus === 'acknowledged' ? new Date().toISOString() : sourceAlert.acknowledgedAt,
+        resolvedAt: nextStatus === 'resolved' ? new Date().toISOString() : sourceAlert.resolvedAt,
+      };
+
+      if (nextStatus === 'acknowledged') {
+        acknowledgedAlerts = [updatedAlert, ...acknowledgedAlerts];
+      } else {
+        resolvedAlerts = [updatedAlert, ...resolvedAlerts];
+      }
+
+      return createJsonResponse({ ok: true, alert: updatedAlert });
+    }
+
+    return createJsonResponse({ ok: true, alerts: [] });
+  });
+}
+
 beforeAll(() => {
   installMatchMediaMock();
 });
@@ -185,6 +258,139 @@ describe('AlertsPage queue flow', () => {
     await user.click(screen.getByRole('button', { name: 'Review alert' }));
 
     expect(await screen.findByRole('dialog', { name: 'Alert' })).toBeInTheDocument();
+  });
+
+  it('shows acknowledged triage continuity and keeps the view switch explicit', async () => {
+    const secondOpenAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-002',
+      patientId: 'patient-77',
+      reason: 'Missed check-in follow-up',
+    };
+
+    installStatefulAlertsFetchMock({
+      open: [baseAlert, secondOpenAlert],
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    await user.click(screen.getByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`));
+    await user.click(await screen.findByRole('button', { name: 'Acknowledge alert' }));
+
+    const outcomePanel = await screen.findByTestId('alerts-triage-outcome');
+    expect(within(outcomePanel).getByText('Alert acknowledged')).toBeInTheDocument();
+    expect(outcomePanel).toHaveTextContent(
+      'Alert for patient-42 moved out of Open and is now visible in Acknowledged.',
+    );
+    expect(outcomePanel).toHaveTextContent('Open triage still needs review in this queue.');
+    expect(screen.getByRole('tab', { name: 'Open' })).toHaveAttribute('aria-selected', 'true');
+
+    await user.click(within(outcomePanel).getByRole('button', { name: 'View acknowledged' }));
+
+    expect(await screen.findByRole('tab', { name: 'Acknowledged' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('shows resolved triage continuity when open triage becomes clear', async () => {
+    installStatefulAlertsFetchMock({
+      open: [baseAlert],
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    await user.click(screen.getByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`));
+    await user.click(await screen.findByRole('button', { name: 'Resolve alert' }));
+    const resolveDialog = await screen.findByRole('alertdialog', { name: 'Resolve alert now?' });
+    await user.click(within(resolveDialog).getByRole('button', { name: 'Resolve' }));
+
+    const outcomePanel = await screen.findByTestId('alerts-triage-outcome');
+    expect(within(outcomePanel).getByText('Alert resolved')).toBeInTheDocument();
+    expect(outcomePanel).toHaveTextContent(
+      'Alert for patient-42 moved out of Open and is now visible in Resolved.',
+    );
+    expect(outcomePanel).toHaveTextContent('Open triage is clear.');
+  });
+
+  it('clears stale triage outcome state when a later triage action fails', async () => {
+    const secondOpenAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-fail-2',
+      patientId: 'patient-99',
+      reason: 'Second alert should fail',
+    };
+
+    let openAlerts = [baseAlert, secondOpenAlert];
+    let acknowledgedAlerts: AlertItem[] = [];
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = String(init?.method ?? 'GET').toUpperCase();
+
+      if (url.includes('/clinician/alerts?status=open') && method === 'GET') {
+        return createJsonResponse({ ok: true, alerts: openAlerts });
+      }
+
+      if (url.includes('/clinician/alerts?status=acknowledged') && method === 'GET') {
+        return createJsonResponse({ ok: true, alerts: acknowledgedAlerts });
+      }
+
+      if (url.includes('/clinician/alerts?status=resolved') && method === 'GET') {
+        return createJsonResponse({ ok: true, alerts: [] });
+      }
+
+      if (url.includes(`/clinician/alerts/${baseAlert._id}`) && method === 'PATCH') {
+        const acknowledgedAlert: AlertItem = {
+          ...baseAlert,
+          status: 'acknowledged',
+          acknowledgedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        openAlerts = openAlerts.filter((alert) => alert._id !== baseAlert._id);
+        acknowledgedAlerts = [acknowledgedAlert, ...acknowledgedAlerts];
+
+        return createJsonResponse({ ok: true, alert: acknowledgedAlert });
+      }
+
+      if (url.includes(`/clinician/alerts/${secondOpenAlert._id}`) && method === 'PATCH') {
+        return createJsonResponse({ ok: false }, 500);
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    await user.click(screen.getByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`));
+    await user.click(await screen.findByRole('button', { name: 'Acknowledge alert' }));
+    expect(await screen.findByTestId('alerts-triage-outcome')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Alert' })).not.toBeInTheDocument();
+    });
+
+    const secondRow = await screen.findByLabelText(
+      `Alert ${secondOpenAlert._id} for patient ${secondOpenAlert.patientId}`,
+    );
+    await user.click(secondRow);
+    const secondDialog = await screen.findByRole('dialog', { name: 'Alert' });
+    expect(within(secondDialog).getByText(`Patient ${secondOpenAlert.patientId}`)).toBeInTheDocument();
+    await user.click(within(secondDialog).getByRole('button', { name: 'Acknowledge alert' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Action failed')).toBeInTheDocument();
+      expect(screen.queryByTestId('alerts-triage-outcome')).not.toBeInTheDocument();
+      expect(
+        screen.getByLabelText(`Alert ${secondOpenAlert._id} for patient ${secondOpenAlert.patientId}`),
+      ).toBeInTheDocument();
+    }, { timeout: 12_000 });
   });
 
   it('shows drawer Open patient only with valid patient context and routes to patient detail', async () => {

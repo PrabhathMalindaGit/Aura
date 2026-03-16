@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,11 +12,17 @@ interface PublishBehavior {
   errorMessage?: string;
 }
 
+interface ReviewBehavior {
+  kind?: 'success' | 'error';
+  errorMessage?: string;
+}
+
 interface RenderOptions {
   requests?: Array<Record<string, unknown>>;
   slots?: Array<Record<string, unknown>>;
   patients?: Array<Record<string, unknown>>;
   publishBehaviors?: PublishBehavior[];
+  reviewBehaviors?: ReviewBehavior[];
 }
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
@@ -61,10 +67,12 @@ function installFetchMock({
   slots = [],
   patients = [],
   publishBehaviors = [],
+  reviewBehaviors = [],
 }: RenderOptions): void {
-  const requestItems = [...requests];
+  let requestItems = [...requests];
   let slotItems = [...slots];
   const queuedPublishBehaviors = [...publishBehaviors];
+  const queuedReviewBehaviors = [...reviewBehaviors];
 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const href = String(input);
@@ -72,6 +80,42 @@ function installFetchMock({
     const method = String(init?.method ?? 'GET').toUpperCase();
 
     if (href.includes('/clinician/appointments/requests')) {
+      if (method === 'PATCH') {
+        const behavior = queuedReviewBehaviors.shift() ?? { kind: 'success' };
+
+        if (behavior.kind === 'error') {
+          return createJsonResponse(
+            { ok: false, message: behavior.errorMessage ?? 'Review failed' },
+            500,
+          );
+        }
+
+        const requestId = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+        const payload =
+          typeof init?.body === 'string' && init.body.length > 0
+            ? (JSON.parse(init.body) as Record<string, unknown>)
+            : {};
+        const nextStatus = payload.status === 'approved' ? 'approved' : 'rejected';
+        const sourceRequest = requestItems.find((item) => String(item.requestId) === requestId);
+
+        if (!sourceRequest) {
+          return createJsonResponse({ ok: false, message: 'Request not found' }, 404);
+        }
+
+        const reviewedRequest = {
+          ...sourceRequest,
+          status: nextStatus,
+          reviewedAt: '2026-03-16T12:10:00.000Z',
+        };
+
+        requestItems = [
+          reviewedRequest,
+          ...requestItems.filter((item) => String(item.requestId) !== requestId),
+        ];
+
+        return createJsonResponse({ ok: true, item: reviewedRequest });
+      }
+
       const status = url.searchParams.get('status');
       const filteredItems = status
         ? requestItems.filter((item) => String(item.status ?? '') === status)
@@ -238,6 +282,94 @@ describe('AppointmentsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open patient' }));
 
     expect(await screen.findByText('Patient detail workspace')).toBeInTheDocument();
+  });
+
+  it('shows section-local request review continuity when more pending review remains', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-review-1',
+          slotId: 'slot-review-1',
+          patientId: 'patient-42',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          note: 'Prefers an early follow-up.',
+          startsAt: '2026-03-17T09:00:00.000Z',
+          endsAt: '2026-03-17T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T08:00:00.000Z',
+        },
+        {
+          requestId: 'req-review-2',
+          slotId: 'slot-review-2',
+          patientId: 'patient-77',
+          status: 'pending',
+          workflowStatus: 'reschedule_requested',
+          startsAt: '2026-03-17T11:00:00.000Z',
+          endsAt: '2026-03-17T11:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T09:00:00.000Z',
+        },
+      ],
+      patients: [
+        {
+          id: 'patient-42',
+          displayName: 'Taylor Moss',
+          status: 'active',
+        },
+      ],
+    });
+
+    const approveButtons = await screen.findAllByRole('button', { name: 'Approve' });
+    fireEvent.click(approveButtons[0]);
+
+    const outcomePanel = await screen.findByTestId('appointments-request-outcome');
+    expect(within(outcomePanel).getByText('Request approved')).toBeInTheDocument();
+    expect(outcomePanel).toHaveTextContent('Request for Taylor Moss moved out of Pending review.');
+    expect(outcomePanel).toHaveTextContent('1 request still needs review in this view.');
+    expect(screen.queryByText('Updated')).not.toBeInTheDocument();
+  });
+
+  it('shows clear request-review continuity when pending review clears and capacity remains open', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-clear-1',
+          slotId: 'slot-clear-1',
+          patientId: 'patient-88',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-17T09:00:00.000Z',
+          endsAt: '2026-03-17T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T08:00:00.000Z',
+        },
+      ],
+      slots: [
+        {
+          slotId: 'slot-open-capacity',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-18T14:00:00.000Z',
+          endsAt: '2026-03-18T14:30:00.000Z',
+          modality: 'video',
+          status: 'available',
+          createdAt: '2026-03-14T10:30:00.000Z',
+        },
+      ],
+      patients: [
+        {
+          id: 'patient-88',
+          displayName: 'Morgan Diaz',
+          status: 'active',
+        },
+      ],
+    });
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Reject' }))[0]);
+
+    const outcomePanel = await screen.findByTestId('appointments-request-outcome');
+    expect(within(outcomePanel).getByText('Request rejected')).toBeInTheDocument();
+    expect(outcomePanel).toHaveTextContent('Pending review is clear and open capacity remains available.');
   });
 
   it('frames pending demand without open capacity as the next coordination problem', async () => {
@@ -519,6 +651,53 @@ describe('AppointmentsPage', () => {
     expect(await screen.findByText('Could not complete action')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByText('Availability published')).not.toBeInTheDocument();
+    });
+  });
+
+  it('clears stale request review continuity after a later failed review attempt', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-fail-1',
+          slotId: 'slot-fail-1',
+          patientId: 'patient-42',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-17T09:00:00.000Z',
+          endsAt: '2026-03-17T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T08:00:00.000Z',
+        },
+        {
+          requestId: 'req-fail-2',
+          slotId: 'slot-fail-2',
+          patientId: 'patient-77',
+          status: 'pending',
+          workflowStatus: 'reschedule_requested',
+          startsAt: '2026-03-17T11:00:00.000Z',
+          endsAt: '2026-03-17T11:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T09:00:00.000Z',
+        },
+      ],
+      reviewBehaviors: [{ kind: 'success' }, { kind: 'error', errorMessage: 'Review failed' }],
+      patients: [
+        {
+          id: 'patient-42',
+          displayName: 'Taylor Moss',
+          status: 'active',
+        },
+      ],
+    });
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Approve' }))[0]);
+    expect(await screen.findByTestId('appointments-request-outcome')).toBeInTheDocument();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Reject' }))[0]);
+
+    expect(await screen.findByText('Could not complete action')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByTestId('appointments-request-outcome')).not.toBeInTheDocument();
     });
   });
 

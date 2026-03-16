@@ -208,6 +208,62 @@ describe('WorklistPage', () => {
     expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"returnTo":"/worklist"');
   }, 10000);
 
+  it('shows high-risk guidance when high-risk review leads the current queue', async () => {
+    installWorklistFetchMock();
+
+    renderWorklistPage();
+
+    expect(await screen.findByText('Jordan Lee')).toBeInTheDocument();
+    expect(screen.getByText('High-risk review still leads this current queue.')).toBeInTheDocument();
+  });
+
+  it('shows response-follow-up guidance when that leads the current queue view', async () => {
+    installWorklistFetchMock([
+      {
+        ...WORKLIST_ITEMS[0],
+        patientId: 'p-response',
+        patientName: 'Morgan Diaz',
+        latestRiskLevel: 'medium',
+        openAlertsCount: 0,
+        communicationNeedsResponse: true,
+        topIssue: 'Message follow-up needed',
+      },
+    ]);
+
+    renderWorklistPage();
+
+    expect(await screen.findByText('Morgan Diaz')).toBeInTheDocument();
+    expect(screen.getByText('Response follow-up still leads this current queue.')).toBeInTheDocument();
+  });
+
+  it('shows alert-linked guidance when alerts are the remaining review signal', async () => {
+    installWorklistFetchMock([
+      {
+        ...WORKLIST_ITEMS[0],
+        patientId: 'p-alert',
+        patientName: 'Casey Brown',
+        latestRiskLevel: 'low',
+        openAlertsCount: 1,
+        communicationNeedsResponse: false,
+        topIssue: 'Alert follow-up needed',
+      },
+    ]);
+
+    renderWorklistPage();
+
+    expect(await screen.findByText('Casey Brown')).toBeInTheDocument();
+    expect(screen.getByText('Alert-linked review still remains in this current queue.')).toBeInTheDocument();
+  });
+
+  it('shows calm clear guidance when the unfiltered queue is empty', async () => {
+    installWorklistFetchMock([]);
+
+    renderWorklistPage();
+
+    expect(await screen.findByText('No patients need active review')).toBeInTheDocument();
+    expect(screen.getByText('Active review is clear right now.')).toBeInTheDocument();
+  });
+
   it('applies backend-backed filters and sort selections', async () => {
     const { requests } = installWorklistFetchMock();
     renderWorklistPage();

@@ -49,6 +49,11 @@ interface PublishOutcome {
   endsAt: string;
 }
 
+interface RequestReviewOutcome {
+  status: 'approved' | 'rejected';
+  patientLabel: string;
+}
+
 function toIsoDateTime(value: string): string {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime())) {
@@ -375,8 +380,9 @@ export function AppointmentsPage(): JSX.Element {
   const [isCreating, setIsCreating] = useState(false);
   const [reviewingKey, setReviewingKey] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [reviewNoticeMessage, setReviewNoticeMessage] = useState<string | null>(null);
   const [lastPublishOutcome, setLastPublishOutcome] = useState<PublishOutcome | null>(null);
+  const [lastRequestReviewOutcome, setLastRequestReviewOutcome] =
+    useState<RequestReviewOutcome | null>(null);
 
   const patientsQuery = usePatients();
 
@@ -480,6 +486,16 @@ export function AppointmentsPage(): JSX.Element {
   const publishOutcomeCopy = lastPublishOutcome
     ? describePublishCoverage(pendingRequestsCount, availableSlotsCount)
     : null;
+  const requestReviewOutcomeTitle =
+    lastRequestReviewOutcome?.status === 'approved' ? 'Request approved' : 'Request rejected';
+  const requestReviewOutcomeFollowThrough =
+    pendingRequestsCount > 0
+      ? `${pendingRequestsCount} request${pendingRequestsCount === 1 ? '' : 's'} still ${
+          pendingRequestsCount === 1 ? 'needs' : 'need'
+        } review in this view.`
+      : availableSlotsCount > 0
+        ? 'Pending review is clear and open capacity remains available.'
+        : 'Pending review is clear and the queue is quiet.';
   const publishOutcomeSlotLabel = lastPublishOutcome
     ? `${formatCalendarDay(lastPublishOutcome.startsAt)} · ${formatTimeRange(
         lastPublishOutcome.startsAt,
@@ -648,13 +664,36 @@ export function AppointmentsPage(): JSX.Element {
 
   async function handleReview(requestId: string, status: 'approved' | 'rejected'): Promise<void> {
     setErrorMessage(null);
-    setReviewNoticeMessage(null);
+    setLastRequestReviewOutcome(null);
     setReviewingKey(`${requestId}:${status}`);
+    const pendingItem = requests.find((item) => item.requestId === requestId) ?? null;
     try {
-      await reviewAppointmentRequest(requestId, status);
-      setReviewNoticeMessage(status === 'approved' ? 'Request approved.' : 'Request rejected.');
-      await handleRefreshWorkspace();
+      const reviewedItem = await reviewAppointmentRequest(requestId, status);
+      const refreshResult = await handleRefreshWorkspace();
+      const refreshedPendingRequests = refreshResult.pendingRequestsResult.data;
+      const refreshedOpenSlots = refreshResult.openSlotsResult.data;
+      const movedOutOfPending =
+        Array.isArray(refreshedPendingRequests) &&
+        !refreshedPendingRequests.some((item) => item.requestId === reviewedItem.requestId);
+
+      if (
+        !refreshResult.pendingRequestsResult.error &&
+        !refreshResult.openSlotsResult.error &&
+        Array.isArray(refreshedPendingRequests) &&
+        Array.isArray(refreshedOpenSlots) &&
+        movedOutOfPending
+      ) {
+        const patientId = reviewedItem.patientId.trim();
+        const patientLabel =
+          patientNameById.get(patientId) ?? pendingItem?.patientId ?? patientId;
+
+        setLastRequestReviewOutcome({
+          status,
+          patientLabel,
+        });
+      }
     } catch (error) {
+      setLastRequestReviewOutcome(null);
       setErrorMessage(toUserMessage(asAppError(error)));
     } finally {
       setReviewingKey(null);
@@ -728,12 +767,6 @@ export function AppointmentsPage(): JSX.Element {
       {errorMessage ? (
         <AlertBanner variant="error" title="Could not complete action">
           {errorMessage}
-        </AlertBanner>
-      ) : null}
-
-      {reviewNoticeMessage ? (
-        <AlertBanner variant="success" title="Updated">
-          {reviewNoticeMessage}
         </AlertBanner>
       ) : null}
 
@@ -881,6 +914,28 @@ export function AppointmentsPage(): JSX.Element {
                   </Button>
                 ))}
               </div>
+
+              {requestStatus === 'pending' && lastRequestReviewOutcome ? (
+                <div
+                  className={`appointments-request-outcome appointments-request-outcome--${lastRequestReviewOutcome.status}`}
+                  data-testid="appointments-request-outcome"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="appointments-request-outcome__copy">
+                    <p className="appointments-request-outcome__eyebrow">Latest request review</p>
+                    <strong className="appointments-request-outcome__title">
+                      {requestReviewOutcomeTitle}
+                    </strong>
+                    <p className="appointments-request-outcome__text">
+                      Request for {lastRequestReviewOutcome.patientLabel} moved out of Pending review.
+                    </p>
+                    <p className="appointments-request-outcome__next">
+                      {requestReviewOutcomeFollowThrough}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
 
               {requestsQuery.error ? (
                 <AlertBanner variant="error" title="Could not load requests">

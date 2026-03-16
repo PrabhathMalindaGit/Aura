@@ -390,7 +390,11 @@ describe('InsightsQueuePage', () => {
     expect(outcomePanel).toHaveTextContent(
       'Follow-up questionnaire may be due moved out of Pending and is now visible in Approved in this current queue view.',
     );
-    expect(within(outcomePanel).getByText('Pending review is clear.')).toBeInTheDocument();
+    expect(
+      within(outcomePanel).getByText(
+        'Pending review is clear. Reviewed suggestions remain visible in this current queue view.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Pending (0)' })).toHaveAttribute('aria-selected', 'true');
     expect((await screen.findAllByText('Queue cleared')).length).toBeGreaterThan(0);
     expect(screen.queryByTestId('insight-just-reviewed-insight-approve')).not.toBeInTheDocument();
@@ -448,7 +452,9 @@ describe('InsightsQueuePage', () => {
       'Habit guidance should stay out moved out of Pending and is now visible in Rejected in this current queue view.',
     );
     expect(
-      within(outcomePanel).getByText('Continue with the next pending suggestion below.'),
+      within(outcomePanel).getByText(
+        '1 pending suggestion remains below. Continue with the next clinician decision.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Pending (1)' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByText('Another pending review item')).toBeInTheDocument();

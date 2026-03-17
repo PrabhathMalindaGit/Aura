@@ -47,8 +47,12 @@ type DashboardMockOptions = {
   priorityItems?: Array<Record<string, unknown>>;
   safetyItems?: Array<Record<string, unknown>>;
   appointmentItems?: Array<Record<string, unknown>>;
+  appointmentRequestItems?: Array<Record<string, unknown>>;
+  availableSlotItems?: Array<Record<string, unknown>>;
+  closedSlotItems?: Array<Record<string, unknown>>;
   followUpItems?: Array<Record<string, unknown>>;
   communicationOverview?: Record<string, unknown>;
+  pendingInsightsItems?: Array<Record<string, unknown>>;
   patients?: Array<Record<string, unknown>>;
 };
 
@@ -121,6 +125,81 @@ function installDashboardFetchMock(options: DashboardMockOptions = {}): void {
     },
   ];
 
+  const appointmentRequestItems = options.appointmentRequestItems ?? [
+    {
+      requestId: 'request-1',
+      slotId: 'slot-1',
+      patientId: 'p1',
+      status: 'pending',
+      workflowStatus: 'awaiting_confirmation',
+      note: 'Prefers morning follow-up this week.',
+      startsAt: '2026-03-10T09:00:00.000Z',
+      endsAt: '2026-03-10T09:30:00.000Z',
+      modality: 'video',
+      createdAt: '2026-03-09T10:10:00.000Z',
+      updatedAt: '2026-03-09T10:10:00.000Z',
+    },
+    {
+      requestId: 'request-2',
+      slotId: 'slot-2',
+      patientId: 'p2',
+      status: 'pending',
+      workflowStatus: 'awaiting_confirmation',
+      note: 'Needs next available afternoon review.',
+      startsAt: '2026-03-11T13:00:00.000Z',
+      endsAt: '2026-03-11T13:30:00.000Z',
+      modality: 'video',
+      createdAt: '2026-03-09T10:15:00.000Z',
+      updatedAt: '2026-03-09T10:15:00.000Z',
+    },
+    {
+      requestId: 'request-3',
+      slotId: 'slot-3',
+      patientId: 'p1',
+      status: 'pending',
+      workflowStatus: 'awaiting_confirmation',
+      note: 'Follow-up requested after missed check-in.',
+      startsAt: '2026-03-12T15:00:00.000Z',
+      endsAt: '2026-03-12T15:30:00.000Z',
+      modality: 'video',
+      createdAt: '2026-03-09T10:20:00.000Z',
+      updatedAt: '2026-03-09T10:20:00.000Z',
+    },
+  ];
+
+  const availableSlotItems = options.availableSlotItems ?? [
+    {
+      slotId: 'slot-available-1',
+      clinicianId: 'clinician-1',
+      startsAt: '2026-03-10T09:00:00.000Z',
+      endsAt: '2026-03-10T09:30:00.000Z',
+      modality: 'video',
+      status: 'available',
+      createdAt: '2026-03-09T10:00:00.000Z',
+    },
+    {
+      slotId: 'slot-available-2',
+      clinicianId: 'clinician-1',
+      startsAt: '2026-03-11T13:00:00.000Z',
+      endsAt: '2026-03-11T13:30:00.000Z',
+      modality: 'video',
+      status: 'available',
+      createdAt: '2026-03-09T10:05:00.000Z',
+    },
+  ];
+
+  const closedSlotItems = options.closedSlotItems ?? [
+    {
+      slotId: 'slot-closed-1',
+      clinicianId: 'clinician-1',
+      startsAt: '2026-03-12T15:00:00.000Z',
+      endsAt: '2026-03-12T15:30:00.000Z',
+      modality: 'video',
+      status: 'closed',
+      createdAt: '2026-03-09T10:30:00.000Z',
+    },
+  ];
+
   const followUpItems = options.followUpItems ?? [
     {
       id: 'task-1',
@@ -156,6 +235,35 @@ function installDashboardFetchMock(options: DashboardMockOptions = {}): void {
       },
     ],
   };
+
+  const pendingInsightsItems = options.pendingInsightsItems ?? [
+    {
+      id: 'insight-1',
+      patientId: 'p1',
+      patientDisplayName: 'Jordan Lee',
+      status: 'pending',
+      title: 'Safety regression pattern',
+      message: 'Pain severity and symptom burden rose across the last two check-ins.',
+      category: 'safety',
+      confidence: 'high',
+      priority: 3,
+      windowDays: 14,
+      createdAt: '2026-03-09T08:45:00.000Z',
+    },
+    {
+      id: 'insight-2',
+      patientId: 'p2',
+      patientDisplayName: 'Avery Chen',
+      status: 'pending',
+      title: 'Adherence drift',
+      message: 'Exercise adherence dropped for two consecutive days.',
+      category: 'adherence',
+      confidence: 'medium',
+      priority: 2,
+      windowDays: 14,
+      createdAt: '2026-03-09T09:10:00.000Z',
+    },
+  ];
 
   const patients = options.patients ?? [
     {
@@ -203,6 +311,30 @@ function installDashboardFetchMock(options: DashboardMockOptions = {}): void {
       return createJsonResponse({ ok: true, overview: communicationOverview });
     }
 
+    if (url.pathname === '/clinician/appointments/requests') {
+      return createJsonResponse({ ok: true, items: appointmentRequestItems });
+    }
+
+    if (url.pathname === '/clinician/appointments/slots') {
+      const status = url.searchParams.get('status');
+
+      if (status === 'closed') {
+        return createJsonResponse({ ok: true, items: closedSlotItems });
+      }
+
+      return createJsonResponse({ ok: true, items: availableSlotItems });
+    }
+
+    if (url.pathname === '/clinician/insights') {
+      const status = url.searchParams.get('status');
+
+      if (status === 'pending') {
+        return createJsonResponse({ ok: true, items: pendingInsightsItems });
+      }
+
+      return createJsonResponse({ ok: true, items: [] });
+    }
+
     if (url.pathname === '/clinician/patients') {
       return createJsonResponse({ ok: true, patients });
     }
@@ -235,6 +367,12 @@ describe('DashboardHomePage', () => {
     expect(screen.getByText('Follow-up waiting')).toBeInTheDocument();
     expect(screen.getByText('Matters today')).toBeInTheDocument();
     expect(await screen.findByText('Assigned to me')).toBeInTheDocument();
+    expect(screen.getByText('Operational analytics')).toBeInTheDocument();
+    expect(screen.getByText('Safety workload')).toBeInTheDocument();
+    expect(screen.getByText('Communication burden')).toBeInTheDocument();
+    expect(screen.getByText('Insights backlog')).toBeInTheDocument();
+    expect(screen.getByText('Scheduling balance')).toBeInTheDocument();
+    expect(screen.getByText('Pending requests exceed visible open capacity in the next 7 days.')).toBeInTheDocument();
     expect(screen.getByText('Priority queue')).toBeInTheDocument();
     expect(screen.getByText('Assigned high-risk alert')).toBeInTheDocument();
     expect(screen.getByText('Recent safety events')).toBeInTheDocument();
@@ -259,6 +397,9 @@ describe('DashboardHomePage', () => {
       priorityItems: [],
       safetyItems: [],
       appointmentItems: [],
+      appointmentRequestItems: [],
+      availableSlotItems: [],
+      closedSlotItems: [],
       followUpItems: [],
       communicationOverview: {
         counts: {
@@ -268,6 +409,7 @@ describe('DashboardHomePage', () => {
         },
         items: [],
       },
+      pendingInsightsItems: [],
       patients: [],
     });
 
@@ -278,6 +420,10 @@ describe('DashboardHomePage', () => {
     expect(screen.getByText('No appointments today')).toBeInTheDocument();
     expect(screen.getByText('No follow-up tasks')).toBeInTheDocument();
     expect(screen.getByText('No communication waiting')).toBeInTheDocument();
+    expect(screen.getByText('No recent safety activity in the current feed.')).toBeInTheDocument();
+    expect(screen.getByText('No communication follow-up is waiting right now.')).toBeInTheDocument();
+    expect(screen.getByText('No pending insight mix is visible in the current queue.')).toBeInTheDocument();
+    expect(screen.getByText('No visible scheduling pressure in the next 7 days.')).toBeInTheDocument();
   });
 
   it('routes communication actions to the communication workspace', async () => {

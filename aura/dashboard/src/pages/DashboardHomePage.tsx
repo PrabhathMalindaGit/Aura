@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CommunicationOverviewCard } from '../components/dashboard/CommunicationOverviewCard';
 import { DashboardSummaryCards, type DashboardSummaryMetric } from '../components/dashboard/DashboardSummaryCards';
@@ -11,6 +12,9 @@ import { Section } from '../components/ui/Section';
 import { Stack } from '../components/ui/Stack';
 import { getClinicianName } from '../services/clinicianIdentity';
 import {
+  listAppointmentRequests,
+  listAppointmentSlots,
+  listInsightsQueue,
   useDashboardCommunicationOverview,
   useDashboardFollowUpTasks,
   useDashboardPriorityQueue,
@@ -20,6 +24,203 @@ import {
   usePatients,
 } from '../services/clinicianApi';
 import type { DashboardFollowUpTaskItem, DashboardPriorityQueueItem } from '../types/models';
+import { humanizeDashboardLabel } from '../utils/dashboard';
+
+type DashboardAnalyticsTone = 'risk' | 'warning' | 'primary' | 'success' | 'neutral';
+
+type DashboardAnalyticsSegment = {
+  key: string;
+  label: string;
+  value: number;
+  tone: DashboardAnalyticsTone;
+};
+
+type DashboardAnalyticsStat = {
+  label: string;
+  value: number | string;
+};
+
+type DashboardAnalyticsCardProps = {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  headline: ReactNode;
+  stats?: DashboardAnalyticsStat[];
+  segments?: DashboardAnalyticsSegment[];
+  rows?: DashboardAnalyticsSegment[];
+  emptyLabel: string;
+  footnote: string;
+};
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfDay(date: Date): Date {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function endOfDay(date: Date): Date {
+  const value = new Date(date);
+  value.setHours(23, 59, 59, 999);
+  return value;
+}
+
+function formatAnalyticsDateRange(from: Date, to: Date): string {
+  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+  const fromLabel = from.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
+  const toLabel = to.toLocaleDateString([], {
+    month: sameMonth ? undefined : 'short',
+    day: 'numeric',
+  });
+
+  return `${fromLabel} - ${toLabel}`;
+}
+
+function safetyEventBucketLabel(itemType: string, notificationStatus?: string, alertStatus?: string): string {
+  if (notificationStatus) {
+    return 'Notifications';
+  }
+
+  if (alertStatus || itemType.toUpperCase().includes('ALERT')) {
+    return 'Alert updates';
+  }
+
+  return 'Workflow';
+}
+
+function dashboardAnalyticsToneClass(tone: DashboardAnalyticsTone): string {
+  return `dashboard-analytics__tone--${tone}`;
+}
+
+function DashboardAnalyticsComposition({
+  segments,
+  emptyLabel,
+}: {
+  segments: DashboardAnalyticsSegment[];
+  emptyLabel: string;
+}): JSX.Element {
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+
+  if (total === 0) {
+    return <p className="dashboard-analytics-card__empty">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="dashboard-analytics-card__visual">
+      <div className="dashboard-analytics-card__composition-bar" aria-hidden="true">
+        {segments.map((segment) => (
+          <span
+            key={segment.key}
+            className={`dashboard-analytics-card__composition-segment ${dashboardAnalyticsToneClass(segment.tone)}`}
+            style={{ flexGrow: segment.value }}
+          />
+        ))}
+      </div>
+      <div className="dashboard-analytics-card__legend" role="list" aria-label="Current composition">
+        {segments.map((segment) => (
+          <span key={segment.key} className="dashboard-analytics-card__legend-item" role="listitem">
+            <span
+              className={`dashboard-analytics-card__legend-swatch ${dashboardAnalyticsToneClass(segment.tone)}`}
+              aria-hidden="true"
+            />
+            <span className="dashboard-analytics-card__legend-label">{segment.label}</span>
+            <strong className="dashboard-analytics-card__legend-value">{segment.value}</strong>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardAnalyticsRows({
+  rows,
+  emptyLabel,
+}: {
+  rows: DashboardAnalyticsSegment[];
+  emptyLabel: string;
+}): JSX.Element {
+  const highestValue = rows.reduce((max, row) => Math.max(max, row.value), 0);
+
+  if (highestValue === 0) {
+    return <p className="dashboard-analytics-card__empty">{emptyLabel}</p>;
+  }
+
+  return (
+    <div className="dashboard-analytics-card__rows" role="list" aria-label="Current workload breakdown">
+      {rows.map((row) => {
+        const width = highestValue === 0 ? 0 : (row.value / highestValue) * 100;
+
+        return (
+          <div key={row.key} className="dashboard-analytics-card__row" role="listitem">
+            <div className="dashboard-analytics-card__row-header">
+              <span className="dashboard-analytics-card__row-label">{row.label}</span>
+              <strong className="dashboard-analytics-card__row-value">{row.value}</strong>
+            </div>
+            <div className="dashboard-analytics-card__row-track" aria-hidden="true">
+              <span
+                className={`dashboard-analytics-card__row-fill ${dashboardAnalyticsToneClass(row.tone)}`}
+                style={{ width: `${Math.max(width, row.value > 0 ? 10 : 0)}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DashboardAnalyticsCard({
+  eyebrow,
+  title,
+  subtitle,
+  headline,
+  stats = [],
+  segments,
+  rows,
+  emptyLabel,
+  footnote,
+}: DashboardAnalyticsCardProps): JSX.Element {
+  return (
+    <article className="dashboard-analytics-card">
+      <div className="dashboard-analytics-card__header">
+        <p className="dashboard-analytics-card__eyebrow">{eyebrow}</p>
+        <h3 className="dashboard-analytics-card__title">{title}</h3>
+        <p className="dashboard-analytics-card__subtitle">{subtitle}</p>
+      </div>
+
+      <div className="dashboard-analytics-card__headline">{headline}</div>
+
+      {stats.length > 0 ? (
+        <dl className="dashboard-analytics-card__stats">
+          {stats.map((stat) => (
+            <div key={stat.label} className="dashboard-analytics-card__stat">
+              <dt>{stat.label}</dt>
+              <dd>{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {segments ? (
+        <DashboardAnalyticsComposition segments={segments} emptyLabel={emptyLabel} />
+      ) : rows ? (
+        <DashboardAnalyticsRows rows={rows} emptyLabel={emptyLabel} />
+      ) : (
+        <p className="dashboard-analytics-card__empty">{emptyLabel}</p>
+      )}
+
+      <p className="dashboard-analytics-card__footnote">{footnote}</p>
+    </article>
+  );
+}
 
 export function DashboardHomePage(): JSX.Element {
   const navigate = useNavigate();
@@ -32,6 +233,50 @@ export function DashboardHomePage(): JSX.Element {
   const followUpTasksQuery = useDashboardFollowUpTasks({ limit: 5 });
   const communicationQuery = useDashboardCommunicationOverview(4);
   const patientsQuery = usePatients();
+  const schedulingRange = useMemo(() => {
+    const fromDate = startOfDay(new Date());
+    const toDate = endOfDay(addDays(fromDate, 6));
+
+    return {
+      from: fromDate.toISOString(),
+      to: toDate.toISOString(),
+      label: formatAnalyticsDateRange(fromDate, toDate),
+    };
+  }, []);
+  const upcomingAvailableSlotsQuery = useQuery({
+    queryKey: ['dashboard-home', 'analytics', 'appointment-slots', 'available', schedulingRange.from, schedulingRange.to],
+    queryFn: () =>
+      listAppointmentSlots({
+        from: schedulingRange.from,
+        to: schedulingRange.to,
+        status: 'available',
+        limit: 200,
+      }),
+  });
+  const upcomingClosedSlotsQuery = useQuery({
+    queryKey: ['dashboard-home', 'analytics', 'appointment-slots', 'closed', schedulingRange.from, schedulingRange.to],
+    queryFn: () =>
+      listAppointmentSlots({
+        from: schedulingRange.from,
+        to: schedulingRange.to,
+        status: 'closed',
+        limit: 200,
+      }),
+  });
+  const pendingAppointmentRequestsQuery = useQuery({
+    queryKey: ['dashboard-home', 'analytics', 'appointment-requests', schedulingRange.from, schedulingRange.to],
+    queryFn: () =>
+      listAppointmentRequests({
+        status: 'pending',
+        from: schedulingRange.from,
+        to: schedulingRange.to,
+        limit: 200,
+      }),
+  });
+  const pendingInsightsQuery = useQuery({
+    queryKey: ['dashboard-home', 'analytics', 'insights', 'pending'],
+    queryFn: () => listInsightsQueue('pending', 200),
+  });
 
   const patientLabelMap = useMemo(() => {
     return new Map(
@@ -108,16 +353,24 @@ export function DashboardHomePage(): JSX.Element {
       appointmentsQuery.refetch(),
       followUpTasksQuery.refetch(),
       communicationQuery.refetch(),
+      upcomingAvailableSlotsQuery.refetch(),
+      upcomingClosedSlotsQuery.refetch(),
+      pendingAppointmentRequestsQuery.refetch(),
+      pendingInsightsQuery.refetch(),
       patientsQuery.refetch(),
     ]);
   }, [
     appointmentsQuery,
     communicationQuery,
     followUpTasksQuery,
+    pendingAppointmentRequestsQuery,
+    pendingInsightsQuery,
     patientsQuery,
     priorityQueueQuery,
     safetyEventsQuery,
     summaryQuery,
+    upcomingAvailableSlotsQuery,
+    upcomingClosedSlotsQuery,
   ]);
 
   const summaryMetrics = useMemo<DashboardSummaryMetric[]>(() => {
@@ -249,7 +502,148 @@ export function DashboardHomePage(): JSX.Element {
     safetyEventsQuery.isFetching ||
     appointmentsQuery.isFetching ||
     followUpTasksQuery.isFetching ||
-    communicationQuery.isFetching;
+    communicationQuery.isFetching ||
+    upcomingAvailableSlotsQuery.isFetching ||
+    upcomingClosedSlotsQuery.isFetching ||
+    pendingAppointmentRequestsQuery.isFetching ||
+    pendingInsightsQuery.isFetching;
+
+  const safetyActivitySegments = useMemo<DashboardAnalyticsSegment[]>(() => {
+    const bucketCounts = new Map<string, number>();
+
+    for (const item of safetyEventsQuery.data ?? []) {
+      const bucket = safetyEventBucketLabel(item.type, item.notificationStatus, item.alertStatus);
+      bucketCounts.set(bucket, (bucketCounts.get(bucket) ?? 0) + 1);
+    }
+
+    const toneMap: Record<string, DashboardAnalyticsTone> = {
+      Notifications: 'primary',
+      'Alert updates': 'risk',
+      Workflow: 'neutral',
+    };
+
+    return Array.from(bucketCounts.entries()).map(([label, value]) => ({
+      key: label.toLowerCase().replace(/\s+/g, '-'),
+      label,
+      value,
+      tone: toneMap[label] ?? 'neutral',
+    }));
+  }, [safetyEventsQuery.data]);
+
+  const communicationRows = useMemo<DashboardAnalyticsSegment[]>(() => {
+    const counts = communicationQuery.data?.counts;
+
+    return [
+      {
+        key: 'needs-response',
+        label: 'Needs response',
+        value: counts?.needsResponseCount ?? 0,
+        tone: 'warning',
+      },
+      {
+        key: 'safety-flagged',
+        label: 'Safety flagged',
+        value: counts?.flaggedBySafetyCount ?? 0,
+        tone: 'risk',
+      },
+      {
+        key: 'follow-up-requested',
+        label: 'Follow-up requested',
+        value: counts?.followUpRequestedCount ?? 0,
+        tone: 'primary',
+      },
+    ];
+  }, [communicationQuery.data?.counts]);
+
+  const pendingInsightCategorySegments = useMemo<DashboardAnalyticsSegment[]>(() => {
+    const categoryCounts = new Map<string, number>();
+
+    for (const item of pendingInsightsQuery.data ?? []) {
+      categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
+    }
+
+    const toneMap: Record<string, DashboardAnalyticsTone> = {
+      safety: 'risk',
+      adherence: 'primary',
+      symptoms: 'warning',
+      recovery: 'success',
+      habits: 'neutral',
+      questionnaires: 'neutral',
+    };
+
+    return Array.from(categoryCounts.entries())
+      .sort((left, right) => right[1] - left[1])
+      .map(([label, value]) => ({
+        key: label,
+        label: humanizeDashboardLabel(label),
+        value,
+        tone: toneMap[label] ?? 'neutral',
+      }));
+  }, [pendingInsightsQuery.data]);
+
+  const schedulingCapacitySegments = useMemo<DashboardAnalyticsSegment[]>(() => {
+    const availableSlotsCount = upcomingAvailableSlotsQuery.data?.length ?? 0;
+    const closedSlotsCount = upcomingClosedSlotsQuery.data?.length ?? 0;
+
+    return [
+      {
+        key: 'available',
+        label: 'Open slots',
+        value: availableSlotsCount,
+        tone: 'success',
+      },
+      {
+        key: 'closed',
+        label: 'Closed slots',
+        value: closedSlotsCount,
+        tone: 'neutral',
+      },
+    ];
+  }, [upcomingAvailableSlotsQuery.data, upcomingClosedSlotsQuery.data]);
+
+  const safetyHeadlineCount = summaryQuery.data?.openAlertsCount;
+  const safetyAssignedCount = summaryQuery.data?.assignedToMeAlertsCount;
+  const recentSafetyEventCount = safetyEventsQuery.data?.length ?? 0;
+  const communicationNeedsResponseCount =
+    communicationQuery.data?.counts.needsResponseCount ??
+    summaryQuery.data?.messagesNeedingResponseCount ??
+    0;
+  const communicationSafetyFlaggedCount = communicationQuery.data?.counts.flaggedBySafetyCount ?? 0;
+  const communicationFollowUpRequestedCount = communicationQuery.data?.counts.followUpRequestedCount ?? 0;
+  const pendingInsightsCount = summaryQuery.data?.pendingInsightsCount ?? pendingInsightsQuery.data?.length ?? 0;
+  const highPriorityInsightsCount =
+    pendingInsightsQuery.data?.filter((item) => item.priority >= 3).length ?? 0;
+  const safetyCategoryInsightsCount =
+    pendingInsightsQuery.data?.filter((item) => item.category === 'safety').length ?? 0;
+  const pendingAppointmentRequestsCount = pendingAppointmentRequestsQuery.data?.length ?? 0;
+  const availableSlotsCount = upcomingAvailableSlotsQuery.data?.length ?? 0;
+  const closedSlotsCount = upcomingClosedSlotsQuery.data?.length ?? 0;
+  const insightsMixFootnote = useMemo(() => {
+    if (pendingInsightsCount === 0) {
+      return 'No pending insight review is waiting.';
+    }
+
+    return 'Pending queue mix from the currently loaded review queue.';
+  }, [pendingInsightsCount]);
+  const schedulingFootnote = useMemo(() => {
+    if (
+      pendingAppointmentRequestsCount === 0 &&
+      availableSlotsCount === 0 &&
+      closedSlotsCount === 0
+    ) {
+      return 'No visible scheduling pressure in the next 7 days.';
+    }
+
+    if (pendingAppointmentRequestsCount > availableSlotsCount) {
+      return 'Pending requests exceed visible open capacity in the next 7 days.';
+    }
+
+    if (availableSlotsCount > 0) {
+      return 'Visible open capacity currently covers pending request demand in the next 7 days.';
+    }
+
+    return 'No visible open capacity is currently published in the next 7 days.';
+  }, [availableSlotsCount, closedSlotsCount, pendingAppointmentRequestsCount]);
 
   const heroFacts = useMemo(
     () => [
@@ -438,6 +832,121 @@ export function DashboardHomePage(): JSX.Element {
           }}
           retrying={summaryQuery.isFetching}
         />
+      </section>
+
+      <section className="dashboard-analytics-band glass-card" aria-label="Operational analytics">
+        <div className="dashboard-analytics-band__header">
+          <div className="dashboard-home-zone__intro">
+            <p className="dashboard-home-zone__eyebrow">Operational analytics</p>
+            <h2 className="dashboard-home-zone__title">Current workload and visible capacity</h2>
+            <p className="dashboard-home-zone__copy">
+              Current-state workload mix from live safety, communication, insight, and scheduling data.
+            </p>
+          </div>
+        </div>
+
+        <div className="dashboard-analytics-band__grid">
+          <DashboardAnalyticsCard
+            eyebrow="Safety"
+            title="Safety workload"
+            subtitle="Current queue pressure and recent feed mix."
+            headline={
+              <div className="dashboard-analytics-card__headline-stack">
+                <strong>{typeof safetyHeadlineCount === 'number' ? safetyHeadlineCount : '—'}</strong>
+                <span>
+                  {typeof safetyHeadlineCount === 'number'
+                    ? `${safetyHeadlineCount} ${safetyHeadlineCount === 1 ? 'open alert' : 'open alerts'}`
+                    : 'Safety queue loading'}
+                </span>
+              </div>
+            }
+            stats={[
+              { label: 'Assigned to me', value: typeof safetyAssignedCount === 'number' ? safetyAssignedCount : '—' },
+              { label: 'Recent feed', value: recentSafetyEventCount },
+            ]}
+            segments={safetyActivitySegments}
+            emptyLabel="No recent safety activity in the current feed."
+            footnote={
+              recentSafetyEventCount > 0
+                ? 'Recent event mix from the current dashboard safety feed.'
+                : 'Safety pressure is currently driven only by the live queue count.'
+            }
+          />
+
+          <DashboardAnalyticsCard
+            eyebrow="Communication"
+            title="Communication burden"
+            subtitle="Current follow-up state across patient-linked threads."
+            headline={
+              <div className="dashboard-analytics-card__headline-stack">
+                <strong>{communicationNeedsResponseCount}</strong>
+                <span>
+                  {communicationNeedsResponseCount === 1
+                    ? 'thread needs response'
+                    : 'threads need response'}
+                </span>
+              </div>
+            }
+            stats={[
+              { label: 'Safety flagged', value: communicationSafetyFlaggedCount },
+              { label: 'Follow-up requested', value: communicationFollowUpRequestedCount },
+            ]}
+            rows={communicationRows}
+            emptyLabel="No communication follow-up is waiting right now."
+            footnote={
+              communicationSafetyFlaggedCount > 0
+                ? `${communicationSafetyFlaggedCount} ${
+                    communicationSafetyFlaggedCount === 1
+                      ? 'thread carries safety-sensitive language.'
+                      : 'threads carry safety-sensitive language.'
+                  }`
+                : 'Routine message follow-through currently leads this queue.'
+            }
+          />
+
+          <DashboardAnalyticsCard
+            eyebrow="Insights"
+            title="Insights backlog"
+            subtitle="Pending review pressure and category mix."
+            headline={
+              <div className="dashboard-analytics-card__headline-stack">
+                <strong>{pendingInsightsCount}</strong>
+                <span>
+                  {pendingInsightsCount === 1 ? 'pending insight' : 'pending insights'}
+                </span>
+              </div>
+            }
+            stats={[
+              { label: 'High priority', value: highPriorityInsightsCount },
+              { label: 'Safety category', value: safetyCategoryInsightsCount },
+            ]}
+            segments={pendingInsightCategorySegments}
+            emptyLabel="No pending insight mix is visible in the current queue."
+            footnote={insightsMixFootnote}
+          />
+
+          <DashboardAnalyticsCard
+            eyebrow="Scheduling"
+            title="Scheduling balance"
+            subtitle={`Visible demand and capacity for ${schedulingRange.label}.`}
+            headline={
+              <div className="dashboard-analytics-card__headline-split">
+                <div className="dashboard-analytics-card__headline-stack">
+                  <strong>{pendingAppointmentRequestsCount}</strong>
+                  <span>pending requests</span>
+                </div>
+                <div className="dashboard-analytics-card__headline-stack">
+                  <strong>{availableSlotsCount}</strong>
+                  <span>open slots</span>
+                </div>
+              </div>
+            }
+            stats={[{ label: 'Closed slots', value: closedSlotsCount }]}
+            segments={schedulingCapacitySegments}
+            emptyLabel={`No visible slot data is loaded for ${schedulingRange.label}.`}
+            footnote={schedulingFootnote}
+          />
+        </div>
       </section>
 
       <div className="dashboard-home-layout">

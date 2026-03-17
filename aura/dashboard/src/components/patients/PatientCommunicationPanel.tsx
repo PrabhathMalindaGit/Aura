@@ -1,13 +1,16 @@
+import { Fragment } from 'react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { EmptyState } from '../ui/EmptyState';
 import { Skeleton } from '../ui/Skeleton';
+import type { CommunicationTimelineEvent } from '../../services/communicationWorkspace';
 import type { DashboardCommunicationOverviewItem } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
 
 interface PatientCommunicationPanelProps {
   items: DashboardCommunicationOverviewItem[];
+  timeline?: CommunicationTimelineEvent[];
   isLoading?: boolean;
   error?: string | null;
   onRetry: () => void;
@@ -18,14 +21,40 @@ interface PatientCommunicationPanelProps {
   quickReplyValue?: string;
   onQuickReplyChange?: (value: string) => void;
   onSendQuickReply?: () => void;
-  latestLocalReply?: {
-    text: string;
-    occurredAt: string;
-  } | null;
+}
+
+function formatCommunicationDay(timestamp: string): string {
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return timestamp.slice(0, 10) || 'Recent activity';
+  }
+
+  return parsed.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function buildFallbackTimeline(items: DashboardCommunicationOverviewItem[]): CommunicationTimelineEvent[] {
+  return [...items]
+    .sort((left, right) => Date.parse(left.messageCreatedAt) - Date.parse(right.messageCreatedAt))
+    .map((item) => ({
+      id: item.id,
+      kind: 'patient-message',
+      patientId: item.patientId,
+      occurredAt: item.messageCreatedAt,
+      senderLabel: item.patientName || 'Patient',
+      preview: item.messagePreview?.trim() || 'Recent patient communication is waiting for review.',
+      flaggedBySafety: item.flaggedBySafety,
+      followUpRequested: item.followUpRequested,
+      localOnly: false,
+    }));
 }
 
 export function PatientCommunicationPanel({
   items,
+  timeline = [],
   isLoading = false,
   error,
   onRetry,
@@ -36,8 +65,9 @@ export function PatientCommunicationPanel({
   quickReplyValue = '',
   onQuickReplyChange,
   onSendQuickReply,
-  latestLocalReply = null,
 }: PatientCommunicationPanelProps): JSX.Element {
+  const timelineEvents = timeline.length > 0 ? timeline : buildFallbackTimeline(items);
+
   return (
     <Card
       id="patient-communication-panel"
@@ -75,35 +105,54 @@ export function PatientCommunicationPanel({
         />
       ) : (
         <div className="patient-communication-list">
-          {items.map((item) => (
-            <article key={item.id} className="patient-communication-item">
-              <div className="patient-communication-item__meta">
-                <Badge variant={item.flaggedBySafety ? 'danger' : 'warning'}>
-                  {item.flaggedBySafety ? 'Safety flagged' : 'Needs response'}
-                </Badge>
-                {item.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                {item.linkedTaskId ? <Badge variant="default">Task linked</Badge> : null}
-              </div>
-              <p className="patient-communication-item__preview">
-                {item.messagePreview?.trim() || 'Recent patient communication is waiting for review.'}
-              </p>
-              <div className="patient-communication-item__footer">
-                <span className="muted-text" title={formatDashboardDateTime(item.messageCreatedAt)}>
-                  {formatDashboardRelativeTime(item.messageCreatedAt)}
-                </span>
-                <div className="patient-communication-item__actions">
-                  <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
-                    Open communication
-                  </Button>
-                  {item.flaggedBySafety ? (
-                    <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
-                      Open alerts
-                    </Button>
+          <div
+            className="patient-communication-timeline"
+            role="list"
+            aria-label="Patient communication timeline"
+          >
+            {timelineEvents.map((event, index) => {
+              const previousEvent = timelineEvents[index - 1];
+              const currentDayKey = event.occurredAt.slice(0, 10);
+              const previousDayKey = previousEvent?.occurredAt.slice(0, 10);
+              const showDayGroup = index === 0 || currentDayKey !== previousDayKey;
+
+              return (
+                <Fragment key={event.id}>
+                  {showDayGroup ? (
+                    <div className="patient-communication-timeline__day" role="separator">
+                      <span>{formatCommunicationDay(event.occurredAt)}</span>
+                    </div>
                   ) : null}
-                </div>
-              </div>
-            </article>
-          ))}
+                  <article
+                    className={`patient-communication-timeline__event patient-communication-timeline__event--${
+                      event.kind === 'clinician-reply' ? 'clinician' : 'patient'
+                    }`}
+                    role="listitem"
+                  >
+                    <div className="patient-communication-timeline__meta">
+                      <div className="patient-communication-timeline__meta-copy">
+                        <span className="patient-communication-timeline__sender">
+                          {event.kind === 'clinician-reply' ? 'Clinician' : event.senderLabel || 'Patient'}
+                        </span>
+                        <span className="muted-text" title={formatDashboardDateTime(event.occurredAt)}>
+                          {formatDashboardRelativeTime(event.occurredAt)}
+                        </span>
+                      </div>
+                      <div className="patient-communication-timeline__badges">
+                        <Badge variant={event.kind === 'clinician-reply' ? 'default' : 'warning'}>
+                          {event.kind === 'clinician-reply' ? 'Local clinician reply' : 'Patient message'}
+                        </Badge>
+                        {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
+                        {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                        {event.localOnly ? <Badge variant="neutral">Stored locally</Badge> : null}
+                      </div>
+                    </div>
+                    <p className="patient-communication-timeline__body">{event.preview}</p>
+                  </article>
+                </Fragment>
+              );
+            })}
+          </div>
 
           {quickReplyBlockedBySafety ? (
             <div className="patient-communication-inline-state" role="status">
@@ -111,19 +160,15 @@ export function PatientCommunicationPanel({
               <p className="patient-communication-inline-state__copy">
                 Continue in Communication or Alerts to review the full context before responding.
               </p>
-            </div>
-          ) : null}
-
-          {!quickReplyBlockedBySafety && latestLocalReply ? (
-            <article className="patient-communication-local-reply" aria-label="Latest local clinician reply">
-              <div className="patient-communication-local-reply__meta">
-                <Badge variant="default">Local clinician reply</Badge>
-                <span className="muted-text" title={formatDashboardDateTime(latestLocalReply.occurredAt)}>
-                  {formatDashboardRelativeTime(latestLocalReply.occurredAt)}
-                </span>
+              <div className="patient-communication-inline-state__actions">
+                <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
+                  Open communication
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+                  Open alerts
+                </Button>
               </div>
-              <p className="patient-communication-local-reply__preview">{latestLocalReply.text}</p>
-            </article>
+            </div>
           ) : null}
 
           {showQuickReply && onQuickReplyChange && onSendQuickReply ? (

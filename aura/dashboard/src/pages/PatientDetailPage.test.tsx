@@ -509,6 +509,68 @@ describe('PatientDetailPage', () => {
     });
   });
 
+  it('renders the mini-nav alongside source-aware continuity and jumps to major sections', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+    const scrollIntoViewMock = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value: scrollIntoViewMock,
+    });
+
+    renderPatientDetail([
+      {
+        pathname: `/patients/${patientId}`,
+        search: '?days=14',
+        state: createPatientEntryState({
+          patientId,
+          source: 'alerts',
+          focus: 'alerts',
+          returnTo: '/alerts?patientId=patient-42',
+        }),
+      },
+    ]);
+
+    const miniNav = await screen.findByTestId('patient-detail-mini-nav');
+    expect(miniNav).toBeInTheDocument();
+    expect(await screen.findByTestId('patient-detail-entry-cue')).toHaveTextContent('Opened from Alerts');
+    expect(screen.getByTestId('patient-detail-return-link')).toHaveTextContent('Return to Alerts');
+
+    await user.click(within(miniNav).getByRole('button', { name: 'Operations' }));
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('expands trend cards inline one at a time and keeps day drilldown available', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    expect(await screen.findByTestId('trend-chart-card-pain')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Expand pain trend' }));
+
+    expect(await screen.findByTestId('trend-chart-expanded-shell')).toBeInTheDocument();
+    expect(screen.getByTestId('trend-chart-expanded-pain')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Expand mood trend' }));
+
+    expect(await screen.findByTestId('trend-chart-expanded-mood')).toBeInTheDocument();
+    expect(screen.queryByTestId('trend-chart-expanded-pain')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Collapse trend' }));
+    await waitFor(() => {
+      expect(screen.queryByTestId('trend-chart-expanded-shell')).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Expand pain trend' }));
+    await screen.findByTestId('trend-chart-expanded-pain');
+    await user.click(screen.getByTestId(`trend-view-${TODAY_KEY}`));
+
+    expect(await screen.findByRole('dialog', { name: /Day detail/i })).toBeInTheDocument();
+  }, 20_000);
+
   it('shows inline quick reply for routine communication', async () => {
     const routineCommunicationItem: DashboardCommunicationOverviewItem = {
       ...baseCommunicationItem,
@@ -557,17 +619,28 @@ describe('PatientDetailPage', () => {
 
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' });
+    const communicationTimeline = within(communicationPanel).getByRole('list', {
+      name: 'Patient communication timeline',
+    });
+    expect(
+      within(communicationTimeline).getByText('Can someone confirm whether tomorrow still works?'),
+    ).toBeInTheDocument();
     await user.type(
       within(communicationPanel).getByRole('textbox', { name: 'Quick reply' }),
       'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
     );
     await user.click(within(communicationPanel).getByRole('button', { name: 'Send quick reply' }));
 
+    const localReply = await within(communicationTimeline).findByText(
+      'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+    );
+    const patientMessage = within(communicationTimeline).getByText(
+      'Can someone confirm whether tomorrow still works?',
+    );
     expect(
-      await within(communicationPanel).findByText(
-        'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
-      ),
-    ).toBeInTheDocument();
+      patientMessage.compareDocumentPosition(localReply) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(communicationTimeline).getByText('Local clinician reply')).toBeInTheDocument();
 
     const storedState = window.localStorage.getItem(
       `aura_communication_workspace:${getClinicianId()}`,
@@ -580,9 +653,7 @@ describe('PatientDetailPage', () => {
     expect(parsedStoredState.repliesByPatient?.[patientId]).toBeDefined();
     expect(parsedStoredState.reviewedAtByPatient?.[patientId]).toBeUndefined();
 
-    await user.click(
-      within(communicationPanel).getAllByRole('button', { name: 'Open communication' })[0],
-    );
+    await user.click(within(communicationPanel).getByRole('button', { name: 'Open communication' }));
 
     expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
     expect(

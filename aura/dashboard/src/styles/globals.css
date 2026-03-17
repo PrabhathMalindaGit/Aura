@@ -6816,6 +6816,64 @@ time,
   letter-spacing: var(--tracking-tight);
 }
 
+#patient-priorities-section,
+#patient-summary-section,
+#patient-trends-section,
+#patient-operations-section,
+#patient-care-review-section,
+#patient-reference-section {
+  scroll-margin-top: calc(var(--shell-frame-padding) + 104px);
+}
+
+.patient-detail-mini-nav {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid hsl(var(--border) / 0.46);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.18)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.04), transparent 78%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+  z-index: 2;
+}
+
+.patient-detail-mini-nav__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.patient-detail-mini-nav__eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: var(--font-medium);
+}
+
+.patient-detail-mini-nav__text {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.patient-detail-mini-nav__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.patient-detail-mini-nav__button.btn {
+  border-color: hsl(var(--border) / 0.52);
+}
+
+.patient-detail-mini-nav__button--active.btn {
+  border-color: hsl(var(--primary) / 0.28);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
 .patient-detail-hero-card--source-workflow,
 .patient-detail-current-context--source-workflow {
   border-color: hsl(var(--primary) / 0.34);
@@ -7053,11 +7111,15 @@ time,
 
 .patient-priority-list,
 .patient-recommended-actions,
-.patient-communication-list,
 .patient-task-list,
 .patient-appointment-list {
   display: grid;
   gap: var(--space-2);
+}
+
+.patient-communication-list {
+  display: grid;
+  gap: var(--space-3);
 }
 
 .patient-priority-item,
@@ -7124,6 +7186,80 @@ time,
 .patient-appointment-item {
   display: grid;
   gap: var(--space-2);
+}
+
+.patient-communication-timeline {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.patient-communication-timeline__day {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.patient-communication-timeline__day::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: hsl(var(--border) / 0.5);
+}
+
+.patient-communication-timeline__event {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid hsl(var(--border) / 0.6);
+  background: hsl(var(--card) / 0.78);
+}
+
+.patient-communication-timeline__event--patient {
+  border-left: 4px solid hsl(var(--warning) / 0.5);
+}
+
+.patient-communication-timeline__event--clinician {
+  border-left: 4px solid hsl(var(--primary) / 0.5);
+}
+
+.patient-communication-timeline__meta,
+.patient-communication-timeline__meta-copy,
+.patient-communication-timeline__badges,
+.patient-communication-inline-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.patient-communication-timeline__meta {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.patient-communication-timeline__meta-copy {
+  align-items: baseline;
+}
+
+.patient-communication-timeline__badges {
+  justify-content: flex-end;
+}
+
+.patient-communication-timeline__sender {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
+}
+
+.patient-communication-timeline__body {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  line-height: 1.6;
 }
 
 .patient-communication-item__footer,
@@ -7236,6 +7372,31 @@ time,
   gap: var(--space-3);
 }
 
+.trend-chart-focus {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.trend-chart-focus__note {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.trend-chart-card--expanded {
+  border-color: hsl(var(--primary) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--card) / 0.92)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.04), transparent 78%);
+}
+
+.trend-chart__canvas--expanded {
+  min-height: 360px;
+  height: 360px;
+  padding: var(--space-3);
+}
+
 @media (min-width: 920px) {
   .patient-detail-reference-bridge {
     grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
@@ -7273,6 +7434,13 @@ time,
 
   .patient-detail-section-grid--operational {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .patient-detail-mini-nav {
+    position: sticky;
+    top: calc(var(--shell-frame-padding) + var(--space-2));
   }
 }
 
@@ -7420,6 +7588,7 @@ time,
 .dark .patient-detail-inline-state,
 .dark .patient-detail-current-context,
 .dark .patient-detail-current-context__fact,
+.dark .patient-detail-mini-nav,
 .dark .patient-priority-item,
 .dark .patient-recommended-action,
 .dark .patient-communication-item,
@@ -7461,6 +7630,17 @@ time,
 
 .dark .patient-task-item--completed {
   background: linear-gradient(180deg, hsl(var(--success) / 0.18), hsl(var(--card) / 0.8));
+}
+
+.dark .patient-communication-timeline__event {
+  border-color: hsl(var(--border) / 0.52);
+}
+
+.dark .trend-chart-card--expanded {
+  border-color: hsl(var(--primary) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.78)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.12), transparent 82%);
 }
 
 .dark .latest-trend-badges {
@@ -22968,7 +23148,6 @@ button.dashboard-summary-card:hover {
 }
 
 .patient-communication-inline-state,
-.patient-communication-local-reply,
 .patient-communication-quick-reply {
   display: grid;
   gap: var(--space-3);
@@ -22999,7 +23178,6 @@ button.dashboard-summary-card:hover {
   line-height: 1.5;
 }
 
-.patient-communication-local-reply__meta,
 .patient-communication-quick-reply__footer {
   display: flex;
   align-items: flex-start;
@@ -23018,8 +23196,9 @@ button.dashboard-summary-card:hover {
 .dark .communication-page__timeline-event,
 .dark .communication-page__composer,
 .dark .alerts-chat-origin-note,
+.dark .patient-communication-timeline__event,
+.dark .patient-detail-mini-nav,
 .dark .patient-communication-inline-state,
-.dark .patient-communication-local-reply,
 .dark .patient-communication-quick-reply {
   background: hsl(var(--card) / 0.92);
 }
@@ -23286,6 +23465,10 @@ button.dashboard-summary-card:hover {
   .communication-page__layout {
     grid-template-columns: 1fr;
   }
+
+  .patient-detail-mini-nav {
+    position: static;
+  }
 }
 
 @media (max-width: 720px) {
@@ -23307,8 +23490,18 @@ button.dashboard-summary-card:hover {
   .communication-page__timeline-badges,
   .communication-page__timeline-event-badges,
   .patient-communication-item__actions,
-  .patient-communication-local-reply__meta,
+  .patient-communication-timeline__meta,
+  .patient-communication-timeline__meta-copy,
+  .patient-communication-timeline__badges,
+  .patient-communication-inline-state__actions,
   .patient-communication-quick-reply__footer {
     justify-content: flex-start;
+  }
+
+  .patient-detail-mini-nav__actions,
+  .patient-communication-timeline__meta,
+  .patient-communication-quick-reply__footer {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

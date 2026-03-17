@@ -52,6 +52,7 @@ import {
   addCommunicationThreadReply,
   deriveCommunicationThreadForPatient,
   readCommunicationWorkspaceLocalState,
+  type CommunicationTimelineEvent,
 } from '../services/communicationWorkspace';
 import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
@@ -116,6 +117,23 @@ import {
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 const CLINICIAN_BUCKET = 'anon';
 type PatientExportDataset = 'trends' | 'alerts';
+type PatientDetailSectionId =
+  | 'patient-priorities-section'
+  | 'patient-summary-section'
+  | 'patient-trends-section'
+  | 'patient-operations-section'
+  | 'patient-care-review-section'
+  | 'patient-reference-section';
+type TrendChartMetric = 'pain' | 'mood' | 'adherence';
+
+const PATIENT_DETAIL_SECTIONS: Array<{ id: PatientDetailSectionId; label: string }> = [
+  { id: 'patient-priorities-section', label: 'Priorities' },
+  { id: 'patient-summary-section', label: 'Summary' },
+  { id: 'patient-trends-section', label: 'Trends' },
+  { id: 'patient-operations-section', label: 'Operations' },
+  { id: 'patient-care-review-section', label: 'Care review' },
+  { id: 'patient-reference-section', label: 'Reference' },
+];
 
 function parseDays(value: string | null): 14 | 30 {
   return value === '30' ? 30 : 14;
@@ -339,6 +357,9 @@ export function PatientDetailPage(): JSX.Element {
   const [patientExportMessage, setPatientExportMessage] = useState<string | null>(null);
   const [isSymptomSignalsOpen, setIsSymptomSignalsOpen] = useState(false);
   const [isSupportSignalsOpen, setIsSupportSignalsOpen] = useState(false);
+  const [activeSectionId, setActiveSectionId] =
+    useState<PatientDetailSectionId>('patient-priorities-section');
+  const [expandedTrendMetric, setExpandedTrendMetric] = useState<TrendChartMetric | null>(null);
   const dayDetailFocusRef = useRef<HTMLElement | null>(null);
   const entryContextConsumedRef = useRef(false);
 
@@ -1038,11 +1059,8 @@ export function PatientDetailPage(): JSX.Element {
       ),
     [communicationLocalState, patientCommunicationItems, patientId],
   );
-  const latestPatientLocalReply = useMemo(
-    () =>
-      [...(patientCommunicationThread?.timeline ?? [])]
-        .reverse()
-        .find((event) => event.kind === 'clinician-reply') ?? null,
+  const patientCommunicationTimeline = useMemo<CommunicationTimelineEvent[]>(
+    () => patientCommunicationThread?.timeline ?? [],
     [patientCommunicationThread],
   );
   const patientCommunicationBlockedBySafety = patientCommunicationItems.some(
@@ -1186,6 +1204,14 @@ export function PatientDetailPage(): JSX.Element {
     });
   }, []);
 
+  const handleSectionJump = useCallback(
+    (sectionId: PatientDetailSectionId): void => {
+      setActiveSectionId(sectionId);
+      scrollToPanel(sectionId);
+    },
+    [scrollToPanel],
+  );
+
   const openCommunicationWorkspace = useCallback((): void => {
     if (!patientId) {
       return;
@@ -1261,6 +1287,54 @@ export function PatientDetailPage(): JSX.Element {
     },
     [navigate, openCommunicationWorkspace, patientId, scrollToPanel],
   );
+
+  useEffect(() => {
+    setExpandedTrendMetric(null);
+  }, [selectedDays]);
+
+  useEffect(() => {
+    if (!hasTrendData && expandedTrendMetric !== null) {
+      setExpandedTrendMetric(null);
+    }
+  }, [expandedTrendMetric, hasTrendData]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return;
+    }
+
+    const Observer = window.IntersectionObserver;
+    if (typeof Observer !== 'function') {
+      return;
+    }
+
+    const elements = PATIENT_DETAIL_SECTIONS.map(({ id }) => document.getElementById(id)).filter(
+      (element): element is HTMLElement => Boolean(element),
+    );
+    if (elements.length === 0) {
+      return;
+    }
+
+    const observer = new Observer(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio);
+
+        const nextId = visible[0]?.target.id as PatientDetailSectionId | undefined;
+        if (nextId) {
+          setActiveSectionId(nextId);
+        }
+      },
+      {
+        rootMargin: '-18% 0px -58% 0px',
+        threshold: [0.1, 0.25, 0.4, 0.65],
+      },
+    );
+
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [selectedDays, patientCommunicationItems.length, patientPriorities.length]);
 
   useEffect(() => {
     setPatientQuickReply('');
@@ -1788,6 +1862,36 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </Card>
 
+      <section
+        className="patient-detail-mini-nav"
+        aria-label="Patient detail section navigation"
+        data-testid="patient-detail-mini-nav"
+      >
+        <div className="patient-detail-mini-nav__copy">
+          <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
+          <p className="patient-detail-mini-nav__text">
+            Move between the major review areas without changing the current review context.
+          </p>
+        </div>
+        <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
+          {PATIENT_DETAIL_SECTIONS.map((section) => (
+            <Button
+              key={section.id}
+              variant={activeSectionId === section.id ? 'secondary' : 'ghost'}
+              size="sm"
+              className={`patient-detail-mini-nav__button${
+                activeSectionId === section.id ? ' patient-detail-mini-nav__button--active' : ''
+              }`}
+              onClick={() => {
+                handleSectionJump(section.id);
+              }}
+            >
+              {section.label}
+            </Button>
+          ))}
+        </div>
+      </section>
+
       {actionError ? (
         <AlertBanner variant="error" title="Alert action failed">
           {actionError}
@@ -1930,7 +2034,10 @@ export function PatientDetailPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <section className="patient-detail-section-block patient-detail-section-block--attention">
+      <section
+        id="patient-priorities-section"
+        className="patient-detail-section-block patient-detail-section-block--attention"
+      >
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Immediate review</p>
@@ -1969,7 +2076,11 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </section>
 
-      <section className="patient-detail-summary-shell" aria-label="Patient summary">
+      <section
+        id="patient-summary-section"
+        className="patient-detail-summary-shell"
+        aria-label="Patient summary"
+      >
         <div className="patient-detail-section-header patient-detail-section-header--summary">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Snapshot</p>
@@ -2005,7 +2116,13 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </Card>
         ) : hasTrendData ? (
-          <TrendCharts points={normalizedTrends} onSelectDate={handleDaySelect} />
+          <TrendCharts
+            points={normalizedTrends}
+            onSelectDate={handleDaySelect}
+            expandedMetric={expandedTrendMetric}
+            onExpandMetric={setExpandedTrendMetric}
+            onCollapseMetric={() => setExpandedTrendMetric(null)}
+          />
         ) : (
           <Card title="Trend charts">
             <EmptyState
@@ -2035,7 +2152,10 @@ export function PatientDetailPage(): JSX.Element {
         />
       </section>
 
-      <section className="patient-detail-section-block patient-detail-section-block--operational">
+      <section
+        id="patient-operations-section"
+        className="patient-detail-section-block patient-detail-section-block--operational"
+      >
         <div className="patient-detail-section-header">
           <div className="patient-detail-section-heading">
             <p className="patient-detail-section-eyebrow">Operational follow-up</p>
@@ -2048,6 +2168,7 @@ export function PatientDetailPage(): JSX.Element {
         <div className="patient-detail-section-grid patient-detail-section-grid--operational">
           <PatientCommunicationPanel
             items={patientCommunicationItems}
+            timeline={patientCommunicationTimeline}
             isLoading={patientCommunicationQuery.isLoading}
             error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
             onRetry={() => {
@@ -2060,14 +2181,6 @@ export function PatientDetailPage(): JSX.Element {
             quickReplyValue={patientQuickReply}
             onQuickReplyChange={setPatientQuickReply}
             onSendQuickReply={handlePatientQuickReply}
-            latestLocalReply={
-              latestPatientLocalReply
-                ? {
-                    text: latestPatientLocalReply.preview,
-                    occurredAt: latestPatientLocalReply.occurredAt,
-                  }
-                : null
-            }
           />
           <PatientTasksPanel
             activeTasks={patientActiveTasks}
@@ -2095,6 +2208,7 @@ export function PatientDetailPage(): JSX.Element {
       </section>
 
       <section
+        id="patient-care-review-section"
         className="patient-detail-section-block patient-detail-section-block--operations"
         data-testid="patient-detail-care-review"
       >
@@ -2517,6 +2631,7 @@ export function PatientDetailPage(): JSX.Element {
       </section>
 
       <section
+        id="patient-reference-section"
         className="patient-detail-reference-bridge"
         aria-label="Deeper clinical context"
         data-testid="patient-detail-reference-bridge"

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 
@@ -42,12 +42,30 @@ interface QueueViewConfig {
   errorTitle: string;
 }
 
-interface LastReviewOutcome {
+interface SingleReviewOutcome {
+  kind: 'single';
   id: string;
   status: 'approved' | 'rejected';
   title: string;
   patientId: string;
   patientLabel: string;
+}
+
+interface BatchReviewOutcome {
+  kind: 'batch';
+  status: 'approved' | 'rejected';
+  successCount: number;
+}
+
+type ReviewOutcome = SingleReviewOutcome | BatchReviewOutcome;
+
+interface ReviewErrorState {
+  title: string;
+  message: string;
+}
+
+interface InsightCardOptions {
+  selectable?: boolean;
 }
 
 function categoryLabel(value: string): string {
@@ -341,6 +359,24 @@ function normalizeInsightsWorkspaceState(value: unknown): { activeView: QueueVie
   };
 }
 
+function areIdSetsEqual(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+
+  for (const value of left) {
+    if (!right.has(value)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function formatSelectedInsightCount(count: number): string {
+  return `${count} low-priority suggestion${count === 1 ? '' : 's'} selected`;
+}
+
 export function InsightsQueuePage(): JSX.Element {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<QueueView>(() =>
@@ -351,8 +387,12 @@ export function InsightsQueuePage(): JSX.Element {
     ).activeView,
   );
   const [isSubmittingId, setIsSubmittingId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [lastReviewOutcome, setLastReviewOutcome] = useState<LastReviewOutcome | null>(null);
+  const [batchActionStatus, setBatchActionStatus] = useState<'approved' | 'rejected' | null>(null);
+  const [reviewError, setReviewError] = useState<ReviewErrorState | null>(null);
+  const [reviewOutcome, setReviewOutcome] = useState<ReviewOutcome | null>(null);
+  const [selectedLowPriorityIds, setSelectedLowPriorityIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const patientsQuery = usePatients();
 
@@ -390,6 +430,8 @@ export function InsightsQueuePage(): JSX.Element {
   }, [patientsQuery.data]);
 
   const pendingItems = queueQuery.data ?? [];
+  const priorityReviewItems = pendingItems.filter((item) => item.priority > 1);
+  const lowPriorityPendingItems = pendingItems.filter((item) => item.priority <= 1);
   const approvedItems = approvedInsightsQuery.data ?? [];
   const rejectedItems = rejectedInsightsQuery.data ?? [];
   const approvedCount = approvedItems.length;
@@ -409,6 +451,7 @@ export function InsightsQueuePage(): JSX.Element {
     approvedInsightsQuery.isFetching ||
     rejectedInsightsQuery.isFetching ||
     patientsQuery.isFetching;
+  const isReviewSubmitting = isSubmittingId !== null || batchActionStatus !== null;
   const pendingCountLabel = `${pendingCount} awaiting review`;
   const approvedCountLabel = approvedInsightsQuery.error
     ? 'Approved unavailable'
@@ -472,17 +515,67 @@ export function InsightsQueuePage(): JSX.Element {
     reviewedCount,
     reviewedCountsUnavailable,
   });
-  const lastReviewOutcomeView = lastReviewOutcome?.status === 'approved' ? 'approved' : 'rejected';
-  const outcomeDestinationLabel = lastReviewOutcome?.status === 'approved' ? 'Approved' : 'Rejected';
-  const outcomePanelTitle =
-    lastReviewOutcome?.status === 'approved' ? 'Approved into workflow' : 'Rejected from workflow';
   const pendingReviewRemaining = describePendingReviewRemaining(pendingCount, reviewedCount);
   const outcomeFollowThrough = pendingReviewRemaining.outcomeText;
-  const normalizedOutcomePatientId = lastReviewOutcome?.patientId.trim() ?? '';
-  const canOpenOutcomePatient = normalizedOutcomePatientId.length > 0;
+  const visibleLowPriorityIdSet = useMemo(
+    () =>
+      new Set(
+        activeView === 'pending' ? lowPriorityPendingItems.map((item) => item.id) : [],
+      ),
+    [activeView, lowPriorityPendingItems],
+  );
+  const selectedLowPriorityCount = lowPriorityPendingItems.reduce(
+    (count, item) => count + (selectedLowPriorityIds.has(item.id) ? 1 : 0),
+    0,
+  );
+  const allVisibleLowPrioritySelected =
+    lowPriorityPendingItems.length > 0 &&
+    lowPriorityPendingItems.every((item) => selectedLowPriorityIds.has(item.id));
+  const reviewOutcomeView =
+    reviewOutcome?.status === 'approved'
+      ? ('approved' as const)
+      : reviewOutcome?.status === 'rejected'
+        ? ('rejected' as const)
+        : null;
+  const outcomeDestinationLabel =
+    reviewOutcome?.status === 'approved'
+      ? 'Approved'
+      : reviewOutcome?.status === 'rejected'
+        ? 'Rejected'
+        : '';
+  const outcomePanelTitle =
+    reviewOutcome?.kind === 'batch'
+      ? reviewOutcome.status === 'approved'
+        ? 'Batch approved into workflow'
+        : 'Batch rejected from workflow'
+      : reviewOutcome?.status === 'approved'
+        ? 'Approved into workflow'
+        : 'Rejected from workflow';
+  const normalizedOutcomePatientId =
+    reviewOutcome?.kind === 'single' ? reviewOutcome.patientId.trim() : '';
+  const canOpenOutcomePatient =
+    reviewOutcome?.kind === 'single' && normalizedOutcomePatientId.length > 0;
+
+  useEffect(() => {
+    setSelectedLowPriorityIds((previous) => {
+      if (previous.size === 0) {
+        return previous;
+      }
+
+      const next =
+        activeView !== 'pending'
+          ? new Set<string>()
+          : new Set([...previous].filter((id) => visibleLowPriorityIdSet.has(id)));
+
+      return areIdSetsEqual(previous, next) ? previous : next;
+    });
+  }, [activeView, visibleLowPriorityIdSet]);
 
   function setQueueView(nextView: QueueView): void {
     setActiveView(nextView);
+    if (nextView !== 'pending') {
+      setSelectedLowPriorityIds(new Set());
+    }
     writeWorkspaceState(INSIGHTS_WORKSPACE_PAGE, { activeView: nextView });
   }
 
@@ -503,8 +596,8 @@ export function InsightsQueuePage(): JSX.Element {
   }
 
   async function handleReview(insightId: string, status: 'approved' | 'rejected'): Promise<void> {
-    setErrorMessage(null);
-    setLastReviewOutcome(null);
+    setReviewError(null);
+    setReviewOutcome(null);
     setIsSubmittingId(`${insightId}:${status}`);
 
     const pendingItem = pendingItems.find((item) => item.id === insightId) ?? null;
@@ -531,7 +624,8 @@ export function InsightsQueuePage(): JSX.Element {
           pendingItem?.patientDisplayName?.trim() ||
           patientId;
 
-        setLastReviewOutcome({
+        setReviewOutcome({
+          kind: 'single',
           id: reviewedItem.id,
           status,
           title: reviewedItem.title,
@@ -540,11 +634,89 @@ export function InsightsQueuePage(): JSX.Element {
         });
       }
     } catch (error) {
-      setLastReviewOutcome(null);
-      setErrorMessage(toUserMessage(asAppError(error)));
+      setReviewOutcome(null);
+      setReviewError({
+        title: 'Could not update insight',
+        message: toUserMessage(asAppError(error)),
+      });
     } finally {
       setIsSubmittingId(null);
     }
+  }
+
+  async function handleBatchReview(status: 'approved' | 'rejected'): Promise<void> {
+    const selectedItems = lowPriorityPendingItems.filter((item) => selectedLowPriorityIds.has(item.id));
+    if (selectedItems.length === 0) {
+      return;
+    }
+
+    setReviewError(null);
+    setReviewOutcome(null);
+    setBatchActionStatus(status);
+
+    const failedIds: string[] = [];
+    let successCount = 0;
+
+    try {
+      for (const item of selectedItems) {
+        try {
+          await reviewInsight(item.id, status);
+          successCount += 1;
+        } catch {
+          failedIds.push(item.id);
+        }
+      }
+
+      await handleRefreshQueue();
+
+      if (successCount > 0) {
+        setReviewOutcome({
+          kind: 'batch',
+          status,
+          successCount,
+        });
+      }
+
+      setSelectedLowPriorityIds(new Set(failedIds));
+
+      if (failedIds.length > 0) {
+        const failureLabel = `${failedIds.length} low-priority suggestion${
+          failedIds.length === 1 ? '' : 's'
+        } could not be updated.`;
+        setReviewError({
+          title:
+            failedIds.length === 1
+              ? 'Could not update low-priority suggestion'
+              : 'Could not update low-priority suggestions',
+          message:
+            successCount > 0
+              ? `${failureLabel} Any successful reviews are reflected below.`
+              : `${failureLabel} Pending review remains unchanged for the unresolved items below.`,
+        });
+      }
+    } finally {
+      setBatchActionStatus(null);
+    }
+  }
+
+  function toggleLowPrioritySelection(insightId: string, checked: boolean): void {
+    setSelectedLowPriorityIds((previous) => {
+      const next = new Set(previous);
+      if (checked) {
+        next.add(insightId);
+      } else {
+        next.delete(insightId);
+      }
+      return next;
+    });
+  }
+
+  function selectAllVisibleLowPriority(): void {
+    setSelectedLowPriorityIds(new Set(lowPriorityPendingItems.map((item) => item.id)));
+  }
+
+  function clearLowPrioritySelection(): void {
+    setSelectedLowPriorityIds(new Set());
   }
 
   function buildInsightPatientEntryState(item: InsightItem) {
@@ -561,11 +733,11 @@ export function InsightsQueuePage(): JSX.Element {
   }
 
   function openPatientFromOutcome(): void {
-    if (!lastReviewOutcome) {
+    if (!reviewOutcome || reviewOutcome.kind !== 'single') {
       return;
     }
 
-    const patientId = lastReviewOutcome.patientId.trim();
+    const patientId = reviewOutcome.patientId.trim();
 
     if (!patientId) {
       return;
@@ -575,49 +747,74 @@ export function InsightsQueuePage(): JSX.Element {
       state: createPatientEntryState({
         patientId,
         source: 'insights',
-        subtype: lastReviewOutcome.status,
-        hint: lastReviewOutcome.title.trim() || 'Guidance review',
+        subtype: reviewOutcome.status,
+        hint: reviewOutcome.title.trim() || 'Guidance review',
         focus: 'insights',
         returnTo: '/insights',
       }),
     });
   }
 
-  function renderInsightCard(item: InsightItem): JSX.Element {
+  function renderInsightCard(item: InsightItem, options?: InsightCardOptions): JSX.Element {
     const patientLabel =
       item.patientDisplayName?.trim() ||
       patientNameById.get(item.patientId) ||
       item.patientId;
     const priorityTone = insightPriorityTone(item.priority);
     const isPending = item.status === 'pending';
+    const isSelectable = options?.selectable === true && isPending && priorityTone === 'low';
+    const isSelected = isSelectable && selectedLowPriorityIds.has(item.id);
     const isJustReviewed =
       !isPending &&
       activeView === item.status &&
-      lastReviewOutcome?.status === item.status &&
-      lastReviewOutcome.id === item.id;
+      reviewOutcome?.kind === 'single' &&
+      reviewOutcome.status === item.status &&
+      reviewOutcome.id === item.id;
 
     return (
       <div
         key={item.id}
         className={`insights-queue__item insights-queue__item--${priorityTone} insights-queue__item--state-${item.status}${
           isJustReviewed ? ' insights-queue__item--just-reviewed' : ''
+        }${isSelected ? ' insights-queue__item--selected' : ''}${
+          isSelectable ? ' insights-queue__item--selectable' : ''
         }`}
       >
         <div className="insights-queue__item-head">
-          <div className="insights-queue__item-main">
-            <p className="insights-queue__eyebrow">Guidance suggestion</p>
-            <p className="insights-queue__title">{item.title}</p>
-            <div className="insights-queue__patient-row">
-              <p className="insights-queue__patient">
-                <span className="insights-queue__patient-label">Patient</span>
-                <Link
-                  to={`/patients/${encodeURIComponent(item.patientId)}`}
-                  state={buildInsightPatientEntryState(item)}
-                >
-                  {patientLabel}
-                </Link>
-              </p>
-              <p className="insights-queue__patient-id">Patient ID {item.patientId}</p>
+          <div
+            className={`insights-queue__item-main-shell${
+              isSelectable ? ' insights-queue__item-main-shell--selectable' : ''
+            }`}
+          >
+            {isSelectable ? (
+              <label className="insights-queue__select-control" htmlFor={`insight-select-${item.id}`}>
+                <input
+                  id={`insight-select-${item.id}`}
+                  type="checkbox"
+                  checked={isSelected}
+                  disabled={isReviewSubmitting}
+                  aria-label={`Select ${item.title}`}
+                  onChange={(event) => {
+                    toggleLowPrioritySelection(item.id, event.target.checked);
+                  }}
+                />
+              </label>
+            ) : null}
+            <div className="insights-queue__item-main">
+              <p className="insights-queue__eyebrow">Guidance suggestion</p>
+              <p className="insights-queue__title">{item.title}</p>
+              <div className="insights-queue__patient-row">
+                <p className="insights-queue__patient">
+                  <span className="insights-queue__patient-label">Patient</span>
+                  <Link
+                    to={`/patients/${encodeURIComponent(item.patientId)}`}
+                    state={buildInsightPatientEntryState(item)}
+                  >
+                    {patientLabel}
+                  </Link>
+                </p>
+                <p className="insights-queue__patient-id">Patient ID {item.patientId}</p>
+              </div>
             </div>
           </div>
           <div className="insights-queue__state">
@@ -678,7 +875,7 @@ export function InsightsQueuePage(): JSX.Element {
                   className="insights-queue__action insights-queue__action--approve"
                   variant="primary"
                   size="sm"
-                  disabled={isSubmittingId !== null}
+                  disabled={isReviewSubmitting}
                   onClick={() => {
                     void handleReview(item.id, 'approved');
                   }}
@@ -701,7 +898,7 @@ export function InsightsQueuePage(): JSX.Element {
                   className="insights-queue__action insights-queue__action--reject"
                   variant="ghost"
                   size="sm"
-                  disabled={isSubmittingId !== null}
+                  disabled={isReviewSubmitting}
                   onClick={() => {
                     void handleReview(item.id, 'rejected');
                   }}
@@ -810,9 +1007,9 @@ export function InsightsQueuePage(): JSX.Element {
         </section>
       </div>
 
-      {errorMessage ? (
-        <AlertBanner variant="error" title="Could not update insight">
-          {errorMessage}
+      {reviewError ? (
+        <AlertBanner variant="error" title={reviewError.title}>
+          {reviewError.message}
         </AlertBanner>
       ) : null}
 
@@ -842,9 +1039,9 @@ export function InsightsQueuePage(): JSX.Element {
           </div>
         </div>
 
-        {lastReviewOutcome ? (
+        {reviewOutcome ? (
           <div
-            className={`insights-review-outcome insights-review-outcome--${lastReviewOutcome.status}`}
+            className={`insights-review-outcome insights-review-outcome--${reviewOutcome.status}`}
             data-testid="insights-review-outcome"
             role="status"
             aria-live="polite"
@@ -853,13 +1050,25 @@ export function InsightsQueuePage(): JSX.Element {
               <p className="insights-review-outcome__eyebrow">Latest review</p>
               <div className="insights-review-outcome__title-row">
                 <strong className="insights-review-outcome__title">{outcomePanelTitle}</strong>
-                <span className="insights-review-outcome__patient">{lastReviewOutcome.patientLabel}</span>
+                {reviewOutcome.kind === 'single' ? (
+                  <span className="insights-review-outcome__patient">{reviewOutcome.patientLabel}</span>
+                ) : null}
               </div>
-              <p className="insights-review-outcome__text">
-                <span className="insights-review-outcome__item">{lastReviewOutcome.title}</span>{' '}
-                moved out of Pending and is now visible in {outcomeDestinationLabel} in this current
-                queue view.
-              </p>
+              {reviewOutcome.kind === 'single' ? (
+                <p className="insights-review-outcome__text">
+                  <span className="insights-review-outcome__item">{reviewOutcome.title}</span>{' '}
+                  moved out of Pending and is now visible in {outcomeDestinationLabel} in this current
+                  queue view.
+                </p>
+              ) : (
+                <p className="insights-review-outcome__text">
+                  {reviewOutcome.successCount} low-priority suggestion
+                  {reviewOutcome.successCount === 1 ? '' : 's'}{' '}
+                  {reviewOutcome.status === 'approved'
+                    ? 'approved into workflow.'
+                    : 'rejected from workflow.'}
+                </p>
+              )}
               <p className="insights-review-outcome__next">{outcomeFollowThrough}</p>
             </div>
             <div className="insights-review-outcome__actions">
@@ -868,10 +1077,12 @@ export function InsightsQueuePage(): JSX.Element {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setQueueView(lastReviewOutcomeView);
+                  if (reviewOutcomeView) {
+                    setQueueView(reviewOutcomeView);
+                  }
                 }}
               >
-                {lastReviewOutcome.status === 'approved' ? 'View approved' : 'View rejected'}
+                {reviewOutcome.status === 'approved' ? 'View approved' : 'View rejected'}
               </Button>
               {canOpenOutcomePatient ? (
                 <Button
@@ -951,9 +1162,127 @@ export function InsightsQueuePage(): JSX.Element {
             </div>
           </div>
         ) : (
-          <div className="stack stack--2 insights-queue-list">
-            {activeItems.map((item) => renderInsightCard(item))}
-          </div>
+          <>
+            {activeView === 'pending' ? (
+              <div className="insights-queue-sections">
+                <section className="insights-queue-section insights-queue-section--priority">
+                  <div className="insights-queue-section__header">
+                    <div className="insights-queue-section__copy">
+                      <p className="insights-queue-section__eyebrow">Primary workflow</p>
+                      <h3 className="insights-queue-section__title">Priority review</h3>
+                      <p className="insights-queue-section__text">
+                        Keep medium- and high-priority suggestions in individual clinician review.
+                      </p>
+                    </div>
+                    <span className="insights-queue-section__fact" aria-live="polite">
+                      {priorityReviewItems.length} requiring individual review
+                    </span>
+                  </div>
+                  {priorityReviewItems.length > 0 ? (
+                    <div className="stack stack--2 insights-queue-list">
+                      {priorityReviewItems.map((item) => renderInsightCard(item))}
+                    </div>
+                  ) : (
+                    <p className="insights-queue-section__empty">
+                      No medium- or high-priority suggestions are waiting now.
+                    </p>
+                  )}
+                </section>
+
+                {lowPriorityPendingItems.length > 0 ? (
+                  <section className="insights-queue-section insights-queue-section--low">
+                    <div className="insights-queue-section__header">
+                      <div className="insights-queue-section__copy">
+                        <p className="insights-queue-section__eyebrow">Routine review</p>
+                        <h3 className="insights-queue-section__title">Low-priority review</h3>
+                        <p className="insights-queue-section__text">
+                          Batch only the currently visible low-priority suggestions that do not need
+                          deeper individual handling.
+                        </p>
+                      </div>
+                      <div className="insights-queue-section__controls">
+                        <span className="insights-queue-section__fact" aria-live="polite">
+                          {lowPriorityPendingItems.length} batchable now
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isReviewSubmitting || allVisibleLowPrioritySelected}
+                          onClick={() => {
+                            selectAllVisibleLowPriority();
+                          }}
+                        >
+                          Select all visible low-priority
+                        </Button>
+                      </div>
+                    </div>
+
+                    {selectedLowPriorityCount > 0 ? (
+                      <div
+                        className="insights-batch-action-bar"
+                        data-testid="insights-batch-action-bar"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <div className="insights-batch-action-bar__copy">
+                          <p className="insights-batch-action-bar__eyebrow">Batch review</p>
+                          <p className="insights-batch-action-bar__text">
+                            {formatSelectedInsightCount(selectedLowPriorityCount)}
+                          </p>
+                        </div>
+                        <div className="insights-batch-action-bar__actions">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={isReviewSubmitting}
+                            onClick={() => {
+                              void handleBatchReview('approved');
+                            }}
+                          >
+                            {batchActionStatus === 'approved'
+                              ? 'Approving…'
+                              : 'Approve selected'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isReviewSubmitting}
+                            onClick={() => {
+                              void handleBatchReview('rejected');
+                            }}
+                          >
+                            {batchActionStatus === 'rejected'
+                              ? 'Rejecting…'
+                              : 'Reject selected'}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={isReviewSubmitting}
+                            onClick={() => {
+                              clearLowPrioritySelection();
+                            }}
+                          >
+                            Clear selection
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="stack stack--2 insights-queue-list insights-queue-list--low">
+                      {lowPriorityPendingItems.map((item) =>
+                        renderInsightCard(item, { selectable: true }),
+                      )}
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+            ) : (
+              <div className="stack stack--2 insights-queue-list">
+                {activeItems.map((item) => renderInsightCard(item))}
+              </div>
+            )}
+          </>
         )}
       </Card>
     </div>

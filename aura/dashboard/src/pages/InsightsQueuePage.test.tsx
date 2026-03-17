@@ -444,7 +444,15 @@ describe('InsightsQueuePage', () => {
       ],
     });
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Reject suggestion' }))[0]);
+    const rejectedPendingCard = (await screen.findByText('Habit guidance should stay out')).closest(
+      '.insights-queue__item',
+    );
+    expect(rejectedPendingCard).not.toBeNull();
+    fireEvent.click(
+      within(rejectedPendingCard as HTMLElement).getByRole('button', {
+        name: 'Reject suggestion',
+      }),
+    );
 
     const outcomePanel = await screen.findByTestId('insights-review-outcome');
     expect(within(outcomePanel).getByText('Rejected from workflow')).toBeInTheDocument();
@@ -605,5 +613,271 @@ describe('InsightsQueuePage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Rejected (0)' }));
     expect(await screen.findByText('No rejected suggestions in this queue view')).toBeInTheDocument();
+  });
+
+  it('supports selecting only visible low-priority pending items and batching them into approved', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'priority-item',
+          patientId: 'patient-100',
+          status: 'pending',
+          title: 'High-signal safety follow-up',
+          message: 'This still needs individual clinician review.',
+          category: 'safety',
+          confidence: 'high',
+          priority: 3,
+          windowDays: 7,
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+        {
+          id: 'low-item-1',
+          patientId: 'patient-101',
+          status: 'pending',
+          title: 'Routine recovery encouragement',
+          message: 'This may be reasonable to surface in workflow.',
+          category: 'recovery',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T08:15:00.000Z',
+        },
+        {
+          id: 'low-item-2',
+          patientId: 'patient-102',
+          status: 'pending',
+          title: 'Questionnaire reminder seems duplicative',
+          message: 'Routine reminder guidance may be duplicated elsewhere.',
+          category: 'questionnaires',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T08:30:00.000Z',
+        },
+      ],
+    });
+
+    expect(await screen.findByText('Priority review')).toBeInTheDocument();
+    expect(screen.getByText('Low-priority review')).toBeInTheDocument();
+    expect(screen.queryByTestId('insights-batch-action-bar')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Select Routine recovery encouragement')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select Questionnaire reminder seems duplicative')).toBeInTheDocument();
+
+    const priorityCard = (await screen.findByText('High-signal safety follow-up')).closest(
+      '.insights-queue__item',
+    );
+    expect(priorityCard).not.toBeNull();
+    expect(
+      within(priorityCard as HTMLElement).queryByLabelText('Select High-signal safety follow-up'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select all visible low-priority' }));
+
+    const batchBar = await screen.findByTestId('insights-batch-action-bar');
+    expect(batchBar).toHaveTextContent('2 low-priority suggestions selected');
+
+    fireEvent.click(within(batchBar).getByRole('button', { name: 'Approve selected' }));
+
+    const outcomePanel = await screen.findByTestId('insights-review-outcome');
+    expect(outcomePanel).toHaveTextContent('2 low-priority suggestions approved into workflow.');
+    expect(screen.getByRole('tab', { name: 'Pending (1)' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('High-signal safety follow-up')).toBeInTheDocument();
+
+    fireEvent.click(within(outcomePanel).getByRole('button', { name: 'View approved' }));
+
+    expect(
+      await screen.findByText('Routine recovery encouragement', {
+        selector: '.insights-queue__title',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Questionnaire reminder seems duplicative', {
+        selector: '.insights-queue__title',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('reports partial batch success truthfully and keeps unresolved visible low-priority items selected', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'low-success',
+          patientId: 'patient-201',
+          status: 'pending',
+          title: 'Routine check-in guidance',
+          message: 'This can be reviewed quickly.',
+          category: 'habits',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T09:00:00.000Z',
+        },
+        {
+          id: 'low-fail',
+          patientId: 'patient-202',
+          status: 'pending',
+          title: 'Keep this pending for routine review',
+          message: 'This batch update will fail.',
+          category: 'recovery',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T09:15:00.000Z',
+        },
+      ],
+      failReviewIds: ['low-fail'],
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Select all visible low-priority' }));
+    fireEvent.click(
+      within(await screen.findByTestId('insights-batch-action-bar')).getByRole('button', {
+        name: 'Approve selected',
+      }),
+    );
+    expect(await screen.findByText('Could not update low-priority suggestion')).toBeInTheDocument();
+
+    const outcomePanel = await screen.findByTestId('insights-review-outcome');
+    expect(outcomePanel).toHaveTextContent('1 low-priority suggestion approved into workflow.');
+    expect(
+      await screen.findByText(
+        '1 low-priority suggestion could not be updated. Any successful reviews are reflected below.',
+      ),
+    ).toBeInTheDocument();
+
+    const unresolvedCheckbox = screen.getByLabelText('Select Keep this pending for routine review');
+    expect(unresolvedCheckbox).toBeChecked();
+    expect(screen.getByRole('tab', { name: 'Pending (1)' })).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.click(within(outcomePanel).getByRole('button', { name: 'View approved' }));
+    expect(
+      await screen.findByText('Routine check-in guidance', {
+        selector: '.insights-queue__title',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('clears low-priority selection when leaving pending', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'low-clear',
+          patientId: 'patient-301',
+          status: 'pending',
+          title: 'Low-priority selection reset',
+          message: 'This will be selected and then cleared by tab change.',
+          category: 'recovery',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T10:00:00.000Z',
+        },
+      ],
+      approved: [
+        {
+          id: 'approved-existing',
+          patientId: 'patient-302',
+          status: 'approved',
+          title: 'Existing approved guidance',
+          message: 'Already reviewed.',
+          category: 'recovery',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-13T08:00:00.000Z',
+        },
+      ],
+    });
+
+    const checkbox = (await screen.findByLabelText(
+      'Select Low-priority selection reset',
+    )) as HTMLInputElement;
+    fireEvent.click(checkbox);
+    expect(await screen.findByTestId('insights-batch-action-bar')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Approved (1)' }));
+    expect(screen.queryByTestId('insights-batch-action-bar')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Pending (1)' }));
+    expect(
+      (await screen.findByLabelText('Select Low-priority selection reset')) as HTMLInputElement,
+    ).not.toBeChecked();
+  });
+
+  it('replaces a prior single-item outcome with batch outcome and then restores single-item outcome on later review', async () => {
+    renderInsightsPage({
+      pending: [
+        {
+          id: 'medium-first',
+          patientId: 'patient-401',
+          status: 'pending',
+          title: 'Medium-priority follow-up',
+          message: 'This still needs individual review first.',
+          category: 'recovery',
+          confidence: 'medium',
+          priority: 2,
+          windowDays: 14,
+          createdAt: '2026-03-14T11:00:00.000Z',
+        },
+        {
+          id: 'low-batch',
+          patientId: 'patient-402',
+          status: 'pending',
+          title: 'Batchable routine guidance',
+          message: 'This can move through a batch action.',
+          category: 'habits',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T11:15:00.000Z',
+        },
+        {
+          id: 'low-later',
+          patientId: 'patient-403',
+          status: 'pending',
+          title: 'Later single-item review',
+          message: 'This will be reviewed individually after the batch action.',
+          category: 'recovery',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-03-14T11:30:00.000Z',
+        },
+      ],
+    });
+
+    const firstApproveButton = (await screen.findAllByRole('button', {
+      name: 'Approve for workflow',
+    }))[0];
+    fireEvent.click(firstApproveButton);
+
+    const singleOutcome = await screen.findByTestId('insights-review-outcome');
+    expect(singleOutcome).toHaveTextContent(
+      'Medium-priority follow-up moved out of Pending and is now visible in Approved in this current queue view.',
+    );
+
+    fireEvent.click(await screen.findByLabelText('Select Batchable routine guidance'));
+    fireEvent.click(
+      within(await screen.findByTestId('insights-batch-action-bar')).getByRole('button', {
+        name: 'Reject selected',
+      }),
+    );
+
+    const batchOutcome = await screen.findByTestId('insights-review-outcome');
+    expect(batchOutcome).toHaveTextContent('1 low-priority suggestion rejected from workflow.');
+    expect(batchOutcome).not.toHaveTextContent('Medium-priority follow-up');
+
+    const laterCard = (await screen.findByText('Later single-item review')).closest(
+      '.insights-queue__item',
+    );
+    expect(laterCard).not.toBeNull();
+    fireEvent.click(
+      within(laterCard as HTMLElement).getByRole('button', { name: 'Approve for workflow' }),
+    );
+
+    const replacementOutcome = await screen.findByTestId('insights-review-outcome');
+    expect(replacementOutcome).toHaveTextContent(
+      'Later single-item review moved out of Pending and is now visible in Approved in this current queue view.',
+    );
+    expect(replacementOutcome).not.toHaveTextContent('1 low-priority suggestion rejected from workflow.');
   });
 });

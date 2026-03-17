@@ -50,6 +50,43 @@ const PATIENT_SORT_OPTIONS = [
   'name-asc',
   'status-active-first',
 ] as const;
+const PATIENT_TRIAGE_PRESETS = [
+  {
+    id: 'active-alerts',
+    label: 'Active alerts',
+    filters: {
+      status: 'all',
+      hasOpenAlertsOnly: true,
+      missedCheckinsOnly: false,
+      recentlyActive: 'all',
+      sort: 'alerts-desc',
+    },
+  },
+  {
+    id: 'missed-checkins',
+    label: 'Missed check-ins',
+    filters: {
+      status: 'all',
+      hasOpenAlertsOnly: false,
+      missedCheckinsOnly: true,
+      recentlyActive: 'all',
+      sort: 'alerts-desc',
+    },
+  },
+  {
+    id: 'recently-active',
+    label: 'Recently active',
+    filters: {
+      status: 'all',
+      hasOpenAlertsOnly: false,
+      missedCheckinsOnly: false,
+      recentlyActive: '7d',
+      sort: 'last-checkin-desc',
+    },
+  },
+] as const;
+
+type PatientTriagePreset = (typeof PATIENT_TRIAGE_PRESETS)[number];
 
 function normalizePatientsWorkspaceState(value: unknown): PatientFilters {
   const fallback = defaultPatientFilters();
@@ -74,6 +111,19 @@ function normalizePatientsWorkspaceState(value: unknown): PatientFilters {
       ? (candidate.sort as PatientFilters['sort'])
       : fallback.sort,
   };
+}
+
+function matchesPatientTriagePreset(
+  filters: PatientFilters,
+  preset: PatientTriagePreset,
+): boolean {
+  return (
+    filters.status === preset.filters.status &&
+    filters.hasOpenAlertsOnly === preset.filters.hasOpenAlertsOnly &&
+    filters.missedCheckinsOnly === preset.filters.missedCheckinsOnly &&
+    filters.recentlyActive === preset.filters.recentlyActive &&
+    filters.sort === preset.filters.sort
+  );
 }
 
 function summarizePatients(patients: PatientSummary[]): {
@@ -188,6 +238,37 @@ export function PatientsPage(): JSX.Element {
         minute: '2-digit',
       })
     : '--';
+  const activeTriagePreset = useMemo(
+    () =>
+      PATIENT_TRIAGE_PRESETS.find((preset) => matchesPatientTriagePreset(filters, preset)) ?? null,
+    [filters],
+  );
+  const trimmedSearch = filters.search.trim();
+  const filteredEmptyDescription = useMemo(() => {
+    if (activeTriagePreset?.id === 'active-alerts') {
+      return trimmedSearch
+        ? `No patients with active alerts match this exact roster view. Search "${trimmedSearch}" further narrowed the current view.`
+        : 'No patients with active alerts match this exact roster view.';
+    }
+
+    if (activeTriagePreset?.id === 'missed-checkins') {
+      return trimmedSearch
+        ? `No patients with missed recent check-ins match this exact roster view. Search "${trimmedSearch}" further narrowed the current view.`
+        : 'No patients with missed recent check-ins match this exact roster view.';
+    }
+
+    if (activeTriagePreset?.id === 'recently-active') {
+      return trimmedSearch
+        ? `No patients were recently active in this exact roster view. Search "${trimmedSearch}" further narrowed the current view.`
+        : 'No patients were recently active in this exact roster view.';
+    }
+
+    if (trimmedSearch) {
+      return `Search "${trimmedSearch}" does not match any patient in this exact roster view. Broaden the current filters or try a different patient name or ID.`;
+    }
+
+    return 'This roster view is narrower than the patients currently available. Broaden the filters or search by a different patient name or ID.';
+  }, [activeTriagePreset, trimmedSearch]);
 
   const retryPatients = useCallback((): void => {
     void patientsQuery.refetch();
@@ -219,6 +300,25 @@ export function PatientsPage(): JSX.Element {
     savedFiltersRef.current = normalized;
     writeWorkspaceState(PATIENTS_WORKSPACE_PAGE, normalized);
   }, []);
+
+  const applyNonSearchFilters = useCallback(
+    (
+      update:
+        | Partial<Omit<PatientFilters, 'search'>>
+        | ((current: PatientFilters) => Partial<Omit<PatientFilters, 'search'>>),
+    ): void => {
+      setFilters((current) => {
+        const patch = typeof update === 'function' ? update(current) : update;
+        const next = {
+          ...current,
+          ...patch,
+        };
+        persistPatientsState(next);
+        return next;
+      });
+    },
+    [persistPatientsState],
+  );
 
   const clearSavedPatientsState = useCallback((): void => {
     const nextFilters = defaultPatientFilters();
@@ -374,89 +474,60 @@ export function PatientsPage(): JSX.Element {
                 {workspaceSupportLine}
               </p>
             </div>
+            <div className="patients-triage-presets" role="group" aria-label="Quick triage views">
+              <span className="patients-triage-presets__label">Quick triage views</span>
+              <div className="patients-triage-presets__items">
+                {PATIENT_TRIAGE_PRESETS.map((preset) => {
+                  const isActive = activeTriagePreset?.id === preset.id;
+
+                  return (
+                    <Button
+                      key={preset.id}
+                      className={`patients-triage-presets__button${
+                        isActive ? ' patients-triage-presets__button--active' : ''
+                      }`}
+                      variant={isActive ? 'secondary' : 'ghost'}
+                      size="sm"
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        applyNonSearchFilters(preset.filters);
+                      }}
+                    >
+                      {preset.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
             <p className="patients-queue-intro">
-              Scan identity, recent activity, alert burden, and the next review step from one roster view.
+              Scan identity, recent activity, alert burden, pain level, and the next review step from one roster view.
             </p>
-            <p className="patients-pain-legend" aria-label="Pain trend guide">
-              Pain trend guide: <strong>7+ elevated</strong> · <strong>4-6.9 moderate</strong> ·{' '}
-              <strong>under 4 lower</strong>
-            </p>
+            <div className="patients-roster-cues" aria-label="Roster cues guide">
+              <p className="patients-roster-cues__eyebrow">Roster cues</p>
+              <div className="patients-roster-cues__items">
+                <span className="patients-roster-cues__item">Alert burden shows count magnitude only</span>
+                <span className="patients-roster-cues__item">
+                  Pain level: <strong>7+ elevated</strong> · <strong>4-6.9 moderate</strong> · <strong>under 4 lower</strong>
+                </span>
+              </div>
+            </div>
             <PatientsFiltersBar
               filters={filters}
               onSearchChange={(search) => {
                 searchPersistenceEnabledRef.current = true;
                 setFilters((current) => ({ ...current, search }));
               }}
-              onStatusChange={(status) =>
-                setFilters((current) => {
-                  const next = {
-                    ...current,
-                    status,
-                    search: savedFiltersRef.current.search,
-                  };
-                  persistPatientsState(next);
-                  return {
-                    ...current,
-                    status,
-                  };
-                })
-              }
+              onStatusChange={(status) => applyNonSearchFilters({ status })}
               onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-                setFilters((current) => {
-                  const next = {
-                    ...current,
-                    hasOpenAlertsOnly,
-                    search: savedFiltersRef.current.search,
-                  };
-                  persistPatientsState(next);
-                  return {
-                    ...current,
-                    hasOpenAlertsOnly,
-                  };
-                })
+                applyNonSearchFilters({ hasOpenAlertsOnly })
               }
               onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-                setFilters((current) => {
-                  const next = {
-                    ...current,
-                    missedCheckinsOnly,
-                    search: savedFiltersRef.current.search,
-                  };
-                  persistPatientsState(next);
-                  return {
-                    ...current,
-                    missedCheckinsOnly,
-                  };
-                })
+                applyNonSearchFilters({ missedCheckinsOnly })
               }
               onRecentlyActiveChange={(recentlyActive) =>
-                setFilters((current) => {
-                  const next = {
-                    ...current,
-                    recentlyActive,
-                    search: savedFiltersRef.current.search,
-                  };
-                  persistPatientsState(next);
-                  return {
-                    ...current,
-                    recentlyActive,
-                  };
-                })
+                applyNonSearchFilters({ recentlyActive })
               }
-              onSortChange={(sort) =>
-                setFilters((current) => {
-                  const next = {
-                    ...current,
-                    sort,
-                    search: savedFiltersRef.current.search,
-                  };
-                  persistPatientsState(next);
-                  return {
-                    ...current,
-                    sort,
-                  };
-                })
-              }
+              onSortChange={(sort) => applyNonSearchFilters({ sort })}
               onReset={clearSavedPatientsState}
             />
           </div>
@@ -539,8 +610,7 @@ export function PatientsPage(): JSX.Element {
                 <h3 className="patients-empty-state__title">No patients match this view</h3>
               </div>
               <p className="patients-empty-state__description">
-                This roster view is narrower than the patients currently available. Broaden the
-                filters or search by a different patient name or ID.
+                {filteredEmptyDescription}
               </p>
               <div className="patients-empty-state__actions">
                 <Button

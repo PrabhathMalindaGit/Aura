@@ -1,7 +1,6 @@
 import type { PatientSummary } from '../../types/models';
 import {
   getPatientDisplayName,
-  getPatientRosterReason,
   getPatientStatus,
   hasOpenAlerts,
   isMissedCheckin,
@@ -10,36 +9,14 @@ import { formatDateTime, formatRelativeDate } from '../../utils/date';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import { buildPatientTriageSupportLine } from './patientRosterSignalUtils';
+import { PatientAlertBurdenSignal, PatientPainLevelSignal } from './PatientRosterSignals';
 import { PatientStatusBadge } from './PatientStatusBadge';
 import { PatientStatusMenu } from './PatientStatusMenu';
 
 interface PatientCardListProps {
   patients: PatientSummary[];
   onOpenPatient: (patientId: string) => void;
-}
-
-function asPainText(value: number | undefined): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '—';
-  }
-
-  return value.toFixed(1);
-}
-
-function formatOpenAlertsText(count: number): string {
-  return count === 0 ? 'No active alerts' : `${count} active alert${count === 1 ? '' : 's'}`;
-}
-
-function alertBurdenTone(count: number): 'clear' | 'elevated' | 'high' {
-  if (count >= 3) {
-    return 'high';
-  }
-
-  if (count > 0) {
-    return 'elevated';
-  }
-
-  return 'clear';
 }
 
 export function PatientCardList({ patients, onOpenPatient }: PatientCardListProps): JSX.Element {
@@ -51,16 +28,7 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
         const displayName = getPatientDisplayName(patient);
         const openAlertCount = patient.openAlertCount ?? 0;
         const hasOpenAlertCount = hasOpenAlerts(patient);
-        const alertsTone = alertBurdenTone(openAlertCount);
-        const rosterReason = getPatientRosterReason(patient);
-        const painSeverity =
-          typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
-            ? patient.lastPain >= 7
-              ? 'high'
-              : patient.lastPain >= 4
-                ? 'mid'
-                : 'low'
-            : 'none';
+        const rosterSupportLine = buildPatientTriageSupportLine(patient);
         const initials = displayName
           .split(/\s+/)
           .filter(Boolean)
@@ -81,7 +49,7 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
                 </span>
                 <span className="patients-card-list__title-text">
                   <span className="patients-card-list__name">{displayName}</span>
-                  <span className="patients-card-list__support">{rosterReason}</span>
+                  <span className="patients-card-list__support">{rosterSupportLine}</span>
                 </span>
               </span>
             }
@@ -95,12 +63,6 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
                     Missed check-in
                   </Badge>
                 ) : null}
-                <Badge
-                  className={`patients-card-list__alerts-badge${hasOpenAlertCount ? ' patients-card-list__alerts-badge--active' : ''} patients-card-list__alerts-badge--${alertsTone}`}
-                  variant={hasOpenAlertCount ? 'danger' : 'default'}
-                >
-                  {openAlertCount} open alerts
-                </Badge>
               </div>
 
               <div className="patients-card-list__metrics">
@@ -113,21 +75,11 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
                 </div>
                 <div className="patients-card-list__metric">
                   <span className="patients-card-list__meta-label">Alert burden</span>
-                  <span className="patients-card-list__metric-value">{formatOpenAlertsText(openAlertCount)}</span>
-                  <span className="patients-card-list__metric-support">
-                    {hasOpenAlertCount ? 'Needs closer review' : 'No alert activity'}
-                  </span>
+                  <PatientAlertBurdenSignal count={openAlertCount} />
                 </div>
                 <div className="patients-card-list__metric">
-                  <span className="patients-card-list__meta-label">Pain trend</span>
-                  <span className={`patients-card-list__pain-value patients-card-list__pain-value--${painSeverity}`}>
-                    {asPainText(patient.lastPain)}
-                  </span>
-                  <span className="patients-card-list__metric-support">
-                    {typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
-                      ? 'Last 7-day average'
-                      : 'No pain trend yet'}
-                  </span>
+                  <span className="patients-card-list__meta-label">Pain level</span>
+                  <PatientPainLevelSignal value={patient.lastPain} />
                 </div>
               </div>
 

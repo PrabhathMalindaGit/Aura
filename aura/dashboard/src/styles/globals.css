@@ -20735,16 +20735,146 @@ button.dashboard-summary-card:hover {
   color: hsl(var(--foreground) / 0.74);
 }
 
-.patients-pain-legend {
-  margin: -0.08rem 0 0;
-  color: hsl(var(--foreground) / 0.66);
-  font-size: 0.78rem;
-  line-height: 1.45;
+.patients-triage-presets,
+.patients-roster-cues {
+  display: grid;
+  gap: 0.55rem;
 }
 
-.patients-pain-legend strong {
-  color: hsl(var(--foreground) / 0.82);
+.patients-triage-presets__label,
+.patients-roster-cues__eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.66);
+  font-size: 0.72rem;
   font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.patients-triage-presets__items,
+.patients-roster-cues__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.patients-triage-presets__button.btn {
+  min-height: 2rem;
+  padding-inline: 0.8rem;
+  border-radius: 999px;
+  border-color: hsl(var(--border) / 0.68);
+}
+
+.patients-triage-presets__button--active.btn {
+  border-color: hsl(var(--primary) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.14), hsl(var(--card) / 0.98)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 84%);
+  color: hsl(var(--foreground));
+}
+
+.patients-roster-cues__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.46rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  background: hsl(var(--card) / 0.76);
+  color: hsl(var(--foreground) / 0.74);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.patients-roster-cues__item strong {
+  color: hsl(var(--foreground) / 0.84);
+  font-weight: var(--font-semibold);
+}
+
+.patient-alert-burden,
+.patient-pain-level {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.patient-alert-burden__summary,
+.patient-pain-level__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.patient-alert-burden__count,
+.patient-pain-level__value {
+  color: hsl(var(--foreground));
+  font-size: 0.9rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: -0.01em;
+  font-feature-settings: var(--nums);
+}
+
+.patient-alert-burden__text,
+.patient-pain-level__label,
+.patient-pain-level__text {
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.patient-pain-level__label {
+  font-weight: var(--font-semibold);
+}
+
+.patient-alert-burden__steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.24rem;
+}
+
+.patient-alert-burden__step {
+  min-height: 0.42rem;
+  border-radius: 999px;
+  background: hsl(var(--border) / 0.68);
+}
+
+.patient-alert-burden--clear .patient-alert-burden__step--filled {
+  background: hsl(var(--foreground) / 0.28);
+}
+
+.patient-alert-burden--elevated .patient-alert-burden__step--filled {
+  background: hsl(var(--warning) / 0.72);
+}
+
+.patient-alert-burden--high .patient-alert-burden__step--filled {
+  background: hsl(var(--danger) / 0.74);
+}
+
+.patient-pain-level--elevated .patient-pain-level__value,
+.patient-pain-level--elevated .patient-pain-level__label {
+  color: hsl(var(--danger));
+}
+
+.patient-pain-level--moderate .patient-pain-level__value,
+.patient-pain-level--moderate .patient-pain-level__label {
+  color: hsl(var(--warning));
+}
+
+.patient-pain-level--lower .patient-pain-level__value,
+.patient-pain-level--lower .patient-pain-level__label {
+  color: hsl(var(--success));
+}
+
+.patient-pain-level--none .patient-pain-level__value,
+.patient-pain-level--none .patient-pain-level__label {
+  color: hsl(var(--muted-foreground));
+}
+
+.patients-table__patient-support,
+.patients-card-list__support {
+  color: hsl(var(--foreground) / 0.76);
+  font-size: var(--text-xs);
+  line-height: 1.45;
 }
 
 .patients-table__alerts-badge--elevated,
@@ -20766,6 +20896,40 @@ button.dashboard-summary-card:hover {
 
 .patients-empty-state--filtered {
   border-color: hsl(var(--border) / 0.64);
+}
+
+.dark .patients-triage-presets__button.btn {
+  border-color: hsl(var(--border) / 0.58);
+}
+
+.dark .patients-triage-presets__button--active.btn {
+  border-color: hsl(var(--primary) / 0.4);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.18), hsl(var(--card) / 0.88)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 84%);
+}
+
+.dark .patients-roster-cues__item {
+  background: hsl(var(--card) / 0.88);
+  border-color: hsl(var(--border) / 0.52);
+}
+
+.dark .patient-alert-burden__step {
+  background: hsl(var(--foreground) / 0.14);
+}
+
+.dark .patients-table__patient-support,
+.dark .patients-card-list__support {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+@media (max-width: 720px) {
+  .patients-triage-presets__items,
+  .patients-roster-cues__items,
+  .patient-alert-burden__summary,
+  .patient-pain-level__summary {
+    align-items: flex-start;
+  }
 }
 
 .appointments-workspace__section--requests {

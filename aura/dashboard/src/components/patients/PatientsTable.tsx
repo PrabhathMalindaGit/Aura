@@ -2,7 +2,6 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import type { PatientSummary } from '../../types/models';
 import {
   getPatientDisplayName,
-  getPatientRosterReason,
   getPatientStatus,
   hasOpenAlerts,
   isMissedCheckin,
@@ -10,36 +9,14 @@ import {
 import { formatDateTime, formatRelativeDate } from '../../utils/date';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { buildPatientTriageSupportLine } from './patientRosterSignalUtils';
+import { PatientAlertBurdenSignal, PatientPainLevelSignal } from './PatientRosterSignals';
 import { PatientStatusBadge } from './PatientStatusBadge';
 import { PatientStatusMenu } from './PatientStatusMenu';
 
 interface PatientsTableProps {
   patients: PatientSummary[];
   onOpenPatient: (patientId: string) => void;
-}
-
-function asPainText(value: number | undefined): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '—';
-  }
-
-  return value.toFixed(1);
-}
-
-function formatOpenAlertsText(count: number): string {
-  return count === 0 ? 'No active alerts' : `${count} active alert${count === 1 ? '' : 's'}`;
-}
-
-function alertBurdenTone(count: number): 'clear' | 'elevated' | 'high' {
-  if (count >= 3) {
-    return 'high';
-  }
-
-  if (count > 0) {
-    return 'elevated';
-  }
-
-  return 'clear';
 }
 
 function moveFocusToRow(
@@ -77,7 +54,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
               Alert burden
             </th>
             <th scope="col" className="patients-table__head patients-table__head--pain">
-              Pain trend
+              Pain level
             </th>
             <th scope="col" className="patients-table__head patients-table__head--actions">
               Next step
@@ -92,16 +69,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
             const missedCheckin = isMissedCheckin(patient);
             const openAlertCount = patient.openAlertCount ?? 0;
             const hasOpenAlertCount = hasOpenAlerts(patient);
-            const alertsTone = alertBurdenTone(openAlertCount);
-            const rosterReason = getPatientRosterReason(patient);
-            const painSeverity =
-              typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
-                ? patient.lastPain >= 7
-                  ? 'high'
-                  : patient.lastPain >= 4
-                    ? 'mid'
-                    : 'low'
-                : 'none';
+            const rosterSupportLine = buildPatientTriageSupportLine(patient);
             const initials = displayName
               .split(/\s+/)
               .filter(Boolean)
@@ -144,7 +112,7 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                         {displayName}
                       </strong>
                       {showIdSubline ? <span className="patient-id-text patients-table__patient-id">ID: {patient.id}</span> : null}
-                      <span className="patients-table__patient-support">{rosterReason}</span>
+                      <span className="patients-table__patient-support">{rosterSupportLine}</span>
                     </div>
                   </div>
                 </td>
@@ -181,25 +149,12 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                 </td>
                 <td className="patients-table__cell patients-table__cell--alerts">
                   <div className="patients-table__metric patients-table__metric--alerts">
-                    <Badge
-                      className={`patients-table__alerts-badge${hasOpenAlertCount ? ' patients-table__alerts-badge--active' : ''} patients-table__alerts-badge--${alertsTone}`}
-                      variant={hasOpenAlertCount ? 'danger' : 'default'}
-                    >
-                      {hasOpenAlertCount ? `${openAlertCount} open` : 'Clear'}
-                    </Badge>
-                    <p className="patients-table__support">{formatOpenAlertsText(openAlertCount)}</p>
+                    <PatientAlertBurdenSignal count={openAlertCount} />
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--pain">
                   <div className="patients-table__metric patients-table__metric--pain">
-                    <span className={`patients-table__pain-value patients-table__pain-value--${painSeverity}`}>
-                      {asPainText(patient.lastPain)}
-                    </span>
-                    <p className="patients-table__support">
-                      {typeof patient.lastPain === 'number' && !Number.isNaN(patient.lastPain)
-                        ? 'Last 7-day average'
-                        : 'No pain trend yet'}
-                    </p>
+                    <PatientPainLevelSignal value={patient.lastPain} />
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--actions">

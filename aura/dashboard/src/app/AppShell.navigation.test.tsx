@@ -54,6 +54,7 @@ function renderShell(entry: string): void {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<div>Dashboard workspace</div>} />
           <Route path="worklist" element={<div>Worklist workspace</div>} />
+          <Route path="communication" element={<div>Communication workspace</div>} />
           <Route path="alerts" element={<RouteEcho />} />
           <Route path="patients" element={<RouteEcho />} />
           <Route path="appointments" element={<div>Appointments workspace</div>} />
@@ -122,6 +123,21 @@ describe('AppShell navigation', () => {
         'Triage safety alerts with assignment, acknowledgment, and follow-up context.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('shows the communication title and subtitle for the communication workspace', () => {
+    installMatchMediaPreset('desktop');
+    renderShell('/communication');
+
+    expect(screen.getByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Patient-linked communication review with response-needed and safety-aware follow-through.',
+      ),
+    ).toBeInTheDocument();
+
+    const activeLink = screen.getByRole('link', { name: 'Communication' });
+    expect(activeLink).toHaveClass('sidebar-item--active');
   });
 
   it('quick open routes patient-like searches into the patients workspace filter', async () => {

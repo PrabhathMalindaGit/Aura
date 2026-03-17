@@ -30,6 +30,7 @@ function renderDashboardHome(): void {
       <MemoryRouter initialEntries={['/dashboard']}>
         <Routes>
           <Route path="/dashboard" element={<DashboardHomePage />} />
+          <Route path="/communication" element={<div>Communication workspace</div>} />
           <Route path="/alerts" element={<div>Alerts workspace</div>} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
           <Route path="/insights" element={<div>Insights workspace</div>} />
@@ -279,7 +280,7 @@ describe('DashboardHomePage', () => {
     expect(screen.getByText('No communication waiting')).toBeInTheDocument();
   });
 
-  it('routes communication actions to patient detail', async () => {
+  it('routes communication actions to the communication workspace', async () => {
     installDashboardFetchMock();
     const user = userEvent.setup();
 
@@ -291,10 +292,10 @@ describe('DashboardHomePage', () => {
     const cardElement = communicationCard.closest('section');
     expect(cardElement).not.toBeNull();
 
-    await user.click(within(cardElement as HTMLElement).getByRole('button', { name: 'Open patient' }));
+    await user.click(within(cardElement as HTMLElement).getByRole('button', { name: 'Open thread' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
+      expect(screen.getByText('Communication workspace')).toBeInTheDocument();
     });
   }, 10_000);
 });

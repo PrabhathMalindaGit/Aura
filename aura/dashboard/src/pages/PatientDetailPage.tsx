@@ -1154,6 +1154,14 @@ export function PatientDetailPage(): JSX.Element {
     });
   }, []);
 
+  const openCommunicationWorkspace = useCallback((): void => {
+    if (!patientId) {
+      return;
+    }
+
+    navigate(`/communication?patientId=${encodeURIComponent(patientId)}`);
+  }, [navigate, patientId]);
+
   const handleOperationalAction = useCallback(
     (key: PatientActionKey): void => {
       if (key === 'alerts') {
@@ -1162,7 +1170,7 @@ export function PatientDetailPage(): JSX.Element {
       }
 
       if (key === 'communication') {
-        scrollToPanel('patient-communication-panel');
+        openCommunicationWorkspace();
         return;
       }
 
@@ -1188,7 +1196,7 @@ export function PatientDetailPage(): JSX.Element {
 
       scrollToPanel('patient-trends-section');
     },
-    [navigate, patientId, scrollToPanel],
+    [navigate, openCommunicationWorkspace, patientId, scrollToPanel],
   );
 
   const handleRefreshOverview = useCallback((): void => {
@@ -1978,8 +1986,8 @@ export function PatientDetailPage(): JSX.Element {
             onRetry={() => {
               void patientCommunicationQuery.refetch();
             }}
-            onOpenWorklist={() => navigate('/worklist')}
-            onReviewTasks={() => handleOperationalAction('tasks')}
+            onOpenCommunication={openCommunicationWorkspace}
+            onOpenAlerts={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
           />
           <PatientTasksPanel
             activeTasks={patientActiveTasks}

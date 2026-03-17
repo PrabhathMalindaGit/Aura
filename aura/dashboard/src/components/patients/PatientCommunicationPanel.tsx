@@ -11,8 +11,8 @@ interface PatientCommunicationPanelProps {
   isLoading?: boolean;
   error?: string | null;
   onRetry: () => void;
-  onOpenWorklist: () => void;
-  onReviewTasks: () => void;
+  onOpenCommunication: () => void;
+  onOpenAlerts: () => void;
 }
 
 export function PatientCommunicationPanel({
@@ -20,8 +20,8 @@ export function PatientCommunicationPanel({
   isLoading = false,
   error,
   onRetry,
-  onOpenWorklist,
-  onReviewTasks,
+  onOpenCommunication,
+  onOpenAlerts,
 }: PatientCommunicationPanelProps): JSX.Element {
   return (
     <Card
@@ -33,8 +33,8 @@ export function PatientCommunicationPanel({
           <Button variant="ghost" size="sm" onClick={onRetry}>
             Refresh
           </Button>
-          <Button variant="secondary" size="sm" onClick={onOpenWorklist}>
-            Open worklist
+          <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
+            Open communication
           </Button>
         </div>
       }
@@ -76,13 +76,16 @@ export function PatientCommunicationPanel({
                 <span className="muted-text" title={formatDashboardDateTime(item.messageCreatedAt)}>
                   {formatDashboardRelativeTime(item.messageCreatedAt)}
                 </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={item.linkedTaskId ? onReviewTasks : onOpenWorklist}
-                >
-                  {item.linkedTaskId ? 'Review tasks' : 'Open worklist'}
-                </Button>
+                <div className="patient-communication-item__actions">
+                  <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
+                    Open communication
+                  </Button>
+                  {item.flaggedBySafety ? (
+                    <Button variant="ghost" size="sm" onClick={onOpenAlerts}>
+                      Open alerts
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </article>
           ))}

@@ -22,6 +22,7 @@ export const NAV_SECTIONS: NavSectionConfig[] = [
 export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
   { key: 'dashboard', label: 'Dashboard', to: '/dashboard', icon: 'dashboard', section: 'clinical' },
   { key: 'worklist', label: 'Worklist', to: '/worklist', icon: 'worklist', section: 'clinical' },
+  { key: 'communication', label: 'Communication', to: '/communication', icon: 'worklist', section: 'clinical' },
   { key: 'alerts', label: 'Alerts', to: '/alerts', icon: 'alerts', section: 'clinical' },
   { key: 'insights', label: 'Insights', to: '/insights', icon: 'insights', section: 'clinical' },
   { key: 'appointments', label: 'Appointments', to: '/appointments', icon: 'appointments', section: 'clinical' },

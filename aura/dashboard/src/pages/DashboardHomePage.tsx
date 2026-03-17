@@ -54,6 +54,18 @@ export function DashboardHomePage(): JSX.Element {
     [navigate],
   );
 
+  const openCommunication = useCallback(
+    (patientId?: string) => {
+      if (typeof patientId === 'string' && patientId.trim()) {
+        navigate(`/communication?patientId=${encodeURIComponent(patientId.trim())}`);
+        return;
+      }
+
+      navigate('/communication');
+    },
+    [navigate],
+  );
+
   const openTaskItem = useCallback(
     (item: DashboardFollowUpTaskItem) => {
       if (item.linkedAlertId) {
@@ -517,8 +529,8 @@ export function DashboardHomePage(): JSX.Element {
                 void communicationQuery.refetch();
               }}
               retrying={communicationQuery.isFetching}
-              onOpenPatient={openPatient}
-              onOpenPatients={() => navigate('/worklist')}
+              onOpenThread={openCommunication}
+              onOpenCommunication={() => openCommunication()}
             />
           </div>
         </aside>

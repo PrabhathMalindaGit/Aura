@@ -16,8 +16,8 @@ interface CommunicationOverviewCardProps {
   hasError: boolean;
   onRetry: () => void;
   retrying?: boolean;
-  onOpenPatient: (patientId: string) => void;
-  onOpenPatients: () => void;
+  onOpenThread: (patientId: string) => void;
+  onOpenCommunication: () => void;
 }
 
 export function CommunicationOverviewCard({
@@ -27,8 +27,8 @@ export function CommunicationOverviewCard({
   hasError,
   onRetry,
   retrying = false,
-  onOpenPatient,
-  onOpenPatients,
+  onOpenThread,
+  onOpenCommunication,
 }: CommunicationOverviewCardProps): JSX.Element {
   const items = overview?.items ?? [];
   const visibleItems = visibleItemCount ? items.slice(0, visibleItemCount) : items;
@@ -58,8 +58,8 @@ export function CommunicationOverviewCard({
       }
       action={
         <div className="dashboard-module-card__action-shell">
-          <Button variant="ghost" size="sm" onClick={onOpenPatients}>
-            Open worklist
+          <Button variant="ghost" size="sm" onClick={onOpenCommunication}>
+            Open communication
           </Button>
         </div>
       }
@@ -124,8 +124,8 @@ export function CommunicationOverviewCard({
                       <span>Received {formatDashboardDateTime(item.messageCreatedAt)}</span>
                     </div>
                     <div className="dashboard-list-item__action">
-                      <Button variant="secondary" size="sm" onClick={() => onOpenPatient(item.patientId)}>
-                        Open patient
+                      <Button variant="secondary" size="sm" onClick={() => onOpenThread(item.patientId)}>
+                        Open thread
                       </Button>
                     </div>
                   </div>

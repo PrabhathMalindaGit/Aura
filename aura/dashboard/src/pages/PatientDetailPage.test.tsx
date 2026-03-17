@@ -203,6 +203,7 @@ function renderPatientDetail(
             element={options.withHistoryProbe ? <PatientDetailHistoryHarness /> : <PatientDetailPage />}
           />
           <Route path="/patients" element={<div>Patients workspace</div>} />
+          <Route path="/communication" element={<div>Communication workspace</div>} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
           <Route path="/alerts" element={<div>Alerts workspace</div>} />
           <Route path="/insights" element={<div>Insights workspace</div>} />
@@ -487,6 +488,20 @@ describe('PatientDetailPage', () => {
 
     expect(await screen.findByText('Ref alt-pati')).toBeInTheDocument();
     expect(screen.queryByText('Ref alt-othe')).not.toBeInTheDocument();
+  });
+
+  it('hands off patient communication summary into the communication workspace', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const communicationPanel = await screen.findByTestId('patient-communication-panel');
+    await user.click(within(communicationPanel).getAllByRole('button', { name: 'Open communication' })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('Communication workspace')).toBeInTheDocument();
+    });
   });
 
   it('renders calm empty states for communication, tasks, and appointments when no follow-up exists', async () => {

@@ -53,6 +53,13 @@ const SHELL_PAGE_CONFIGS: Array<{
     },
   },
   {
+    matches: (pathname) => pathname.startsWith('/communication'),
+    config: {
+      title: 'Communication',
+      subtitle: 'Patient-linked communication review with response-needed and safety-aware follow-through.',
+    },
+  },
+  {
     matches: (pathname) => pathname.startsWith('/alerts'),
     config: {
       title: 'Alerts',

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,7 +16,7 @@ import {
   usePatients,
 } from '../services/clinicianApi';
 import { readWorkspaceState, writeWorkspaceState } from '../services/workspaceState';
-import type { AppointmentSlot } from '../types/models';
+import type { AppointmentRequestItem, AppointmentSlot } from '../types/models';
 import { appointmentWorkflowLabel, appointmentWorkflowTone } from '../utils/patientDetail';
 import { createPatientEntryState } from '../utils/patientEntryContext';
 import { getPatientDisplayName } from '../utils/patientFilters';
@@ -25,9 +25,17 @@ import { formatRelativeTime } from '../utils/time';
 
 type SlotStatusFilter = 'available' | 'closed';
 type RequestStatusFilter = 'pending' | 'approved' | 'rejected' | 'canceled';
+type ScheduleView = 'week' | 'day';
 type BadgeVariant = 'default' | 'success' | 'warning' | 'danger';
 type CoordinationTone = 'attention' | 'clear' | 'quiet';
 const APPOINTMENTS_WORKSPACE_PAGE = 'appointments';
+
+interface AppointmentsWorkspaceState {
+  requestStatus: RequestStatusFilter;
+  slotStatus: SlotStatusFilter;
+  scheduleView: ScheduleView;
+  scheduleDate: string;
+}
 
 interface CoordinationState {
   label: string;
@@ -52,6 +60,21 @@ interface PublishOutcome {
 interface RequestReviewOutcome {
   status: 'approved' | 'rejected';
   patientLabel: string;
+}
+
+interface ScheduleRange {
+  from: string;
+  to: string;
+  dayKeys: string[];
+  label: string;
+  caption: string;
+}
+
+interface RequestScheduleContext {
+  label: string;
+  note: string;
+  tone: CoordinationTone;
+  inRange: boolean;
 }
 
 function toIsoDateTime(value: string): string {
@@ -161,6 +184,219 @@ function formatWaitingDuration(value: string): string {
   }
 
   return `Waiting ${relative.replace(/\s+ago$/, '')}`;
+}
+
+function padDateSegment(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
+function toLocalDateKey(value: Date): string {
+  return `${value.getFullYear()}-${padDateSegment(value.getMonth() + 1)}-${padDateSegment(
+    value.getDate(),
+  )}`;
+}
+
+function parseLocalDateKey(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const next = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (!Number.isFinite(next.getTime())) {
+    return null;
+  }
+
+  return next;
+}
+
+function startOfLocalDay(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function addDays(value: Date, days: number): Date {
+  const next = new Date(value);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function startOfWeek(value: Date): Date {
+  const start = startOfLocalDay(value);
+  const offset = (start.getDay() + 6) % 7;
+  return addDays(start, -offset);
+}
+
+function formatDayHeader(value: string): string {
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString([], {
+    weekday: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatScheduleRangeLabel(startsAt: Date, endsAt: Date): string {
+  const startLabel = startsAt.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
+  const endLabel = endsAt.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
+
+  return `${startLabel} - ${endLabel}`;
+}
+
+function createDefaultAppointmentsWorkspaceState(): AppointmentsWorkspaceState {
+  return {
+    requestStatus: 'pending',
+    slotStatus: 'available',
+    scheduleView: 'week',
+    scheduleDate: toLocalDateKey(new Date()),
+  };
+}
+
+function getScheduleRange(scheduleView: ScheduleView, scheduleDate: string): ScheduleRange {
+  const anchorDate = parseLocalDateKey(scheduleDate) ?? new Date();
+  const normalizedAnchor = startOfLocalDay(anchorDate);
+
+  if (scheduleView === 'day') {
+    const dayKey = toLocalDateKey(normalizedAnchor);
+    return {
+      from: normalizedAnchor.toISOString(),
+      to: addDays(normalizedAnchor, 1).toISOString(),
+      dayKeys: [dayKey],
+      label: normalizedAnchor.toLocaleDateString([], {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      }),
+      caption: 'Day view',
+    };
+  }
+
+  const weekStart = startOfWeek(normalizedAnchor);
+  const dayKeys = Array.from({ length: 7 }, (_, index) => toLocalDateKey(addDays(weekStart, index)));
+  const weekEnd = addDays(weekStart, 6);
+
+  return {
+    from: weekStart.toISOString(),
+    to: addDays(weekStart, 7).toISOString(),
+    dayKeys,
+    label: formatScheduleRangeLabel(weekStart, weekEnd),
+    caption: 'Week view',
+  };
+}
+
+function sortSlotsByStart(slots: AppointmentSlot[]): AppointmentSlot[] {
+  return [...slots].sort((left, right) => {
+    return new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime();
+  });
+}
+
+function isSameLocalDay(left: string, rightDateKey: string): boolean {
+  const parsed = new Date(left);
+  if (!Number.isFinite(parsed.getTime())) {
+    return false;
+  }
+
+  return toLocalDateKey(parsed) === rightDateKey;
+}
+
+function rangesOverlap(
+  leftStartsAt: string,
+  leftEndsAt: string,
+  rightStartsAt: string,
+  rightEndsAt: string,
+): boolean {
+  const leftStartMs = new Date(leftStartsAt).getTime();
+  const leftEndMs = new Date(leftEndsAt).getTime();
+  const rightStartMs = new Date(rightStartsAt).getTime();
+  const rightEndMs = new Date(rightEndsAt).getTime();
+
+  if (
+    !Number.isFinite(leftStartMs) ||
+    !Number.isFinite(leftEndMs) ||
+    !Number.isFinite(rightStartMs) ||
+    !Number.isFinite(rightEndMs)
+  ) {
+    return false;
+  }
+
+  return leftStartMs < rightEndMs && leftEndMs > rightStartMs;
+}
+
+function requestFallsInVisibleRange(
+  request: AppointmentRequestItem,
+  range: ScheduleRange,
+): boolean {
+  return rangesOverlap(request.startsAt, request.endsAt, range.from, range.to);
+}
+
+function describeRequestScheduleContext(
+  request: AppointmentRequestItem | null,
+  scheduleView: ScheduleView,
+  range: ScheduleRange,
+  scheduleSlots: AppointmentSlot[],
+): RequestScheduleContext | null {
+  if (!request) {
+    return null;
+  }
+
+  const openSlots = scheduleSlots.filter((slot) => (slot.status ?? 'available') === 'available');
+  const scheduleViewLabel = scheduleView === 'week' ? 'week' : 'day';
+
+  if (!requestFallsInVisibleRange(request, range)) {
+    return {
+      label: `Requested window is outside this ${scheduleViewLabel}`,
+      note: `Use ${scheduleView === 'week' ? 'Previous or Next week' : 'Previous or Next day'} to inspect visible capacity around this request.`,
+      tone: 'quiet',
+      inRange: false,
+    };
+  }
+
+  const sameWindowOpenSlots = openSlots.filter((slot) =>
+    rangesOverlap(slot.startsAt, slot.endsAt, request.startsAt, request.endsAt),
+  );
+  if (sameWindowOpenSlots.length > 0) {
+    return {
+      label: 'Open capacity is visible in this requested block',
+      note: 'Published windows are visible during the requested time block in the current schedule. Review them before deciding the next scheduling step.',
+      tone: 'clear',
+      inRange: true,
+    };
+  }
+
+  const requestDayKey = toLocalDateKey(new Date(request.startsAt));
+  const sameDayOpenSlots = openSlots.filter((slot) => isSameLocalDay(slot.startsAt, requestDayKey));
+  if (sameDayOpenSlots.length > 0) {
+    return {
+      label: 'Open capacity is visible on the requested day',
+      note: 'Published windows are visible on this day in the current schedule, even though none are shown during the requested block.',
+      tone: 'clear',
+      inRange: true,
+    };
+  }
+
+  if (openSlots.length > 0) {
+    return {
+      label: `Open capacity is visible elsewhere in this ${scheduleViewLabel}`,
+      note: 'Published windows are visible in the current schedule range, but not on the requested day shown here.',
+      tone: 'quiet',
+      inRange: true,
+    };
+  }
+
+  return {
+    label: `No open capacity is visible in this ${scheduleViewLabel}`,
+    note: 'No published open slot appears in the current schedule range. Review the queue, then publish availability only if more clinician time is truly needed.',
+    tone: 'attention',
+    inRange: true,
+  };
 }
 
 function describeCoordinationState(
@@ -333,18 +569,20 @@ function describePublishCoverage(
   };
 }
 
-function normalizeAppointmentsWorkspaceState(value: unknown): {
-  requestStatus: RequestStatusFilter;
-  slotStatus: SlotStatusFilter;
-} {
+function normalizeAppointmentsWorkspaceState(value: unknown): AppointmentsWorkspaceState {
+  const fallback = createDefaultAppointmentsWorkspaceState();
+
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {
-      requestStatus: 'pending',
-      slotStatus: 'available',
-    };
+    return fallback;
   }
 
-  const candidate = value as { requestStatus?: string; slotStatus?: string };
+  const candidate = value as {
+    requestStatus?: string;
+    slotStatus?: string;
+    scheduleView?: string;
+    scheduleDate?: string;
+  };
+  const parsedDate = candidate.scheduleDate ? parseLocalDateKey(candidate.scheduleDate) : null;
 
   return {
     requestStatus:
@@ -354,26 +592,22 @@ function normalizeAppointmentsWorkspaceState(value: unknown): {
         ? candidate.requestStatus
         : 'pending',
     slotStatus: candidate.slotStatus === 'closed' ? 'closed' : 'available',
+    scheduleView: candidate.scheduleView === 'day' ? 'day' : 'week',
+    scheduleDate: parsedDate ? toLocalDateKey(parsedDate) : fallback.scheduleDate,
   };
 }
 
 export function AppointmentsPage(): JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [slotStatus, setSlotStatus] = useState<SlotStatusFilter>(() =>
+  const [workspaceState, setWorkspaceState] = useState<AppointmentsWorkspaceState>(() =>
     readWorkspaceState(
       APPOINTMENTS_WORKSPACE_PAGE,
-      { requestStatus: 'pending' as RequestStatusFilter, slotStatus: 'available' as SlotStatusFilter },
+      createDefaultAppointmentsWorkspaceState(),
       normalizeAppointmentsWorkspaceState,
-    ).slotStatus,
+    ),
   );
-  const [requestStatus, setRequestStatus] = useState<RequestStatusFilter>(() =>
-    readWorkspaceState(
-      APPOINTMENTS_WORKSPACE_PAGE,
-      { requestStatus: 'pending' as RequestStatusFilter, slotStatus: 'available' as SlotStatusFilter },
-      normalizeAppointmentsWorkspaceState,
-    ).requestStatus,
-  );
+  const { requestStatus, scheduleDate, scheduleView, slotStatus } = workspaceState;
   const [startsAtInput, setStartsAtInput] = useState('');
   const [endsAtInput, setEndsAtInput] = useState('');
   const [meetingLinkInput, setMeetingLinkInput] = useState('');
@@ -383,12 +617,22 @@ export function AppointmentsPage(): JSX.Element {
   const [lastPublishOutcome, setLastPublishOutcome] = useState<PublishOutcome | null>(null);
   const [lastRequestReviewOutcome, setLastRequestReviewOutcome] =
     useState<RequestReviewOutcome | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   const patientsQuery = usePatients();
+  const scheduleRange = useMemo(
+    () => getScheduleRange(scheduleView, scheduleDate),
+    [scheduleDate, scheduleView],
+  );
 
-  const slotsQuery = useQuery({
-    queryKey: ['appointments-slots', slotStatus],
-    queryFn: () => listAppointmentSlots({ status: slotStatus, limit: 100 }),
+  const scheduleSlotsQuery = useQuery({
+    queryKey: ['appointments-schedule-slots', scheduleRange.from, scheduleRange.to],
+    queryFn: () =>
+      listAppointmentSlots({
+        from: scheduleRange.from,
+        to: scheduleRange.to,
+        limit: 200,
+      }),
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -427,7 +671,14 @@ export function AppointmentsPage(): JSX.Element {
     [endsAtInput, isCreating, startsAtInput],
   );
 
-  const slots = useMemo(() => slotsQuery.data ?? [], [slotsQuery.data]);
+  const scheduleSlots = useMemo(
+    () => sortSlotsByStart(scheduleSlotsQuery.data ?? []),
+    [scheduleSlotsQuery.data],
+  );
+  const slots = useMemo(
+    () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === slotStatus),
+    [scheduleSlots, slotStatus],
+  );
   const requests = useMemo(() => requestsQuery.data ?? [], [requestsQuery.data]);
   const openSlots = useMemo(() => openSlotsSummaryQuery.data ?? [], [openSlotsSummaryQuery.data]);
   const pendingRequests = useMemo(
@@ -441,7 +692,7 @@ export function AppointmentsPage(): JSX.Element {
   const availableSlotsCount = openSlots.length;
   const pendingRequestsCount = pendingRequests.length;
   const refreshedAtLabel = formatWorkspaceUpdatedAt(
-    slotsQuery.dataUpdatedAt,
+    scheduleSlotsQuery.dataUpdatedAt,
     requestsQuery.dataUpdatedAt,
     openSlotsSummaryQuery.dataUpdatedAt,
     pendingRequestsSummaryQuery.dataUpdatedAt,
@@ -472,7 +723,7 @@ export function AppointmentsPage(): JSX.Element {
     });
   }
   const isRefreshingWorkspace =
-    slotsQuery.isFetching ||
+    scheduleSlotsQuery.isFetching ||
     requestsQuery.isFetching ||
     openSlotsSummaryQuery.isFetching ||
     pendingRequestsSummaryQuery.isFetching ||
@@ -531,20 +782,6 @@ export function AppointmentsPage(): JSX.Element {
       : availableSlotsCount > 0
         ? 'Capacity already published'
         : 'Publish only when needed';
-  const slotsSectionNote =
-    slotStatus === 'available'
-      ? availableSlotsCount > 0
-        ? pendingRequestsCount > availableSlotsCount
-          ? `${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published, but more coverage may be needed after review.`
-          : pendingRequestsCount > 0
-            ? `${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published for ${pendingRequestsCount} waiting request${pendingRequestsCount === 1 ? '' : 's'}.`
-            : `${availableSlotsCount} open slot${availableSlotsCount === 1 ? ' is' : 's are'} published and ready if new demand arrives.`
-        : pendingRequestsCount > 0
-          ? 'No open capacity is published for the waiting queue.'
-          : 'No open capacity is currently published.'
-      : slots.length > 0
-        ? `${slots.length} closed slot${slots.length === 1 ? '' : 's'} remain in this view for schedule reference.`
-        : 'No archived or closed capacity is in this view.';
   const requestsSectionNote =
     requestStatus === 'pending'
       ? pendingRequestsCount > 0
@@ -558,13 +795,15 @@ export function AppointmentsPage(): JSX.Element {
           : 'No requests are waiting right now.'
       : `${requests.length} requests are shown in this status view for reference.`;
   const slotsEmptyTitle =
-    slotStatus === 'available' ? 'No open capacity is published' : 'No closed capacity in this view';
+    slotStatus === 'available'
+      ? `No open capacity in this ${scheduleView}`
+      : `No closed capacity in this ${scheduleView}`;
   const slotsEmptyDescription =
     slotStatus === 'available'
       ? pendingRequestsCount > 0
-        ? 'Requests are waiting and no open capacity is published. Review the queue, then publish availability if coverage is needed.'
-        : 'No open capacity is currently published. Keep capacity unpublished until demand needs coverage.'
-      : 'No archived or closed capacity is in this view.';
+        ? 'Requests are waiting and no open capacity is visible in the current schedule range. Review the queue, then publish availability if coverage is needed.'
+        : 'No open capacity is visible in the current schedule range. Move to another day or week, or leave capacity unpublished until demand needs coverage.'
+      : 'No closed capacity is visible in the current schedule range.';
   const requestsEmptyTitle =
     requestStatus === 'pending' ? 'No requests are waiting right now' : `No ${requestStatus} requests`;
   const requestsEmptyDescription =
@@ -573,35 +812,134 @@ export function AppointmentsPage(): JSX.Element {
         ? 'Queue is quiet and published capacity is ready if new demand arrives.'
         : 'Queue is quiet. New booking requests will appear here when clinician review is needed.'
       : 'Requests matching this review state will appear here when scheduling activity changes.';
+  const scheduleTitle = 'Schedule';
+  const scheduleNote =
+    scheduleView === 'week'
+      ? 'Visible open and closed capacity is shown for the current week only.'
+      : 'Visible open and closed capacity is shown for the current day only.';
+  const scheduleEmptyTitle =
+    scheduleView === 'week' ? 'No visible capacity in this week' : 'No visible capacity in this day';
+  const scheduleEmptyDescription =
+    scheduleView === 'week'
+      ? 'No open or closed slots are present in the current fetched week. Move to another week or publish availability when demand needs coverage.'
+      : 'No open or closed slots are present in the current fetched day. Move to another day or publish availability when demand needs coverage.';
+  const slotsDetailTitle = slotStatus === 'available' ? 'Open capacity detail' : 'Closed capacity detail';
+  const slotsDetailNote =
+    slotStatus === 'available'
+      ? 'Review published open windows in the current visible range.'
+      : 'Review closed windows in the current visible range for schedule reference.';
 
-  function handleRequestStatusChange(status: RequestStatusFilter): void {
-    setRequestStatus(status);
-    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
-      requestStatus: status,
-      slotStatus,
+  const visibleOpenSlotsCount = useMemo(
+    () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === 'available').length,
+    [scheduleSlots],
+  );
+  const visibleClosedSlotsCount = Math.max(scheduleSlots.length - visibleOpenSlotsCount, 0);
+  const selectedRequest = useMemo(
+    () => requests.find((item) => item.requestId === selectedRequestId) ?? requests[0] ?? null,
+    [requests, selectedRequestId],
+  );
+  const requestScheduleContext = useMemo(
+    () => describeRequestScheduleContext(selectedRequest, scheduleView, scheduleRange, scheduleSlots),
+    [scheduleRange, scheduleSlots, scheduleView, selectedRequest],
+  );
+  const todayDateKey = toLocalDateKey(new Date());
+  const selectedRequestDayKey =
+    selectedRequest && Number.isFinite(new Date(selectedRequest.startsAt).getTime())
+      ? toLocalDateKey(new Date(selectedRequest.startsAt))
+      : null;
+  const scheduleSlotsByDay = useMemo(() => {
+    const next = new Map<string, AppointmentSlot[]>();
+    scheduleRange.dayKeys.forEach((dayKey) => {
+      next.set(dayKey, []);
+    });
+    scheduleSlots.forEach((slot) => {
+      const slotDayKey = toLocalDateKey(new Date(slot.startsAt));
+      if (!next.has(slotDayKey)) {
+        return;
+      }
+      next.set(slotDayKey, [...(next.get(slotDayKey) ?? []), slot]);
+    });
+
+    return next;
+  }, [scheduleRange.dayKeys, scheduleSlots]);
+
+  useEffect(() => {
+    if (requests.length === 0) {
+      if (selectedRequestId !== null) {
+        setSelectedRequestId(null);
+      }
+      return;
+    }
+
+    if (!selectedRequestId || !requests.some((item) => item.requestId === selectedRequestId)) {
+      setSelectedRequestId(requests[0]?.requestId ?? null);
+    }
+  }, [requests, selectedRequestId]);
+
+  function updateWorkspaceState(
+    patch:
+      | Partial<AppointmentsWorkspaceState>
+      | ((current: AppointmentsWorkspaceState) => AppointmentsWorkspaceState),
+  ): void {
+    setWorkspaceState((current) => {
+      const next = typeof patch === 'function' ? patch(current) : { ...current, ...patch };
+      writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, next);
+      return next;
     });
   }
 
+  function handleRequestStatusChange(status: RequestStatusFilter): void {
+    updateWorkspaceState({ requestStatus: status });
+  }
+
   function handleSlotStatusChange(status: SlotStatusFilter): void {
-    setSlotStatus(status);
-    writeWorkspaceState(APPOINTMENTS_WORKSPACE_PAGE, {
-      requestStatus,
-      slotStatus: status,
+    updateWorkspaceState({ slotStatus: status });
+  }
+
+  function handleScheduleViewChange(view: ScheduleView): void {
+    updateWorkspaceState({ scheduleView: view });
+  }
+
+  function handleScheduleDateShift(direction: 'previous' | 'next'): void {
+    updateWorkspaceState((current) => {
+      const anchorDate = parseLocalDateKey(current.scheduleDate) ?? new Date();
+      const offset = direction === 'next' ? 1 : -1;
+      const nextDate =
+        current.scheduleView === 'day'
+          ? addDays(anchorDate, offset)
+          : addDays(anchorDate, offset * 7);
+
+      return {
+        ...current,
+        scheduleDate: toLocalDateKey(nextDate),
+      };
+    });
+  }
+
+  function handleScheduleToday(): void {
+    updateWorkspaceState({
+      scheduleDate: toLocalDateKey(new Date()),
     });
   }
 
   async function handleRefreshWorkspace() {
-    const [slotsResult, requestsResult, openSlotsResult, pendingRequestsResult, patientsResult] =
+    const [
+      scheduleSlotsResult,
+      requestsResult,
+      openSlotsResult,
+      pendingRequestsResult,
+      patientsResult,
+    ] =
       await Promise.all([
-      slotsQuery.refetch(),
-      requestsQuery.refetch(),
-      openSlotsSummaryQuery.refetch(),
-      pendingRequestsSummaryQuery.refetch(),
-      patientsQuery.refetch(),
-    ]);
+        scheduleSlotsQuery.refetch(),
+        requestsQuery.refetch(),
+        openSlotsSummaryQuery.refetch(),
+        pendingRequestsSummaryQuery.refetch(),
+        patientsQuery.refetch(),
+      ]);
 
     return {
-      slotsResult,
+      scheduleSlotsResult,
       requestsResult,
       openSlotsResult,
       pendingRequestsResult,
@@ -646,7 +984,24 @@ export function AppointmentsPage(): JSX.Element {
 
         if (matchedSlot) {
           queryClient.setQueryData(['appointments-slots-summary', 'available'], refreshedOpenSlots);
-          queryClient.setQueryData(['appointments-slots', 'available'], refreshedOpenSlots);
+          const matchedStartsAtMs = new Date(matchedSlot.startsAt).getTime();
+          const scheduleRangeStartMs = new Date(scheduleRange.from).getTime();
+          const scheduleRangeEndMs = new Date(scheduleRange.to).getTime();
+
+          if (
+            Number.isFinite(matchedStartsAtMs) &&
+            matchedStartsAtMs >= scheduleRangeStartMs &&
+            matchedStartsAtMs < scheduleRangeEndMs
+          ) {
+            queryClient.setQueryData<AppointmentSlot[]>(
+              ['appointments-schedule-slots', scheduleRange.from, scheduleRange.to],
+              (current = []) =>
+                sortSlotsByStart([
+                  ...current.filter((slot) => slot.slotId !== matchedSlot.slotId),
+                  matchedSlot,
+                ]),
+            );
+          }
           setLastPublishOutcome({
             slotId: matchedSlot.slotId,
             startsAt: matchedSlot.startsAt,
@@ -698,6 +1053,42 @@ export function AppointmentsPage(): JSX.Element {
     } finally {
       setReviewingKey(null);
     }
+  }
+
+  function renderScheduleSlot(slot: AppointmentSlot): JSX.Element {
+    const resolvedStatus = slot.status ?? 'available';
+    const isRecentlyPublished = lastPublishOutcome?.slotId === slot.slotId;
+    const isRequestContextSlot =
+      selectedRequest !== null &&
+      requestScheduleContext?.inRange === true &&
+      rangesOverlap(slot.startsAt, slot.endsAt, selectedRequest.startsAt, selectedRequest.endsAt);
+
+    return (
+      <article
+        key={`schedule-${slot.slotId}`}
+        className={`appointments-schedule-slot appointments-schedule-slot--${resolvedStatus}${
+          isRecentlyPublished ? ' appointments-schedule-slot--recent' : ''
+        }${isRequestContextSlot ? ' appointments-schedule-slot--request-context' : ''}`}
+      >
+        <div className="appointments-schedule-slot__header">
+          <p className="appointments-schedule-slot__time">{formatTimeRange(slot.startsAt, slot.endsAt)}</p>
+          <Badge variant={toStatusVariant(resolvedStatus)}>
+            {resolvedStatus === 'available' ? 'Open' : 'Closed'}
+          </Badge>
+        </div>
+        <p className="appointments-schedule-slot__label">
+          {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
+        </p>
+        <p className="appointments-schedule-slot__note">
+          {resolvedStatus === 'available'
+            ? 'Visible for request follow-through in this range.'
+            : 'Kept in the visible schedule for reference only.'}
+        </p>
+        {isRecentlyPublished ? (
+          <p className="appointments-schedule-slot__status">Recently published in this session.</p>
+        ) : null}
+      </article>
+    );
   }
 
   return (
@@ -977,6 +1368,7 @@ export function AppointmentsPage(): JSX.Element {
                   {requests.map((item) => {
                     const patientName = patientNameById.get(item.patientId) ?? item.patientId;
                     const isPendingRequest = item.status === 'pending';
+                    const isSelectedRequest = selectedRequest?.requestId === item.requestId;
                     const lifecycleLabel = isPendingRequest
                       ? 'Pending review'
                       : item.status === 'approved'
@@ -995,7 +1387,20 @@ export function AppointmentsPage(): JSX.Element {
                         key={item.requestId}
                         className={`appointments-item appointments-item--request${
                           isPendingRequest ? ' appointments-item--request-pending' : ''
-                        }`}
+                        }${isSelectedRequest ? ' appointments-item--request-selected' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelectedRequest}
+                        onClick={() => {
+                          setSelectedRequestId(item.requestId);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') {
+                            return;
+                          }
+                          event.preventDefault();
+                          setSelectedRequestId(item.requestId);
+                        }}
                       >
                         <div className="appointments-item__header">
                           <div className="appointments-item__title-group">
@@ -1051,7 +1456,8 @@ export function AppointmentsPage(): JSX.Element {
                               size="sm"
                               variant="primary"
                               disabled={reviewingKey !== null}
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 void handleReview(item.requestId, 'approved');
                               }}
                             >
@@ -1061,7 +1467,10 @@ export function AppointmentsPage(): JSX.Element {
                               className="appointments-item__open"
                               size="sm"
                               variant="secondary"
-                              onClick={() => openPatientFromAppointments(item)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openPatientFromAppointments(item);
+                              }}
                             >
                               Open patient
                             </Button>
@@ -1069,7 +1478,8 @@ export function AppointmentsPage(): JSX.Element {
                               size="sm"
                               variant="ghost"
                               disabled={reviewingKey !== null}
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
                                 void handleReview(item.requestId, 'rejected');
                               }}
                             >
@@ -1082,7 +1492,10 @@ export function AppointmentsPage(): JSX.Element {
                               className="appointments-item__open"
                               size="sm"
                               variant="secondary"
-                              onClick={() => openPatientFromAppointments(item)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openPatientFromAppointments(item);
+                              }}
                             >
                               Open patient
                             </Button>
@@ -1099,143 +1512,352 @@ export function AppointmentsPage(): JSX.Element {
               className={`appointments-workspace__section appointments-workspace__section--slots${
                 slotStatus === 'available' ? ' appointments-workspace__section--slots-available' : ''
               }`}
-              aria-label={slotStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
+              aria-label="Schedule"
             >
               <header className="appointments-workspace__section-header">
                 <div className="appointments-workspace__section-heading">
-                  <h3 className="appointments-workspace__section-title">{slotViewLabel}</h3>
-                  <p className="appointments-workspace__section-note">{slotsSectionNote}</p>
+                  <h3 className="appointments-workspace__section-title">{scheduleTitle}</h3>
+                  <p className="appointments-workspace__section-note">{scheduleNote}</p>
                 </div>
-                <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
-                  {slotViewLabel}
+                <Badge variant="default">
+                  {scheduleRange.caption}
                 </Badge>
               </header>
-              <div className="appointments-filter-group appointments-filter-group--segmented">
-                <Button
-                  variant={slotStatus === 'available' ? 'primary' : 'secondary'}
-                  size="sm"
-                  onClick={() => {
-                    handleSlotStatusChange('available');
-                  }}
-                >
-                  Open capacity
-                </Button>
-                <Button
-                  variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
-                  size="sm"
-                  onClick={() => {
-                    handleSlotStatusChange('closed');
-                  }}
-                >
-                  Closed capacity
-                </Button>
+              <div className="appointments-schedule__toolbar">
+                <div className="appointments-filter-group appointments-filter-group--segmented">
+                  <Button
+                    variant={scheduleView === 'week' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => {
+                      handleScheduleViewChange('week');
+                    }}
+                  >
+                    Week
+                  </Button>
+                  <Button
+                    variant={scheduleView === 'day' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => {
+                      handleScheduleViewChange('day');
+                    }}
+                  >
+                    Day
+                  </Button>
+                </div>
+                <div className="appointments-schedule__nav">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      handleScheduleDateShift('previous');
+                    }}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      handleScheduleToday();
+                    }}
+                  >
+                    Today
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      handleScheduleDateShift('next');
+                    }}
+                  >
+                    Next
+                  </Button>
+                  <p
+                    className="appointments-schedule__range-label"
+                    data-testid="appointments-schedule-range-label"
+                  >
+                    {scheduleRange.label}
+                  </p>
+                </div>
+              </div>
+              <div className="appointments-schedule__facts" aria-live="polite">
+                <span className="appointments-workspace__context-pill appointments-workspace__context-pill--capacity">
+                  {visibleOpenSlotsCount} open visible
+                </span>
+                <span className="appointments-workspace__context-pill appointments-workspace__context-pill--status appointments-workspace__context-pill--status-quiet">
+                  {visibleClosedSlotsCount} closed visible
+                </span>
               </div>
 
-              {slotsQuery.error ? (
-                <AlertBanner variant="error" title="Could not load capacity">
-                  {toUserMessage(slotsQuery.error)}
+              {selectedRequest && requestScheduleContext ? (
+                <section
+                  className={`appointments-schedule-context appointments-schedule-context--${requestScheduleContext.tone}`}
+                  data-testid="appointments-schedule-context"
+                  aria-live="polite"
+                >
+                  <div className="appointments-schedule-context__copy">
+                    <p className="appointments-schedule-context__eyebrow">Selected request</p>
+                    <h4 className="appointments-schedule-context__title">
+                      {patientNameById.get(selectedRequest.patientId) ?? selectedRequest.patientId}
+                    </h4>
+                    <p className="appointments-schedule-context__text">
+                      {requestScheduleContext.label}
+                    </p>
+                    <p className="appointments-schedule-context__note">
+                      {requestScheduleContext.note}
+                    </p>
+                  </div>
+                  <div className="appointments-schedule-context__facts">
+                    <span className="appointments-item__meta-chip">
+                      {formatCalendarDay(selectedRequest.startsAt)}
+                    </span>
+                    <span className="appointments-item__meta-chip">
+                      {formatTimeRange(selectedRequest.startsAt, selectedRequest.endsAt)}
+                    </span>
+                    <span className="appointments-item__meta-chip">
+                      {formatWaitingDuration(selectedRequest.createdAt)}
+                    </span>
+                  </div>
+                  {selectedRequest.note ? (
+                    <div className="appointments-item__reason">
+                      <p className="appointments-item__reason-label">Request note</p>
+                      <p className="appointments-item__reason-text">{selectedRequest.note}</p>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {scheduleSlotsQuery.error ? (
+                <AlertBanner variant="error" title="Could not load schedule">
+                  {toUserMessage(scheduleSlotsQuery.error)}
                 </AlertBanner>
               ) : null}
 
-              {slotsQuery.isLoading && slots.length === 0 ? (
-                <div className="appointments-skeleton" aria-label="Appointment slots loading placeholder">
-                  <Skeleton height={88} />
-                  <Skeleton height={88} />
-                  <Skeleton height={88} />
-                </div>
-              ) : slots.length === 0 ? (
-                <div className="appointments-empty-state appointments-empty-state--slots" role="status" aria-live="polite">
-                  <div className="appointments-empty-state__title-row">
-                    <span className="appointments-empty-state__icon" aria-hidden="true">
-                      ⏱
-                    </span>
-                    <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
-                  </div>
-                  <p className="appointments-empty-state__description">{slotsEmptyDescription}</p>
-                  <div className="appointments-empty-state__footer">
-                    <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={isRefreshingWorkspace}
-                      onClick={() => {
-                        void handleRefreshWorkspace();
-                      }}
-                    >
-                      Refresh
-                    </Button>
-                  </div>
+              {scheduleSlotsQuery.isLoading && scheduleSlots.length === 0 ? (
+                <div className="appointments-skeleton" aria-label="Appointment schedule loading placeholder">
+                  <Skeleton height={128} />
+                  <Skeleton height={128} />
                 </div>
               ) : (
-                <div className="stack stack--2">
-                  {slots.map((slot) => {
-                    const resolvedStatus = slot.status ?? 'available';
-                    const readinessLabel =
-                      resolvedStatus === 'available'
-                        ? 'Ready to absorb demand'
-                        : 'Not open for new bookings';
-
-                    return (
-                      <div
-                        key={slot.slotId}
-                        className={`appointments-item appointments-item--slot${
-                          resolvedStatus === 'available'
-                            ? ' appointments-item--slot-available'
-                            : ' appointments-item--slot-closed'
-                        }${
-                          slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
-                            ? ' appointments-item--slot-just-published'
-                            : ''
-                        }`}
-                      >
-                        <div className="appointments-item__header">
-                          <div className="appointments-item__title-group">
-                            <p className="appointments-item__eyebrow">
-                              {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
-                            </p>
-                            <p className="appointments-item__title">{formatTimeRange(slot.startsAt, slot.endsAt)}</p>
-                            <p className="appointments-item__subtitle">{formatCalendarDay(slot.startsAt)}</p>
-                            <p className="appointments-item__support">{readinessLabel}</p>
-                          </div>
-                          <Badge variant={toStatusVariant(resolvedStatus)}>
-                            {resolvedStatus.toUpperCase()}
-                          </Badge>
-                        </div>
-                        <div className="appointments-item__schedule appointments-item__schedule--capacity">
-                          <p className="appointments-item__schedule-label">
-                            {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
-                          </p>
-                          <p className="appointments-item__schedule-value">{readinessLabel}</p>
-                          <p className="appointments-item__schedule-support">
-                            {slotStatus === 'available'
-                              ? 'Ready if reviewed demand needs this time.'
-                              : 'Kept for schedule reference after changes or completed sessions.'}
-                          </p>
-                        </div>
-                        <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                          <span className="appointments-item__meta-chip">Video visit</span>
-                          {slot.clinicianName ? (
-                            <span className="appointments-item__meta-chip">Clinician {slot.clinicianName}</span>
-                          ) : null}
-                          {slot.createdAt ? (
-                            <span className="appointments-item__meta-chip">
-                              Created {formatDateTime(slot.createdAt)}
-                            </span>
-                          ) : null}
-                        </div>
-                        {slot.meetingLink ? (
-                          <p className="appointments-item__meta appointments-item__meta--link">
-                            Meeting link:{' '}
-                            <a href={slot.meetingLink} target="_blank" rel="noreferrer">
-                              {slot.meetingLink}
-                            </a>
-                          </p>
-                        ) : null}
+                <>
+                  {scheduleSlots.length === 0 ? (
+                    <div className="appointments-empty-state appointments-empty-state--slots" role="status" aria-live="polite">
+                      <div className="appointments-empty-state__title-row">
+                        <span className="appointments-empty-state__icon" aria-hidden="true">
+                          ⏱
+                        </span>
+                        <h3 className="appointments-empty-state__title">{scheduleEmptyTitle}</h3>
                       </div>
-                    );
-                  })}
-                </div>
+                      <p className="appointments-empty-state__description">{scheduleEmptyDescription}</p>
+                    </div>
+                  ) : null}
+                  {scheduleView === 'week' ? (
+                    <div className="appointments-schedule-week" data-testid="appointments-schedule-week">
+                      {scheduleRange.dayKeys.map((dayKey) => {
+                        const daySlots = scheduleSlotsByDay.get(dayKey) ?? [];
+                        const isToday = dayKey === todayDateKey;
+                        const isRequestDay =
+                          selectedRequestDayKey !== null &&
+                          requestScheduleContext?.inRange === true &&
+                          selectedRequestDayKey === dayKey;
+
+                        return (
+                          <section
+                            key={dayKey}
+                            className={`appointments-schedule-day${
+                              isToday ? ' appointments-schedule-day--today' : ''
+                            }${isRequestDay ? ' appointments-schedule-day--request-context' : ''}`}
+                            aria-label={`Schedule for ${formatDayHeader(dayKey)}`}
+                          >
+                            <header className="appointments-schedule-day__header">
+                              <p className="appointments-schedule-day__title">{formatDayHeader(dayKey)}</p>
+                              <p className="appointments-schedule-day__meta">
+                                {daySlots.length === 0
+                                  ? 'No fetched slots'
+                                  : `${daySlots.length} slot${daySlots.length === 1 ? '' : 's'}`}
+                              </p>
+                            </header>
+                            {daySlots.length === 0 ? (
+                              <p className="appointments-schedule-day__empty">
+                                No visible capacity in this day.
+                              </p>
+                            ) : (
+                              <div className="appointments-schedule-day__slots">
+                                {daySlots.map((slot) => renderScheduleSlot(slot))}
+                              </div>
+                            )}
+                          </section>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="appointments-schedule-day-agenda" data-testid="appointments-schedule-day">
+                      <header className="appointments-schedule-day-agenda__header">
+                        <p className="appointments-schedule-day-agenda__title">{scheduleRange.label}</p>
+                        <p className="appointments-schedule-day-agenda__meta">
+                          {scheduleSlots.length === 0
+                            ? 'No fetched slots in this day'
+                            : `${scheduleSlots.length} slot${scheduleSlots.length === 1 ? '' : 's'} visible`}
+                        </p>
+                      </header>
+                      {scheduleSlots.length === 0 ? (
+                        <p className="appointments-schedule-day__empty">
+                          No visible capacity in this day.
+                        </p>
+                      ) : (
+                        <div className="appointments-schedule-day-agenda__slots">
+                          {scheduleSlots.map((slot) => renderScheduleSlot(slot))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
+
+              <div className="appointments-workspace__divider" />
+
+              <div className="appointments-schedule-detail">
+                <header className="appointments-workspace__section-header appointments-schedule-detail__header">
+                  <div className="appointments-workspace__section-heading">
+                    <h4 className="appointments-workspace__section-title">{slotsDetailTitle}</h4>
+                    <p className="appointments-workspace__section-note">{slotsDetailNote}</p>
+                  </div>
+                  <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
+                    {slotViewLabel}
+                  </Badge>
+                </header>
+                <div className="appointments-filter-group appointments-filter-group--segmented">
+                  <Button
+                    variant={slotStatus === 'available' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => {
+                      handleSlotStatusChange('available');
+                    }}
+                  >
+                    Open capacity
+                  </Button>
+                  <Button
+                    variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => {
+                      handleSlotStatusChange('closed');
+                    }}
+                  >
+                    Closed capacity
+                  </Button>
+                </div>
+
+                {scheduleSlotsQuery.isLoading && scheduleSlots.length === 0 ? (
+                  <div className="appointments-skeleton" aria-label="Appointment slots loading placeholder">
+                    <Skeleton height={88} />
+                    <Skeleton height={88} />
+                    <Skeleton height={88} />
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div className="appointments-empty-state appointments-empty-state--slots" role="status" aria-live="polite">
+                    <div className="appointments-empty-state__title-row">
+                      <span className="appointments-empty-state__icon" aria-hidden="true">
+                        ⏱
+                      </span>
+                      <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
+                    </div>
+                    <p className="appointments-empty-state__description">{slotsEmptyDescription}</p>
+                    <div className="appointments-empty-state__footer">
+                      <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={isRefreshingWorkspace}
+                        onClick={() => {
+                          void handleRefreshWorkspace();
+                        }}
+                      >
+                        Refresh
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="stack stack--2">
+                    {slots.map((slot) => {
+                      const resolvedStatus = slot.status ?? 'available';
+                      const readinessLabel =
+                        resolvedStatus === 'available'
+                          ? 'Ready to absorb demand'
+                          : 'Not open for new bookings';
+
+                      return (
+                        <div
+                          key={slot.slotId}
+                          className={`appointments-item appointments-item--slot${
+                            resolvedStatus === 'available'
+                              ? ' appointments-item--slot-available'
+                              : ' appointments-item--slot-closed'
+                          }${
+                            slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
+                              ? ' appointments-item--slot-just-published'
+                              : ''
+                          }${
+                            selectedRequest !== null &&
+                            requestScheduleContext?.inRange === true &&
+                            rangesOverlap(
+                              slot.startsAt,
+                              slot.endsAt,
+                              selectedRequest.startsAt,
+                              selectedRequest.endsAt,
+                            )
+                              ? ' appointments-item--slot-request-context'
+                              : ''
+                          }`}
+                        >
+                          <div className="appointments-item__header">
+                            <div className="appointments-item__title-group">
+                              <p className="appointments-item__eyebrow">
+                                {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
+                              </p>
+                              <p className="appointments-item__title">{formatTimeRange(slot.startsAt, slot.endsAt)}</p>
+                              <p className="appointments-item__subtitle">{formatCalendarDay(slot.startsAt)}</p>
+                              <p className="appointments-item__support">{readinessLabel}</p>
+                            </div>
+                            <Badge variant={toStatusVariant(resolvedStatus)}>
+                              {resolvedStatus.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <div className="appointments-item__schedule appointments-item__schedule--capacity">
+                            <p className="appointments-item__schedule-label">
+                              {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
+                            </p>
+                            <p className="appointments-item__schedule-value">{readinessLabel}</p>
+                            <p className="appointments-item__schedule-support">
+                              {slotStatus === 'available'
+                                ? 'Ready if reviewed demand needs this time.'
+                                : 'Kept for schedule reference after changes or completed sessions.'}
+                            </p>
+                          </div>
+                          <div className="appointments-item__meta-row appointments-item__meta-row--primary">
+                            <span className="appointments-item__meta-chip">Video visit</span>
+                            {slot.clinicianName ? (
+                              <span className="appointments-item__meta-chip">Clinician {slot.clinicianName}</span>
+                            ) : null}
+                            {slot.createdAt ? (
+                              <span className="appointments-item__meta-chip">
+                                Created {formatDateTime(slot.createdAt)}
+                              </span>
+                            ) : null}
+                          </div>
+                          {slot.meetingLink ? (
+                            <p className="appointments-item__meta appointments-item__meta--link">
+                              Meeting link:{' '}
+                              <a href={slot.meetingLink} target="_blank" rel="noreferrer">
+                                {slot.meetingLink}
+                              </a>
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </section>
           </div>
         </div>

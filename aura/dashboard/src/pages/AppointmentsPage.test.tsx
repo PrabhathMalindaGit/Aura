@@ -69,6 +69,28 @@ function installFetchMock({
   publishBehaviors = [],
   reviewBehaviors = [],
 }: RenderOptions): void {
+  function filterItemsByRange<T extends Record<string, unknown>>(
+    items: T[],
+    from: string | null,
+    to: string | null,
+  ): T[] {
+    if (!from && !to) {
+      return items;
+    }
+
+    const fromMs = from ? new Date(from).getTime() : Number.NEGATIVE_INFINITY;
+    const toMs = to ? new Date(to).getTime() : Number.POSITIVE_INFINITY;
+
+    return items.filter((item) => {
+      const startsAtMs = new Date(String(item.startsAt ?? '')).getTime();
+      if (!Number.isFinite(startsAtMs)) {
+        return false;
+      }
+
+      return startsAtMs >= fromMs && startsAtMs < toMs;
+    });
+  }
+
   let requestItems = [...requests];
   let slotItems = [...slots];
   const queuedPublishBehaviors = [...publishBehaviors];
@@ -117,9 +139,14 @@ function installFetchMock({
       }
 
       const status = url.searchParams.get('status');
+      const rangedItems = filterItemsByRange(
+        requestItems,
+        url.searchParams.get('from'),
+        url.searchParams.get('to'),
+      );
       const filteredItems = status
-        ? requestItems.filter((item) => String(item.status ?? '') === status)
-        : requestItems;
+        ? rangedItems.filter((item) => String(item.status ?? '') === status)
+        : rangedItems;
 
       return createJsonResponse({ ok: true, items: filteredItems });
     }
@@ -158,9 +185,10 @@ function installFetchMock({
 
     if (href.includes('/clinician/appointments/slots')) {
       const status = url.searchParams.get('status');
+      const rangedItems = filterItemsByRange(slotItems, url.searchParams.get('from'), url.searchParams.get('to'));
       const filteredItems = status
-        ? slotItems.filter((item) => String(item.status ?? 'available') === status)
-        : slotItems;
+        ? rangedItems.filter((item) => String(item.status ?? 'available') === status)
+        : rangedItems;
 
       return createJsonResponse({ ok: true, items: filteredItems });
     }
@@ -228,6 +256,198 @@ afterEach(() => {
 });
 
 describe('AppointmentsPage', () => {
+  it('renders week schedule alongside request review using only supported slot states', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-schedule-1',
+          slotId: 'slot-schedule-1',
+          patientId: 'patient-42',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-16T09:00:00.000Z',
+          endsAt: '2026-03-16T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+      ],
+      slots: [
+        {
+          slotId: 'slot-schedule-open',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-16T13:00:00.000Z',
+          endsAt: '2026-03-16T13:30:00.000Z',
+          modality: 'video',
+          status: 'available',
+          createdAt: '2026-03-14T07:30:00.000Z',
+        },
+        {
+          slotId: 'slot-schedule-closed',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-17T15:00:00.000Z',
+          endsAt: '2026-03-17T15:30:00.000Z',
+          modality: 'video',
+          status: 'closed',
+          createdAt: '2026-03-14T08:15:00.000Z',
+        },
+      ],
+      patients: [
+        {
+          id: 'patient-42',
+          displayName: 'Taylor Moss',
+          status: 'active',
+        },
+      ],
+    });
+
+    expect(await screen.findByText('1 open visible')).toBeInTheDocument();
+    expect(screen.getByText('Request review')).toBeInTheDocument();
+    expect(screen.getByText('Schedule')).toBeInTheDocument();
+    expect(screen.getByTestId('appointments-schedule-week')).toBeInTheDocument();
+    expect(screen.getByText('1 closed visible')).toBeInTheDocument();
+    expect(screen.queryByText('BOOKED')).not.toBeInTheDocument();
+  });
+
+  it('supports day and week navigation without leaving the active fetched range', async () => {
+    renderAppointmentsPage({
+      requests: [],
+      slots: [
+        {
+          slotId: 'slot-nav-week-1',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-16T09:00:00.000Z',
+          endsAt: '2026-03-16T09:30:00.000Z',
+          modality: 'video',
+          meetingLink: 'https://visit.example/week-1',
+          status: 'available',
+          createdAt: '2026-03-14T07:30:00.000Z',
+        },
+        {
+          slotId: 'slot-nav-week-2',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-23T15:00:00.000Z',
+          endsAt: '2026-03-23T15:30:00.000Z',
+          modality: 'video',
+          meetingLink: 'https://visit.example/week-2',
+          status: 'available',
+          createdAt: '2026-03-14T07:30:00.000Z',
+        },
+      ],
+    });
+
+    await screen.findByText('1 open visible');
+    const rangeLabel = screen.getByTestId('appointments-schedule-range-label');
+    const initialRangeLabel = rangeLabel.textContent;
+    expect(screen.getByTestId('appointments-schedule-week')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-schedule-range-label').textContent).not.toEqual(
+        initialRangeLabel,
+      );
+    });
+    const nextRangeLabel = screen.getByTestId('appointments-schedule-range-label').textContent;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Day' }));
+    expect(await screen.findByTestId('appointments-schedule-day')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-schedule-range-label').textContent).not.toEqual(
+        nextRangeLabel,
+      );
+    });
+  });
+
+  it('updates selected request schedule context without implying booking', async () => {
+    renderAppointmentsPage({
+      requests: [
+        {
+          requestId: 'req-context-1',
+          slotId: 'slot-context-1',
+          patientId: 'patient-42',
+          status: 'pending',
+          workflowStatus: 'awaiting_confirmation',
+          startsAt: '2026-03-16T09:00:00.000Z',
+          endsAt: '2026-03-16T09:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-14T08:00:00.000Z',
+        },
+        {
+          requestId: 'req-context-2',
+          slotId: 'slot-context-2',
+          patientId: 'patient-77',
+          status: 'pending',
+          workflowStatus: 'reschedule_requested',
+          startsAt: '2026-03-24T11:00:00.000Z',
+          endsAt: '2026-03-24T11:30:00.000Z',
+          modality: 'video',
+          createdAt: '2026-03-15T09:00:00.000Z',
+        },
+      ],
+      slots: [
+        {
+          slotId: 'slot-context-open',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-16T13:00:00.000Z',
+          endsAt: '2026-03-16T13:30:00.000Z',
+          modality: 'video',
+          status: 'available',
+          createdAt: '2026-03-14T07:30:00.000Z',
+        },
+      ],
+      patients: [
+        {
+          id: 'patient-42',
+          displayName: 'Taylor Moss',
+          status: 'active',
+        },
+        {
+          id: 'patient-77',
+          displayName: 'Riley Chen',
+          status: 'active',
+        },
+      ],
+    });
+
+    const contextPanel = await screen.findByTestId('appointments-schedule-context');
+    expect(within(contextPanel).getByText('Taylor Moss')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Riley Chen'));
+
+    await waitFor(() => {
+      expect(within(screen.getByTestId('appointments-schedule-context')).getByText('Riley Chen')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('appointments-schedule-context')).toHaveTextContent(
+      'Requested window is outside this week',
+    );
+  });
+
+  it('shows operational empty states when the active schedule range has no fetched slots', async () => {
+    renderAppointmentsPage({
+      requests: [],
+      slots: [
+        {
+          slotId: 'slot-empty-week',
+          clinicianName: 'Dr. Rivera',
+          startsAt: '2026-03-16T09:00:00.000Z',
+          endsAt: '2026-03-16T09:30:00.000Z',
+          modality: 'video',
+          meetingLink: 'https://visit.example/empty-week',
+          status: 'available',
+          createdAt: '2026-03-14T07:30:00.000Z',
+        },
+      ],
+    });
+
+    expect(await screen.findByText('https://visit.example/empty-week')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByText('No visible capacity in this week')).toBeInTheDocument();
+  });
+
   it('prioritizes request review with resolved patient identity, waiting context, and patient navigation', async () => {
     renderAppointmentsPage({
       requests: [
@@ -267,10 +487,10 @@ describe('AppointmentsPage', () => {
       ],
     });
 
-    expect(await screen.findByText('Taylor Moss')).toBeInTheDocument();
+    expect((await screen.findAllByText('Taylor Moss')).length).toBeGreaterThan(0);
     expect(screen.getByText('Pending review')).toBeInTheDocument();
-    expect(screen.getByText('Waiting 2d')).toBeInTheDocument();
-    expect(screen.getByText('Request note')).toBeInTheDocument();
+    expect(screen.getAllByText('Waiting 2d').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Request note').length).toBeGreaterThan(0);
     expect(
       await screen.findByText('Requests waiting', {
         selector: '.appointments-summary-strip__value--state',
@@ -398,7 +618,9 @@ describe('AppointmentsPage', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('Demand uncovered').length).toBeGreaterThan(0);
     expect(
-      screen.getByText('Requests are waiting and no open capacity is published. Review the queue, then publish availability if coverage is needed.'),
+      screen.getByText(
+        'Requests are waiting and no open capacity is visible in the current schedule range. Review the queue, then publish availability if coverage is needed.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText('Publish after review')).toBeInTheDocument();
   });
@@ -598,6 +820,9 @@ describe('AppointmentsPage', () => {
 
     await waitFor(() => {
       expect(document.querySelectorAll('.appointments-item--slot-just-published')).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(document.querySelectorAll('.appointments-schedule-slot--recent')).toHaveLength(1);
     });
     const latestSlot = document.querySelector('.appointments-item--slot-just-published');
     const existingLink = screen.getByText('https://visit.example/existing');

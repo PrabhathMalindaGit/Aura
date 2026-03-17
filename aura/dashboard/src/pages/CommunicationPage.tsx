@@ -12,6 +12,7 @@ import { getClinicianId } from '../services/clinicianIdentity';
 import {
   addCommunicationThreadReply,
   deriveCommunicationThreads,
+  findCommunicationThreadByPatientId,
   filterCommunicationThreads,
   markCommunicationThreadReviewed,
   readCommunicationWorkspaceLocalState,
@@ -47,13 +48,6 @@ function countThreadsByView(
   return filterCommunicationThreads(threads, view).length;
 }
 
-function findThreadByPatientId(
-  threads: CommunicationThread[],
-  patientId: string,
-): CommunicationThread | null {
-  return threads.find((thread) => thread.validPatientId && thread.patientId === patientId) ?? null;
-}
-
 export function CommunicationPage(): JSX.Element {
   const navigate = useNavigate();
   const clinicianId = useMemo(() => getClinicianId(), []);
@@ -76,7 +70,7 @@ export function CommunicationPage(): JSX.Element {
     [allThreads, currentView],
   );
   const requestedThread = useMemo(
-    () => findThreadByPatientId(allThreads, requestedPatientId),
+    () => findCommunicationThreadByPatientId(allThreads, requestedPatientId),
     [allThreads, requestedPatientId],
   );
 
@@ -391,7 +385,11 @@ export function CommunicationPage(): JSX.Element {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => navigate(`/alerts?patientId=${encodeURIComponent(activeThread.patientId)}`)}
+                    onClick={() =>
+                      navigate(
+                        `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
+                      )
+                    }
                   >
                     Open alerts
                   </Button>

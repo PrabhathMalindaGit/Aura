@@ -14,6 +14,7 @@ import { WorklistPriorityBadge } from './WorklistPriorityBadge';
 interface WorklistCardListProps {
   items: WorklistRecord[];
   onOpenPatient: (patientId: string) => void;
+  onOpenCommunication: (patientId: string) => void;
   onOpenAlerts: (patientId?: string) => void;
   onOpenAppointments: (patientId: string) => void;
 }
@@ -40,6 +41,7 @@ function asPainText(value: number | undefined): string {
 export function WorklistCardList({
   items,
   onOpenPatient,
+  onOpenCommunication,
   onOpenAlerts,
   onOpenAppointments,
 }: WorklistCardListProps): JSX.Element {
@@ -48,6 +50,8 @@ export function WorklistCardList({
       {items.map((item) => {
         const hasAppointment = Boolean(item.nextAppointmentAt);
         const patientName = item.patientName?.trim() || item.patientId;
+        const hasCommunicationAction =
+          item.communicationNeedsResponse && item.patientId.trim().length > 0;
         return (
           <Card
             key={item.patientId}
@@ -138,8 +142,13 @@ export function WorklistCardList({
                     Open patient
                   </Button>
                 </div>
-                {item.openAlertsCount > 0 || hasAppointment ? (
+                {hasCommunicationAction || item.openAlertsCount > 0 || hasAppointment ? (
                   <div className="worklist-card__actions-secondary">
+                    {hasCommunicationAction ? (
+                      <Button variant="ghost" size="sm" onClick={() => onOpenCommunication(item.patientId)}>
+                        Open communication
+                      </Button>
+                    ) : null}
                     {item.openAlertsCount > 0 ? (
                       <Button variant="ghost" size="sm" onClick={() => onOpenAlerts(item.patientId)}>
                         Open alerts

@@ -30,6 +30,12 @@ function AlertsWorkspaceRoute(): JSX.Element {
   return <div>{`Alerts workspace${location.search}`}</div>;
 }
 
+function CommunicationWorkspaceRoute(): JSX.Element {
+  const location = useLocation();
+
+  return <div>{`Communication workspace${location.search}`}</div>;
+}
+
 function PatientDetailRoute(): JSX.Element {
   const location = useLocation();
 
@@ -52,6 +58,7 @@ function renderWorklistPage(): void {
         <Routes>
           <Route path="/worklist" element={<WorklistPage />} />
           <Route path="/patients/:patientId" element={<PatientDetailRoute />} />
+          <Route path="/communication" element={<CommunicationWorkspaceRoute />} />
           <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
         </Routes>
@@ -386,5 +393,43 @@ describe('WorklistPage', () => {
       expect(screen.getByText('Alerts workspace')).toBeInTheDocument();
     });
     expect(screen.queryByText('Alerts workspace?patientId=%20%20%20')).not.toBeInTheDocument();
+  });
+
+  it('shows Open communication only for response-needed rows with valid patient ids and routes with queue context', async () => {
+    installWorklistFetchMock([
+      WORKLIST_ITEMS[0],
+      {
+        ...WORKLIST_ITEMS[1],
+        communicationNeedsResponse: false,
+      },
+      {
+        ...WORKLIST_ITEMS[0],
+        patientId: '   ',
+        patientName: 'Invalid Communication Patient',
+      },
+    ]);
+
+    renderWorklistPage();
+
+    const jordanRow = await screen.findByTestId('worklist-row-p1');
+    expect(within(jordanRow).getByRole('button', { name: 'Open communication' })).toBeInTheDocument();
+
+    const averyRow = screen.getByTestId('worklist-row-p2');
+    expect(within(averyRow).queryByRole('button', { name: 'Open communication' })).not.toBeInTheDocument();
+
+    const invalidPatientName = screen.getByText('Invalid Communication Patient');
+    const invalidRow = invalidPatientName.closest('tr');
+    expect(invalidRow).not.toBeNull();
+    expect(
+      within(invalidRow as HTMLElement).queryByRole('button', { name: 'Open communication' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(within(jordanRow).getByRole('button', { name: 'Open communication' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Communication workspace?patientId=p1&view=needs-response'),
+      ).toBeInTheDocument();
+    });
   });
 });

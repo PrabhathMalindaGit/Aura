@@ -22186,6 +22186,17 @@ button.dashboard-summary-card:hover {
   opacity: 0.92;
 }
 
+.alerts-chat-origin-note {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--warning) / 0.22);
+  background: hsl(var(--warning) / 0.09);
+  color: hsl(var(--foreground));
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
 .communication-page__timeline-list {
   display: grid;
   gap: var(--space-3);
@@ -22235,12 +22246,60 @@ button.dashboard-summary-card:hover {
   gap: var(--space-2);
 }
 
+.patient-communication-inline-state,
+.patient-communication-local-reply,
+.patient-communication-quick-reply {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid hsl(var(--border) / 0.68);
+  background: hsl(var(--card) / 0.76);
+}
+
+.patient-communication-inline-state {
+  border-color: hsl(var(--warning) / 0.22);
+  background: hsl(var(--warning) / 0.08);
+}
+
+.patient-communication-inline-state__title,
+.patient-communication-local-reply__preview {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.patient-communication-inline-state__copy,
+.patient-communication-quick-reply__note {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.patient-communication-local-reply__meta,
+.patient-communication-quick-reply__footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.patient-communication-quick-reply__field {
+  margin: 0;
+}
+
 .dark .communication-page__meta-pill,
 .dark .communication-page__inline-state,
 .dark .communication-page__thread-item,
 .dark .communication-page__timeline-intro,
 .dark .communication-page__timeline-event,
-.dark .communication-page__composer {
+.dark .communication-page__composer,
+.dark .alerts-chat-origin-note,
+.dark .patient-communication-inline-state,
+.dark .patient-communication-local-reply,
+.dark .patient-communication-quick-reply {
   background: hsl(var(--card) / 0.92);
 }
 
@@ -22263,7 +22322,9 @@ button.dashboard-summary-card:hover {
   .communication-page__thread-badges,
   .communication-page__timeline-badges,
   .communication-page__timeline-event-badges,
-  .patient-communication-item__actions {
+  .patient-communication-item__actions,
+  .patient-communication-local-reply__meta,
+  .patient-communication-quick-reply__footer {
     justify-content: flex-start;
   }
 }

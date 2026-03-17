@@ -198,6 +198,21 @@ afterEach(() => {
 });
 
 describe('AlertsPage queue flow', () => {
+  it('keeps chat-origin continuity informational only when opened from patient communication', async () => {
+    installStatefulAlertsFetchMock({
+      open: [baseAlert],
+    });
+
+    renderAlertsPage('/alerts?patientId=patient-42&source=chat');
+
+    expect(await screen.findByTestId('alerts-chat-origin-note')).toHaveTextContent(
+      'Opened from patient communication for patient-42. Keep alert review anchored to this patient context.',
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search alerts' })).toHaveValue('patient-42');
+    expect(screen.getByRole('button', { name: 'All sources' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('2-click acknowledge path works', async () => {
     const acknowledgedAlert: AlertItem = {
       ...baseAlert,

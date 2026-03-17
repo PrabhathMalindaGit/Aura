@@ -14,6 +14,7 @@ import { WorklistPriorityBadge } from './WorklistPriorityBadge';
 interface WorklistTableProps {
   items: WorklistRecord[];
   onOpenPatient: (patientId: string) => void;
+  onOpenCommunication: (patientId: string) => void;
   onOpenAlerts: (patientId?: string) => void;
   onOpenAppointments: (patientId: string) => void;
 }
@@ -56,6 +57,7 @@ function moveFocusToRow(
 export function WorklistTable({
   items,
   onOpenPatient,
+  onOpenCommunication,
   onOpenAlerts,
   onOpenAppointments,
 }: WorklistTableProps): JSX.Element {
@@ -85,6 +87,8 @@ export function WorklistTable({
           {items.map((item, index) => {
             const hasAppointment = Boolean(item.nextAppointmentAt);
             const patientName = item.patientName?.trim() || item.patientId;
+            const hasCommunicationAction =
+              item.communicationNeedsResponse && item.patientId.trim().length > 0;
             return (
               <tr
                 key={item.patientId}
@@ -204,8 +208,18 @@ export function WorklistTable({
                         Open patient
                       </Button>
                     </div>
-                    {item.openAlertsCount > 0 || hasAppointment ? (
+                    {hasCommunicationAction || item.openAlertsCount > 0 || hasAppointment ? (
                       <div className="worklist-table__actions-secondary">
+                        {hasCommunicationAction ? (
+                          <Button
+                            className="worklist-table__communication"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenCommunication(item.patientId)}
+                          >
+                            Open communication
+                          </Button>
+                        ) : null}
                         {item.openAlertsCount > 0 ? (
                           <Button
                             className="worklist-table__alerts"

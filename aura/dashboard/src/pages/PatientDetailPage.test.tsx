@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getClinicianId } from '../services/clinicianIdentity';
 import type {
   AlertItem,
   AppointmentRequestItem,
@@ -14,6 +15,7 @@ import type {
   WorklistRecord,
 } from '../types/models';
 import { createPatientEntryState } from '../utils/patientEntryContext';
+import { CommunicationPage } from './CommunicationPage';
 import { PatientDetailPage } from './PatientDetailPage';
 
 const patientId = 'patient-42';
@@ -203,7 +205,7 @@ function renderPatientDetail(
             element={options.withHistoryProbe ? <PatientDetailHistoryHarness /> : <PatientDetailPage />}
           />
           <Route path="/patients" element={<div>Patients workspace</div>} />
-          <Route path="/communication" element={<div>Communication workspace</div>} />
+          <Route path="/communication" element={<CommunicationPage />} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
           <Route path="/alerts" element={<div>Alerts workspace</div>} />
           <Route path="/insights" element={<div>Insights workspace</div>} />
@@ -367,6 +369,9 @@ function installFetchMock(options: FetchMockOptions = {}) {
 beforeEach(() => {
   vi.restoreAllMocks();
   installWindowMocks();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  window.localStorage.setItem('aura_access_token', 'TEST_TOKEN');
 });
 
 afterEach(() => {
@@ -500,8 +505,91 @@ describe('PatientDetailPage', () => {
     await user.click(within(communicationPanel).getAllByRole('button', { name: 'Open communication' })[0]);
 
     await waitFor(() => {
-      expect(screen.getByText('Communication workspace')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Communication' })).toBeInTheDocument();
     });
+  });
+
+  it('shows inline quick reply for routine communication', async () => {
+    const routineCommunicationItem: DashboardCommunicationOverviewItem = {
+      ...baseCommunicationItem,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messagePreview: 'Can someone confirm whether tomorrow still works?',
+    };
+
+    installFetchMock({
+      communicationItems: [routineCommunicationItem],
+    });
+
+    renderPatientDetail();
+
+    const communicationPanel = await screen.findByTestId('patient-communication-panel');
+    expect(await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' })).toBeInTheDocument();
+    expect(within(communicationPanel).getByRole('button', { name: 'Send quick reply' })).toBeInTheDocument();
+  });
+
+  it('suppresses inline quick reply for safety-sensitive communication and keeps the handoff path', async () => {
+    installFetchMock();
+    renderPatientDetail();
+
+    const safetyPanel = await screen.findByTestId('patient-communication-panel');
+    expect(within(safetyPanel).queryByRole('textbox', { name: 'Quick reply' })).not.toBeInTheDocument();
+    expect(
+      await within(safetyPanel).findByText('Safety-sensitive communication stays on handoff review.'),
+    ).toBeInTheDocument();
+    expect(within(safetyPanel).getByRole('button', { name: 'Open alerts' })).toBeInTheDocument();
+  });
+
+  it('stores a routine patient-detail quick reply in the shared communication model without marking the thread reviewed', async () => {
+    const routineCommunicationItem: DashboardCommunicationOverviewItem = {
+      ...baseCommunicationItem,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messagePreview: 'Can someone confirm whether tomorrow still works?',
+    };
+
+    installFetchMock({
+      communicationItems: [routineCommunicationItem],
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const communicationPanel = await screen.findByTestId('patient-communication-panel');
+    await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' });
+    await user.type(
+      within(communicationPanel).getByRole('textbox', { name: 'Quick reply' }),
+      'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+    );
+    await user.click(within(communicationPanel).getByRole('button', { name: 'Send quick reply' }));
+
+    expect(
+      await within(communicationPanel).findByText(
+        'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+      ),
+    ).toBeInTheDocument();
+
+    const storedState = window.localStorage.getItem(
+      `aura_communication_workspace:${getClinicianId()}`,
+    );
+    expect(storedState).not.toBeNull();
+    const parsedStoredState = JSON.parse(storedState ?? '{}') as {
+      repliesByPatient?: Record<string, unknown>;
+      reviewedAtByPatient?: Record<string, string>;
+    };
+    expect(parsedStoredState.repliesByPatient?.[patientId]).toBeDefined();
+    expect(parsedStoredState.reviewedAtByPatient?.[patientId]).toBeUndefined();
+
+    await user.click(
+      within(communicationPanel).getAllByRole('button', { name: 'Open communication' })[0],
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole('list', { name: 'Patient communication timeline' })).findByText(
+        'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('renders calm empty states for communication, tasks, and appointments when no follow-up exists', async () => {

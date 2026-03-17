@@ -309,11 +309,13 @@ export function AlertsPage(): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const chatOriginPatientId = searchParams.get('patientId')?.trim() || '';
+  const openedFromChat = searchParams.get('source')?.trim() === 'chat';
   const initialSearchValue = useMemo(() => {
     const searchQuery = searchParams.get('search')?.trim();
-    const patientIdQuery = searchParams.get('patientId')?.trim();
+    const patientIdQuery = chatOriginPatientId;
     return searchQuery || patientIdQuery || '';
-  }, [searchParams]);
+  }, [chatOriginPatientId, searchParams]);
   const savedWorkspaceRef = useRef<AlertsWorkspaceState>(
     readWorkspaceState(
       ALERTS_WORKSPACE_PAGE,
@@ -1168,6 +1170,13 @@ export function AlertsPage(): JSX.Element {
             <p className="alerts-queue-intro">
               Review first visibility, ownership, and disposition from one tighter operational queue.
             </p>
+            {openedFromChat ? (
+              <p className="alerts-chat-origin-note" data-testid="alerts-chat-origin-note">
+                {chatOriginPatientId
+                  ? `Opened from patient communication for ${chatOriginPatientId}. Keep alert review anchored to this patient context.`
+                  : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
+              </p>
+            ) : null}
             <p className="alerts-queue-follow-through">{queueFollowThroughText}</p>
           </div>
             <div className="alerts-workspace-card__heading-actions">

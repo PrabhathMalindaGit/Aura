@@ -13,6 +13,15 @@ interface PatientCommunicationPanelProps {
   onRetry: () => void;
   onOpenCommunication: () => void;
   onOpenAlerts: () => void;
+  showQuickReply?: boolean;
+  quickReplyBlockedBySafety?: boolean;
+  quickReplyValue?: string;
+  onQuickReplyChange?: (value: string) => void;
+  onSendQuickReply?: () => void;
+  latestLocalReply?: {
+    text: string;
+    occurredAt: string;
+  } | null;
 }
 
 export function PatientCommunicationPanel({
@@ -22,6 +31,12 @@ export function PatientCommunicationPanel({
   onRetry,
   onOpenCommunication,
   onOpenAlerts,
+  showQuickReply = false,
+  quickReplyBlockedBySafety = false,
+  quickReplyValue = '',
+  onQuickReplyChange,
+  onSendQuickReply,
+  latestLocalReply = null,
 }: PatientCommunicationPanelProps): JSX.Element {
   return (
     <Card
@@ -89,6 +104,54 @@ export function PatientCommunicationPanel({
               </div>
             </article>
           ))}
+
+          {quickReplyBlockedBySafety ? (
+            <div className="patient-communication-inline-state" role="status">
+              <p className="patient-communication-inline-state__title">Safety-sensitive communication stays on handoff review.</p>
+              <p className="patient-communication-inline-state__copy">
+                Continue in Communication or Alerts to review the full context before responding.
+              </p>
+            </div>
+          ) : null}
+
+          {!quickReplyBlockedBySafety && latestLocalReply ? (
+            <article className="patient-communication-local-reply" aria-label="Latest local clinician reply">
+              <div className="patient-communication-local-reply__meta">
+                <Badge variant="default">Local clinician reply</Badge>
+                <span className="muted-text" title={formatDashboardDateTime(latestLocalReply.occurredAt)}>
+                  {formatDashboardRelativeTime(latestLocalReply.occurredAt)}
+                </span>
+              </div>
+              <p className="patient-communication-local-reply__preview">{latestLocalReply.text}</p>
+            </article>
+          ) : null}
+
+          {showQuickReply && onQuickReplyChange && onSendQuickReply ? (
+            <div className="patient-communication-quick-reply">
+              <label className="form-field patient-communication-quick-reply__field">
+                <span>Quick reply</span>
+                <textarea
+                  rows={3}
+                  value={quickReplyValue}
+                  onChange={(event) => onQuickReplyChange(event.target.value)}
+                  placeholder="Add a short clinician follow-up for this patient."
+                />
+              </label>
+              <div className="patient-communication-quick-reply__footer">
+                <p className="patient-communication-quick-reply__note">
+                  Stored locally for this clinician in this browser during this communication pass.
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onSendQuickReply}
+                  disabled={quickReplyValue.trim().length === 0}
+                >
+                  Send quick reply
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </Card>

@@ -206,6 +206,21 @@ export function WorklistPage(): JSX.Element {
     [items, navigate],
   );
 
+  const openCommunicationFromWorklist = useCallback(
+    (patientId: string): void => {
+      const normalizedPatientId = patientId.trim();
+
+      if (!normalizedPatientId) {
+        return;
+      }
+
+      navigate(
+        `/communication?patientId=${encodeURIComponent(normalizedPatientId)}&view=needs-response`,
+      );
+    },
+    [navigate],
+  );
+
   const persistWorklistState = useCallback((nextFilters: WorklistFiltersState): void => {
     const normalized = normalizeWorklistWorkspaceState(nextFilters);
     savedFiltersRef.current = normalized;
@@ -476,6 +491,7 @@ export function WorklistPage(): JSX.Element {
             <WorklistCardList
               items={items}
               onOpenPatient={openPatientFromWorklist}
+              onOpenCommunication={openCommunicationFromWorklist}
               onOpenAlerts={openAlertsWorkspace}
               onOpenAppointments={() => navigate('/appointments')}
             />
@@ -483,6 +499,7 @@ export function WorklistPage(): JSX.Element {
             <WorklistTable
               items={items}
               onOpenPatient={openPatientFromWorklist}
+              onOpenCommunication={openCommunicationFromWorklist}
               onOpenAlerts={openAlertsWorkspace}
               onOpenAppointments={() => navigate('/appointments')}
             />

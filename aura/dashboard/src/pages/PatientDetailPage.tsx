@@ -47,6 +47,12 @@ import {
   usePatientTrends,
   useUpdateAlertStatus,
 } from '../services/clinicianApi';
+import { getClinicianId } from '../services/clinicianIdentity';
+import {
+  addCommunicationThreadReply,
+  deriveCommunicationThreadForPatient,
+  readCommunicationWorkspaceLocalState,
+} from '../services/communicationWorkspace';
 import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
 import type {
@@ -314,6 +320,11 @@ export function PatientDetailPage(): JSX.Element {
   const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
   const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
+  const clinicianId = useMemo(() => getClinicianId(), []);
+  const [communicationLocalState, setCommunicationLocalState] = useState(() =>
+    readCommunicationWorkspaceLocalState(clinicianId),
+  );
+  const [patientQuickReply, setPatientQuickReply] = useState('');
   const [patientExportOpen, setPatientExportOpen] = useState(false);
   const [patientExportRange, setPatientExportRange] = useState<DateRangeValue>(() =>
     getPresetDateRange('last30'),
@@ -1018,6 +1029,27 @@ export function PatientDetailPage(): JSX.Element {
         .sort((left, right) => Date.parse(right.messageCreatedAt) - Date.parse(left.messageCreatedAt)),
     [patientCommunicationQuery.data?.items, patientId],
   );
+  const patientCommunicationThread = useMemo(
+    () =>
+      deriveCommunicationThreadForPatient(
+        patientCommunicationItems,
+        patientId ?? '',
+        communicationLocalState,
+      ),
+    [communicationLocalState, patientCommunicationItems, patientId],
+  );
+  const latestPatientLocalReply = useMemo(
+    () =>
+      [...(patientCommunicationThread?.timeline ?? [])]
+        .reverse()
+        .find((event) => event.kind === 'clinician-reply') ?? null,
+    [patientCommunicationThread],
+  );
+  const patientCommunicationBlockedBySafety = patientCommunicationItems.some(
+    (item) => item.flaggedBySafety,
+  );
+  const canQuickReplyFromPatientDetail =
+    patientCommunicationItems.length > 0 && !patientCommunicationBlockedBySafety;
   const patientTasks = useMemo<ClinicianTaskItem[]>(
     () => (patientTasksQuery.data ?? []).filter((task) => task.patientId === patientId),
     [patientId, patientTasksQuery.data],
@@ -1162,6 +1194,37 @@ export function PatientDetailPage(): JSX.Element {
     navigate(`/communication?patientId=${encodeURIComponent(patientId)}`);
   }, [navigate, patientId]);
 
+  const openAlertsFromPatientCommunication = useCallback((): void => {
+    if (!patientId) {
+      return;
+    }
+
+    navigate(`/alerts?patientId=${encodeURIComponent(patientId)}&source=chat`);
+  }, [navigate, patientId]);
+
+  const handlePatientQuickReply = useCallback((): void => {
+    if (!patientId || !canQuickReplyFromPatientDetail) {
+      return;
+    }
+
+    const nextReply = patientQuickReply.trim();
+    if (!nextReply) {
+      return;
+    }
+
+    setCommunicationLocalState((current) =>
+      addCommunicationThreadReply(
+        current,
+        {
+          patientId,
+          text: nextReply,
+        },
+        clinicianId,
+      ),
+    );
+    setPatientQuickReply('');
+  }, [canQuickReplyFromPatientDetail, clinicianId, patientId, patientQuickReply]);
+
   const handleOperationalAction = useCallback(
     (key: PatientActionKey): void => {
       if (key === 'alerts') {
@@ -1198,6 +1261,10 @@ export function PatientDetailPage(): JSX.Element {
     },
     [navigate, openCommunicationWorkspace, patientId, scrollToPanel],
   );
+
+  useEffect(() => {
+    setPatientQuickReply('');
+  }, [patientId, canQuickReplyFromPatientDetail]);
 
   const handleRefreshOverview = useCallback((): void => {
     void Promise.allSettled([
@@ -1987,7 +2054,20 @@ export function PatientDetailPage(): JSX.Element {
               void patientCommunicationQuery.refetch();
             }}
             onOpenCommunication={openCommunicationWorkspace}
-            onOpenAlerts={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+            onOpenAlerts={openAlertsFromPatientCommunication}
+            showQuickReply={canQuickReplyFromPatientDetail}
+            quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
+            quickReplyValue={patientQuickReply}
+            onQuickReplyChange={setPatientQuickReply}
+            onSendQuickReply={handlePatientQuickReply}
+            latestLocalReply={
+              latestPatientLocalReply
+                ? {
+                    text: latestPatientLocalReply.preview,
+                    occurredAt: latestPatientLocalReply.occurredAt,
+                  }
+                : null
+            }
           />
           <PatientTasksPanel
             activeTasks={patientActiveTasks}

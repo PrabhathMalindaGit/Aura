@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommunicationPage } from './CommunicationPage';
 import { createJsonResponse } from '../test/mocks';
@@ -31,11 +31,17 @@ function renderCommunicationPage(initialEntry: string = '/communication'): void 
         <Routes>
           <Route path="/communication" element={<CommunicationPage />} />
           <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
-          <Route path="/alerts" element={<div>Alerts workspace</div>} />
+          <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+function AlertsWorkspaceRoute(): JSX.Element {
+  const location = useLocation();
+
+  return <div>{`Alerts workspace${location.search}`}</div>;
 }
 
 const communicationOverview = {
@@ -150,10 +156,13 @@ describe('CommunicationPage', () => {
     });
   });
 
-  it('falls back cleanly when the requested patient thread is missing', async () => {
-    renderCommunicationPage('/communication?patientId=missing-patient');
+  it('falls back cleanly when the requested patient thread is missing and preserves the requested view', async () => {
+    renderCommunicationPage('/communication?patientId=missing-patient&view=safety-flagged');
 
+    const safetyFlaggedFilter = await screen.findByRole('button', { name: /Safety flagged/i });
+    expect(safetyFlaggedFilter).toHaveAttribute('aria-pressed', 'true');
     expect(await screen.findByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Avery Chen/ })).not.toBeInTheDocument();
     expect(
       within(screen.getByRole('list', { name: 'Patient communication timeline' })).getByText(
         'Pain is much worse after exercise today.',
@@ -163,7 +172,12 @@ describe('CommunicationPage', () => {
 
   it('adds a browser-local clinician reply and updates the visible response state', async () => {
     const user = userEvent.setup();
-    renderCommunicationPage('/communication?patientId=patient-2');
+    renderCommunicationPage('/communication?patientId=patient-2&view=needs-response');
+
+    expect(await screen.findByRole('button', { name: /Needs response/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
 
     const threadButton = await screen.findByRole('button', { name: /Avery Chen/ });
     expect(within(threadButton).getByText('Needs response')).toBeInTheDocument();
@@ -195,7 +209,7 @@ describe('CommunicationPage', () => {
     await user.click(screen.getByRole('button', { name: 'Open alerts' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Alerts workspace')).toBeInTheDocument();
+      expect(screen.getByText('Alerts workspace?patientId=patient-1&source=chat')).toBeInTheDocument();
     });
   });
 });

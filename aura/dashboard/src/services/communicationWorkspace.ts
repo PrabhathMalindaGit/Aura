@@ -404,6 +404,33 @@ export function deriveCommunicationThreads(
     .sort((left, right) => toSortValue(right.latestEventAt) - toSortValue(left.latestEventAt));
 }
 
+export function findCommunicationThreadByPatientId(
+  threads: CommunicationThread[],
+  patientId: string,
+): CommunicationThread | null {
+  const normalizedPatientId = normalizePatientId(patientId);
+
+  if (!normalizedPatientId) {
+    return null;
+  }
+
+  return (
+    threads.find((thread) => thread.validPatientId && thread.patientId === normalizedPatientId) ??
+    null
+  );
+}
+
+export function deriveCommunicationThreadForPatient(
+  items: DashboardCommunicationOverviewItem[],
+  patientId: string,
+  localState: CommunicationWorkspaceLocalState = createEmptyLocalState(),
+): CommunicationThread | null {
+  return findCommunicationThreadByPatientId(
+    deriveCommunicationThreads(items, localState),
+    patientId,
+  );
+}
+
 export function filterCommunicationThreads(
   threads: CommunicationThread[],
   view: CommunicationThreadView,

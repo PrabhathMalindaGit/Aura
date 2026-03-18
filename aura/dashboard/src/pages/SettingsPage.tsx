@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import {
-  getClinicianId,
-  getClinicianName,
-  setClinicianIdentity,
-} from '../services/clinicianIdentity';
+  CLINICIAN_PROFILE_LIMITS,
+  CLINICIAN_PROFILE_PHOTO_MIME_TYPES,
+  MAX_CLINICIAN_PROFILE_PHOTO_BYTES,
+  getClinicianProfile,
+  getDefaultClinicianProfileForAuthIdentity,
+  setClinicianProfile,
+  type ClinicianProfile,
+  type ClinicianProfilePhotoMime,
+} from '../services/clinicianProfile';
 import {
   DEFAULT_SESSION_SETTINGS,
   getSessionSettings,
@@ -21,16 +26,80 @@ import {
   type ThemeMode,
 } from '../services/theme';
 
+interface ProfileValidationState {
+  displayName?: string;
+  clinicianId?: string;
+}
+
+function getInitials(name: string): string {
+  const segments = name
+    .split(/\s+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  if (segments.length === 0) {
+    return 'AC';
+  }
+
+  return segments
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
+function profilesEqual(left: ClinicianProfile, right: ClinicianProfile): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function validateProfile(profile: ClinicianProfile): ProfileValidationState {
+  const next: ProfileValidationState = {};
+
+  if (!profile.displayName.trim()) {
+    next.displayName = 'Display name is required before saving.';
+  }
+
+  if (!profile.clinicianId.trim()) {
+    next.clinicianId = 'Clinician ID is required before saving.';
+  }
+
+  return next;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      reject(new Error('file-read-failed'));
+    };
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string' && reader.result.trim()) {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error('file-read-empty'));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
 export function SettingsPage(): JSX.Element {
+  const initialProfile = useMemo(() => getClinicianProfile(), []);
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getThemeMode());
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
-  const [clinicianId, setClinicianId] = useState(() => getClinicianId());
-  const [clinicianName, setClinicianName] = useState(() => getClinicianName());
-  const [identityNotice, setIdentityNotice] = useState<string | null>(null);
+  const [savedProfile, setSavedProfile] = useState<ClinicianProfile>(() => initialProfile);
+  const [draftProfile, setDraftProfile] = useState<ClinicianProfile>(() => initialProfile);
+  const [profileNotice, setProfileNotice] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileValidation, setProfileValidation] = useState<ProfileValidationState>({});
   const [sessionSettings, setLocalSessionSettings] = useState<SessionSettings>(() =>
     getSessionSettings(),
   );
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return subscribeThemeMode((mode) => {
@@ -42,6 +111,94 @@ export function SettingsPage(): JSX.Element {
     const next = setSessionSettings(update);
     setLocalSessionSettings(next);
     setSessionNotice('Session security settings updated.');
+  }
+
+  function updateDraftProfile<K extends keyof ClinicianProfile>(
+    key: K,
+    value: ClinicianProfile[K],
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      [key]: value,
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      [key]: undefined,
+    }));
+  }
+
+  async function handlePhotoSelection(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    if (!CLINICIAN_PROFILE_PHOTO_MIME_TYPES.includes(file.type as ClinicianProfilePhotoMime)) {
+      setProfileError('Choose a JPG, PNG, or WebP image up to 500 KB.');
+      setProfileNotice(null);
+      return;
+    }
+
+    if (file.size > MAX_CLINICIAN_PROFILE_PHOTO_BYTES) {
+      setProfileError('Choose a JPG, PNG, or WebP image up to 500 KB.');
+      setProfileNotice(null);
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+
+      updateDraftProfile('photo', {
+        dataUrl,
+        mimeType: file.type as ClinicianProfilePhotoMime,
+        fileName: file.name,
+        sizeBytes: file.size,
+      });
+      setProfileNotice('Photo added to the form. Save to keep it in this browser.');
+    } catch {
+      setProfileError('The selected image could not be read in this browser.');
+      setProfileNotice(null);
+    }
+  }
+
+  function handleSaveProfile(): void {
+    const nextValidation = validateProfile(draftProfile);
+    setProfileValidation(nextValidation);
+
+    if (nextValidation.displayName || nextValidation.clinicianId) {
+      setProfileError('Display name and clinician ID are required before saving.');
+      setProfileNotice(null);
+      return;
+    }
+
+    const result = setClinicianProfile(draftProfile);
+    setDraftProfile(result.profile);
+
+    if (!result.saved) {
+      setProfileError('Profile could not be saved in this browser right now.');
+      setProfileNotice(null);
+      return;
+    }
+
+    setSavedProfile(result.profile);
+    setProfileError(null);
+    setProfileNotice('Profile saved in this browser.');
+  }
+
+  function handleRestoreProfileDefaults(): void {
+    setDraftProfile(getDefaultClinicianProfileForAuthIdentity());
+    setProfileValidation({});
+    setProfileError(null);
+    setProfileNotice('Defaults restored in the form. Save to keep them in this browser.');
+  }
+
+  function handleRemovePhoto(): void {
+    updateDraftProfile('photo', null);
+    setProfileNotice('Photo removed from the form. Save to keep the change.');
   }
 
   const themeSummaryLabel = useMemo(() => {
@@ -58,13 +215,16 @@ export function SettingsPage(): JSX.Element {
     ? `${sessionSettings.idleMinutes}m idle · ${sessionSettings.absoluteHours}h max`
     : 'Auto-logout off';
 
-  const identitySummaryLabel = clinicianName.trim() || clinicianId.trim() || 'Not configured';
+  const identitySummaryLabel =
+    savedProfile.displayName.trim() || savedProfile.clinicianId.trim() || 'Not configured';
   const preferencesSummaryLabel = 'Theme preference stored locally';
   const securityStateLabel = sessionSettings.enabled ? 'Session guard on' : 'Session guard off';
   const identityStateLabel =
-    clinicianId.trim().length > 0 && clinicianName.trim().length > 0
-      ? 'Ready for assignments'
-      : 'Needs setup';
+    [savedProfile.roleTitle.trim(), savedProfile.specialty.trim()].filter(Boolean).join(' · ') ||
+    'Saved locally in this browser';
+  const draftProfileInitials = getInitials(draftProfile.displayName || draftProfile.clinicianId);
+  const savedProfileInitials = getInitials(savedProfile.displayName || savedProfile.clinicianId);
+  const profileDirty = useMemo(() => !profilesEqual(savedProfile, draftProfile), [draftProfile, savedProfile]);
 
   return (
     <div className="page-stack settings-page">
@@ -72,7 +232,7 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Configure this local clinician workspace for appearance, assignment labels, and session protection."
+        subtitle="Configure this local clinician workspace for profile identity, appearance, and session protection."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
@@ -91,7 +251,7 @@ export function SettingsPage(): JSX.Element {
               {securityStateLabel}
             </span>
             <span className="settings-page__meta-pill settings-page__meta-pill--updated">
-              {sessionSummaryLabel}
+              {identitySummaryLabel}
             </span>
           </span>
         }
@@ -114,7 +274,7 @@ export function SettingsPage(): JSX.Element {
             </p>
           </article>
           <article className="settings-summary-strip__item settings-summary-strip__item--identity">
-            <p className="settings-summary-strip__label">Identity</p>
+            <p className="settings-summary-strip__label">Clinician profile</p>
             <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
             <p className="settings-summary-strip__hint">{identityStateLabel}</p>
           </article>
@@ -124,8 +284,8 @@ export function SettingsPage(): JSX.Element {
           <div className="settings-workspace-note__copy">
             <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
             <p className="settings-workspace-note__text">
-              Keep this page aligned with the rest of Aura Clinician while staying truthful: every
-              preference here is local to this browser.
+              Keep this page aligned with the rest of Aura Clinician while staying truthful:
+              profile, appearance, and session changes here stay local to this browser.
             </p>
           </div>
           <div className="settings-workspace-note__facts" aria-live="polite">
@@ -145,8 +305,8 @@ export function SettingsPage(): JSX.Element {
             <p className="settings-column-shell__eyebrow">Workspace defaults</p>
             <h3 className="settings-column-shell__title">Personal workspace controls</h3>
             <p className="settings-column-shell__text">
-              Keep appearance, density, and assignment labels consistent for the clinician using
-              this browser.
+              Keep appearance, clinician identity, and assignment labels consistent for the
+              clinician using this browser.
             </p>
           </div>
           <Card
@@ -273,84 +433,248 @@ export function SettingsPage(): JSX.Element {
             className="settings-group-card settings-group-card--identity"
             title={
               <span className="settings-group-card__title">
-                Clinician identity
-                <span className="settings-group-card__title-meta">Assignment ownership</span>
+                Clinician profile
+                <span className="settings-group-card__title-meta">Browser-local identity workspace</span>
               </span>
             }
           >
             <div className="settings-group-card__context">
-              <span className="settings-group-card__context-pill">Assignment labels</span>
+              <span className="settings-group-card__context-pill">This browser only</span>
               <p className="settings-group-card__context-note">
-                Used for assignments and review actions in this browser.
+                Saved locally for this clinician in this browser. Changes do not sync across
+                devices.
               </p>
             </div>
             <p className="settings-group-card__intro">
-              These labels determine how ownership appears in the review workflow on this device.
+              Set how this clinician workspace appears for assignment ownership, handoff context,
+              and local identity surfaces on this device.
             </p>
+
+            <section className="settings-profile-summary" aria-label="Saved clinician profile summary">
+              <div className="settings-profile-summary__avatar" aria-hidden="true">
+                {savedProfile.photo ? (
+                  <img
+                    className="settings-profile-summary__image"
+                    src={savedProfile.photo.dataUrl}
+                    alt=""
+                  />
+                ) : (
+                  <span>{savedProfileInitials}</span>
+                )}
+              </div>
+              <div className="settings-profile-summary__copy">
+                <p className="settings-profile-summary__name">{savedProfile.displayName}</p>
+                <p className="settings-profile-summary__meta">
+                  {[savedProfile.roleTitle, savedProfile.specialty].filter(Boolean).join(' · ') ||
+                    'Local clinician profile'}
+                </p>
+                <p className="settings-profile-summary__note">
+                  {savedProfile.photo
+                    ? 'Saved profile photo is available in this browser.'
+                    : 'No profile photo is saved for this browser yet.'}
+                </p>
+              </div>
+            </section>
+
+            <section className="settings-profile-photo" aria-label="Profile photo">
+              <div className="settings-profile-photo__preview" aria-hidden="true">
+                {draftProfile.photo ? (
+                  <img
+                    className="settings-profile-photo__image"
+                    src={draftProfile.photo.dataUrl}
+                    alt=""
+                  />
+                ) : (
+                  <span>{draftProfileInitials}</span>
+                )}
+              </div>
+              <div className="settings-profile-photo__copy">
+                <p className="settings-profile-photo__title">Profile photo</p>
+                <p className="settings-profile-photo__text">
+                  Profile photo stays in this browser after you save it. Use JPG, PNG, or WebP up
+                  to 500 KB.
+                </p>
+                <div className="inline-actions settings-actions settings-actions--profile-photo">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => profilePhotoInputRef.current?.click()}
+                  >
+                    {draftProfile.photo ? 'Replace photo' : 'Choose photo'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemovePhoto}
+                    disabled={!draftProfile.photo}
+                  >
+                    Remove photo
+                  </Button>
+                </div>
+              </div>
+              <input
+                ref={profilePhotoInputRef}
+                className="visually-hidden"
+                type="file"
+                accept={CLINICIAN_PROFILE_PHOTO_MIME_TYPES.join(',')}
+                onChange={(event) => {
+                  void handlePhotoSelection(event);
+                }}
+              />
+            </section>
+
             <div className="settings-list settings-list--refined">
+              <div className="settings-profile-section-label">Identity</div>
+              <label className="setting-item setting-item--field form-field" htmlFor="clinician-display-name-input">
+                <span>
+                  <strong>Display name</strong>
+                  <small>Shown in browser-local clinician identity surfaces.</small>
+                  {profileValidation.displayName ? (
+                    <small className="validation-text">{profileValidation.displayName}</small>
+                  ) : null}
+                </span>
+                <input
+                  id="clinician-display-name-input"
+                  type="text"
+                  value={draftProfile.displayName}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.displayName}
+                  onChange={(event) => updateDraftProfile('displayName', event.target.value)}
+                  placeholder="Clinician 1"
+                  aria-label="Clinician display name"
+                />
+              </label>
+
               <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
                 <span>
-                  <strong>My Clinician ID</strong>
-                  <small>Used for alert assignment ownership in this browser.</small>
+                  <strong>Clinician ID</strong>
+                  <small>
+                    Editable for workspace labeling. It does not change which clinician profile this
+                    browser is currently using.
+                  </small>
+                  {profileValidation.clinicianId ? (
+                    <small className="validation-text">{profileValidation.clinicianId}</small>
+                  ) : null}
                 </span>
                 <input
                   id="clinician-id-input"
                   type="text"
-                  value={clinicianId}
-                  onChange={(event) => setClinicianId(event.target.value)}
+                  value={draftProfile.clinicianId}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.clinicianId}
+                  onChange={(event) => updateDraftProfile('clinicianId', event.target.value)}
                   placeholder="clinician-1"
-                  aria-label="My Clinician ID"
+                  aria-label="Clinician ID"
                 />
               </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-name-input">
+              <label className="setting-item setting-item--field form-field" htmlFor="clinician-role-title-input">
                 <span>
-                  <strong>Display name</strong>
-                  <small>Shown when alerts are assigned to you.</small>
+                  <strong>Role / title</strong>
+                  <small>Use a local operational title for this clinician workspace.</small>
                 </span>
                 <input
-                  id="clinician-name-input"
+                  id="clinician-role-title-input"
                   type="text"
-                  value={clinicianName}
-                  onChange={(event) => setClinicianName(event.target.value)}
-                  placeholder="Clinician 1"
-                  aria-label="My Clinician display name"
+                  value={draftProfile.roleTitle}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.roleTitle}
+                  onChange={(event) => updateDraftProfile('roleTitle', event.target.value)}
+                  placeholder="Rehab clinician"
+                  aria-label="Clinician role or title"
+                />
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="clinician-specialty-input">
+                <span>
+                  <strong>Specialty</strong>
+                  <small>Keep the specialty label brief and clinically relevant.</small>
+                </span>
+                <input
+                  id="clinician-specialty-input"
+                  type="text"
+                  value={draftProfile.specialty}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.specialty}
+                  onChange={(event) => updateDraftProfile('specialty', event.target.value)}
+                  placeholder="Recovery follow-up"
+                  aria-label="Clinician specialty"
+                />
+              </label>
+
+              <div className="settings-profile-section-label">Care focus & handoff</div>
+              <label className="setting-item setting-item--field form-field" htmlFor="clinician-bio-input">
+                <span>
+                  <strong>Short bio / care focus</strong>
+                  <small>Use a concise note for how this clinician workspace is framed locally.</small>
+                </span>
+                <textarea
+                  id="clinician-bio-input"
+                  value={draftProfile.bio}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.bio}
+                  onChange={(event) => updateDraftProfile('bio', event.target.value)}
+                  placeholder="Safety-aware rehab follow-up and review."
+                  aria-label="Short bio or care focus"
+                />
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="clinician-pronouns-input">
+                <span>
+                  <strong>Preferred pronouns</strong>
+                  <small>Optional. Stored only in this browser.</small>
+                </span>
+                <input
+                  id="clinician-pronouns-input"
+                  type="text"
+                  value={draftProfile.preferredPronouns ?? ''}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.preferredPronouns}
+                  onChange={(event) => updateDraftProfile('preferredPronouns', event.target.value || undefined)}
+                  placeholder="Optional"
+                  aria-label="Preferred pronouns"
+                />
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="clinician-contact-note-input">
+                <span>
+                  <strong>Contact / handoff note</strong>
+                  <small>Use this for local handoff context, not shared contact management.</small>
+                </span>
+                <textarea
+                  id="clinician-contact-note-input"
+                  value={draftProfile.contactNote}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.contactNote}
+                  onChange={(event) => updateDraftProfile('contactNote', event.target.value)}
+                  placeholder="Local handoff note for this browser workspace."
+                  aria-label="Contact or handoff note"
                 />
               </label>
             </div>
 
             <div className="settings-card-footer">
+              <p className="settings-card-footer__note">
+                {profileDirty
+                  ? 'Changes stay local to this browser after you save them.'
+                  : 'This saved profile is local to this browser and does not sync across devices.'}
+              </p>
               <div className="inline-actions settings-actions settings-actions--primary settings-actions--identity">
-                <Button
-                  onClick={() => {
-                    setClinicianIdentity(clinicianId, clinicianName);
-                    setClinicianId(getClinicianId());
-                    setClinicianName(getClinicianName());
-                    setIdentityNotice('Clinician identity saved.');
-                  }}
-                >
-                  Save identity
+                <Button onClick={handleSaveProfile} disabled={!profileDirty}>
+                  Save profile
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setClinicianId('clinician-1');
-                    setClinicianName('Clinician 1');
-                    setClinicianIdentity('clinician-1', 'Clinician 1');
-                    setIdentityNotice('Clinician identity reset to defaults.');
-                  }}
-                >
-                  Restore identity
+                <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
+                  Restore defaults
                 </Button>
               </div>
-              <p className="settings-card-footer__note">
-                This only changes how you appear in this browser.
-              </p>
             </div>
 
-            {identityNotice ? (
+            {profileError ? (
+              <p
+                className="settings-inline-notice settings-inline-notice--error"
+                role="alert"
+                aria-live="assertive"
+              >
+                {profileError}
+              </p>
+            ) : null}
+
+            {profileNotice ? (
               <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
-                {identityNotice}
+                {profileNotice}
               </p>
             ) : null}
           </Card>

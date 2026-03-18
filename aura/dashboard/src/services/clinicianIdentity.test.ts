@@ -9,10 +9,12 @@ import {
   setClinicianIdentity,
   setClinicianName,
 } from './clinicianIdentity';
+import { clearClinicianProfileForTests } from './clinicianProfile';
 
 beforeEach(() => {
   window.localStorage.clear();
   clearClinicianIdentityForTests();
+  clearClinicianProfileForTests();
 });
 
 describe('clinicianIdentity', () => {

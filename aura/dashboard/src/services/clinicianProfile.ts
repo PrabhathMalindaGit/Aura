@@ -77,6 +77,24 @@ export interface ClinicianCommunicationAuthoring {
   templates: ClinicianCommunicationTemplate[];
 }
 
+export type ClinicianNotificationCueMode = 'default' | 'reduced';
+
+export interface ClinicianNotificationCuePreference {
+  cueMode: ClinicianNotificationCueMode;
+}
+
+export interface ClinicianNotificationQuietHours {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+}
+
+export interface ClinicianNotificationPreferences {
+  communication: ClinicianNotificationCuePreference;
+  safety: ClinicianNotificationCuePreference;
+  quietHours: ClinicianNotificationQuietHours;
+}
+
 export interface ClinicianProfile {
   displayName: string;
   clinicianId: string;
@@ -88,6 +106,7 @@ export interface ClinicianProfile {
   photo: ClinicianProfilePhoto | null;
   workspacePreferences: ClinicianWorkspacePreferences;
   communicationAuthoring: ClinicianCommunicationAuthoring;
+  notificationPreferences: ClinicianNotificationPreferences;
 }
 
 interface StoredClinicianProfileRecord {
@@ -147,6 +166,9 @@ const DEFAULT_WORKING_END = '17:00';
 const DEFAULT_LANDING_ROUTE: ClinicianDefaultLandingRoute = '/dashboard';
 const DEFAULT_PATIENTS_PRESET: ClinicianDefaultPatientsPreset = '';
 const DEFAULT_COMMUNICATION_FILTER: ClinicianDefaultCommunicationFilter = 'all';
+const DEFAULT_NOTIFICATION_CUE_MODE: ClinicianNotificationCueMode = 'default';
+const DEFAULT_QUIET_HOURS_START = '22:00';
+const DEFAULT_QUIET_HOURS_END = '07:00';
 const PROFILE_CHANGE_EVENT = 'aura:clinician-profile-change';
 const TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
 const VALID_AVAILABILITY_STATUSES = new Set<ClinicianAvailabilityStatus>([
@@ -183,6 +205,10 @@ const VALID_COMMUNICATION_FILTERS = new Set<ClinicianDefaultCommunicationFilter>
   'needs-response',
   'safety-flagged',
   'follow-up-requested',
+]);
+const VALID_NOTIFICATION_CUE_MODES = new Set<ClinicianNotificationCueMode>([
+  'default',
+  'reduced',
 ]);
 
 function isBrowser(): boolean {
@@ -315,6 +341,22 @@ function createDefaultCommunicationAuthoring(): ClinicianCommunicationAuthoring 
   };
 }
 
+function createDefaultNotificationPreferences(): ClinicianNotificationPreferences {
+  return {
+    communication: {
+      cueMode: DEFAULT_NOTIFICATION_CUE_MODE,
+    },
+    safety: {
+      cueMode: DEFAULT_NOTIFICATION_CUE_MODE,
+    },
+    quietHours: {
+      enabled: false,
+      startTime: DEFAULT_QUIET_HOURS_START,
+      endTime: DEFAULT_QUIET_HOURS_END,
+    },
+  };
+}
+
 function normalizeWorkspacePreferences(
   value: unknown,
   fallback: ClinicianWorkspacePreferences,
@@ -444,6 +486,65 @@ function normalizeCommunicationAuthoring(
   };
 }
 
+function normalizeNotificationCuePreference(
+  value: unknown,
+  fallback: ClinicianNotificationCuePreference,
+): ClinicianNotificationCuePreference {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...fallback };
+  }
+
+  const candidate = value as Partial<ClinicianNotificationCuePreference>;
+  const cueMode = trimToUndefined(candidate.cueMode);
+
+  return {
+    cueMode: VALID_NOTIFICATION_CUE_MODES.has(cueMode as ClinicianNotificationCueMode)
+      ? (cueMode as ClinicianNotificationCueMode)
+      : fallback.cueMode,
+  };
+}
+
+function normalizeNotificationQuietHours(
+  value: unknown,
+  fallback: ClinicianNotificationQuietHours,
+): ClinicianNotificationQuietHours {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...fallback };
+  }
+
+  const candidate = value as Partial<ClinicianNotificationQuietHours>;
+
+  return {
+    enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : fallback.enabled,
+    startTime: normalizeTimeValue(candidate.startTime, fallback.startTime),
+    endTime: normalizeTimeValue(candidate.endTime, fallback.endTime),
+  };
+}
+
+function normalizeNotificationPreferences(
+  value: unknown,
+  fallback: ClinicianNotificationPreferences,
+): ClinicianNotificationPreferences {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      communication: { ...fallback.communication },
+      safety: { ...fallback.safety },
+      quietHours: { ...fallback.quietHours },
+    };
+  }
+
+  const candidate = value as Partial<ClinicianNotificationPreferences>;
+
+  return {
+    communication: normalizeNotificationCuePreference(
+      candidate.communication,
+      fallback.communication,
+    ),
+    safety: normalizeNotificationCuePreference(candidate.safety, fallback.safety),
+    quietHours: normalizeNotificationQuietHours(candidate.quietHours, fallback.quietHours),
+  };
+}
+
 function readStorageValue(key: string): string | undefined {
   if (!isBrowser()) {
     return undefined;
@@ -538,6 +639,7 @@ function createDefaultProfile(
     photo: null,
     workspacePreferences: createDefaultWorkspacePreferences(),
     communicationAuthoring: createDefaultCommunicationAuthoring(),
+    notificationPreferences: createDefaultNotificationPreferences(),
   };
 }
 
@@ -605,6 +707,10 @@ function normalizeProfile(
     communicationAuthoring: normalizeCommunicationAuthoring(
       candidate.communicationAuthoring,
       fallback.communicationAuthoring,
+    ),
+    notificationPreferences: normalizeNotificationPreferences(
+      candidate.notificationPreferences,
+      fallback.notificationPreferences,
     ),
   };
 }

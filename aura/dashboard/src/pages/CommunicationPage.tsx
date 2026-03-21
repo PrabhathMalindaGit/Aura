@@ -10,6 +10,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
 import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
+import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { usePatientHandoff } from '../hooks/usePatientHandoff';
 import { getSavedCommunicationFilter } from '../services/clinicianWorkspacePreferences';
 import { useDashboardCommunicationOverview } from '../services/clinicianApi';
@@ -55,6 +56,7 @@ export function CommunicationPage(): JSX.Element {
   const navigate = useNavigate();
   const clinicianIdentity = useClinicianIdentity();
   const communicationAuthoring = useCommunicationAuthoring();
+  const notificationPreferences = useNotificationPreferences();
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
   const [localState, setLocalState] = useState(() => readCommunicationWorkspaceLocalState(communicationScopeKey));
@@ -323,6 +325,8 @@ export function CommunicationPage(): JSX.Element {
   const activeThreadMissingFromView = Boolean(selectedThread && !activeThread);
   const hasThreads = allThreads.length > 0;
   const hasVisibleThreads = visibleThreads.length > 0;
+  const reduceCommunicationAttention =
+    notificationPreferences.effectiveCommunicationCueMode === 'reduced';
 
   return (
     <Stack className="page-stack communication-page" gap="5">
@@ -336,7 +340,12 @@ export function CommunicationPage(): JSX.Element {
             <span className="communication-page__meta-pill">
               {allThreads.length} {allThreads.length === 1 ? 'thread' : 'threads'}
             </span>
-            <span className="communication-page__meta-pill communication-page__meta-pill--attention">
+            <span
+              className={`communication-page__meta-pill${
+                reduceCommunicationAttention ? '' : ' communication-page__meta-pill--attention'
+              }`}
+              data-testid="communication-needs-response-pill"
+            >
               {countThreadsByView(allThreads, 'needs-response')} need response
             </span>
             <span className="communication-page__meta-pill communication-page__meta-pill--risk">

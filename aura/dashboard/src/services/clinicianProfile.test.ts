@@ -119,6 +119,9 @@ describe('clinicianProfile', () => {
     expect(profile.workspacePreferences.defaultLandingRoute).toBe('/dashboard');
     expect(profile.communicationAuthoring.defaultSignature).toBe('');
     expect(profile.communicationAuthoring.templates).toEqual([]);
+    expect(profile.notificationPreferences.communication.cueMode).toBe('default');
+    expect(profile.notificationPreferences.safety.cueMode).toBe('default');
+    expect(profile.notificationPreferences.quietHours.enabled).toBe(false);
   });
 
   it('normalizes workspace preference defaults for older saved records', () => {
@@ -151,6 +154,13 @@ describe('clinicianProfile', () => {
     expect(profile.communicationAuthoring.defaultSignature).toBe('');
     expect(profile.communicationAuthoring.autoAppendSignature).toBe(false);
     expect(profile.communicationAuthoring.templates).toEqual([]);
+    expect(profile.notificationPreferences.communication.cueMode).toBe('default');
+    expect(profile.notificationPreferences.safety.cueMode).toBe('default');
+    expect(profile.notificationPreferences.quietHours).toEqual({
+      enabled: false,
+      startTime: '22:00',
+      endTime: '07:00',
+    });
   });
 
   it('normalizes communication authoring content, bounds, and empty templates during save', () => {
@@ -214,6 +224,40 @@ describe('clinicianProfile', () => {
     expect(result.profile.communicationAuthoring.templates[1]?.id).toBe('duplicate-2');
   });
 
+  it('normalizes notification preference defaults and invalid saved values safely', () => {
+    setActiveToken({ sub: 'auth-clinician-notifications', name: 'Dr Notifications' });
+    window.localStorage.setItem(
+      getClinicianProfileStorageKey('auth-clinician-notifications'),
+      JSON.stringify({
+        version: 2,
+        authScopeId: 'auth-clinician-notifications',
+        updatedAt: new Date().toISOString(),
+        profile: {
+          ...getClinicianProfile(),
+          notificationPreferences: {
+            communication: { cueMode: 'loud' },
+            safety: { cueMode: 'muted' },
+            quietHours: {
+              enabled: true,
+              startTime: '25:00',
+              endTime: 'xx:yy',
+            },
+          },
+        },
+      }),
+    );
+
+    const profile = getClinicianProfile();
+
+    expect(profile.notificationPreferences.communication.cueMode).toBe('default');
+    expect(profile.notificationPreferences.safety.cueMode).toBe('default');
+    expect(profile.notificationPreferences.quietHours).toEqual({
+      enabled: true,
+      startTime: '22:00',
+      endTime: '07:00',
+    });
+  });
+
   it('rejects invalid photo payloads during save normalization', () => {
     setActiveToken({ sub: 'auth-clinician-4', name: 'Dr Lopez' });
     const initial = getClinicianProfile();
@@ -259,6 +303,19 @@ describe('clinicianProfile', () => {
         defaultSignature: '',
         autoAppendSignature: false,
         templates: [],
+      },
+      notificationPreferences: {
+        communication: {
+          cueMode: 'default',
+        },
+        safety: {
+          cueMode: 'default',
+        },
+        quietHours: {
+          enabled: false,
+          startTime: '22:00',
+          endTime: '07:00',
+        },
       },
     };
 

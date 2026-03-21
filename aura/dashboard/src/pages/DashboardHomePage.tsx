@@ -10,6 +10,7 @@ import { TodayAppointmentsCard } from '../components/dashboard/TodayAppointments
 import { Button } from '../components/ui/Button';
 import { Section } from '../components/ui/Section';
 import { Stack } from '../components/ui/Stack';
+import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { getClinicianName } from '../services/clinicianIdentity';
 import {
   listAppointmentRequests,
@@ -224,6 +225,7 @@ function DashboardAnalyticsCard({
 
 export function DashboardHomePage(): JSX.Element {
   const navigate = useNavigate();
+  const notificationPreferences = useNotificationPreferences();
   const clinicianName = useMemo(() => getClinicianName(), []);
   const clinicianFirstName = useMemo(() => clinicianName.split(' ')[0] ?? clinicianName, [clinicianName]);
   const summaryQuery = useDashboardSummary();
@@ -771,6 +773,8 @@ export function DashboardHomePage(): JSX.Element {
   const primaryZoneCopy = 'Priority queue and recent safety activity for the first review pass.';
 
   const secondaryZoneCopy = 'Appointments, tasks, and communication that keep the rest of the day moving.';
+  const reduceCommunicationOverviewAttention =
+    notificationPreferences.effectiveCommunicationCueMode === 'reduced';
 
   return (
     <Stack className="page-stack dashboard-home-page" gap="4">
@@ -1029,18 +1033,27 @@ export function DashboardHomePage(): JSX.Element {
               onOpenPatients={() => navigate('/worklist')}
             />
 
-            <CommunicationOverviewCard
-              overview={communicationQuery.data}
-              visibleItemCount={3}
-              loading={communicationQuery.isLoading}
-              hasError={Boolean(communicationQuery.error)}
-              onRetry={() => {
-                void communicationQuery.refetch();
-              }}
-              retrying={communicationQuery.isFetching}
-              onOpenThread={openCommunication}
-              onOpenCommunication={() => openCommunication()}
-            />
+            <div
+              className={`dashboard-home-communication-overview${
+                reduceCommunicationOverviewAttention
+                  ? ' dashboard-home-communication-overview--reduced'
+                  : ''
+              }`}
+              data-testid="dashboard-home-communication-overview"
+            >
+              <CommunicationOverviewCard
+                overview={communicationQuery.data}
+                visibleItemCount={3}
+                loading={communicationQuery.isLoading}
+                hasError={Boolean(communicationQuery.error)}
+                onRetry={() => {
+                  void communicationQuery.refetch();
+                }}
+                retrying={communicationQuery.isFetching}
+                onOpenThread={openCommunication}
+                onOpenCommunication={() => openCommunication()}
+              />
+            </div>
           </div>
         </aside>
       </div>

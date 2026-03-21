@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardHomePage } from './DashboardHomePage';
+import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
 import { createJsonResponse, installMatchMediaMock } from '../test/mocks';
 
 function createQueryClient(): QueryClient {
@@ -20,6 +21,23 @@ function createQueryClient(): QueryClient {
       },
     },
   });
+}
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
 }
 
 function renderDashboardHome(): void {
@@ -348,7 +366,11 @@ describe('DashboardHomePage', () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     window.sessionStorage.clear();
-    window.localStorage.setItem('aura_access_token', 'TEST_TOKEN');
+    clearClinicianProfileForTests();
+    window.localStorage.setItem(
+      'aura_access_token',
+      buildToken({ sub: 'auth-dashboard-home', name: 'Dr Dashboard' }),
+    );
     installMatchMediaMock();
   });
 
@@ -444,4 +466,35 @@ describe('DashboardHomePage', () => {
       expect(screen.getByText('Communication workspace')).toBeInTheDocument();
     });
   }, 10_000);
+
+  it('reduces only the communication overview attention treatment when preferences are reduced', async () => {
+    installDashboardFetchMock();
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      notificationPreferences: {
+        communication: {
+          cueMode: 'reduced',
+        },
+        safety: {
+          cueMode: 'default',
+        },
+        quietHours: {
+          enabled: false,
+          startTime: '22:00',
+          endTime: '07:00',
+        },
+      },
+    });
+
+    renderDashboardHome();
+
+    await screen.findByText('Pain is much worse after yesterday’s session.');
+
+    const communicationOverview = screen.getByTestId('dashboard-home-communication-overview');
+    const cardElement = communicationOverview.querySelector('.dashboard-communication-card--attention');
+    expect(cardElement).not.toBeNull();
+    expect(communicationOverview).toHaveClass('dashboard-home-communication-overview--reduced');
+    expect(within(communicationOverview).getByText('Communication review')).toBeInTheDocument();
+  });
+
 });

@@ -15910,10 +15910,26 @@ button.dashboard-summary-card:hover {
   gap: var(--space-4);
 }
 
+.settings-group-card--notification-preferences {
+  gap: var(--space-4);
+}
+
 .settings-communication-authoring__summary {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+.settings-notification-preferences__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.settings-notification-preferences__quiet-hours {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .settings-communication-authoring__templates {
@@ -16017,6 +16033,10 @@ button.dashboard-summary-card:hover {
   }
 
   .settings-working-hours__times {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-notification-preferences__quiet-hours {
     grid-template-columns: 1fr;
   }
 
@@ -21715,11 +21735,28 @@ button.dashboard-summary-card:hover {
     inset 0 1px 0 hsl(var(--card) / 0.9);
 }
 
+.dashboard-home-communication-overview--reduced .dashboard-communication-card--attention {
+  border-color: hsl(var(--border) / 0.6);
+  box-shadow:
+    0 16px 30px hsl(216 28% 20% / 0.06),
+    inset 0 1px 0 hsl(var(--card) / 0.9);
+}
+
 .dashboard-home-support-rail .dashboard-communication-card--attention .dashboard-communication-card__summary {
   border-color: hsl(var(--warning) / 0.22);
   background:
     linear-gradient(180deg, hsl(var(--warning) / 0.08), hsl(var(--card) / 0.98)),
     linear-gradient(145deg, hsl(var(--warning) / 0.05), transparent 84%);
+}
+
+.dashboard-home-support-rail
+  .dashboard-home-communication-overview--reduced
+  .dashboard-communication-card--attention
+  .dashboard-communication-card__summary {
+  border-color: hsl(var(--border) / 0.52);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.14)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.03), transparent 84%);
 }
 
 .dashboard-home-support-rail .dashboard-communication-card__metric-label {

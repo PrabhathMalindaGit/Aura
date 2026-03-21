@@ -17,6 +17,7 @@ import {
   type ClinicianAvailabilityStatus,
   type ClinicianCommunicationAuthoring,
   type ClinicianCommunicationTemplate,
+  type ClinicianNotificationPreferences,
   type ClinicianProfile,
   type ClinicianProfilePhotoMime,
   type ClinicianWorkingDayToken,
@@ -50,6 +51,7 @@ interface ProfileValidationState {
   clinicianId?: string;
   workingHours?: string;
   communicationTemplates?: CommunicationTemplateValidationState[];
+  notificationQuietHours?: string;
 }
 
 interface CommunicationTemplateValidationState {
@@ -61,9 +63,11 @@ function profileWorkspaceSectionsEqual(left: ClinicianProfile, right: ClinicianP
   return JSON.stringify({
     ...left,
     communicationAuthoring: null,
+    notificationPreferences: null,
   }) === JSON.stringify({
     ...right,
     communicationAuthoring: null,
+    notificationPreferences: null,
   });
 }
 
@@ -108,6 +112,11 @@ function validateProfile(profile: ClinicianProfile): ProfileValidationState {
 
   if (templateValidation.some((template) => template.title || template.body)) {
     next.communicationTemplates = templateValidation;
+  }
+
+  const quietHours = profile.notificationPreferences.quietHours;
+  if (quietHours.enabled && quietHours.startTime === quietHours.endTime) {
+    next.notificationQuietHours = 'Quiet hours start and end times must be different.';
   }
 
   return next;
@@ -158,9 +167,9 @@ export function SettingsPage(): JSX.Element {
   const [draftProfile, setDraftProfile] = useState<ClinicianProfile>(() => initialProfile);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileFeedbackScope, setProfileFeedbackScope] = useState<'profile' | 'communication'>(
-    'profile',
-  );
+  const [profileFeedbackScope, setProfileFeedbackScope] = useState<
+    'profile' | 'communication' | 'notifications'
+  >('profile');
   const [profileValidation, setProfileValidation] = useState<ProfileValidationState>({});
   const [sessionSettings, setLocalSessionSettings] = useState<SessionSettings>(() =>
     getSessionSettings(),
@@ -263,6 +272,45 @@ export function SettingsPage(): JSX.Element {
     setProfileValidation((current) => ({
       ...current,
       communicationTemplates: undefined,
+    }));
+  }
+
+  function updateDraftNotificationCueMode(
+    key: keyof Pick<ClinicianNotificationPreferences, 'communication' | 'safety'>,
+    value: ClinicianNotificationPreferences['communication']['cueMode'],
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      notificationPreferences: {
+        ...current.notificationPreferences,
+        [key]: {
+          cueMode: value,
+        },
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+  }
+
+  function updateDraftNotificationQuietHours(
+    key: keyof ClinicianNotificationPreferences['quietHours'],
+    value: ClinicianNotificationPreferences['quietHours'][typeof key],
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      notificationPreferences: {
+        ...current.notificationPreferences,
+        quietHours: {
+          ...current.notificationPreferences.quietHours,
+          [key]: value,
+        },
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      notificationQuietHours: undefined,
     }));
   }
 
@@ -400,7 +448,7 @@ export function SettingsPage(): JSX.Element {
     }
   }
 
-  function handleSaveProfile(scope: 'profile' | 'communication'): void {
+  function handleSaveProfile(scope: 'profile' | 'communication' | 'notifications'): void {
     const nextValidation = validateProfile(draftProfile);
     setProfileValidation(nextValidation);
 
@@ -425,16 +473,29 @@ export function SettingsPage(): JSX.Element {
       return;
     }
 
+    if (scope === 'notifications' && nextValidation.notificationQuietHours) {
+      setProfileFeedbackScope('notifications');
+      setProfileError(nextValidation.notificationQuietHours);
+      setProfileNotice(null);
+      return;
+    }
+
     const nextProfileToSave =
       scope === 'communication'
         ? {
             ...savedProfile,
             communicationAuthoring: draftProfile.communicationAuthoring,
           }
+        : scope === 'notifications'
+          ? {
+              ...savedProfile,
+              notificationPreferences: draftProfile.notificationPreferences,
+            }
         : {
             ...savedProfile,
             ...draftProfile,
             communicationAuthoring: savedProfile.communicationAuthoring,
+            notificationPreferences: savedProfile.notificationPreferences,
           };
     const result = setClinicianProfile(nextProfileToSave);
 
@@ -452,9 +513,15 @@ export function SettingsPage(): JSX.Element {
             ...current,
             communicationAuthoring: result.profile.communicationAuthoring,
           }
+        : scope === 'notifications'
+          ? {
+              ...current,
+              notificationPreferences: result.profile.notificationPreferences,
+            }
         : {
             ...result.profile,
             communicationAuthoring: current.communicationAuthoring,
+            notificationPreferences: current.notificationPreferences,
           },
     );
     setProfileValidation((current) =>
@@ -463,6 +530,11 @@ export function SettingsPage(): JSX.Element {
             ...current,
             communicationTemplates: undefined,
           }
+        : scope === 'notifications'
+          ? {
+              ...current,
+              notificationQuietHours: undefined,
+            }
         : {
             ...current,
             displayName: undefined,
@@ -555,8 +627,26 @@ export function SettingsPage(): JSX.Element {
       JSON.stringify(draftProfile.communicationAuthoring),
     [draftProfile.communicationAuthoring, savedProfile.communicationAuthoring],
   );
+  const notificationPreferencesDirty = useMemo(
+    () =>
+      JSON.stringify(savedProfile.notificationPreferences) !==
+      JSON.stringify(draftProfile.notificationPreferences),
+    [draftProfile.notificationPreferences, savedProfile.notificationPreferences],
+  );
   const savedTemplateCount = savedProfile.communicationAuthoring.templates.length;
   const hasSavedSignature = savedProfile.communicationAuthoring.defaultSignature.length > 0;
+  const quietHoursValidationId = 'notification-quiet-hours-error';
+  const savedCommunicationCueLabel =
+    savedProfile.notificationPreferences.communication.cueMode === 'reduced'
+      ? 'Communication cues reduced'
+      : 'Communication cues default';
+  const savedSafetyCueLabel =
+    savedProfile.notificationPreferences.safety.cueMode === 'reduced'
+      ? 'Safety cues reduced'
+      : 'Safety cues default';
+  const savedQuietHoursLabel = savedProfile.notificationPreferences.quietHours.enabled
+    ? `Quiet hours ${savedProfile.notificationPreferences.quietHours.startTime} - ${savedProfile.notificationPreferences.quietHours.endTime}`
+    : 'Quiet hours off';
 
   return (
     <div className="page-stack settings-page">
@@ -1426,6 +1516,198 @@ export function SettingsPage(): JSX.Element {
             ) : null}
 
             {profileFeedbackScope === 'communication' && profileNotice ? (
+              <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
+                {profileNotice}
+              </p>
+            ) : null}
+          </Card>
+
+          <Card
+            className="settings-group-card settings-group-card--notification-preferences"
+            title={
+              <span className="settings-group-card__title">
+                Notification preferences
+                <span className="settings-group-card__title-meta">Local attention cues</span>
+              </span>
+            }
+          >
+            <div className="settings-group-card__context">
+              <span className="settings-group-card__context-pill">This browser only</span>
+              <p className="settings-group-card__context-note">
+                Local attention cues in this browser only. They do not affect core alert visibility
+                and do not send notifications to other devices.
+              </p>
+            </div>
+            <p className="settings-group-card__intro">
+              Reduce extra in-app emphasis for current Communication, Home, and Alerts surfaces
+              without hiding the real queue state underneath.
+            </p>
+
+            <div className="settings-notification-preferences__summary" aria-live="polite">
+              <span className="settings-profile-summary__fact">{savedCommunicationCueLabel}</span>
+              <span className="settings-profile-summary__fact">{savedSafetyCueLabel}</span>
+              <span className="settings-profile-summary__fact">{savedQuietHoursLabel}</span>
+            </div>
+
+            <div className="settings-list settings-list--refined">
+              <label
+                className="setting-item setting-item--field form-field"
+                htmlFor="notification-communication-cue-mode"
+              >
+                <span>
+                  <strong>Communication attention cues</strong>
+                  <small>
+                    Reduce extra Communication-page and Home communication emphasis only. Thread
+                    badges and current content stay visible.
+                  </small>
+                </span>
+                <select
+                  id="notification-communication-cue-mode"
+                  value={draftProfile.notificationPreferences.communication.cueMode}
+                  onChange={(event) =>
+                    updateDraftNotificationCueMode('communication', event.target.value as 'default' | 'reduced')
+                  }
+                  aria-label="Communication attention cues"
+                >
+                  <option value="default">Default</option>
+                  <option value="reduced">Reduced</option>
+                </select>
+              </label>
+
+              <label
+                className="setting-item setting-item--field form-field"
+                htmlFor="notification-safety-cue-mode"
+              >
+                <span>
+                  <strong>Safety alert arrival cues</strong>
+                  <small>
+                    Reduce transient new-alert emphasis only. Unseen state, filters, and alert
+                    visibility stay intact.
+                  </small>
+                </span>
+                <select
+                  id="notification-safety-cue-mode"
+                  value={draftProfile.notificationPreferences.safety.cueMode}
+                  onChange={(event) =>
+                    updateDraftNotificationCueMode('safety', event.target.value as 'default' | 'reduced')
+                  }
+                  aria-label="Safety alert arrival cues"
+                >
+                  <option value="default">Default</option>
+                  <option value="reduced">Reduced</option>
+                </select>
+              </label>
+
+              <label className="setting-item setting-item--toggle" htmlFor="notification-quiet-hours-enabled">
+                <span>
+                  <strong>Quiet hours</strong>
+                  <small>
+                    Reduce secondary in-app emphasis only during a local daily window in this
+                    browser.
+                  </small>
+                </span>
+                <input
+                  id="notification-quiet-hours-enabled"
+                  type="checkbox"
+                  checked={draftProfile.notificationPreferences.quietHours.enabled}
+                  onChange={(event) =>
+                    updateDraftNotificationQuietHours('enabled', event.target.checked)
+                  }
+                />
+              </label>
+
+              {draftProfile.notificationPreferences.quietHours.enabled ? (
+                <div className="settings-notification-preferences__quiet-hours">
+                  <label
+                    className="setting-item setting-item--field form-field"
+                    htmlFor="notification-quiet-hours-start"
+                  >
+                    <span>
+                      <strong>Quiet hours start</strong>
+                      <small>Local browser time.</small>
+                    </span>
+                    <input
+                      id="notification-quiet-hours-start"
+                      type="time"
+                      value={draftProfile.notificationPreferences.quietHours.startTime}
+                      onChange={(event) =>
+                        updateDraftNotificationQuietHours('startTime', event.target.value)
+                      }
+                      aria-label="Quiet hours start time"
+                      aria-invalid={profileValidation.notificationQuietHours ? 'true' : undefined}
+                      aria-describedby={
+                        profileValidation.notificationQuietHours
+                          ? quietHoursValidationId
+                          : undefined
+                      }
+                    />
+                  </label>
+
+                  <label
+                    className="setting-item setting-item--field form-field"
+                    htmlFor="notification-quiet-hours-end"
+                  >
+                    <span>
+                      <strong>Quiet hours end</strong>
+                      <small>Local browser time.</small>
+                    </span>
+                    <input
+                      id="notification-quiet-hours-end"
+                      type="time"
+                      value={draftProfile.notificationPreferences.quietHours.endTime}
+                      onChange={(event) =>
+                        updateDraftNotificationQuietHours('endTime', event.target.value)
+                      }
+                      aria-label="Quiet hours end time"
+                      aria-invalid={profileValidation.notificationQuietHours ? 'true' : undefined}
+                      aria-describedby={
+                        profileValidation.notificationQuietHours
+                          ? quietHoursValidationId
+                          : undefined
+                      }
+                    />
+                  </label>
+                </div>
+              ) : null}
+
+              {profileValidation.notificationQuietHours ? (
+                <p
+                  id={quietHoursValidationId}
+                  className="validation-text"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  {profileValidation.notificationQuietHours}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="settings-card-footer">
+              <p className="settings-card-footer__note">
+                These settings tune local in-app attention cues only. They do not affect core alert
+                visibility, unread state, or anything outside this browser.
+              </p>
+              <div className="inline-actions settings-actions settings-actions--primary settings-actions--notifications">
+                <Button
+                  onClick={() => handleSaveProfile('notifications')}
+                  disabled={!notificationPreferencesDirty}
+                >
+                  Save notification settings
+                </Button>
+              </div>
+            </div>
+
+            {profileFeedbackScope === 'notifications' && profileError ? (
+              <p
+                className="settings-inline-notice settings-inline-notice--error"
+                role="alert"
+                aria-live="assertive"
+              >
+                {profileError}
+              </p>
+            ) : null}
+
+            {profileFeedbackScope === 'notifications' && profileNotice ? (
               <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
                 {profileNotice}
               </p>

@@ -64,10 +64,15 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(screen.getByRole('button', { name: 'Remove photo' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save communication settings' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save notification settings' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Restore defaults' })).toBeInTheDocument();
     expect(screen.getByText('Communication authoring')).toBeInTheDocument();
+    expect(screen.getByText('Notification preferences')).toBeInTheDocument();
     expect(screen.getByLabelText('Default signature')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add template' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Communication attention cues')).toBeInTheDocument();
+    expect(screen.getByLabelText('Safety alert arrival cues')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /Quiet hours/i })).toBeInTheDocument();
     expect(screen.getByLabelText('Availability status')).toBeInTheDocument();
     expect(screen.getByLabelText('Team or clinic label')).toBeInTheDocument();
     expect(screen.getByLabelText('Workspace timezone')).toBeInTheDocument();
@@ -96,6 +101,11 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(
       screen.getByText(
         "Table density currently follows Aura Clinician's shared workspace default in this browser.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Local attention cues in this browser only. They do not affect core alert visibility and do not send notifications to other devices.',
       ),
     ).toBeInTheDocument();
   });
@@ -370,5 +380,66 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(screen.getAllByLabelText(/Template \d+ title/)).toHaveLength(
       CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templates,
     );
+  });
+
+  it('saves browser-local notification preferences and keeps quiet hours local to this browser', async () => {
+    signInAs({ sub: 'auth-clinician-notify', name: 'Dr Notify' });
+    const user = userEvent.setup();
+
+    render(<SettingsPage />);
+
+    await user.selectOptions(screen.getByLabelText('Communication attention cues'), 'reduced');
+    await user.selectOptions(screen.getByLabelText('Safety alert arrival cues'), 'reduced');
+    await user.click(screen.getByRole('checkbox', { name: /Quiet hours/i }));
+    fireEvent.change(screen.getByLabelText('Quiet hours start time'), {
+      target: { value: '21:30' },
+    });
+    fireEvent.change(screen.getByLabelText('Quiet hours end time'), {
+      target: { value: '06:45' },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Save notification settings' }));
+
+    expect(screen.getByText('Settings saved in this browser.')).toBeInTheDocument();
+    expect(getClinicianProfile().notificationPreferences).toEqual({
+      communication: {
+        cueMode: 'reduced',
+      },
+      safety: {
+        cueMode: 'reduced',
+      },
+      quietHours: {
+        enabled: true,
+        startTime: '21:30',
+        endTime: '06:45',
+      },
+    });
+    expect(screen.getByText('Communication cues reduced')).toBeInTheDocument();
+    expect(screen.getByText('Safety cues reduced')).toBeInTheDocument();
+    expect(screen.getByText('Quiet hours 21:30 - 06:45')).toBeInTheDocument();
+  });
+
+  it('blocks equal quiet-hours values with an accessible validation error', async () => {
+    signInAs({ sub: 'auth-clinician-quiet-hours', name: 'Dr Quiet Hours' });
+    const user = userEvent.setup();
+
+    render(<SettingsPage />);
+
+    await user.click(screen.getByRole('checkbox', { name: /Quiet hours/i }));
+    fireEvent.change(screen.getByLabelText('Quiet hours start time'), {
+      target: { value: '22:00' },
+    });
+    fireEvent.change(screen.getByLabelText('Quiet hours end time'), {
+      target: { value: '22:00' },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Save notification settings' }));
+
+    expect(
+      screen.getAllByText('Quiet hours start and end times must be different.'),
+    ).toHaveLength(2);
+    expect(screen.getByLabelText('Quiet hours start time')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Quiet hours end time')).toHaveAttribute('aria-invalid', 'true');
+    expect(getClinicianProfile().notificationPreferences.quietHours.enabled).toBe(false);
   });
 });

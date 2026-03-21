@@ -9,6 +9,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { AlertsPage } from './AlertsPage';
 import { clearAssignmentStoreForTests, setAssignment } from '../services/assignmentStore';
 import { clearClinicianIdentityForTests, setClinicianIdentity } from '../services/clinicianIdentity';
+import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
 import { clearRiskOverrideStoreForTests, setRiskOverride } from '../services/overrideStore';
 import { clearSeenStoreForTests, getSeenStorageKey, markSeen } from '../services/seenStore';
 import { getWorkspaceStateStorageKey } from '../services/workspaceState';
@@ -24,6 +25,23 @@ const baseAlert: AlertItem = {
   createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
   updatedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
 };
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -183,11 +201,16 @@ beforeEach(() => {
   installMatchMediaMock();
   window.localStorage.clear();
   window.sessionStorage.clear();
+  clearClinicianProfileForTests();
   clearAssignmentStoreForTests();
   clearClinicianIdentityForTests();
   clearRiskOverrideStoreForTests();
   clearSeenStoreForTests();
   clearSeenStoreForTests('clinician-1');
+  window.localStorage.setItem(
+    'aura_access_token',
+    buildToken({ sub: 'clinician-1', name: 'Clinician 1' }),
+  );
   setClinicianIdentity('clinician-1', 'Clinician 1');
   setDocumentHidden(false);
 });
@@ -1247,6 +1270,116 @@ describe('AlertsPage queue flow', () => {
     await waitFor(() => {
       expect(screen.getByLabelText(incomingRowLabel)).toHaveClass('alert-arrived');
     });
+  });
+
+  it('reduced safety cues suppress only the transient arrival highlight and keep primary visibility intact', async () => {
+    const incomingAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-reduced-arrival',
+      patientId: 'patient-reduced',
+    };
+    let openFetchCount = 0;
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      notificationPreferences: {
+        communication: {
+          cueMode: 'default',
+        },
+        safety: {
+          cueMode: 'reduced',
+        },
+        quietHours: {
+          enabled: false,
+          startTime: '22:00',
+          endTime: '07:00',
+        },
+      },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        openFetchCount += 1;
+        return createJsonResponse({
+          ok: true,
+          alerts: openFetchCount > 1 ? [incomingAlert, baseAlert] : [baseAlert],
+        });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    const incomingRowLabel = `Alert ${incomingAlert._id} for patient ${incomingAlert.patientId}`;
+    const incomingRow = await screen.findByLabelText(incomingRowLabel);
+
+    expect(incomingRow).not.toHaveClass('alert-arrived');
+    expect(within(incomingRow).getByLabelText('Unseen alert')).toBeInTheDocument();
+    expect(within(incomingRow).getByText('High')).toBeInTheDocument();
+  });
+
+  it('reacts to reduced safety preferences on an open Alerts page without hiding the row', async () => {
+    const incomingAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-runtime-arrival',
+      patientId: 'patient-runtime',
+    };
+    let openFetchCount = 0;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        openFetchCount += 1;
+        return createJsonResponse({
+          ok: true,
+          alerts: openFetchCount > 1 ? [incomingAlert, baseAlert] : [baseAlert],
+        });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage();
+
+    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    const incomingRowLabel = `Alert ${incomingAlert._id} for patient ${incomingAlert.patientId}`;
+    const incomingRow = await screen.findByLabelText(incomingRowLabel);
+
+    await waitFor(() => {
+      expect(incomingRow).toHaveClass('alert-arrived');
+    });
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      notificationPreferences: {
+        communication: {
+          cueMode: 'default',
+        },
+        safety: {
+          cueMode: 'reduced',
+        },
+        quietHours: {
+          enabled: false,
+          startTime: '22:00',
+          endTime: '07:00',
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(incomingRow).not.toHaveClass('alert-arrived');
+    });
+    expect(within(incomingRow).getByLabelText('Unseen alert')).toBeInTheDocument();
   });
 
   it('renders alert cards instead of table on small widths', async () => {

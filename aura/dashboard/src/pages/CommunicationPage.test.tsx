@@ -168,9 +168,10 @@ describe('CommunicationPage', () => {
     installCommunicationFetchMock();
   });
 
-  afterEach(() => {
-    cleanup();
-  });
+afterEach(() => {
+  vi.useRealTimers();
+  cleanup();
+});
 
   it('renders grouped patient-linked threads and a truthful communication timeline', async () => {
     renderCommunicationPage();
@@ -403,6 +404,65 @@ describe('CommunicationPage', () => {
     expect(replyField).toHaveValue(
       'Thanks, I have reviewed this update.\n\nDr Elena Hall\nLead rehab clinician · Post-op recovery',
     );
+  });
+
+  it('reduces only page-level communication attention without hiding active thread content', async () => {
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      notificationPreferences: {
+        communication: {
+          cueMode: 'reduced',
+        },
+        safety: {
+          cueMode: 'default',
+        },
+        quietHours: {
+          enabled: false,
+          startTime: '22:00',
+          endTime: '07:00',
+        },
+      },
+    });
+
+    renderCommunicationPage('/communication?patientId=patient-1&view=needs-response');
+
+    expect(await screen.findByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
+    const needsResponsePill = await screen.findByTestId('communication-needs-response-pill');
+    expect(needsResponsePill).not.toHaveClass('communication-page__meta-pill--attention');
+    expect(
+      within(screen.getByRole('group', { name: 'Communication filters' })).getByRole('button', {
+        name: /Needs response/i,
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(screen.getByRole('list', { name: 'Patient communication timeline' })).getByText(
+        'Pain is much worse after exercise today.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('reacts to Settings notification changes without hiding the currently open thread', async () => {
+    const user = userEvent.setup();
+
+    renderCommunicationPageWithSettings('/communication?patientId=patient-1&view=needs-response');
+
+    const needsResponsePill = (await screen.findByTestId(
+      'communication-needs-response-pill',
+    )) as HTMLElement;
+    expect(needsResponsePill).toHaveClass('communication-page__meta-pill--attention');
+
+    await user.selectOptions(screen.getByLabelText('Communication attention cues'), 'reduced');
+    await user.click(screen.getByRole('button', { name: 'Save notification settings' }));
+
+    await waitFor(() => {
+      expect(needsResponsePill).not.toHaveClass('communication-page__meta-pill--attention');
+    });
+    expect(screen.getByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Patient communication timeline' })).getByText(
+        'Pain is much worse after exercise today.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows safety-aware alerts continuity only for safety-flagged threads', async () => {

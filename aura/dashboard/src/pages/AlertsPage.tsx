@@ -25,6 +25,7 @@ import { Stack } from '../components/ui/Stack';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useAssignment } from '../hooks/useAssignment';
+import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { useRiskOverride } from '../hooks/useRiskOverride';
 import {
   getClinicianId,
@@ -372,6 +373,7 @@ export function AlertsPage(): JSX.Element {
   const documentHidden = useDocumentHidden();
   const isMobileLayout = useMediaQuery(MEDIA_QUERIES.mdDown);
   const connection = useConnectionStatus();
+  const notificationPreferences = useNotificationPreferences();
 
   const shouldPollOpenAlerts = status === 'open' && connection.online && !documentHidden;
 
@@ -1047,6 +1049,8 @@ export function AlertsPage(): JSX.Element {
   } in view`;
   const updatedAtLabel = `Updated ${formatLastUpdated(connection.lastSuccessAt)}`;
   const statusViewLabel = formatStatusViewLabel(status);
+  const runtimeHighlightedAlertIds =
+    notificationPreferences.effectiveSafetyCueMode === 'reduced' ? [] : highlightedAlertIds;
 
   return (
     <Stack className="page-stack alerts-page" gap="5">
@@ -1352,7 +1356,7 @@ export function AlertsPage(): JSX.Element {
           <AlertCardList
             alerts={visibleAlerts}
             seenAlertMap={seenAlertMap}
-            highlightedAlertIds={highlightedAlertIds}
+            highlightedAlertIds={runtimeHighlightedAlertIds}
             clinicianId={clinicianId}
             mutationPending={updateAlertMutation.isPending}
             assignmentPending={assignments.assignmentBusy}
@@ -1370,7 +1374,7 @@ export function AlertsPage(): JSX.Element {
           <AlertsTable
             alerts={visibleAlerts}
             seenAlertMap={seenAlertMap}
-            highlightedAlertIds={highlightedAlertIds}
+            highlightedAlertIds={runtimeHighlightedAlertIds}
             clinicianId={clinicianId}
             mutationPending={updateAlertMutation.isPending}
             assignmentPending={assignments.assignmentBusy}

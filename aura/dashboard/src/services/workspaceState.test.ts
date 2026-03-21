@@ -4,6 +4,7 @@ import { clearClinicianIdentityForTests, setClinicianIdentity } from './clinicia
 import {
   clearWorkspaceState,
   getWorkspaceStateStorageKey,
+  hasWorkspaceState,
   normalizeWorkspaceSearch,
   readWorkspaceState,
   writeWorkspaceState,
@@ -103,5 +104,15 @@ describe('workspaceState', () => {
     expect(
       window.localStorage.getItem(getWorkspaceStateStorageKey('patients', 'clinician-7')),
     ).toBeNull();
+  });
+
+  it('can distinguish between no saved state and a saved workspace entry', () => {
+    setClinicianIdentity('clinician-8', 'Clinician Eight');
+
+    expect(hasWorkspaceState('patients')).toBe(false);
+
+    writeWorkspaceState('patients', { search: '' });
+
+    expect(hasWorkspaceState('patients')).toBe(true);
   });
 });

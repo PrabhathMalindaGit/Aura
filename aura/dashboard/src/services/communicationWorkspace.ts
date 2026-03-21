@@ -15,6 +15,17 @@ export type CommunicationThreadView =
   | 'safety-flagged'
   | 'follow-up-requested';
 
+export const COMMUNICATION_THREAD_VIEW_OPTIONS: Array<{
+  id: CommunicationThreadView;
+  label: string;
+}> = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'needs-response', label: 'Needs response' },
+  { id: 'safety-flagged', label: 'Safety flagged' },
+  { id: 'follow-up-requested', label: 'Follow-up requested' },
+];
+
 export interface CommunicationLocalReply {
   id: string;
   patientId: string;
@@ -78,6 +89,16 @@ function isBrowser(): boolean {
 
 function normalizePatientId(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+export function parseCommunicationThreadView(
+  value: string | null | undefined,
+  fallback: CommunicationThreadView = 'all',
+): CommunicationThreadView {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return COMMUNICATION_THREAD_VIEW_OPTIONS.some((option) => option.id === normalized)
+    ? (normalized as CommunicationThreadView)
+    : fallback;
 }
 
 function normalizeText(value: unknown): string {

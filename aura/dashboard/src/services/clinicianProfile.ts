@@ -14,6 +14,57 @@ export interface ClinicianProfilePhoto {
   sizeBytes: number;
 }
 
+export type ClinicianAvailabilityStatus =
+  | 'available'
+  | 'in-review'
+  | 'off-shift'
+  | 'follow-up-block';
+
+export type ClinicianWorkingDayToken =
+  | 'mon'
+  | 'tue'
+  | 'wed'
+  | 'thu'
+  | 'fri'
+  | 'sat'
+  | 'sun';
+
+export type ClinicianDefaultLandingRoute =
+  | '/dashboard'
+  | '/worklist'
+  | '/alerts'
+  | '/patients'
+  | '/communication';
+
+export type ClinicianDefaultPatientsPreset =
+  | ''
+  | 'active-alerts'
+  | 'missed-checkins'
+  | 'recently-active';
+
+export type ClinicianDefaultCommunicationFilter =
+  | 'all'
+  | 'unread'
+  | 'needs-response'
+  | 'safety-flagged'
+  | 'follow-up-requested';
+
+export interface ClinicianWorkingHours {
+  enabledDays: ClinicianWorkingDayToken[];
+  startTime: string;
+  endTime: string;
+}
+
+export interface ClinicianWorkspacePreferences {
+  availabilityStatus: ClinicianAvailabilityStatus;
+  teamLabel: string;
+  timezone: string;
+  workingHours: ClinicianWorkingHours;
+  defaultLandingRoute: ClinicianDefaultLandingRoute;
+  defaultPatientsPreset: ClinicianDefaultPatientsPreset;
+  defaultCommunicationFilter: ClinicianDefaultCommunicationFilter;
+}
+
 export interface ClinicianProfile {
   displayName: string;
   clinicianId: string;
@@ -23,10 +74,11 @@ export interface ClinicianProfile {
   preferredPronouns?: string;
   contactNote: string;
   photo: ClinicianProfilePhoto | null;
+  workspacePreferences: ClinicianWorkspacePreferences;
 }
 
 interface StoredClinicianProfileRecord {
-  version: 1;
+  version: 2;
   authScopeId: string;
   updatedAt: string;
   profile: ClinicianProfile;
@@ -50,6 +102,8 @@ export const CLINICIAN_PROFILE_LIMITS = {
   bio: 280,
   preferredPronouns: 40,
   contactNote: 240,
+  teamLabel: 80,
+  timezone: 120,
   fileName: 120,
 } as const;
 
@@ -65,8 +119,50 @@ const DEFAULT_CLINICIAN_ID = 'clinician-1';
 const DEFAULT_DISPLAY_NAME = 'Clinician 1';
 const DEFAULT_ROLE_TITLE = 'Rehab clinician';
 const DEFAULT_SPECIALTY = 'Recovery follow-up';
+const DEFAULT_AVAILABILITY_STATUS: ClinicianAvailabilityStatus = 'available';
+const DEFAULT_WORKING_DAYS: ClinicianWorkingDayToken[] = ['mon', 'tue', 'wed', 'thu', 'fri'];
+const DEFAULT_WORKING_START = '09:00';
+const DEFAULT_WORKING_END = '17:00';
+const DEFAULT_LANDING_ROUTE: ClinicianDefaultLandingRoute = '/dashboard';
+const DEFAULT_PATIENTS_PRESET: ClinicianDefaultPatientsPreset = '';
+const DEFAULT_COMMUNICATION_FILTER: ClinicianDefaultCommunicationFilter = 'all';
 const PROFILE_CHANGE_EVENT = 'aura:clinician-profile-change';
 const TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
+const VALID_AVAILABILITY_STATUSES = new Set<ClinicianAvailabilityStatus>([
+  'available',
+  'in-review',
+  'off-shift',
+  'follow-up-block',
+]);
+const VALID_WORKING_DAYS = new Set<ClinicianWorkingDayToken>([
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+  'sun',
+]);
+const VALID_LANDING_ROUTES = new Set<ClinicianDefaultLandingRoute>([
+  '/dashboard',
+  '/worklist',
+  '/alerts',
+  '/patients',
+  '/communication',
+]);
+const VALID_PATIENTS_PRESETS = new Set<ClinicianDefaultPatientsPreset>([
+  '',
+  'active-alerts',
+  'missed-checkins',
+  'recently-active',
+]);
+const VALID_COMMUNICATION_FILTERS = new Set<ClinicianDefaultCommunicationFilter>([
+  'all',
+  'unread',
+  'needs-response',
+  'safety-flagged',
+  'follow-up-requested',
+]);
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -109,6 +205,50 @@ function normalizeOptionalSingleLine(value: unknown, maxLength: number): string 
   return normalized || undefined;
 }
 
+function normalizeTimeValue(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d{2}:\d{2}$/.test(trimmed)) {
+    return fallback;
+  }
+
+  const [hours, minutes] = trimmed.split(':').map((segment) => Number(segment));
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return fallback;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function normalizeWorkingDays(
+  value: unknown,
+  fallback: ClinicianWorkingDayToken[],
+): ClinicianWorkingDayToken[] {
+  if (!Array.isArray(value)) {
+    return [...fallback];
+  }
+
+  const normalized = value
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry): entry is ClinicianWorkingDayToken => VALID_WORKING_DAYS.has(entry as ClinicianWorkingDayToken));
+
+  if (normalized.length === 0) {
+    return [...fallback];
+  }
+
+  return [...new Set(normalized)];
+}
+
 function normalizePositiveInteger(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return null;
@@ -116,6 +256,87 @@ function normalizePositiveInteger(value: unknown): number | null {
 
   const next = Math.trunc(value);
   return next > 0 ? next : null;
+}
+
+function getBrowserTimeZone(): string {
+  if (typeof Intl === 'undefined' || typeof Intl.DateTimeFormat !== 'function') {
+    return 'UTC';
+  }
+
+  try {
+    return trimToUndefined(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function createDefaultWorkspacePreferences(): ClinicianWorkspacePreferences {
+  return {
+    availabilityStatus: DEFAULT_AVAILABILITY_STATUS,
+    teamLabel: '',
+    timezone: getBrowserTimeZone(),
+    workingHours: {
+      enabledDays: [...DEFAULT_WORKING_DAYS],
+      startTime: DEFAULT_WORKING_START,
+      endTime: DEFAULT_WORKING_END,
+    },
+    defaultLandingRoute: DEFAULT_LANDING_ROUTE,
+    defaultPatientsPreset: DEFAULT_PATIENTS_PRESET,
+    defaultCommunicationFilter: DEFAULT_COMMUNICATION_FILTER,
+  };
+}
+
+function normalizeWorkspacePreferences(
+  value: unknown,
+  fallback: ClinicianWorkspacePreferences,
+): ClinicianWorkspacePreferences {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      ...fallback,
+      workingHours: {
+        ...fallback.workingHours,
+        enabledDays: [...fallback.workingHours.enabledDays],
+      },
+    };
+  }
+
+  const candidate = value as Partial<ClinicianWorkspacePreferences>;
+  const workingHoursCandidate =
+    candidate.workingHours && typeof candidate.workingHours === 'object' && !Array.isArray(candidate.workingHours)
+      ? (candidate.workingHours as Partial<ClinicianWorkingHours>)
+      : undefined;
+  const availabilityStatus = trimToUndefined(candidate.availabilityStatus);
+  const defaultLandingRoute = trimToUndefined(candidate.defaultLandingRoute);
+  const defaultPatientsPreset = trimToUndefined(candidate.defaultPatientsPreset);
+  const defaultCommunicationFilter = trimToUndefined(candidate.defaultCommunicationFilter);
+
+  return {
+    availabilityStatus: VALID_AVAILABILITY_STATUSES.has(availabilityStatus as ClinicianAvailabilityStatus)
+      ? (availabilityStatus as ClinicianAvailabilityStatus)
+      : fallback.availabilityStatus,
+    teamLabel: normalizeSingleLine(candidate.teamLabel, CLINICIAN_PROFILE_LIMITS.teamLabel),
+    timezone:
+      normalizeSingleLine(candidate.timezone, CLINICIAN_PROFILE_LIMITS.timezone) || fallback.timezone,
+    workingHours: {
+      enabledDays: normalizeWorkingDays(
+        workingHoursCandidate?.enabledDays,
+        fallback.workingHours.enabledDays,
+      ),
+      startTime: normalizeTimeValue(workingHoursCandidate?.startTime, fallback.workingHours.startTime),
+      endTime: normalizeTimeValue(workingHoursCandidate?.endTime, fallback.workingHours.endTime),
+    },
+    defaultLandingRoute: VALID_LANDING_ROUTES.has(defaultLandingRoute as ClinicianDefaultLandingRoute)
+      ? (defaultLandingRoute as ClinicianDefaultLandingRoute)
+      : fallback.defaultLandingRoute,
+    defaultPatientsPreset: VALID_PATIENTS_PRESETS.has(defaultPatientsPreset as ClinicianDefaultPatientsPreset)
+      ? (defaultPatientsPreset as ClinicianDefaultPatientsPreset)
+      : fallback.defaultPatientsPreset,
+    defaultCommunicationFilter: VALID_COMMUNICATION_FILTERS.has(
+      defaultCommunicationFilter as ClinicianDefaultCommunicationFilter,
+    )
+      ? (defaultCommunicationFilter as ClinicianDefaultCommunicationFilter)
+      : fallback.defaultCommunicationFilter,
+  };
 }
 
 function readStorageValue(key: string): string | undefined {
@@ -210,6 +431,7 @@ function createDefaultProfile(
     preferredPronouns: undefined,
     contactNote: '',
     photo: null,
+    workspacePreferences: createDefaultWorkspacePreferences(),
   };
 }
 
@@ -270,6 +492,10 @@ function normalizeProfile(
     ),
     contactNote: normalizeTextarea(candidate.contactNote, CLINICIAN_PROFILE_LIMITS.contactNote),
     photo: normalizePhoto(candidate.photo),
+    workspacePreferences: normalizeWorkspacePreferences(
+      candidate.workspacePreferences,
+      fallback.workspacePreferences,
+    ),
   };
 }
 
@@ -282,15 +508,18 @@ function normalizeStoredRecord(
     return null;
   }
 
-  const candidate = value as Partial<StoredClinicianProfileRecord>;
-  if (candidate.version !== 1 || trimToUndefined(candidate.authScopeId) !== authScopeId) {
+  const candidate = value as Partial<StoredClinicianProfileRecord> & { version?: unknown };
+  if (
+    (candidate.version !== 1 && candidate.version !== 2) ||
+    trimToUndefined(candidate.authScopeId) !== authScopeId
+  ) {
     return null;
   }
 
   const updatedAt = trimToUndefined(candidate.updatedAt) ?? new Date().toISOString();
 
   return {
-    version: 1,
+    version: 2,
     authScopeId,
     updatedAt,
     profile: normalizeProfile(candidate.profile, fallback),
@@ -318,7 +547,7 @@ function persistProfileRecord(
   }
 
   const record: StoredClinicianProfileRecord = {
-    version: 1,
+    version: 2,
     authScopeId,
     updatedAt: new Date().toISOString(),
     profile,

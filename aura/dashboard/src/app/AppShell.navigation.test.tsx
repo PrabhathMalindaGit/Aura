@@ -9,8 +9,10 @@ import { AppShell } from './AppShell';
 import {
   clearClinicianProfileForTests,
   getClinicianProfile,
+  getClinicianProfileStorageKey,
   setClinicianProfile,
 } from '../services/clinicianProfile';
+import { getPreferredDashboardLandingPath } from '../services/clinicianWorkspacePreferences';
 
 type BreakpointPreset = 'mobile' | 'desktop';
 
@@ -72,12 +74,16 @@ function RouteEcho(): JSX.Element {
   return <div>{`${location.pathname}${location.search}`}</div>;
 }
 
+function LandingRedirect(): JSX.Element {
+  return <Navigate to={getPreferredDashboardLandingPath()} replace />;
+}
+
 function renderShell(entry: string): void {
   render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/" element={<AppShell />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<LandingRedirect />} />
           <Route path="dashboard" element={<div>Dashboard workspace</div>} />
           <Route path="worklist" element={<div>Worklist workspace</div>} />
           <Route path="communication" element={<div>Communication workspace</div>} />
@@ -215,12 +221,70 @@ describe('AppShell navigation', () => {
     expect(activeLink).toHaveClass('sidebar-item--active');
   });
 
+  it('redirects the shell index route to the saved preferred landing when present', async () => {
+    installMatchMediaPreset('desktop');
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      workspacePreferences: {
+        ...getClinicianProfile().workspacePreferences,
+        defaultLandingRoute: '/communication',
+      },
+    });
+
+    renderShell('/');
+
+    await waitFor(() => {
+      expect(screen.getByText('Communication workspace')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to dashboard when the saved preferred landing is invalid', async () => {
+    installMatchMediaPreset('desktop');
+    const profile = getClinicianProfile();
+    window.localStorage.setItem(
+      getClinicianProfileStorageKey('auth-clinician-1'),
+      JSON.stringify({
+        version: 2,
+        authScopeId: 'auth-clinician-1',
+        updatedAt: new Date().toISOString(),
+        profile: {
+          ...profile,
+          workspacePreferences: {
+            ...profile.workspacePreferences,
+            defaultLandingRoute: '/invalid-route',
+          },
+        },
+      }),
+    );
+
+    renderShell('/');
+
+    await waitFor(() => {
+      expect(screen.getByText('Dashboard workspace')).toBeInTheDocument();
+    });
+  });
+
+  it('does not let the saved landing override an explicit deep link', () => {
+    installMatchMediaPreset('desktop');
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      workspacePreferences: {
+        ...getClinicianProfile().workspacePreferences,
+        defaultLandingRoute: '/communication',
+      },
+    });
+
+    renderShell('/patients');
+
+    expect(screen.getByText('/patients')).toBeInTheDocument();
+  });
+
   it('renders the clinician identity entry with initials fallback and accessible settings label', () => {
     installMatchMediaPreset('desktop');
     renderShell('/dashboard');
 
     const identityEntry = screen.getByRole('link', {
-      name: 'Open clinician profile settings for Dr Rivera',
+      name: 'Open clinician profile settings for Dr Rivera. Local availability: Available.',
     });
 
     expect(identityEntry).toBeInTheDocument();
@@ -244,7 +308,7 @@ describe('AppShell navigation', () => {
     renderShell('/dashboard');
 
     const identityEntry = screen.getByRole('link', {
-      name: 'Open clinician profile settings for Dr Elena Hall',
+      name: 'Open clinician profile settings for Dr Elena Hall. Local availability: Available.',
     });
     const avatarImage = identityEntry.querySelector('img');
 

@@ -17,10 +17,12 @@ import { useConnectionStatus } from '../services/connection';
 import { usePatients } from '../services/clinicianApi';
 import {
   clearWorkspaceState,
+  hasWorkspaceState,
   normalizeWorkspaceSearch,
   readWorkspaceState,
   writeWorkspaceState,
 } from '../services/workspaceState';
+import { getSavedPatientsPreset } from '../services/clinicianWorkspacePreferences';
 import { MEDIA_QUERIES } from '../styles/breakpoints';
 import type { PatientSummary } from '../types/models';
 import { asAppError } from '../utils/errors';
@@ -32,9 +34,12 @@ import {
 import {
   applyPatientFilters,
   defaultPatientFilters,
+  getPatientTriagePreset,
   hasOpenAlerts,
   isMissedCheckin,
   isRecentlyActive,
+  matchesPatientTriagePreset,
+  PATIENT_TRIAGE_PRESETS,
   type PatientFilters,
 } from '../utils/patientFilters';
 
@@ -50,44 +55,6 @@ const PATIENT_SORT_OPTIONS = [
   'name-asc',
   'status-active-first',
 ] as const;
-const PATIENT_TRIAGE_PRESETS = [
-  {
-    id: 'active-alerts',
-    label: 'Active alerts',
-    filters: {
-      status: 'all',
-      hasOpenAlertsOnly: true,
-      missedCheckinsOnly: false,
-      recentlyActive: 'all',
-      sort: 'alerts-desc',
-    },
-  },
-  {
-    id: 'missed-checkins',
-    label: 'Missed check-ins',
-    filters: {
-      status: 'all',
-      hasOpenAlertsOnly: false,
-      missedCheckinsOnly: true,
-      recentlyActive: 'all',
-      sort: 'alerts-desc',
-    },
-  },
-  {
-    id: 'recently-active',
-    label: 'Recently active',
-    filters: {
-      status: 'all',
-      hasOpenAlertsOnly: false,
-      missedCheckinsOnly: false,
-      recentlyActive: '7d',
-      sort: 'last-checkin-desc',
-    },
-  },
-] as const;
-
-type PatientTriagePreset = (typeof PATIENT_TRIAGE_PRESETS)[number];
-
 function normalizePatientsWorkspaceState(value: unknown): PatientFilters {
   const fallback = defaultPatientFilters();
 
@@ -111,19 +78,6 @@ function normalizePatientsWorkspaceState(value: unknown): PatientFilters {
       ? (candidate.sort as PatientFilters['sort'])
       : fallback.sort,
   };
-}
-
-function matchesPatientTriagePreset(
-  filters: PatientFilters,
-  preset: PatientTriagePreset,
-): boolean {
-  return (
-    filters.status === preset.filters.status &&
-    filters.hasOpenAlertsOnly === preset.filters.hasOpenAlertsOnly &&
-    filters.missedCheckinsOnly === preset.filters.missedCheckinsOnly &&
-    filters.recentlyActive === preset.filters.recentlyActive &&
-    filters.sort === preset.filters.sort
-  );
 }
 
 function summarizePatients(patients: PatientSummary[]): {
@@ -187,18 +141,29 @@ export function PatientsPage(): JSX.Element {
   const liveFiltersRef = useRef<PatientFilters>(defaultPatientFilters());
   const searchPersistenceEnabledRef = useRef(false);
   const [filters, setFilters] = useState<PatientFilters>(() => {
+    const hasSavedPatientsState = hasWorkspaceState(PATIENTS_WORKSPACE_PAGE);
     const restored = readWorkspaceState(
       PATIENTS_WORKSPACE_PAGE,
       defaultPatientFilters(),
       normalizePatientsWorkspaceState,
     );
-    savedFiltersRef.current = restored;
-    return initialSearchValue
+    const savedPreset =
+      !hasSavedPatientsState && !initialSearchValue
+        ? getPatientTriagePreset(getSavedPatientsPreset())
+        : null;
+    const seededFilters = savedPreset
       ? {
           ...restored,
-          search: initialSearchValue,
+          ...savedPreset.filters,
         }
       : restored;
+    savedFiltersRef.current = seededFilters;
+    return initialSearchValue
+      ? {
+          ...seededFilters,
+          search: initialSearchValue,
+        }
+      : seededFilters;
   });
   const debouncedPersistedSearch = useDebouncedValue(filters.search, 250);
 

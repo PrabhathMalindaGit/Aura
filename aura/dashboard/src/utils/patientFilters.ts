@@ -16,6 +16,50 @@ export interface PatientFilters {
   sort: PatientSortOption;
 }
 
+export interface PatientTriagePreset {
+  id: 'active-alerts' | 'missed-checkins' | 'recently-active';
+  label: string;
+  filters: Omit<PatientFilters, 'search'>;
+}
+
+export type PatientTriagePresetId = PatientTriagePreset['id'];
+
+export const PATIENT_TRIAGE_PRESETS: readonly PatientTriagePreset[] = [
+  {
+    id: 'active-alerts',
+    label: 'Active alerts',
+    filters: {
+      status: 'all',
+      hasOpenAlertsOnly: true,
+      missedCheckinsOnly: false,
+      recentlyActive: 'all',
+      sort: 'alerts-desc',
+    },
+  },
+  {
+    id: 'missed-checkins',
+    label: 'Missed check-ins',
+    filters: {
+      status: 'all',
+      hasOpenAlertsOnly: false,
+      missedCheckinsOnly: true,
+      recentlyActive: 'all',
+      sort: 'alerts-desc',
+    },
+  },
+  {
+    id: 'recently-active',
+    label: 'Recently active',
+    filters: {
+      status: 'all',
+      hasOpenAlertsOnly: false,
+      missedCheckinsOnly: false,
+      recentlyActive: '7d',
+      sort: 'last-checkin-desc',
+    },
+  },
+] as const;
+
 const STATUS_PRIORITY: Record<PatientStatus, number> = {
   active: 0,
   on_hold: 1,
@@ -200,6 +244,30 @@ export function sortPatients(patients: PatientSummary[], sort: PatientSortOption
 export function applyPatientFilters(patients: PatientSummary[], filters: PatientFilters, nowMs: number = Date.now()): PatientSummary[] {
   const filtered = filterPatients(patients, filters, nowMs);
   return sortPatients(filtered, filters.sort);
+}
+
+export function matchesPatientTriagePreset(
+  filters: PatientFilters,
+  preset: PatientTriagePreset,
+): boolean {
+  return (
+    filters.status === preset.filters.status &&
+    filters.hasOpenAlertsOnly === preset.filters.hasOpenAlertsOnly &&
+    filters.missedCheckinsOnly === preset.filters.missedCheckinsOnly &&
+    filters.recentlyActive === preset.filters.recentlyActive &&
+    filters.sort === preset.filters.sort
+  );
+}
+
+export function getPatientTriagePreset(
+  presetId: string | null | undefined,
+): PatientTriagePreset | null {
+  const normalizedPresetId = typeof presetId === 'string' ? presetId.trim() : '';
+  if (!normalizedPresetId) {
+    return null;
+  }
+
+  return PATIENT_TRIAGE_PRESETS.find((preset) => preset.id === normalizedPresetId) ?? null;
 }
 
 export function defaultPatientFilters(): PatientFilters {

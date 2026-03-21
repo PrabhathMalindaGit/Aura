@@ -11,6 +11,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Inset } from '../components/ui/Inset';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
+import { useClinicianWorkspacePreferences } from '../hooks/useClinicianWorkspacePreferences';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useSidebarMode } from '../hooks/useSidebarMode';
 import { useConnectionStatus } from '../services/connection';
@@ -126,13 +127,40 @@ function formatLastUpdated(lastSuccessAt: number | null): string {
   });
 }
 
-function formatWorkspaceDateTime(nowMs: number): string {
-  return new Intl.DateTimeFormat([], {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(nowMs);
+function formatWorkspaceDateTime(nowMs: number, timeZone?: string): string {
+  try {
+    return new Intl.DateTimeFormat([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      ...(timeZone ? { timeZone } : {}),
+    }).format(nowMs);
+  } catch {
+    return new Intl.DateTimeFormat([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(nowMs);
+  }
+}
+
+function formatWorkspaceDateTimeTitle(nowMs: number, timeZone?: string): string {
+  const resolvedTimeZone = timeZone ?? 'local browser time';
+
+  try {
+    return `${new Intl.DateTimeFormat([], {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      ...(timeZone ? { timeZone } : {}),
+    }).format(nowMs)} · ${resolvedTimeZone}`;
+  } catch {
+    return `${new Intl.DateTimeFormat([], {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(nowMs)} · ${resolvedTimeZone}`;
+  }
 }
 
 export function AppShell(): JSX.Element {
@@ -152,6 +180,7 @@ export function AppShell(): JSX.Element {
   });
   const connection = useConnectionStatus();
   const clinicianIdentity = useClinicianIdentity();
+  const workspacePreferences = useClinicianWorkspacePreferences();
 
   const handleSessionLogout = useCallback(
     (reason: SessionTimeoutReason) => {
@@ -241,10 +270,14 @@ export function AppShell(): JSX.Element {
     const match = SHELL_PAGE_CONFIGS.find((entry) => entry.matches(pathname));
     return match?.config ?? SHELL_PAGE_CONFIGS[SHELL_PAGE_CONFIGS.length - 1].config;
   }, [pathname]);
-  const identityTitle = clinicianIdentity.secondaryLine
-    ? `${clinicianIdentity.displayName} · ${clinicianIdentity.secondaryLine}`
-    : clinicianIdentity.displayName;
-  const identityEntryLabel = `Open clinician profile settings for ${clinicianIdentity.displayName}`;
+  const identityTitle = [
+    clinicianIdentity.displayName,
+    clinicianIdentity.secondaryLine,
+    `Local availability: ${workspacePreferences.availabilityLabel}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const identityEntryLabel = `Open clinician profile settings for ${clinicianIdentity.displayName}. Local availability: ${workspacePreferences.availabilityLabel}.`;
 
   const handleQuickOpenSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -329,7 +362,13 @@ export function AppShell(): JSX.Element {
 
           <div className="topbar__status">
             <div className="topbar__utility">
-              <span className="topbar__datetime">{formatWorkspaceDateTime(nowMs)}</span>
+              <span
+                className="topbar__datetime"
+                title={formatWorkspaceDateTimeTitle(nowMs, workspacePreferences.resolvedTimezone)}
+                aria-label={`Workspace time in ${workspacePreferences.resolvedTimezone}`}
+              >
+                {formatWorkspaceDateTime(nowMs, workspacePreferences.resolvedTimezone)}
+              </span>
               <div className="topbar__status-cluster">
                 <Badge variant={connection.online ? 'success' : 'danger'} icon>
                   {connection.online ? 'Connected' : 'Offline'}
@@ -349,7 +388,14 @@ export function AppShell(): JSX.Element {
               >
                 <ClinicianAvatar identity={clinicianIdentity} decorative size="md" />
                 <div className="topbar__identity-copy">
-                  <strong className="topbar__identity-name">{clinicianIdentity.displayName}</strong>
+                  <div className="topbar__identity-heading">
+                    <strong className="topbar__identity-name">{clinicianIdentity.displayName}</strong>
+                    <span
+                      className={`topbar__availability-dot topbar__availability-dot--${workspacePreferences.availabilityTone}`}
+                      title={`Local availability: ${workspacePreferences.availabilityLabel}`}
+                      aria-hidden="true"
+                    />
+                  </div>
                   {clinicianIdentity.secondaryLine ? (
                     <span className="topbar__identity-role">{clinicianIdentity.secondaryLine}</span>
                   ) : null}

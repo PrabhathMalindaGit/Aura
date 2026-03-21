@@ -63,10 +63,18 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(screen.getByRole('button', { name: 'Remove photo' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Restore defaults' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Availability status')).toBeInTheDocument();
+    expect(screen.getByLabelText('Team or clinic label')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workspace timezone')).toBeInTheDocument();
+    expect(screen.getByLabelText('Default landing route')).toBeInTheDocument();
+    expect(screen.getByLabelText('Default Patients preset')).toBeInTheDocument();
+    expect(screen.getByLabelText('Default Communication filter')).toBeInTheDocument();
     expect(within(savedSummary).getByText('Dr Rivera')).toBeInTheDocument();
     expect(within(savedSummary).getByText('ID: auth-clinician-1')).toBeInTheDocument();
     expect(within(savedSummary).getByText('Rehab clinician')).toBeInTheDocument();
     expect(within(savedSummary).getByText('Recovery follow-up')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('Available')).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Opens to Home/)).toBeInTheDocument();
     expect(
       screen.getAllByText(
         'Saved locally for this clinician in this browser. Changes do not sync across devices.',
@@ -102,6 +110,14 @@ describe('SettingsPage clinician profile workspace', () => {
     await user.type(clinicianIdInput, 'elena-hall-local');
     await user.clear(screen.getByLabelText('Clinician role or title'));
     await user.type(screen.getByLabelText('Clinician role or title'), 'Lead rehab clinician');
+    await user.selectOptions(screen.getByLabelText('Availability status'), 'in-review');
+    await user.type(screen.getByLabelText('Team or clinic label'), 'North Clinic');
+    await user.clear(screen.getByLabelText('Workspace timezone'));
+    await user.type(screen.getByLabelText('Workspace timezone'), 'America/New_York');
+    await user.click(screen.getByLabelText('Friday'));
+    await user.selectOptions(screen.getByLabelText('Default landing route'), '/communication');
+    await user.selectOptions(screen.getByLabelText('Default Patients preset'), 'active-alerts');
+    await user.selectOptions(screen.getByLabelText('Default Communication filter'), 'needs-response');
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
 
     expect(screen.getByText('Profile saved in this browser.')).toBeInTheDocument();
@@ -109,17 +125,32 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(window.localStorage.getItem(CLINICIAN_NAME_STORAGE_KEY)).toBe('Dr Elena Hall');
     expect(screen.getByText('ID: elena-hall-local')).toBeInTheDocument();
     expect(screen.getByText('Lead rehab clinician')).toBeInTheDocument();
+    const savedSummary = screen.getByLabelText('Saved clinician profile summary');
+    expect(within(savedSummary).getByText('In review')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('North Clinic')).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Opens to Communication/)).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Patients: Active alerts/)).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Communication: Needs response/)).toBeInTheDocument();
 
     const stored = window.localStorage.getItem(getClinicianProfileStorageKey('auth-clinician-2'));
     expect(stored).toContain('"authScopeId":"auth-clinician-2"');
     expect(stored).toContain('"displayName":"Dr Elena Hall"');
     expect(stored).toContain('"clinicianId":"elena-hall-local"');
+    expect(stored).toContain('"availabilityStatus":"in-review"');
+    expect(stored).toContain('"teamLabel":"North Clinic"');
+    expect(stored).toContain('"timezone":"America/New_York"');
+    expect(stored).toContain('"defaultLandingRoute":"/communication"');
+    expect(stored).toContain('"defaultPatientsPreset":"active-alerts"');
+    expect(stored).toContain('"defaultCommunicationFilter":"needs-response"');
 
     view.unmount();
     render(<SettingsPage />);
 
     expect(screen.getByLabelText('Clinician display name')).toHaveValue('Dr Elena Hall');
     expect(screen.getByLabelText('Clinician ID')).toHaveValue('elena-hall-local');
+    expect(screen.getByLabelText('Availability status')).toHaveValue('in-review');
+    expect(screen.getByLabelText('Team or clinic label')).toHaveValue('North Clinic');
+    expect(screen.getByLabelText('Default landing route')).toHaveValue('/communication');
   });
 
   it('restores defaults into the draft only until the clinician saves them', async () => {

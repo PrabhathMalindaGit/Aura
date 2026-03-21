@@ -137,13 +137,17 @@ describe('AppShell identity reactivity', () => {
     renderApp();
 
     expect(
-      await screen.findByRole('link', { name: 'Open clinician profile settings for Dr Rivera' }),
+      await screen.findByRole('link', {
+        name: 'Open clinician profile settings for Dr Rivera. Local availability: Available.',
+      }),
     ).toBeInTheDocument();
     expect(await screen.findByText('Replying as')).toBeInTheDocument();
     expect(screen.getAllByText('Dr Rivera').length).toBeGreaterThan(0);
 
     await user.click(
-      screen.getByRole('link', { name: 'Open clinician profile settings for Dr Rivera' }),
+      screen.getByRole('link', {
+        name: 'Open clinician profile settings for Dr Rivera. Local availability: Available.',
+      }),
     );
 
     await screen.findByRole('heading', { name: 'Settings', level: 1 });
@@ -153,13 +157,19 @@ describe('AppShell identity reactivity', () => {
     await user.type(screen.getByLabelText('Clinician role or title'), 'Lead rehab clinician');
     await user.clear(screen.getByLabelText('Clinician specialty'));
     await user.type(screen.getByLabelText('Clinician specialty'), 'Post-op recovery');
+    await user.selectOptions(screen.getByLabelText('Availability status'), 'in-review');
+    await user.clear(screen.getByLabelText('Workspace timezone'));
+    await user.type(screen.getByLabelText('Workspace timezone'), 'America/New_York');
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
 
     await waitFor(() => {
       expect(
-        screen.getByRole('link', { name: 'Open clinician profile settings for Dr Elena Hall' }),
+        screen.getByRole('link', {
+          name: 'Open clinician profile settings for Dr Elena Hall. Local availability: In review.',
+        }),
       ).toBeInTheDocument();
     });
+    expect(screen.getByLabelText('Workspace time in America/New_York')).toBeInTheDocument();
 
     await user.click(screen.getByRole('link', { name: 'Communication' }));
 

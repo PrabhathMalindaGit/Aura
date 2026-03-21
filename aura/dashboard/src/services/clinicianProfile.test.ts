@@ -63,6 +63,12 @@ describe('clinicianProfile', () => {
       displayName: 'Dr Elena Hall',
       clinicianId: 'local-hall',
       roleTitle: 'Lead rehab clinician',
+      workspacePreferences: {
+        ...first.workspacePreferences,
+        availabilityStatus: 'in-review',
+        teamLabel: 'North Clinic',
+        defaultLandingRoute: '/communication',
+      },
     });
 
     window.localStorage.setItem(CLINICIAN_NAME_STORAGE_KEY, 'Different Legacy Value');
@@ -73,6 +79,9 @@ describe('clinicianProfile', () => {
     expect(restored.displayName).toBe('Dr Elena Hall');
     expect(restored.clinicianId).toBe('local-hall');
     expect(restored.roleTitle).toBe('Lead rehab clinician');
+    expect(restored.workspacePreferences.availabilityStatus).toBe('in-review');
+    expect(restored.workspacePreferences.teamLabel).toBe('North Clinic');
+    expect(restored.workspacePreferences.defaultLandingRoute).toBe('/communication');
   });
 
   it('keeps scoped profiles separate across authenticated clinicians', () => {
@@ -106,6 +115,36 @@ describe('clinicianProfile', () => {
 
     expect(profile.displayName).toBe('Dr Chen');
     expect(profile.clinicianId).toBe('auth-clinician-3');
+    expect(profile.workspacePreferences.defaultLandingRoute).toBe('/dashboard');
+  });
+
+  it('normalizes workspace preference defaults for older saved records', () => {
+    setActiveToken({ sub: 'auth-clinician-legacy', name: 'Dr Legacy' });
+    window.localStorage.setItem(
+      getClinicianProfileStorageKey('auth-clinician-legacy'),
+      JSON.stringify({
+        version: 1,
+        authScopeId: 'auth-clinician-legacy',
+        updatedAt: new Date().toISOString(),
+        profile: {
+          displayName: 'Dr Legacy',
+          clinicianId: 'auth-clinician-legacy',
+          roleTitle: 'Rehab clinician',
+          specialty: 'Recovery follow-up',
+          bio: '',
+          preferredPronouns: undefined,
+          contactNote: '',
+          photo: null,
+        },
+      }),
+    );
+
+    const profile = getClinicianProfile();
+
+    expect(profile.workspacePreferences.availabilityStatus).toBe('available');
+    expect(profile.workspacePreferences.defaultLandingRoute).toBe('/dashboard');
+    expect(profile.workspacePreferences.defaultPatientsPreset).toBe('');
+    expect(profile.workspacePreferences.defaultCommunicationFilter).toBe('all');
   });
 
   it('rejects invalid photo payloads during save normalization', () => {
@@ -136,6 +175,19 @@ describe('clinicianProfile', () => {
       preferredPronouns: undefined,
       contactNote: '',
       photo: null,
+      workspacePreferences: {
+        availabilityStatus: 'available',
+        teamLabel: '',
+        timezone: 'UTC',
+        workingHours: {
+          enabledDays: ['mon', 'tue', 'wed', 'thu', 'fri'],
+          startTime: '09:00',
+          endTime: '17:00',
+        },
+        defaultLandingRoute: '/dashboard',
+        defaultPatientsPreset: '',
+        defaultCommunicationFilter: 'all',
+      },
     };
 
     const result = setClinicianProfile(profile);

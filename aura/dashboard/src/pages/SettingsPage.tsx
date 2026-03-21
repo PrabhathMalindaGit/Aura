@@ -5,6 +5,7 @@ import { Card } from '../components/ui/Card';
 import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
 import { Section } from '../components/ui/Section';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
+import { useClinicianWorkspacePreferences } from '../hooks/useClinicianWorkspacePreferences';
 import {
   CLINICIAN_PROFILE_LIMITS,
   CLINICIAN_PROFILE_PHOTO_MIME_TYPES,
@@ -12,28 +13,39 @@ import {
   getClinicianProfile,
   getDefaultClinicianProfileForAuthIdentity,
   setClinicianProfile,
+  type ClinicianAvailabilityStatus,
   type ClinicianProfile,
   type ClinicianProfilePhotoMime,
+  type ClinicianWorkingDayToken,
 } from '../services/clinicianProfile';
 import {
   getClinicianInitials,
 } from '../services/clinicianIdentity';
+import {
+  AVAILABILITY_STATUS_OPTIONS,
+  LANDING_ROUTE_OPTIONS,
+  WORKING_DAY_OPTIONS,
+  getSupportedTimeZoneOptions,
+} from '../services/clinicianWorkspacePreferences';
 import {
   DEFAULT_SESSION_SETTINGS,
   getSessionSettings,
   setSessionSettings,
   type SessionSettings,
 } from '../services/sessionSettings';
+import { COMMUNICATION_THREAD_VIEW_OPTIONS } from '../services/communicationWorkspace';
 import {
   getThemeMode,
   setThemeMode,
   subscribeThemeMode,
   type ThemeMode,
 } from '../services/theme';
+import { PATIENT_TRIAGE_PRESETS } from '../utils/patientFilters';
 
 interface ProfileValidationState {
   displayName?: string;
   clinicianId?: string;
+  workingHours?: string;
 }
 
 function profilesEqual(left: ClinicianProfile, right: ClinicianProfile): boolean {
@@ -49,6 +61,20 @@ function validateProfile(profile: ClinicianProfile): ProfileValidationState {
 
   if (!profile.clinicianId.trim()) {
     next.clinicianId = 'Clinician ID is required before saving.';
+  }
+
+  const workingHours = profile.workspacePreferences.workingHours;
+  const [startHours, startMinutes] = workingHours.startTime.split(':').map((value) => Number(value));
+  const [endHours, endMinutes] = workingHours.endTime.split(':').map((value) => Number(value));
+  const startSortValue = startHours * 60 + startMinutes;
+  const endSortValue = endHours * 60 + endMinutes;
+
+  if (workingHours.enabledDays.length === 0) {
+    next.workingHours = 'Select at least one working day before saving.';
+  } else if (!Number.isFinite(startSortValue) || !Number.isFinite(endSortValue)) {
+    next.workingHours = 'Enter a valid start and end time before saving.';
+  } else if (endSortValue <= startSortValue) {
+    next.workingHours = 'End time must be later than the start time.';
   }
 
   return next;
@@ -78,6 +104,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export function SettingsPage(): JSX.Element {
   const initialProfile = useMemo(() => getClinicianProfile(), []);
   const clinicianIdentity = useClinicianIdentity();
+  const workspacePreferences = useClinicianWorkspacePreferences();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getThemeMode());
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
   const [savedProfile, setSavedProfile] = useState<ClinicianProfile>(() => initialProfile);
@@ -90,6 +117,7 @@ export function SettingsPage(): JSX.Element {
   );
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const supportedTimeZones = useMemo(() => getSupportedTimeZoneOptions(), []);
 
   useEffect(() => {
     return subscribeThemeMode((mode) => {
@@ -116,6 +144,75 @@ export function SettingsPage(): JSX.Element {
     setProfileValidation((current) => ({
       ...current,
       [key]: undefined,
+    }));
+  }
+
+  function updateDraftWorkspacePreference<
+    K extends keyof ClinicianProfile['workspacePreferences'],
+  >(
+    key: K,
+    value: ClinicianProfile['workspacePreferences'][K],
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      workspacePreferences: {
+        ...current.workspacePreferences,
+        [key]: value,
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      workingHours: undefined,
+    }));
+  }
+
+  function updateDraftWorkingDays(day: ClinicianWorkingDayToken, checked: boolean): void {
+    setDraftProfile((current) => {
+      const currentDays = current.workspacePreferences.workingHours.enabledDays;
+      const nextDays = checked
+        ? [...new Set([...currentDays, day])]
+        : currentDays.filter((entry) => entry !== day);
+
+      return {
+        ...current,
+        workspacePreferences: {
+          ...current.workspacePreferences,
+          workingHours: {
+            ...current.workspacePreferences.workingHours,
+            enabledDays: nextDays,
+          },
+        },
+      };
+    });
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      workingHours: undefined,
+    }));
+  }
+
+  function updateDraftWorkingTime(
+    key: 'startTime' | 'endTime',
+    value: string,
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      workspacePreferences: {
+        ...current.workspacePreferences,
+        workingHours: {
+          ...current.workspacePreferences.workingHours,
+          [key]: value,
+        },
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      workingHours: undefined,
     }));
   }
 
@@ -212,6 +309,12 @@ export function SettingsPage(): JSX.Element {
   const identityStateLabel =
     [savedProfile.roleTitle.trim(), savedProfile.specialty.trim()].filter(Boolean).join(' · ') ||
     'Saved locally in this browser';
+  const workspaceStateLabel = [
+    workspacePreferences.availabilityLabel,
+    workspacePreferences.defaultLandingLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const draftIdentityPreview = {
     displayName:
       draftProfile.displayName.trim() ||
@@ -225,6 +328,21 @@ export function SettingsPage(): JSX.Element {
     clinicianIdentity.roleTitle,
     clinicianIdentity.specialty,
     clinicianIdentity.preferredPronouns,
+  ].filter(Boolean) as string[];
+  const savedWorkspaceFacts = [
+    workspacePreferences.availabilityLabel,
+    workspacePreferences.teamLabel || undefined,
+    workspacePreferences.resolvedTimezone,
+    workspacePreferences.workingHoursSummary,
+  ].filter(Boolean) as string[];
+  const savedWorkspaceDefaults = [
+    `Opens to ${workspacePreferences.defaultLandingLabel}`,
+    workspacePreferences.defaultPatientsPreset
+      ? `Patients: ${workspacePreferences.defaultPatientsPresetLabel}`
+      : undefined,
+    workspacePreferences.defaultCommunicationFilter !== 'all'
+      ? `Communication: ${workspacePreferences.defaultCommunicationFilterLabel}`
+      : undefined,
   ].filter(Boolean) as string[];
   const savedIdentitySupportLine = clinicianIdentity.secondaryLine || 'Local clinician profile';
   const profileDirty = useMemo(() => !profilesEqual(savedProfile, draftProfile), [draftProfile, savedProfile]);
@@ -295,6 +413,7 @@ export function SettingsPage(): JSX.Element {
             <span className="settings-workspace-note__fact">{themeSummaryLabel} mode</span>
             <span className="settings-workspace-note__fact">{securityStateLabel}</span>
             <span className="settings-workspace-note__fact">{identityStateLabel}</span>
+            <span className="settings-workspace-note__fact">{workspaceStateLabel}</span>
           </div>
         </section>
       </div>
@@ -470,6 +589,18 @@ export function SettingsPage(): JSX.Element {
                     </span>
                   ))}
                 </div>
+                <div className="settings-profile-summary__facts" aria-label="Saved workspace preference facts">
+                  {savedWorkspaceFacts.map((fact) => (
+                    <span key={fact} className="settings-profile-summary__fact">
+                      {fact}
+                    </span>
+                  ))}
+                </div>
+                {savedWorkspaceDefaults.length > 0 ? (
+                  <p className="settings-profile-summary__body settings-profile-summary__body--secondary">
+                    {savedWorkspaceDefaults.join(' · ')}
+                  </p>
+                ) : null}
                 {clinicianIdentity.bio ? (
                   <p className="settings-profile-summary__body">{clinicianIdentity.bio}</p>
                 ) : null}
@@ -648,7 +779,206 @@ export function SettingsPage(): JSX.Element {
                   aria-label="Contact or handoff note"
                 />
               </label>
+
+              <div className="settings-profile-section-label">Workspace context & defaults</div>
+              <label className="setting-item setting-item--field form-field" htmlFor="workspace-availability-select">
+                <span>
+                  <strong>Availability status</strong>
+                  <small>Local workspace status only. It does not broadcast to other clinicians.</small>
+                </span>
+                <select
+                  id="workspace-availability-select"
+                  value={draftProfile.workspacePreferences.availabilityStatus}
+                  onChange={(event) =>
+                    updateDraftWorkspacePreference(
+                      'availabilityStatus',
+                      event.target.value as ClinicianAvailabilityStatus,
+                    )
+                  }
+                  aria-label="Availability status"
+                >
+                  {AVAILABILITY_STATUS_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="workspace-team-label-input">
+                <span>
+                  <strong>Team / clinic label</strong>
+                  <small>Optional local context for this clinician workspace.</small>
+                </span>
+                <input
+                  id="workspace-team-label-input"
+                  type="text"
+                  value={draftProfile.workspacePreferences.teamLabel}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.teamLabel}
+                  onChange={(event) => updateDraftWorkspacePreference('teamLabel', event.target.value)}
+                  placeholder="Optional team or clinic"
+                  aria-label="Team or clinic label"
+                />
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="workspace-timezone-input">
+                <span>
+                  <strong>Timezone</strong>
+                  <small>
+                    Used for this browser workspace. Aura falls back safely to the current browser
+                    timezone if needed.
+                  </small>
+                </span>
+                <input
+                  id="workspace-timezone-input"
+                  type="text"
+                  list="settings-timezone-options"
+                  value={draftProfile.workspacePreferences.timezone}
+                  maxLength={CLINICIAN_PROFILE_LIMITS.timezone}
+                  onChange={(event) => updateDraftWorkspacePreference('timezone', event.target.value)}
+                  placeholder={workspacePreferences.resolvedTimezone}
+                  aria-label="Workspace timezone"
+                />
+              </label>
+
+              <fieldset
+                className="setting-item setting-item--field form-field settings-working-hours"
+                aria-label="Working hours"
+              >
+                <legend>
+                  <strong>Working hours</strong>
+                  <small>
+                    Simple local context only. Aura does not derive availability or scheduling from
+                    this automatically.
+                  </small>
+                  {profileValidation.workingHours ? (
+                    <small className="validation-text">{profileValidation.workingHours}</small>
+                  ) : null}
+                </legend>
+                <div className="settings-working-hours__days" role="group" aria-label="Working days">
+                  {WORKING_DAY_OPTIONS.map((day) => {
+                    const checked = draftProfile.workspacePreferences.workingHours.enabledDays.includes(day.id);
+
+                    return (
+                      <label key={day.id} className="settings-working-hours__day">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) => updateDraftWorkingDays(day.id, event.target.checked)}
+                          aria-label={day.label}
+                        />
+                        <span>{day.shortLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="settings-working-hours__times">
+                  <label className="settings-working-hours__time-field" htmlFor="workspace-start-time">
+                    <span>Start</span>
+                    <input
+                      id="workspace-start-time"
+                      type="time"
+                      value={draftProfile.workspacePreferences.workingHours.startTime}
+                      onChange={(event) => updateDraftWorkingTime('startTime', event.target.value)}
+                      aria-label="Working hours start time"
+                    />
+                  </label>
+                  <label className="settings-working-hours__time-field" htmlFor="workspace-end-time">
+                    <span>End</span>
+                    <input
+                      id="workspace-end-time"
+                      type="time"
+                      value={draftProfile.workspacePreferences.workingHours.endTime}
+                      onChange={(event) => updateDraftWorkingTime('endTime', event.target.value)}
+                      aria-label="Working hours end time"
+                    />
+                  </label>
+                </div>
+              </fieldset>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-landing-select">
+                <span>
+                  <strong>Default landing route</strong>
+                  <small>
+                    Used only when Aura opens without a stronger redirect or deep link intent.
+                  </small>
+                </span>
+                <select
+                  id="workspace-default-landing-select"
+                  value={draftProfile.workspacePreferences.defaultLandingRoute}
+                  onChange={(event) =>
+                    updateDraftWorkspacePreference('defaultLandingRoute', event.target.value as ClinicianProfile['workspacePreferences']['defaultLandingRoute'])
+                  }
+                  aria-label="Default landing route"
+                >
+                  {LANDING_ROUTE_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-patients-preset-select">
+                <span>
+                  <strong>Default Patients preset</strong>
+                  <small>
+                    Applied only on a clean Patients entry when no stronger saved roster state
+                    exists.
+                  </small>
+                </span>
+                <select
+                  id="workspace-default-patients-preset-select"
+                  value={draftProfile.workspacePreferences.defaultPatientsPreset}
+                  onChange={(event) =>
+                    updateDraftWorkspacePreference(
+                      'defaultPatientsPreset',
+                      event.target.value as ClinicianProfile['workspacePreferences']['defaultPatientsPreset'],
+                    )
+                  }
+                  aria-label="Default Patients preset"
+                >
+                  <option value="">No default preset</option>
+                  {PATIENT_TRIAGE_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-communication-filter-select">
+                <span>
+                  <strong>Default Communication filter</strong>
+                  <small>
+                    Applied only when Communication opens without an explicit filter in the route.
+                  </small>
+                </span>
+                <select
+                  id="workspace-default-communication-filter-select"
+                  value={draftProfile.workspacePreferences.defaultCommunicationFilter}
+                  onChange={(event) =>
+                    updateDraftWorkspacePreference(
+                      'defaultCommunicationFilter',
+                      event.target.value as ClinicianProfile['workspacePreferences']['defaultCommunicationFilter'],
+                    )
+                  }
+                  aria-label="Default Communication filter"
+                >
+                  {COMMUNICATION_THREAD_VIEW_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+
+            <datalist id="settings-timezone-options">
+              {supportedTimeZones.map((timeZone) => (
+                <option key={timeZone} value={timeZone} />
+              ))}
+            </datalist>
 
             <div className="settings-card-footer">
               <p className="settings-card-footer__note">

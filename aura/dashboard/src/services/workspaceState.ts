@@ -61,6 +61,21 @@ export function readWorkspaceState<T>(
   }
 }
 
+export function hasWorkspaceState(
+  page: WorkspaceStatePage,
+  clinicianId?: string,
+): boolean {
+  if (!isBrowser()) {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(getWorkspaceStateStorageKey(page, clinicianId)) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function writeWorkspaceState<T>(
   page: WorkspaceStatePage,
   value: T,

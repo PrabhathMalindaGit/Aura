@@ -7,6 +7,12 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatientsPage } from './PatientsPage';
+import {
+  clearClinicianProfileForTests,
+  getClinicianProfile,
+  setClinicianProfile,
+} from '../services/clinicianProfile';
+import { writeWorkspaceState } from '../services/workspaceState';
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -89,6 +95,27 @@ function buildPatientFixtures(nowMs: number = Date.now()) {
   ];
 }
 
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
+
+function signInAs(input: { sub: string; name?: string }): void {
+  window.localStorage.setItem('aura_access_token', buildToken(input));
+}
+
 function installPatientsFetchMock(patients = buildPatientFixtures()): void {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = String(input);
@@ -112,6 +139,8 @@ beforeEach(() => {
   installMatchMediaMock();
   window.localStorage.clear();
   window.sessionStorage.clear();
+  clearClinicianProfileForTests();
+  signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
 });
 
 afterEach(() => {
@@ -218,6 +247,50 @@ describe('PatientsPage endpoint handling', () => {
     await user.selectOptions(screen.getByRole('combobox', { name: 'Sort patients' }), 'name-asc');
 
     expect(activeAlertsPreset).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('applies the saved default Patients preset only on a clean entry', async () => {
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      workspacePreferences: {
+        ...getClinicianProfile().workspacePreferences,
+        defaultPatientsPreset: 'active-alerts',
+      },
+    });
+    installPatientsFetchMock();
+
+    renderPatientsPage();
+
+    const activeAlertsPreset = await screen.findByRole('button', { name: 'Active alerts' });
+    expect(activeAlertsPreset).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Patient Taylor Moss')).toBeInTheDocument();
+    expect(screen.getByLabelText('Patient Casey Brown')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Patient Jordan Lee')).not.toBeInTheDocument();
+  });
+
+  it('does not let the saved default Patients preset override existing saved roster state', async () => {
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      workspacePreferences: {
+        ...getClinicianProfile().workspacePreferences,
+        defaultPatientsPreset: 'active-alerts',
+      },
+    });
+    writeWorkspaceState('patients', {
+      search: '',
+      status: 'all',
+      hasOpenAlertsOnly: false,
+      missedCheckinsOnly: false,
+      recentlyActive: 'all',
+      sort: 'name-asc',
+    });
+    installPatientsFetchMock();
+
+    renderPatientsPage();
+
+    const activeAlertsPreset = await screen.findByRole('button', { name: 'Active alerts' });
+    expect(activeAlertsPreset).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByLabelText('Patient Jordan Lee')).toBeInTheDocument();
   });
 
   it('renders preset-aware filtered empty states for the current exact view', async () => {

@@ -1,5 +1,6 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { AppShell } from './AppShell';
+import { DefaultLandingRedirect } from './DefaultLandingRedirect';
 import { RequireClinicianAuth } from './RequireClinicianAuth';
 import { AlertsPage } from '../pages/AlertsPage';
 import { DashboardHomePage } from '../pages/DashboardHomePage';
@@ -35,7 +36,7 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { index: true, element: <DefaultLandingRedirect /> },
           { path: 'dashboard', element: <DashboardHomePage /> },
           { path: 'worklist', element: <WorklistPage /> },
           { path: 'communication', element: <CommunicationPage /> },

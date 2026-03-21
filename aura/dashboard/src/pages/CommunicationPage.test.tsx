@@ -161,6 +161,23 @@ describe('CommunicationPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('applies the saved default communication filter only when the route does not already set one', async () => {
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      workspacePreferences: {
+        ...getClinicianProfile().workspacePreferences,
+        defaultCommunicationFilter: 'needs-response',
+      },
+    });
+
+    renderCommunicationPage();
+
+    expect(await screen.findByRole('button', { name: /Needs response/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('keeps unread threads unread through filter changes until the thread becomes active', async () => {
     const user = userEvent.setup();
     renderCommunicationPage();

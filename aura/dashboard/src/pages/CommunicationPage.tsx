@@ -9,14 +9,17 @@ import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
+import { getSavedCommunicationFilter } from '../services/clinicianWorkspacePreferences';
 import { useDashboardCommunicationOverview } from '../services/clinicianApi';
 import { getClinicianInitials } from '../services/clinicianIdentity';
 import {
+  COMMUNICATION_THREAD_VIEW_OPTIONS,
   addCommunicationThreadReply,
   deriveCommunicationThreads,
   findCommunicationThreadByPatientId,
   filterCommunicationThreads,
   markCommunicationThreadReviewed,
+  parseCommunicationThreadView,
   readCommunicationWorkspaceLocalState,
   type CommunicationThread,
   type CommunicationThreadView,
@@ -24,23 +27,8 @@ import {
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
 import { toUserMessage } from '../utils/errors';
 
-const VIEW_OPTIONS: Array<{ id: CommunicationThreadView; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'needs-response', label: 'Needs response' },
-  { id: 'safety-flagged', label: 'Safety flagged' },
-  { id: 'follow-up-requested', label: 'Follow-up requested' },
-];
-
 function normalizePatientId(value: string | null): string {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function parseView(value: string | null): CommunicationThreadView {
-  const normalized = typeof value === 'string' ? value.trim() : '';
-  return VIEW_OPTIONS.some((option) => option.id === normalized)
-    ? (normalized as CommunicationThreadView)
-    : 'all';
 }
 
 function countThreadsByView(
@@ -60,9 +48,12 @@ export function CommunicationPage(): JSX.Element {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadView, setSelectedThreadView] = useState<CommunicationThreadView | null>(null);
   const hasInitializedSelectionRef = useRef(false);
+  const initialDefaultViewRef = useRef<CommunicationThreadView>(getSavedCommunicationFilter());
   const communicationQuery = useDashboardCommunicationOverview(100);
 
-  const currentView = parseView(searchParams.get('view'));
+  const currentView = searchParams.has('view')
+    ? parseCommunicationThreadView(searchParams.get('view'))
+    : initialDefaultViewRef.current;
   const requestedPatientId = normalizePatientId(searchParams.get('patientId'));
   const allThreads = useMemo(
     () => deriveCommunicationThreads(communicationQuery.data?.items ?? [], localState),
@@ -272,7 +263,7 @@ export function CommunicationPage(): JSX.Element {
           }
         >
           <div className="communication-page__filters" role="group" aria-label="Communication filters">
-            {VIEW_OPTIONS.map((option) => {
+            {COMMUNICATION_THREAD_VIEW_OPTIONS.map((option) => {
               const isActive = option.id === currentView;
               const count = countThreadsByView(allThreads, option.id);
 

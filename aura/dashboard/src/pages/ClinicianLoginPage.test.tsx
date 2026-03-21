@@ -5,6 +5,24 @@ import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClinicianLoginPage } from './ClinicianLoginPage';
+import { getClinicianProfileStorageKey } from '../services/clinicianProfile';
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
 
 function renderPage(initialState?: unknown): void {
   render(
@@ -13,8 +31,46 @@ function renderPage(initialState?: unknown): void {
         <Route path="/login" element={<ClinicianLoginPage />} />
         <Route path="/dashboard" element={<div>Dashboard home</div>} />
         <Route path="/alerts" element={<div>Alerts workspace</div>} />
+        <Route path="/communication" element={<div>Communication workspace</div>} />
       </Routes>
     </MemoryRouter>,
+  );
+}
+
+function seedPreferredLandingRoute(
+  authScopeId: string,
+  route: '/dashboard' | '/worklist' | '/alerts' | '/patients' | '/communication',
+): void {
+  window.localStorage.setItem(
+    getClinicianProfileStorageKey(authScopeId),
+    JSON.stringify({
+      version: 2,
+      authScopeId,
+      updatedAt: new Date().toISOString(),
+      profile: {
+        displayName: 'Clinician One',
+        clinicianId: authScopeId,
+        roleTitle: 'Rehab clinician',
+        specialty: 'Recovery follow-up',
+        bio: '',
+        preferredPronouns: undefined,
+        contactNote: '',
+        photo: null,
+        workspacePreferences: {
+          availabilityStatus: 'available',
+          teamLabel: '',
+          timezone: 'UTC',
+          workingHours: {
+            enabledDays: ['mon', 'tue', 'wed', 'thu', 'fri'],
+            startTime: '09:00',
+            endTime: '17:00',
+          },
+          defaultLandingRoute: route,
+          defaultPatientsPreset: '',
+          defaultCommunicationFilter: 'all',
+        },
+      },
+    }),
   );
 }
 
@@ -50,11 +106,12 @@ describe('ClinicianLoginPage', () => {
   });
 
   it('signs in and routes to alerts on valid credentials', async () => {
+    seedPreferredLandingRoute('auth-clinician-1', '/communication');
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           ok: true,
-          token: 'TOKEN_VALUE',
+          token: buildToken({ sub: 'auth-clinician-1', name: 'Clinician One' }),
           clinician: {
             id: 'clinician-1',
             name: 'Clinician One',
@@ -81,15 +138,18 @@ describe('ClinicianLoginPage', () => {
       expect(screen.getByText('Alerts workspace')).toBeInTheDocument();
     });
 
-    expect(window.localStorage.getItem('aura_access_token')).toBe('TOKEN_VALUE');
+    expect(window.localStorage.getItem('aura_access_token')).toBe(
+      buildToken({ sub: 'auth-clinician-1', name: 'Clinician One' }),
+    );
   });
 
-  it('defaults to dashboard home when no redirect source is provided', async () => {
+  it('uses the saved preferred landing when no redirect source is provided', async () => {
+    seedPreferredLandingRoute('auth-clinician-1', '/communication');
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           ok: true,
-          token: 'TOKEN_VALUE',
+          token: buildToken({ sub: 'auth-clinician-1', name: 'Clinician One' }),
           clinician: {
             id: 'clinician-1',
             name: 'Clinician One',
@@ -113,7 +173,7 @@ describe('ClinicianLoginPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Dashboard home')).toBeInTheDocument();
+      expect(screen.getByText('Communication workspace')).toBeInTheDocument();
     });
   });
 });

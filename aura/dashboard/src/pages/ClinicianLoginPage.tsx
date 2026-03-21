@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { setClinicianIdentity } from '../services/clinicianIdentity';
 import { getApiBaseUrl, setStoredClinicianToken } from '../services/apiClient';
+import { getPreferredDashboardLandingPath } from '../services/clinicianWorkspacePreferences';
 
 const DEMO_EMAIL = 'clinician1@example.com';
 const DEMO_PASSWORD = 'devpass123';
@@ -67,7 +68,7 @@ export function ClinicianLoginPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state ?? {}) as LoginLocationState;
-  const redirectTo = useMemo(() => toSafeRedirectPath(state.from), [state.from]);
+  const redirectTo = useMemo(() => (state.from ? toSafeRedirectPath(state.from) : null), [state.from]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -141,7 +142,7 @@ export function ClinicianLoginPage(): JSX.Element {
           : 'Clinician';
       setClinicianIdentity(clinicianId, clinicianName);
 
-      navigate(redirectTo, { replace: true });
+      navigate(redirectTo ?? getPreferredDashboardLandingPath(), { replace: true });
     } catch {
       setError('Unable to reach the server. Check connection and try again.');
     } finally {

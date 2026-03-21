@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CLINICIAN_ID_STORAGE_KEY, CLINICIAN_NAME_STORAGE_KEY } from '../utils/storageKeys';
 import {
+  CLINICIAN_COMMUNICATION_AUTHORING_LIMITS,
   MAX_CLINICIAN_PROFILE_PHOTO_BYTES,
   clearClinicianProfileForTests,
   getClinicianProfile,
@@ -116,6 +117,8 @@ describe('clinicianProfile', () => {
     expect(profile.displayName).toBe('Dr Chen');
     expect(profile.clinicianId).toBe('auth-clinician-3');
     expect(profile.workspacePreferences.defaultLandingRoute).toBe('/dashboard');
+    expect(profile.communicationAuthoring.defaultSignature).toBe('');
+    expect(profile.communicationAuthoring.templates).toEqual([]);
   });
 
   it('normalizes workspace preference defaults for older saved records', () => {
@@ -145,6 +148,70 @@ describe('clinicianProfile', () => {
     expect(profile.workspacePreferences.defaultLandingRoute).toBe('/dashboard');
     expect(profile.workspacePreferences.defaultPatientsPreset).toBe('');
     expect(profile.workspacePreferences.defaultCommunicationFilter).toBe('all');
+    expect(profile.communicationAuthoring.defaultSignature).toBe('');
+    expect(profile.communicationAuthoring.autoAppendSignature).toBe(false);
+    expect(profile.communicationAuthoring.templates).toEqual([]);
+  });
+
+  it('normalizes communication authoring content, bounds, and empty templates during save', () => {
+    setActiveToken({ sub: 'auth-clinician-templates', name: 'Dr Templates' });
+    const initial = getClinicianProfile();
+    const overlongSignature = `${' Dr Hall  \n'.repeat(80)}thanks`;
+    const overlongTitle = `  ${'Template title '.repeat(12)}  `;
+    const overlongBody = `\n${'Please keep checking in. '.repeat(40)}\n`;
+
+    const result = setClinicianProfile({
+      ...initial,
+      communicationAuthoring: {
+        defaultSignature: overlongSignature,
+        autoAppendSignature: true,
+        templates: [
+          {
+            id: 'duplicate',
+            title: overlongTitle,
+            body: overlongBody,
+          },
+          {
+            id: 'duplicate',
+            title: '  ',
+            body: '   ',
+          },
+          {
+            id: 'duplicate',
+            title: 'Reviewed update',
+            body: 'Thanks, I have reviewed this update.',
+          },
+          ...Array.from({ length: 10 }, (_, index) => ({
+            id: `extra-${index}`,
+            title: `Extra ${index + 1}`,
+            body: `Body ${index + 1}`,
+          })),
+        ],
+      },
+    });
+
+    expect(result.saved).toBe(true);
+    expect(result.profile.communicationAuthoring.defaultSignature.length).toBeLessThanOrEqual(
+      CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.signature,
+    );
+    expect(result.profile.communicationAuthoring.defaultSignature).not.toMatch(/^\s+$/);
+    expect(result.profile.communicationAuthoring.autoAppendSignature).toBe(true);
+    expect(result.profile.communicationAuthoring.templates).toHaveLength(
+      CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templates,
+    );
+    expect(result.profile.communicationAuthoring.templates[0]?.title.length).toBeLessThanOrEqual(
+      CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateTitle,
+    );
+    expect(result.profile.communicationAuthoring.templates[0]?.body.length).toBeLessThanOrEqual(
+      CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateBody,
+    );
+    expect(
+      result.profile.communicationAuthoring.templates.every(
+        (template) => template.title.trim().length > 0 && template.body.trim().length > 0,
+      ),
+    ).toBe(true);
+    expect(result.profile.communicationAuthoring.templates[0]?.id).toBe('duplicate');
+    expect(result.profile.communicationAuthoring.templates[1]?.id).toBe('duplicate-2');
   });
 
   it('rejects invalid photo payloads during save normalization', () => {
@@ -187,6 +254,11 @@ describe('clinicianProfile', () => {
         defaultLandingRoute: '/dashboard',
         defaultPatientsPreset: '',
         defaultCommunicationFilter: 'all',
+      },
+      communicationAuthoring: {
+        defaultSignature: '',
+        autoAppendSignature: false,
+        templates: [],
       },
     };
 

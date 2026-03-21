@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommunicationPage } from './CommunicationPage';
+import { SettingsPage } from './SettingsPage';
 import { createJsonResponse } from '../test/mocks';
 import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
 import {
@@ -64,6 +65,27 @@ function renderCommunicationPage(initialEntry: string = '/communication'): void 
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
+  );
+}
+
+function renderCommunicationPageWithSettings(initialEntry: string = '/communication'): void {
+  const queryClient = createQueryClient();
+
+  render(
+    <>
+      <SettingsPage />
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route path="/communication" element={<CommunicationPage />} />
+            <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+            <Route path="/patients/:patientId/plan" element={<div>Plan workspace</div>} />
+            <Route path="/appointments" element={<div>Appointments workspace</div>} />
+            <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </>,
   );
 }
 
@@ -258,6 +280,129 @@ describe('CommunicationPage', () => {
     await waitFor(() => {
       expect(within(screen.getByRole('button', { name: /Avery Chen/ })).queryByText('Needs response')).not.toBeInTheDocument();
     });
+  });
+
+  it('inserts templates and dedupes the signature block without overwriting draft text', async () => {
+    const user = userEvent.setup();
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      communicationAuthoring: {
+        defaultSignature: 'Dr Elena Hall\nLead rehab clinician · Post-op recovery',
+        autoAppendSignature: false,
+        templates: [
+          {
+            id: 'reviewed',
+            title: 'Reviewed',
+            body: 'Thanks, I have reviewed this update.',
+          },
+        ],
+      },
+    });
+
+    renderCommunicationPage('/communication?patientId=patient-2&view=needs-response');
+
+    const replyField = (await screen.findByRole('textbox', {
+      name: 'Clinician reply',
+    })) as HTMLTextAreaElement;
+    expect(screen.getByRole('combobox', { name: 'Quick reply template' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Insert template' }));
+    expect(replyField).toHaveValue('Thanks, I have reviewed this update.');
+
+    await user.click(screen.getByRole('button', { name: 'Insert signature' }));
+    expect(replyField).toHaveValue(
+      'Thanks, I have reviewed this update.\n\nDr Elena Hall\nLead rehab clinician · Post-op recovery',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Insert signature' }));
+    expect(replyField).toHaveValue(
+      'Thanks, I have reviewed this update.\n\nDr Elena Hall\nLead rehab clinician · Post-op recovery',
+    );
+  });
+
+  it('auto-appends the saved signature only on fresh empty draft sessions and not after removal', async () => {
+    const user = userEvent.setup();
+    const signature = 'Dr Elena Hall\nLead rehab clinician · Post-op recovery';
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      communicationAuthoring: {
+        defaultSignature: signature,
+        autoAppendSignature: true,
+        templates: [
+          {
+            id: 'follow-up',
+            title: 'Follow-up',
+            body: 'Please keep checking in tomorrow.',
+          },
+        ],
+      },
+    });
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const replyField = (await screen.findByRole('textbox', {
+      name: 'Clinician reply',
+    })) as HTMLTextAreaElement;
+    await waitFor(() => {
+      expect(replyField).toHaveValue(signature);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Insert template' }));
+    expect(replyField).toHaveValue(`Please keep checking in tomorrow.\n\n${signature}`);
+
+    await user.clear(replyField);
+    expect(replyField).toHaveValue('');
+
+    await user.click(screen.getByRole('button', { name: /Avery Chen/ }));
+    await waitFor(() => {
+      expect(replyField).toHaveValue(signature);
+    });
+
+    await user.click(screen.getByRole('button', { name: /Jordan Lee/ }));
+    await waitFor(() => {
+      expect(replyField).toHaveValue('');
+    });
+  });
+
+  it('reacts to Settings authoring changes in the open composer without a reload', async () => {
+    const user = userEvent.setup();
+
+    renderCommunicationPageWithSettings('/communication?patientId=patient-2&view=needs-response');
+
+    const templatePicker = (await screen.findByRole('combobox', {
+      name: 'Quick reply template',
+    })) as HTMLSelectElement;
+    const insertSignatureButton = screen.getByRole('button', { name: 'Insert signature' });
+    const replyField = screen.getByRole('textbox', { name: 'Clinician reply' });
+
+    expect(templatePicker).toBeDisabled();
+    expect(insertSignatureButton).toBeDisabled();
+
+    await user.type(
+      screen.getByLabelText('Default signature'),
+      'Dr Elena Hall\nLead rehab clinician · Post-op recovery',
+    );
+    await user.click(screen.getByRole('button', { name: 'Add template' }));
+    await user.type(screen.getByLabelText('Template 1 title'), 'Reviewed');
+    await user.type(
+      screen.getByLabelText('Template 1 body'),
+      'Thanks, I have reviewed this update.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save communication settings' }));
+
+    await waitFor(() => {
+      expect(templatePicker).not.toBeDisabled();
+    });
+    expect(insertSignatureButton).not.toBeDisabled();
+    expect(within(templatePicker).getByRole('option', { name: 'Reviewed' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Insert template' }));
+    await user.click(insertSignatureButton);
+
+    expect(replyField).toHaveValue(
+      'Thanks, I have reviewed this update.\n\nDr Elena Hall\nLead rehab clinician · Post-op recovery',
+    );
   });
 
   it('shows safety-aware alerts continuity only for safety-flagged threads', async () => {

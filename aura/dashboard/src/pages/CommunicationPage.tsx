@@ -8,10 +8,15 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
+import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { usePatientHandoff } from '../hooks/usePatientHandoff';
 import { getSavedCommunicationFilter } from '../services/clinicianWorkspacePreferences';
 import { useDashboardCommunicationOverview } from '../services/clinicianApi';
+import {
+  insertSignatureIntoDraft,
+  insertTemplateIntoDraft,
+} from '../services/communicationAuthoring';
 import { getClinicianInitials } from '../services/clinicianIdentity';
 import {
   COMMUNICATION_THREAD_VIEW_OPTIONS,
@@ -49,13 +54,17 @@ function countThreadsByView(
 export function CommunicationPage(): JSX.Element {
   const navigate = useNavigate();
   const clinicianIdentity = useClinicianIdentity();
+  const communicationAuthoring = useCommunicationAuthoring();
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
   const [localState, setLocalState] = useState(() => readCommunicationWorkspaceLocalState(communicationScopeKey));
   const [draftReply, setDraftReply] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadView, setSelectedThreadView] = useState<CommunicationThreadView | null>(null);
   const hasInitializedSelectionRef = useRef(false);
+  const draftSessionInitializationRef = useRef<Record<string, true>>({});
+  const communicationAuthoringRef = useRef(communicationAuthoring);
   const initialDefaultViewRef = useRef<CommunicationThreadView>(getSavedCommunicationFilter());
   const communicationQuery = useDashboardCommunicationOverview(100);
 
@@ -77,8 +86,25 @@ export function CommunicationPage(): JSX.Element {
   );
 
   useEffect(() => {
+    communicationAuthoringRef.current = communicationAuthoring;
+  }, [communicationAuthoring]);
+
+  useEffect(() => {
     setLocalState(readCommunicationWorkspaceLocalState(communicationScopeKey));
+    draftSessionInitializationRef.current = {};
+    setDraftReply('');
   }, [communicationScopeKey]);
+
+  useEffect(() => {
+    if (communicationAuthoring.templates.length === 0) {
+      setSelectedTemplateId('');
+      return;
+    }
+
+    if (!communicationAuthoring.templates.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId(communicationAuthoring.templates[0]?.id ?? '');
+    }
+  }, [communicationAuthoring.templates, selectedTemplateId]);
 
   useEffect(() => {
     let nextSelectedThreadId = selectedThreadId;
@@ -142,6 +168,8 @@ export function CommunicationPage(): JSX.Element {
     () => getLatestPatientHandoffNote(activePatientHandoff),
     [activePatientHandoff],
   );
+  const activeThreadId = activeThread?.id ?? null;
+  const activeThreadCanSeedSignature = Boolean(activeThread?.validPatientId);
 
   useEffect(() => {
     if (!activeThread?.validPatientId || !activeThread.latestInboundAt) {
@@ -165,8 +193,31 @@ export function CommunicationPage(): JSX.Element {
   ]);
 
   useEffect(() => {
-    setDraftReply('');
-  }, [activeThread?.id]);
+    if (!activeThreadId) {
+      setDraftReply('');
+      return;
+    }
+
+    if (draftSessionInitializationRef.current[activeThreadId]) {
+      setDraftReply('');
+      return;
+    }
+
+    draftSessionInitializationRef.current[activeThreadId] = true;
+    const nextAuthoring = communicationAuthoringRef.current;
+    const shouldSeedSignature =
+      activeThreadCanSeedSignature &&
+      nextAuthoring.autoAppendSignature &&
+      nextAuthoring.hasSignature;
+
+    setDraftReply(shouldSeedSignature ? nextAuthoring.defaultSignature : '');
+  }, [activeThreadCanSeedSignature, activeThreadId]);
+
+  const selectedTemplate = useMemo(
+    () =>
+      communicationAuthoring.templates.find((template) => template.id === selectedTemplateId) ?? null,
+    [communicationAuthoring.templates, selectedTemplateId],
+  );
 
   function handleOpenHandoffNextAction(action: PatientHandoffNextAction): void {
     if (!activeThread?.validPatientId || !action) {
@@ -245,6 +296,28 @@ export function CommunicationPage(): JSX.Element {
       ),
     );
     setDraftReply('');
+  }
+
+  function handleInsertTemplate(): void {
+    if (!selectedTemplate) {
+      return;
+    }
+
+    setDraftReply((current) =>
+      insertTemplateIntoDraft(current, selectedTemplate.body, {
+        signature: communicationAuthoring.defaultSignature,
+      }),
+    );
+  }
+
+  function handleInsertSignature(): void {
+    if (!communicationAuthoring.hasSignature) {
+      return;
+    }
+
+    setDraftReply((current) =>
+      insertSignatureIntoDraft(current, communicationAuthoring.defaultSignature),
+    );
   }
 
   const activeThreadMissingFromView = Boolean(selectedThread && !activeThread);
@@ -612,6 +685,58 @@ export function CommunicationPage(): JSX.Element {
                     </div>
                   </div>
                 </div>
+                <div
+                  className="communication-authoring-tools"
+                  role="group"
+                  aria-label="Reply helpers"
+                >
+                  <label
+                    className="form-field communication-authoring-tools__picker"
+                    htmlFor="communication-reply-template-picker"
+                  >
+                    <span>Quick reply template</span>
+                    <select
+                      id="communication-reply-template-picker"
+                      value={selectedTemplateId}
+                      onChange={(event) => setSelectedTemplateId(event.target.value)}
+                      aria-label="Quick reply template"
+                      disabled={communicationAuthoring.templates.length === 0}
+                    >
+                      {communicationAuthoring.templates.length === 0 ? (
+                        <option value="">No saved templates in Settings</option>
+                      ) : null}
+                      {communicationAuthoring.templates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="communication-authoring-tools__actions">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleInsertTemplate}
+                      disabled={!selectedTemplate}
+                    >
+                      Insert template
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleInsertSignature}
+                      disabled={!communicationAuthoring.hasSignature}
+                    >
+                      Insert signature
+                    </Button>
+                  </div>
+                </div>
+                <p
+                  className="communication-authoring-tools__note"
+                  aria-live="polite"
+                >
+                  Local to this browser and still editable before send.
+                </p>
                 <label className="form-field communication-page__composer-field">
                   <span>Clinician reply</span>
                   <textarea

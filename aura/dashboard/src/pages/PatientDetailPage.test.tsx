@@ -627,16 +627,104 @@ describe('PatientDetailPage', () => {
     expect(within(communicationPanel).getByRole('button', { name: 'Send quick reply' })).toBeInTheDocument();
   });
 
+  it('reuses compact template and signature helpers on patient detail without auto-appending the signature', async () => {
+    const routineCommunicationItem: DashboardCommunicationOverviewItem = {
+      ...baseCommunicationItem,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messagePreview: 'Can someone confirm whether tomorrow still works?',
+    };
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      communicationAuthoring: {
+        defaultSignature: 'Dr Elena Hall\nLead rehab clinician · Post-op recovery',
+        autoAppendSignature: true,
+        templates: [
+          {
+            id: 'reviewed',
+            title: 'Reviewed',
+            body: 'Thanks, I have reviewed this update.',
+          },
+        ],
+      },
+    });
+
+    installFetchMock({
+      communicationItems: [routineCommunicationItem],
+    });
+
+    renderPatientDetail();
+
+    const communicationPanel = await screen.findByTestId('patient-communication-panel');
+    const quickReplyField = (await within(communicationPanel).findByRole('textbox', {
+      name: 'Quick reply',
+    })) as HTMLTextAreaElement;
+
+    expect(within(communicationPanel).getByRole('combobox', { name: 'Quick reply template' })).toBeInTheDocument();
+    expect(within(communicationPanel).getByRole('button', { name: 'Insert template' })).toBeInTheDocument();
+    expect(within(communicationPanel).getByRole('button', { name: 'Insert signature' })).toBeInTheDocument();
+    expect(quickReplyField).toHaveValue('');
+  });
+
   it('suppresses inline quick reply for safety-sensitive communication and keeps the handoff path', async () => {
     installFetchMock();
     renderPatientDetail();
 
     const safetyPanel = await screen.findByTestId('patient-communication-panel');
     expect(within(safetyPanel).queryByRole('textbox', { name: 'Quick reply' })).not.toBeInTheDocument();
+    expect(within(safetyPanel).queryByRole('button', { name: 'Insert template' })).not.toBeInTheDocument();
+    expect(within(safetyPanel).queryByRole('button', { name: 'Insert signature' })).not.toBeInTheDocument();
     expect(
       await within(safetyPanel).findByText('Safety-sensitive communication stays on handoff review.'),
     ).toBeInTheDocument();
     expect(within(safetyPanel).getByRole('button', { name: 'Open alerts' })).toBeInTheDocument();
+  });
+
+  it('inserts patient-detail templates and signatures into the shared quick reply draft without duplication', async () => {
+    const routineCommunicationItem: DashboardCommunicationOverviewItem = {
+      ...baseCommunicationItem,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messagePreview: 'Can someone confirm whether tomorrow still works?',
+    };
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      communicationAuthoring: {
+        defaultSignature: 'Dr Elena Hall\nLead rehab clinician · Post-op recovery',
+        autoAppendSignature: true,
+        templates: [
+          {
+            id: 'reviewed',
+            title: 'Reviewed',
+            body: 'Thanks, I have reviewed this update.',
+          },
+        ],
+      },
+    });
+
+    installFetchMock({
+      communicationItems: [routineCommunicationItem],
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const communicationPanel = await screen.findByTestId('patient-communication-panel');
+    const quickReplyField = (await within(communicationPanel).findByRole('textbox', {
+      name: 'Quick reply',
+    })) as HTMLTextAreaElement;
+
+    await user.click(within(communicationPanel).getByRole('button', { name: 'Insert template' }));
+    expect(quickReplyField).toHaveValue('Thanks, I have reviewed this update.');
+
+    await user.click(within(communicationPanel).getByRole('button', { name: 'Insert signature' }));
+    await user.click(within(communicationPanel).getByRole('button', { name: 'Insert signature' }));
+
+    expect(quickReplyField).toHaveValue(
+      'Thanks, I have reviewed this update.\n\nDr Elena Hall\nLead rehab clinician · Post-op recovery',
+    );
   });
 
   it('stores a routine patient-detail quick reply in the shared communication model without marking the thread reviewed', async () => {

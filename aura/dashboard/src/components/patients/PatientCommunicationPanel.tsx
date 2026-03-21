@@ -6,6 +6,7 @@ import { ClinicianAvatar } from '../ui/ClinicianAvatar';
 import { EmptyState } from '../ui/EmptyState';
 import { Skeleton } from '../ui/Skeleton';
 import { useClinicianIdentity } from '../../hooks/useClinicianIdentity';
+import type { ClinicianCommunicationTemplate } from '../../services/clinicianProfile';
 import type { CommunicationTimelineEvent } from '../../services/communicationWorkspace';
 import { getClinicianInitials } from '../../services/clinicianIdentity';
 import type { DashboardCommunicationOverviewItem } from '../../types/models';
@@ -24,6 +25,12 @@ interface PatientCommunicationPanelProps {
   quickReplyValue?: string;
   onQuickReplyChange?: (value: string) => void;
   onSendQuickReply?: () => void;
+  replyTemplates?: ClinicianCommunicationTemplate[];
+  selectedTemplateId?: string;
+  onSelectedTemplateChange?: (value: string) => void;
+  onInsertTemplate?: () => void;
+  hasSignature?: boolean;
+  onInsertSignature?: () => void;
 }
 
 function formatCommunicationDay(timestamp: string): string {
@@ -68,9 +75,16 @@ export function PatientCommunicationPanel({
   quickReplyValue = '',
   onQuickReplyChange,
   onSendQuickReply,
+  replyTemplates = [],
+  selectedTemplateId = '',
+  onSelectedTemplateChange,
+  onInsertTemplate,
+  hasSignature = false,
+  onInsertSignature,
 }: PatientCommunicationPanelProps): JSX.Element {
   const clinicianIdentity = useClinicianIdentity();
   const timelineEvents = timeline.length > 0 ? timeline : buildFallbackTimeline(items);
+  const showQuickReplyHelpers = replyTemplates.length > 0 || hasSignature;
 
   return (
     <Card
@@ -209,6 +223,61 @@ export function PatientCommunicationPanel({
                   </div>
                 </div>
               </div>
+              {showQuickReplyHelpers ? (
+                <>
+                  <div
+                    className="communication-authoring-tools communication-authoring-tools--compact"
+                    role="group"
+                    aria-label="Quick reply helpers"
+                  >
+                    <label
+                      className="form-field communication-authoring-tools__picker"
+                      htmlFor="patient-quick-reply-template-picker"
+                    >
+                      <span>Quick reply template</span>
+                      <select
+                        id="patient-quick-reply-template-picker"
+                        value={selectedTemplateId}
+                        onChange={(event) => onSelectedTemplateChange?.(event.target.value)}
+                        aria-label="Quick reply template"
+                        disabled={replyTemplates.length === 0}
+                      >
+                        {replyTemplates.length === 0 ? (
+                          <option value="">No saved templates in Settings</option>
+                        ) : null}
+                        {replyTemplates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="communication-authoring-tools__actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={onInsertTemplate}
+                        disabled={
+                          replyTemplates.length === 0 || !selectedTemplateId || !onInsertTemplate
+                        }
+                      >
+                        Insert template
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={onInsertSignature}
+                        disabled={!hasSignature || !onInsertSignature}
+                      >
+                        Insert signature
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="communication-authoring-tools__note" aria-live="polite">
+                    Local to this browser and still editable before send.
+                  </p>
+                </>
+              ) : null}
               <label className="form-field patient-communication-quick-reply__field">
                 <span>Quick reply</span>
                 <textarea

@@ -7,6 +7,7 @@ import { Section } from '../components/ui/Section';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { useClinicianWorkspacePreferences } from '../hooks/useClinicianWorkspacePreferences';
 import {
+  CLINICIAN_COMMUNICATION_AUTHORING_LIMITS,
   CLINICIAN_PROFILE_LIMITS,
   CLINICIAN_PROFILE_PHOTO_MIME_TYPES,
   MAX_CLINICIAN_PROFILE_PHOTO_BYTES,
@@ -14,6 +15,8 @@ import {
   getDefaultClinicianProfileForAuthIdentity,
   setClinicianProfile,
   type ClinicianAvailabilityStatus,
+  type ClinicianCommunicationAuthoring,
+  type ClinicianCommunicationTemplate,
   type ClinicianProfile,
   type ClinicianProfilePhotoMime,
   type ClinicianWorkingDayToken,
@@ -46,10 +49,22 @@ interface ProfileValidationState {
   displayName?: string;
   clinicianId?: string;
   workingHours?: string;
+  communicationTemplates?: CommunicationTemplateValidationState[];
 }
 
-function profilesEqual(left: ClinicianProfile, right: ClinicianProfile): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+interface CommunicationTemplateValidationState {
+  title?: string;
+  body?: string;
+}
+
+function profileWorkspaceSectionsEqual(left: ClinicianProfile, right: ClinicianProfile): boolean {
+  return JSON.stringify({
+    ...left,
+    communicationAuthoring: null,
+  }) === JSON.stringify({
+    ...right,
+    communicationAuthoring: null,
+  });
 }
 
 function validateProfile(profile: ClinicianProfile): ProfileValidationState {
@@ -77,7 +92,39 @@ function validateProfile(profile: ClinicianProfile): ProfileValidationState {
     next.workingHours = 'End time must be later than the start time.';
   }
 
+  const templateValidation = profile.communicationAuthoring.templates.map((template) => {
+    const templateErrors: CommunicationTemplateValidationState = {};
+
+    if (!template.title.trim()) {
+      templateErrors.title = 'Template title is required.';
+    }
+
+    if (!template.body.trim()) {
+      templateErrors.body = 'Template body is required.';
+    }
+
+    return templateErrors;
+  });
+
+  if (templateValidation.some((template) => template.title || template.body)) {
+    next.communicationTemplates = templateValidation;
+  }
+
   return next;
+}
+
+function hasTemplateValidationErrors(validation: ProfileValidationState): boolean {
+  return Boolean(
+    validation.communicationTemplates?.some((template) => template.title || template.body),
+  );
+}
+
+function createCommunicationTemplateDraft(): ClinicianCommunicationTemplate {
+  return {
+    id: `communication-template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: '',
+    body: '',
+  };
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -111,6 +158,9 @@ export function SettingsPage(): JSX.Element {
   const [draftProfile, setDraftProfile] = useState<ClinicianProfile>(() => initialProfile);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileFeedbackScope, setProfileFeedbackScope] = useState<'profile' | 'communication'>(
+    'profile',
+  );
   const [profileValidation, setProfileValidation] = useState<ProfileValidationState>({});
   const [sessionSettings, setLocalSessionSettings] = useState<SessionSettings>(() =>
     getSessionSettings(),
@@ -165,6 +215,100 @@ export function SettingsPage(): JSX.Element {
     setProfileValidation((current) => ({
       ...current,
       workingHours: undefined,
+    }));
+  }
+
+  function updateDraftCommunicationAuthoring<
+    K extends keyof ClinicianCommunicationAuthoring,
+  >(
+    key: K,
+    value: ClinicianCommunicationAuthoring[K],
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      communicationAuthoring: {
+        ...current.communicationAuthoring,
+        [key]: value,
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      communicationTemplates: undefined,
+    }));
+  }
+
+  function updateDraftCommunicationTemplate(
+    templateId: string,
+    key: keyof Pick<ClinicianCommunicationTemplate, 'title' | 'body'>,
+    value: string,
+  ): void {
+    setDraftProfile((current) => ({
+      ...current,
+      communicationAuthoring: {
+        ...current.communicationAuthoring,
+        templates: current.communicationAuthoring.templates.map((template) =>
+          template.id === templateId
+            ? {
+                ...template,
+                [key]: value,
+              }
+            : template,
+        ),
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      communicationTemplates: undefined,
+    }));
+  }
+
+  function addDraftCommunicationTemplate(): void {
+    setDraftProfile((current) => {
+      if (
+        current.communicationAuthoring.templates.length >=
+        CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templates
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        communicationAuthoring: {
+          ...current.communicationAuthoring,
+          templates: [
+            ...current.communicationAuthoring.templates,
+            createCommunicationTemplateDraft(),
+          ],
+        },
+      };
+    });
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      communicationTemplates: undefined,
+    }));
+  }
+
+  function removeDraftCommunicationTemplate(templateId: string): void {
+    setDraftProfile((current) => ({
+      ...current,
+      communicationAuthoring: {
+        ...current.communicationAuthoring,
+        templates: current.communicationAuthoring.templates.filter(
+          (template) => template.id !== templateId,
+        ),
+      },
+    }));
+    setProfileNotice(null);
+    setProfileError(null);
+    setProfileValidation((current) => ({
+      ...current,
+      communicationTemplates: undefined,
     }));
   }
 
@@ -225,12 +369,14 @@ export function SettingsPage(): JSX.Element {
     }
 
     if (!CLINICIAN_PROFILE_PHOTO_MIME_TYPES.includes(file.type as ClinicianProfilePhotoMime)) {
+      setProfileFeedbackScope('profile');
       setProfileError('Choose a JPG, PNG, or WebP image up to 500 KB.');
       setProfileNotice(null);
       return;
     }
 
     if (file.size > MAX_CLINICIAN_PROFILE_PHOTO_BYTES) {
+      setProfileFeedbackScope('profile');
       setProfileError('Choose a JPG, PNG, or WebP image up to 500 KB.');
       setProfileNotice(null);
       return;
@@ -245,46 +391,101 @@ export function SettingsPage(): JSX.Element {
         fileName: file.name,
         sizeBytes: file.size,
       });
+      setProfileFeedbackScope('profile');
       setProfileNotice('Photo added to the form. Save to keep it in this browser.');
     } catch {
+      setProfileFeedbackScope('profile');
       setProfileError('The selected image could not be read in this browser.');
       setProfileNotice(null);
     }
   }
 
-  function handleSaveProfile(): void {
+  function handleSaveProfile(scope: 'profile' | 'communication'): void {
     const nextValidation = validateProfile(draftProfile);
     setProfileValidation(nextValidation);
 
-    if (nextValidation.displayName || nextValidation.clinicianId) {
+    if (scope === 'profile' && (nextValidation.displayName || nextValidation.clinicianId)) {
+      setProfileFeedbackScope('profile');
       setProfileError('Display name and clinician ID are required before saving.');
       setProfileNotice(null);
       return;
     }
 
-    const result = setClinicianProfile(draftProfile);
-    setDraftProfile(result.profile);
+    if (scope === 'profile' && nextValidation.workingHours) {
+      setProfileFeedbackScope('profile');
+      setProfileError(nextValidation.workingHours);
+      setProfileNotice(null);
+      return;
+    }
+
+    if (scope === 'communication' && hasTemplateValidationErrors(nextValidation)) {
+      setProfileFeedbackScope('communication');
+      setProfileError('Complete or remove any blank communication templates before saving.');
+      setProfileNotice(null);
+      return;
+    }
+
+    const nextProfileToSave =
+      scope === 'communication'
+        ? {
+            ...savedProfile,
+            communicationAuthoring: draftProfile.communicationAuthoring,
+          }
+        : {
+            ...savedProfile,
+            ...draftProfile,
+            communicationAuthoring: savedProfile.communicationAuthoring,
+          };
+    const result = setClinicianProfile(nextProfileToSave);
 
     if (!result.saved) {
-      setProfileError('Profile could not be saved in this browser right now.');
+      setProfileFeedbackScope(scope);
+      setProfileError('Settings could not be saved in this browser right now.');
       setProfileNotice(null);
       return;
     }
 
     setSavedProfile(result.profile);
+    setDraftProfile((current) =>
+      scope === 'communication'
+        ? {
+            ...current,
+            communicationAuthoring: result.profile.communicationAuthoring,
+          }
+        : {
+            ...result.profile,
+            communicationAuthoring: current.communicationAuthoring,
+          },
+    );
+    setProfileValidation((current) =>
+      scope === 'communication'
+        ? {
+            ...current,
+            communicationTemplates: undefined,
+          }
+        : {
+            ...current,
+            displayName: undefined,
+            clinicianId: undefined,
+            workingHours: undefined,
+          },
+    );
+    setProfileFeedbackScope(scope);
     setProfileError(null);
-    setProfileNotice('Profile saved in this browser.');
+    setProfileNotice('Settings saved in this browser.');
   }
 
   function handleRestoreProfileDefaults(): void {
     setDraftProfile(getDefaultClinicianProfileForAuthIdentity());
     setProfileValidation({});
+    setProfileFeedbackScope('profile');
     setProfileError(null);
     setProfileNotice('Defaults restored in the form. Save to keep them in this browser.');
   }
 
   function handleRemovePhoto(): void {
     updateDraftProfile('photo', null);
+    setProfileFeedbackScope('profile');
     setProfileNotice('Photo removed from the form. Save to keep the change.');
   }
 
@@ -345,7 +546,17 @@ export function SettingsPage(): JSX.Element {
       : undefined,
   ].filter(Boolean) as string[];
   const savedIdentitySupportLine = clinicianIdentity.secondaryLine || 'Local clinician profile';
-  const profileDirty = useMemo(() => !profilesEqual(savedProfile, draftProfile), [draftProfile, savedProfile]);
+  const profileWorkspaceDirty = useMemo(() => {
+    return !profileWorkspaceSectionsEqual(savedProfile, draftProfile);
+  }, [draftProfile, savedProfile]);
+  const communicationAuthoringDirty = useMemo(
+    () =>
+      JSON.stringify(savedProfile.communicationAuthoring) !==
+      JSON.stringify(draftProfile.communicationAuthoring),
+    [draftProfile.communicationAuthoring, savedProfile.communicationAuthoring],
+  );
+  const savedTemplateCount = savedProfile.communicationAuthoring.templates.length;
+  const hasSavedSignature = savedProfile.communicationAuthoring.defaultSignature.length > 0;
 
   return (
     <div className="page-stack settings-page">
@@ -982,12 +1193,12 @@ export function SettingsPage(): JSX.Element {
 
             <div className="settings-card-footer">
               <p className="settings-card-footer__note">
-                {profileDirty
+                {profileWorkspaceDirty
                   ? 'Changes stay local to this browser after you save them.'
                   : 'This saved profile is local to this browser and does not sync across devices.'}
               </p>
               <div className="inline-actions settings-actions settings-actions--primary settings-actions--identity">
-                <Button onClick={handleSaveProfile} disabled={!profileDirty}>
+                <Button onClick={() => handleSaveProfile('profile')} disabled={!profileWorkspaceDirty}>
                   Save profile
                 </Button>
                 <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
@@ -996,7 +1207,7 @@ export function SettingsPage(): JSX.Element {
               </div>
             </div>
 
-            {profileError ? (
+            {profileFeedbackScope === 'profile' && profileError ? (
               <p
                 className="settings-inline-notice settings-inline-notice--error"
                 role="alert"
@@ -1006,7 +1217,215 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
 
-            {profileNotice ? (
+            {profileFeedbackScope === 'profile' && profileNotice ? (
+              <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
+                {profileNotice}
+              </p>
+            ) : null}
+          </Card>
+
+          <Card
+            className="settings-group-card settings-group-card--communication-authoring"
+            title={
+              <span className="settings-group-card__title">
+                Communication authoring
+                <span className="settings-group-card__title-meta">Local reply helpers</span>
+              </span>
+            }
+          >
+            <div className="settings-group-card__context">
+              <span className="settings-group-card__context-pill">This browser only</span>
+              <p className="settings-group-card__context-note">
+                Signature and templates stay local to this clinician in this browser. They only
+                help fill drafts and never send anything automatically.
+              </p>
+            </div>
+            <p className="settings-group-card__intro">
+              Keep reply drafting consistent without turning Aura into a messaging console. Manage
+              your default signature and a small set of editable quick reply templates here.
+            </p>
+
+            <div className="settings-communication-authoring__summary" aria-live="polite">
+              <span className="settings-profile-summary__fact">
+                {hasSavedSignature ? 'Saved signature on' : 'No saved signature'}
+              </span>
+              <span className="settings-profile-summary__fact">
+                {savedTemplateCount}{' '}
+                {savedTemplateCount === 1 ? 'saved template' : 'saved templates'}
+              </span>
+            </div>
+
+            <div className="settings-list settings-list--refined">
+              <label
+                className="setting-item setting-item--field form-field"
+                htmlFor="communication-default-signature"
+              >
+                <span>
+                  <strong>Default signature</strong>
+                  <small>Plain text only. Whitespace-only signatures save as empty.</small>
+                </span>
+                <textarea
+                  id="communication-default-signature"
+                  value={draftProfile.communicationAuthoring.defaultSignature}
+                  maxLength={CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.signature}
+                  onChange={(event) =>
+                    updateDraftCommunicationAuthoring('defaultSignature', event.target.value)
+                  }
+                  placeholder="Optional local signature for clinician replies."
+                  aria-label="Default signature"
+                />
+              </label>
+
+              <label
+                className="setting-item setting-item--toggle"
+                htmlFor="communication-auto-append-signature"
+              >
+                <span>
+                  <strong>Auto-append signature on fresh Communication drafts</strong>
+                  <small>
+                    Only applies when a Communication thread opens with a genuinely fresh empty
+                    draft in this browser.
+                  </small>
+                </span>
+                <input
+                  id="communication-auto-append-signature"
+                  type="checkbox"
+                  checked={draftProfile.communicationAuthoring.autoAppendSignature}
+                  onChange={(event) =>
+                    updateDraftCommunicationAuthoring(
+                      'autoAppendSignature',
+                      event.target.checked,
+                    )
+                  }
+                />
+              </label>
+
+              <div className="settings-profile-section-label">Quick reply templates</div>
+              <div
+                className="settings-communication-authoring__templates"
+                aria-label="Communication templates"
+              >
+                {draftProfile.communicationAuthoring.templates.length === 0 ? (
+                  <p className="settings-communication-authoring__empty muted-text">
+                    No saved templates yet. Add only the short reply starters you actually reuse in
+                    this browser.
+                  </p>
+                ) : null}
+
+                {draftProfile.communicationAuthoring.templates.map((template, index) => {
+                  const templateValidation = profileValidation.communicationTemplates?.[index];
+                  const titleId = `communication-template-title-${template.id}`;
+                  const bodyId = `communication-template-body-${template.id}`;
+
+                  return (
+                    <article
+                      key={template.id}
+                      className="settings-communication-template"
+                      aria-label={`Template ${index + 1}`}
+                    >
+                      <div className="settings-communication-template__fields">
+                        <label className="form-field" htmlFor={titleId}>
+                          <span>
+                            <strong>{`Template ${index + 1} title`}</strong>
+                            {templateValidation?.title ? (
+                              <small className="validation-text">{templateValidation.title}</small>
+                            ) : (
+                              <small>Short internal label for the picker.</small>
+                            )}
+                          </span>
+                          <input
+                            id={titleId}
+                            type="text"
+                            value={template.title}
+                            maxLength={CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateTitle}
+                            onChange={(event) =>
+                              updateDraftCommunicationTemplate(
+                                template.id,
+                                'title',
+                                event.target.value,
+                              )
+                            }
+                            aria-label={`Template ${index + 1} title`}
+                          />
+                        </label>
+
+                        <label className="form-field" htmlFor={bodyId}>
+                          <span>
+                            <strong>{`Template ${index + 1} body`}</strong>
+                            {templateValidation?.body ? (
+                              <small className="validation-text">{templateValidation.body}</small>
+                            ) : (
+                              <small>Editable plain-text draft starter only.</small>
+                            )}
+                          </span>
+                          <textarea
+                            id={bodyId}
+                            value={template.body}
+                            maxLength={CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateBody}
+                            onChange={(event) =>
+                              updateDraftCommunicationTemplate(
+                                template.id,
+                                'body',
+                                event.target.value,
+                              )
+                            }
+                            aria-label={`Template ${index + 1} body`}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="settings-communication-template__actions">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeDraftCommunicationTemplate(template.id)}
+                          aria-label={`Remove template ${index + 1}`}
+                        >
+                          Remove template
+                        </Button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="settings-card-footer">
+              <p className="settings-card-footer__note">
+                Templates stay in saved order, new templates append to the end, and inserted text
+                remains editable before sending.
+              </p>
+              <div className="inline-actions settings-actions settings-actions--primary settings-actions--communication">
+                <Button
+                  variant="secondary"
+                  onClick={addDraftCommunicationTemplate}
+                  disabled={
+                    draftProfile.communicationAuthoring.templates.length >=
+                    CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templates
+                  }
+                >
+                  Add template
+                </Button>
+                <Button
+                  onClick={() => handleSaveProfile('communication')}
+                  disabled={!communicationAuthoringDirty}
+                >
+                  Save communication settings
+                </Button>
+              </div>
+            </div>
+
+            {profileFeedbackScope === 'communication' && profileError ? (
+              <p
+                className="settings-inline-notice settings-inline-notice--error"
+                role="alert"
+                aria-live="assertive"
+              >
+                {profileError}
+              </p>
+            ) : null}
+
+            {profileFeedbackScope === 'communication' && profileNotice ? (
               <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
                 {profileNotice}
               </p>

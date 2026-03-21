@@ -19,6 +19,7 @@ import { PatientTasksPanel } from '../components/patients/PatientTasksPanel';
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { RecommendedActionsPanel } from '../components/patients/RecommendedActionsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
+import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import {
   assignPromToPatient,
@@ -55,6 +56,10 @@ import {
   readCommunicationWorkspaceLocalState,
   type CommunicationTimelineEvent,
 } from '../services/communicationWorkspace';
+import {
+  insertSignatureIntoDraft,
+  insertTemplateIntoDraft,
+} from '../services/communicationAuthoring';
 import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
 import type {
@@ -318,6 +323,7 @@ export function PatientDetailPage(): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const clinicianIdentity = useClinicianIdentity();
+  const communicationAuthoring = useCommunicationAuthoring();
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDays = parseDays(searchParams.get('days'));
@@ -345,6 +351,7 @@ export function PatientDetailPage(): JSX.Element {
     readCommunicationWorkspaceLocalState(communicationScopeKey),
   );
   const [patientQuickReply, setPatientQuickReply] = useState('');
+  const [selectedQuickReplyTemplateId, setSelectedQuickReplyTemplateId] = useState('');
   const [patientExportOpen, setPatientExportOpen] = useState(false);
   const [patientExportRange, setPatientExportRange] = useState<DateRangeValue>(() =>
     getPresetDateRange('last30'),
@@ -1070,10 +1077,32 @@ export function PatientDetailPage(): JSX.Element {
   );
   const canQuickReplyFromPatientDetail =
     patientCommunicationItems.length > 0 && !patientCommunicationBlockedBySafety;
+  const selectedQuickReplyTemplate = useMemo(
+    () =>
+      communicationAuthoring.templates.find(
+        (template) => template.id === selectedQuickReplyTemplateId,
+      ) ?? null,
+    [communicationAuthoring.templates, selectedQuickReplyTemplateId],
+  );
 
   useEffect(() => {
     setCommunicationLocalState(readCommunicationWorkspaceLocalState(communicationScopeKey));
   }, [communicationScopeKey]);
+
+  useEffect(() => {
+    if (communicationAuthoring.templates.length === 0) {
+      setSelectedQuickReplyTemplateId('');
+      return;
+    }
+
+    if (
+      !communicationAuthoring.templates.some(
+        (template) => template.id === selectedQuickReplyTemplateId,
+      )
+    ) {
+      setSelectedQuickReplyTemplateId(communicationAuthoring.templates[0]?.id ?? '');
+    }
+  }, [communicationAuthoring.templates, selectedQuickReplyTemplateId]);
 
   const patientTasks = useMemo<ClinicianTaskItem[]>(
     () => (patientTasksQuery.data ?? []).filter((task) => task.patientId === patientId),
@@ -1257,6 +1286,28 @@ export function PatientDetailPage(): JSX.Element {
     );
     setPatientQuickReply('');
   }, [canQuickReplyFromPatientDetail, communicationScopeKey, patientId, patientQuickReply]);
+
+  const handleInsertPatientQuickReplyTemplate = useCallback((): void => {
+    if (!selectedQuickReplyTemplate) {
+      return;
+    }
+
+    setPatientQuickReply((current) =>
+      insertTemplateIntoDraft(current, selectedQuickReplyTemplate.body, {
+        signature: communicationAuthoring.defaultSignature,
+      }),
+    );
+  }, [communicationAuthoring.defaultSignature, selectedQuickReplyTemplate]);
+
+  const handleInsertPatientQuickReplySignature = useCallback((): void => {
+    if (!communicationAuthoring.hasSignature) {
+      return;
+    }
+
+    setPatientQuickReply((current) =>
+      insertSignatureIntoDraft(current, communicationAuthoring.defaultSignature),
+    );
+  }, [communicationAuthoring.defaultSignature, communicationAuthoring.hasSignature]);
 
   const handleOperationalAction = useCallback(
     (key: PatientActionKey): void => {
@@ -2192,6 +2243,12 @@ export function PatientDetailPage(): JSX.Element {
             quickReplyValue={patientQuickReply}
             onQuickReplyChange={setPatientQuickReply}
             onSendQuickReply={handlePatientQuickReply}
+            replyTemplates={communicationAuthoring.templates}
+            selectedTemplateId={selectedQuickReplyTemplateId}
+            onSelectedTemplateChange={setSelectedQuickReplyTemplateId}
+            onInsertTemplate={handleInsertPatientQuickReplyTemplate}
+            hasSignature={communicationAuthoring.hasSignature}
+            onInsertSignature={handleInsertPatientQuickReplySignature}
           />
           <PatientTasksPanel
             activeTasks={patientActiveTasks}

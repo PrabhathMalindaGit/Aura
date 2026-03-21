@@ -65,6 +65,18 @@ export interface ClinicianWorkspacePreferences {
   defaultCommunicationFilter: ClinicianDefaultCommunicationFilter;
 }
 
+export interface ClinicianCommunicationTemplate {
+  id: string;
+  title: string;
+  body: string;
+}
+
+export interface ClinicianCommunicationAuthoring {
+  defaultSignature: string;
+  autoAppendSignature: boolean;
+  templates: ClinicianCommunicationTemplate[];
+}
+
 export interface ClinicianProfile {
   displayName: string;
   clinicianId: string;
@@ -75,6 +87,7 @@ export interface ClinicianProfile {
   contactNote: string;
   photo: ClinicianProfilePhoto | null;
   workspacePreferences: ClinicianWorkspacePreferences;
+  communicationAuthoring: ClinicianCommunicationAuthoring;
 }
 
 interface StoredClinicianProfileRecord {
@@ -105,6 +118,14 @@ export const CLINICIAN_PROFILE_LIMITS = {
   teamLabel: 80,
   timezone: 120,
   fileName: 120,
+} as const;
+
+export const CLINICIAN_COMMUNICATION_AUTHORING_LIMITS = {
+  signature: 400,
+  templateTitle: 80,
+  templateBody: 500,
+  templates: 8,
+  templateId: 120,
 } as const;
 
 export const CLINICIAN_PROFILE_PHOTO_MIME_TYPES: ClinicianProfilePhotoMime[] = [
@@ -286,6 +307,14 @@ function createDefaultWorkspacePreferences(): ClinicianWorkspacePreferences {
   };
 }
 
+function createDefaultCommunicationAuthoring(): ClinicianCommunicationAuthoring {
+  return {
+    defaultSignature: '',
+    autoAppendSignature: false,
+    templates: [],
+  };
+}
+
 function normalizeWorkspacePreferences(
   value: unknown,
   fallback: ClinicianWorkspacePreferences,
@@ -336,6 +365,82 @@ function normalizeWorkspacePreferences(
     )
       ? (defaultCommunicationFilter as ClinicianDefaultCommunicationFilter)
       : fallback.defaultCommunicationFilter,
+  };
+}
+
+function buildCommunicationTemplateId(baseId: string, usedIds: Set<string>, index: number): string {
+  const fallbackId = baseId || `communication-template-${index + 1}`;
+  let nextId = fallbackId;
+  let suffix = 2;
+
+  while (usedIds.has(nextId)) {
+    nextId = `${fallbackId}-${suffix}`;
+    suffix += 1;
+  }
+
+  usedIds.add(nextId);
+  return nextId;
+}
+
+function normalizeCommunicationAuthoring(
+  value: unknown,
+  fallback: ClinicianCommunicationAuthoring,
+): ClinicianCommunicationAuthoring {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      ...fallback,
+      templates: [...fallback.templates],
+    };
+  }
+
+  const candidate = value as Partial<ClinicianCommunicationAuthoring>;
+  const usedIds = new Set<string>();
+  const templates = Array.isArray(candidate.templates)
+    ? candidate.templates
+        .map((entry, index) => {
+          if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            return null;
+          }
+
+          const templateCandidate = entry as Partial<ClinicianCommunicationTemplate>;
+          const title = normalizeSingleLine(
+            templateCandidate.title,
+            CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateTitle,
+          );
+          const body = normalizeTextarea(
+            templateCandidate.body,
+            CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateBody,
+          );
+
+          if (!title || !body) {
+            return null;
+          }
+
+          const baseId = normalizeSingleLine(
+            templateCandidate.id,
+            CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templateId,
+          );
+
+          return {
+            id: buildCommunicationTemplateId(baseId, usedIds, index),
+            title,
+            body,
+          } satisfies ClinicianCommunicationTemplate;
+        })
+        .filter((entry): entry is ClinicianCommunicationTemplate => Boolean(entry))
+        .slice(0, CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templates)
+    : [...fallback.templates];
+
+  return {
+    defaultSignature: normalizeTextarea(
+      candidate.defaultSignature,
+      CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.signature,
+    ),
+    autoAppendSignature:
+      typeof candidate.autoAppendSignature === 'boolean'
+        ? candidate.autoAppendSignature
+        : fallback.autoAppendSignature,
+    templates,
   };
 }
 
@@ -432,6 +537,7 @@ function createDefaultProfile(
     contactNote: '',
     photo: null,
     workspacePreferences: createDefaultWorkspacePreferences(),
+    communicationAuthoring: createDefaultCommunicationAuthoring(),
   };
 }
 
@@ -495,6 +601,10 @@ function normalizeProfile(
     workspacePreferences: normalizeWorkspacePreferences(
       candidate.workspacePreferences,
       fallback.workspacePreferences,
+    ),
+    communicationAuthoring: normalizeCommunicationAuthoring(
+      candidate.communicationAuthoring,
+      fallback.communicationAuthoring,
     ),
   };
 }

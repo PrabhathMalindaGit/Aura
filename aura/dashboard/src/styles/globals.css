@@ -15906,6 +15906,46 @@ button.dashboard-summary-card:hover {
   text-transform: uppercase;
 }
 
+.settings-group-card--communication-authoring {
+  gap: var(--space-4);
+}
+
+.settings-communication-authoring__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.settings-communication-authoring__templates {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.settings-communication-authoring__empty {
+  margin: 0;
+}
+
+.settings-communication-template {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.92)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.028), transparent 74%);
+}
+
+.settings-communication-template__fields {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.settings-communication-template__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .settings-actions--profile-photo {
   flex-wrap: wrap;
   padding-top: var(--space-2);
@@ -23950,6 +23990,38 @@ button.dashboard-summary-card:hover {
   margin: 0;
 }
 
+.communication-authoring-tools {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0.9rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.86)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.032), transparent 74%);
+}
+
+.communication-authoring-tools--compact {
+  padding: 0.8rem 0.9rem;
+}
+
+.communication-authoring-tools__picker {
+  margin: 0;
+}
+
+.communication-authoring-tools__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.communication-authoring-tools__note {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
 .communication-page__composer-identity,
 .patient-communication-quick-reply__identity {
   display: grid;
@@ -24054,6 +24126,7 @@ button.dashboard-summary-card:hover {
 .dark .communication-page__handoff,
 .dark .communication-page__timeline-event,
 .dark .communication-page__composer,
+.dark .communication-authoring-tools,
 .dark .alerts-chat-origin-note,
 .dark .patient-communication-timeline__event,
 .dark .patient-detail-mini-nav,
@@ -24352,6 +24425,7 @@ button.dashboard-summary-card:hover {
   .communication-page__thread-badges,
   .communication-page__timeline-badges,
   .communication-page__timeline-event-badges,
+  .communication-authoring-tools__actions,
   .patient-communication-item__actions,
   .patient-communication-timeline__meta,
   .patient-communication-timeline__meta-copy,

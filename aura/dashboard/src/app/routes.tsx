@@ -7,6 +7,7 @@ import { DashboardHomePage } from '../pages/DashboardHomePage';
 import { WorklistPage } from '../pages/WorklistPage';
 import { CommunicationPage } from '../pages/CommunicationPage';
 import { PatientsPage } from '../pages/PatientsPage';
+import { PatientComparePage } from '../pages/PatientComparePage';
 import { PatientDetailPage } from '../pages/PatientDetailPage';
 import { PatientExercisePlanPage } from '../pages/PatientExercisePlanPage';
 import { PatientExerciseSessionsPage } from '../pages/PatientExerciseSessionsPage';
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
           { path: 'insights', element: <InsightsQueuePage /> },
           { path: 'appointments', element: <AppointmentsPage /> },
           { path: 'patients', element: <PatientsPage /> },
+          { path: 'patients/compare', element: <PatientComparePage /> },
           { path: 'patients/:patientId', element: <PatientDetailPage /> },
           { path: 'patients/:patientId/plan', element: <PatientExercisePlanPage /> },
           { path: 'patients/:patientId/sessions', element: <PatientExerciseSessionsPage /> },

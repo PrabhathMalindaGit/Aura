@@ -17,6 +17,9 @@ import { PatientStatusMenu } from './PatientStatusMenu';
 interface PatientsTableProps {
   patients: PatientSummary[];
   onOpenPatient: (patientId: string) => void;
+  selectedComparePatientIds: string[];
+  onToggleComparePatient: (patientId: string) => void;
+  compareSelectionLimitReached: boolean;
 }
 
 function moveFocusToRow(
@@ -35,12 +38,21 @@ function moveFocusToRow(
   }
 }
 
-export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): JSX.Element {
+export function PatientsTable({
+  patients,
+  onOpenPatient,
+  selectedComparePatientIds,
+  onToggleComparePatient,
+  compareSelectionLimitReached,
+}: PatientsTableProps): JSX.Element {
   return (
     <div className="patients-table-wrap" role="region" aria-label="Patients table">
       <table className="patients-table">
         <thead>
           <tr>
+            <th scope="col" className="patients-table__head patients-table__head--compare">
+              Compare
+            </th>
             <th scope="col" className="patients-table__head patients-table__head--patient">
               Patient
             </th>
@@ -70,6 +82,8 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
             const openAlertCount = patient.openAlertCount ?? 0;
             const hasOpenAlertCount = hasOpenAlerts(patient);
             const rosterSupportLine = buildPatientTriageSupportLine(patient);
+            const isSelectedForCompare = selectedComparePatientIds.includes(patient.id);
+            const compareDisabled = !isSelectedForCompare && compareSelectionLimitReached;
             const initials = displayName
               .split(/\s+/)
               .filter(Boolean)
@@ -102,6 +116,20 @@ export function PatientsTable({ patients, onOpenPatient }: PatientsTableProps): 
                 }}
                 aria-label={`Patient ${displayName}`}
               >
+                <td className="patients-table__cell patients-table__cell--compare">
+                  <label
+                    className="patients-table__compare"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelectedForCompare}
+                      disabled={compareDisabled}
+                      aria-label={`Select ${displayName} for compare`}
+                      onChange={() => onToggleComparePatient(patient.id)}
+                    />
+                  </label>
+                </td>
                 <td className="patients-table__cell patients-table__cell--patient">
                   <div className="patients-table__patient">
                     <span className="patients-table__avatar" aria-hidden="true">

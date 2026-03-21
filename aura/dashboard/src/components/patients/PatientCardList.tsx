@@ -17,9 +17,18 @@ import { PatientStatusMenu } from './PatientStatusMenu';
 interface PatientCardListProps {
   patients: PatientSummary[];
   onOpenPatient: (patientId: string) => void;
+  selectedComparePatientIds: string[];
+  onToggleComparePatient: (patientId: string) => void;
+  compareSelectionLimitReached: boolean;
 }
 
-export function PatientCardList({ patients, onOpenPatient }: PatientCardListProps): JSX.Element {
+export function PatientCardList({
+  patients,
+  onOpenPatient,
+  selectedComparePatientIds,
+  onToggleComparePatient,
+  compareSelectionLimitReached,
+}: PatientCardListProps): JSX.Element {
   return (
     <div className="patients-card-list" aria-label="Patients card list">
       {patients.map((patient) => {
@@ -29,6 +38,8 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
         const openAlertCount = patient.openAlertCount ?? 0;
         const hasOpenAlertCount = hasOpenAlerts(patient);
         const rosterSupportLine = buildPatientTriageSupportLine(patient);
+        const isSelectedForCompare = selectedComparePatientIds.includes(patient.id);
+        const compareDisabled = !isSelectedForCompare && compareSelectionLimitReached;
         const initials = displayName
           .split(/\s+/)
           .filter(Boolean)
@@ -84,8 +95,25 @@ export function PatientCardList({ patients, onOpenPatient }: PatientCardListProp
               </div>
 
               <div className="patients-card-list__actions">
-                <Button className="patients-card-list__view" variant="secondary" fullWidth onClick={() => onOpenPatient(patient.id)}>
+                <Button
+                  className="patients-card-list__view"
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => onOpenPatient(patient.id)}
+                >
                   Open review
+                </Button>
+                <Button
+                  className="patients-card-list__compare"
+                  variant={isSelectedForCompare ? 'secondary' : 'ghost'}
+                  size="sm"
+                  disabled={compareDisabled}
+                  onClick={() => onToggleComparePatient(patient.id)}
+                  aria-label={`${
+                    isSelectedForCompare ? 'Remove' : 'Add'
+                  } ${displayName} ${isSelectedForCompare ? 'from' : 'to'} compare`}
+                >
+                  {isSelectedForCompare ? 'Remove from compare' : 'Add to compare'}
                 </Button>
                 <PatientStatusMenu currentStatus={status} compact />
               </div>

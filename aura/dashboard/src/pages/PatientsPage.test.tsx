@@ -1,10 +1,10 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatientsPage } from './PatientsPage';
 import {
@@ -13,6 +13,7 @@ import {
   setClinicianProfile,
 } from '../services/clinicianProfile';
 import { writeWorkspaceState } from '../services/workspaceState';
+import { MEDIA_QUERIES } from '../styles/breakpoints';
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -34,21 +35,75 @@ function createQueryClient(): QueryClient {
   });
 }
 
-function installMatchMediaMock(): void {
+interface MatchMediaController {
+  setMatches: (query: string, matches: boolean) => void;
+}
+
+function installMatchMediaMock(): MatchMediaController {
+  const entries = new Map<
+    string,
+    {
+      matches: boolean;
+      listeners: Set<(event: MediaQueryListEvent) => void>;
+      mediaQueryList: MediaQueryList;
+    }
+  >();
+
+  const getEntry = (query: string) => {
+    const existing = entries.get(query);
+    if (existing) {
+      return existing;
+    }
+
+    const listeners = new Set<(event: MediaQueryListEvent) => void>();
+    const entry = {
+      matches: false,
+      listeners,
+      mediaQueryList: {
+        get matches() {
+          return entry.matches;
+        },
+        media: query,
+        onchange: null,
+        addListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+          listeners.add(listener);
+        }),
+        removeListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+          listeners.delete(listener);
+        }),
+        addEventListener: vi.fn((_type: string, listener: (event: MediaQueryListEvent) => void) => {
+          listeners.add(listener);
+        }),
+        removeEventListener: vi.fn(
+          (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+            listeners.delete(listener);
+          },
+        ),
+        dispatchEvent: vi.fn(),
+      } as unknown as MediaQueryList,
+    };
+
+    entries.set(query, entry);
+    return entry;
+  };
+
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+    value: vi.fn().mockImplementation((query: string) => getEntry(query).mediaQueryList),
   });
+
+  return {
+    setMatches(query: string, matches: boolean): void {
+      const entry = getEntry(query);
+      entry.matches = matches;
+      const event = { matches, media: query } as MediaQueryListEvent;
+      entry.listeners.forEach((listener) => listener(event));
+      if (typeof entry.mediaQueryList.onchange === 'function') {
+        entry.mediaQueryList.onchange(event);
+      }
+    },
+  };
 }
 
 function renderPatientsPage(initialEntry: string = '/patients') {
@@ -59,11 +114,18 @@ function renderPatientsPage(initialEntry: string = '/patients') {
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/patients" element={<PatientsPage />} />
+          <Route path="/patients/compare" element={<CompareWorkspaceRoute />} />
           <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+function CompareWorkspaceRoute(): JSX.Element {
+  const location = useLocation();
+
+  return <div>{`Compare workspace${location.search}`}</div>;
 }
 
 function buildPatientFixtures(nowMs: number = Date.now()) {
@@ -91,6 +153,14 @@ function buildPatientFixtures(nowMs: number = Date.now()) {
       lastCheckinAt: new Date(nowMs - 6 * 60 * 60 * 1000).toISOString(),
       openAlertCount: 1,
       lastPain: 5.4,
+    },
+    {
+      id: 'patient-99',
+      displayName: 'Morgan Yu',
+      status: 'active',
+      lastCheckinAt: new Date(nowMs - 9 * 24 * 60 * 60 * 1000).toISOString(),
+      openAlertCount: 0,
+      lastPain: 4.2,
     },
   ];
 }
@@ -330,5 +400,101 @@ describe('PatientsPage endpoint handling', () => {
     await waitFor(() => {
       expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
     });
+  });
+
+  it('keeps compare selection transient on Patients and only enables compare once 2 patients are selected', async () => {
+    installPatientsFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientsPage();
+
+    const taylorCompare = (await screen.findByRole('checkbox', {
+      name: 'Select Taylor Moss for compare',
+    })) as HTMLInputElement;
+    const jordanCompare = screen.getByRole('checkbox', {
+      name: 'Select Jordan Lee for compare',
+    }) as HTMLInputElement;
+
+    await user.click(taylorCompare);
+
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compare 1 selected patient' })).toBeDisabled();
+
+    await user.click(jordanCompare);
+
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compare 2 selected patients' })).toBeEnabled();
+
+    await user.click(taylorCompare);
+
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compare 1 selected patient' })).toBeDisabled();
+  });
+
+  it('keeps compare selection capped at 3 patients in the roster controls', async () => {
+    installPatientsFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientsPage();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Select Taylor Moss for compare' }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Select Jordan Lee for compare' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select Casey Brown for compare' }));
+
+    const morganCompare = screen.getByRole('checkbox', {
+      name: 'Select Morgan Yu for compare',
+    }) as HTMLInputElement;
+
+    expect(morganCompare).toBeDisabled();
+    expect(screen.getByText('3 selected')).toBeInTheDocument();
+  });
+
+  it('keeps selected patients in the compare tray while search narrows the roster view', async () => {
+    installPatientsFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientsPage();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Select Taylor Moss for compare' }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Select Jordan Lee for compare' }));
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search patients' }), 'Taylor');
+
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Compare 2 selected patients' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Compare workspace?patient=patient-42&patient=patient-77'),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('keeps compare selection when Patients switches between table and card layouts', async () => {
+    const matchMediaController = installMatchMediaMock();
+    installPatientsFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientsPage();
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: 'Select Taylor Moss for compare' }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Select Jordan Lee for compare' }));
+
+    act(() => {
+      matchMediaController.setMatches(MEDIA_QUERIES.mdDown, true);
+    });
+
+    expect(await screen.findByRole('button', { name: 'Remove Taylor Moss from compare' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove Jordan Lee from compare' })).toBeInTheDocument();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compare 2 selected patients' })).toBeEnabled();
   });
 });

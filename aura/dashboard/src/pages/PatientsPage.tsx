@@ -31,10 +31,12 @@ import {
   buildPatientEntryReturnTo,
   createPatientEntryState,
 } from '../utils/patientEntryContext';
+import { MAX_COMPARE_PATIENTS } from '../utils/patientCompare';
 import {
   applyPatientFilters,
   defaultPatientFilters,
   getPatientTriagePreset,
+  getPatientDisplayName,
   hasOpenAlerts,
   isMissedCheckin,
   isRecentlyActive,
@@ -55,6 +57,16 @@ const PATIENT_SORT_OPTIONS = [
   'name-asc',
   'status-active-first',
 ] as const;
+
+function buildCompareSearch(patientIds: readonly string[]): string {
+  const params = new URLSearchParams();
+  patientIds.forEach((patientId) => {
+    params.append('patient', patientId);
+  });
+
+  return params.toString();
+}
+
 function normalizePatientsWorkspaceState(value: unknown): PatientFilters {
   const fallback = defaultPatientFilters();
 
@@ -140,6 +152,7 @@ export function PatientsPage(): JSX.Element {
   const savedFiltersRef = useRef<PatientFilters>(defaultPatientFilters());
   const liveFiltersRef = useRef<PatientFilters>(defaultPatientFilters());
   const searchPersistenceEnabledRef = useRef(false);
+  const [comparePatientIds, setComparePatientIds] = useState<string[]>([]);
   const [filters, setFilters] = useState<PatientFilters>(() => {
     const hasSavedPatientsState = hasWorkspaceState(PATIENTS_WORKSPACE_PAGE);
     const restored = readWorkspaceState(
@@ -208,6 +221,14 @@ export function PatientsPage(): JSX.Element {
       PATIENT_TRIAGE_PRESETS.find((preset) => matchesPatientTriagePreset(filters, preset)) ?? null,
     [filters],
   );
+  const comparePatients = useMemo(() => {
+    const patientById = new Map(allPatients.map((patient) => [patient.id.trim(), patient] as const));
+
+    return comparePatientIds
+      .map((patientId) => patientById.get(patientId))
+      .filter((patient): patient is PatientSummary => Boolean(patient));
+  }, [allPatients, comparePatientIds]);
+  const compareSelectionLimitReached = comparePatientIds.length >= MAX_COMPARE_PATIENTS;
   const trimmedSearch = filters.search.trim();
   const filteredEmptyDescription = useMemo(() => {
     if (activeTriagePreset?.id === 'active-alerts') {
@@ -259,6 +280,38 @@ export function PatientsPage(): JSX.Element {
     },
     [location.pathname, location.search, navigate],
   );
+
+  const toggleComparePatient = useCallback((patientId: string): void => {
+    const normalizedPatientId = patientId.trim();
+    if (!normalizedPatientId) {
+      return;
+    }
+
+    setComparePatientIds((current) => {
+      if (current.includes(normalizedPatientId)) {
+        return current.filter((value) => value !== normalizedPatientId);
+      }
+
+      if (current.length >= MAX_COMPARE_PATIENTS) {
+        return current;
+      }
+
+      return [...current, normalizedPatientId];
+    });
+  }, []);
+
+  const clearComparePatients = useCallback((): void => {
+    setComparePatientIds([]);
+  }, []);
+
+  const openCompareMode = useCallback((): void => {
+    if (comparePatientIds.length < 2) {
+      return;
+    }
+
+    const search = buildCompareSearch(comparePatientIds);
+    navigate(`/patients/compare${search ? `?${search}` : ''}`);
+  }, [comparePatientIds, navigate]);
 
   const persistPatientsState = useCallback((nextFilters: PatientFilters): void => {
     const normalized = normalizePatientsWorkspaceState(nextFilters);
@@ -331,6 +384,21 @@ export function PatientsPage(): JSX.Element {
       search: debouncedPersistedSearch,
     });
   }, [debouncedPersistedSearch, persistPatientsState]);
+
+  useEffect(() => {
+    if (patientsQuery.isLoading && allPatients.length === 0) {
+      return;
+    }
+
+    const validPatientIds = new Set(
+      allPatients.map((patient) => patient.id.trim()).filter((patientId) => patientId.length > 0),
+    );
+
+    setComparePatientIds((current) => {
+      const next = current.filter((patientId) => validPatientIds.has(patientId));
+      return next.length === current.length ? current : next;
+    });
+  }, [allPatients, patientsQuery.isLoading]);
 
   return (
     <Stack className="page-stack patients-page" gap="5">
@@ -467,6 +535,46 @@ export function PatientsPage(): JSX.Element {
             <p className="patients-queue-intro">
               Scan identity, recent activity, alert burden, pain level, and the next review step from one roster view.
             </p>
+            {comparePatients.length > 0 ? (
+              <div
+                className="patients-compare-tray"
+                role="group"
+                aria-label="Patients selected for compare"
+              >
+                <div className="patients-compare-tray__summary" aria-live="polite">
+                  <span className="patients-compare-tray__count">
+                    {comparePatients.length} selected
+                  </span>
+                  <div className="patients-compare-tray__chips">
+                    {comparePatients.map((patient) => (
+                      <span key={patient.id} className="patients-compare-tray__chip">
+                        {getPatientDisplayName(patient)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="patients-compare-tray__actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearComparePatients}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={openCompareMode}
+                    disabled={comparePatients.length < 2}
+                    aria-label={`Compare ${comparePatients.length} selected patient${
+                      comparePatients.length === 1 ? '' : 's'
+                    }`}
+                  >
+                    Compare selected ({comparePatients.length})
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <div className="patients-roster-cues" aria-label="Roster cues guide">
               <p className="patients-roster-cues__eyebrow">Roster cues</p>
               <div className="patients-roster-cues__items">
@@ -592,11 +700,17 @@ export function PatientsPage(): JSX.Element {
             <PatientCardList
               patients={visiblePatients}
               onOpenPatient={openPatientFromRoster}
+              selectedComparePatientIds={comparePatientIds}
+              onToggleComparePatient={toggleComparePatient}
+              compareSelectionLimitReached={compareSelectionLimitReached}
             />
           ) : (
             <PatientsTable
               patients={visiblePatients}
               onOpenPatient={openPatientFromRoster}
+              selectedComparePatientIds={comparePatientIds}
+              onToggleComparePatient={toggleComparePatient}
+              compareSelectionLimitReached={compareSelectionLimitReached}
             />
           )}
         </Stack>

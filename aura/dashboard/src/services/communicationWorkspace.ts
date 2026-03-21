@@ -1,4 +1,9 @@
-import { getClinicianId } from './clinicianIdentity';
+import {
+  buildClinicianSecondaryLine,
+  getClinicianCommunicationScopeKey,
+  getClinicianIdentity,
+  getClinicianId,
+} from './clinicianIdentity';
 import type { DashboardCommunicationOverviewItem } from '../types/models';
 
 const COMMUNICATION_WORKSPACE_STORAGE_PREFIX = 'aura_communication_workspace';
@@ -16,6 +21,9 @@ export interface CommunicationLocalReply {
   text: string;
   createdAt: string;
   clinicianId: string;
+  authorDisplayName?: string;
+  authorRoleTitle?: string;
+  authorSpecialty?: string;
 }
 
 export interface CommunicationTimelineEvent {
@@ -24,6 +32,7 @@ export interface CommunicationTimelineEvent {
   patientId: string;
   occurredAt: string;
   senderLabel: string;
+  senderSecondaryLabel?: string;
   preview: string;
   flaggedBySafety: boolean;
   followUpRequested: boolean;
@@ -57,6 +66,10 @@ interface ReplyInput {
   patientId: string;
   text: string;
   createdAt?: string;
+  clinicianId?: string;
+  authorDisplayName?: string;
+  authorRoleTitle?: string;
+  authorSpecialty?: string;
 }
 
 function isBrowser(): boolean {
@@ -98,8 +111,119 @@ function toSortValue(timestamp: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function createStorageKey(clinicianId: string): string {
-  return `${COMMUNICATION_WORKSPACE_STORAGE_PREFIX}:${clinicianId}`;
+function createStorageKey(scopeKey: string): string {
+  return `${COMMUNICATION_WORKSPACE_STORAGE_PREFIX}:${scopeKey}`;
+}
+
+function normalizeOptionalText(value: unknown): string | undefined {
+  return normalizeText(value) || undefined;
+}
+
+function getReplyMergeKey(reply: CommunicationLocalReply): string {
+  return normalizeText(reply.id) || `${reply.patientId}:${reply.createdAt}:${reply.text}`;
+}
+
+function mergeReplyLists(
+  primaryReplies: CommunicationLocalReply[],
+  fallbackReplies: CommunicationLocalReply[],
+): CommunicationLocalReply[] {
+  const next = new Map<string, CommunicationLocalReply>();
+
+  fallbackReplies.forEach((reply) => {
+    next.set(getReplyMergeKey(reply), reply);
+  });
+
+  primaryReplies.forEach((reply) => {
+    next.set(getReplyMergeKey(reply), reply);
+  });
+
+  return [...next.values()].sort((left, right) => toSortValue(left.createdAt) - toSortValue(right.createdAt));
+}
+
+function mergeReviewedAtMaps(
+  primaryMap: Record<string, string>,
+  fallbackMap: Record<string, string>,
+): Record<string, string> {
+  const next = { ...fallbackMap };
+
+  for (const [patientId, timestamp] of Object.entries(primaryMap)) {
+    const currentTimestamp = next[patientId];
+    next[patientId] =
+      toSortValue(currentTimestamp) > toSortValue(timestamp) ? currentTimestamp : timestamp;
+  }
+
+  return next;
+}
+
+function mergeLocalStates(
+  primaryState: CommunicationWorkspaceLocalState,
+  fallbackState: CommunicationWorkspaceLocalState,
+): CommunicationWorkspaceLocalState {
+  const patientIds = new Set([
+    ...Object.keys(fallbackState.repliesByPatient),
+    ...Object.keys(primaryState.repliesByPatient),
+  ]);
+  const repliesByPatient: Record<string, CommunicationLocalReply[]> = {};
+
+  patientIds.forEach((patientId) => {
+    const mergedReplies = mergeReplyLists(
+      primaryState.repliesByPatient[patientId] ?? [],
+      fallbackState.repliesByPatient[patientId] ?? [],
+    );
+
+    if (mergedReplies.length > 0) {
+      repliesByPatient[patientId] = mergedReplies;
+    }
+  });
+
+  return {
+    repliesByPatient,
+    reviewedAtByPatient: mergeReviewedAtMaps(
+      primaryState.reviewedAtByPatient,
+      fallbackState.reviewedAtByPatient,
+    ),
+  };
+}
+
+function statesEqual(
+  left: CommunicationWorkspaceLocalState,
+  right: CommunicationWorkspaceLocalState,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function readRawCommunicationWorkspaceLocalState(
+  scopeKey: string,
+): CommunicationWorkspaceLocalState {
+  if (!isBrowser()) {
+    return createEmptyLocalState();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(createStorageKey(scopeKey));
+    if (!raw) {
+      return createEmptyLocalState();
+    }
+
+    return normalizeLocalState(JSON.parse(raw));
+  } catch {
+    return createEmptyLocalState();
+  }
+}
+
+function getLegacyScopeKey(currentScopeKey: string): string | null {
+  const legacyClinicianId = getClinicianId().trim();
+  if (!legacyClinicianId || legacyClinicianId === currentScopeKey) {
+    return null;
+  }
+
+  return legacyClinicianId;
+}
+
+export function getCommunicationWorkspaceStorageKey(
+  scopeKey: string = getClinicianCommunicationScopeKey(),
+): string {
+  return createStorageKey(scopeKey);
 }
 
 function createEmptyLocalState(): CommunicationWorkspaceLocalState {
@@ -142,6 +266,9 @@ function normalizeLocalReplies(value: unknown): Record<string, CommunicationLoca
           text,
           createdAt,
           clinicianId: normalizeText(candidate.clinicianId) || getClinicianId(),
+          authorDisplayName: normalizeOptionalText(candidate.authorDisplayName),
+          authorRoleTitle: normalizeOptionalText(candidate.authorRoleTitle),
+          authorSpecialty: normalizeOptionalText(candidate.authorSpecialty),
         } satisfies CommunicationLocalReply;
       })
       .filter((reply): reply is CommunicationLocalReply => Boolean(reply))
@@ -190,34 +317,35 @@ function normalizeLocalState(value: unknown): CommunicationWorkspaceLocalState {
 }
 
 export function readCommunicationWorkspaceLocalState(
-  clinicianId: string = getClinicianId(),
+  scopeKey: string = getClinicianCommunicationScopeKey(),
 ): CommunicationWorkspaceLocalState {
-  if (!isBrowser()) {
-    return createEmptyLocalState();
+  const currentState = readRawCommunicationWorkspaceLocalState(scopeKey);
+  const legacyScopeKey = getLegacyScopeKey(scopeKey);
+
+  if (!legacyScopeKey) {
+    return currentState;
   }
 
-  try {
-    const raw = window.localStorage.getItem(createStorageKey(clinicianId));
-    if (!raw) {
-      return createEmptyLocalState();
-    }
+  const legacyState = readRawCommunicationWorkspaceLocalState(legacyScopeKey);
+  const mergedState = mergeLocalStates(currentState, legacyState);
 
-    return normalizeLocalState(JSON.parse(raw));
-  } catch {
-    return createEmptyLocalState();
+  if (!statesEqual(mergedState, currentState)) {
+    return writeCommunicationWorkspaceLocalState(mergedState, scopeKey);
   }
+
+  return currentState;
 }
 
 function writeCommunicationWorkspaceLocalState(
   state: CommunicationWorkspaceLocalState,
-  clinicianId: string,
+  scopeKey: string,
 ): CommunicationWorkspaceLocalState {
   if (!isBrowser()) {
     return state;
   }
 
   try {
-    window.localStorage.setItem(createStorageKey(clinicianId), JSON.stringify(state));
+    window.localStorage.setItem(createStorageKey(scopeKey), JSON.stringify(state));
   } catch {
     // Ignore storage failures to keep the workspace usable.
   }
@@ -228,8 +356,9 @@ function writeCommunicationWorkspaceLocalState(
 export function addCommunicationThreadReply(
   currentState: CommunicationWorkspaceLocalState,
   input: ReplyInput,
-  clinicianId: string = getClinicianId(),
+  scopeKey: string = getClinicianCommunicationScopeKey(),
 ): CommunicationWorkspaceLocalState {
+  const identity = getClinicianIdentity();
   const patientId = normalizePatientId(input.patientId);
   const text = normalizeText(input.text);
   const createdAt = normalizeTimestamp(input.createdAt) ?? new Date().toISOString();
@@ -244,7 +373,13 @@ export function addCommunicationThreadReply(
     patientId,
     text,
     createdAt,
-    clinicianId,
+    clinicianId: normalizeOptionalText(input.clinicianId) ?? identity.clinicianId,
+    authorDisplayName:
+      normalizeOptionalText(input.authorDisplayName) ?? identity.displayName,
+    authorRoleTitle:
+      normalizeOptionalText(input.authorRoleTitle) ?? normalizeOptionalText(identity.roleTitle),
+    authorSpecialty:
+      normalizeOptionalText(input.authorSpecialty) ?? normalizeOptionalText(identity.specialty),
   };
 
   const nextState: CommunicationWorkspaceLocalState = {
@@ -257,14 +392,14 @@ export function addCommunicationThreadReply(
     reviewedAtByPatient: currentState.reviewedAtByPatient,
   };
 
-  return writeCommunicationWorkspaceLocalState(nextState, clinicianId);
+  return writeCommunicationWorkspaceLocalState(nextState, scopeKey);
 }
 
 export function markCommunicationThreadReviewed(
   currentState: CommunicationWorkspaceLocalState,
   patientId: string,
   latestInboundAt: string | undefined,
-  clinicianId: string = getClinicianId(),
+  scopeKey: string = getClinicianCommunicationScopeKey(),
 ): CommunicationWorkspaceLocalState {
   const normalizedPatientId = normalizePatientId(patientId);
   const normalizedLatestInboundAt = normalizeTimestamp(latestInboundAt);
@@ -286,7 +421,7 @@ export function markCommunicationThreadReviewed(
     },
   };
 
-  return writeCommunicationWorkspaceLocalState(nextState, clinicianId);
+  return writeCommunicationWorkspaceLocalState(nextState, scopeKey);
 }
 
 function buildInboundEvent(item: DashboardCommunicationOverviewItem): CommunicationTimelineEvent {
@@ -313,7 +448,9 @@ function buildReplyEvent(reply: CommunicationLocalReply): CommunicationTimelineE
     kind: 'clinician-reply',
     patientId: reply.patientId,
     occurredAt: reply.createdAt,
-    senderLabel: 'Clinician',
+    senderLabel: normalizeOptionalText(reply.authorDisplayName) ?? 'Clinician',
+    senderSecondaryLabel:
+      buildClinicianSecondaryLine(reply.authorRoleTitle, reply.authorSpecialty) || undefined,
     preview: reply.text,
     flaggedBySafety: false,
     followUpRequested: false,

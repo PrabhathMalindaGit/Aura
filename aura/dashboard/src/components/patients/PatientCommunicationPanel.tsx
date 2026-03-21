@@ -2,9 +2,12 @@ import { Fragment } from 'react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import { ClinicianAvatar } from '../ui/ClinicianAvatar';
 import { EmptyState } from '../ui/EmptyState';
 import { Skeleton } from '../ui/Skeleton';
+import { useClinicianIdentity } from '../../hooks/useClinicianIdentity';
 import type { CommunicationTimelineEvent } from '../../services/communicationWorkspace';
+import { getClinicianInitials } from '../../services/clinicianIdentity';
 import type { DashboardCommunicationOverviewItem } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
 
@@ -66,6 +69,7 @@ export function PatientCommunicationPanel({
   onQuickReplyChange,
   onSendQuickReply,
 }: PatientCommunicationPanelProps): JSX.Element {
+  const clinicianIdentity = useClinicianIdentity();
   const timelineEvents = timeline.length > 0 ? timeline : buildFallbackTimeline(items);
 
   return (
@@ -131,9 +135,31 @@ export function PatientCommunicationPanel({
                   >
                     <div className="patient-communication-timeline__meta">
                       <div className="patient-communication-timeline__meta-copy">
-                        <span className="patient-communication-timeline__sender">
-                          {event.kind === 'clinician-reply' ? 'Clinician' : event.senderLabel || 'Patient'}
-                        </span>
+                        {event.kind === 'clinician-reply' ? (
+                          <div className="patient-communication-timeline__author">
+                            <ClinicianAvatar
+                              identity={{
+                                displayName: event.senderLabel,
+                                initials: getClinicianInitials(event.senderLabel),
+                                photo: null,
+                              }}
+                              decorative
+                              size="sm"
+                            />
+                            <div className="patient-communication-timeline__author-copy">
+                              <span className="patient-communication-timeline__sender">{event.senderLabel}</span>
+                              {event.senderSecondaryLabel ? (
+                                <span className="patient-communication-timeline__secondary">
+                                  {event.senderSecondaryLabel}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="patient-communication-timeline__sender">
+                            {event.senderLabel || 'Patient'}
+                          </span>
+                        )}
                         <span className="muted-text" title={formatDashboardDateTime(event.occurredAt)}>
                           {formatDashboardRelativeTime(event.occurredAt)}
                         </span>
@@ -173,6 +199,16 @@ export function PatientCommunicationPanel({
 
           {showQuickReply && onQuickReplyChange && onSendQuickReply ? (
             <div className="patient-communication-quick-reply">
+              <div className="patient-communication-quick-reply__identity" aria-label="Replying as clinician identity">
+                <span className="patient-communication-quick-reply__identity-label">Replying as</span>
+                <div className="patient-communication-quick-reply__identity-card">
+                  <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                  <div className="patient-communication-quick-reply__identity-copy">
+                    <strong>{clinicianIdentity.displayName}</strong>
+                    {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
+                  </div>
+                </div>
+              </div>
               <label className="form-field patient-communication-quick-reply__field">
                 <span>Quick reply</span>
                 <textarea

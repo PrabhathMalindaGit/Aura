@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
+import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { useDashboardCommunicationOverview } from '../services/clinicianApi';
-import { getClinicianId } from '../services/clinicianIdentity';
+import { getClinicianInitials } from '../services/clinicianIdentity';
 import {
   addCommunicationThreadReply,
   deriveCommunicationThreads,
@@ -50,9 +52,10 @@ function countThreadsByView(
 
 export function CommunicationPage(): JSX.Element {
   const navigate = useNavigate();
-  const clinicianId = useMemo(() => getClinicianId(), []);
+  const clinicianIdentity = useClinicianIdentity();
+  const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
-  const [localState, setLocalState] = useState(() => readCommunicationWorkspaceLocalState(clinicianId));
+  const [localState, setLocalState] = useState(() => readCommunicationWorkspaceLocalState(communicationScopeKey));
   const [draftReply, setDraftReply] = useState('');
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadView, setSelectedThreadView] = useState<CommunicationThreadView | null>(null);
@@ -73,6 +76,10 @@ export function CommunicationPage(): JSX.Element {
     () => findCommunicationThreadByPatientId(allThreads, requestedPatientId),
     [allThreads, requestedPatientId],
   );
+
+  useEffect(() => {
+    setLocalState(readCommunicationWorkspaceLocalState(communicationScopeKey));
+  }, [communicationScopeKey]);
 
   useEffect(() => {
     let nextSelectedThreadId = selectedThreadId;
@@ -140,10 +147,16 @@ export function CommunicationPage(): JSX.Element {
         current,
         activeThread.patientId,
         activeThread.latestInboundAt,
-        clinicianId,
+        communicationScopeKey,
       ),
     );
-  }, [activeThread?.id, activeThread?.latestInboundAt, activeThread?.patientId, activeThread?.validPatientId, clinicianId]);
+  }, [
+    activeThread?.id,
+    activeThread?.latestInboundAt,
+    activeThread?.patientId,
+    activeThread?.validPatientId,
+    communicationScopeKey,
+  ]);
 
   useEffect(() => {
     setDraftReply('');
@@ -202,7 +215,7 @@ export function CommunicationPage(): JSX.Element {
           patientId: activeThread.patientId,
           text: nextDraft,
         },
-        clinicianId,
+        communicationScopeKey,
       ),
     );
     setDraftReply('');
@@ -433,7 +446,29 @@ export function CommunicationPage(): JSX.Element {
                   >
                     <div className="communication-page__timeline-event-head">
                       <div className="communication-page__timeline-event-copy">
-                        <strong>{event.senderLabel}</strong>
+                        {event.kind === 'clinician-reply' ? (
+                          <div className="communication-page__timeline-event-author">
+                            <ClinicianAvatar
+                              identity={{
+                                displayName: event.senderLabel,
+                                initials: getClinicianInitials(event.senderLabel),
+                                photo: null,
+                              }}
+                              decorative
+                              size="sm"
+                            />
+                            <div className="communication-page__timeline-event-author-copy">
+                              <strong>{event.senderLabel}</strong>
+                              {event.senderSecondaryLabel ? (
+                                <span className="communication-page__timeline-event-secondary">
+                                  {event.senderSecondaryLabel}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : (
+                          <strong>{event.senderLabel}</strong>
+                        )}
                         <span
                           className="communication-page__timeline-event-time"
                           title={formatDashboardDateTime(event.occurredAt)}
@@ -453,6 +488,18 @@ export function CommunicationPage(): JSX.Element {
               </div>
 
               <div className="communication-page__composer">
+                <div className="communication-page__composer-identity" aria-label="Replying as clinician identity">
+                  <span className="communication-page__composer-identity-label">Replying as</span>
+                  <div className="communication-page__composer-identity-card">
+                    <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                    <div className="communication-page__composer-identity-copy">
+                      <strong>{clinicianIdentity.displayName}</strong>
+                      {clinicianIdentity.secondaryLine ? (
+                        <span>{clinicianIdentity.secondaryLine}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
                 <label className="form-field communication-page__composer-field">
                   <span>Clinician reply</span>
                   <textarea

@@ -6,8 +6,34 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppShell } from './AppShell';
+import {
+  clearClinicianProfileForTests,
+  getClinicianProfile,
+  setClinicianProfile,
+} from '../services/clinicianProfile';
 
 type BreakpointPreset = 'mobile' | 'desktop';
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
+
+function signInAs(input: { sub: string; name?: string }): void {
+  window.localStorage.setItem('aura_access_token', buildToken(input));
+}
 
 function installMatchMediaPreset(preset: BreakpointPreset): void {
   const mobileMap = new Map<string, boolean>([
@@ -69,6 +95,8 @@ function renderShell(entry: string): void {
 describe('AppShell navigation', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    clearClinicianProfileForTests();
+    signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
     installMatchMediaPreset('desktop');
   });
 
@@ -185,5 +213,43 @@ describe('AppShell navigation', () => {
 
     const activeLink = screen.getByRole('link', { name: 'Dashboard' });
     expect(activeLink).toHaveClass('sidebar-item--active');
+  });
+
+  it('renders the clinician identity entry with initials fallback and accessible settings label', () => {
+    installMatchMediaPreset('desktop');
+    renderShell('/dashboard');
+
+    const identityEntry = screen.getByRole('link', {
+      name: 'Open clinician profile settings for Dr Rivera',
+    });
+
+    expect(identityEntry).toBeInTheDocument();
+    expect(screen.getByText('Dr Rivera')).toBeInTheDocument();
+    expect(screen.getByText('Rehab clinician · Recovery follow-up')).toBeInTheDocument();
+  });
+
+  it('renders the saved clinician photo inside the topbar identity entry when available', () => {
+    installMatchMediaPreset('desktop');
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      displayName: 'Dr Elena Hall',
+      photo: {
+        dataUrl: 'data:image/png;base64,abc123',
+        mimeType: 'image/png',
+        fileName: 'avatar.png',
+        sizeBytes: 42,
+      },
+    });
+
+    renderShell('/dashboard');
+
+    const identityEntry = screen.getByRole('link', {
+      name: 'Open clinician profile settings for Dr Elena Hall',
+    });
+    const avatarImage = identityEntry.querySelector('img');
+
+    expect(avatarImage).not.toBeNull();
+    expect(avatarImage).toHaveAttribute('alt', '');
+    expect(avatarImage).toHaveAttribute('src', 'data:image/png;base64,abc123');
   });
 });

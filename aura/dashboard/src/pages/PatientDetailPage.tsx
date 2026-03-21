@@ -18,6 +18,7 @@ import { PatientTasksPanel } from '../components/patients/PatientTasksPanel';
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { RecommendedActionsPanel } from '../components/patients/RecommendedActionsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
+import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import {
   assignPromToPatient,
   completeClinicianTask,
@@ -47,7 +48,6 @@ import {
   usePatientTrends,
   useUpdateAlertStatus,
 } from '../services/clinicianApi';
-import { getClinicianId } from '../services/clinicianIdentity';
 import {
   addCommunicationThreadReply,
   deriveCommunicationThreadForPatient,
@@ -316,6 +316,8 @@ export function PatientDetailPage(): JSX.Element {
   const { patientId } = useParams<{ patientId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const clinicianIdentity = useClinicianIdentity();
+  const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDays = parseDays(searchParams.get('days'));
 
@@ -338,9 +340,8 @@ export function PatientDetailPage(): JSX.Element {
   const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
   const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
-  const clinicianId = useMemo(() => getClinicianId(), []);
   const [communicationLocalState, setCommunicationLocalState] = useState(() =>
-    readCommunicationWorkspaceLocalState(clinicianId),
+    readCommunicationWorkspaceLocalState(communicationScopeKey),
   );
   const [patientQuickReply, setPatientQuickReply] = useState('');
   const [patientExportOpen, setPatientExportOpen] = useState(false);
@@ -1068,6 +1069,11 @@ export function PatientDetailPage(): JSX.Element {
   );
   const canQuickReplyFromPatientDetail =
     patientCommunicationItems.length > 0 && !patientCommunicationBlockedBySafety;
+
+  useEffect(() => {
+    setCommunicationLocalState(readCommunicationWorkspaceLocalState(communicationScopeKey));
+  }, [communicationScopeKey]);
+
   const patientTasks = useMemo<ClinicianTaskItem[]>(
     () => (patientTasksQuery.data ?? []).filter((task) => task.patientId === patientId),
     [patientId, patientTasksQuery.data],
@@ -1245,11 +1251,11 @@ export function PatientDetailPage(): JSX.Element {
           patientId,
           text: nextReply,
         },
-        clinicianId,
+        communicationScopeKey,
       ),
     );
     setPatientQuickReply('');
-  }, [canQuickReplyFromPatientDetail, clinicianId, patientId, patientQuickReply]);
+  }, [canQuickReplyFromPatientDetail, communicationScopeKey, patientId, patientQuickReply]);
 
   const handleOperationalAction = useCallback(
     (key: PatientActionKey): void => {

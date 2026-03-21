@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SessionTimeoutModal } from '../components/auth/SessionTimeoutModal';
 import { PageTransition } from '../components/motion/PageTransition';
 import { MobileNavSheet } from '../components/nav/MobileNavSheet';
 import { OfflineBanner } from '../components/system/OfflineBanner';
 import { Sidebar } from '../components/nav/Sidebar';
+import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
 import { IconButton } from '../components/ui/IconButton';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Inset } from '../components/ui/Inset';
+import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useSidebarMode } from '../hooks/useSidebarMode';
 import { useConnectionStatus } from '../services/connection';
@@ -24,7 +26,6 @@ import {
   subscribeSessionSettings,
   type SessionSettings,
 } from '../services/sessionSettings';
-import { getClinicianName } from '../services/clinicianIdentity';
 import { clearDashboardSessionData } from '../utils/storageKeys';
 import { cn } from '../utils/cn';
 
@@ -134,22 +135,6 @@ function formatWorkspaceDateTime(nowMs: number): string {
   }).format(nowMs);
 }
 
-function getInitials(name: string): string {
-  const segments = name
-    .split(/\s+/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (segments.length === 0) {
-    return 'AC';
-  }
-
-  return segments
-    .slice(0, 2)
-    .map((segment) => segment[0]?.toUpperCase() ?? '')
-    .join('');
-}
-
 export function AppShell(): JSX.Element {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -166,6 +151,7 @@ export function AppShell(): JSX.Element {
     isDesktop,
   });
   const connection = useConnectionStatus();
+  const clinicianIdentity = useClinicianIdentity();
 
   const handleSessionLogout = useCallback(
     (reason: SessionTimeoutReason) => {
@@ -255,9 +241,10 @@ export function AppShell(): JSX.Element {
     const match = SHELL_PAGE_CONFIGS.find((entry) => entry.matches(pathname));
     return match?.config ?? SHELL_PAGE_CONFIGS[SHELL_PAGE_CONFIGS.length - 1].config;
   }, [pathname]);
-
-  const clinicianName = useMemo(() => getClinicianName(), []);
-  const clinicianInitials = useMemo(() => getInitials(clinicianName), [clinicianName]);
+  const identityTitle = clinicianIdentity.secondaryLine
+    ? `${clinicianIdentity.displayName} · ${clinicianIdentity.secondaryLine}`
+    : clinicianIdentity.displayName;
+  const identityEntryLabel = `Open clinician profile settings for ${clinicianIdentity.displayName}`;
 
   const handleQuickOpenSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -354,13 +341,20 @@ export function AppShell(): JSX.Element {
             </div>
 
             <div className="topbar__identity">
-              <span className="topbar__avatar" aria-hidden="true">
-                {clinicianInitials}
-              </span>
-              <div className="topbar__identity-copy">
-                <strong className="topbar__identity-name">{clinicianName}</strong>
-                <span className="topbar__identity-role">Clinician workspace</span>
-              </div>
+              <Link
+                to="/settings"
+                className="topbar__identity-entry"
+                aria-label={identityEntryLabel}
+                title={identityTitle}
+              >
+                <ClinicianAvatar identity={clinicianIdentity} decorative size="md" />
+                <div className="topbar__identity-copy">
+                  <strong className="topbar__identity-name">{clinicianIdentity.displayName}</strong>
+                  {clinicianIdentity.secondaryLine ? (
+                    <span className="topbar__identity-role">{clinicianIdentity.secondaryLine}</span>
+                  ) : null}
+                </div>
+              </Link>
               <Button className="topbar__signout" variant="ghost" size="sm" onClick={handleSignOut}>
                 Sign out
               </Button>

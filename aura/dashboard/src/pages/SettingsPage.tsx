@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
 import { Section } from '../components/ui/Section';
+import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import {
   CLINICIAN_PROFILE_LIMITS,
   CLINICIAN_PROFILE_PHOTO_MIME_TYPES,
@@ -13,6 +15,9 @@ import {
   type ClinicianProfile,
   type ClinicianProfilePhotoMime,
 } from '../services/clinicianProfile';
+import {
+  getClinicianInitials,
+} from '../services/clinicianIdentity';
 import {
   DEFAULT_SESSION_SETTINGS,
   getSessionSettings,
@@ -29,22 +34,6 @@ import {
 interface ProfileValidationState {
   displayName?: string;
   clinicianId?: string;
-}
-
-function getInitials(name: string): string {
-  const segments = name
-    .split(/\s+/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  if (segments.length === 0) {
-    return 'AC';
-  }
-
-  return segments
-    .slice(0, 2)
-    .map((segment) => segment[0]?.toUpperCase() ?? '')
-    .join('');
 }
 
 function profilesEqual(left: ClinicianProfile, right: ClinicianProfile): boolean {
@@ -88,6 +77,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export function SettingsPage(): JSX.Element {
   const initialProfile = useMemo(() => getClinicianProfile(), []);
+  const clinicianIdentity = useClinicianIdentity();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getThemeMode());
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
   const [savedProfile, setSavedProfile] = useState<ClinicianProfile>(() => initialProfile);
@@ -222,8 +212,21 @@ export function SettingsPage(): JSX.Element {
   const identityStateLabel =
     [savedProfile.roleTitle.trim(), savedProfile.specialty.trim()].filter(Boolean).join(' · ') ||
     'Saved locally in this browser';
-  const draftProfileInitials = getInitials(draftProfile.displayName || draftProfile.clinicianId);
-  const savedProfileInitials = getInitials(savedProfile.displayName || savedProfile.clinicianId);
+  const draftIdentityPreview = {
+    displayName:
+      draftProfile.displayName.trim() ||
+      draftProfile.clinicianId.trim() ||
+      clinicianIdentity.displayName,
+    initials: getClinicianInitials(draftProfile.displayName, draftProfile.clinicianId),
+    photo: draftProfile.photo,
+  };
+  const savedIdentityFacts = [
+    `ID: ${clinicianIdentity.clinicianId}`,
+    clinicianIdentity.roleTitle,
+    clinicianIdentity.specialty,
+    clinicianIdentity.preferredPronouns,
+  ].filter(Boolean) as string[];
+  const savedIdentitySupportLine = clinicianIdentity.secondaryLine || 'Local clinician profile';
   const profileDirty = useMemo(() => !profilesEqual(savedProfile, draftProfile), [draftProfile, savedProfile]);
 
   return (
@@ -451,43 +454,44 @@ export function SettingsPage(): JSX.Element {
             </p>
 
             <section className="settings-profile-summary" aria-label="Saved clinician profile summary">
-              <div className="settings-profile-summary__avatar" aria-hidden="true">
-                {savedProfile.photo ? (
-                  <img
-                    className="settings-profile-summary__image"
-                    src={savedProfile.photo.dataUrl}
-                    alt=""
-                  />
-                ) : (
-                  <span>{savedProfileInitials}</span>
-                )}
-              </div>
+              <ClinicianAvatar
+                identity={clinicianIdentity}
+                className="settings-profile-summary__avatar"
+                decorative
+                size="lg"
+              />
               <div className="settings-profile-summary__copy">
-                <p className="settings-profile-summary__name">{savedProfile.displayName}</p>
-                <p className="settings-profile-summary__meta">
-                  {[savedProfile.roleTitle, savedProfile.specialty].filter(Boolean).join(' · ') ||
-                    'Local clinician profile'}
-                </p>
+                <p className="settings-profile-summary__name">{clinicianIdentity.displayName}</p>
+                <p className="settings-profile-summary__meta">{savedIdentitySupportLine}</p>
+                <div className="settings-profile-summary__facts" aria-label="Saved clinician profile facts">
+                  {savedIdentityFacts.map((fact) => (
+                    <span key={fact} className="settings-profile-summary__fact">
+                      {fact}
+                    </span>
+                  ))}
+                </div>
+                {clinicianIdentity.bio ? (
+                  <p className="settings-profile-summary__body">{clinicianIdentity.bio}</p>
+                ) : null}
+                {clinicianIdentity.contactNote ? (
+                  <p className="settings-profile-summary__body settings-profile-summary__body--secondary">
+                    {clinicianIdentity.contactNote}
+                  </p>
+                ) : null}
                 <p className="settings-profile-summary__note">
-                  {savedProfile.photo
-                    ? 'Saved profile photo is available in this browser.'
-                    : 'No profile photo is saved for this browser yet.'}
+                  Saved locally for this clinician in this browser. Changes do not sync across
+                  devices.
                 </p>
               </div>
             </section>
 
             <section className="settings-profile-photo" aria-label="Profile photo">
-              <div className="settings-profile-photo__preview" aria-hidden="true">
-                {draftProfile.photo ? (
-                  <img
-                    className="settings-profile-photo__image"
-                    src={draftProfile.photo.dataUrl}
-                    alt=""
-                  />
-                ) : (
-                  <span>{draftProfileInitials}</span>
-                )}
-              </div>
+              <ClinicianAvatar
+                identity={draftIdentityPreview}
+                className="settings-profile-photo__preview"
+                decorative
+                size="lg"
+              />
               <div className="settings-profile-photo__copy">
                 <p className="settings-profile-photo__title">Profile photo</p>
                 <p className="settings-profile-photo__text">

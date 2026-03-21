@@ -8,6 +8,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommunicationPage } from './CommunicationPage';
 import { createJsonResponse } from '../test/mocks';
+import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -20,6 +21,27 @@ function createQueryClient(): QueryClient {
       },
     },
   });
+}
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
+
+function signInAs(input: { sub: string; name?: string }): void {
+  window.localStorage.setItem('aura_access_token', buildToken(input));
 }
 
 function renderCommunicationPage(initialEntry: string = '/communication'): void {
@@ -104,7 +126,15 @@ describe('CommunicationPage', () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     window.sessionStorage.clear();
-    window.localStorage.setItem('aura_access_token', 'TEST_TOKEN');
+    clearClinicianProfileForTests();
+    signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      displayName: 'Dr Elena Hall',
+      clinicianId: 'elena-hall-local',
+      roleTitle: 'Lead rehab clinician',
+      specialty: 'Post-op recovery',
+    });
     installCommunicationFetchMock();
   });
 
@@ -186,6 +216,9 @@ describe('CommunicationPage', () => {
       screen.getByRole('textbox', { name: 'Clinician reply' }),
       'Please keep tomorrow for now. We will review the schedule this afternoon.',
     );
+    expect(screen.getByText('Replying as')).toBeInTheDocument();
+    expect(screen.getByText('Dr Elena Hall')).toBeInTheDocument();
+    expect(screen.getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send reply' }));
 
     expect(
@@ -193,6 +226,8 @@ describe('CommunicationPage', () => {
         'Please keep tomorrow for now. We will review the schedule this afternoon.',
       ),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lead rehab clinician · Post-op recovery').length).toBeGreaterThan(0);
     expect(screen.getByText('Replies are stored only in this browser for the current clinician during this foundation pass.')).toBeInTheDocument();
 
     await waitFor(() => {

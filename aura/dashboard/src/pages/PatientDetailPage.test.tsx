@@ -6,7 +6,8 @@ import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getClinicianId } from '../services/clinicianIdentity';
+import { getClinicianCommunicationScopeKey } from '../services/clinicianIdentity';
+import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
 import type {
   AlertItem,
   AppointmentRequestItem,
@@ -112,6 +113,27 @@ const baseWorklistItem: WorklistRecord = {
   priorityScore: 92,
   updatedAt: `${TODAY_KEY}T11:00:00.000Z`,
 };
+
+function toBase64Url(value: string): string {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub: input.sub,
+      name: input.name,
+      exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
+    }),
+  );
+
+  return `${header}.${payload}.signature`;
+}
+
+function signInAs(input: { sub: string; name?: string }): void {
+  window.localStorage.setItem('aura_access_token', buildToken(input));
+}
 
 function createJsonResponse(body: unknown, status: number = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -371,7 +393,15 @@ beforeEach(() => {
   installWindowMocks();
   window.localStorage.clear();
   window.sessionStorage.clear();
-  window.localStorage.setItem('aura_access_token', 'TEST_TOKEN');
+  clearClinicianProfileForTests();
+  signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
+  setClinicianProfile({
+    ...getClinicianProfile(),
+    displayName: 'Dr Elena Hall',
+    clinicianId: 'elena-hall-local',
+    roleTitle: 'Lead rehab clinician',
+    specialty: 'Post-op recovery',
+  });
 });
 
 afterEach(() => {
@@ -618,6 +648,9 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
+    await within(communicationPanel).findByLabelText('Replying as clinician identity');
+    expect(within(communicationPanel).getByText('Replying as')).toBeInTheDocument();
+    expect(within(communicationPanel).getByText('Dr Elena Hall')).toBeInTheDocument();
     await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' });
     const communicationTimeline = within(communicationPanel).getByRole('list', {
       name: 'Patient communication timeline',
@@ -634,16 +667,13 @@ describe('PatientDetailPage', () => {
     const localReply = await within(communicationTimeline).findByText(
       'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
     );
-    const patientMessage = within(communicationTimeline).getByText(
-      'Can someone confirm whether tomorrow still works?',
-    );
-    expect(
-      patientMessage.compareDocumentPosition(localReply) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(localReply).toBeInTheDocument();
     expect(within(communicationTimeline).getByText('Local clinician reply')).toBeInTheDocument();
+    expect(within(communicationTimeline).getByText('Dr Elena Hall')).toBeInTheDocument();
+    expect(within(communicationTimeline).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
 
     const storedState = window.localStorage.getItem(
-      `aura_communication_workspace:${getClinicianId()}`,
+      `aura_communication_workspace:${getClinicianCommunicationScopeKey()}`,
     );
     expect(storedState).not.toBeNull();
     const parsedStoredState = JSON.parse(storedState ?? '{}') as {

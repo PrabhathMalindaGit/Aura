@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -54,6 +54,7 @@ describe('SettingsPage clinician profile workspace', () => {
     signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
 
     render(<SettingsPage />);
+    const savedSummary = screen.getByLabelText('Saved clinician profile summary');
 
     expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Light' })).toBeInTheDocument();
@@ -62,9 +63,15 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(screen.getByRole('button', { name: 'Remove photo' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Restore defaults' })).toBeInTheDocument();
+    expect(within(savedSummary).getByText('Dr Rivera')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('ID: auth-clinician-1')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('Rehab clinician')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('Recovery follow-up')).toBeInTheDocument();
     expect(
-      screen.getByText('Saved locally for this clinician in this browser. Changes do not sync across devices.'),
-    ).toBeInTheDocument();
+      screen.getAllByText(
+        'Saved locally for this clinician in this browser. Changes do not sync across devices.',
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText('Profile photo stays in this browser after you save it. Use JPG, PNG, or WebP up to 500 KB.'),
     ).toBeInTheDocument();
@@ -93,11 +100,15 @@ describe('SettingsPage clinician profile workspace', () => {
     await user.type(displayNameInput, 'Dr Elena Hall');
     await user.clear(clinicianIdInput);
     await user.type(clinicianIdInput, 'elena-hall-local');
+    await user.clear(screen.getByLabelText('Clinician role or title'));
+    await user.type(screen.getByLabelText('Clinician role or title'), 'Lead rehab clinician');
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
 
     expect(screen.getByText('Profile saved in this browser.')).toBeInTheDocument();
     expect(window.localStorage.getItem(CLINICIAN_ID_STORAGE_KEY)).toBe('elena-hall-local');
     expect(window.localStorage.getItem(CLINICIAN_NAME_STORAGE_KEY)).toBe('Dr Elena Hall');
+    expect(screen.getByText('ID: elena-hall-local')).toBeInTheDocument();
+    expect(screen.getByText('Lead rehab clinician')).toBeInTheDocument();
 
     const stored = window.localStorage.getItem(getClinicianProfileStorageKey('auth-clinician-2'));
     expect(stored).toContain('"authScopeId":"auth-clinician-2"');
@@ -160,6 +171,34 @@ describe('SettingsPage clinician profile workspace', () => {
     });
 
     expect(screen.getByText('Choose a JPG, PNG, or WebP image up to 500 KB.')).toBeInTheDocument();
+  });
+
+  it('keeps optional summary fields compact by rendering them only when present', () => {
+    signInAs({ sub: 'auth-clinician-5', name: 'Dr Alvarez' });
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      displayName: 'Dr Marta Alvarez',
+      roleTitle: 'Lead rehab clinician',
+      specialty: 'Post-op recovery',
+      preferredPronouns: 'she/her',
+      bio: 'Safety-aware post-op review with a focus on handoff clarity.',
+      contactNote: 'Local handoff note for urgent follow-up coverage.',
+    });
+
+    render(<SettingsPage />);
+    const savedSummary = screen.getByLabelText('Saved clinician profile summary');
+
+    expect(within(savedSummary).getByText('Dr Marta Alvarez')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('ID: auth-clinician-5')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('Lead rehab clinician')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('Post-op recovery')).toBeInTheDocument();
+    expect(within(savedSummary).getByText('she/her')).toBeInTheDocument();
+    expect(
+      within(savedSummary).getByText('Safety-aware post-op review with a focus on handoff clarity.'),
+    ).toBeInTheDocument();
+    expect(
+      within(savedSummary).getByText('Local handoff note for urgent follow-up coverage.'),
+    ).toBeInTheDocument();
   });
 
   it('keeps scoped clinician profiles separate across sign-out and later sign-in', async () => {

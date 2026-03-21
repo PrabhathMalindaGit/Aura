@@ -13,6 +13,7 @@ import { DayDetailPanel } from '../components/patients/DayDetailPanel';
 import { PatientAppointmentsPanel } from '../components/patients/PatientAppointmentsPanel';
 import { PatientCommunicationPanel } from '../components/patients/PatientCommunicationPanel';
 import { PatientCurrentPriorities } from '../components/patients/PatientCurrentPriorities';
+import { PatientHandoffPanel } from '../components/patients/PatientHandoffPanel';
 import { PatientSummaryCards } from '../components/patients/PatientSummaryCards';
 import { PatientTasksPanel } from '../components/patients/PatientTasksPanel';
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
@@ -2172,6 +2173,10 @@ export function PatientDetailPage(): JSX.Element {
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--operational">
+          <PatientHandoffPanel
+            patientId={patientId}
+            onOpenNextAction={(action) => handleOperationalAction(action)}
+          />
           <PatientCommunicationPanel
             items={patientCommunicationItems}
             timeline={patientCommunicationTimeline}

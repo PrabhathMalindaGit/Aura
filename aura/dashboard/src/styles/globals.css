@@ -7267,6 +7267,226 @@ time,
   background: linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.28));
 }
 
+.patient-handoff-panel__body,
+.patient-handoff-panel__current,
+.patient-handoff-panel__form,
+.patient-handoff-panel__notes,
+.patient-handoff-panel__notes-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.patient-handoff-panel__scope-note,
+.patient-handoff-panel__current,
+.patient-handoff-panel__note-item {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid hsl(var(--border) / 0.58);
+  background: linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.93));
+}
+
+.patient-handoff-panel__scope-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.patient-handoff-panel__scope-copy,
+.patient-handoff-panel__scope-facts,
+.patient-handoff-panel__current-copy,
+.patient-handoff-panel__current-side,
+.patient-handoff-panel__attribution-copy {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.patient-handoff-panel__scope-eyebrow,
+.patient-handoff-panel__form-eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.patient-handoff-panel__scope-text,
+.patient-handoff-panel__current-summary,
+.patient-handoff-panel__note-text {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.patient-handoff-panel__scope-facts {
+  justify-items: flex-end;
+}
+
+.patient-handoff-panel__scope-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: hsl(var(--muted) / 0.56);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+}
+
+.patient-handoff-panel__current {
+  grid-template-columns: minmax(0, 1.9fr) minmax(180px, 0.9fr);
+  align-items: start;
+}
+
+.patient-handoff-panel__current-meta,
+.patient-handoff-panel__form-heading,
+.patient-handoff-panel__form-footer,
+.patient-handoff-panel__note-item {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.patient-handoff-panel__current-meta,
+.patient-handoff-panel__form-heading {
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.patient-handoff-panel__current-facts,
+.communication-page__handoff-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.patient-handoff-panel__current-facts dt,
+.communication-page__handoff-facts dt {
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.patient-handoff-panel__current-facts dd,
+.communication-page__handoff-facts dd {
+  margin: var(--space-1) 0 0;
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.patient-handoff-panel__current-side {
+  justify-items: start;
+}
+
+.patient-handoff-panel__attribution {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.patient-handoff-panel__attribution-copy strong {
+  font-size: var(--text-sm);
+  line-height: 1.35;
+}
+
+.patient-handoff-panel__attribution-copy span,
+.patient-handoff-panel__note-time {
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.patient-handoff-panel__form {
+  padding-top: var(--space-1);
+}
+
+.patient-handoff-panel__form-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.patient-handoff-panel__field-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-handoff-panel__helper,
+.communication-page__handoff {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid hsl(var(--border) / 0.64);
+  background: hsl(var(--card) / 0.8);
+}
+
+.patient-handoff-panel__helper {
+  display: grid;
+  gap: var(--space-1);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.patient-handoff-panel__feedback {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.patient-handoff-panel__feedback--error {
+  color: hsl(var(--destructive));
+}
+
+.patient-handoff-panel__feedback--success {
+  color: hsl(var(--success));
+}
+
+.patient-handoff-panel__form-footer {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.patient-handoff-panel__notes {
+  padding-top: var(--space-1);
+  border-top: 1px solid hsl(var(--border) / 0.42);
+}
+
+.patient-handoff-panel__note-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.patient-handoff-panel__note-item {
+  flex-direction: column;
+}
+
+@media (max-width: 820px) {
+  .patient-handoff-panel__current,
+  .patient-handoff-panel__field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-handoff-panel__scope-note,
+  .patient-handoff-panel__form-heading,
+  .patient-handoff-panel__form-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .patient-handoff-panel__scope-facts {
+    justify-items: start;
+  }
+}
+
 .patient-priority-list,
 .patient-recommended-actions,
 .patient-task-list,
@@ -23405,6 +23625,31 @@ button.dashboard-summary-card:hover {
   gap: var(--space-2);
 }
 
+.communication-page__handoff,
+.communication-page__handoff-copy {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.communication-page__handoff-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.communication-page__handoff-summary {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.communication-page__handoff-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .communication-page__timeline-note--muted {
   opacity: 0.92;
 }
@@ -23582,13 +23827,18 @@ button.dashboard-summary-card:hover {
 .dark .communication-page__inline-state,
 .dark .communication-page__thread-item,
 .dark .communication-page__timeline-intro,
+.dark .communication-page__handoff,
 .dark .communication-page__timeline-event,
 .dark .communication-page__composer,
 .dark .alerts-chat-origin-note,
 .dark .patient-communication-timeline__event,
 .dark .patient-detail-mini-nav,
 .dark .patient-communication-inline-state,
-.dark .patient-communication-quick-reply {
+.dark .patient-communication-quick-reply,
+.dark .patient-handoff-panel__scope-note,
+.dark .patient-handoff-panel__current,
+.dark .patient-handoff-panel__note-item,
+.dark .patient-handoff-panel__helper {
   background: hsl(var(--card) / 0.92);
 }
 

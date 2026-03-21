@@ -9,6 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommunicationPage } from './CommunicationPage';
 import { createJsonResponse } from '../test/mocks';
 import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
+import {
+  addPatientHandoffNote,
+  clearPatientHandoffWorkspaceForTests,
+  savePatientCurrentHandoff,
+} from '../services/patientHandoffWorkspace';
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -53,6 +58,8 @@ function renderCommunicationPage(initialEntry: string = '/communication'): void 
         <Routes>
           <Route path="/communication" element={<CommunicationPage />} />
           <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+          <Route path="/patients/:patientId/plan" element={<div>Plan workspace</div>} />
+          <Route path="/appointments" element={<div>Appointments workspace</div>} />
           <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
         </Routes>
       </MemoryRouter>
@@ -127,6 +134,7 @@ describe('CommunicationPage', () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     clearClinicianProfileForTests();
+    clearPatientHandoffWorkspaceForTests();
     signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
     setClinicianProfile({
       ...getClinicianProfile(),
@@ -263,5 +271,76 @@ describe('CommunicationPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Alerts workspace?patientId=patient-1&source=chat')).toBeInTheDocument();
     });
+  });
+
+  it('renders a read-only handoff context strip when browser-local handoff data exists', async () => {
+    savePatientCurrentHandoff('patient-1', {
+      summary: 'Keep this thread aligned with the current plan review before the next reply.',
+      nextAction: 'plan',
+      followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
+    });
+    const user = userEvent.setup();
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const handoffContext = await screen.findByTestId('communication-handoff-context');
+    expect(handoffContext).toHaveAccessibleName('Internal handoff context');
+    expect(
+      within(handoffContext).getByText(
+        'Keep this thread aligned with the current plan review before the next reply.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(handoffContext).getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
+    expect(within(handoffContext).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
+    expect(
+      within(handoffContext).getByText('Stored only in this browser for local patient handoff continuity.'),
+    ).toBeInTheDocument();
+
+    await user.click(within(handoffContext).getByRole('button', { name: 'Open plan' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Plan workspace')).toBeInTheDocument();
+    });
+  });
+
+  it('shows the latest internal note preview when there is no current structured handoff', async () => {
+    addPatientHandoffNote('patient-2', 'Latest browser-local note for the next review pass.');
+
+    renderCommunicationPage('/communication?patientId=patient-2');
+
+    const handoffContext = await screen.findByTestId('communication-handoff-context');
+    expect(
+      within(handoffContext).getByText('Latest browser-local note for the next review pass.'),
+    ).toBeInTheDocument();
+    expect(within(handoffContext).getByText('Latest note by')).toBeInTheDocument();
+    expect(within(handoffContext).queryByText('Next step')).not.toBeInTheDocument();
+    expect(within(handoffContext).queryByText('Follow-up owner')).not.toBeInTheDocument();
+  });
+
+  it('does not show the handoff context strip when no local handoff data exists', async () => {
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(screen.queryByTestId('communication-handoff-context')).not.toBeInTheDocument();
+  });
+
+  it('keeps the message timeline truthful when handoff context exists', async () => {
+    savePatientCurrentHandoff('patient-1', {
+      summary: 'Handoff context belongs in the strip, not the communication timeline.',
+      nextAction: 'alerts',
+      followUpOwner: { kind: 'custom', label: 'Weekend coverage desk' },
+    });
+    addPatientHandoffNote('patient-1', 'This note should not appear as a timeline message.');
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const handoffContext = await screen.findByTestId('communication-handoff-context');
+    expect(handoffContext).toBeInTheDocument();
+
+    const timeline = screen.getByRole('list', { name: 'Patient communication timeline' });
+    expect(within(timeline).getByText('Pain is much worse after exercise today.')).toBeInTheDocument();
+    expect(within(timeline).queryByText('Handoff context belongs in the strip, not the communication timeline.')).not.toBeInTheDocument();
+    expect(within(timeline).queryByText('This note should not appear as a timeline message.')).not.toBeInTheDocument();
+    expect(within(timeline).queryByText('Dr Elena Hall')).not.toBeInTheDocument();
   });
 });

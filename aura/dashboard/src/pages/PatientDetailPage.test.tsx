@@ -8,6 +8,11 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getClinicianCommunicationScopeKey } from '../services/clinicianIdentity';
 import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
+import {
+  addPatientHandoffNote,
+  clearPatientHandoffWorkspaceForTests,
+  savePatientCurrentHandoff,
+} from '../services/patientHandoffWorkspace';
 import type {
   AlertItem,
   AppointmentRequestItem,
@@ -15,6 +20,7 @@ import type {
   DashboardCommunicationOverviewItem,
   WorklistRecord,
 } from '../types/models';
+import { clearDashboardSessionData } from '../utils/storageKeys';
 import { createPatientEntryState } from '../utils/patientEntryContext';
 import { CommunicationPage } from './CommunicationPage';
 import { PatientDetailPage } from './PatientDetailPage';
@@ -394,6 +400,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   clearClinicianProfileForTests();
+  clearPatientHandoffWorkspaceForTests();
   signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
   setClinicianProfile({
     ...getClinicianProfile(),
@@ -689,6 +696,179 @@ describe('PatientDetailPage', () => {
     expect(
       await within(screen.getByRole('list', { name: 'Patient communication timeline' })).findByText(
         'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders a grounded internal handoff panel with only supported next-step options', async () => {
+    installFetchMock();
+    renderPatientDetail();
+
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    expect(
+      within(handoffPanel).getByText(
+        'Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.',
+      ),
+    ).toBeInTheDocument();
+
+    const nextStepSelect = within(handoffPanel).getByLabelText('Recommended next step');
+    expect(within(nextStepSelect).getByRole('option', { name: 'Continue monitoring' })).toBeInTheDocument();
+    expect(within(nextStepSelect).getByRole('option', { name: 'Review alerts' })).toBeInTheDocument();
+    expect(within(nextStepSelect).getByRole('option', { name: 'Review communication' })).toBeInTheDocument();
+    expect(within(nextStepSelect).getByRole('option', { name: 'Review tasks' })).toBeInTheDocument();
+    expect(within(nextStepSelect).getByRole('option', { name: 'Review appointments' })).toBeInTheDocument();
+    expect(within(nextStepSelect).getByRole('option', { name: 'Open plan' })).toBeInTheDocument();
+    expect(within(nextStepSelect).queryByRole('option', { name: 'Open worklist' })).not.toBeInTheDocument();
+    expect(within(nextStepSelect).queryByRole('option', { name: 'Review trends' })).not.toBeInTheDocument();
+  });
+
+  it('saves structured handoff and internal notes from patient detail', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    await user.type(
+      within(handoffPanel).getByLabelText('Handoff summary'),
+      'Escalate into the current plan review after checking the latest patient context.',
+    );
+    await user.selectOptions(
+      within(handoffPanel).getByLabelText('Recommended next step'),
+      'plan',
+    );
+    await user.selectOptions(
+      within(handoffPanel).getByLabelText('Follow-up owner'),
+      'self',
+    );
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save handoff' }));
+
+    expect(
+      await within(handoffPanel).findByText('Internal handoff saved in this browser.'),
+    ).toBeInTheDocument();
+    const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
+    expect(
+      within(savedHandoff).getByText(
+        'Escalate into the current plan review after checking the latest patient context.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
+    expect(within(savedHandoff).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
+
+    await user.type(
+      within(handoffPanel).getByLabelText('Add internal note'),
+      'Patient asked for a calmer follow-up window tomorrow morning.',
+    );
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Add note' }));
+
+    expect(await within(handoffPanel).findByText('Internal note saved in this browser.')).toBeInTheDocument();
+    const notesSection = within(handoffPanel).getByRole('region', { name: 'Internal clinician notes' });
+    const notesList = within(notesSection).getByRole('list');
+    expect(
+      within(notesList).getByText('Patient asked for a calmer follow-up window tomorrow morning.'),
+    ).toBeInTheDocument();
+  });
+
+  it('opens the saved next step only for a real supported patient-detail target', async () => {
+    installFetchMock();
+    savePatientCurrentHandoff(patientId, {
+      summary: 'Move from review into the exercise plan next.',
+      nextAction: 'plan',
+      followUpOwner: { kind: 'unassigned' },
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Open plan' }));
+
+    expect(await screen.findByText('Plan workspace')).toBeInTheDocument();
+  });
+
+  it('clears only the structured handoff when saved blank and preserves note history', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    await user.type(
+      within(handoffPanel).getByLabelText('Handoff summary'),
+      'Keep the alert review in view during the next pass.',
+    );
+    await user.selectOptions(within(handoffPanel).getByLabelText('Recommended next step'), 'alerts');
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save handoff' }));
+    await user.type(
+      within(handoffPanel).getByLabelText('Add internal note'),
+      'Note history should survive the blank handoff clear.',
+    );
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Add note' }));
+
+    await user.clear(within(handoffPanel).getByLabelText('Handoff summary'));
+    await user.selectOptions(within(handoffPanel).getByLabelText('Recommended next step'), '');
+    await user.selectOptions(within(handoffPanel).getByLabelText('Follow-up owner'), 'unassigned');
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save handoff' }));
+
+    expect(
+      await within(handoffPanel).findByText('Structured handoff cleared for this patient in this browser.'),
+    ).toBeInTheDocument();
+    expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByText('Note history should survive the blank handoff clear.'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps saved handoff attribution stable after later clinician profile edits', async () => {
+    installFetchMock();
+    savePatientCurrentHandoff(patientId, {
+      summary: 'Saved by the original clinician identity.',
+      nextAction: 'alerts',
+      followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
+    });
+    addPatientHandoffNote(patientId, 'Original clinician note.');
+
+    setClinicianProfile({
+      ...getClinicianProfile(),
+      displayName: 'Dr Morgan Shaw',
+      clinicianId: 'morgan-shaw-local',
+      roleTitle: 'Coverage clinician',
+      specialty: 'Weekend escalation',
+    });
+
+    renderPatientDetail();
+
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
+    const notesSection = within(handoffPanel).getByRole('region', { name: 'Internal clinician notes' });
+    const notesList = within(notesSection).getByRole('list');
+    expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
+    expect(within(savedHandoff).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
+    expect(within(notesList).getByText('Original clinician note.')).toBeInTheDocument();
+    expect(within(notesList).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
+  });
+
+  it('keeps browser-local handoff visible across normal sign-out and later sign-in', async () => {
+    installFetchMock();
+    savePatientCurrentHandoff(patientId, {
+      summary: 'Browser-local continuity should remain visible on this device.',
+      nextAction: 'appointments',
+      followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
+    });
+
+    clearDashboardSessionData();
+    signInAs({ sub: 'auth-clinician-2', name: 'Dr Patel' });
+
+    renderPatientDetail();
+
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
+    expect(
+      within(savedHandoff).getByText('Browser-local continuity should remain visible on this device.'),
+    ).toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByText(
+        'Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.',
       ),
     ).toBeInTheDocument();
   });

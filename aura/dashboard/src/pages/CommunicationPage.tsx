@@ -9,6 +9,7 @@ import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
+import { usePatientHandoff } from '../hooks/usePatientHandoff';
 import { getSavedCommunicationFilter } from '../services/clinicianWorkspacePreferences';
 import { useDashboardCommunicationOverview } from '../services/clinicianApi';
 import { getClinicianInitials } from '../services/clinicianIdentity';
@@ -24,8 +25,15 @@ import {
   type CommunicationThread,
   type CommunicationThreadView,
 } from '../services/communicationWorkspace';
+import {
+  getLatestPatientHandoffNote,
+  getPatientHandoffFollowUpOwnerLabel,
+  getPatientHandoffNextActionLabel,
+  type PatientHandoffNextAction,
+} from '../services/patientHandoffWorkspace';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
 import { toUserMessage } from '../utils/errors';
+import { truncateText } from '../utils/text';
 
 function normalizePatientId(value: string | null): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -127,6 +135,13 @@ export function CommunicationPage(): JSX.Element {
       (shouldKeepSelectedThreadVisible ? selectedThread : null),
     [filteredThreads, selectedThread, selectedThreadId, shouldKeepSelectedThreadVisible],
   );
+  const activePatientHandoff = usePatientHandoff(
+    activeThread?.validPatientId ? activeThread.patientId : null,
+  );
+  const latestPatientHandoffNote = useMemo(
+    () => getLatestPatientHandoffNote(activePatientHandoff),
+    [activePatientHandoff],
+  );
 
   useEffect(() => {
     if (!activeThread?.validPatientId || !activeThread.latestInboundAt) {
@@ -152,6 +167,26 @@ export function CommunicationPage(): JSX.Element {
   useEffect(() => {
     setDraftReply('');
   }, [activeThread?.id]);
+
+  function handleOpenHandoffNextAction(action: PatientHandoffNextAction): void {
+    if (!activeThread?.validPatientId || !action) {
+      return;
+    }
+
+    if (action === 'alerts') {
+      navigate(`/alerts?patientId=${encodeURIComponent(activeThread.patientId)}`);
+      return;
+    }
+
+    if (action === 'appointments') {
+      navigate('/appointments');
+      return;
+    }
+
+    if (action === 'plan') {
+      navigate(`/patients/${encodeURIComponent(activeThread.patientId)}/plan`);
+    }
+  }
 
   function updateSearchParams(next: {
     patientId?: string | null;
@@ -425,6 +460,92 @@ export function CommunicationPage(): JSX.Element {
                   {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
                 </div>
               </div>
+
+              {activePatientHandoff ? (
+                <section
+                  className="communication-page__handoff"
+                  aria-label="Internal handoff context"
+                  data-testid="communication-handoff-context"
+                >
+                  <div className="communication-page__handoff-copy">
+                    <div className="communication-page__handoff-head">
+                      <Badge variant="neutral">Internal handoff</Badge>
+                      <span className="muted-text">
+                        Stored only in this browser for local patient handoff continuity.
+                      </span>
+                    </div>
+                    {activePatientHandoff.currentHandoff?.summary ? (
+                      <p className="communication-page__handoff-summary">
+                        {activePatientHandoff.currentHandoff.summary}
+                      </p>
+                    ) : latestPatientHandoffNote ? (
+                      <p className="communication-page__handoff-summary">
+                        {truncateText(latestPatientHandoffNote.text, 180).text}
+                      </p>
+                    ) : null}
+                    <dl className="communication-page__handoff-facts">
+                      {activePatientHandoff.currentHandoff ? (
+                        <>
+                          <div>
+                            <dt>Next step</dt>
+                            <dd>{getPatientHandoffNextActionLabel(activePatientHandoff.currentHandoff.nextAction)}</dd>
+                          </div>
+                          <div>
+                            <dt>Follow-up owner</dt>
+                            <dd>
+                              {getPatientHandoffFollowUpOwnerLabel(
+                                activePatientHandoff.currentHandoff.followUpOwner,
+                              )}
+                            </dd>
+                          </div>
+                        </>
+                      ) : null}
+                      <div>
+                        <dt>{activePatientHandoff.currentHandoff ? 'Updated by' : 'Latest note by'}</dt>
+                        <dd>
+                          {activePatientHandoff.currentHandoff
+                            ? activePatientHandoff.currentHandoff.updatedBy.authorDisplayName
+                            : latestPatientHandoffNote?.createdBy.authorDisplayName ?? '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{activePatientHandoff.currentHandoff ? 'Updated' : 'Latest note'}</dt>
+                        <dd>
+                          <span
+                            title={formatDashboardDateTime(
+                              activePatientHandoff.currentHandoff?.updatedAt ??
+                                latestPatientHandoffNote?.createdAt ??
+                                '',
+                            )}
+                          >
+                            {formatDashboardRelativeTime(
+                              activePatientHandoff.currentHandoff?.updatedAt ??
+                                latestPatientHandoffNote?.createdAt ??
+                                new Date(0).toISOString(),
+                            )}
+                          </span>
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  {activePatientHandoff.currentHandoff?.nextAction &&
+                  (activePatientHandoff.currentHandoff.nextAction === 'alerts' ||
+                    activePatientHandoff.currentHandoff.nextAction === 'appointments' ||
+                    activePatientHandoff.currentHandoff.nextAction === 'plan') ? (
+                    <div className="communication-page__handoff-actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          handleOpenHandoffNextAction(activePatientHandoff.currentHandoff!.nextAction)
+                        }
+                      >
+                        {getPatientHandoffNextActionLabel(activePatientHandoff.currentHandoff.nextAction)}
+                      </Button>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
 
               <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
                 {activeThread.timeline.map((event) => (

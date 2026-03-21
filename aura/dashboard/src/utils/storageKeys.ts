@@ -6,6 +6,7 @@ export const CLINICIAN_NAME_STORAGE_KEY = 'aura_clinician_name';
 export const CLINICIAN_PROFILE_STORAGE_PREFIX = 'aura_clinician_profile_v1';
 export const SESSION_SETTINGS_STORAGE_KEY = 'aura_session_settings_v1';
 export const WORKSPACE_STATE_STORAGE_PREFIX = 'aura_clinician_workspace_v1';
+export const PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY = 'aura_patient_handoff_workspace_v1';
 
 const TOKEN_STORAGE_KEYS = ['aura_auth_token', 'aura_access_token', 'aura_refresh_token', 'clinicianToken'];
 

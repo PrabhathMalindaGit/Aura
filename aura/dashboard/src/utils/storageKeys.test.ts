@@ -5,6 +5,7 @@ import {
   CLINICIAN_NAME_STORAGE_KEY,
   CLINICIAN_PROFILE_STORAGE_PREFIX,
   ASSIGNMENTS_STORAGE_KEY,
+  PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY,
   RISK_OVERRIDES_STORAGE_KEY,
   SEEN_ALERTS_STORAGE_PREFIX,
   clearDashboardSessionData,
@@ -38,6 +39,8 @@ describe('clearDashboardSessionData', () => {
     window.sessionStorage.setItem('preserve_session', 'keep');
     window.localStorage.setItem(`${CLINICIAN_PROFILE_STORAGE_PREFIX}:clinician-auth-1`, 'profile-local');
     window.sessionStorage.setItem(`${CLINICIAN_PROFILE_STORAGE_PREFIX}:clinician-auth-1`, 'profile-session');
+    window.localStorage.setItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY, 'handoff-local');
+    window.sessionStorage.setItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY, 'handoff-session');
 
     const cleared = clearDashboardSessionData();
 
@@ -53,6 +56,12 @@ describe('clearDashboardSessionData', () => {
     );
     expect(window.sessionStorage.getItem(`${CLINICIAN_PROFILE_STORAGE_PREFIX}:clinician-auth-1`)).toBe(
       'profile-session',
+    );
+    expect(window.localStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBe(
+      'handoff-local',
+    );
+    expect(window.sessionStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBe(
+      'handoff-session',
     );
 
     expect(cleared.local).toContain('clinicianToken');

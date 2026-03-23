@@ -18,6 +18,7 @@ import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
 import { env } from "../env";
 import { requirePatientAuth } from "../middleware/patientAuth";
+import { getRequestIdFromResponse } from "../middleware/requestContext";
 import { validateBody } from "../middleware/validate";
 import { consumeLoginThrottle } from "../services/loginThrottle";
 import { AIUnavailableError } from "../services/ai";
@@ -375,6 +376,7 @@ router.post(
   async (req, res) => {
     const requestWithPatient = req as RequestWithPatient;
     const patientId = requestWithPatient.patient?.id;
+    const requestId = getRequestIdFromResponse(res);
 
     if (!patientId) {
       return res.status(401).json({
@@ -400,7 +402,18 @@ router.post(
         dailySignals,
         bodyMap: normalizeBodyMapForFlow(bodyMap),
         notes,
+      }, {
+        requestId,
       });
+
+      if (result.riskLevel === "high") {
+        logger.info("patient.checkin.high_risk.completed", {
+          requestId,
+          flow: "patient_checkin",
+          patientId,
+          alertId: result.alertId,
+        });
+      }
 
       return res.json({
         ok: true,
@@ -443,6 +456,7 @@ router.post(
 
       logger.error("Patient checkin route failed", {
         route: "POST /patient/checkins",
+        requestId,
         patientId,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -707,6 +721,7 @@ router.post(
   async (req, res) => {
     const requestWithPatient = req as RequestWithPatient;
     const patientId = requestWithPatient.patient?.id;
+    const requestId = getRequestIdFromResponse(res);
 
     if (!patientId) {
       return res.status(401).json({
@@ -723,9 +738,18 @@ router.post(
         text: message,
         lowRiskMode: "rag",
         persistHighRiskAssistantReply: false,
+      }, {
+        requestId,
       });
 
       if (result.riskLevel === "high") {
+        logger.info("patient.chat.high_risk.completed", {
+          requestId,
+          flow: "patient_chat",
+          patientId,
+          alertId: result.alertId,
+          n8nDelivered: result.n8nDelivered,
+        });
         return res.json({
           ok: true,
           risk: {
@@ -764,6 +788,7 @@ router.post(
 
       logger.error("Patient chat route failed", {
         route: "POST /patient/chat/send",
+        requestId,
         patientId,
         message: error instanceof Error ? error.message : String(error),
       });

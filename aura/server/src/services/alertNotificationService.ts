@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+import type { RequestCorrelationContext } from "../middleware/requestContext";
 import Alert from "../models/Alert";
 import AlertNotificationJob from "../models/AlertNotificationJob";
 import CareEvent from "../models/CareEvent";
@@ -60,6 +61,41 @@ export class AlertNotificationRetryThrottleError extends Error {
     this.name = "AlertNotificationRetryThrottleError";
     this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+function toLogId(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  return String(value);
+}
+
+function buildNotificationLogContext(
+  jobLike: {
+    _id?: unknown;
+    alertId?: unknown;
+    patientId?: unknown;
+    currentAttemptKey?: unknown;
+    dispatchKind?: unknown;
+  },
+  context?: RequestCorrelationContext,
+  extra?: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    requestId: context?.requestId,
+    jobId: toLogId(jobLike._id),
+    alertId: toLogId(jobLike.alertId),
+    patientId: toLogId(jobLike.patientId),
+    attemptKey: toLogId(jobLike.currentAttemptKey),
+    dispatchKind: toStringValue(jobLike.dispatchKind),
+    ...(extra ?? {}),
+  };
 }
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -406,6 +442,7 @@ export async function enqueueInitialAlertNotification(params: {
   alert: AlertDocumentLike;
   reasonCodes: string[];
   now?: Date;
+  requestId?: string;
 }) {
   const now = params.now ?? new Date();
   try {
@@ -434,6 +471,21 @@ export async function enqueueInitialAlertNotification(params: {
     );
 
     await syncAlertNotificationSnapshot(String(params.alert._id));
+    logger.info(
+      "notification.job.enqueued",
+      buildNotificationLogContext(
+        {
+          _id: job?._id,
+          alertId: params.alert._id,
+          patientId: params.alert.patientId,
+          dispatchKind: "initial",
+        },
+        { requestId: params.requestId },
+        {
+          state: "queued",
+        }
+      )
+    );
     return job;
   } catch (error) {
     if (isDuplicateKeyError(error)) {
@@ -449,7 +501,11 @@ export async function enqueueInitialAlertNotification(params: {
   }
 }
 
-async function sendJobWebhook(job: Record<string, unknown>, now: Date): Promise<boolean> {
+async function sendJobWebhook(
+  job: Record<string, unknown>,
+  now: Date,
+  context?: RequestCorrelationContext
+): Promise<boolean> {
   const dispatchKind = toStringValue(job.dispatchKind) === "retry" ? "retry" : "initial";
   const alertId = toStringValue(job.alertId) ?? "";
   const patientId = toStringValue(job.patientId) ?? "";
@@ -465,6 +521,9 @@ async function sendJobWebhook(job: Record<string, unknown>, now: Date): Promise<
       risk: "high",
       reason: reasonCodes,
       timestamp: now.toISOString(),
+    }, {
+      requestId: context?.requestId,
+      workflow: "alert_created",
     });
   }
 
@@ -476,10 +535,17 @@ async function sendJobWebhook(job: Record<string, unknown>, now: Date): Promise<
     requestedBy: toStringValue(job.requestedBy) ?? "system",
     requestedByName: toStringValue(job.requestedByName),
     timestamp: now.toISOString(),
+  }, {
+    requestId: context?.requestId,
+    workflow: "retry_notification_requested",
   });
 }
 
-export async function dispatchJob(jobId: string, now: Date = new Date()): Promise<boolean> {
+export async function dispatchJob(
+  jobId: string,
+  now: Date = new Date(),
+  context?: RequestCorrelationContext
+): Promise<boolean> {
   const attemptKey = makeAttemptKey();
 
   const claimed = await AlertNotificationJob.findOneAndUpdate(
@@ -513,7 +579,11 @@ export async function dispatchJob(jobId: string, now: Date = new Date()): Promis
     return false;
   }
 
-  const delivered = await sendJobWebhook(claimed.toObject() as Record<string, unknown>, now);
+  const delivered = await sendJobWebhook(
+    claimed.toObject() as Record<string, unknown>,
+    now,
+    context
+  );
   const dispatchKind = claimed.dispatchKind === "retry" ? "retry" : "initial";
 
   if (delivered) {
@@ -541,6 +611,13 @@ export async function dispatchJob(jobId: string, now: Date = new Date()): Promis
         }
       );
     }
+
+    logger.info(
+      "notification.job.dispatched",
+      buildNotificationLogContext(claimed, context, {
+        state: "awaiting_callback",
+      })
+    );
 
     return true;
   }
@@ -577,10 +654,19 @@ export async function dispatchJob(jobId: string, now: Date = new Date()): Promis
     );
   }
 
+  logger.warn(
+    "notification.job.dispatch_failed",
+    buildNotificationLogContext(claimed, context, {
+      state: willRetry ? "retry_scheduled" : "failed",
+    })
+  );
+
   return false;
 }
 
-export async function dispatchDueJobs(params: { limit?: number; now?: Date } = {}) {
+export async function dispatchDueJobs(
+  params: { limit?: number; now?: Date; requestId?: string } = {}
+) {
   const now = params.now ?? new Date();
   const limit = params.limit ?? 25;
   // Initial send, manual retry, and reconciliation all flow through the same durable dispatch path.
@@ -601,7 +687,9 @@ export async function dispatchDueJobs(params: { limit?: number; now?: Date } = {
   let attempted = 0;
   for (const job of dueJobs) {
     attempted += 1;
-    const result = await dispatchJob(String(job._id), now);
+    const result = await dispatchJob(String(job._id), now, {
+      requestId: params.requestId,
+    });
     if (result) {
       delivered += 1;
     }
@@ -619,6 +707,7 @@ export async function requestAlertNotificationRetry(params: {
   reason?: string;
   channel?: typeof ALERT_NOTIFICATION_CHANNEL;
   now?: Date;
+  requestId?: string;
 }) {
   const channel = params.channel ?? ALERT_NOTIFICATION_CHANNEL;
   const now = params.now ?? new Date();
@@ -668,6 +757,13 @@ export async function requestAlertNotificationRetry(params: {
     }
   );
 
+  logger.info(
+    "notification.job.retry_requested",
+    buildNotificationLogContext(updated ?? job, { requestId: params.requestId }, {
+      state: "retry_scheduled",
+    })
+  );
+
   return updated ?? job;
 }
 
@@ -675,6 +771,7 @@ export async function reconcileStaleJobs(params: {
   limit?: number;
   now?: Date;
   force?: boolean;
+  requestId?: string;
 } = {}) {
   const now = params.now ?? new Date();
   const limit = params.limit ?? 25;
@@ -709,6 +806,13 @@ export async function reconcileStaleJobs(params: {
     await syncAlertNotificationSnapshot(String(job.alertId));
   }
 
+  logger.info("notification.jobs.reconciled", {
+    requestId: params.requestId,
+    reconciled,
+    scheduled,
+    failed,
+  });
+
   return {
     reconciled,
     scheduled,
@@ -721,6 +825,7 @@ export async function applyNotificationCallback(params: {
   body: NotificationStatusCallbackBody;
   callbackTimestamp: Date;
   callbackMessageId?: string;
+  requestId?: string;
 }) {
   const alert = await Alert.findById(params.alertId);
   if (!alert) {
@@ -741,6 +846,13 @@ export async function applyNotificationCallback(params: {
     params.body.attemptKey !== job.currentAttemptKey
   ) {
     const syncedAlert = await syncAlertNotificationSnapshot(String(alert._id));
+    logger.info(
+      "notification.callback.stale",
+      buildNotificationLogContext(job, { requestId: params.requestId }, {
+        workflow: params.body.meta?.workflow,
+        executionId: params.body.meta?.executionId,
+      })
+    );
     return {
       alert: syncedAlert ?? alert,
       stale: true,
@@ -756,6 +868,13 @@ export async function applyNotificationCallback(params: {
     params.callbackTimestamp.getTime() < latestKnownTimestamp.getTime()
   ) {
     const syncedAlert = await syncAlertNotificationSnapshot(String(alert._id));
+    logger.info(
+      "notification.callback.stale",
+      buildNotificationLogContext(job, { requestId: params.requestId }, {
+        workflow: params.body.meta?.workflow,
+        executionId: params.body.meta?.executionId,
+      })
+    );
     return {
       alert: syncedAlert ?? alert,
       stale: true,
@@ -817,6 +936,16 @@ export async function applyNotificationCallback(params: {
 
   await job.save();
   const syncedAlert = await syncAlertNotificationSnapshot(String(alert._id));
+
+  logger.info(
+    "notification.callback.applied",
+    buildNotificationLogContext(job, { requestId: params.requestId }, {
+      workflow: params.body.meta?.workflow,
+      executionId: params.body.meta?.executionId,
+      state: job.state,
+      callbackStatus: params.body.status,
+    })
+  );
 
   return {
     alert: syncedAlert ?? alert,

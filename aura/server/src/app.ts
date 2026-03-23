@@ -4,7 +4,9 @@ import express from "express";
 import { assertRuntimeEnvSafety, env } from "./env";
 import { authenticateJwt } from "./middleware/auth";
 import { errorHandler } from "./middleware/errorHandler";
+import { requestContextMiddleware } from "./middleware/requestContext";
 import { requireRoles } from "./middleware/rbac";
+import internalOpsRoutes from "./routes/internalOps.routes";
 import routes from "./routes";
 
 const app = express();
@@ -39,6 +41,7 @@ app.use(
     },
   })
 );
+app.use(requestContextMiddleware);
 app.use(express.json());
 
 app.use(
@@ -53,6 +56,7 @@ app.use(
     })(req, res, next)
 );
 
+app.use("/", internalOpsRoutes);
 app.use("/", routes);
 
 app.use(errorHandler);

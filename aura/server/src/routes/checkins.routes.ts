@@ -12,6 +12,7 @@ import {
   CHECK_IN_SYMPTOM_FLAGS,
 } from "../constants/checkin";
 import { env } from "../env";
+import { getRequestIdFromResponse } from "../middleware/requestContext";
 import { validateBody } from "../middleware/validate";
 import { AIUnavailableError } from "../services/ai";
 import {
@@ -219,6 +220,7 @@ const checkInSchema = z
 
 router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
   try {
+    const requestId = getRequestIdFromResponse(res);
     const {
       patientId: bodyPatientId,
       date,
@@ -256,6 +258,7 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
     const patientId = resolvedPatient.patientId;
 
     logger.info("POST /checkins", {
+      requestId,
       patientId,
       date,
       mood,
@@ -278,9 +281,18 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
       dailySignals,
       bodyMap: normalizeBodyMapForFlow(bodyMap),
       notes,
+    }, {
+      requestId,
     });
 
     if (result.riskLevel === "high") {
+      logger.info("checkin.high_risk.completed", {
+        requestId,
+        flow: "checkin",
+        patientId,
+        alertId: result.alertId,
+        n8nDelivered: result.n8nDelivered,
+      });
       return res.json({
         ok: true,
         risk: "high",
@@ -330,6 +342,7 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
     }
 
     logger.error("Check-in route failed", {
+      requestId: getRequestIdFromResponse(res),
       message: error instanceof Error ? error.message : String(error),
     });
     return res.status(500).json({

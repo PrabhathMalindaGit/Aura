@@ -54,6 +54,41 @@ class AiAuthTestCase(unittest.TestCase):
         payload = response.json()
         self.assertIn(payload["risk"], {"low", "high"})
 
+    def test_non_health_route_echoes_safe_request_id(self) -> None:
+        response = self.client.post(
+            "/classify",
+            headers={
+                "x-aura-ai-key": "test-ai-key",
+                "x-request-id": "req-ai-safe-1",
+            },
+            json={
+                "type": "checkin",
+                "pain": 8,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("x-request-id"), "req-ai-safe-1")
+
+    def test_non_health_route_replaces_invalid_request_id(self) -> None:
+        response = self.client.post(
+            "/classify",
+            headers={
+                "x-aura-ai-key": "test-ai-key",
+                "x-request-id": "bad request id with spaces",
+            },
+            json={
+                "type": "checkin",
+                "pain": 8,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        echoed_request_id = response.headers.get("x-request-id")
+        self.assertIsNotNone(echoed_request_id)
+        self.assertNotEqual(echoed_request_id, "bad request id with spaces")
+        self.assertEqual(len(echoed_request_id), 36)
+
     def test_exception_output_is_sanitized(self) -> None:
         with patch(
             "src.routers.classify.classify_risk",
@@ -72,6 +107,7 @@ class AiAuthTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json(), {"ok": False, "error": "INTERNAL_ERROR"})
+        self.assertTrue(response.headers.get("x-request-id"))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 import axios from "axios";
 
 import { env } from "../env";
+import type { RequestCorrelationContext } from "../middleware/requestContext";
+import { REQUEST_ID_HEADER } from "../middleware/requestContext";
 import { logger } from "../utils/logger";
 
 export type ClassifyInput = {
@@ -32,14 +34,22 @@ export class AIUnavailableError extends Error {
   }
 }
 
-export async function classify(input: ClassifyInput): Promise<ClassifyOutput> {
+function buildHeaders(context?: RequestCorrelationContext): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-aura-ai-key": env.AURA_AI_SERVICE_KEY,
+    ...(context?.requestId ? { [REQUEST_ID_HEADER]: context.requestId } : {}),
+  };
+}
+
+export async function classify(
+  input: ClassifyInput,
+  context?: RequestCorrelationContext & { flow?: string; patientId?: string }
+): Promise<ClassifyOutput> {
   try {
     const response = await axios.post(`${env.AI_BASE_URL}/classify`, input, {
       timeout: 4000,
-      headers: {
-        "Content-Type": "application/json",
-        "x-aura-ai-key": env.AURA_AI_SERVICE_KEY,
-      },
+      headers: buildHeaders(context),
     });
 
     const risk = response?.data?.risk === "high" ? "high" : "low";
@@ -49,21 +59,24 @@ export async function classify(input: ClassifyInput): Promise<ClassifyOutput> {
 
     return { risk, reasons };
   } catch (error) {
-    logger.error("AI classify request failed", {
+    logger.error("ai.classify.failed", {
+      requestId: context?.requestId,
+      flow: context?.flow,
+      patientId: context?.patientId,
       message: error instanceof Error ? error.message : String(error),
     });
     throw new AIUnavailableError();
   }
 }
 
-export async function ragReply(input: RagReplyInput): Promise<RagReplyOutput> {
+export async function ragReply(
+  input: RagReplyInput,
+  context?: RequestCorrelationContext & { flow?: string; patientId?: string }
+): Promise<RagReplyOutput> {
   try {
     const response = await axios.post(`${env.AI_BASE_URL}/rag/reply`, input, {
       timeout: 4000,
-      headers: {
-        "Content-Type": "application/json",
-        "x-aura-ai-key": env.AURA_AI_SERVICE_KEY,
-      },
+      headers: buildHeaders(context),
     });
 
     const reply =
@@ -79,7 +92,10 @@ export async function ragReply(input: RagReplyInput): Promise<RagReplyOutput> {
       citations,
     };
   } catch (error) {
-    logger.error("AI rag request failed", {
+    logger.error("ai.rag.failed", {
+      requestId: context?.requestId,
+      flow: context?.flow,
+      patientId: context?.patientId,
       message: error instanceof Error ? error.message : String(error),
     });
     throw new AIUnavailableError();

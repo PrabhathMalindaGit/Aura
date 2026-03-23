@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import Alert from "../models/Alert";
+import { getRequestIdFromResponse } from "../middleware/requestContext";
 import {
   dispatchDueJobs,
   reconcileStaleJobs,
@@ -224,6 +225,7 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
@@ -232,11 +234,18 @@ router.post(
       const result = await dispatchDueJobs({
         limit: parsedBody.value.limit,
         now: parsedBody.value.now,
+        requestId,
+      });
+      logger.info("internal.n8n.alert_notifications.process.completed", {
+        requestId,
+        attempted: result.attempted,
+        delivered: result.delivered,
       });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Process alert notification jobs failed", {
         route: "POST /internal/n8n/alert-notifications/process",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
@@ -249,16 +258,27 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
 
     try {
-      const result = await reconcileStaleJobs(parsedBody.value);
+      const result = await reconcileStaleJobs({
+        ...parsedBody.value,
+        requestId,
+      });
+      logger.info("internal.n8n.alert_notifications.reconcile.completed", {
+        requestId,
+        reconciled: result.reconciled,
+        scheduled: result.scheduled,
+        failed: result.failed,
+      });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Reconcile alert notification jobs failed", {
         route: "POST /internal/n8n/alert-notifications/reconcile",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
@@ -271,16 +291,24 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
 
     try {
       const result = await processMissedCheckinAutomation(parsedBody.value);
+      logger.info("internal.n8n.followthrough.completed", {
+        requestId,
+        workflow: result.workflow,
+        itemCount: result.items.length,
+        summary: result.summary,
+      });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Process missed check-in follow-through failed", {
         route: "POST /internal/n8n/follow-through/missed-checkins/process",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
@@ -293,16 +321,24 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
 
     try {
       const result = await processTaskReminderAutomation(parsedBody.value);
+      logger.info("internal.n8n.followthrough.completed", {
+        requestId,
+        workflow: result.workflow,
+        itemCount: result.items.length,
+        summary: result.summary,
+      });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Process task reminder automation failed", {
         route: "POST /internal/n8n/follow-through/tasks/process",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
@@ -315,16 +351,24 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
 
     try {
       const result = await processAppointmentFollowThroughAutomation(parsedBody.value);
+      logger.info("internal.n8n.followthrough.completed", {
+        requestId,
+        workflow: result.workflow,
+        itemCount: result.items.length,
+        summary: result.summary,
+      });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Process appointment follow-through failed", {
         route: "POST /internal/n8n/follow-through/appointments/process",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
@@ -337,16 +381,24 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
 
     try {
       const result = await processCommunicationNoResponseAutomation(parsedBody.value);
+      logger.info("internal.n8n.followthrough.completed", {
+        requestId,
+        workflow: result.workflow,
+        itemCount: result.items.length,
+        summary: result.summary,
+      });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Process communication no-response automation failed", {
         route: "POST /internal/n8n/follow-through/communications/process",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
@@ -359,16 +411,24 @@ router.post(
   requireWebhookKey,
   async (req, res) => {
     const parsedBody = parseProcessBody(req.body);
+    const requestId = getRequestIdFromResponse(res);
     if (!parsedBody.ok) {
       return res.status(400).json(parsedBody.response);
     }
 
     try {
       const result = await buildDailyClinicianDigest(parsedBody.value);
+      logger.info("internal.n8n.followthrough.completed", {
+        requestId,
+        workflow: result.workflow,
+        itemCount: result.items.length,
+        summary: result.summary,
+      });
       return res.json({ ok: true, ...result });
     } catch (error) {
       logger.error("Build daily clinician digest failed", {
         route: "POST /internal/n8n/follow-through/digest/process",
+        requestId,
         message: error instanceof Error ? error.message : String(error),
       });
       return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });

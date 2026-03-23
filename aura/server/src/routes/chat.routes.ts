@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import { env } from "../env";
+import { getRequestIdFromResponse } from "../middleware/requestContext";
 import { validateBody } from "../middleware/validate";
 import { AIUnavailableError } from "../services/ai";
 import {
@@ -66,6 +67,7 @@ function resolveLegacyPatientId(
 
 router.post("/chat/send", validateBody(chatSchema), async (req, res) => {
   try {
+    const requestId = getRequestIdFromResponse(res);
     const { patientId: bodyPatientId, text } = req.body as z.infer<typeof chatSchema>;
     const resolvedPatient = resolveLegacyPatientId(
       req.header("authorization"),
@@ -88,6 +90,7 @@ router.post("/chat/send", validateBody(chatSchema), async (req, res) => {
     const patientId = resolvedPatient.patientId;
 
     logger.info("POST /chat/send", {
+      requestId,
       patientId,
       textPreview: redactText(text),
     });
@@ -97,9 +100,18 @@ router.post("/chat/send", validateBody(chatSchema), async (req, res) => {
       text,
       lowRiskMode: "legacy-static",
       persistHighRiskAssistantReply: true,
+    }, {
+      requestId,
     });
 
     if (result.riskLevel === "high") {
+      logger.info("chat.high_risk.completed", {
+        requestId,
+        flow: "chat",
+        patientId,
+        alertId: result.alertId,
+        n8nDelivered: result.n8nDelivered,
+      });
       return res.json({
         ok: true,
         risk: "high",
@@ -120,6 +132,7 @@ router.post("/chat/send", validateBody(chatSchema), async (req, res) => {
     }
 
     logger.error("Chat route failed", {
+      requestId: getRequestIdFromResponse(res),
       message: error instanceof Error ? error.message : String(error),
     });
     return res.status(500).json({

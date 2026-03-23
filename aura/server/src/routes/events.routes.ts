@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import CareEvent from "../models/CareEvent";
+import { getRequestIdFromResponse } from "../middleware/requestContext";
 import { validateBody } from "../middleware/validate";
 import { applyNotificationCallback } from "../services/alertNotificationService";
 import { FOLLOW_THROUGH_WORKFLOW_VALUES } from "../services/followThroughAutomationService";
@@ -291,6 +292,7 @@ router.post(
   async (req, res) => {
     const body = req.body as NotificationStatusCallbackBody;
     const alertId = body.alertId;
+    const requestId = getRequestIdFromResponse(res);
     const callbackTimestampRaw = body.timestamp ?? body.attemptedAt;
     const callbackMessageId = body.messageId ?? body.providerMessageId;
 
@@ -330,6 +332,7 @@ router.post(
         body,
         callbackTimestamp,
         callbackMessageId,
+        requestId,
       });
 
       if (!callbackResult) {
@@ -340,6 +343,13 @@ router.post(
       }
 
       if (callbackResult.stale) {
+        logger.info("notification.callback.route.stale", {
+          requestId,
+          alertId,
+          attemptKey: body.attemptKey,
+          workflow: body.meta?.workflow,
+          executionId: body.meta?.executionId,
+        });
         return res.json({
           ok: true,
           alert: mapAlertNotificationResponse(callbackResult.alert),
@@ -378,6 +388,14 @@ router.post(
         writtenEvents.push(notificationEvent);
       }
 
+      logger.info("notification.callback.route.applied", {
+        requestId,
+        alertId,
+        attemptKey: body.attemptKey,
+        workflow: body.meta?.workflow,
+        executionId: body.meta?.executionId,
+      });
+
       return res.json({
         ok: true,
         alert: mapAlertNotificationResponse(callbackResult.alert),
@@ -386,6 +404,7 @@ router.post(
     } catch (error) {
       logger.error("Notification status callback failed", {
         route: "POST /events/notification-status",
+        requestId,
         alertId,
         status: body.status,
         message: error instanceof Error ? error.message : String(error),
@@ -404,6 +423,7 @@ router.post(
   validateBody(automationStatusCallbackSchema),
   async (req, res) => {
     const body = req.body as z.infer<typeof automationStatusCallbackSchema>;
+    const requestId = getRequestIdFromResponse(res);
     const now = new Date();
     const normalizedTimestamp = normalizeTimestamp(body.timestamp, now);
 
@@ -466,6 +486,13 @@ router.post(
         writtenEvents.push(eventKey);
       }
 
+      logger.info("automation.callback.route.applied", {
+        requestId,
+        workflow: body.workflow,
+        executionId: body.meta?.executionId,
+        writtenEventCount: writtenEvents.length,
+      });
+
       return res.json({
         ok: true,
         writtenEvents,
@@ -473,6 +500,7 @@ router.post(
     } catch (error) {
       logger.error("Automation status callback failed", {
         route: "POST /events/automation-status",
+        requestId,
         workflow: body.workflow,
         status: body.status,
         message: error instanceof Error ? error.message : String(error),

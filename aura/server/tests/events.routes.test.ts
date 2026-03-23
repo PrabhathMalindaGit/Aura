@@ -122,6 +122,7 @@ describe("POST /events/notification-status", () => {
 
   it("writes sent status once and remains idempotent for duplicate payload", async () => {
     const alert = await createAlert();
+    const requestId = "req-events-1";
     const payload = {
       alertId: String(alert._id),
       channel: "telegram",
@@ -137,6 +138,7 @@ describe("POST /events/notification-status", () => {
 
     const first = await request(app)
       .post("/events/notification-status")
+      .set("x-request-id", requestId)
       .set("x-aura-webhook-key", "test-webhook-key")
       .send(payload);
     const second = await request(app)
@@ -146,6 +148,7 @@ describe("POST /events/notification-status", () => {
 
     expect(first.status).toBe(200);
     expect(first.body.ok).toBe(true);
+    expect(first.headers["x-request-id"]).toBe(requestId);
     expect(first.body.alert.notification.status).toBe("sent");
     expect(first.body.alert.notification.sentAt).toBe("2026-05-01T11:45:30.000Z");
     expect(first.body.writtenEvents).toContain("NOTIFICATION_SENT");

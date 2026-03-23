@@ -1,6 +1,7 @@
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import ChatMessage from "../models/ChatMessage";
+import type { RequestCorrelationContext } from "../middleware/requestContext";
 import {
   dispatchJob,
   enqueueInitialAlertNotification,
@@ -40,15 +41,27 @@ export type ProcessChatResult = {
 };
 
 export async function processChatMessage(
-  input: ProcessChatInput
+  input: ProcessChatInput,
+  requestContext?: RequestCorrelationContext
 ): Promise<ProcessChatResult> {
-  const aiResult = await classify({ type: "chat", text: input.text });
+  const aiResult = await classify(
+    { type: "chat", text: input.text },
+    {
+      requestId: requestContext?.requestId,
+      flow: "chat",
+      patientId: input.patientId,
+    }
+  );
   const assistantReply =
     aiResult.risk === "low"
       ? input.lowRiskMode === "rag"
         ? (await ragReply({
             patientId: input.patientId,
             message: input.text,
+          }, {
+            requestId: requestContext?.requestId,
+            flow: "chat",
+            patientId: input.patientId,
           })).reply
         : LOW_RISK_REPLY
       : undefined;
@@ -158,8 +171,13 @@ export async function processChatMessage(
           reason: aiResult.reasons,
         },
         reasonCodes: aiResult.reasons,
+        requestId: requestContext?.requestId,
       });
-      n8nDelivered = await dispatchJob(toId(notificationJob._id));
+      n8nDelivered = await dispatchJob(
+        toId(notificationJob._id),
+        undefined,
+        requestContext
+      );
       if (!n8nDelivered) {
         logger.error("Chat alert webhook delivery not confirmed", {
           flow: "chat",

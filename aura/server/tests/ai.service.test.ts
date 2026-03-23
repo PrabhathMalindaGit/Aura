@@ -29,7 +29,7 @@ describe("AI service client", () => {
     mutableEnv.AURA_AI_SERVICE_KEY = originalAiServiceKey;
   });
 
-  it("adds x-aura-ai-key to classify and rag requests", async () => {
+  it("adds x-aura-ai-key and x-request-id to classify and rag requests", async () => {
     vi.mocked(axios.post)
       .mockResolvedValueOnce({
         data: {
@@ -47,10 +47,14 @@ describe("AI service client", () => {
     await classify({
       type: "checkin",
       pain: 8,
+    }, {
+      requestId: "req-ai-1",
     });
     await ragReply({
       patientId: "p1",
       message: "Pain is worse today.",
+    }, {
+      requestId: "req-ai-2",
     });
 
     expect(axios.post).toHaveBeenNthCalledWith(
@@ -64,6 +68,7 @@ describe("AI service client", () => {
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "x-aura-ai-key": "test-ai-key",
+          "x-request-id": "req-ai-1",
         }),
       })
     );
@@ -78,6 +83,7 @@ describe("AI service client", () => {
         headers: expect.objectContaining({
           "Content-Type": "application/json",
           "x-aura-ai-key": "test-ai-key",
+          "x-request-id": "req-ai-2",
         }),
       })
     );

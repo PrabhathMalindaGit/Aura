@@ -14,6 +14,7 @@ import {
   type CheckInMedicationStatus,
   type CheckInSymptomFlag,
 } from "../constants/checkin";
+import type { RequestCorrelationContext } from "../middleware/requestContext";
 import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
 import {
@@ -202,7 +203,8 @@ function normalizeSymptomFlags(
 }
 
 export async function processCheckIn(
-  input: CheckInFlowInput
+  input: CheckInFlowInput,
+  requestContext?: RequestCorrelationContext
 ): Promise<CheckInFlowResult> {
   const bodyMap = normalizeBodyMap(input.bodyMap);
   const symptoms = normalizeSymptomFlags(input.symptoms);
@@ -233,6 +235,10 @@ export async function processCheckIn(
     type: "checkin",
     pain: input.pain,
     text: classificationText,
+  }, {
+    requestId: requestContext?.requestId,
+    flow: "checkin",
+    patientId: input.patientId,
   });
 
   const reasonCodes = Array.from(
@@ -387,8 +393,13 @@ export async function processCheckIn(
           reason: reasonCodes,
         },
         reasonCodes,
+        requestId: requestContext?.requestId,
       });
-      n8nDelivered = await dispatchJob(toId(notificationJob._id));
+      n8nDelivered = await dispatchJob(
+        toId(notificationJob._id),
+        undefined,
+        requestContext
+      );
       if (!n8nDelivered) {
         logger.error("Check-in alert webhook delivery not confirmed", {
           flow: "checkin",

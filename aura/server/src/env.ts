@@ -30,11 +30,28 @@ function toStringArray(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+function toLogLevel(
+  value: string | undefined
+): "debug" | "info" | "warn" | "error" {
+  const normalized = (value ?? "info").trim().toLowerCase();
+  if (
+    normalized === "debug" ||
+    normalized === "info" ||
+    normalized === "warn" ||
+    normalized === "error"
+  ) {
+    return normalized;
+  }
+
+  return "info";
+}
+
 const nodeEnv = process.env.NODE_ENV || "development";
 
 export const env = {
   NODE_ENV: nodeEnv,
   PORT: toInt(process.env.PORT, 3000),
+  LOG_LEVEL: toLogLevel(process.env.LOG_LEVEL),
   MONGO_URL: process.env.MONGO_URL || "mongodb://localhost:27017/aura",
   AI_BASE_URL: process.env.AI_BASE_URL || "http://localhost:8001",
   N8N_WEBHOOK_ALERT:

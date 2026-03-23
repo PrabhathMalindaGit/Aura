@@ -37,9 +37,12 @@ import {
   emitAlertCreated,
   emitNotificationRetryRequested,
 } from "../src/services/n8n";
+import { logger } from "../src/utils/logger";
 
 describe("alertNotificationService", () => {
   let mongoServer: MongoMemoryServer | null = null;
+  let infoSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
@@ -57,6 +60,8 @@ describe("alertNotificationService", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-01T09:00:00.000Z"));
     vi.restoreAllMocks();
+    infoSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+    warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
     vi.mocked(emitAlertCreated).mockReset();
     vi.mocked(emitNotificationRetryRequested).mockReset();
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
@@ -99,11 +104,23 @@ describe("alertNotificationService", () => {
         reason: ["PAIN_GE_THRESHOLD"],
       },
       reasonCodes: ["PAIN_GE_THRESHOLD"],
+      requestId: "req-enqueue-1",
     });
 
     expect(job.alertId).toBe(String(alert._id));
     expect(job.state).toBe("queued");
     expect(await AlertNotificationJob.countDocuments()).toBe(1);
+    expect(infoSpy).toHaveBeenCalledWith(
+      "notification.job.enqueued",
+      expect.objectContaining({
+        requestId: "req-enqueue-1",
+        alertId: String(alert._id),
+        jobId: String(job._id),
+        patientId: alert.patientId,
+        dispatchKind: "initial",
+        state: "queued",
+      })
+    );
   });
 
   it("enforces unique alertId + channel integrity for initial enqueue", async () => {
@@ -193,7 +210,9 @@ describe("alertNotificationService", () => {
       reasonCodes: ["PAIN_GE_THRESHOLD"],
     });
 
-    const delivered = await dispatchJob(String(job._id));
+    const delivered = await dispatchJob(String(job._id), undefined, {
+      requestId: "req-dispatch-1",
+    });
 
     expect(delivered).toBe(true);
     const updatedJob = await AlertNotificationJob.findById(job._id).lean();
@@ -204,6 +223,17 @@ describe("alertNotificationService", () => {
     const updatedAlert = await Alert.findById(alert._id).lean();
     expect(updatedAlert?.notification?.status).toBe("unknown");
     expect(updatedAlert?.notification?.attemptedAt).toBeTruthy();
+    expect(infoSpy).toHaveBeenCalledWith(
+      "notification.job.dispatched",
+      expect.objectContaining({
+        requestId: "req-dispatch-1",
+        alertId: String(alert._id),
+        jobId: String(job._id),
+        patientId: alert.patientId,
+        dispatchKind: "initial",
+        state: "awaiting_callback",
+      })
+    );
   });
 
   it("dispatchJob leaves the job retryable when initial delivery fails", async () => {
@@ -218,13 +248,110 @@ describe("alertNotificationService", () => {
     });
     vi.mocked(emitAlertCreated).mockResolvedValue(false);
 
-    const delivered = await dispatchJob(String(job._id));
+    const delivered = await dispatchJob(String(job._id), undefined, {
+      requestId: "req-dispatch-failed",
+    });
 
     expect(delivered).toBe(false);
     const updatedJob = await AlertNotificationJob.findById(job._id).lean();
     expect(updatedJob?.state).toBe("retry_scheduled");
     expect(updatedJob?.attemptCount).toBe(1);
     expect(updatedJob?.lastError).toBe("N8N_WEBHOOK_DELIVERY_FAILED");
+    expect(warnSpy).toHaveBeenCalledWith(
+      "notification.job.dispatch_failed",
+      expect.objectContaining({
+        requestId: "req-dispatch-failed",
+        alertId: String(alert._id),
+        jobId: String(job._id),
+        patientId: alert.patientId,
+        dispatchKind: "initial",
+        state: "retry_scheduled",
+      })
+    );
+  });
+
+  it("emits bounded identifier-only logs for callback lifecycle events", async () => {
+    const alert = await createAlert();
+    const job = await enqueueInitialAlertNotification({
+      alert: {
+        _id: alert._id,
+        patientId: alert.patientId,
+        reason: ["PAIN_GE_THRESHOLD"],
+      },
+      reasonCodes: ["PAIN_GE_THRESHOLD"],
+      requestId: "req-callback-setup",
+    });
+
+    await dispatchJob(String(job._id), undefined, {
+      requestId: "req-callback-dispatch",
+    });
+
+    const awaitingJob = await AlertNotificationJob.findById(job._id);
+    expect(awaitingJob?.currentAttemptKey).toBeTruthy();
+
+    await applyNotificationCallback({
+      alertId: String(alert._id),
+      body: {
+        alertId: String(alert._id),
+        channel: "telegram",
+        status: "sent",
+        attemptKey: awaitingJob?.currentAttemptKey,
+        meta: {
+          workflow: "01",
+          executionId: "exec-1",
+        },
+      },
+      callbackTimestamp: new Date("2026-07-01T09:02:00.000Z"),
+      requestId: "req-callback-apply",
+    });
+
+    const callbackLog = infoSpy.mock.calls.find(
+      ([event]) => event === "notification.callback.applied"
+    );
+    expect(callbackLog?.[1]).toEqual({
+      requestId: "req-callback-apply",
+      jobId: String(job._id),
+      alertId: String(alert._id),
+      patientId: alert.patientId,
+      attemptKey: awaitingJob?.currentAttemptKey,
+      dispatchKind: "initial",
+      workflow: "01",
+      executionId: "exec-1",
+      state: "delivered",
+      callbackStatus: "sent",
+    });
+
+    await applyNotificationCallback({
+      alertId: String(alert._id),
+      body: {
+        alertId: String(alert._id),
+        channel: "telegram",
+        status: "sent",
+        attemptKey: "wrong-attempt-key",
+        meta: {
+          workflow: "01",
+          executionId: "exec-2",
+        },
+      },
+      callbackTimestamp: new Date("2026-07-01T09:03:00.000Z"),
+      requestId: "req-callback-stale",
+    });
+
+    const staleLog = infoSpy.mock.calls.find(
+      ([event, meta]) =>
+        event === "notification.callback.stale" &&
+        (meta as Record<string, unknown>)?.requestId === "req-callback-stale"
+    );
+    expect(staleLog?.[1]).toEqual({
+      requestId: "req-callback-stale",
+      jobId: String(job._id),
+      alertId: String(alert._id),
+      patientId: alert.patientId,
+      attemptKey: awaitingJob?.currentAttemptKey,
+      dispatchKind: "initial",
+      workflow: "01",
+      executionId: "exec-2",
+    });
   });
 
   it("callback with attemptKey updates the matching job and alert snapshot", async () => {
@@ -314,6 +441,7 @@ describe("alertNotificationService", () => {
     const result = await reconcileStaleJobs({
       limit: 10,
       now: new Date("2026-07-01T09:00:00.000Z"),
+      requestId: "req-reconcile-1",
     });
 
     expect(result.reconciled).toBe(1);
@@ -323,6 +451,12 @@ describe("alertNotificationService", () => {
     expect(updatedJob?.nextAttemptAt?.toISOString()).toBe(
       "2026-07-01T09:00:00.000Z"
     );
+    expect(infoSpy).toHaveBeenCalledWith("notification.jobs.reconciled", {
+      requestId: "req-reconcile-1",
+      reconciled: 1,
+      scheduled: 1,
+      failed: 0,
+    });
   });
 
   it("syncAlertNotificationSnapshot keeps Alert.notification aligned with the durable job", async () => {

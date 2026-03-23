@@ -86,20 +86,13 @@ import {
 } from '../types/models';
 import { asAppError, createAppError, isRetryable } from '../utils/errors';
 import { formatRiskLabel, isRiskChanged } from '../utils/risk';
-import {
-  NOTIFICATION_RETRY_ENABLED,
-  resolveNotificationStatus,
-  toSafeNotificationError,
-} from '../utils/notification';
+import { resolveNotificationStatus, toSafeNotificationError } from '../utils/notification';
 import { getSeenAt } from './seenStore';
 
 const QUERY_STALE_TIME_MS = 7_000;
 const PATIENTS_QUERY_STALE_TIME_MS = 30_000;
 const DASHBOARD_QUERY_STALE_TIME_MS = 10_000;
 const DEFAULT_POLLING_INTERVAL_MS = 12_000;
-const TRENDS_ENDPOINT_HINT =
-  'Trends endpoint not ready. Add GET /clinician/patients/:id/trends?days=14|30';
-
 interface AlertPollingOptions {
   pollingEnabled?: boolean;
   pollingIntervalMs?: number;
@@ -139,8 +132,6 @@ export const clinicianQueryKeys = {
 } as const;
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
-const trendsEndpointAvailability = new Map<string, boolean>();
-
 function getAlertsCache(
   queryClient: ReturnType<typeof useQueryClient>,
 ): Partial<Record<AlertStatus, AlertItem[] | undefined>> {
@@ -363,10 +354,6 @@ function isContextEndpointUnavailable(error: unknown): boolean {
   return appError.kind === 'HTTP' && [404, 405, 501].includes(appError.status ?? 0);
 }
 
-function trendsEndpointKey(patientId: string, days: 14 | 30): string {
-  return `${patientId}:${days}`;
-}
-
 async function findAlertById(alertId: string): Promise<AlertItem> {
   const statuses: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 
@@ -511,8 +498,12 @@ export async function overrideAlertRisk(
 }
 
 export async function clearAlertRiskOverride(alertId: string): Promise<void> {
-  // TODO(server): replace local adapter with:
-  // DELETE /clinician/alerts/:id/risk-override
+  await fetchJson<PatchAlertResponse>(
+    `/clinician/alerts/${encodeURIComponent(alertId)}/risk-override`,
+    {
+      method: 'DELETE',
+    },
+  );
   clearRiskOverride(alertId);
 }
 
@@ -531,17 +522,6 @@ export async function retryNotification(
   alertId: string,
   payload: RetryNotificationPayload,
 ): Promise<RetryNotificationResult> {
-  // TODO(server): add retry endpoint:
-  // POST /clinician/alerts/:id/retry-notification
-  // body: { channel?: "telegram", requestedBy: string, requestedByName?: string }
-  // returns: { ok: true, status: "queued"|"sent"|"failed", alert?: AlertItem }
-  if (!NOTIFICATION_RETRY_ENABLED) {
-    throw createAppError('HTTP', 'Backend endpoint not implemented for notification retry.', {
-      status: 404,
-      hint: 'Add POST /clinician/alerts/:id/retry-notification',
-    });
-  }
-
   const response = await fetchJson<{ ok: true; status: 'queued' | 'sent' | 'failed'; alert?: AlertItem }>(
     `/clinician/alerts/${encodeURIComponent(alertId)}/retry-notification`,
     {
@@ -557,29 +537,15 @@ export async function retryNotification(
 }
 
 export async function getPatientTrends(patientId: string, days: 14 | 30): Promise<TrendPointRaw[]> {
-  const key = trendsEndpointKey(patientId, days);
+  const response = await fetchJson<TrendsResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/trends`,
+    {
+      method: 'GET',
+      query: { days },
+    },
+  );
 
-  try {
-    const response = await fetchJson<TrendsResponse>(
-      `/clinician/patients/${encodeURIComponent(patientId)}/trends`,
-      {
-        method: 'GET',
-        query: { days },
-      },
-    );
-
-    trendsEndpointAvailability.set(key, false);
-    return response.trends;
-  } catch (error) {
-    const appError = asAppError(error);
-    if (appError.kind === 'HTTP' && appError.status === 404) {
-      trendsEndpointAvailability.set(key, true);
-      return [];
-    }
-
-    trendsEndpointAvailability.set(key, false);
-    throw error;
-  }
+  return response.trends;
 }
 
 export async function tryGetPatientCheckinsRange(
@@ -1338,21 +1304,6 @@ export function usePatientTrends(
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
   });
-}
-
-export function isPatientTrendsEndpointMissing(
-  patientId: string | undefined,
-  days: 14 | 30,
-): boolean {
-  if (!patientId) {
-    return false;
-  }
-
-  return trendsEndpointAvailability.get(trendsEndpointKey(patientId, days)) ?? false;
-}
-
-export function getPatientTrendsEndpointHint(): string {
-  return TRENDS_ENDPOINT_HINT;
 }
 
 export function useAlertContext(

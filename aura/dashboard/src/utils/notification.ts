@@ -3,8 +3,6 @@ import { truncateText } from './text';
 
 export type NotificationStatus = NonNullable<AlertItem['notificationStatus']>;
 
-export const NOTIFICATION_RETRY_ENABLED = false;
-
 const KNOWN_NOTIFICATION_STATUSES: NotificationStatus[] = ['sent', 'failed', 'skipped', 'unknown'];
 
 export function resolveNotificationStatus(status: AlertItem['notificationStatus']): NotificationStatus {

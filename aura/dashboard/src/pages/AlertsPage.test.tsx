@@ -1201,10 +1201,53 @@ describe('AlertsPage queue flow', () => {
 
     expect(within(row).getByText('Delivery failed')).toBeInTheDocument();
     expect(
-      within(row).getByRole('button', {
+      within(row).queryByRole('button', {
         name: `Retry notification for alert ${failedNotificationAlert._id}`,
       }),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
+  });
+
+  it('retries notification from the alert detail drawer through the live backend route', async () => {
+    const retryAlert: AlertItem = {
+      ...baseAlert,
+      _id: 'alt-notif-drawer',
+      notificationStatus: 'failed',
+      notificationError: 'Delivery timeout',
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = String(init?.method ?? 'GET').toUpperCase();
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [retryAlert] });
+      }
+
+      if (url.includes('/clinician/alerts?status=acknowledged') || url.includes('/clinician/alerts?status=resolved')) {
+        return createJsonResponse({ ok: true, alerts: [] });
+      }
+
+      if (url.includes(`/clinician/alerts/${retryAlert._id}/context`)) {
+        return createJsonResponse({ ok: false }, 404);
+      }
+
+      if (url.includes(`/clinician/alerts/${retryAlert._id}/retry-notification`) && method === 'POST') {
+        return createJsonResponse({ ok: true, status: 'queued', alert: retryAlert });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    const user = userEvent.setup();
+    renderAlertsPage();
+
+    const rowLabel = `Alert ${retryAlert._id} for patient ${retryAlert.patientId}`;
+    await user.click(await screen.findByLabelText(rowLabel));
+    await screen.findByRole('dialog', { name: 'Alert' });
+    await user.click(screen.getByRole('button', { name: 'Retry notification' }));
+
+    expect(await screen.findByText('Notification retry queued.')).toBeInTheDocument();
+    expect(screen.queryByText(/Backend endpoint not implemented/i)).not.toBeInTheDocument();
   });
 
   it('queue row shows "Delivery status unknown" and no retry control when notification state is unknown', async () => {

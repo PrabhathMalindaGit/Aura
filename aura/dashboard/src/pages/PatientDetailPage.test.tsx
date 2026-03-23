@@ -624,7 +624,8 @@ describe('PatientDetailPage', () => {
 
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     expect(await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' })).toBeInTheDocument();
-    expect(within(communicationPanel).getByRole('button', { name: 'Send quick reply' })).toBeInTheDocument();
+    expect(screen.queryByText('Trends endpoint not ready')).not.toBeInTheDocument();
+    expect(within(communicationPanel).getByRole('button', { name: 'Save local reply' })).toBeInTheDocument();
   });
 
   it('reuses compact template and signature helpers on patient detail without auto-appending the signature', async () => {
@@ -743,8 +744,8 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
-    await within(communicationPanel).findByLabelText('Replying as clinician identity');
-    expect(within(communicationPanel).getByText('Replying as')).toBeInTheDocument();
+    await within(communicationPanel).findByLabelText('Local clinician identity');
+    expect(within(communicationPanel).getByText('Local clinician identity')).toBeInTheDocument();
     expect(within(communicationPanel).getByText('Dr Elena Hall')).toBeInTheDocument();
     await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' });
     const communicationTimeline = within(communicationPanel).getByRole('list', {
@@ -757,7 +758,7 @@ describe('PatientDetailPage', () => {
       within(communicationPanel).getByRole('textbox', { name: 'Quick reply' }),
       'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
     );
-    await user.click(within(communicationPanel).getByRole('button', { name: 'Send quick reply' }));
+    await user.click(within(communicationPanel).getByRole('button', { name: 'Save local reply' }));
 
     const localReply = await within(communicationTimeline).findByText(
       'Please keep tomorrow for now. We will confirm the schedule this afternoon.',

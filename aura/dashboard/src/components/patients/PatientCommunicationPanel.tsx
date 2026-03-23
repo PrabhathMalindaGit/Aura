@@ -213,8 +213,8 @@ export function PatientCommunicationPanel({
 
           {showQuickReply && onQuickReplyChange && onSendQuickReply ? (
             <div className="patient-communication-quick-reply">
-              <div className="patient-communication-quick-reply__identity" aria-label="Replying as clinician identity">
-                <span className="patient-communication-quick-reply__identity-label">Replying as</span>
+              <div className="patient-communication-quick-reply__identity" aria-label="Local clinician identity">
+                <span className="patient-communication-quick-reply__identity-label">Local clinician identity</span>
                 <div className="patient-communication-quick-reply__identity-card">
                   <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
                   <div className="patient-communication-quick-reply__identity-copy">
@@ -274,7 +274,7 @@ export function PatientCommunicationPanel({
                     </div>
                   </div>
                   <p className="communication-authoring-tools__note" aria-live="polite">
-                    Local to this browser and still editable before send.
+                    Local to this browser and still editable during this review pass.
                   </p>
                 </>
               ) : null}
@@ -297,7 +297,7 @@ export function PatientCommunicationPanel({
                   onClick={onSendQuickReply}
                   disabled={quickReplyValue.trim().length === 0}
                 >
-                  Send quick reply
+                  Save local reply
                 </Button>
               </div>
             </div>

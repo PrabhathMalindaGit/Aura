@@ -37,8 +37,6 @@ import {
   getPatientWearablesSummary,
   getPatientProms,
   getRehabPhases,
-  getPatientTrendsEndpointHint,
-  isPatientTrendsEndpointMissing,
   listAppointmentRequests,
   listAlerts,
   listClinicianTasks,
@@ -1160,7 +1158,6 @@ export function PatientDetailPage(): JSX.Element {
     [patientAlerts, selectedDayPoint],
   );
 
-  const trendsEndpointMissing = isPatientTrendsEndpointMissing(patientId, selectedDays);
   const hasTrendData = normalizedTrends.some((point) => trendPointHasAnyData(point));
   const patientExportRangeError = validateDateRange(patientExportRange);
   const currentRehabPhaseTitle =
@@ -1953,12 +1950,6 @@ export function PatientDetailPage(): JSX.Element {
       {actionError ? (
         <AlertBanner variant="error" title="Alert action failed">
           {actionError}
-        </AlertBanner>
-      ) : null}
-
-      {trendsEndpointMissing ? (
-        <AlertBanner variant="warning" title="Trends endpoint not ready">
-          {getPatientTrendsEndpointHint()}
         </AlertBanner>
       ) : null}
 

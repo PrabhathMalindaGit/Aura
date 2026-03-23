@@ -207,4 +207,48 @@ describe('AlertDetailDrawer accessibility and actions', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Alert' });
     expect(dialog).toHaveClass('drawer--mobile-fullscreen');
   });
+
+  it('retries notification through the live backend route from the drawer', async () => {
+    const user = userEvent.setup();
+    const retryAlert: AlertItem = {
+      ...baseAlert,
+      notificationStatus: 'failed',
+      notificationError: 'Delivery timeout',
+    };
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = String(init?.method ?? 'GET').toUpperCase();
+
+      if (url.includes(`/clinician/alerts/${retryAlert._id}/retry-notification`) && method === 'POST') {
+        return createJsonResponse({
+          ok: true,
+          status: 'queued',
+          alert: retryAlert,
+        });
+      }
+
+      if (url.includes(`/clinician/alerts/${retryAlert._id}/context`)) {
+        return createJsonResponse({ ok: false }, 404);
+      }
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [retryAlert] });
+      }
+
+      if (url.includes('/clinician/alerts?status=acknowledged') || url.includes('/clinician/alerts?status=resolved')) {
+        return createJsonResponse({ ok: true, alerts: [] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderDrawer({ alert: retryAlert });
+
+    await screen.findByRole('dialog', { name: 'Alert' });
+    await user.click(screen.getByRole('button', { name: 'Retry notification' }));
+
+    expect(await screen.findByText('Notification retry queued.')).toBeInTheDocument();
+    expect(screen.queryByText(/Backend endpoint not implemented/i)).not.toBeInTheDocument();
+  });
 });

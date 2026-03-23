@@ -1868,6 +1868,75 @@ router.patch(
   }
 );
 
+router.delete("/clinician/alerts/:id/risk-override", async (req, res) => {
+  const alertId = typeof req.params.id === "string" ? req.params.id : "";
+
+  if (!isObjectId(alertId)) {
+    return res.status(400).json({
+      ok: false,
+      error: "VALIDATION_ERROR",
+      details: [
+        {
+          path: "id",
+          message: "Invalid alert id",
+        },
+      ],
+    });
+  }
+
+  try {
+    const requestWithUser = req as RequestWithUser;
+    const body =
+      req.body && typeof req.body === "object"
+        ? (req.body as { overriddenBy?: unknown; overriddenByName?: unknown })
+        : undefined;
+    const actor = resolveClinicianActor(
+      requestWithUser,
+      typeof body?.overriddenBy === "string" ? body.overriddenBy : undefined,
+      typeof body?.overriddenByName === "string" ? body.overriddenByName : undefined
+    );
+
+    if (!actor) {
+      return res.status(401).json({
+        ok: false,
+        error: "UNAUTHORIZED",
+      });
+    }
+
+    const alert = await Alert.findById(alertId);
+
+    if (!alert) {
+      return res.status(404).json({
+        ok: false,
+        error: "NOT_FOUND",
+      });
+    }
+
+    alert.riskFinal = undefined;
+    alert.overrideReason = undefined;
+    alert.overriddenBy = undefined;
+    alert.overriddenByName = undefined;
+    alert.overriddenAt = undefined;
+
+    await alert.save();
+
+    return res.json({
+      ok: true,
+      alert: mapAlertContextAlert(alert.toObject() as Record<string, unknown>),
+    });
+  } catch (error) {
+    logger.error("Delete alert risk override route failed", {
+      route: "DELETE /clinician/alerts/:id/risk-override",
+      alertId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
 router.patch(
   "/clinician/alerts/:id",
   validateBody(patchSchema),

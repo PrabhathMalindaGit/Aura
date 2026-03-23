@@ -40,13 +40,14 @@ describe('NotificationPanel', () => {
           notificationRetryCount: 2,
           notificationTarget: 'Clinician Group',
         }}
+        onRetry={vi.fn()}
       />,
     );
 
     expect(screen.getByText('Notification')).toBeInTheDocument();
     expect(screen.getByText('Delivery failed')).toBeInTheDocument();
     expect(screen.getByText('Telegram')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry notification' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Retry notification' })).toBeEnabled();
 
     const showMore = screen.getByRole('button', { name: 'Show more' });
     expect(showMore).toBeInTheDocument();
@@ -60,7 +61,10 @@ describe('NotificationPanel', () => {
     render(<NotificationPanel alert={{ ...baseAlert, notificationStatus: 'unknown' }} onRetry={vi.fn()} />);
 
     expect(screen.getByText('Delivery status unknown')).toBeInTheDocument();
-    expect(screen.getByText('Notification delivery not yet tracked. Add notificationStatus to backend alerts.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Delivery is still waiting for confirmation from the notification workflow.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Add notificationStatus to backend alerts/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry notification' })).not.toBeInTheDocument();
   });
 });

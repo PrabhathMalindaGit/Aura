@@ -4,12 +4,10 @@ import type { SeenAlertMap } from '../../services/seenStore';
 import { isAlertUnseenForUi } from '../../utils/seen';
 import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import {
-  NOTIFICATION_RETRY_ENABLED,
   alertSourceLabel,
   alertStatusLabel,
   resolveNotificationStatus,
   shortReferenceLabel,
-  shouldShowNotificationRetry,
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
 import { AssignmentChip } from './AssignmentChip';
@@ -166,7 +164,6 @@ export function AlertsTable({
             const reasonText = asReasonText(alert.reason);
             const assignedToOther = Boolean(alert.assignedTo && alert.assignedTo !== clinicianId);
             const effectiveRisk = getEffectiveRisk(alert);
-            const showRetry = shouldShowNotificationRetry(alert.notificationStatus);
             const alertReference = shortReferenceLabel(alert._id);
             const sourceReference = shortReferenceLabel(alert.source.sourceId, 'Source ref');
 
@@ -277,20 +274,6 @@ export function AlertsTable({
                     <span className="alerts-notification-cell__meta">
                       {notificationSupportLabel(alert.notificationStatus)}
                     </span>
-                    {showRetry ? (
-                      <Button
-                        className="alerts-notification-retry"
-                        variant="ghost"
-                        disabled={!NOTIFICATION_RETRY_ENABLED}
-                        title={!NOTIFICATION_RETRY_ENABLED ? 'Retry requires backend endpoint' : undefined}
-                        aria-label={`Retry notification for alert ${alert._id}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                        }}
-                      >
-                        Retry
-                      </Button>
-                    ) : null}
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--actions">

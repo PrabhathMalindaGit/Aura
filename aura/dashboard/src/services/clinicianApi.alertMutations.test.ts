@@ -14,8 +14,10 @@ vi.mock('./apiClient', () => ({
 
 import {
   assignAlert,
+  clearAlertRiskOverride,
   markAlertSeen,
   overrideAlertRisk,
+  retryNotification,
   unassignAlert,
 } from './clinicianApi';
 
@@ -142,5 +144,42 @@ describe('clinicianApi alert mutation wiring', () => {
       overriddenBy: 'clinician-1',
       overriddenByName: 'Clinician One',
     });
+  });
+
+  it('calls DELETE /clinician/alerts/:id/risk-override for clearAlertRiskOverride', async () => {
+    fetchJsonMock.mockResolvedValue(createPatchAlertResponse(createAlert()));
+
+    await clearAlertRiskOverride('alt-1');
+
+    expect(fetchJsonMock).toHaveBeenCalledWith(
+      '/clinician/alerts/alt-1/risk-override',
+      expect.objectContaining({
+        method: 'DELETE',
+      }),
+    );
+  });
+
+  it('calls POST /clinician/alerts/:id/retry-notification for retryNotification', async () => {
+    fetchJsonMock.mockResolvedValue({
+      ok: true,
+      status: 'queued',
+      alert: createAlert({ notificationStatus: 'unknown' }),
+    });
+
+    await retryNotification('alt-1', {
+      requestedBy: 'clinician-1',
+      requestedByName: 'Clinician One',
+    });
+
+    expect(fetchJsonMock).toHaveBeenCalledWith(
+      '/clinician/alerts/alt-1/retry-notification',
+      expect.objectContaining({
+        method: 'POST',
+        json: {
+          requestedBy: 'clinician-1',
+          requestedByName: 'Clinician One',
+        },
+      }),
+    );
   });
 });

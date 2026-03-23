@@ -3,7 +3,6 @@ import type { AlertItem } from '../../types/models';
 import { formatExactTime } from '../../utils/time';
 import { truncateText } from '../../utils/text';
 import {
-  NOTIFICATION_RETRY_ENABLED,
   notificationChannelLabel,
   resolveNotificationStatus,
   shouldShowNotificationRetry,
@@ -33,16 +32,15 @@ function renderTimestamp(value: string | undefined): JSX.Element | string {
 
 export function NotificationPanel({
   alert,
-  retryEnabled = NOTIFICATION_RETRY_ENABLED,
+  retryEnabled = true,
   busy = false,
   onRetry,
 }: NotificationPanelProps): JSX.Element {
   const [showFullError, setShowFullError] = useState(false);
 
   const status = resolveNotificationStatus(alert.notificationStatus);
-  const retryVisible = shouldShowNotificationRetry(status);
+  const retryVisible = shouldShowNotificationRetry(status) && Boolean(onRetry);
   const retryDisabled = !retryEnabled || busy;
-  const helpTextId = `notification-retry-help-${alert._id}`;
 
   const safeError = useMemo(
     () => toSafeNotificationError(alert.notificationError, 320),
@@ -53,9 +51,8 @@ export function NotificationPanel({
     [safeError],
   );
 
-  const trackingNotAvailable =
+  const awaitingConfirmation =
     status === 'unknown' &&
-    !alert.notificationAttemptedAt &&
     !alert.notificationSentAt &&
     !alert.notificationFailedAt;
 
@@ -100,9 +97,9 @@ export function NotificationPanel({
         </div>
       </dl>
 
-      {trackingNotAvailable ? (
+      {awaitingConfirmation ? (
         <p className="muted-text">
-          Notification delivery not yet tracked. Add notificationStatus to backend alerts.
+          Delivery is still waiting for confirmation from the notification workflow.
         </p>
       ) : null}
 
@@ -129,16 +126,9 @@ export function NotificationPanel({
             variant="secondary"
             onClick={() => onRetry?.()}
             disabled={retryDisabled}
-            title={!retryEnabled ? 'Backend endpoint not implemented' : undefined}
-            aria-describedby={!retryEnabled ? helpTextId : undefined}
           >
             Retry notification
           </Button>
-          {!retryEnabled ? (
-            <span id={helpTextId} className="muted-text">
-              Backend endpoint not implemented: POST /clinician/alerts/:id/retry-notification
-            </span>
-          ) : null}
         </div>
       ) : null}
     </section>

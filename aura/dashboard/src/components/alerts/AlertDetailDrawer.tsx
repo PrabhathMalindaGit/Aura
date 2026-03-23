@@ -1,7 +1,13 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { AlertItem, TimelineEvent } from '../../types/models';
-import { deriveAlertTimeline, useAlertContext } from '../../services/clinicianApi';
+import {
+  clinicianQueryKeys,
+  deriveAlertTimeline,
+  retryNotification,
+  useAlertContext,
+} from '../../services/clinicianApi';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
 import { AlertBanner } from '../ui/AlertBanner';
 import { Badge } from '../ui/Badge';
@@ -17,12 +23,7 @@ import { RiskOverrideForm } from './RiskOverrideForm';
 import { TriggeringEventPanel } from './TriggeringEventPanel';
 import { asAppError, toUserMessage } from '../../utils/errors';
 import { formatRiskLabel } from '../../utils/risk';
-import {
-  NOTIFICATION_RETRY_ENABLED,
-  alertSourceLabel,
-  alertStatusLabel,
-  shortReferenceLabel,
-} from '../../utils/notification';
+import { alertSourceLabel, alertStatusLabel, shortReferenceLabel } from '../../utils/notification';
 import { truncateText } from '../../utils/text';
 
 interface AlertDetailDrawerProps {
@@ -111,8 +112,34 @@ export function AlertDetailDrawer({
   const [showFullReason, setShowFullReason] = useState(false);
 
   const resolveActionRef = useRef<HTMLButtonElement | null>(null);
+  const queryClient = useQueryClient();
 
   const alertContextQuery = useAlertContext(alert?._id, open && Boolean(alert?._id));
+  const retryNotificationMutation = useMutation({
+    mutationFn: async (activeAlert: AlertItem) =>
+      retryNotification(activeAlert._id, {
+        requestedBy: clinicianId,
+      }),
+    onSuccess: async (result, activeAlert) => {
+      setUiNotice(
+        result.status === 'queued'
+          ? 'Notification retry queued.'
+          : 'Notification retry requested.',
+      );
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: clinicianQueryKeys.alerts('open') }),
+        queryClient.invalidateQueries({ queryKey: clinicianQueryKeys.alerts('acknowledged') }),
+        queryClient.invalidateQueries({ queryKey: clinicianQueryKeys.alerts('resolved') }),
+        queryClient.invalidateQueries({
+          queryKey: clinicianQueryKeys.alertContext(activeAlert._id),
+        }),
+      ]);
+    },
+    onError: (error) => {
+      setUiNotice(toUserMessage(asAppError(error)));
+    },
+  });
 
   useEffect(() => {
     setUiNotice(null);
@@ -216,7 +243,12 @@ export function AlertDetailDrawer({
   }
 
   function handleRetryNotification(): void {
-    setUiNotice('Backend endpoint not implemented: POST /clinician/alerts/:id/retry-notification');
+    if (!effectiveAlert || retryNotificationMutation.isPending) {
+      return;
+    }
+
+    setUiNotice(null);
+    retryNotificationMutation.mutate(effectiveAlert);
   }
 
   return (
@@ -415,7 +447,7 @@ export function AlertDetailDrawer({
 
             <NotificationPanel
               alert={effectiveAlert}
-              retryEnabled={NOTIFICATION_RETRY_ENABLED}
+              busy={retryNotificationMutation.isPending}
               onRetry={handleRetryNotification}
             />
           </div>

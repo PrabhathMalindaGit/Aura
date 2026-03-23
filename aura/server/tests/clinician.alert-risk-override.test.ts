@@ -203,4 +203,55 @@ describe("PATCH /clinician/alerts/:id/risk-override", () => {
     expect(response.body.ok).toBe(false);
     expect(response.body.error).toBe("NOT_FOUND");
   });
+
+  it("clears override-owned fields through the delete route", async () => {
+    const alert = await createAlert();
+
+    await request(app)
+      .patch(`/clinician/alerts/${String(alert._id)}/risk-override`)
+      .send({
+        riskFinal: "medium",
+        overrideReason: "Pain is improving",
+        overriddenBy: "c1",
+        overriddenByName: "Dr One",
+      });
+
+    const response = await request(app)
+      .delete(`/clinician/alerts/${String(alert._id)}/risk-override`)
+      .send({
+        overriddenBy: "c1",
+        overriddenByName: "Dr One",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.alert.riskFinal).toBeNull();
+    expect(response.body.alert.overrideReason).toBeNull();
+    expect(response.body.alert.overriddenBy).toBeNull();
+    expect(response.body.alert.overriddenByName).toBeNull();
+    expect(response.body.alert.overriddenAt).toBeNull();
+  });
+
+  it("is idempotent when clearing an alert that is already clear", async () => {
+    const alert = await createAlert();
+
+    const first = await request(app)
+      .delete(`/clinician/alerts/${String(alert._id)}/risk-override`)
+      .send({
+        overriddenBy: "c1",
+      });
+    const second = await request(app)
+      .delete(`/clinician/alerts/${String(alert._id)}/risk-override`)
+      .send({
+        overriddenBy: "c1",
+      });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body.ok).toBe(true);
+    expect(second.body.alert.riskFinal).toBeNull();
+    expect(second.body.alert.overrideReason).toBeNull();
+    expect(second.body.alert.overriddenBy).toBeNull();
+    expect(second.body.alert.overriddenAt).toBeNull();
+  });
 });

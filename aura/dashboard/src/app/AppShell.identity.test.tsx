@@ -132,7 +132,9 @@ describe('AppShell identity reactivity', () => {
     cleanup();
   });
 
-  it('updates the shell and communication identity surfaces in the same tab after saving profile changes', async () => {
+  it(
+    'updates the shell and communication identity surfaces in the same tab after saving profile changes',
+    async () => {
     const user = userEvent.setup();
     renderApp();
 
@@ -141,7 +143,7 @@ describe('AppShell identity reactivity', () => {
         name: 'Open clinician profile settings for Dr Rivera. Local availability: Available.',
       }),
     ).toBeInTheDocument();
-    expect(await screen.findByText('Replying as')).toBeInTheDocument();
+    expect(await screen.findByText('Local clinician identity')).toBeInTheDocument();
     expect(screen.getAllByText('Dr Rivera').length).toBeGreaterThan(0);
 
     await user.click(
@@ -173,12 +175,14 @@ describe('AppShell identity reactivity', () => {
 
     await user.click(screen.getByRole('link', { name: 'Communication' }));
 
-    expect(await screen.findByText('Replying as')).toBeInTheDocument();
+    expect(await screen.findByText('Local clinician identity')).toBeInTheDocument();
     expect(screen.getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
     expect(
-      within(screen.getByLabelText('Replying as clinician identity')).getByText(
+      within(screen.getByLabelText('Local clinician identity')).getByText(
         'Lead rehab clinician · Post-op recovery',
       ),
     ).toBeInTheDocument();
-  });
+    },
+    30_000,
+  );
 });

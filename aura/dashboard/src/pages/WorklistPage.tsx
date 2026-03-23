@@ -32,8 +32,6 @@ import {
   type WorklistFilters as WorklistFiltersState,
 } from '../utils/worklist';
 
-const WORKLIST_ENDPOINT_HINT =
-  'Add GET /clinician/worklist returning { ok: true, items: [...], total }.';
 const RETRY_EVENT = 'aura:retry';
 const WORKLIST_WORKSPACE_PAGE = 'worklist';
 const WORKLIST_STATUS_FILTERS = ['all', 'active', 'on_hold', 'discharged', 'inactive'] as const;
@@ -68,11 +66,6 @@ function normalizeWorklistWorkspaceState(value: unknown): WorklistFiltersState {
       ? (candidate.sort as WorklistFiltersState['sort'])
       : fallback.sort,
   };
-}
-
-function isEndpointMissing(error: unknown): boolean {
-  const appError = asAppError(error);
-  return appError.kind === 'HTTP' && appError.status === 404;
 }
 
 export function WorklistPage(): JSX.Element {
@@ -143,8 +136,7 @@ export function WorklistPage(): JSX.Element {
     : '--';
 
   const showInitialLoading = worklistQuery.isLoading && items.length === 0;
-  const endpointMissing = Boolean(worklistQuery.error) && isEndpointMissing(worklistQuery.error);
-  const genericError = worklistQuery.error && !endpointMissing ? asAppError(worklistQuery.error) : null;
+  const genericError = worklistQuery.error ? asAppError(worklistQuery.error) : null;
   const staleDataAvailable = items.length > 0;
   const staleErrorBannerVisible = Boolean(genericError && staleDataAvailable);
   const blockingOfflineVisible = !connection.online && !staleDataAvailable && !worklistQuery.error;
@@ -414,30 +406,6 @@ export function WorklistPage(): JSX.Element {
               <Skeleton height={80} />
               <Skeleton height={80} />
             </div>
-          ) : endpointMissing ? (
-            <StatusPanel
-              variant="info"
-              title="Worklist not available yet"
-              description="The backend worklist endpoint is not available."
-              actions={<RetryButton onRetry={retryWorklist} loading={worklistQuery.isFetching} />}
-              hint={
-                <details className="status-panel__details">
-                  <summary>Show developer hint</summary>
-                  <p className="muted-text">{WORKLIST_ENDPOINT_HINT}</p>
-                </details>
-              }
-              details={{
-                endpoint: '/clinician/worklist',
-                status: 404,
-                timestamp: connection.lastErrorAt
-                  ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    })
-                  : undefined,
-              }}
-            />
           ) : genericError && !staleDataAvailable && errorView ? (
             <StatusPanel
               variant={errorView.variant === 'warning' ? 'error' : errorView.variant}

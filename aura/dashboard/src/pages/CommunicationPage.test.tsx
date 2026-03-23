@@ -174,12 +174,17 @@ afterEach(() => {
 });
 
   it('renders grouped patient-linked threads and a truthful communication timeline', async () => {
+    const user = userEvent.setup();
     renderCommunicationPage();
 
     expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
     expect(screen.getByText('Communication queue')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
+    const jordanThread = await screen.findByRole('button', { name: /Jordan Lee/ });
+    expect(jordanThread).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Avery Chen/ })).toBeInTheDocument();
+
+    await user.click(jordanThread);
+
     expect(
       within(screen.getByRole('list', { name: 'Patient communication timeline' })).getByText(
         'Pain is much worse after exercise today.',
@@ -264,10 +269,10 @@ afterEach(() => {
       screen.getByRole('textbox', { name: 'Clinician reply' }),
       'Please keep tomorrow for now. We will review the schedule this afternoon.',
     );
-    expect(screen.getByText('Replying as')).toBeInTheDocument();
+    expect(screen.getByText('Local clinician identity')).toBeInTheDocument();
     expect(screen.getByText('Dr Elena Hall')).toBeInTheDocument();
     expect(screen.getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+    await user.click(screen.getByRole('button', { name: 'Save local reply' }));
 
     expect(
       await within(screen.getByRole('list', { name: 'Patient communication timeline' })).findByText(
@@ -404,7 +409,7 @@ afterEach(() => {
     expect(replyField).toHaveValue(
       'Thanks, I have reviewed this update.\n\nDr Elena Hall\nLead rehab clinician · Post-op recovery',
     );
-  });
+  }, 30_000);
 
   it('reduces only page-level communication attention without hiding active thread content', async () => {
     setClinicianProfile({

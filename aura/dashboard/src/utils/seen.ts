@@ -14,12 +14,11 @@ export function hasSeenMetadata(alert: AlertItem): boolean {
 }
 
 export function isAlertSeenForUi(alert: AlertItem, seenMap: SeenAlertMap): boolean {
-  // TODO(server): once alerts include seenAt/seenBy and PATCH /clinician/alerts/:id/seen exists,
-  // replace local seenMap fallback with server-backed values (or hybrid optimistic sync).
   if (alert.status !== 'open') {
     return true;
   }
 
+  // Server seen metadata is the primary truth; the local map only bridges optimistic/same-tab UI state.
   return hasSeenMetadata(alert) || Boolean(seenMap[alert._id]);
 }
 

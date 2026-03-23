@@ -4,12 +4,10 @@ import type { SeenAlertMap } from '../../services/seenStore';
 import { isAlertUnseenForUi } from '../../utils/seen';
 import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import {
-  NOTIFICATION_RETRY_ENABLED,
   alertSourceLabel,
   alertStatusLabel,
   resolveNotificationStatus,
   shortReferenceLabel,
-  shouldShowNotificationRetry,
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
 import { AssignmentChip } from './AssignmentChip';
@@ -93,7 +91,6 @@ export function AlertCardList({
         const unseen = isAlertUnseenForUi(alert, seenAlertMap);
         const assignedToOther = Boolean(alert.assignedTo && alert.assignedTo !== clinicianId);
         const effectiveRisk = getEffectiveRisk(alert);
-        const showRetry = shouldShowNotificationRetry(alert.notificationStatus);
         const isReasonExpanded = Boolean(expandedReasonByAlertId[alert._id]);
         const showReasonToggle = reasonText.length > 120;
         const alertReference = shortReferenceLabel(alert._id);
@@ -185,16 +182,6 @@ export function AlertCardList({
                   <span className="alerts-card-list__notification-meta">
                     {notificationSupportLabel(alert.notificationStatus)}
                   </span>
-                  {showRetry ? (
-                    <Button
-                      className="alerts-notification-retry"
-                      variant="ghost"
-                      disabled={!NOTIFICATION_RETRY_ENABLED}
-                      title={!NOTIFICATION_RETRY_ENABLED ? 'Retry requires backend endpoint' : undefined}
-                    >
-                      Retry
-                    </Button>
-                  ) : null}
                 </div>
               </div>
 

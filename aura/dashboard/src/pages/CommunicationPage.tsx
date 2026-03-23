@@ -682,8 +682,8 @@ export function CommunicationPage(): JSX.Element {
               </div>
 
               <div className="communication-page__composer">
-                <div className="communication-page__composer-identity" aria-label="Replying as clinician identity">
-                  <span className="communication-page__composer-identity-label">Replying as</span>
+                <div className="communication-page__composer-identity" aria-label="Local clinician identity">
+                  <span className="communication-page__composer-identity-label">Local clinician identity</span>
                   <div className="communication-page__composer-identity-card">
                     <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
                     <div className="communication-page__composer-identity-copy">
@@ -744,7 +744,7 @@ export function CommunicationPage(): JSX.Element {
                   className="communication-authoring-tools__note"
                   aria-live="polite"
                 >
-                  Local to this browser and still editable before send.
+                  Local to this browser and still editable during this review pass.
                 </p>
                 <label className="form-field communication-page__composer-field">
                   <span>Clinician reply</span>
@@ -768,7 +768,7 @@ export function CommunicationPage(): JSX.Element {
                     onClick={handleSendReply}
                     disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
                   >
-                    Send reply
+                    Save local reply
                   </Button>
                 </div>
               </div>

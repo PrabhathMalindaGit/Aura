@@ -21,6 +21,10 @@
   Runs daily at 09:00 Asia/Colombo, fetches a backend-built operational digest, optionally sends it to clinician Telegram chat, and posts truthful automation status callbacks.
 - `08 - Communication No-Response Escalation (Cron → Aura Process → Telegram → Callback).json`
   Runs on a daily schedule, fetches unresolved communication escalation candidates from Aura backend, upserts follow-up tasks where needed, optionally sends Telegram notices, and posts truthful automation status callbacks.
+- `09 - Alert Notification Processor (Cron every minute → Aura Internal Process).json`
+  Runs every minute, calls Aura's internal alert-notification processing route (`POST /internal/n8n/alert-notifications/process`) with a bounded `{ "limit": 25 }` body, and relies on the backend `AlertNotificationJob` durable path for actual delivery work.
+- `10 - Alert Notification Reconcile (Cron every 5 minutes → Aura Internal Reconcile).json`
+  Runs every 5 minutes, calls Aura's internal alert-notification reconcile route (`POST /internal/n8n/alert-notifications/reconcile`) with a bounded `{ "limit": 25 }` body, and relies on the backend `AlertNotificationJob` durable path for stale callback recovery.
 - `11 - Telegram Commands (／open ／ack ／resolve).json`
   Handles Telegram bot commands for clinician operations (`/open`, `/ack <alertId>`, `/resolve <alertId>`) with auth checks and backend API calls.
 
@@ -40,6 +44,9 @@
   - `04 - Task Reminder Timing (Cron → Aura Process → Telegram → Callback)`
   - `06 - Appointment Reminder and Status Follow-up (Cron → Aura Process → Telegram → Callback)`
   - `08 - Communication No-Response Escalation (Cron → Aura Process → Telegram → Callback)`
+- Imported as canonical alert-durability cadence workflows, but intentionally left inactive until this environment is explicitly chosen as the scheduler owner:
+  - `09 - Alert Notification Processor (Cron every minute → Aura Internal Process)`
+  - `10 - Alert Notification Reconcile (Cron every 5 minutes → Aura Internal Reconcile)`
 - Legacy workflows that may still exist in a local workspace must remain inactive and should not be used for demos:
   - `LEGACY - 01 - Alert Created Webhook (old)`
   - `07 - Daily Digest (Cron 09:00 → Open alerts → Telegram)`
@@ -50,6 +57,26 @@
 - `TELEGRAM_CLINICIAN_CHAT_ID`
   - Leave this as `CHANGE_ME` if you want the workflow to prove the callback path without attempting a real Telegram send
   - Set a real value only when you want to prove Telegram delivery
+
+## Alert cadence activation
+- Manual by default:
+  - `09 - Alert Notification Processor (Cron every minute → Aura Internal Process)`
+  - `10 - Alert Notification Reconcile (Cron every 5 minutes → Aura Internal Reconcile)`
+- Activate these only in environments that should automatically own alert-notification processing and reconciliation.
+- One active scheduler owner per environment:
+  - do not activate these workflows in multiple n8n instances against the same Aura backend environment
+  - the backend durable job model already protects individual job claims, but the safest operational model is still one active scheduler owner
+- Required environment for the cadence workflows:
+  - `AURA_API_BASE`
+  - `AURA_WEBHOOK_KEY`
+- Scheduled request bodies stay intentionally minimal:
+  - processor sends `{ "limit": 25 }`
+  - reconciler sends `{ "limit": 25 }`
+  - neither scheduled workflow sends `force: true` or `now`
+- If n8n is down:
+  - alert delivery and reconciliation cadence pauses
+  - `AlertNotificationJob` state remains durable in Mongo
+  - jobs resume when the scheduler owner comes back, and legacy alerts can still recover through the manual retry path
 
 ## Recommended local demo workflow
 - Use `07 - Daily Digest (Cron 09:00 → Aura Digest → Telegram → Callback)` for the cleanest local follow-through demo.
@@ -89,4 +116,5 @@ Run this check after workflow export updates:
 cd "/Users/University/Final Project/aura"
 rg -n "/events/notification-status" "n8n/workflows/01 - Alert Created Webhook (POST → Dedupe → Table → Telegram → Respond).json"
 rg -n "/events/automation-status|/internal/n8n/follow-through/" n8n/workflows/*.json
+rg -n "/internal/n8n/alert-notifications/process|/internal/n8n/alert-notifications/reconcile" n8n/workflows/*.json
 ```

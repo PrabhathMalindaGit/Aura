@@ -132,6 +132,13 @@ Full guides:
 - `/Users/University/Final Project/aura/n8n/README.md` for Workflow 01 click-by-click setup
 - `/Users/University/Final Project/aura/n8n/workflows/README.md` for the full canonical export list
 
+Alert durability cadence note:
+- To finish R2 alert durability in an environment that should automatically own notification processing, also import workflows `09 - Alert Notification Processor (Cron every minute → Aura Internal Process)` and `10 - Alert Notification Reconcile (Cron every 5 minutes → Aura Internal Reconcile)`.
+- Keep those two workflows inactive by default until that environment is explicitly chosen as the scheduler owner.
+- Activate them in only one n8n instance per backend environment.
+- They require `AURA_API_BASE` and `AURA_WEBHOOK_KEY` in n8n.
+- If n8n is down, alert notification cadence pauses, but durable jobs remain in Mongo and resume when the scheduler owner returns.
+
 Mini-summary:
 - Create `Webhook` node with method `POST` and path `alert-created`.
 - Connect a `Set` node to map key fields for easier viewing.

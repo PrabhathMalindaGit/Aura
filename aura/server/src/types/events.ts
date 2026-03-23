@@ -12,6 +12,7 @@ export type NotificationStatusCallbackBody = {
   attemptedAt?: string;
   messageId?: string;
   providerMessageId?: string;
+  attemptKey?: string;
   target?: string;
   error?: string;
   meta?: {

@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import { validateBody } from "../middleware/validate";
+import { applyNotificationCallback } from "../services/alertNotificationService";
 import { FOLLOW_THROUGH_WORKFLOW_VALUES } from "../services/followThroughAutomationService";
 import type {
   NotificationStatusCallbackBody,
@@ -25,6 +25,7 @@ const notificationStatusCallbackSchema = z.object({
   attemptedAt: z.string().optional(),
   messageId: z.string().trim().min(1).max(200).optional(),
   providerMessageId: z.string().trim().min(1).max(200).optional(),
+  attemptKey: z.string().trim().min(1).max(200).optional(),
   target: z.string().trim().min(1).max(200).optional(),
   error: z.string().max(1000).optional(),
   meta: z
@@ -207,22 +208,6 @@ function notificationSnapshot(notification: NormalizedNotification): Notificatio
   };
 }
 
-function getLatestNotificationTimestamp(notification: NormalizedNotification): Date | undefined {
-  const candidates = [
-    notification.attemptedAt,
-    notification.sentAt,
-    notification.failedAt,
-  ].filter((candidate): candidate is Date => Boolean(candidate));
-
-  if (candidates.length === 0) {
-    return undefined;
-  }
-
-  return candidates.reduce((latest, current) =>
-    current.getTime() > latest.getTime() ? current : latest
-  );
-}
-
 function buildNotificationEventKey(
   status: NotificationStatusCallbackStatus,
   alertId: string,
@@ -340,104 +325,34 @@ router.post(
     const callbackTimestamp = normalizedTimestamp.value;
 
     try {
-      const alert = await Alert.findById(alertId);
+      const callbackResult = await applyNotificationCallback({
+        alertId,
+        body,
+        callbackTimestamp,
+        callbackMessageId,
+      });
 
-      if (!alert) {
+      if (!callbackResult) {
         return res.status(404).json({
           ok: false,
           error: "NOT_FOUND",
         });
       }
 
-      const currentNotification = normalizeNotification(alert.notification);
-      const latestKnownTimestamp = getLatestNotificationTimestamp(currentNotification);
-      const isStaleUpdate = Boolean(
-        latestKnownTimestamp &&
-          callbackTimestamp.getTime() < latestKnownTimestamp.getTime()
-      );
-
-      if (isStaleUpdate) {
+      if (callbackResult.stale) {
         return res.json({
           ok: true,
-          alert: mapAlertNotificationResponse(alert),
+          alert: mapAlertNotificationResponse(callbackResult.alert),
           writtenEvents: [],
         });
       }
 
-      const nextNotification: NormalizedNotification = {
-        ...currentNotification,
-        channel: "telegram",
-      };
-
-      if (body.target) {
-        nextNotification.target = body.target;
-      }
-      if (callbackMessageId) {
-        nextNotification.messageId = callbackMessageId;
-      }
-
-      if (body.status === "attempted") {
-        nextNotification.attemptedAt = callbackTimestamp;
-        if (currentNotification.status !== "sent") {
-          nextNotification.status = "unknown";
-        }
-      }
-
-      if (body.status === "sent") {
-        nextNotification.status = "sent";
-        nextNotification.sentAt = callbackTimestamp;
-        if (!nextNotification.attemptedAt) {
-          nextNotification.attemptedAt = callbackTimestamp;
-        }
-        nextNotification.error = undefined;
-      }
-
-      if (body.status === "failed") {
-        nextNotification.status = "failed";
-        nextNotification.failedAt = callbackTimestamp;
-        if (!nextNotification.attemptedAt) {
-          nextNotification.attemptedAt = callbackTimestamp;
-        }
-        nextNotification.error =
-          sanitizeNotificationError(body.error) ?? "TELEGRAM_DELIVERY_FAILED";
-      }
-
-      if (body.status === "skipped") {
-        nextNotification.status = "skipped";
-        nextNotification.attemptedAt = callbackTimestamp;
-        if (body.error) {
-          nextNotification.error = sanitizeNotificationError(body.error);
-        }
-      }
-
-      const beforeSnapshot = notificationSnapshot(currentNotification);
-      const afterSnapshot = notificationSnapshot(nextNotification);
-      const hasNotificationChange =
-        JSON.stringify(beforeSnapshot) !== JSON.stringify(afterSnapshot);
-
-      if (hasNotificationChange) {
-        alert.notification = {
-          channel: nextNotification.channel,
-          status: nextNotification.status,
-          attemptedAt: nextNotification.attemptedAt,
-          sentAt: nextNotification.sentAt,
-          failedAt: nextNotification.failedAt,
-          target: nextNotification.target,
-          messageId: nextNotification.messageId,
-          error: nextNotification.error,
-          retryCount: nextNotification.retryCount,
-        };
-        await alert.save();
-      }
-
       const writtenEvents: string[] = [];
-      const shouldBackfillAttempted =
-        body.status !== "attempted" && !currentNotification.attemptedAt;
 
-      if (shouldBackfillAttempted) {
+      if (callbackResult.shouldBackfillAttempted) {
         const attemptedEvent = await writeNotificationEventIfMissing({
-          alertId: String(alert._id),
-          patientId: alert.patientId,
+          alertId: String(callbackResult.alert._id),
+          patientId: callbackResult.alert.patientId,
           status: "attempted",
           timestamp: callbackTimestamp,
           target: body.target,
@@ -449,21 +364,14 @@ router.post(
         }
       }
 
-      const sanitizedErrorForEvent =
-        body.status === "failed"
-          ? sanitizeNotificationError(body.error) ?? "TELEGRAM_DELIVERY_FAILED"
-          : body.status === "skipped"
-            ? sanitizeNotificationError(body.error)
-            : undefined;
-
       const notificationEvent = await writeNotificationEventIfMissing({
-        alertId: String(alert._id),
-        patientId: alert.patientId,
+        alertId: String(callbackResult.alert._id),
+        patientId: callbackResult.alert.patientId,
         status: body.status,
         timestamp: callbackTimestamp,
         target: body.target,
         messageId: callbackMessageId,
-        error: sanitizedErrorForEvent,
+        error: callbackResult.sanitizedErrorForEvent,
         meta: body.meta,
       });
       if (notificationEvent) {
@@ -472,7 +380,7 @@ router.post(
 
       return res.json({
         ok: true,
-        alert: mapAlertNotificationResponse(alert),
+        alert: mapAlertNotificationResponse(callbackResult.alert),
         writtenEvents,
       });
     } catch (error) {

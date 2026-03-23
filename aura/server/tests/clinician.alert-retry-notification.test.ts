@@ -16,6 +16,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import app from "../src/app";
 import { env } from "../src/env";
 import Alert from "../src/models/Alert";
+import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 
 describe("POST /clinician/alerts/:id/retry-notification", () => {
@@ -42,7 +43,11 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     mutableEnv.N8N_RETRY_WEBHOOK_URL = "";
     vi.restoreAllMocks();
 
-    await Promise.all([Alert.deleteMany({}), CareEvent.deleteMany({})]);
+    await Promise.all([
+      Alert.deleteMany({}),
+      AlertNotificationJob.deleteMany({}),
+      CareEvent.deleteMany({}),
+    ]);
   });
 
   afterEach(() => {
@@ -66,7 +71,7 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     });
   }
 
-  it("records retry request, increments retryCount, and returns queued", async () => {
+  it("records retry request, hydrates a durable job, and returns queued", async () => {
     const alert = await createAlert();
 
     const response = await request(app)
@@ -78,10 +83,16 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     expect(response.body.status).toBe("queued");
     expect(response.body.alert.notification.status).toBe("unknown");
 
+    const jobs = await AlertNotificationJob.find({
+      alertId: String(alert._id),
+      channel: "telegram",
+    }).lean();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.state).toBe("retry_scheduled");
+
     const updated = await Alert.findById(alert._id).lean();
-    expect(updated?.notification?.retryCount).toBe(1);
     expect(updated?.notification?.status).toBe("unknown");
-    expect(updated?.notification?.attemptedAt).toBeTruthy();
+    expect(updated?.notification?.retryCount).toBe(0);
 
     const requestedEvents = await CareEvent.find({
       alertId: String(alert._id),
@@ -92,7 +103,7 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     expect(requestedEvents[0]?.payload).toMatchObject({
       channel: "telegram",
       requestedBy: "c1",
-      retryCount: 1,
+      retryCount: 0,
     });
   });
 
@@ -150,6 +161,11 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     expect(response.body.ok).toBe(true);
     expect(postSpy).toHaveBeenCalledTimes(1);
 
+    const updated = await Alert.findById(alert._id).lean();
+    expect(updated?.notification?.status).toBe("unknown");
+    expect(updated?.notification?.attemptedAt).toBeTruthy();
+    expect(updated?.notification?.retryCount).toBe(1);
+
     const deliveredEvents = await CareEvent.find({
       alertId: String(alert._id),
       type: "NOTIFICATION_RETRY_WEBHOOK_DELIVERED",
@@ -158,7 +174,7 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     expect(deliveredEvents).toHaveLength(1);
   });
 
-  it("marks alert failed and emits webhook failed event when retry webhook fails", async () => {
+  it("keeps retry durable and emits webhook failed event when retry webhook fails", async () => {
     const alert = await createAlert();
     mutableEnv.N8N_RETRY_WEBHOOK_URL = "http://localhost:5678/webhook/retry";
 
@@ -173,9 +189,17 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     expect(response.body.status).toBe("queued");
 
     const updated = await Alert.findById(alert._id).lean();
-    expect(updated?.notification?.status).toBe("failed");
+    expect(updated?.notification?.status).toBe("unknown");
     expect(updated?.notification?.error).toBe("N8N_RETRY_WEBHOOK_FAILED");
-    expect(updated?.notification?.failedAt).toBeTruthy();
+    expect(updated?.notification?.attemptedAt).toBeTruthy();
+    expect(updated?.notification?.retryCount).toBe(1);
+
+    const jobs = await AlertNotificationJob.find({
+      alertId: String(alert._id),
+      channel: "telegram",
+    }).lean();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.state).toBe("retry_scheduled");
 
     const failedEvents = await CareEvent.find({
       alertId: String(alert._id),
@@ -183,5 +207,29 @@ describe("POST /clinician/alerts/:id/retry-notification", () => {
     }).lean();
 
     expect(failedEvents).toHaveLength(1);
+  });
+
+  it("reuses the same durable job across manual retries instead of creating duplicates", async () => {
+    const alert = await createAlert();
+
+    const first = await request(app)
+      .post(`/clinician/alerts/${String(alert._id)}/retry-notification`)
+      .send({ requestedBy: "c1" });
+
+    expect(first.status).toBe(200);
+
+    vi.advanceTimersByTime(16_000);
+
+    const second = await request(app)
+      .post(`/clinician/alerts/${String(alert._id)}/retry-notification`)
+      .send({ requestedBy: "c1" });
+
+    expect(second.status).toBe(200);
+
+    const jobs = await AlertNotificationJob.find({
+      alertId: String(alert._id),
+      channel: "telegram",
+    }).lean();
+    expect(jobs).toHaveLength(1);
   });
 });

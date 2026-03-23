@@ -26,6 +26,7 @@ vi.mock("../src/services/n8n", async () => {
 });
 
 import Alert from "../src/models/Alert";
+import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CommunicationReview from "../src/models/CommunicationReview";
@@ -59,6 +60,7 @@ describe("chatFlow integrity", () => {
 
     await Promise.all([
       Alert.deleteMany({}),
+      AlertNotificationJob.deleteMany({}),
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CommunicationReview.deleteMany({}),

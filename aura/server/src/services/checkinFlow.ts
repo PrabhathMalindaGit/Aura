@@ -16,8 +16,12 @@ import {
 } from "../constants/checkin";
 import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
+import {
+  dispatchJob,
+  enqueueInitialAlertNotification,
+  markAlertNotificationEnqueueFailure,
+} from "./alertNotificationService";
 import { classify } from "./ai";
-import { emitAlertCreated } from "./n8n";
 
 export type CheckInFlowInput = {
   patientId: string;
@@ -375,22 +379,59 @@ export async function processCheckIn(
       });
     }
 
-    n8nDelivered = await emitAlertCreated({
-      type: "ALERT_CREATED",
-      patientId: input.patientId,
-      alertId,
-      risk: "high",
-      reason: reasonCodes,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (!n8nDelivered) {
-      logger.error("Check-in alert webhook delivery not confirmed", {
+    try {
+      const notificationJob = await enqueueInitialAlertNotification({
+        alert: {
+          _id: alertId,
+          patientId: input.patientId,
+          reason: reasonCodes,
+        },
+        reasonCodes,
+      });
+      n8nDelivered = await dispatchJob(toId(notificationJob._id));
+      if (!n8nDelivered) {
+        logger.error("Check-in alert webhook delivery not confirmed", {
+          flow: "checkin",
+          patientId: input.patientId,
+          checkInId: toId(checkin._id),
+          alertId,
+        });
+      }
+    } catch (error) {
+      logger.error("HIGH_SEVERITY_DURABILITY_ERROR: alert notification enqueue failed", {
         flow: "checkin",
         patientId: input.patientId,
         checkInId: toId(checkin._id),
         alertId,
+        message: error instanceof Error ? error.message : String(error),
       });
+      await markAlertNotificationEnqueueFailure({
+        alertId,
+        errorCode: "ALERT_NOTIFICATION_ENQUEUE_FAILED",
+      });
+      try {
+        await CareEvent.create({
+          type: "NOTIFICATION_FAILED",
+          patientId: input.patientId,
+          alertId,
+          payload: {
+            channel: "telegram",
+            error: "ALERT_NOTIFICATION_ENQUEUE_FAILED",
+          },
+        });
+      } catch (careEventError) {
+        logger.error("Check-in enqueue failure care event write failed", {
+          flow: "checkin",
+          patientId: input.patientId,
+          checkInId: toId(checkin._id),
+          alertId,
+          message:
+            careEventError instanceof Error
+              ? careEventError.message
+              : String(careEventError),
+        });
+      }
+      n8nDelivered = false;
     }
 
     return {

@@ -29,6 +29,7 @@ vi.mock("../src/services/n8n", async () => {
 import app from "../src/app";
 import { env } from "../src/env";
 import Alert from "../src/models/Alert";
+import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
@@ -77,6 +78,7 @@ describe("patient auth + patient endpoints", () => {
 
     await Promise.all([
       Alert.deleteMany({}),
+      AlertNotificationJob.deleteMany({}),
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
@@ -287,6 +289,7 @@ describe("patient auth + patient endpoints", () => {
 
     const alertCount = await Alert.countDocuments({ patientId: "p1" });
     expect(alertCount).toBe(1);
+    expect(await AlertNotificationJob.countDocuments({ patientId: "p1" })).toBe(1);
     const created = await CheckIn.findOne({ patientId: "p1" }).lean();
     expect(created?.risk).toMatchObject({
       level: "high",
@@ -649,6 +652,7 @@ describe("patient auth + patient endpoints", () => {
       followUpRequested: true,
     });
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await AlertNotificationJob.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
   it("returns 502 and does not persist a patient chat message when classify is unavailable", async () => {

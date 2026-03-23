@@ -15,6 +15,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import app from "../src/app";
 import { env } from "../src/env";
 import Alert from "../src/models/Alert";
+import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 
 describe("POST /events/notification-status", () => {
@@ -39,7 +40,11 @@ describe("POST /events/notification-status", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-01T12:00:00.000Z"));
     mutableEnv.AURA_WEBHOOK_KEY = "test-webhook-key";
-    await Promise.all([Alert.deleteMany({}), CareEvent.deleteMany({})]);
+    await Promise.all([
+      Alert.deleteMany({}),
+      AlertNotificationJob.deleteMany({}),
+      CareEvent.deleteMany({}),
+    ]);
   });
 
   afterEach(() => {
@@ -148,6 +153,13 @@ describe("POST /events/notification-status", () => {
     expect(second.status).toBe(200);
     expect(second.body.ok).toBe(true);
 
+    const job = await AlertNotificationJob.findOne({
+      alertId: String(alert._id),
+      channel: "telegram",
+    }).lean();
+    expect(job?.state).toBe("delivered");
+    expect(job?.messageId).toBe("telegram-message-1");
+
     const sentEvents = await CareEvent.find({
       alertId: String(alert._id),
       type: "NOTIFICATION_SENT",
@@ -187,6 +199,13 @@ describe("POST /events/notification-status", () => {
       type: "NOTIFICATION_FAILED",
     }).lean();
     expect(failedEvents).toHaveLength(1);
+
+    const job = await AlertNotificationJob.findOne({
+      alertId: String(alert._id),
+      channel: "telegram",
+    }).lean();
+    expect(job?.state).toBe("failed");
+    expect(job?.lastError).toBe(storedError);
   });
 
   it("ignores stale status updates that are older than the latest notification timestamp", async () => {
@@ -228,6 +247,57 @@ describe("POST /events/notification-status", () => {
       type: "NOTIFICATION_FAILED",
     }).lean();
     expect(failedEvents).toHaveLength(0);
+  });
+
+  it("prefers attemptKey when present and ignores callbacks for a different active attempt", async () => {
+    const alert = await createAlert();
+    await AlertNotificationJob.create({
+      alertId: String(alert._id),
+      patientId: "p1",
+      channel: "telegram",
+      state: "awaiting_callback",
+      dispatchKind: "retry",
+      attemptCount: 2,
+      currentAttemptKey: "attempt-2",
+      lastAttemptedAt: new Date("2026-05-01T11:55:00.000Z"),
+      callbackDeadlineAt: new Date("2026-05-01T12:00:00.000Z"),
+    });
+
+    const stale = await request(app)
+      .post("/events/notification-status")
+      .set("x-aura-webhook-key", "test-webhook-key")
+      .send({
+        alertId: String(alert._id),
+        channel: "telegram",
+        status: "sent",
+        timestamp: "2026-05-01T11:56:00.000Z",
+        attemptKey: "attempt-1",
+      });
+
+    expect(stale.status).toBe(200);
+    expect(stale.body.writtenEvents).toEqual([]);
+
+    const fresh = await request(app)
+      .post("/events/notification-status")
+      .set("x-aura-webhook-key", "test-webhook-key")
+      .send({
+        alertId: String(alert._id),
+        channel: "telegram",
+        status: "sent",
+        timestamp: "2026-05-01T11:57:00.000Z",
+        attemptKey: "attempt-2",
+        messageId: "telegram-message-2",
+      });
+
+    expect(fresh.status).toBe(200);
+    expect(fresh.body.alert.notification.status).toBe("sent");
+
+    const job = await AlertNotificationJob.findOne({
+      alertId: String(alert._id),
+      channel: "telegram",
+    }).lean();
+    expect(job?.state).toBe("delivered");
+    expect(job?.messageId).toBe("telegram-message-2");
   });
 });
 

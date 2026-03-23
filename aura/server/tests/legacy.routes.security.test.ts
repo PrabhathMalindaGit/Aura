@@ -29,6 +29,7 @@ vi.mock("../src/services/n8n", async () => {
 import app from "../src/app";
 import { env } from "../src/env";
 import Alert from "../src/models/Alert";
+import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
 import CommunicationReview from "../src/models/CommunicationReview";
@@ -82,6 +83,7 @@ describe("legacy checkin/chat route security", () => {
 
     await Promise.all([
       Alert.deleteMany({}),
+      AlertNotificationJob.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
       CommunicationReview.deleteMany({}),

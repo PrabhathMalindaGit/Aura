@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import Alert from "../models/Alert";
 import {
+  dispatchDueJobs,
+  reconcileStaleJobs,
+} from "../services/alertNotificationService";
+import {
   buildDailyClinicianDigest,
   processAppointmentFollowThroughAutomation,
   processCommunicationNoResponseAutomation,
@@ -214,6 +218,53 @@ router.patch("/internal/n8n/alerts/:id", requireWebhookKey, async (req, res) => 
     });
   }
 });
+
+router.post(
+  "/internal/n8n/alert-notifications/process",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await dispatchDueJobs({
+        limit: parsedBody.value.limit,
+        now: parsedBody.value.now,
+      });
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Process alert notification jobs failed", {
+        route: "POST /internal/n8n/alert-notifications/process",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.post(
+  "/internal/n8n/alert-notifications/reconcile",
+  requireWebhookKey,
+  async (req, res) => {
+    const parsedBody = parseProcessBody(req.body);
+    if (!parsedBody.ok) {
+      return res.status(400).json(parsedBody.response);
+    }
+
+    try {
+      const result = await reconcileStaleJobs(parsedBody.value);
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      logger.error("Reconcile alert notification jobs failed", {
+        route: "POST /internal/n8n/alert-notifications/reconcile",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
 
 router.post(
   "/internal/n8n/follow-through/missed-checkins/process",

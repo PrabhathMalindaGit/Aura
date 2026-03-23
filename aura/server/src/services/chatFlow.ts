@@ -1,12 +1,16 @@
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import ChatMessage from "../models/ChatMessage";
+import {
+  dispatchJob,
+  enqueueInitialAlertNotification,
+  markAlertNotificationEnqueueFailure,
+} from "./alertNotificationService";
 import { upsertCommunicationReview } from "./communicationReviewService";
 import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
 import { redactText } from "../utils/redact";
 import { classify, ragReply } from "./ai";
-import { emitAlertCreated } from "./n8n";
 
 export const HIGH_RISK_REPLY =
   "I'm concerned about your safety. I've alerted your clinician. If you feel in danger, contact local emergency services now.";
@@ -146,22 +150,59 @@ export async function processChatMessage(
       });
     }
 
-    n8nDelivered = await emitAlertCreated({
-      type: "ALERT_CREATED",
-      patientId: input.patientId,
-      alertId,
-      risk: "high",
-      reason: aiResult.reasons,
-      timestamp: new Date().toISOString(),
-    });
-
-    if (!n8nDelivered) {
-      logger.error("Chat alert webhook delivery not confirmed", {
+    try {
+      const notificationJob = await enqueueInitialAlertNotification({
+        alert: {
+          _id: alertId,
+          patientId: input.patientId,
+          reason: aiResult.reasons,
+        },
+        reasonCodes: aiResult.reasons,
+      });
+      n8nDelivered = await dispatchJob(toId(notificationJob._id));
+      if (!n8nDelivered) {
+        logger.error("Chat alert webhook delivery not confirmed", {
+          flow: "chat",
+          patientId: input.patientId,
+          userMessageId: toId(userMsg._id),
+          alertId,
+        });
+      }
+    } catch (error) {
+      logger.error("HIGH_SEVERITY_DURABILITY_ERROR: alert notification enqueue failed", {
         flow: "chat",
         patientId: input.patientId,
         userMessageId: toId(userMsg._id),
         alertId,
+        message: error instanceof Error ? error.message : String(error),
       });
+      await markAlertNotificationEnqueueFailure({
+        alertId,
+        errorCode: "ALERT_NOTIFICATION_ENQUEUE_FAILED",
+      });
+      try {
+        await CareEvent.create({
+          type: "NOTIFICATION_FAILED",
+          patientId: input.patientId,
+          alertId,
+          payload: {
+            channel: "telegram",
+            error: "ALERT_NOTIFICATION_ENQUEUE_FAILED",
+          },
+        });
+      } catch (careEventError) {
+        logger.error("Chat enqueue failure care event write failed", {
+          flow: "chat",
+          patientId: input.patientId,
+          userMessageId: toId(userMsg._id),
+          alertId,
+          message:
+            careEventError instanceof Error
+              ? careEventError.message
+              : String(careEventError),
+        });
+      }
+      n8nDelivered = false;
     }
 
     if (input.persistHighRiskAssistantReply) {

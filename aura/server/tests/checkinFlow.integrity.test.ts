@@ -25,6 +25,7 @@ vi.mock("../src/services/n8n", async () => {
 });
 
 import Alert from "../src/models/Alert";
+import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import CheckIn from "../src/models/CheckIn";
 import Task from "../src/models/Task";
@@ -56,6 +57,7 @@ describe("checkinFlow integrity", () => {
 
     await Promise.all([
       Alert.deleteMany({}),
+      AlertNotificationJob.deleteMany({}),
       CareEvent.deleteMany({}),
       CheckIn.deleteMany({}),
       Task.deleteMany({}),

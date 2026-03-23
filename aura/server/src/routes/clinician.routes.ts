@@ -9,7 +9,12 @@ import Patient from "../models/Patient";
 import { validateBody } from "../middleware/validate";
 import type { RequestWithUser } from "../types/auth";
 import { env } from "../env";
-import { emitNotificationRetryRequested } from "../services/n8n";
+import {
+  AlertNotificationRetryThrottleError,
+  dispatchJob,
+  NOTIFICATION_RETRY_AFTER_SECONDS,
+  requestAlertNotificationRetry,
+} from "../services/alertNotificationService";
 import { isObjectId } from "../utils/ids";
 import { logger } from "../utils/logger";
 
@@ -89,8 +94,6 @@ const TRENDS_MAX_RECORDS = 2000;
 const CHECKINS_MAX_RECORDS = 2000;
 const CHECKINS_MAX_RANGE_DAYS = 366;
 const NOTES_PREVIEW_MAX_LENGTH = 120;
-const NOTIFICATION_RETRY_THROTTLE_MS = 15_000;
-const NOTIFICATION_RETRY_AFTER_SECONDS = 15;
 const CHAT_CONTEXT_WINDOW_SIDE_SIZE = 2;
 const TIMELINE_STRIP_KEYS = new Set(["text", "notes", "message", "content"]);
 const NOTIFICATION_CHANNELS = new Set([
@@ -1704,13 +1707,40 @@ router.post(
         });
       }
 
-      const now = new Date();
-      const attemptedAt = toDate(alert.notification?.attemptedAt);
+      const job = await requestAlertNotificationRetry({
+        alert: {
+          _id: alert._id,
+          patientId: alert.patientId,
+          reason: alert.reason,
+          notification: alert.notification,
+        },
+        actor: {
+          id: actor.id,
+          name: actorName,
+        },
+        reason,
+        channel,
+      });
 
-      if (
-        attemptedAt &&
-        now.getTime() - attemptedAt.getTime() < NOTIFICATION_RETRY_THROTTLE_MS
-      ) {
+      if (env.N8N_RETRY_WEBHOOK_URL) {
+        await dispatchJob(String(job._id));
+      }
+
+      const updatedAlert = await Alert.findById(alertId);
+      if (!updatedAlert) {
+        return res.status(404).json({
+          ok: false,
+          error: "NOT_FOUND",
+        });
+      }
+
+      return res.json({
+        ok: true,
+        status: "queued",
+        alert: mapAlertContextAlert(updatedAlert.toObject() as Record<string, unknown>),
+      });
+    } catch (error) {
+      if (error instanceof AlertNotificationRetryThrottleError) {
         return res.status(429).json({
           ok: false,
           error: "TOO_MANY_REQUESTS",
@@ -1718,88 +1748,6 @@ router.post(
         });
       }
 
-      const nextRetryCount =
-        typeof alert.notification?.retryCount === "number" &&
-        alert.notification.retryCount >= 0
-          ? alert.notification.retryCount + 1
-          : 1;
-
-      alert.notification = {
-        ...(alert.notification ?? {}),
-        channel,
-        status: "unknown",
-        attemptedAt: now,
-        retryCount: nextRetryCount,
-      } as typeof alert.notification;
-
-      await alert.save();
-
-      await CareEvent.create({
-        type: "NOTIFICATION_RETRY_REQUESTED",
-        patientId: alert.patientId,
-        alertId: String(alert._id),
-        payload: {
-          channel,
-          requestedBy: actor.id,
-          requestedByName: actorName,
-          reason,
-          retryCount: nextRetryCount,
-        },
-      });
-
-      if (env.N8N_RETRY_WEBHOOK_URL) {
-        const delivered = await emitNotificationRetryRequested({
-          type: "RETRY_NOTIFICATION_REQUESTED",
-          patientId: alert.patientId,
-          alertId: String(alert._id),
-          channel,
-          requestedBy: actor.id,
-          requestedByName: actorName,
-          timestamp: now.toISOString(),
-        });
-
-        if (delivered) {
-          await CareEvent.create({
-            type: "NOTIFICATION_RETRY_WEBHOOK_DELIVERED",
-            patientId: alert.patientId,
-            alertId: String(alert._id),
-            payload: {
-              channel,
-              requestedBy: actor.id,
-              retryCount: nextRetryCount,
-            },
-          });
-        } else {
-          alert.notification = {
-            ...(alert.notification ?? {}),
-            channel,
-            status: "failed",
-            failedAt: now,
-            error: "N8N_RETRY_WEBHOOK_FAILED",
-            retryCount: nextRetryCount,
-          } as typeof alert.notification;
-          await alert.save();
-
-          await CareEvent.create({
-            type: "NOTIFICATION_RETRY_WEBHOOK_FAILED",
-            patientId: alert.patientId,
-            alertId: String(alert._id),
-            payload: {
-              channel,
-              requestedBy: actor.id,
-              retryCount: nextRetryCount,
-              error: "N8N_RETRY_WEBHOOK_FAILED",
-            },
-          });
-        }
-      }
-
-      return res.json({
-        ok: true,
-        status: "queued",
-        alert: mapAlertContextAlert(alert.toObject() as Record<string, unknown>),
-      });
-    } catch (error) {
       logger.error("Post alert retry notification route failed", {
         route: "POST /clinician/alerts/:id/retry-notification",
         alertId,

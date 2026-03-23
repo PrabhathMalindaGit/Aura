@@ -8,6 +8,7 @@ type AuthTokenClaims = JwtPayload & {
   role: UserRole;
   email: string;
   name?: string;
+  sessionVersion?: number;
 };
 
 type TokenSubject = {
@@ -15,6 +16,7 @@ type TokenSubject = {
   role: UserRole;
   email: string;
   name?: string;
+  sessionVersion?: number;
 };
 
 const AUTH_TOKEN_TTL = "8h";
@@ -40,6 +42,10 @@ export function signAuthToken(subject: TokenSubject): string {
     role: subject.role,
     email: subject.email,
     name: subject.name,
+    sessionVersion:
+      typeof subject.sessionVersion === "number" && subject.sessionVersion >= 0
+        ? subject.sessionVersion
+        : 0,
   };
 
   const options: SignOptions = {
@@ -78,6 +84,12 @@ export function verifyAuthToken(token: string): AuthUser | null {
       role: decoded.role,
       email: decoded.email,
       name: typeof decoded.name === "string" ? decoded.name : undefined,
+      sessionVersion:
+        typeof decoded.sessionVersion === "number" &&
+        Number.isInteger(decoded.sessionVersion) &&
+        decoded.sessionVersion >= 0
+          ? decoded.sessionVersion
+          : 0,
     };
   } catch (_error) {
     return null;

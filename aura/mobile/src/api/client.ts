@@ -76,6 +76,13 @@ function mapHttpError(status: number, payload: unknown): ApiError {
     payload && typeof payload === "object" && "message" in payload
       ? String((payload as { message?: unknown }).message ?? "")
       : "";
+  const retryAfterSeconds =
+    payload &&
+    typeof payload === "object" &&
+    "retryAfterSeconds" in payload &&
+    typeof (payload as { retryAfterSeconds?: unknown }).retryAfterSeconds === "number"
+      ? (payload as { retryAfterSeconds: number }).retryAfterSeconds
+      : null;
 
   if (status === 400) {
     return buildApiError({
@@ -94,6 +101,20 @@ function mapHttpError(status: number, payload: unknown): ApiError {
       message: payloadMessage || "Authentication failed. Please sign in again.",
       kind: "validation",
       retryable: false,
+    });
+  }
+
+  if (status === 429) {
+    return buildApiError({
+      status,
+      title: "Too many attempts",
+      message:
+        payloadMessage ||
+        (retryAfterSeconds && retryAfterSeconds > 0
+          ? `Too many sign-in attempts. Try again in ${retryAfterSeconds} seconds.`
+          : "Too many sign-in attempts. Please wait a moment and try again."),
+      kind: "validation",
+      retryable: true,
     });
   }
 

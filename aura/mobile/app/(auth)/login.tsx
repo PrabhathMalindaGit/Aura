@@ -31,6 +31,10 @@ function toFriendlySignInMessage(error: unknown): string {
     return "That code didn’t work. Try again.";
   }
 
+  if (error.status === 429) {
+    return error.message || "Too many sign-in attempts. Please wait a moment and try again.";
+  }
+
   if (error.kind === "network") {
     return "Couldn’t reach the server. Try again.";
   }

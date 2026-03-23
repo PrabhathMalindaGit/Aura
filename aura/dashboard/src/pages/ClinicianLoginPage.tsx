@@ -64,11 +64,25 @@ function toSafeRedirectPath(candidate: string | undefined): string {
   return candidate;
 }
 
+export function shouldShowDemoCredentials(hostname?: string): boolean {
+  const normalizedHostname =
+    typeof hostname === 'string' ? hostname.trim().toLowerCase() : '';
+
+  return normalizedHostname === 'localhost' || normalizedHostname === '127.0.0.1';
+}
+
 export function ClinicianLoginPage(): JSX.Element {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state ?? {}) as LoginLocationState;
   const redirectTo = useMemo(() => (state.from ? toSafeRedirectPath(state.from) : null), [state.from]);
+  const showDemoCredentials = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return shouldShowDemoCredentials(window.location.hostname);
+  }, []);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -237,16 +251,18 @@ export function ClinicianLoginPage(): JSX.Element {
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? 'Signing in...' : 'Sign in'}
                 </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setEmail(DEMO_EMAIL);
-                    setPassword(DEMO_PASSWORD);
-                  }}
-                >
-                  Use demo credentials
-                </Button>
+                {showDemoCredentials ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setEmail(DEMO_EMAIL);
+                      setPassword(DEMO_PASSWORD);
+                    }}
+                  >
+                    Use local demo credentials
+                  </Button>
+                ) : null}
               </div>
             </form>
           </div>

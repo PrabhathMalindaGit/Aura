@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ClinicianLoginPage } from './ClinicianLoginPage';
+import { ClinicianLoginPage, shouldShowDemoCredentials } from './ClinicianLoginPage';
 import { getClinicianProfileStorageKey } from '../services/clinicianProfile';
 
 function toBase64Url(value: string): string {
@@ -105,13 +105,23 @@ describe('ClinicianLoginPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the local demo helper only on local hosts', () => {
+    expect(shouldShowDemoCredentials('localhost')).toBe(true);
+    expect(shouldShowDemoCredentials('127.0.0.1')).toBe(true);
+    expect(shouldShowDemoCredentials('dashboard.example.com')).toBe(false);
+
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Use local demo credentials' })).toBeInTheDocument();
+  });
+
   it('signs in and routes to alerts on valid credentials', async () => {
     seedPreferredLandingRoute('auth-clinician-1', '/communication');
+    const token = buildToken({ sub: 'auth-clinician-1', name: 'Clinician One' });
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
         JSON.stringify({
           ok: true,
-          token: buildToken({ sub: 'auth-clinician-1', name: 'Clinician One' }),
+          token,
           clinician: {
             id: 'clinician-1',
             name: 'Clinician One',
@@ -138,9 +148,7 @@ describe('ClinicianLoginPage', () => {
       expect(screen.getByText('Alerts workspace')).toBeInTheDocument();
     });
 
-    expect(window.localStorage.getItem('aura_access_token')).toBe(
-      buildToken({ sub: 'auth-clinician-1', name: 'Clinician One' }),
-    );
+    expect(window.localStorage.getItem('aura_access_token')).toBe(token);
   });
 
   it('uses the saved preferred landing when no redirect source is provided', async () => {

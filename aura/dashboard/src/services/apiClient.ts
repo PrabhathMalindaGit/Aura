@@ -196,6 +196,10 @@ function toEndpointPath(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+function shouldClearClinicianSession(endpointPath: string): boolean {
+  return endpointPath.startsWith('/clinician/') || endpointPath === '/auth/clinician/me';
+}
+
 function safeMessageForStatus(status: number): { message: string; hint?: string } {
   if (status === 400) {
     return { message: 'The request was invalid.', hint: 'Please refresh and try again.' };
@@ -323,7 +327,7 @@ export async function fetchJson<T>(path: string, options: FetchJsonOptions = {})
     if (
       appError.kind === 'HTTP' &&
       (appError.status === 401 || appError.status === 403) &&
-      endpointPath.startsWith('/clinician/')
+      shouldClearClinicianSession(endpointPath)
     ) {
       clearStoredClinicianTokens({ emitEvent: true, reason: 'expired' });
     }

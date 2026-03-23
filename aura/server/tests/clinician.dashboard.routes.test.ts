@@ -21,14 +21,16 @@ import CommunicationReview from "../src/models/CommunicationReview";
 import InsightSuggestion from "../src/models/InsightSuggestion";
 import Patient from "../src/models/Patient";
 import Task from "../src/models/Task";
+import User from "../src/models/User";
 import { signAuthToken } from "../src/utils/jwt";
 
-function clinicianToken(userId = "clinician-1"): string {
+function clinicianToken(user: { _id: unknown; email: string; displayName?: string; sessionVersion?: number }): string {
   return signAuthToken({
-    id: userId,
+    id: String(user._id),
     role: "clinician",
-    email: `${userId}@example.com`,
-    name: "Clinician One",
+    email: user.email,
+    name: user.displayName ?? "Clinician One",
+    sessionVersion: user.sessionVersion ?? 0,
   });
 }
 
@@ -60,6 +62,7 @@ describe("clinician dashboard aggregate routes", () => {
       InsightSuggestion.deleteMany({}),
       Patient.deleteMany({}),
       Task.deleteMany({}),
+      User.deleteMany({}),
     ]);
   });
 
@@ -68,11 +71,20 @@ describe("clinician dashboard aggregate routes", () => {
   });
 
   it("returns dashboard summary, queue, and overview aggregates", async () => {
+    const clinicianUser = await User.create({
+      email: "clinician-1@example.com",
+      passwordHash: "unused-password-hash",
+      role: "clinician",
+      displayName: "Clinician One",
+      sessionVersion: 0,
+    });
+    const clinicianId = String(clinicianUser._id);
+
     await Patient.create({
       patientId: "p1",
       displayName: "Jordan Lee",
       status: "active",
-      clinicianId: "clinician-1",
+      clinicianId,
     });
 
     const alert = await Alert.create({
@@ -80,7 +92,7 @@ describe("clinician dashboard aggregate routes", () => {
       reason: "High pain escalation",
       source: { type: "checkin", sourceId: "checkin-1" },
       status: "open",
-      assignedTo: "clinician-1",
+      assignedTo: clinicianId,
     });
 
     await CareEvent.create({
@@ -113,14 +125,14 @@ describe("clinician dashboard aggregate routes", () => {
       priority: "urgent",
       status: "open",
       dueAt: new Date("2026-03-09T09:00:00.000Z"),
-      assignedTo: "clinician-1",
-      createdBy: "clinician-1",
+      assignedTo: clinicianId,
+      createdBy: clinicianId,
       source: { type: "alert", entityType: "alert", entityId: String(alert._id) },
       linkedAlertId: String(alert._id),
     });
 
     const slot = await AppointmentSlot.create({
-      clinicianId: "clinician-1",
+      clinicianId,
       startsAt: new Date("2026-03-09T13:00:00.000Z"),
       endsAt: new Date("2026-03-09T13:30:00.000Z"),
       status: "available",
@@ -144,7 +156,7 @@ describe("clinician dashboard aggregate routes", () => {
       messagePreview: "My pain feels much worse after yesterday's exercise.",
     });
 
-    const authHeader = { Authorization: `Bearer ${clinicianToken()}` };
+    const authHeader = { Authorization: `Bearer ${clinicianToken(clinicianUser)}` };
 
     const summaryResponse = await request(app)
       .get("/clinician/dashboard/summary")

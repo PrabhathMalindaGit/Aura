@@ -220,6 +220,57 @@ describe('fetchJson', () => {
     expect(window.localStorage.getItem('aura_access_token')).toBeNull();
     expect(reasons).toContain('expired');
   });
+
+  it('clears tokens and emits auth-required event on clinician bootstrap 401 response', async () => {
+    window.localStorage.setItem('aura_access_token', 'ACCESS_TOKEN');
+    const reasons: string[] = [];
+    const unsubscribe = subscribeAuthRequired((reason) => {
+      reasons.push(reason);
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: false, error: 'UNAUTHORIZED' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(fetchJson('/auth/clinician/me')).rejects.toMatchObject({
+      kind: 'HTTP',
+      status: 401,
+    });
+
+    unsubscribe();
+    expect(window.localStorage.getItem('aura_access_token')).toBeNull();
+    expect(reasons).toContain('expired');
+  });
+
+  it('does not clear tokens on clinician login failures', async () => {
+    window.localStorage.setItem('aura_access_token', 'ACCESS_TOKEN');
+    const reasons: string[] = [];
+    const unsubscribe = subscribeAuthRequired((reason) => {
+      reasons.push(reason);
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ ok: false, error: 'UNAUTHORIZED' }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      fetchJson('/auth/clinician/login', {
+        method: 'POST',
+        json: { email: 'clinician@example.com', password: 'wrong-password' },
+      }),
+    ).rejects.toMatchObject({
+      kind: 'HTTP',
+      status: 401,
+    });
+
+    unsubscribe();
+    expect(window.localStorage.getItem('aura_access_token')).toBe('ACCESS_TOKEN');
+    expect(reasons).toEqual([]);
+  });
 });
 
 describe('isRetryable', () => {

@@ -7,6 +7,7 @@ export type AuthUser = {
   role: UserRole;
   email: string;
   name?: string;
+  sessionVersion: number;
 };
 
 export type RequestWithUser = Request & {

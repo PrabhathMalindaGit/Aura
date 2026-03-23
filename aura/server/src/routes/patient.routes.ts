@@ -19,6 +19,7 @@ import Patient from "../models/Patient";
 import { env } from "../env";
 import { requirePatientAuth } from "../middleware/patientAuth";
 import { validateBody } from "../middleware/validate";
+import { consumeLoginThrottle } from "../services/loginThrottle";
 import { AIUnavailableError } from "../services/ai";
 import { processChatMessage } from "../services/chatFlow";
 import {
@@ -30,8 +31,12 @@ import {
 import type { RequestWithPatient } from "../types/patientAuth";
 import { logger } from "../utils/logger";
 import { signPatientToken, hasPatientJwtSecretConfigured } from "../utils/patientJwt";
+import { getRequestIp } from "../utils/requestIp";
 
 const router = Router();
+const PATIENT_LOGIN_WINDOW_MS = 15 * 60_000;
+const PATIENT_LOGIN_PRINCIPAL_MAX_ATTEMPTS = 5;
+const PATIENT_LOGIN_IP_MAX_ATTEMPTS = 20;
 
 const sleepHoursSchema = z
   .number()
@@ -236,6 +241,37 @@ router.post("/patient/auth/login", validateBody(patientLoginSchema), async (req,
 
   try {
     const body = req.body as z.infer<typeof patientLoginSchema>;
+    const ip = getRequestIp(req);
+    const loginPrincipal = body.accessCode
+      ? `accessCode:${body.accessCode}`
+      : body.patientId
+        ? `patientId:${body.patientId}`
+        : "";
+    const attempt = await consumeLoginThrottle({
+      scope: "patient_login",
+      buckets: [
+        {
+          scopeSuffix: "principal",
+          key: loginPrincipal,
+          limit: PATIENT_LOGIN_PRINCIPAL_MAX_ATTEMPTS,
+          windowMs: PATIENT_LOGIN_WINDOW_MS,
+        },
+        {
+          scopeSuffix: "ip",
+          key: ip,
+          limit: PATIENT_LOGIN_IP_MAX_ATTEMPTS,
+          windowMs: PATIENT_LOGIN_WINDOW_MS,
+        },
+      ],
+    });
+
+    if (!attempt.allowed) {
+      return res.status(429).json({
+        ok: false,
+        error: "TOO_MANY_REQUESTS",
+        retryAfterSeconds: attempt.retryAfterSeconds,
+      });
+    }
 
     let patient = null;
 

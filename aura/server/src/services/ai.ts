@@ -38,6 +38,7 @@ export async function classify(input: ClassifyInput): Promise<ClassifyOutput> {
       timeout: 4000,
       headers: {
         "Content-Type": "application/json",
+        "x-aura-ai-key": env.AURA_AI_SERVICE_KEY,
       },
     });
 
@@ -61,6 +62,7 @@ export async function ragReply(input: RagReplyInput): Promise<RagReplyOutput> {
       timeout: 4000,
       headers: {
         "Content-Type": "application/json",
+        "x-aura-ai-key": env.AURA_AI_SERVICE_KEY,
       },
     });
 

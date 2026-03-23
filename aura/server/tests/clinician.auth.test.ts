@@ -7,6 +7,7 @@ import app from "../src/app";
 import { env } from "../src/env";
 import Alert from "../src/models/Alert";
 import CareEvent from "../src/models/CareEvent";
+import User from "../src/models/User";
 import { signAuthToken } from "../src/utils/jwt";
 
 describe("clinician route auth and RBAC", () => {
@@ -35,7 +36,7 @@ describe("clinician route auth and RBAC", () => {
   beforeEach(async () => {
     mutableEnv.JWT_SECRET = "test-jwt-secret";
     mutableEnv.ALLOW_UNAUTH_CLINICIAN_BODY_IDS = false;
-    await Promise.all([Alert.deleteMany({}), CareEvent.deleteMany({})]);
+    await Promise.all([Alert.deleteMany({}), CareEvent.deleteMany({}), User.deleteMany({})]);
   });
 
   async function createAlert() {
@@ -48,6 +49,27 @@ describe("clinician route auth and RBAC", () => {
       },
       status: "open",
     });
+  }
+
+  async function createClinicianAuth(overrides: Partial<{ email: string; displayName: string; role: "clinician" | "admin" | "patient"; sessionVersion: number }> = {}) {
+    const user = await User.create({
+      email: overrides.email ?? "clinician@example.com",
+      passwordHash: "unused-password-hash",
+      role: overrides.role ?? "clinician",
+      displayName: overrides.displayName ?? "Clinician Token",
+      sessionVersion: overrides.sessionVersion ?? 0,
+    });
+
+    return {
+      user,
+      token: signAuthToken({
+        id: String(user._id),
+        role: user.role,
+        email: user.email,
+        name: user.displayName,
+        sessionVersion: user.sessionVersion,
+      }),
+    };
   }
 
   it("returns 401 without token when ALLOW_UNAUTH_CLINICIAN_BODY_IDS is false", async () => {
@@ -76,12 +98,7 @@ describe("clinician route auth and RBAC", () => {
 
   it("uses token identity for seen endpoint even when body is spoofed", async () => {
     const alert = await createAlert();
-    const token = signAuthToken({
-      id: "clinician-token-id",
-      role: "clinician",
-      email: "clinician@example.com",
-      name: "Clinician Token",
-    });
+    const { user, token } = await createClinicianAuth();
 
     const response = await request(app)
       .patch(`/clinician/alerts/${String(alert._id)}/seen`)
@@ -95,7 +112,7 @@ describe("clinician route auth and RBAC", () => {
     expect(response.body.ok).toBe(true);
 
     const updatedAlert = await Alert.findById(alert._id).lean();
-    expect(updatedAlert?.seenBy).toContain("clinician-token-id");
+    expect(updatedAlert?.seenBy).toContain(String(user._id));
     expect(updatedAlert?.seenBy).not.toContain("spoofed-id");
 
     const careEvent = await CareEvent.findOne({
@@ -103,18 +120,16 @@ describe("clinician route auth and RBAC", () => {
       type: "ALERT_SEEN",
     }).lean();
     expect(careEvent?.payload).toMatchObject({
-      clinicianId: "clinician-token-id",
+      clinicianId: String(user._id),
       clinicianName: "Clinician Token",
     });
   });
 
   it("uses req.user for assignment requestedBy and supports assign-to-me shortcut", async () => {
     const alert = await createAlert();
-    const token = signAuthToken({
-      id: "clinician-assignment-user",
-      role: "clinician",
+    const { user, token } = await createClinicianAuth({
       email: "clinician2@example.com",
-      name: "Clinician Two",
+      displayName: "Clinician Two",
     });
 
     const response = await request(app)
@@ -127,17 +142,82 @@ describe("clinician route auth and RBAC", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
-    expect(response.body.alert.assignedTo).toBe("clinician-assignment-user");
+    expect(response.body.alert.assignedTo).toBe(String(user._id));
 
     const careEvent = await CareEvent.findOne({
       alertId: String(alert._id),
       type: "ALERT_ASSIGNED",
     }).lean();
     expect(careEvent?.payload).toMatchObject({
-      requestedBy: "clinician-assignment-user",
+      requestedBy: String(user._id),
       requestedByName: "Clinician Two",
-      assignedTo: "clinician-assignment-user",
+      assignedTo: String(user._id),
     });
+  });
+
+  it("returns 401 when a clinician token points to a missing user", async () => {
+    const missingUserId = new mongoose.Types.ObjectId().toString();
+    const token = signAuthToken({
+      id: missingUserId,
+      role: "clinician",
+      email: "missing@example.com",
+      name: "Missing Clinician",
+      sessionVersion: 0,
+    });
+
+    const response = await request(app)
+      .get("/clinician/alerts?status=open")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("UNAUTHORIZED");
+  });
+
+  it("returns 401 when a clinician token has a stale sessionVersion", async () => {
+    const user = await User.create({
+      email: "stale@example.com",
+      passwordHash: "unused-password-hash",
+      role: "clinician",
+      displayName: "Stale Session",
+      sessionVersion: 1,
+    });
+    const token = signAuthToken({
+      id: String(user._id),
+      role: "clinician",
+      email: user.email,
+      name: user.displayName,
+      sessionVersion: 0,
+    });
+
+    const response = await request(app)
+      .get("/clinician/alerts?status=open")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("UNAUTHORIZED");
+  });
+
+  it("returns 403 when the live user role no longer has clinician access", async () => {
+    const { token } = await createClinicianAuth({
+      email: "downgraded@example.com",
+      displayName: "Downgraded Clinician",
+    });
+
+    await User.updateOne(
+      { email: "downgraded@example.com" },
+      {
+        $set: {
+          role: "patient",
+        },
+      }
+    );
+
+    const response = await request(app)
+      .get("/clinician/alerts?status=open")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("FORBIDDEN");
   });
 
   it("accepts legacy body clinician ids without token when ALLOW_UNAUTH... is true", async () => {

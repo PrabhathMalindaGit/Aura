@@ -8,10 +8,37 @@ import { requireRoles } from "./middleware/rbac";
 import routes from "./routes";
 
 const app = express();
+const LOCAL_CORS_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
+  "http://localhost:19006",
+  "http://127.0.0.1:19006",
+]);
 
 assertRuntimeEnvSafety(env);
 
-app.use(cors());
+app.use(
+  cors({
+    credentials: false,
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const allowedOrigins = new Set(env.CORS_ALLOWED_ORIGINS);
+      if (env.NODE_ENV === "development" || env.NODE_ENV === "test") {
+        for (const localOrigin of LOCAL_CORS_ORIGINS) {
+          allowedOrigins.add(localOrigin);
+        }
+      }
+
+      callback(null, allowedOrigins.has(origin));
+    },
+  })
+);
 app.use(express.json());
 
 app.use(

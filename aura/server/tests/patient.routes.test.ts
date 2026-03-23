@@ -34,6 +34,7 @@ import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
 import CommunicationReview from "../src/models/CommunicationReview";
+import LoginThrottle from "../src/models/LoginThrottle";
 import Patient from "../src/models/Patient";
 import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
 import { emitAlertCreated } from "../src/services/n8n";
@@ -83,6 +84,7 @@ describe("patient auth + patient endpoints", () => {
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
       CommunicationReview.deleteMany({}),
+      LoginThrottle.deleteMany({}),
       Patient.deleteMany({}),
     ]);
   });
@@ -117,11 +119,35 @@ describe("patient auth + patient endpoints", () => {
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
     expect(typeof response.body.token).toBe("string");
+    expect(Object.keys(response.body).sort()).toEqual(["ok", "patient", "token"]);
     expect(response.body.patient).toMatchObject({
       id: "p1",
       displayName: "Patient One",
       status: "active",
     });
+  });
+
+  it("returns 429 with retryAfterSeconds after repeated failed access-code attempts", async () => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await request(app).post("/patient/auth/login").send({
+        accessCode: "WRONG-CODE",
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toBe("UNAUTHORIZED");
+    }
+
+    const throttledResponse = await request(app).post("/patient/auth/login").send({
+      accessCode: "WRONG-CODE",
+    });
+
+    expect(throttledResponse.status).toBe(429);
+    expect(throttledResponse.body).toMatchObject({
+      ok: false,
+      error: "TOO_MANY_REQUESTS",
+    });
+    expect(typeof throttledResponse.body.retryAfterSeconds).toBe("number");
+    expect(throttledResponse.body.retryAfterSeconds).toBeGreaterThan(0);
   });
 
   it("allows patientId login only when DEMO_PATIENT_LOGIN=true", async () => {
@@ -153,6 +179,7 @@ describe("patient auth + patient endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
+    expect(Object.keys(response.body).sort()).toEqual(["ok", "patient"]);
     expect(response.body.patient).toMatchObject({
       id: "p3",
       displayName: "Patient Three",

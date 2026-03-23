@@ -25,6 +25,11 @@ const userSchema = new Schema(
       type: String,
       trim: true,
     },
+    sessionVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,

@@ -12,6 +12,7 @@ import {
 import { logger } from "../utils/logger";
 import { verifyPatientToken } from "../utils/patientJwt";
 import { redactText } from "../utils/redact";
+import { hasValidSharedSecret } from "../utils/sharedSecret";
 
 const router = Router();
 
@@ -51,7 +52,7 @@ function resolveLegacyPatientId(
     return { ok: false, status: 401 };
   }
 
-  if (!env.AURA_INTERNAL_KEY || internalKey !== env.AURA_INTERNAL_KEY) {
+  if (!hasValidSharedSecret(internalKey, env.AURA_INTERNAL_KEY)) {
     return { ok: false, status: 401 };
   }
 

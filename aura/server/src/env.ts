@@ -19,6 +19,17 @@ function toBool(value: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+function toStringArray(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 const nodeEnv = process.env.NODE_ENV || "development";
 
 export const env = {
@@ -33,6 +44,9 @@ export const env = {
     process.env.AURA_WEBHOOK_KEY ||
     (nodeEnv === "production" ? "" : "dev_aura_webhook_key"),
   AURA_INTERNAL_KEY: process.env.AURA_INTERNAL_KEY || "",
+  AURA_AI_SERVICE_KEY:
+    process.env.AURA_AI_SERVICE_KEY ||
+    (nodeEnv === "production" ? "" : "dev_aura_ai_key"),
   JWT_SECRET:
     process.env.JWT_SECRET ||
     (nodeEnv === "production" ? "" : "dev_jwt_secret"),
@@ -54,10 +68,12 @@ export const env = {
     process.env.ALLOW_UNAUTH_CLINICIAN_BODY_IDS,
     false
   ),
+  CORS_ALLOWED_ORIGINS: toStringArray(process.env.CORS_ALLOWED_ORIGINS),
   PAIN_HIGH_THRESHOLD: toInt(process.env.PAIN_HIGH_THRESHOLD, 7),
 } as const;
 
 type RuntimeEnv = {
+  CORS_ALLOWED_ORIGINS: readonly string[];
   NODE_ENV: string;
   ALLOW_UNAUTH_CLINICIAN_BODY_IDS: boolean;
 };
@@ -65,5 +81,15 @@ type RuntimeEnv = {
 export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
   if (value.ALLOW_UNAUTH_CLINICIAN_BODY_IDS && value.NODE_ENV !== "test") {
     throw new Error("ALLOW_UNAUTH_CLINICIAN_BODY_IDS is allowed only when NODE_ENV=test");
+  }
+
+  if (
+    value.NODE_ENV !== "development" &&
+    value.NODE_ENV !== "test" &&
+    value.CORS_ALLOWED_ORIGINS.length === 0
+  ) {
+    throw new Error(
+      "CORS_ALLOWED_ORIGINS must be set for non-local environments"
+    );
   }
 }

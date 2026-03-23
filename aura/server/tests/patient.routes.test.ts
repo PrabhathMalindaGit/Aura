@@ -32,8 +32,9 @@ import Alert from "../src/models/Alert";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
+import CommunicationReview from "../src/models/CommunicationReview";
 import Patient from "../src/models/Patient";
-import { classify, ragReply } from "../src/services/ai";
+import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
 import { emitAlertCreated } from "../src/services/n8n";
 import { signPatientToken } from "../src/utils/patientJwt";
 
@@ -79,6 +80,7 @@ describe("patient auth + patient endpoints", () => {
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
+      CommunicationReview.deleteMany({}),
       Patient.deleteMany({}),
     ]);
   });
@@ -251,6 +253,11 @@ describe("patient auth + patient endpoints", () => {
         { region: "knee_left", intensity: 5, type: "ache" },
       ],
     });
+    expect(created?.risk).toMatchObject({
+      level: "low",
+      reasons: [],
+    });
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
   it("creates high-risk patient check-in and escalates alert", async () => {
@@ -280,6 +287,43 @@ describe("patient auth + patient endpoints", () => {
 
     const alertCount = await Alert.countDocuments({ patientId: "p1" });
     expect(alertCount).toBe(1);
+    const created = await CheckIn.findOne({ patientId: "p1" }).lean();
+    expect(created?.risk).toMatchObject({
+      level: "high",
+      reasons: expect.arrayContaining(["PAIN_GE_THRESHOLD"]),
+    });
+  });
+
+  it("returns 502 and does not persist a patient check-in when classify is unavailable", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-24",
+        mood: 2,
+        pain: 8,
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CareEvent.countDocuments({ patientId: "p1" })).toBe(0);
+
+    const history = await request(app)
+      .get("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.checkins).toEqual([]);
   });
 
   it("escalates when urgent help is requested even if classifier returns low risk", async () => {
@@ -353,6 +397,7 @@ describe("patient auth + patient endpoints", () => {
     expect(duplicate.status).toBe(409);
     expect(duplicate.body.ok).toBe(false);
     expect(duplicate.body.error).toBe("DUPLICATE_CHECKIN");
+    expect(vi.mocked(classify)).toHaveBeenCalledTimes(1);
   });
 
   it("rejects invalid sleep fields on patient check-in", async () => {
@@ -561,6 +606,15 @@ describe("patient auth + patient endpoints", () => {
     expect(messages).toHaveLength(2);
     expect(messages[0]?.role).toBe("user");
     expect(messages[1]?.role).toBe("assistant");
+    const review = await CommunicationReview.findOne({
+      patientId: "p1",
+      messageId: String(messages[0]?._id),
+    }).lean();
+    expect(review).toMatchObject({
+      needsResponse: false,
+      flaggedBySafety: false,
+      followUpRequested: false,
+    });
   });
 
   it("returns high-risk patient chat without assistant reply", async () => {
@@ -585,6 +639,76 @@ describe("patient auth + patient endpoints", () => {
 
     const messages = await ChatMessage.find({ patientId: "p1" }).lean();
     expect(messages).toHaveLength(1);
+    const review = await CommunicationReview.findOne({
+      patientId: "p1",
+      messageId: String(messages[0]?._id),
+    }).lean();
+    expect(review).toMatchObject({
+      needsResponse: true,
+      flaggedBySafety: true,
+      followUpRequested: true,
+    });
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
+  });
+
+  it("returns 502 and does not persist a patient chat message when classify is unavailable", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/chat/send")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ message: "I feel unsafe" });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+
+    const history = await request(app)
+      .get("/patient/chat/history")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.messages).toEqual([]);
+  });
+
+  it("returns 502 and does not persist a patient chat message when low-risk reply generation fails", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(ragReply).mockRejectedValue(new AIUnavailableError());
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/chat/send")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ message: "How should I pace exercise today?" });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+
+    const history = await request(app)
+      .get("/patient/chat/history")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.messages).toEqual([]);
   });
 
   it("returns patient chat history with default limit", async () => {

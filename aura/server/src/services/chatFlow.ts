@@ -3,6 +3,7 @@ import CareEvent from "../models/CareEvent";
 import ChatMessage from "../models/ChatMessage";
 import { upsertCommunicationReview } from "./communicationReviewService";
 import { toId } from "../utils/ids";
+import { logger } from "../utils/logger";
 import { redactText } from "../utils/redact";
 import { classify, ragReply } from "./ai";
 import { emitAlertCreated } from "./n8n";
@@ -37,78 +38,155 @@ export type ProcessChatResult = {
 export async function processChatMessage(
   input: ProcessChatInput
 ): Promise<ProcessChatResult> {
+  const aiResult = await classify({ type: "chat", text: input.text });
+  const assistantReply =
+    aiResult.risk === "low"
+      ? input.lowRiskMode === "rag"
+        ? (await ragReply({
+            patientId: input.patientId,
+            message: input.text,
+          })).reply
+        : LOW_RISK_REPLY
+      : undefined;
+
+  // The critical write set is user+assistant for low risk and user+alert for high risk.
   const userMsg = await ChatMessage.create({
     patientId: input.patientId,
     role: "user",
     text: input.text,
     risk: {
-      level: "low",
-      reasons: [],
+      level: aiResult.risk,
+      reasons: aiResult.reasons,
     },
   });
 
-  const aiResult = await classify({ type: "chat", text: input.text });
-
-  userMsg.risk = {
-    level: aiResult.risk,
-    reasons: aiResult.reasons,
-  };
-  await userMsg.save();
-
-  await upsertCommunicationReview({
-    patientId: input.patientId,
-    messageId: toId(userMsg._id),
-    needsResponse: aiResult.risk === "high",
-    flaggedBySafety: aiResult.risk === "high",
-    followUpRequested: aiResult.risk === "high",
-    messageCreatedAt: userMsg.createdAt,
-    messagePreview: input.text,
-  });
-
   if (aiResult.risk === "high") {
-    const alert = await Alert.create({
-      patientId: input.patientId,
-      reason: aiResult.reasons.join(", "),
-      source: {
-        type: "chat",
-        sourceId: toId(userMsg._id),
-      },
-    });
+    let alertId: string;
+    try {
+      const alert = await Alert.create({
+        patientId: input.patientId,
+        reason: aiResult.reasons.join(", "),
+        source: {
+          type: "chat",
+          sourceId: toId(userMsg._id),
+        },
+      });
+      alertId = toId(alert._id);
+    } catch (error) {
+      // Compensating cleanup reduces partial writes here, but this is not true cross-document atomicity.
+      try {
+        const rollbackResult = await ChatMessage.deleteOne({ _id: userMsg._id });
+        if (rollbackResult.deletedCount !== 1) {
+          logger.error("HIGH_SEVERITY_INTEGRITY_ERROR: chat rollback failed", {
+            flow: "chat",
+            stage: "alert_create",
+            patientId: input.patientId,
+            userMessageId: toId(userMsg._id),
+            originalError: error instanceof Error ? error.message : String(error),
+            rollbackError: `deleteOne deleted ${rollbackResult.deletedCount ?? 0} records`,
+          });
+        }
+      } catch (rollbackError) {
+        logger.error("HIGH_SEVERITY_INTEGRITY_ERROR: chat rollback failed", {
+          flow: "chat",
+          stage: "alert_create",
+          patientId: input.patientId,
+          userMessageId: toId(userMsg._id),
+          originalError: error instanceof Error ? error.message : String(error),
+          rollbackError:
+            rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+        });
+      }
+      throw error;
+    }
 
-    await CareEvent.create({
+    let assistantMessageId: string | undefined;
+    let assistantCreatedAt: string | undefined;
+    let n8nDelivered: boolean | undefined;
+
+    // Ancillary work is post-commit and best-effort so primary safety state stays truthful.
+    try {
+      await upsertCommunicationReview({
+        patientId: input.patientId,
+        messageId: toId(userMsg._id),
+        needsResponse: true,
+        flaggedBySafety: true,
+        followUpRequested: true,
+        messageCreatedAt: userMsg.createdAt,
+        messagePreview: input.text,
+      });
+    } catch (error) {
+      logger.error("Chat communication review upsert failed", {
+        flow: "chat",
+        stage: "post_commit",
+        patientId: input.patientId,
+        userMessageId: toId(userMsg._id),
+        alertId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await CareEvent.create({
+        type: "ALERT_CREATED",
+        patientId: input.patientId,
+        alertId,
+        payload: {
+          reasons: aiResult.reasons,
+          text: redactText(input.text),
+        },
+      });
+    } catch (error) {
+      logger.error("Chat alert care event write failed", {
+        flow: "chat",
+        patientId: input.patientId,
+        userMessageId: toId(userMsg._id),
+        alertId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    n8nDelivered = await emitAlertCreated({
       type: "ALERT_CREATED",
       patientId: input.patientId,
-      alertId: toId(alert._id),
-      payload: {
-        reasons: aiResult.reasons,
-        text: redactText(input.text),
-      },
-    });
-
-    const n8nDelivered = await emitAlertCreated({
-      type: "ALERT_CREATED",
-      patientId: input.patientId,
-      alertId: toId(alert._id),
+      alertId,
       risk: "high",
       reason: aiResult.reasons,
       timestamp: new Date().toISOString(),
     });
 
-    let assistantMessageId: string | undefined;
-    let assistantCreatedAt: string | undefined;
+    if (!n8nDelivered) {
+      logger.error("Chat alert webhook delivery not confirmed", {
+        flow: "chat",
+        patientId: input.patientId,
+        userMessageId: toId(userMsg._id),
+        alertId,
+      });
+    }
 
     if (input.persistHighRiskAssistantReply) {
-      const assistantMsg = await ChatMessage.create({
-        patientId: input.patientId,
-        role: "assistant",
-        text: HIGH_RISK_REPLY,
-        risk: {
-          level: "high",
-          reasons: aiResult.reasons,
-        },
-      });
-      assistantMessageId = toId(assistantMsg._id);
-      assistantCreatedAt = assistantMsg.createdAt.toISOString();
+      try {
+        const assistantMsg = await ChatMessage.create({
+          patientId: input.patientId,
+          role: "assistant",
+          text: HIGH_RISK_REPLY,
+          risk: {
+            level: "high",
+            reasons: aiResult.reasons,
+          },
+        });
+        assistantMessageId = toId(assistantMsg._id);
+        assistantCreatedAt = assistantMsg.createdAt.toISOString();
+      } catch (error) {
+        logger.error("Chat legacy high-risk assistant persistence failed", {
+          flow: "chat",
+          stage: "post_commit",
+          patientId: input.patientId,
+          userMessageId: toId(userMsg._id),
+          alertId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     return {
@@ -121,28 +199,69 @@ export async function processChatMessage(
         : undefined,
       assistantMessageId,
       assistantCreatedAt,
-      alertId: toId(alert._id),
+      alertId,
       n8nDelivered,
     };
   }
 
-  const assistantReply =
-    input.lowRiskMode === "rag"
-      ? (await ragReply({
+  let assistantMsg;
+  try {
+    assistantMsg = await ChatMessage.create({
+      patientId: input.patientId,
+      role: "assistant",
+      text: assistantReply,
+      risk: {
+        level: "low",
+        reasons: [],
+      },
+    });
+  } catch (error) {
+    try {
+      const rollbackResult = await ChatMessage.deleteOne({ _id: userMsg._id });
+      if (rollbackResult.deletedCount !== 1) {
+        logger.error("HIGH_SEVERITY_INTEGRITY_ERROR: chat rollback failed", {
+          flow: "chat",
+          stage: "assistant_create",
           patientId: input.patientId,
-          message: input.text,
-        })).reply
-      : LOW_RISK_REPLY;
+          userMessageId: toId(userMsg._id),
+          originalError: error instanceof Error ? error.message : String(error),
+          rollbackError: `deleteOne deleted ${rollbackResult.deletedCount ?? 0} records`,
+        });
+      }
+    } catch (rollbackError) {
+      logger.error("HIGH_SEVERITY_INTEGRITY_ERROR: chat rollback failed", {
+        flow: "chat",
+        stage: "assistant_create",
+        patientId: input.patientId,
+        userMessageId: toId(userMsg._id),
+        originalError: error instanceof Error ? error.message : String(error),
+        rollbackError:
+          rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+      });
+    }
+    throw error;
+  }
 
-  const assistantMsg = await ChatMessage.create({
-    patientId: input.patientId,
-    role: "assistant",
-    text: assistantReply,
-    risk: {
-      level: "low",
-      reasons: [],
-    },
-  });
+  try {
+    await upsertCommunicationReview({
+      patientId: input.patientId,
+      messageId: toId(userMsg._id),
+      needsResponse: false,
+      flaggedBySafety: false,
+      followUpRequested: false,
+      messageCreatedAt: userMsg.createdAt,
+      messagePreview: input.text,
+    });
+  } catch (error) {
+    logger.error("Chat communication review upsert failed", {
+      flow: "chat",
+      stage: "post_commit",
+      patientId: input.patientId,
+      userMessageId: toId(userMsg._id),
+      assistantMessageId: toId(assistantMsg._id),
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return {
     userMessageId: toId(userMsg._id),

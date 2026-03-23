@@ -16,6 +16,7 @@ import { validateBody } from "../middleware/validate";
 import { AIUnavailableError } from "../services/ai";
 import {
   CheckInValidationError,
+  DuplicateCheckInError,
   type CheckInFlowInput,
   processCheckIn,
 } from "../services/checkinFlow";
@@ -305,6 +306,14 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
         ok: false,
         error: "VALIDATION_ERROR",
         details: [{ path: error.field, message: error.message }],
+      });
+    }
+
+    if (error instanceof DuplicateCheckInError) {
+      return res.status(409).json({
+        ok: false,
+        error: "DUPLICATE_CHECKIN",
+        message: "A check-in for this patient and date already exists",
       });
     }
 

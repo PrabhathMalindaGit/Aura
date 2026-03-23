@@ -15,6 +15,7 @@ import {
   type CheckInSymptomFlag,
 } from "../constants/checkin";
 import { toId } from "../utils/ids";
+import { logger } from "../utils/logger";
 import { classify } from "./ai";
 import { emitAlertCreated } from "./n8n";
 
@@ -79,6 +80,13 @@ export class CheckInValidationError extends Error {
     super(message);
     this.name = "CheckInValidationError";
     this.field = field;
+  }
+}
+
+export class DuplicateCheckInError extends Error {
+  constructor(message = "A check-in for this patient and date already exists") {
+    super(message);
+    this.name = "DuplicateCheckInError";
   }
 }
 
@@ -194,34 +202,14 @@ export async function processCheckIn(
 ): Promise<CheckInFlowResult> {
   const bodyMap = normalizeBodyMap(input.bodyMap);
   const symptoms = normalizeSymptomFlags(input.symptoms);
-
-  const checkin = await CheckIn.create({
+  const existingCheckIn = await CheckIn.exists({
     patientId: input.patientId,
     date: input.date,
-    mood: input.mood,
-    pain: input.pain,
-    symptoms,
-    adherence: {
-      exercises: input.adherence?.exercises ?? 0,
-      medication: input.adherence?.medication ?? false,
-      medicationStatus:
-        input.adherence?.medicationStatus &&
-        isCheckInMedicationStatus(input.adherence.medicationStatus)
-          ? input.adherence.medicationStatus
-          : undefined,
-      medicationReason: input.adherence?.medicationReason,
-    },
-    recovery: input.recovery,
-    sleep: input.sleep,
-    support: input.support,
-    dailySignals: input.dailySignals,
-    bodyMap,
-    notes: input.notes,
-    risk: {
-      level: "low",
-      reasons: [],
-    },
   });
+
+  if (existingCheckIn) {
+    throw new DuplicateCheckInError();
+  }
 
   const explicitReasonCodes = [
     input.support?.needsUrgentHelp ? "URGENT_HELP_REQUESTED" : null,
@@ -248,73 +236,168 @@ export async function processCheckIn(
   );
   const riskLevel = explicitReasonCodes.length > 0 ? "high" : aiResult.risk;
 
-  checkin.risk = {
-    level: riskLevel,
-    reasons: reasonCodes,
-  };
-  await checkin.save();
-
-  const resolvedReminderTasks = await Task.updateMany(
-    {
-      patientId: input.patientId,
-      status: { $in: ["open", "in_progress"] },
-      "source.entityType": "missed_checkin_reminder",
+  // The critical write set is the finalized check-in, plus the alert for high-risk cases.
+  const checkin = await CheckIn.create({
+    patientId: input.patientId,
+    date: input.date,
+    mood: input.mood,
+    pain: input.pain,
+    symptoms,
+    adherence: {
+      exercises: input.adherence?.exercises ?? 0,
+      medication: input.adherence?.medication ?? false,
+      medicationStatus:
+        input.adherence?.medicationStatus &&
+        isCheckInMedicationStatus(input.adherence.medicationStatus)
+          ? input.adherence.medicationStatus
+          : undefined,
+      medicationReason: input.adherence?.medicationReason,
     },
-    {
-      $set: {
-        status: "completed",
-        completedAt: new Date(),
-        cancelledAt: null,
-      },
-    }
-  );
+    recovery: input.recovery,
+    sleep: input.sleep,
+    support: input.support,
+    dailySignals: input.dailySignals,
+    bodyMap,
+    notes: input.notes,
+    risk: {
+      level: riskLevel,
+      reasons: reasonCodes,
+    },
+  });
 
-  if (resolvedReminderTasks.modifiedCount > 0) {
-    await CareEvent.create({
-      type: "FOLLOW_THROUGH_TASK_COMPLETED",
-      patientId: input.patientId,
-      payload: {
-        source: "checkin",
-        resolvedTaskCount: resolvedReminderTasks.modifiedCount,
-        sourceEntityType: "missed_checkin_reminder",
+  let alertId: string | undefined;
+  let n8nDelivered: boolean | undefined;
+
+  if (riskLevel === "high") {
+    try {
+      const alert = await Alert.create({
+        patientId: input.patientId,
+        reason: reasonCodes.join(", "),
+        source: {
+          type: "checkin",
+          sourceId: toId(checkin._id),
+        },
+      });
+      alertId = toId(alert._id);
+    } catch (error) {
+      // Compensating cleanup reduces partial writes here, but this is not true cross-document atomicity.
+      try {
+        const rollbackResult = await CheckIn.deleteOne({ _id: checkin._id });
+        if (rollbackResult.deletedCount !== 1) {
+          logger.error("HIGH_SEVERITY_INTEGRITY_ERROR: check-in rollback failed", {
+            flow: "checkin",
+            stage: "alert_create",
+            patientId: input.patientId,
+            checkInId: toId(checkin._id),
+            originalError: error instanceof Error ? error.message : String(error),
+            rollbackError: `deleteOne deleted ${rollbackResult.deletedCount ?? 0} records`,
+          });
+        }
+      } catch (rollbackError) {
+        logger.error("HIGH_SEVERITY_INTEGRITY_ERROR: check-in rollback failed", {
+          flow: "checkin",
+          stage: "alert_create",
+          patientId: input.patientId,
+          checkInId: toId(checkin._id),
+          originalError: error instanceof Error ? error.message : String(error),
+          rollbackError:
+            rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+        });
+      }
+      throw error;
+    }
+  }
+
+  // Ancillary work is post-commit and best-effort so primary safety state stays truthful.
+  try {
+    const resolvedReminderTasks = await Task.updateMany(
+      {
+        patientId: input.patientId,
+        status: { $in: ["open", "in_progress"] },
+        "source.entityType": "missed_checkin_reminder",
       },
+      {
+        $set: {
+          status: "completed",
+          completedAt: new Date(),
+          cancelledAt: null,
+        },
+      }
+    );
+
+    if (resolvedReminderTasks.modifiedCount > 0) {
+      try {
+        await CareEvent.create({
+          type: "FOLLOW_THROUGH_TASK_COMPLETED",
+          patientId: input.patientId,
+          payload: {
+            source: "checkin",
+            resolvedTaskCount: resolvedReminderTasks.modifiedCount,
+            sourceEntityType: "missed_checkin_reminder",
+          },
+        });
+      } catch (error) {
+        logger.error("Check-in follow-through care event write failed", {
+          flow: "checkin",
+          patientId: input.patientId,
+          checkInId: toId(checkin._id),
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  } catch (error) {
+    logger.error("Check-in reminder task resolution failed", {
+      flow: "checkin",
+      patientId: input.patientId,
+      checkInId: toId(checkin._id),
+      message: error instanceof Error ? error.message : String(error),
     });
   }
 
-  if (riskLevel === "high") {
-    const alert = await Alert.create({
-      patientId: input.patientId,
-      reason: reasonCodes.join(", "),
-      source: {
-        type: "checkin",
-        sourceId: toId(checkin._id),
-      },
-    });
+  if (riskLevel === "high" && alertId) {
+    try {
+      await CareEvent.create({
+        type: "ALERT_CREATED",
+        patientId: input.patientId,
+        alertId,
+        payload: {
+          reasons: reasonCodes,
+          pain: input.pain,
+        },
+      });
+    } catch (error) {
+      logger.error("Check-in alert care event write failed", {
+        flow: "checkin",
+        patientId: input.patientId,
+        checkInId: toId(checkin._id),
+        alertId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
-    await CareEvent.create({
+    n8nDelivered = await emitAlertCreated({
       type: "ALERT_CREATED",
       patientId: input.patientId,
-      alertId: toId(alert._id),
-      payload: {
-        reasons: reasonCodes,
-        pain: input.pain,
-      },
-    });
-
-    const n8nDelivered = await emitAlertCreated({
-      type: "ALERT_CREATED",
-      patientId: input.patientId,
-      alertId: toId(alert._id),
+      alertId,
       risk: "high",
       reason: reasonCodes,
       timestamp: new Date().toISOString(),
     });
 
+    if (!n8nDelivered) {
+      logger.error("Check-in alert webhook delivery not confirmed", {
+        flow: "checkin",
+        patientId: input.patientId,
+        checkInId: toId(checkin._id),
+        alertId,
+      });
+    }
+
     return {
       checkInId: toId(checkin._id),
       riskLevel: "high",
       reasonCodes,
-      alertId: toId(alert._id),
+      alertId,
       n8nDelivered,
     };
   }

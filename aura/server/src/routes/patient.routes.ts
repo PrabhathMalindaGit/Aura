@@ -23,6 +23,7 @@ import { AIUnavailableError } from "../services/ai";
 import { processChatMessage } from "../services/chatFlow";
 import {
   CheckInValidationError,
+  DuplicateCheckInError,
   type CheckInFlowInput,
   processCheckIn,
 } from "../services/checkinFlow";
@@ -384,6 +385,13 @@ router.post(
           ok: false,
           error: "VALIDATION_ERROR",
           details: [{ path: error.field, message: error.message }],
+        });
+      }
+
+      if (error instanceof DuplicateCheckInError) {
+        return res.status(409).json({
+          ok: false,
+          error: "DUPLICATE_CHECKIN",
         });
       }
 

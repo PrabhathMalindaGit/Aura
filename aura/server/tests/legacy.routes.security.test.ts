@@ -28,10 +28,12 @@ vi.mock("../src/services/n8n", async () => {
 
 import app from "../src/app";
 import { env } from "../src/env";
+import Alert from "../src/models/Alert";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
+import CommunicationReview from "../src/models/CommunicationReview";
 import Patient from "../src/models/Patient";
-import { classify, ragReply } from "../src/services/ai";
+import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
 import { emitAlertCreated } from "../src/services/n8n";
 import { signPatientToken } from "../src/utils/patientJwt";
 
@@ -79,8 +81,10 @@ describe("legacy checkin/chat route security", () => {
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
 
     await Promise.all([
+      Alert.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
+      CommunicationReview.deleteMany({}),
       Patient.deleteMany({}),
     ]);
 
@@ -180,5 +184,68 @@ describe("legacy checkin/chat route security", () => {
 
     expect(p1Messages).toBeGreaterThan(0);
     expect(p2Messages).toBe(0);
+  });
+
+  it("returns 502 and persists no record for legacy check-ins when classify is unavailable", async () => {
+    mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
+    mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
+    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+
+    const response = await request(app)
+      .post("/checkins")
+      .set("x-aura-internal-key", "legacy-internal-key")
+      .send({
+        patientId: "p1",
+        date: "2026-03-03",
+        mood: 3,
+        pain: 2,
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+
+    const token = signPatientToken({ id: "p1", displayName: "Patient One" });
+    const history = await request(app)
+      .get("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.checkins).toEqual([]);
+  });
+
+  it("returns 502 and persists no record for legacy chat when classify is unavailable", async () => {
+    mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
+    mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
+    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+
+    const response = await request(app)
+      .post("/chat/send")
+      .set("x-aura-internal-key", "legacy-internal-key")
+      .send({
+        patientId: "p1",
+        text: "hello",
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+
+    const token = signPatientToken({ id: "p1", displayName: "Patient One" });
+    const history = await request(app)
+      .get("/patient/chat/history")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.messages).toEqual([]);
   });
 });

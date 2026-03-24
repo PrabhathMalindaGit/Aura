@@ -112,7 +112,7 @@ export default function RemindersScreen() {
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
-  const trustStatus = useTrustStatus({ patientId });
+  const trustStatus = useTrustStatus({ patientId, includePendingSync: false });
 
   const [tasks, setTasks] = useState<PatientTaskItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRequestItem[]>([]);
@@ -428,7 +428,7 @@ export default function RemindersScreen() {
     <Screen
       scroll
       contentContainerStyle={styles.container}
-      banner={<TrustBanner status={trustStatus} />}
+      banner={<TrustBanner status={trustStatus} offlineMode="onlineOnly" />}
       header={
         <HeroHeader
           variant="compact"

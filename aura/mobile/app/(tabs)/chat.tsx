@@ -360,6 +360,7 @@ export default function ChatScreen() {
   const trustStatus = useTrustStatus({
     patientId,
     errorRecords: [chatLoadLastError, chatSendLastError],
+    includePendingSync: false,
   });
 
   const [messages, setMessages] = useState<MessageItem[]>([]);
@@ -1101,6 +1102,7 @@ export default function ChatScreen() {
       banner={
         <TrustBanner
           status={trustStatus}
+          offlineMode="onlineOnly"
           onRetry={() => {
             void loadHistory();
           }}

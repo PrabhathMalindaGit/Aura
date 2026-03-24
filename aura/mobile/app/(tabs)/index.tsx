@@ -31,13 +31,6 @@ import {
 import { getCachedCheckins } from "@/src/state/checkinsCache";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedInsights } from "@/src/state/insightsCache";
-import { getPendingHydration } from "@/src/state/pendingHydration";
-import { getPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
-import { getPendingNutrition } from "@/src/state/pendingNutrition";
-import { getPendingPhotoUploads } from "@/src/state/pendingPhotoUploads";
-import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
-import { getPending } from "@/src/state/pendingSessions";
-import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
 import { getCachedProms } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { getReminderReadState, markReminderRead, syncReminderReadState } from "@/src/state/inAppReminders";
@@ -54,16 +47,6 @@ import { buildReminderItems, buildReminderPreview, countUnreadReminders } from "
 import { isTaskActive } from "@/src/utils/tasks";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
-type StatusSummary = {
-  pendingSessions: number;
-  pendingProms: number;
-  pendingHydration: number;
-  pendingNutrition: number;
-  pendingMedication: number;
-  pendingPhotos: number;
-  pendingWearables: number;
-};
-
 type CheckinSummary = {
   status: "loading" | "ready";
   lastDateISO: string | null;
@@ -103,16 +86,6 @@ type AppointmentSummary = {
   pendingCount: number;
   nextApprovedLabel: string;
   hasUpcoming: boolean;
-};
-
-const EMPTY_PENDING: StatusSummary = {
-  pendingSessions: 0,
-  pendingProms: 0,
-  pendingHydration: 0,
-  pendingNutrition: 0,
-  pendingMedication: 0,
-  pendingPhotos: 0,
-  pendingWearables: 0,
 };
 
 const EMPTY_READ_STATE: ReminderReadState = {
@@ -204,7 +177,6 @@ export default function HomeScreen() {
     []
   );
 
-  const [pendingSummary, setPendingSummary] = useState<StatusSummary>(EMPTY_PENDING);
   const [checkinSummary, setCheckinSummary] = useState<CheckinSummary>({
     status: "loading",
     lastDateISO: null,
@@ -254,22 +226,7 @@ export default function HomeScreen() {
   const tasksRefresh = useLastRefreshed("tasks");
   const remindersRefresh = useLastRefreshed("reminders");
 
-  const totalPendingUploads = useMemo(
-    () =>
-      pendingSummary.pendingSessions +
-      pendingSummary.pendingProms +
-      pendingSummary.pendingHydration +
-      pendingSummary.pendingNutrition +
-      pendingSummary.pendingMedication +
-      pendingSummary.pendingPhotos +
-      pendingSummary.pendingWearables,
-    [pendingSummary]
-  );
-
-  const trustStatus = useTrustStatus({
-    patientId,
-    pendingCountOverride: totalPendingUploads,
-  });
+  const trustStatus = useTrustStatus({ patientId });
 
   const lastCheckinLabel = useMemo(() => {
     if (checkinSummary.status === "loading") {
@@ -335,48 +292,6 @@ export default function HomeScreen() {
     const medsAverage = average(medsBoolSeries);
     return medsAverage === null ? null : medsAverage * 100;
   }, [medsBoolSeries]);
-
-  const reloadPendingCounts = useCallback(async (): Promise<void> => {
-    if (!patientId) {
-      setPendingSummary(EMPTY_PENDING);
-      return;
-    }
-
-    const [
-      pendingSessions,
-      pendingProms,
-      pendingHydration,
-      pendingNutrition,
-      pendingMedication,
-      pendingPhotos,
-      pendingWearables,
-    ] = await Promise.all([
-      getPending(patientId),
-      getPendingPromSubmissions(patientId),
-      getPendingHydration(patientId),
-      getPendingNutrition(patientId),
-      getPendingMedicationLogs(patientId),
-      getPendingPhotoUploads(patientId),
-      getPendingWearablesSync(patientId),
-    ]);
-
-    setPendingSummary({
-      pendingSessions: pendingSessions.length,
-      pendingProms: pendingProms.length,
-      pendingHydration: pendingHydration.length,
-      pendingNutrition: pendingNutrition.length,
-      pendingMedication: pendingMedication.length,
-      pendingPhotos: pendingPhotos.length,
-      pendingWearables: pendingWearables.length,
-    });
-  }, [patientId]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void reloadPendingCounts();
-      return undefined;
-    }, [reloadPendingCounts])
-  );
 
   useEffect(() => {
     let active = true;

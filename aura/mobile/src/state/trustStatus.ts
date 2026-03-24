@@ -2,22 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { LastErrorRecord } from "@/src/state/lastError";
 import { useNetwork } from "@/src/state/network";
-import { getPendingHydration } from "@/src/state/pendingHydration";
-import { getPendingMedicationLogs } from "@/src/state/pendingMedicationLogs";
-import { getPendingNutrition } from "@/src/state/pendingNutrition";
 import { getPendingPhotoUploads } from "@/src/state/pendingPhotoUploads";
 import { getPendingPromSubmissions } from "@/src/state/pendingPromSubmissions";
 import { getPending } from "@/src/state/pendingSessions";
 import { getPendingWearablesSync } from "@/src/state/pendingWearablesSync";
+import { useSyncSummary } from "@/src/sync/selectors";
 
 const SERVER_DOWN_WINDOW_MS = 5 * 60 * 1000;
 const REFRESH_INTERVAL_MS = 30 * 1000;
 
-export type TrustStatusKind = "offline" | "serverDown" | "syncing" | "ok";
+export type TrustStatusKind =
+  | "offline"
+  | "serverDown"
+  | "syncing"
+  | "attention"
+  | "ok";
 
 export type TrustStatus = {
   kind: TrustStatusKind;
   pendingCount: number;
+  failedCount: number;
 };
 
 type UseTrustStatusOptions = {
@@ -28,34 +32,28 @@ type UseTrustStatusOptions = {
   serverDownWindowMs?: number;
 };
 
-async function loadPendingSyncCount(patientId: string): Promise<number> {
-  const [
-    pendingSessions,
-    pendingProms,
-    pendingHydration,
-    pendingNutrition,
-    pendingMedication,
-    pendingPhotos,
-    pendingWearables,
-  ] = await Promise.all([
-    getPending(patientId),
-    getPendingPromSubmissions(patientId),
-    getPendingHydration(patientId),
-    getPendingNutrition(patientId),
-    getPendingMedicationLogs(patientId),
-    getPendingPhotoUploads(patientId),
-    getPendingWearablesSync(patientId),
-  ]);
+type LegacyPendingSummary = {
+  pendingCount: number;
+};
 
-  return (
-    pendingSessions.length +
-    pendingProms.length +
-    pendingHydration.length +
-    pendingNutrition.length +
-    pendingMedication.length +
-    pendingPhotos.length +
-    pendingWearables.length
-  );
+async function loadLegacyPendingSummary(
+  patientId: string
+): Promise<LegacyPendingSummary> {
+  const [pendingSessions, pendingProms, pendingPhotos, pendingWearables] =
+    await Promise.all([
+      getPending(patientId),
+      getPendingPromSubmissions(patientId),
+      getPendingPhotoUploads(patientId),
+      getPendingWearablesSync(patientId),
+    ]);
+
+  return {
+    pendingCount:
+      pendingSessions.length +
+      pendingProms.length +
+      pendingPhotos.length +
+      pendingWearables.length,
+  };
 }
 
 function hasRecentServerFailure(
@@ -75,23 +73,32 @@ function hasRecentServerFailure(
   });
 }
 
-export function usePendingSyncCount(
+function useLegacyPendingSummary(
   patientId: string,
-  enabled = true
-): { pendingCount: number; reload: () => Promise<void> } {
-  const [pendingCount, setPendingCount] = useState(0);
+  enabled: boolean
+): LegacyPendingSummary {
+  const [summary, setSummary] = useState<LegacyPendingSummary>({
+    pendingCount: 0,
+  });
 
   const reload = useCallback(async () => {
     const trimmedPatientId = patientId.trim();
     if (!enabled || !trimmedPatientId) {
-      setPendingCount((prev) => (prev === 0 ? prev : 0));
+      setSummary((previous) =>
+        previous.pendingCount === 0 ? previous : { pendingCount: 0 }
+      );
       return;
     }
+
     try {
-      const total = await loadPendingSyncCount(trimmedPatientId);
-      setPendingCount((prev) => (prev === total ? prev : total));
+      const next = await loadLegacyPendingSummary(trimmedPatientId);
+      setSummary((previous) =>
+        previous.pendingCount === next.pendingCount ? previous : next
+      );
     } catch {
-      setPendingCount((prev) => (prev === 0 ? prev : 0));
+      setSummary((previous) =>
+        previous.pendingCount === 0 ? previous : { pendingCount: 0 }
+      );
     }
   }, [enabled, patientId]);
 
@@ -100,13 +107,37 @@ export function usePendingSyncCount(
     if (!enabled || !patientId.trim()) {
       return;
     }
+
     const timer = setInterval(() => {
       void reload();
     }, REFRESH_INTERVAL_MS);
+
     return () => clearInterval(timer);
   }, [enabled, patientId, reload]);
 
-  return { pendingCount, reload };
+  return summary;
+}
+
+export function usePendingSyncSummary(
+  patientId: string,
+  enabled = true
+): { pendingCount: number; failedCount: number; outstandingCount: number } {
+  const shared = useSyncSummary(enabled ? patientId : "");
+  const legacy = useLegacyPendingSummary(patientId, enabled);
+
+  return useMemo(
+    () => ({
+      pendingCount: shared.totalPendingCount + legacy.pendingCount,
+      failedCount: shared.totalFailedCount,
+      outstandingCount: shared.totalOutstandingCount + legacy.pendingCount,
+    }),
+    [
+      legacy.pendingCount,
+      shared.totalFailedCount,
+      shared.totalOutstandingCount,
+      shared.totalPendingCount,
+    ]
+  );
 }
 
 export function useTrustStatus({
@@ -117,17 +148,12 @@ export function useTrustStatus({
   serverDownWindowMs = SERVER_DOWN_WINDOW_MS,
 }: UseTrustStatusOptions): TrustStatus {
   const network = useNetwork();
+  const [now, setNow] = useState(() => Date.now());
   const shouldTrackServerWindow = useMemo(
     () => hasRecentServerFailure(errorRecords, Date.now(), serverDownWindowMs),
     [errorRecords, serverDownWindowMs]
   );
-  const [now, setNow] = useState(() => Date.now());
-  const shouldLoadPending =
-    includePendingSync && typeof pendingCountOverride !== "number";
-  const { pendingCount: pendingFromStore } = usePendingSyncCount(
-    patientId,
-    shouldLoadPending
-  );
+  const pendingSummary = usePendingSyncSummary(patientId, includePendingSync);
 
   useEffect(() => {
     if (!network.isOnline || !shouldTrackServerWindow) {
@@ -139,12 +165,16 @@ export function useTrustStatus({
     return () => clearInterval(timer);
   }, [network.isOnline, shouldTrackServerWindow]);
 
-  const pendingValue =
+  const pendingCount =
+    includePendingSync &&
     typeof pendingCountOverride === "number" &&
     Number.isFinite(pendingCountOverride)
-      ? pendingCountOverride
-      : pendingFromStore;
-  const pendingCount = Math.max(0, Math.trunc(pendingValue));
+      ? Math.max(0, Math.trunc(pendingCountOverride))
+      : includePendingSync
+        ? pendingSummary.outstandingCount
+        : 0;
+
+  const failedCount = includePendingSync ? pendingSummary.failedCount : 0;
 
   const serverDown = useMemo(
     () =>
@@ -158,26 +188,38 @@ export function useTrustStatus({
       return {
         kind: "offline",
         pendingCount,
-      };
+        failedCount,
+      } satisfies TrustStatus;
     }
 
     if (serverDown) {
       return {
         kind: "serverDown",
         pendingCount,
-      };
+        failedCount,
+      } satisfies TrustStatus;
+    }
+
+    if (failedCount > 0) {
+      return {
+        kind: "attention",
+        pendingCount,
+        failedCount,
+      } satisfies TrustStatus;
     }
 
     if (pendingCount > 0) {
       return {
         kind: "syncing",
         pendingCount,
-      };
+        failedCount: 0,
+      } satisfies TrustStatus;
     }
 
     return {
       kind: "ok",
       pendingCount: 0,
-    };
-  }, [network.isOffline, pendingCount, serverDown]);
+      failedCount: 0,
+    } satisfies TrustStatus;
+  }, [failedCount, network.isOffline, pendingCount, serverDown]);
 }

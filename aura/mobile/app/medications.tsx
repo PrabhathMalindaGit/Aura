@@ -15,7 +15,6 @@ import { isApiError, type ApiError } from "@/src/api/client";
 import {
   getMedications,
   getMedicationToday,
-  logMedicationDose,
   type MedicationDose,
   type MedicationLogPayload,
   type MedicationTodayResponse,
@@ -42,13 +41,12 @@ import {
 } from "@/src/state/medicationsCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
-import {
-  addPendingMedicationLog,
-  getPendingMedicationLogs,
-  removePendingMedicationLog,
-  type PendingMedicationLog,
-} from "@/src/state/pendingMedicationLogs";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { getQueueableSyncSurface } from "@/src/sync/copy";
+import { sendMedicationSync } from "@/src/sync/adapters/medications";
+import { flushPendingWrites, submitQueueableWrite } from "@/src/sync/runner";
+import { selectPendingMedicationEntries, useSyncDomainSummary } from "@/src/sync/selectors";
+import { useSyncPatientState } from "@/src/sync/store";
 import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
@@ -125,7 +123,16 @@ function toFriendlyMedicationError(error: unknown, title: string): {
 
 function applyPendingToToday(
   base: MedicationTodayResponse | null,
-  pending: PendingMedicationLog[],
+  pending: Array<{
+    createdAt: string;
+    localId: string;
+    payload: {
+      medicationId: string;
+      date: string;
+      time: string;
+      status: "taken" | "skipped";
+    };
+  }>,
   date: string
 ): MedicationTodayResponse | null {
   if (!base) {
@@ -138,16 +145,20 @@ function applyPendingToToday(
   }));
 
   const relevant = pending
-    .filter((entry) => entry.date === date)
+    .filter((entry) => entry.payload.date === date)
     .sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
 
   for (const entry of relevant) {
-    const medication = nextItems.find((item) => item.medicationId === entry.medicationId);
-    const dose = medication?.doses.find((candidate) => candidate.time === entry.time);
+    const medication = nextItems.find(
+      (item) => item.medicationId === entry.payload.medicationId
+    );
+    const dose = medication?.doses.find(
+      (candidate) => candidate.time === entry.payload.time
+    );
     if (!dose) {
       continue;
     }
-    dose.status = entry.status;
+    dose.status = entry.payload.status;
     dose.pending = true;
     dose.localId = entry.localId;
     dose.loggedAt = entry.createdAt;
@@ -254,7 +265,11 @@ function formatTime(iso: string): string {
 
 function toDoseStatusLabel(dose: MedicationDose): string {
   if (dose.pending) {
-    return dose.status === "taken" ? "Taken locally" : dose.status === "skipped" ? "Skipped locally" : "Pending sync";
+    return dose.status === "taken"
+      ? "Saved on this device"
+      : dose.status === "skipped"
+        ? "Saved on this device"
+        : "Syncing";
   }
   if (dose.status === "taken") {
     return "Taken";
@@ -263,6 +278,15 @@ function toDoseStatusLabel(dose: MedicationDose): string {
     return "Skipped";
   }
   return "Due";
+}
+
+function toLastErrorKind(
+  kind: "offline" | "network" | "server" | "validation" | "conflict" | "unknown"
+): "offline" | "network" | "server" | "validation" | "unknown" {
+  if (kind === "conflict") {
+    return "validation";
+  }
+  return kind;
 }
 
 export default function MedicationsScreen() {
@@ -278,9 +302,19 @@ export default function MedicationsScreen() {
   const patientId = auth.patient?.id ?? "";
   const today = useMemo(() => todayISO(), []);
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
+  const syncState = useSyncPatientState(patientId);
+  const medicationSyncSummary = useSyncDomainSummary(patientId, "medications");
+  const medicationSyncSurface = useMemo(
+    () => getQueueableSyncSurface(medicationSyncSummary),
+    [medicationSyncSummary]
+  );
+  const pendingLogs = useMemo(
+    () => selectPendingMedicationEntries(syncState),
+    [syncState]
+  );
 
-  const [todayChecklist, setTodayChecklist] = useState<MedicationTodayResponse | null>(null);
-  const [pendingLogs, setPendingLogs] = useState<PendingMedicationLog[]>([]);
+  const [baseTodayChecklist, setBaseTodayChecklist] =
+    useState<MedicationTodayResponse | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -288,6 +322,10 @@ export default function MedicationsScreen() {
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
+  const todayChecklist = useMemo(
+    () => applyPendingToToday(baseTodayChecklist, pendingLogs, today),
+    [baseTodayChecklist, pendingLogs, today]
+  );
   const pendingCount = pendingLogs.length;
   const takenCount = useMemo(
     () =>
@@ -334,15 +372,6 @@ export default function MedicationsScreen() {
         ? "All scheduled doses have been logged. You can still review times, notes, and any pending sync items below."
         : "Mark each scheduled dose as taken or skipped so today’s checklist stays accurate and easy to follow.";
 
-  const reloadPending = useCallback(async () => {
-    if (!patientId) {
-      setPendingLogs([]);
-      return;
-    }
-    const pending = await getPendingMedicationLogs(patientId);
-    setPendingLogs(pending);
-  }, [patientId]);
-
   const loadToday = useCallback(async () => {
     if (!auth.token || !patientId) {
       return;
@@ -352,24 +381,18 @@ export default function MedicationsScreen() {
     setNotice(null);
 
     if (isOffline) {
-      const [cached, cachedList, pending] = await Promise.all([
+      const [cached, cachedList] = await Promise.all([
         getCachedMedicationToday(patientId, today),
         getCachedMedications(patientId),
-        getPendingMedicationLogs(patientId),
       ]);
-      setPendingLogs(pending);
-      setTodayChecklist(
-        applyPendingToToday(
-          cached
-            ? {
-                ok: true,
-                date: cached.date,
-                items: cached.items,
-              }
-            : buildFallbackTodayFromMedications(today, cachedList),
-          pending,
-          today
-        )
+      setBaseTodayChecklist(
+        cached
+          ? {
+              ok: true,
+              date: cached.date,
+              items: cached.items,
+            }
+          : buildFallbackTodayFromMedications(today, cachedList)
       );
       setNotice({
         variant: "warning",
@@ -381,14 +404,11 @@ export default function MedicationsScreen() {
     }
 
     try {
-      const [live, list, pending] = await Promise.all([
+      const [live, list] = await Promise.all([
         getMedicationToday(auth.token, { date: today, tzOffsetMinutes }),
         getMedications(auth.token),
-        getPendingMedicationLogs(patientId),
       ]);
-      const merged = applyPendingToToday(live, pending, today);
-      setTodayChecklist(merged);
-      setPendingLogs(pending);
+      setBaseTodayChecklist(live);
       await Promise.all([setCachedMedicationToday(patientId, live), setCachedMedications(patientId, list)]);
       await medicationsRefresh.refreshLocal();
       await medicationsLoadError.clear();
@@ -401,24 +421,18 @@ export default function MedicationsScreen() {
         retryable: friendly.retryable,
       });
 
-      const [cached, cachedList, pending] = await Promise.all([
+      const [cached, cachedList] = await Promise.all([
         getCachedMedicationToday(patientId, today),
         getCachedMedications(patientId),
-        getPendingMedicationLogs(patientId),
       ]);
-      setPendingLogs(pending);
-      setTodayChecklist(
-        applyPendingToToday(
-          cached
-            ? {
-                ok: true,
-                date: cached.date,
-                items: cached.items,
-              }
-            : buildFallbackTodayFromMedications(today, cachedList),
-          pending,
-          today
-        )
+      setBaseTodayChecklist(
+        cached
+          ? {
+              ok: true,
+              date: cached.date,
+              items: cached.items,
+            }
+          : buildFallbackTodayFromMedications(today, cachedList)
       );
       setNotice({
         variant: cached ? "warning" : "error",
@@ -448,41 +462,6 @@ export default function MedicationsScreen() {
     }, [auth.status, loadToday])
   );
 
-  const queueDoseOffline = useCallback(
-    async (payload: MedicationLogPayload, message: string) => {
-      if (!patientId) {
-        return;
-      }
-      const pending = await addPendingMedicationLog(patientId, payload);
-      const pendingAll = await getPendingMedicationLogs(patientId);
-      setPendingLogs(pendingAll);
-      const nextChecklist = applyDoseUpdate(todayChecklist, {
-        medicationId: payload.medicationId,
-        time: payload.time,
-        status: payload.status,
-        loggedAt: pending.createdAt,
-        pending: true,
-        localId: pending.localId,
-      });
-      setTodayChecklist(nextChecklist);
-      if (nextChecklist) {
-        await setCachedMedicationToday(patientId, nextChecklist);
-      }
-      await medicationLogError.setLocalError({
-        title: "Saved locally",
-        message,
-        kind: "offline",
-        retryable: true,
-      });
-      setNotice({
-        variant: "warning",
-        title: "Saved locally",
-        message,
-      });
-    },
-    [medicationLogError, patientId, todayChecklist]
-  );
-
   const handleDoseAction = useCallback(
     async (payload: MedicationLogPayload) => {
       if (!auth.token || !patientId) {
@@ -497,43 +476,59 @@ export default function MedicationsScreen() {
         note: note ? note.slice(0, 280) : undefined,
       };
 
-      if (isOffline) {
-        await queueDoseOffline(finalPayload, "Dose action queued. Sync when online.");
-        setActiveDoseKey(null);
-        return;
-      }
-
       try {
-        const result = await logMedicationDose(auth.token, finalPayload);
-        const nextChecklist = applyDoseUpdate(todayChecklist, {
-          medicationId: payload.medicationId,
-          time: payload.time,
-          status: result.status,
-          loggedAt: result.loggedAt ?? new Date().toISOString(),
+        const result = await submitQueueableWrite({
+          patientId,
+          token: auth.token,
+          isOffline,
+          domain: "medications",
+          payload: {
+            ...finalPayload,
+            date: finalPayload.date ?? today,
+          },
+          send: sendMedicationSync,
         });
-        setTodayChecklist(nextChecklist);
-        if (nextChecklist) {
-          await setCachedMedicationToday(patientId, nextChecklist);
-        }
-        await medicationLogError.clear();
-        await medicationsRefresh.refreshLocal();
-        setNoteDraft("");
-      } catch (error) {
-        const friendly = toFriendlyMedicationError(error, "Dose not logged");
-        if (friendly.kind === "validation") {
+
+        if (result.kind === "synced") {
+          const nextChecklist = applyDoseUpdate(baseTodayChecklist, {
+            medicationId: payload.medicationId,
+            time: payload.time,
+            status: payload.status,
+            loggedAt: new Date().toISOString(),
+          });
+          setBaseTodayChecklist(nextChecklist);
+          if (nextChecklist) {
+            await setCachedMedicationToday(patientId, nextChecklist);
+          }
+          await medicationLogError.clear();
+          await medicationsRefresh.refreshLocal();
+          setNotice({
+            variant: "info",
+            title: "Synced",
+            message: "Dose update synced.",
+          });
+          setNoteDraft("");
+        } else {
+          const lastError = result.normalizedError;
+          const title =
+            result.operation.status === "failed"
+              ? "Couldn’t sync"
+              : "Saved on this device";
+          const message =
+            result.operation.status === "failed"
+              ? "Saved on this device. Retry sync when you’re ready."
+              : "Saved on this device. Sync when you’re back online.";
           await medicationLogError.setLocalError({
-            title: friendly.title,
-            message: friendly.message,
-            kind: friendly.kind,
-            retryable: friendly.retryable,
+            title,
+            message: lastError?.message ?? message,
+            kind: toLastErrorKind(lastError?.reason ?? "offline"),
+            retryable: true,
           });
           setNotice({
-            variant: "error",
-            title: friendly.title,
-            message: friendly.message,
+            variant: "warning",
+            title,
+            message,
           });
-        } else {
-          await queueDoseOffline(finalPayload, "Dose action queued due to sync failure.");
         }
       } finally {
         setActiveDoseKey(null);
@@ -541,13 +536,13 @@ export default function MedicationsScreen() {
     },
     [
       auth.token,
+      baseTodayChecklist,
       isOffline,
       medicationLogError,
       medicationsRefresh,
       noteDraft,
       patientId,
-      queueDoseOffline,
-      todayChecklist,
+      today,
     ]
   );
 
@@ -555,55 +550,56 @@ export default function MedicationsScreen() {
     if (!auth.token || !patientId || isOffline || isSyncing) {
       return;
     }
-    const pending = await getPendingMedicationLogs(patientId);
-    if (pending.length === 0) {
+    if (pendingLogs.length === 0) {
       return;
     }
 
     setIsSyncing(true);
     setNotice(null);
 
-    const ordered = [...pending].sort(
-      (left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt)
-    );
+    try {
+      const result = await flushPendingWrites({
+        patientId,
+        token: auth.token,
+        isOnline: !isOffline,
+        domains: ["medications"],
+      });
 
-    for (const entry of ordered) {
-      try {
-        await logMedicationDose(auth.token, {
-          medicationId: entry.medicationId,
-          date: entry.date,
-          time: entry.time,
-          status: entry.status,
-          note: entry.note,
-        });
-        await removePendingMedicationLog(patientId, entry.localId);
-      } catch (error) {
-        const friendly = toFriendlyMedicationError(error, "Sync failed");
+      if (result.failed > 0 || result.blockedOffline > 0) {
+        const reason = result.lastError?.reason ?? "unknown";
+        const title =
+          result.blockedOffline > 0 ? "Saved on this device" : "Couldn’t sync";
+        const message =
+          result.blockedOffline > 0
+            ? "Saved on this device. Sync when you’re back online."
+            : "Saved on this device. Retry sync when you’re ready.";
         await medicationLogError.setLocalError({
-          title: friendly.title,
-          message: friendly.message,
-          kind: friendly.kind,
-          retryable: friendly.retryable,
+          title,
+          message: result.lastError?.message ?? message,
+          kind: toLastErrorKind(reason),
+          retryable: true,
         });
         setNotice({
-          variant: "error",
-          title: friendly.title,
-          message: friendly.message,
+          variant: "warning",
+          title,
+          message,
         });
-        await reloadPending();
-        setIsSyncing(false);
         return;
       }
-    }
 
-    await Promise.all([medicationLogError.clear(), medicationsRefresh.refreshLocal()]);
-    await loadToday();
-    setNotice({
-      variant: "info",
-      title: "Synced",
-      message: "Pending medication logs were synced.",
-    });
-    setIsSyncing(false);
+      await Promise.all([
+        medicationLogError.clear(),
+        medicationsRefresh.refreshLocal(),
+      ]);
+      await loadToday();
+      setNotice({
+        variant: "info",
+        title: "Synced",
+        message: "Medication updates synced.",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   }, [
     auth.token,
     isOffline,
@@ -611,8 +607,8 @@ export default function MedicationsScreen() {
     loadToday,
     medicationLogError,
     medicationsRefresh,
+    pendingLogs.length,
     patientId,
-    reloadPending,
   ]);
 
   const listHeader = useMemo(() => {
@@ -666,7 +662,7 @@ export default function MedicationsScreen() {
           <Banner
             variant="warning"
             title="Offline"
-            message="Dose updates are queued locally and marked pending."
+            message="New dose updates are saved on this device until you reconnect."
           />
         ) : null}
         {showNotice && notice ? (
@@ -714,7 +710,11 @@ export default function MedicationsScreen() {
               icon="warning"
               label="Pending"
               value={`${pendingCount}`}
-              delta="Awaiting sync"
+              delta={
+                medicationSyncSummary.failedCount > 0
+                  ? "Couldn’t sync"
+                  : "Saved on this device"
+              }
               tone="warning"
               micro={{ type: "dots", values: [pendingCount, 0, 0, 0, 0, 0, 0] }}
             />
@@ -744,11 +744,11 @@ export default function MedicationsScreen() {
         {pendingCount > 0 ? (
           <MediaCard
             leading={{ type: "icon", icon: "warning", tone: "warning" }}
-            title="Pending sync"
-            subtitle={`${pendingCount} medication log${pendingCount === 1 ? "" : "s"} waiting`}
+            title={medicationSyncSurface.label}
+            subtitle={`${pendingCount} medication update${pendingCount === 1 ? "" : "s"} saved on this device`}
             actions={[
               {
-                label: isSyncing ? "Syncing..." : "Sync now",
+                label: isSyncing ? "Syncing..." : medicationSyncSummary.failedCount > 0 ? "Retry sync" : "Sync now",
                 kind: "primary",
                 disabled: isOffline || isSyncing,
                 onPress: () => {
@@ -756,7 +756,7 @@ export default function MedicationsScreen() {
                 },
               },
             ]}
-            statusPill={{ text: "Pending", tone: "warning" }}
+            statusPill={{ text: medicationSyncSurface.label, tone: "warning" }}
           />
         ) : null}
 
@@ -814,6 +814,8 @@ export default function MedicationsScreen() {
     medicationsLoadError.label,
     medicationsLoadError.lastError?.message,
     medicationsLoadError.lastError?.title,
+    medicationSyncSummary.failedCount,
+    medicationSyncSurface.label,
     medicationsRefresh.label,
     notice,
     noteDraft,
@@ -976,7 +978,7 @@ export default function MedicationsScreen() {
                               <Text style={styles.doseTime}>{formatTimeLabel(dose.time)}</Text>
                               <Text style={styles.doseMeta}>
                                 {dose.loggedAt
-                                  ? `${dose.pending ? "Saved locally" : "Logged"} at ${formatTime(dose.loggedAt)}`
+                                  ? `${dose.pending ? "Saved on this device" : "Logged"} at ${formatTime(dose.loggedAt)}`
                                   : "Waiting to be logged"}
                               </Text>
                             </View>

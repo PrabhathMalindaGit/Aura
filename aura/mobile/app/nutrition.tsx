@@ -15,7 +15,6 @@ import { useFocusEffect } from "@react-navigation/native";
 import {
   getNutritionRange,
   getNutritionToday,
-  logNutrition,
   type NutritionEntry,
   type NutritionLogPayload,
 } from "@/src/api/patient";
@@ -43,13 +42,12 @@ import {
 } from "@/src/state/nutritionCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
-import {
-  addPendingNutrition,
-  getPendingNutrition,
-  removePendingNutrition,
-  type PendingNutritionEntry,
-} from "@/src/state/pendingNutrition";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { getQueueableSyncSurface } from "@/src/sync/copy";
+import { sendNutritionSync } from "@/src/sync/adapters/nutrition";
+import { flushPendingWrites, submitQueueableWrite } from "@/src/sync/runner";
+import { selectPendingNutritionEntries, useSyncDomainSummary } from "@/src/sync/selectors";
+import { useSyncPatientState } from "@/src/sync/store";
 import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
@@ -140,7 +138,12 @@ function toFriendlyNutritionError(error: unknown, title: string): {
   };
 }
 
-function toPendingEntry(pending: PendingNutritionEntry): NutritionEntry {
+function toPendingEntry(pending: {
+  localId: string;
+  date: string;
+  createdAt: string;
+  payload: NutritionLogPayload;
+}): NutritionEntry {
   return {
     id: pending.localId,
     localId: pending.localId,
@@ -154,6 +157,15 @@ function toPendingEntry(pending: PendingNutritionEntry): NutritionEntry {
     notes: pending.payload.notes,
     createdAt: pending.createdAt,
   };
+}
+
+function toLastErrorKind(
+  kind: "offline" | "network" | "server" | "validation" | "conflict" | "unknown"
+): "offline" | "network" | "server" | "validation" | "unknown" {
+  if (kind === "conflict") {
+    return "validation";
+  }
+  return kind;
 }
 
 function toFormState(entry: NutritionEntry | null): FormState {
@@ -223,7 +235,6 @@ export default function NutritionScreen() {
   const nutritionLogError = useLastError("nutritionLog");
 
   const [todayEntry, setTodayEntry] = useState<NutritionEntry | null>(null);
-  const [pendingEntries, setPendingEntries] = useState<PendingNutritionEntry[]>([]);
   const [summary, setSummary] = useState<SummaryState>({
     trackedDays: 0,
     avgFruitVegServings: null,
@@ -239,6 +250,16 @@ export default function NutritionScreen() {
   const today = useMemo(() => todayISO(), []);
   const rangeFrom = useMemo(() => addDaysISO(today, -6), [today]);
   const patientId = auth.patient?.id ?? "";
+  const syncState = useSyncPatientState(patientId);
+  const nutritionSyncSummary = useSyncDomainSummary(patientId, "nutrition");
+  const nutritionSyncSurface = useMemo(
+    () => getQueueableSyncSurface(nutritionSyncSummary),
+    [nutritionSyncSummary]
+  );
+  const pendingEntries = useMemo(
+    () => selectPendingNutritionEntries(syncState),
+    [syncState]
+  );
   const todayPending = useMemo(
     () => pendingEntries.filter((entry) => entry.date === today),
     [pendingEntries, today]
@@ -255,29 +276,24 @@ export default function NutritionScreen() {
   const pendingCount = pendingEntries.length;
   const nutritionStatusLabel = currentEntry
     ? currentEntry.pending
-      ? "Saved locally"
+      ? nutritionSyncSurface.label
       : "Logged today"
-    : "Ready to log";
+    : pendingCount > 0
+      ? nutritionSyncSurface.label
+      : "Ready to log";
   const nutritionStatusTone = currentEntry
     ? currentEntry.pending
       ? "warning"
       : "success"
-    : "info";
+    : pendingCount > 0
+      ? "warning"
+      : "info";
   const nutritionStoryTitle = currentEntry
     ? "Today’s nutrition check is saved"
     : "Log today’s meals in one short check";
   const nutritionStoryNote = currentEntry
     ? `Fruit and veg ${currentEntry.fruitVegServings} · protein ${currentEntry.protein} · meals ${currentEntry.mealRegularity}${currentEntry.pending ? " · waiting to sync" : ""}.`
     : "A short daily nutrition check helps you notice patterns in protein, fruit and veg, meal regularity, and appetite.";
-
-  const reloadPending = useCallback(async () => {
-    if (!patientId) {
-      setPendingEntries([]);
-      return;
-    }
-    const pending = await getPendingNutrition(patientId);
-    setPendingEntries(pending);
-  }, [patientId]);
 
   const loadNutrition = useCallback(async () => {
     if (!auth.token || !patientId) {
@@ -288,12 +304,10 @@ export default function NutritionScreen() {
     setNotice(null);
 
     if (isOffline) {
-      const [cachedToday, cachedRange, pending] = await Promise.all([
+      const [cachedToday, cachedRange] = await Promise.all([
         getCachedNutritionDay(patientId, today),
         getCachedNutritionRange(patientId, rangeFrom, today),
-        getPendingNutrition(patientId),
       ]);
-      setPendingEntries(pending);
       setTodayEntry(cachedToday?.entry ?? null);
       setSummary(computeSummary(cachedRange?.days ?? []));
       setNotice({
@@ -322,7 +336,6 @@ export default function NutritionScreen() {
         mergeCachedNutritionDays(patientId, rangeResponse.days),
         nutritionRefresh.refreshLocal(),
         nutritionLoadError.clear(),
-        reloadPending(),
       ]);
     } catch (error) {
       const friendly = toFriendlyNutritionError(error, "Couldn’t load nutrition");
@@ -333,12 +346,10 @@ export default function NutritionScreen() {
         retryable: friendly.retryable,
       });
 
-      const [cachedToday, cachedRange, pending] = await Promise.all([
+      const [cachedToday, cachedRange] = await Promise.all([
         getCachedNutritionDay(patientId, today),
         getCachedNutritionRange(patientId, rangeFrom, today),
-        getPendingNutrition(patientId),
       ]);
-      setPendingEntries(pending);
       setTodayEntry(cachedToday?.entry ?? null);
       setSummary(computeSummary(cachedRange?.days ?? []));
       setNotice({
@@ -359,7 +370,6 @@ export default function NutritionScreen() {
     nutritionRefresh,
     patientId,
     rangeFrom,
-    reloadPending,
     today,
   ]);
 
@@ -386,38 +396,6 @@ export default function NutritionScreen() {
     };
   }, [form, today]);
 
-  const queueOffline = useCallback(
-    async (payload: NutritionLogPayload, title: string, message: string) => {
-      if (!patientId) {
-        return;
-      }
-
-      const pending = await addPendingNutrition(patientId, payload);
-      const pendingNext = await getPendingNutrition(patientId);
-      setPendingEntries(pendingNext);
-      const pendingEntry = toPendingEntry(pending);
-      setTodayEntry(pendingEntry);
-      await setCachedNutritionDay(patientId, {
-        cachedAt: Date.now(),
-        date: payload.date ?? today,
-        entry: pendingEntry,
-      });
-
-      await nutritionLogError.setLocalError({
-        title,
-        message,
-        kind: "offline",
-        retryable: true,
-      });
-      setNotice({
-        variant: "warning",
-        title,
-        message,
-      });
-    },
-    [nutritionLogError, patientId, today]
-  );
-
   const handleSaveToday = useCallback(async () => {
     if (!auth.token || !patientId || isSaving) {
       return;
@@ -425,49 +403,49 @@ export default function NutritionScreen() {
     const payload = buildPayload();
     setIsSaving(true);
 
-    if (isOffline) {
-      await queueOffline(
-        payload,
-        "Saved locally",
-        "Offline — nutrition log queued. Sync when online."
-      );
-      setIsSaving(false);
-      return;
-    }
-
     try {
-      const saved = await logNutrition(auth.token, payload);
-      setTodayEntry(saved);
-      await Promise.all([
-        setCachedNutritionDay(patientId, {
-          cachedAt: Date.now(),
-          date: saved.date,
-          entry: saved,
-        }),
-        nutritionLogError.clear(),
-      ]);
-      setNotice({
-        variant: "info",
-        title: "Saved",
-        message: "Today’s nutrition log was saved.",
+      const result = await submitQueueableWrite({
+        patientId,
+        token: auth.token,
+        isOffline,
+        domain: "nutrition",
+        payload: {
+          ...payload,
+          date: payload.date ?? today,
+        },
+        send: sendNutritionSync,
       });
-      await loadNutrition();
-    } catch (error) {
-      const friendly = toFriendlyNutritionError(error, "Saved locally");
-      if (friendly.kind === "validation") {
+
+      if (result.kind === "synced") {
+        await nutritionLogError.clear();
+        setNotice({
+          variant: "info",
+          title: "Synced",
+          message: "Today’s nutrition log synced.",
+        });
+        await loadNutrition();
+      } else {
+        const lastError = result.normalizedError;
+        const title =
+          result.operation.status === "failed"
+            ? "Couldn’t sync"
+            : "Saved on this device";
+        const message =
+          result.operation.status === "failed"
+            ? "Saved on this device. Retry sync when you’re ready."
+            : "Saved on this device. Sync when you’re back online.";
+
         await nutritionLogError.setLocalError({
-          title: friendly.title,
-          message: friendly.message,
-          kind: friendly.kind,
-          retryable: friendly.retryable,
+          title,
+          message: lastError?.message ?? message,
+          kind: toLastErrorKind(lastError?.reason ?? "offline"),
+          retryable: true,
         });
         setNotice({
-          variant: "error",
-          title: friendly.title,
-          message: friendly.message,
+          variant: "warning",
+          title,
+          message,
         });
-      } else {
-        await queueOffline(payload, friendly.title, friendly.message);
       }
     } finally {
       setIsSaving(false);
@@ -479,8 +457,8 @@ export default function NutritionScreen() {
     isSaving,
     loadNutrition,
     patientId,
-    queueOffline,
     nutritionLogError,
+    today,
   ]);
 
   const handleSyncPending = useCallback(async () => {
@@ -488,55 +466,65 @@ export default function NutritionScreen() {
       return;
     }
 
-    const pending = await getPendingNutrition(patientId);
-    if (pending.length === 0) {
+    if (pendingEntries.length === 0) {
       return;
     }
 
     setIsSyncing(true);
     setNotice(null);
-    for (const entry of pending) {
-      try {
-        await logNutrition(auth.token, {
-          ...entry.payload,
-          date: entry.date,
-        });
-        await removePendingNutrition(patientId, entry.localId);
-      } catch (error) {
-        const friendly = toFriendlyNutritionError(error, "Sync failed");
+
+    try {
+      const result = await flushPendingWrites({
+        patientId,
+        token: auth.token,
+        isOnline: !isOffline,
+        domains: ["nutrition"],
+      });
+
+      if (result.failed > 0 || result.blockedOffline > 0) {
+        const reason = result.lastError?.reason ?? "unknown";
+        const title =
+          result.blockedOffline > 0 ? "Saved on this device" : "Couldn’t sync";
+        const message =
+          result.blockedOffline > 0
+            ? "Saved on this device. Sync when you’re back online."
+            : "Saved on this device. Retry sync when you’re ready.";
         await nutritionLogError.setLocalError({
-          title: friendly.title,
-          message: friendly.message,
-          kind: friendly.kind,
-          retryable: friendly.retryable,
+          title,
+          message: result.lastError?.message ?? message,
+          kind: toLastErrorKind(reason),
+          retryable: true,
         });
         setNotice({
-          variant: "error",
-          title: friendly.title,
-          message: friendly.message,
+          variant: "warning",
+          title,
+          message,
         });
-        await reloadPending();
-        setIsSyncing(false);
         return;
       }
-    }
 
-    await Promise.all([nutritionLogError.clear(), nutritionRefresh.refreshLocal(), loadNutrition()]);
-    setNotice({
-      variant: "info",
-      title: "Synced",
-      message: "Pending nutrition logs were synced.",
-    });
-    setIsSyncing(false);
+      await Promise.all([
+        nutritionLogError.clear(),
+        nutritionRefresh.refreshLocal(),
+        loadNutrition(),
+      ]);
+      setNotice({
+        variant: "info",
+        title: "Synced",
+        message: "Nutrition updates synced.",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   }, [
     auth.token,
     isOffline,
     isSyncing,
     loadNutrition,
+    pendingEntries.length,
     nutritionLogError,
     nutritionRefresh,
     patientId,
-    reloadPending,
   ]);
 
   const listHeader = useMemo(() => {
@@ -590,7 +578,7 @@ export default function NutritionScreen() {
           <Banner
             variant="warning"
             title="Offline"
-            message="Nutrition logs are queued locally and marked pending."
+            message="New nutrition updates are saved on this device until you reconnect."
           />
         ) : null}
         {showNotice && notice ? (
@@ -638,7 +626,11 @@ export default function NutritionScreen() {
               icon="warning"
               label="Pending"
               value={`${pendingCount}`}
-              delta="Awaiting sync"
+              delta={
+                nutritionSyncSummary.failedCount > 0
+                  ? "Couldn’t sync"
+                  : "Saved on this device"
+              }
               tone="warning"
               micro={{ type: "dots", values: [pendingCount, 0, 0, 0, 0, 0, 0] }}
             />
@@ -675,7 +667,10 @@ export default function NutritionScreen() {
           }
           chips={[
             {
-              text: pendingCount > 0 ? `Pending ${pendingCount}` : `Tracking from ${today}`,
+              text:
+                pendingCount > 0
+                  ? `${nutritionSyncSurface.label} · ${pendingCount}`
+                  : `Tracking from ${today}`,
               tone: pendingCount > 0 ? "warning" : "muted",
             },
           ]}
@@ -693,7 +688,7 @@ export default function NutritionScreen() {
                 </Text>
               </View>
               <StatusPill
-                label={pendingCount > 0 ? `${pendingCount} pending` : "Daily check"}
+                label={pendingCount > 0 ? nutritionSyncSurface.label : "Daily check"}
                 variant={pendingCount > 0 ? "warning" : "neutral"}
               />
             </View>
@@ -841,7 +836,7 @@ export default function NutritionScreen() {
             />
             {pendingCount > 0 ? (
               <PrimaryButton
-                label={isSyncing ? "Syncing..." : "Sync saved logs"}
+                label={isSyncing ? "Syncing..." : nutritionSyncSummary.failedCount > 0 ? "Retry sync" : "Sync saved logs"}
                 loading={isSyncing}
                 disabled={isOffline || isSyncing}
                 onPress={() => {
@@ -917,6 +912,8 @@ export default function NutritionScreen() {
     nutritionStatusTone,
     nutritionStoryNote,
     nutritionStoryTitle,
+    nutritionSyncSummary.failedCount,
+    nutritionSyncSurface.label,
     nutritionLoadError.clear,
     nutritionLoadError.label,
     nutritionLoadError.lastError?.message,

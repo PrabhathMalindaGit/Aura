@@ -14,7 +14,6 @@ import { useFocusEffect } from "@react-navigation/native";
 import {
   deleteHydrationEntry,
   getHydrationToday,
-  logHydration,
   type HydrationEntry,
 } from "@/src/api/patient";
 import { isApiError, type ApiError } from "@/src/api/client";
@@ -39,13 +38,12 @@ import {
 } from "@/src/state/hydrationCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
-import {
-  addPendingHydration,
-  getPendingHydration,
-  removePendingHydration,
-  type PendingHydrationEntry,
-} from "@/src/state/pendingHydration";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { getPendingItemCopy, getQueueableSyncSurface } from "@/src/sync/copy";
+import { sendHydrationSync } from "@/src/sync/adapters/hydration";
+import { flushPendingWrites, submitQueueableWrite } from "@/src/sync/runner";
+import { selectPendingHydrationEntries, useSyncDomainSummary } from "@/src/sync/selectors";
+import { removeSyncOperation, useSyncPatientState } from "@/src/sync/store";
 import { useTokens } from "@/src/theme/tokens";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
@@ -61,6 +59,11 @@ type TodayState = {
   totalMl: number;
   targetMl: number;
   entries: HydrationEntry[];
+};
+
+type RenderableHydrationEntry = HydrationEntry & {
+  syncStatus?: "queued" | "syncing" | "failed" | "blocked_offline";
+  syncMessage?: string;
 };
 
 function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
@@ -136,14 +139,31 @@ function formatTime(iso: string): string {
   return parsed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function toPendingHydrationEntry(entry: PendingHydrationEntry): HydrationEntry {
+function toPendingHydrationEntry(entry: {
+  localId: string;
+  amountMl: number;
+  createdAt: string;
+  status: "queued" | "syncing" | "failed" | "blocked_offline";
+  lastFailureMessage?: string;
+}): RenderableHydrationEntry {
   return {
     id: entry.localId,
     amountMl: entry.amountMl,
     createdAt: entry.createdAt,
     pending: true,
     localId: entry.localId,
+    syncStatus: entry.status,
+    syncMessage: entry.lastFailureMessage,
   };
+}
+
+function toLastErrorKind(
+  kind: "offline" | "network" | "server" | "validation" | "conflict" | "unknown"
+): "offline" | "network" | "server" | "validation" | "unknown" {
+  if (kind === "conflict") {
+    return "validation";
+  }
+  return kind;
 }
 
 export default function HydrationScreen() {
@@ -157,13 +177,22 @@ export default function HydrationScreen() {
   const hydrationLogError = useLastError("hydrationLog");
 
   const [todayState, setTodayState] = useState<TodayState | null>(null);
-  const [pendingEntries, setPendingEntries] = useState<PendingHydrationEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const patientId = auth.patient?.id ?? "";
+  const syncState = useSyncPatientState(patientId);
+  const hydrationSyncSummary = useSyncDomainSummary(patientId, "hydration");
+  const pendingEntries = useMemo(
+    () => selectPendingHydrationEntries(syncState),
+    [syncState]
+  );
+  const hydrationSyncSurface = useMemo(
+    () => getQueueableSyncSurface(hydrationSyncSummary),
+    [hydrationSyncSummary]
+  );
   const today = useMemo(() => todayISO(), []);
 
   const pendingTodayEntries = useMemo(
@@ -171,7 +200,7 @@ export default function HydrationScreen() {
     [pendingEntries, today]
   );
 
-  const mergedEntries = useMemo(() => {
+  const mergedEntries = useMemo<RenderableHydrationEntry[]>(() => {
     const pendingMapped = pendingTodayEntries.map((entry) =>
       toPendingHydrationEntry(entry)
     );
@@ -222,31 +251,6 @@ export default function HydrationScreen() {
     [mergedEntries]
   );
 
-  const persistTodaySnapshot = useCallback(
-    async (nextState: TodayState, merged: HydrationEntry[]) => {
-      if (!patientId) {
-        return;
-      }
-      await setCachedHydrationDay(patientId, {
-        cachedAt: Date.now(),
-        date: nextState.date,
-        totalMl: nextState.totalMl,
-        targetMl: nextState.targetMl,
-        entries: merged,
-      });
-    },
-    [patientId]
-  );
-
-  const reloadPending = useCallback(async () => {
-    if (!patientId) {
-      setPendingEntries([]);
-      return;
-    }
-    const pending = await getPendingHydration(patientId);
-    setPendingEntries(pending);
-  }, [patientId]);
-
   const loadToday = useCallback(async () => {
     if (!auth.token || !patientId) {
       return;
@@ -255,11 +259,7 @@ export default function HydrationScreen() {
     setNotice(null);
 
     if (isOffline) {
-      const [cached, pending] = await Promise.all([
-        getCachedHydrationDay(patientId, today),
-        getPendingHydration(patientId),
-      ]);
-      setPendingEntries(pending);
+      const cached = await getCachedHydrationDay(patientId, today);
       if (cached) {
         setTodayState({
           date: cached.date,
@@ -295,7 +295,6 @@ export default function HydrationScreen() {
       await setCachedHydrationToday(patientId, response);
       await hydrationRefresh.refreshLocal();
       await hydrationLoadError.clear();
-      await reloadPending();
     } catch (error) {
       const friendly = toFriendlyHydrationError(error, "Couldn’t load hydration");
       await hydrationLoadError.setLocalError({
@@ -305,11 +304,7 @@ export default function HydrationScreen() {
         retryable: friendly.retryable,
       });
 
-      const [cached, pending] = await Promise.all([
-        getCachedHydrationDay(patientId, today),
-        getPendingHydration(patientId),
-      ]);
-      setPendingEntries(pending);
+      const cached = await getCachedHydrationDay(patientId, today);
 
       if (cached) {
         setTodayState({
@@ -345,7 +340,6 @@ export default function HydrationScreen() {
     hydrationRefresh,
     isOffline,
     patientId,
-    reloadPending,
     today,
   ]);
 
@@ -359,146 +353,135 @@ export default function HydrationScreen() {
     }, [auth.status, loadToday])
   );
 
-  const queueOfflineEntry = useCallback(
-    async (amountMl: number, reasonTitle: string, reasonMessage: string) => {
-      if (!patientId) {
-        return;
-      }
-      await addPendingHydration(patientId, { date: today, amountMl });
-      const pending = await getPendingHydration(patientId);
-      setPendingEntries(pending);
-
-      const current = todayState ?? {
-        date: today,
-        totalMl: 0,
-        targetMl: 2000,
-        entries: [],
-      };
-      await persistTodaySnapshot(current, [
-        ...pending
-          .filter((entry) => entry.date === today)
-          .map((entry) => toPendingHydrationEntry(entry)),
-        ...current.entries,
-      ]);
-
-      await hydrationLogError.setLocalError({
-        title: reasonTitle,
-        message: reasonMessage,
-        kind: "offline",
-        retryable: true,
-      });
-
-      setNotice({
-        variant: "warning",
-        title: reasonTitle,
-        message: reasonMessage,
-      });
-    },
-    [hydrationLogError, patientId, persistTodaySnapshot, today, todayState]
-  );
-
   const handleQuickAdd = useCallback(
     async (amountMl: number) => {
       if (!auth.token || !patientId) {
         return;
       }
 
-      if (isOffline) {
-        await queueOfflineEntry(
-          amountMl,
-          "Saved locally",
-          "Offline — hydration entry queued. Sync when back online."
-        );
-        return;
-      }
+      const result = await submitQueueableWrite({
+        patientId,
+        token: auth.token,
+        isOffline,
+        domain: "hydration",
+        payload: { date: today, amountMl },
+        send: async (token, payload) => {
+          await sendHydrationSync(token, payload);
+          return true;
+        },
+      });
 
-      try {
-        await logHydration(auth.token, { date: today, amountMl });
+      if (result.kind === "synced") {
         await hydrationLogError.clear();
         await loadToday();
         setNotice({
           variant: "info",
-          title: "Logged",
-          message: `${amountMl} ml added.`,
+          title: "Synced",
+          message: `${amountMl} ml synced.`,
         });
-      } catch (error) {
-        const friendly = toFriendlyHydrationError(error, "Saved locally");
-        await queueOfflineEntry(amountMl, friendly.title, friendly.message);
+        return;
       }
+
+      const lastError = result.normalizedError;
+      const title =
+        result.operation.status === "failed"
+          ? "Couldn’t sync"
+          : "Saved on this device";
+      const message =
+        result.operation.status === "failed"
+          ? "Saved on this device. Retry sync when you’re ready."
+          : "Saved on this device. Sync when you’re back online.";
+
+      await hydrationLogError.setLocalError({
+        title,
+        message: lastError?.message ?? message,
+        kind: toLastErrorKind(lastError?.reason ?? "offline"),
+        retryable: true,
+      });
+      setNotice({
+        variant: "warning",
+        title,
+        message,
+      });
     },
-    [auth.token, hydrationLogError, isOffline, loadToday, patientId, queueOfflineEntry, today]
+    [auth.token, hydrationLogError, isOffline, loadToday, patientId, today]
   );
 
   const handleSyncPending = useCallback(async () => {
-    if (!auth.token || !patientId || isOffline) {
+    if (!auth.token || !patientId || isOffline || isSyncing) {
       return;
     }
-    const currentPending = await getPendingHydration(patientId);
-    if (currentPending.length === 0) {
+    if (pendingEntries.length === 0) {
       return;
     }
 
     setIsSyncing(true);
     setNotice(null);
 
-    for (const pending of currentPending) {
-      try {
-        await logHydration(auth.token, {
-          date: pending.date,
-          amountMl: pending.amountMl,
-        });
-        await removePendingHydration(patientId, pending.localId);
-      } catch (error) {
-        const friendly = toFriendlyHydrationError(error, "Sync failed");
+    try {
+      const result = await flushPendingWrites({
+        patientId,
+        token: auth.token,
+        isOnline: !isOffline,
+        domains: ["hydration"],
+      });
+
+      if (result.failed > 0 || result.blockedOffline > 0) {
+        const reason = result.lastError?.reason ?? "unknown";
+        const title =
+          result.blockedOffline > 0 ? "Saved on this device" : "Couldn’t sync";
+        const message =
+          result.blockedOffline > 0
+            ? "Saved on this device. Sync when you’re back online."
+            : "Saved on this device. Retry sync when you’re ready.";
         await hydrationLogError.setLocalError({
-          title: friendly.title,
-          message: friendly.message,
-          kind: friendly.kind,
-          retryable: friendly.retryable,
+          title,
+          message: result.lastError?.message ?? message,
+          kind: toLastErrorKind(reason),
+          retryable: true,
         });
         setNotice({
-          variant: "error",
-          title: friendly.title,
-          message: friendly.message,
+          variant: "warning",
+          title,
+          message,
         });
-        setIsSyncing(false);
-        await reloadPending();
         return;
       }
-    }
 
-    await hydrationLogError.clear();
-    await hydrationRefresh.refreshLocal();
-    await loadToday();
-    setNotice({
-      variant: "info",
-      title: "Synced",
-      message: "Pending hydration entries were synced.",
-    });
-    setIsSyncing(false);
+      await hydrationLogError.clear();
+      await hydrationRefresh.refreshLocal();
+      await loadToday();
+      setNotice({
+        variant: "info",
+        title: "Synced",
+        message: "Hydration updates synced.",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   }, [
     auth.token,
     hydrationLogError,
     hydrationRefresh,
     isOffline,
+    isSyncing,
     loadToday,
+    pendingEntries.length,
     patientId,
-    reloadPending,
   ]);
 
   const handleDeleteEntry = useCallback(
-    async (entry: HydrationEntry) => {
+    async (entry: RenderableHydrationEntry) => {
       if (!patientId) {
         return;
       }
 
       if (entry.pending && entry.localId) {
-        await removePendingHydration(patientId, entry.localId);
-        await reloadPending();
+        await removeSyncOperation(patientId, entry.localId);
         setNotice({
           variant: "info",
           title: "Removed",
-          message: "Pending hydration entry removed.",
+          message: "Saved hydration entry removed from this device.",
         });
         return;
       }
@@ -528,7 +511,7 @@ export default function HydrationScreen() {
         });
       }
     },
-    [auth.token, isOffline, loadToday, patientId, reloadPending]
+    [auth.token, isOffline, loadToday, patientId]
   );
 
   const listHeader = useMemo(() => {
@@ -582,7 +565,7 @@ export default function HydrationScreen() {
           <Banner
             variant="warning"
             title="Offline"
-            message="Hydration taps are stored locally and marked pending."
+            message="New hydration updates are saved on this device until you reconnect."
           />
         ) : null}
 
@@ -655,7 +638,11 @@ export default function HydrationScreen() {
               icon="warning"
               label="Pending"
               value={`${pendingEntries.length}`}
-              delta="Awaiting sync"
+              delta={
+                hydrationSyncSummary.failedCount > 0
+                  ? "Couldn’t sync"
+                  : "Saved on this device"
+              }
               tone="warning"
               micro={{ type: "dots", values: [pendingEntries.length, 0, 0, 0, 0, 0, 0] }}
             />
@@ -672,8 +659,8 @@ export default function HydrationScreen() {
                 </Text>
               </View>
               <StatusPill
-                label={pendingEntries.length > 0 ? `${pendingEntries.length} pending` : "Ready"}
-                variant={pendingEntries.length > 0 ? "warning" : "neutral"}
+                label={pendingEntries.length > 0 ? hydrationSyncSurface.label : "Ready"}
+                variant={pendingEntries.length > 0 ? hydrationSyncSurface.variant : "neutral"}
               />
             </View>
             <View style={styles.quickAddRow}>
@@ -690,7 +677,7 @@ export default function HydrationScreen() {
             </View>
             {pendingEntries.length > 0 ? (
               <PrimaryButton
-                label={isSyncing ? "Syncing..." : "Sync saved entries"}
+                label={isSyncing ? "Syncing..." : hydrationSyncSummary.failedCount > 0 ? "Retry sync" : "Sync saved entries"}
                 loading={isSyncing}
                 disabled={isOffline || isSyncing}
                 onPress={() => {
@@ -704,8 +691,8 @@ export default function HydrationScreen() {
         <View style={styles.sectionIntro}>
           <Text style={styles.sectionTitle}>Recent log</Text>
           <Text style={styles.sectionHelper}>
-            These are the water entries recorded for today. Pending entries stay on this device
-            until they sync.
+            These are the water entries recorded for today. Saved-on-device entries stay here until
+            they sync.
           </Text>
         </View>
       </View>
@@ -724,6 +711,9 @@ export default function HydrationScreen() {
     hydrationRefresh.label,
     hydrationStatusLabel,
     hydrationStatusTone,
+    hydrationSyncSummary.failedCount,
+    hydrationSyncSurface.label,
+    hydrationSyncSurface.variant,
     hydrationStoryNote,
     hydrationStoryTitle,
     isOffline,
@@ -829,14 +819,23 @@ export default function HydrationScreen() {
                 : `Logged at ${formatTime(item.createdAt)}`
             }
             chips={[
-              {
-                text: item.pending ? "Awaiting sync" : "Included in today’s total",
-                tone: item.pending ? "warning" : "muted",
-              },
+              item.pending
+                ? {
+                    text: getPendingItemCopy(item.syncStatus ?? "queued").helper,
+                    tone: "warning",
+                  }
+                : {
+                    text: "Included in today’s total",
+                    tone: "muted",
+                  },
             ]}
             statusPill={{
-              text: item.pending ? "Pending" : "Logged",
-              tone: item.pending ? "warning" : "info",
+              text: item.pending
+                ? getPendingItemCopy(item.syncStatus ?? "queued").label
+                : "Synced",
+              tone: item.pending
+                ? getPendingItemCopy(item.syncStatus ?? "queued").variant
+                : "info",
             }}
             actions={[
               {

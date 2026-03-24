@@ -393,6 +393,7 @@ export default function CheckinScreen() {
   const trustStatus = useTrustStatus({
     patientId,
     errorRecords: [checkinError.lastError],
+    includePendingSync: false,
   });
 
   const [date] = useState(() => todayISO());
@@ -1534,7 +1535,10 @@ export default function CheckinScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen scroll={false} banner={<TrustBanner status={trustStatus} />}>
+      <Screen
+        scroll={false}
+        banner={<TrustBanner status={trustStatus} offlineMode="onlineOnly" />}
+      >
         <View style={styles.loadingContainer}>
           <View style={styles.loadingStack}>
             <SkeletonBlock height={28} width="45%" />
@@ -1559,6 +1563,7 @@ export default function CheckinScreen() {
       banner={
         <TrustBanner
           status={trustStatus}
+          offlineMode="onlineOnly"
           onRetry={
             trustStatus.kind === "serverDown"
               ? () => {
@@ -1613,6 +1618,7 @@ export default function CheckinScreen() {
             </View>
             <TrustCues
               status={trustStatus}
+              offlineMode="onlineOnly"
               lastUpdatedLabel={checkinsRefresh.label}
               showLastUpdated
               showPending

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FadeSlideIn } from "@/src/components/Motion";
@@ -8,11 +8,17 @@ import { useTokens } from "@/src/theme/tokens";
 
 type TrustBannerProps = {
   status: TrustStatus;
+  offlineMode?: "summary" | "onlineOnly";
   onRetry?: () => void;
   testID?: string;
 };
 
-export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
+export function TrustBanner({
+  status,
+  offlineMode = "summary",
+  onRetry,
+  testID,
+}: TrustBannerProps) {
   const tokens = useTokens();
   const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -27,8 +33,18 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
 
   switch (status.kind) {
     case "offline": {
-      title = "Offline · Saving on your device";
-      subtitle = "We’ll sync when you’re connected.";
+      if (offlineMode === "onlineOnly") {
+        title = "Offline · Nothing was sent";
+        subtitle = "Reconnect to try again.";
+      } else if (status.pendingCount > 0) {
+        title = "Offline · Saved on this device";
+        subtitle = `${status.pendingCount} update${
+          status.pendingCount === 1 ? "" : "s"
+        } will sync when you reconnect.`;
+      } else {
+        title = "Offline";
+        subtitle = "Showing saved data until you reconnect.";
+      }
       toneStyle = styles.offlineTone;
       break;
     }
@@ -38,10 +54,19 @@ export function TrustBanner({ status, onRetry, testID }: TrustBannerProps) {
       toneStyle = styles.serverTone;
       break;
     }
+    case "attention": {
+      const count = Math.max(0, status.failedCount || status.pendingCount);
+      title = "Couldn’t sync";
+      subtitle = `${count} saved update${
+        count === 1 ? "" : "s"
+      } need retry.`;
+      toneStyle = styles.serverTone;
+      break;
+    }
     case "syncing": {
       const count = Math.max(0, status.pendingCount);
       title = "Syncing…";
-      subtitle = `${count} item${count === 1 ? "" : "s"} pending upload`;
+      subtitle = `${count} saved update${count === 1 ? "" : "s"} pending`;
       toneStyle = styles.syncTone;
       break;
     }

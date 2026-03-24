@@ -634,15 +634,15 @@ export default function DevUiGalleryScreen() {
           <View style={styles.stackSm}>
             <Text style={styles.inlineLabel}>Trust state preview</Text>
             <TrustCues
-              status={{ kind: "syncing", pendingCount: 3 }}
+              status={{ kind: "syncing", pendingCount: 3, failedCount: 0 }}
               showLastUpdated
               lastUpdatedLabel="2m ago"
               showPending
               showSavedLocalHint
             />
-            <TrustBanner status={{ kind: "offline", pendingCount: 2 }} />
-            <TrustBanner status={{ kind: "serverDown", pendingCount: 0 }} />
-            <TrustBanner status={{ kind: "syncing", pendingCount: 5 }} />
+            <TrustBanner status={{ kind: "offline", pendingCount: 2, failedCount: 0 }} />
+            <TrustBanner status={{ kind: "serverDown", pendingCount: 0, failedCount: 0 }} />
+            <TrustBanner status={{ kind: "syncing", pendingCount: 5, failedCount: 0 }} />
           </View>
         </Card>
       </Section>

@@ -142,7 +142,7 @@ export default function TasksScreen() {
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
 
-  const trustStatus = useTrustStatus({ patientId });
+  const trustStatus = useTrustStatus({ patientId, includePendingSync: false });
 
   const [tasks, setTasks] = useState<PatientTaskItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -352,7 +352,7 @@ export default function TasksScreen() {
     <Screen
       scroll
       contentContainerStyle={styles.container}
-      banner={<TrustBanner status={trustStatus} />}
+      banner={<TrustBanner status={trustStatus} offlineMode="onlineOnly" />}
       header={
         <HeroHeader
           variant="compact"

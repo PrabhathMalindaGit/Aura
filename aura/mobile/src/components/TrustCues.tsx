@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { StatusPill, type StatusPillVariant } from "@/src/components/StatusPill";
@@ -12,6 +12,7 @@ export type TrustCuePill = {
 
 type TrustCuesProps = {
   status: TrustStatus;
+  offlineMode?: "summary" | "onlineOnly";
   lastUpdatedLabel?: string | null;
   showLastUpdated?: boolean;
   showPending?: boolean;
@@ -38,8 +39,14 @@ export function getTrustCueA11yLabel(text: string): string {
   if (lower === "syncing") {
     return "Status: Syncing";
   }
+  if (lower === "sync issue") {
+    return "Status: Sync issue";
+  }
   if (lower === "saved locally") {
     return "Status: Saved locally";
+  }
+  if (lower === "saved on this device") {
+    return "Status: Saved on this device";
   }
   if (lower === "synced") {
     return "Status: Synced";
@@ -67,7 +74,10 @@ function toUpdatedLabel(label: string): string {
   return `Updated ${label}`;
 }
 
-function trustPill(status: TrustStatus, showPending: boolean): TrustCuePill {
+function trustPill(
+  status: TrustStatus,
+  showPending: boolean
+): TrustCuePill {
   if (status.kind === "offline") {
     return { label: "Offline", variant: "warning" };
   }
@@ -86,11 +96,19 @@ function trustPill(status: TrustStatus, showPending: boolean): TrustCuePill {
     };
   }
 
+  if (status.kind === "attention") {
+    return {
+      label: "Sync issue",
+      variant: "warning",
+    };
+  }
+
   return { label: "Synced", variant: "success" };
 }
 
 export function TrustCues({
   status,
+  offlineMode = "summary",
   lastUpdatedLabel,
   showLastUpdated = true,
   showPending = true,
@@ -111,8 +129,13 @@ export function TrustCues({
       next.push({ label: toUpdatedLabel(lastUpdatedLabel), variant: "neutral" });
     }
 
-    if (showSavedLocalHint && status.kind === "offline") {
-      next.push({ label: "Saved locally", variant: "neutral" });
+    if (
+      showSavedLocalHint &&
+      offlineMode === "summary" &&
+      status.kind === "offline" &&
+      status.pendingCount > 0
+    ) {
+      next.push({ label: "Saved on this device", variant: "neutral" });
     }
 
     const seen = new Set<string>();
@@ -128,7 +151,16 @@ export function TrustCues({
     }
 
     return deduped.slice(0, Math.max(1, maxPills));
-  }, [extraPills, lastUpdatedLabel, maxPills, showLastUpdated, showPending, showSavedLocalHint, status]);
+  }, [
+    extraPills,
+    lastUpdatedLabel,
+    maxPills,
+    offlineMode,
+    showLastUpdated,
+    showPending,
+    showSavedLocalHint,
+    status,
+  ]);
 
   const caption = useMemo(() => {
     if (variant === "compact") {
@@ -136,7 +168,11 @@ export function TrustCues({
     }
 
     if (status.kind === "offline") {
-      return "Using saved data until connection returns.";
+      return offlineMode === "onlineOnly"
+        ? "Offline. Nothing was sent."
+        : status.pendingCount > 0
+          ? "Saved updates will sync when you reconnect."
+          : "Using saved data until connection returns.";
     }
 
     if (status.kind === "serverDown") {
@@ -147,8 +183,12 @@ export function TrustCues({
       return "Updates are syncing in the background.";
     }
 
+    if (status.kind === "attention") {
+      return "Saved updates couldn’t sync. Open the tracker to retry.";
+    }
+
     return null;
-  }, [status.kind, variant]);
+  }, [offlineMode, status.failedCount, status.kind, status.pendingCount, variant]);
 
   if (pills.length === 0 && !caption) {
     return null;

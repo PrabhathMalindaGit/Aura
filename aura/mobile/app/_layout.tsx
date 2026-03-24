@@ -11,6 +11,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import "@/src/services/notificationsInit";
 import { AuthProvider, useAuth } from '@/src/state/auth';
 import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
+import { SyncCoordinator } from '@/src/sync/SyncCoordinator';
 import { useTokens } from '@/src/theme/tokens';
 
 export {
@@ -73,6 +74,7 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
       <CaregiverSessionProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <RootRouteGuard />
+          <SyncCoordinator />
           {isWeb ? (
             <View style={[styles.webBackdrop, webViewportStyle]}>
               <View style={[styles.webFrameOuter, webShadowStyle]}>

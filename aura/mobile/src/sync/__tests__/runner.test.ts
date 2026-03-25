@@ -15,12 +15,14 @@ vi.mock("@/src/sync/adapters/medications", () => ({
 import { sendHydrationSync } from "@/src/sync/adapters/hydration";
 import { sendMedicationSync } from "@/src/sync/adapters/medications";
 import { sendNutritionSync } from "@/src/sync/adapters/nutrition";
+import { RETRYABLE_RETENTION_MS } from "@/src/sync/model";
 import { selectSyncSummary } from "@/src/sync/selectors";
 import { flushPendingWrites, submitQueueableWrite } from "@/src/sync/runner";
 import {
-  enqueueSyncOperation,
   ensureSyncStateLoaded,
+  enqueueSyncOperation,
   resetSyncStoreForTests,
+  setStoredSyncStateForTests,
 } from "@/src/sync/store";
 
 describe("sync runner", () => {
@@ -188,12 +190,240 @@ describe("sync runner", () => {
 
     const state = await ensureSyncStateLoaded("patient-a");
 
-    expect(result.failed).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.discarded).toBe(1);
     expect(result.remaining).toBe(0);
     expect(state.operations).toEqual([]);
     expect(state.lastOutcomeByDomain.nutrition).toMatchObject({
       status: "failed",
       reason: "conflict",
+    });
+  });
+
+  it("compacts expired operations before replay and only sends retained entries", async () => {
+    const expiredCreatedAt = new Date(
+      Date.now() - RETRYABLE_RETENTION_MS - 1000
+    ).toISOString();
+    const freshCreatedAt = new Date().toISOString();
+
+    await setStoredSyncStateForTests("patient-a", {
+      version: 1,
+      migratedLegacy: true,
+      operations: [
+        {
+          operationId: "hydration-expired-1",
+          patientId: "patient-a",
+          domain: "hydration",
+          status: "blocked_offline",
+          createdAt: expiredCreatedAt,
+          updatedAt: expiredCreatedAt,
+          attemptCount: 4,
+          payload: {
+            date: "2026-03-01",
+            amountMl: 150,
+            clientMutationId: "hydration-expired-1",
+          },
+        },
+        {
+          operationId: "hydration-fresh-1",
+          patientId: "patient-a",
+          domain: "hydration",
+          status: "queued",
+          createdAt: freshCreatedAt,
+          updatedAt: freshCreatedAt,
+          attemptCount: 0,
+          payload: {
+            date: "2026-03-24",
+            amountMl: 250,
+            clientMutationId: "hydration-fresh-1",
+          },
+        },
+      ],
+      lastOutcomeByDomain: {},
+    });
+
+    const result = await flushPendingWrites({
+      patientId: "patient-a",
+      token: "token-a",
+      isOnline: true,
+      domains: ["hydration"],
+    });
+
+    const state = await ensureSyncStateLoaded("patient-a");
+
+    expect(result.attempted).toBe(1);
+    expect(result.synced).toBe(1);
+    expect(result.discarded).toBe(1);
+    expect(sendHydrationSync).toHaveBeenCalledTimes(1);
+    expect(sendHydrationSync).toHaveBeenCalledWith(
+      "token-a",
+      expect.objectContaining({ clientMutationId: "hydration-fresh-1" })
+    );
+    expect(state.operations).toEqual([]);
+  });
+
+  it("continues after terminal payload validation and syncs the next retained operation", async () => {
+    vi.mocked(sendNutritionSync)
+      .mockRejectedValueOnce({
+        status: 400,
+        title: "Couldn’t sync",
+        message: "The saved update is no longer valid.",
+        kind: "validation",
+        retryable: false,
+        detail: "payload",
+      })
+      .mockResolvedValueOnce(undefined);
+
+    await enqueueSyncOperation("patient-a", {
+      operationId: "nutrition-terminal-1",
+      domain: "nutrition",
+      status: "queued",
+      createdAt: "2026-03-24T08:00:00.000Z",
+      payload: {
+        date: "2026-03-24",
+        protein: "ok",
+        fruitVegServings: 2,
+        antiInflammatoryFocus: false,
+        mealRegularity: "mostly",
+        clientMutationId: "nutrition-terminal-1",
+      },
+    });
+    await enqueueSyncOperation("patient-a", {
+      operationId: "nutrition-fresh-2",
+      domain: "nutrition",
+      status: "queued",
+      createdAt: "2026-03-24T09:00:00.000Z",
+      payload: {
+        date: "2026-03-24",
+        protein: "high",
+        fruitVegServings: 4,
+        antiInflammatoryFocus: true,
+        mealRegularity: "regular",
+        clientMutationId: "nutrition-fresh-2",
+      },
+    });
+
+    const result = await flushPendingWrites({
+      patientId: "patient-a",
+      token: "token-a",
+      isOnline: true,
+      domains: ["nutrition"],
+    });
+
+    const state = await ensureSyncStateLoaded("patient-a");
+
+    expect(result.attempted).toBe(2);
+    expect(result.synced).toBe(1);
+    expect(result.discarded).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(sendNutritionSync).toHaveBeenCalledTimes(2);
+    expect(state.operations).toEqual([]);
+    expect(state.lastOutcomeByDomain.nutrition).toMatchObject({
+      status: "synced",
+      operationId: "nutrition-fresh-2",
+    });
+  });
+
+  it("retains replayed auth-like validation failures instead of silently dropping them", async () => {
+    vi.mocked(sendMedicationSync).mockRejectedValueOnce({
+      status: 401,
+      title: "Session expired",
+      message: "Authentication failed. Please sign in again.",
+      kind: "validation",
+      retryable: false,
+      detail: "auth",
+    });
+
+    await enqueueSyncOperation("patient-a", {
+      operationId: "med-auth-1",
+      domain: "medications",
+      status: "queued",
+      payload: {
+        medicationId: "med-1",
+        date: "2026-03-24",
+        time: "08:00",
+        status: "taken",
+      },
+    });
+
+    const result = await flushPendingWrites({
+      patientId: "patient-a",
+      token: "token-a",
+      isOnline: true,
+      domains: ["medications"],
+    });
+
+    const state = await ensureSyncStateLoaded("patient-a");
+
+    expect(result.failed).toBe(1);
+    expect(result.discarded).toBe(0);
+    expect(result.remaining).toBe(1);
+    expect(state.operations).toHaveLength(1);
+    expect(state.operations[0]).toMatchObject({
+      operationId: "med-auth-1",
+      status: "failed",
+      lastFailureReason: "unknown",
+      lastFailureMessage: "Authentication failed. Please sign in again.",
+    });
+    expect(state.lastOutcomeByDomain.medications).toMatchObject({
+      status: "failed",
+      reason: "unknown",
+    });
+  });
+
+  it("stops on the first live retryable replay failure", async () => {
+    vi.mocked(sendHydrationSync).mockRejectedValueOnce({
+      title: "Network error",
+      message: "Could not reach the service. Please try again.",
+      kind: "network",
+      retryable: true,
+    });
+
+    await enqueueSyncOperation("patient-a", {
+      operationId: "hydration-live-fail-1",
+      domain: "hydration",
+      status: "queued",
+      createdAt: "2026-03-24T08:00:00.000Z",
+      payload: {
+        date: "2026-03-24",
+        amountMl: 100,
+        clientMutationId: "hydration-live-fail-1",
+      },
+    });
+    await enqueueSyncOperation("patient-a", {
+      operationId: "hydration-live-fail-2",
+      domain: "hydration",
+      status: "queued",
+      createdAt: "2026-03-24T09:00:00.000Z",
+      payload: {
+        date: "2026-03-24",
+        amountMl: 200,
+        clientMutationId: "hydration-live-fail-2",
+      },
+    });
+
+    const result = await flushPendingWrites({
+      patientId: "patient-a",
+      token: "token-a",
+      isOnline: true,
+      domains: ["hydration"],
+    });
+
+    const state = await ensureSyncStateLoaded("patient-a");
+
+    expect(result.attempted).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(result.discarded).toBe(0);
+    expect(sendHydrationSync).toHaveBeenCalledTimes(1);
+    expect(state.operations).toHaveLength(2);
+    expect(state.operations[0]).toMatchObject({
+      operationId: "hydration-live-fail-1",
+      status: "failed",
+      lastFailureReason: "network",
+    });
+    expect(state.operations[1]).toMatchObject({
+      operationId: "hydration-live-fail-2",
+      status: "queued",
     });
   });
 

@@ -172,6 +172,7 @@ vi.mock("@/src/sync/runner", () => ({
     synced: 0,
     failed: 0,
     blockedOffline: 0,
+    discarded: 0,
     remaining: 0,
   })),
 }));

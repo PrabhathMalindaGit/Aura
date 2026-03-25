@@ -16,6 +16,7 @@ vi.mock("@/src/sync/runner", () => ({
     synced: 0,
     failed: 0,
     blockedOffline: 0,
+    discarded: 0,
     remaining: 0,
   })),
 }));
@@ -33,6 +34,7 @@ import { useAuth } from "@/src/state/auth";
 import { useNetwork } from "@/src/state/network";
 import { flushPendingWrites } from "@/src/sync/runner";
 import { SyncCoordinator } from "@/src/sync/SyncCoordinator";
+import { ensureSyncStateLoaded } from "@/src/sync/store";
 import { __setAppState } from "../../../test/react-native";
 
 describe("SyncCoordinator", () => {
@@ -105,10 +107,14 @@ describe("SyncCoordinator", () => {
       root?.update(<SyncCoordinator />);
     });
 
+    expect(ensureSyncStateLoaded).toHaveBeenCalledWith("patient-a");
     expect(flushPendingWrites).toHaveBeenCalledWith({
       patientId: "patient-a",
       token: "token-a",
       isOnline: true,
     });
+    expect(
+      vi.mocked(ensureSyncStateLoaded).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(flushPendingWrites).mock.invocationCallOrder[0]);
   });
 });

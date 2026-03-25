@@ -8,6 +8,7 @@ import type {
   SyncOperation,
 } from "@/src/sync/model";
 import {
+  compactActiveSyncState,
   enqueueSyncOperation,
   ensureSyncStateLoaded,
   removeSyncOperation,
@@ -126,6 +127,45 @@ function isQueueableFailure(error: NormalizedSyncError): boolean {
   return error.reason !== "validation" && error.reason !== "conflict";
 }
 
+function isAuthSessionReplayValidation(error: unknown): boolean {
+  return (
+    isApiError(error) &&
+    error.kind === "validation" &&
+    (error.status === 401 || error.status === 403)
+  );
+}
+
+function toReplaySyncError(error: unknown): NormalizedSyncError {
+  const normalized = normalizeSyncError(error);
+  if (
+    normalized.reason === "validation" &&
+    isAuthSessionReplayValidation(error)
+  ) {
+    return {
+      ...normalized,
+      reason: "unknown",
+      retryable: true,
+    };
+  }
+
+  return normalized;
+}
+
+function shouldDiscardReplayFailure(
+  error: unknown,
+  normalized: NormalizedSyncError
+): boolean {
+  if (normalized.reason === "conflict") {
+    return true;
+  }
+
+  if (normalized.reason !== "validation") {
+    return false;
+  }
+
+  return !isAuthSessionReplayValidation(error);
+}
+
 async function sendOperation(operation: SyncOperation, token: string): Promise<void> {
   if (operation.domain === "hydration") {
     await adapters.hydration(token, operation.payload);
@@ -229,6 +269,7 @@ export type FlushPendingWritesResult = {
   synced: number;
   failed: number;
   blockedOffline: number;
+  discarded: number;
   remaining: number;
   lastError?: NormalizedSyncError;
 };
@@ -246,11 +287,13 @@ async function flushPendingWritesInternal(options: {
       synced: 0,
       failed: 0,
       blockedOffline: options.isOnline ? 0 : 1,
+      discarded: 0,
       remaining: 0,
     };
   }
 
-  const state = await ensureSyncStateLoaded(trimmedPatientId);
+  const compacted = await compactActiveSyncState(trimmedPatientId);
+  const state = compacted.state;
   const selectedDomains = options.domains && options.domains.length > 0
     ? options.domains
     : (["hydration", "nutrition", "medications"] as SyncDomain[]);
@@ -268,6 +311,7 @@ async function flushPendingWritesInternal(options: {
       synced: 0,
       failed: 0,
       blockedOffline: 0,
+      discarded: compacted.removedCount,
       remaining: 0,
     };
   }
@@ -276,6 +320,7 @@ async function flushPendingWritesInternal(options: {
   let synced = 0;
   let failed = 0;
   let blockedOffline = 0;
+  let discarded = compacted.removedCount;
   let lastError: NormalizedSyncError | undefined;
 
   for (const operation of operations) {
@@ -295,13 +340,9 @@ async function flushPendingWritesInternal(options: {
         at: new Date().toISOString(),
       });
     } catch (error) {
-      lastError = normalizeSyncError(error);
-      if (lastError.nextStatus === "blocked_offline") {
-        blockedOffline += 1;
-      } else {
-        failed += 1;
-      }
-      if (lastError.reason === "conflict") {
+      lastError = toReplaySyncError(error);
+      if (shouldDiscardReplayFailure(error, lastError)) {
+        discarded += 1;
         await removeSyncOperation(trimmedPatientId, operation.operationId);
         await setSyncDomainOutcome(trimmedPatientId, operation.domain, {
           status: "failed",
@@ -310,7 +351,12 @@ async function flushPendingWritesInternal(options: {
           reason: lastError.reason,
           message: lastError.message,
         });
-        break;
+        continue;
+      }
+      if (lastError.nextStatus === "blocked_offline") {
+        blockedOffline += 1;
+      } else {
+        failed += 1;
       }
       await updateSyncOperation(trimmedPatientId, operation.operationId, {
         status: lastError.nextStatus,
@@ -339,6 +385,7 @@ async function flushPendingWritesInternal(options: {
     synced,
     failed,
     blockedOffline,
+    discarded,
     remaining,
     lastError,
   };
@@ -357,6 +404,7 @@ export async function flushPendingWrites(options: {
       synced: 0,
       failed: 0,
       blockedOffline: 0,
+      discarded: 0,
       remaining: 0,
     };
   }

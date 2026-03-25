@@ -565,6 +565,16 @@ export default function MedicationsScreen() {
         domains: ["medications"],
       });
 
+      if (
+        result.synced === 0 &&
+        result.failed === 0 &&
+        result.blockedOffline === 0 &&
+        result.discarded > 0
+      ) {
+        await medicationLogError.clear();
+        return;
+      }
+
       if (result.failed > 0 || result.blockedOffline > 0) {
         const reason = result.lastError?.reason ?? "unknown";
         const title =

@@ -498,6 +498,16 @@ export default function NutritionScreen() {
         domains: ["nutrition"],
       });
 
+      if (
+        result.synced === 0 &&
+        result.failed === 0 &&
+        result.blockedOffline === 0 &&
+        result.discarded > 0
+      ) {
+        await nutritionLogError.clear();
+        return;
+      }
+
       if (result.failed > 0 || result.blockedOffline > 0) {
         const reason = result.lastError?.reason ?? "unknown";
         const title =

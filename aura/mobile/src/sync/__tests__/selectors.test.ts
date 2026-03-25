@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { compactSyncState } from "@/src/sync/store";
 import { selectPendingHydrationEntries, selectSyncSummary } from "@/src/sync/selectors";
 import type { SyncPatientState } from "@/src/sync/model";
 
@@ -91,5 +92,78 @@ describe("sync selectors", () => {
         lastFailureMessage: undefined,
       },
     ]);
+  });
+
+  it("does not count expired or terminal-compacted ops, and outcomes alone do not recreate queued state", () => {
+    const compacted = compactSyncState(
+      {
+        version: 1,
+        migratedLegacy: true,
+        operations: [
+          {
+            operationId: "expired-hyd-1",
+            patientId: "patient-a",
+            domain: "hydration",
+            status: "blocked_offline",
+            createdAt: "2026-03-01T08:00:00.000Z",
+            updatedAt: "2026-03-01T08:00:00.000Z",
+            attemptCount: 2,
+            payload: {
+              date: "2026-03-01",
+              amountMl: 250,
+              clientMutationId: "expired-hyd-1",
+            },
+          },
+          {
+            operationId: "terminal-nut-1",
+            patientId: "patient-a",
+            domain: "nutrition",
+            status: "failed",
+            createdAt: "2026-03-24T08:00:00.000Z",
+            updatedAt: "2026-03-24T08:05:00.000Z",
+            attemptCount: 1,
+            lastFailureReason: "validation",
+            lastFailureMessage: "The saved update is no longer valid.",
+            payload: {
+              date: "2026-03-24",
+              protein: "ok",
+              fruitVegServings: 3,
+              antiInflammatoryFocus: true,
+              mealRegularity: "mostly",
+              clientMutationId: "terminal-nut-1",
+            },
+          },
+        ],
+        lastOutcomeByDomain: {
+          hydration: {
+            status: "failed",
+            operationId: "expired-hyd-1",
+            at: "2026-03-01T08:30:00.000Z",
+            reason: "offline",
+            message: "Saved on this device.",
+          },
+          nutrition: {
+            status: "failed",
+            operationId: "terminal-nut-1",
+            at: "2026-03-24T08:30:00.000Z",
+            reason: "validation",
+            message: "The saved update is no longer valid.",
+          },
+        },
+      },
+      Date.parse("2026-03-25T08:00:00.000Z")
+    ).state;
+
+    const summary = selectSyncSummary(compacted);
+
+    expect(summary.totalPendingCount).toBe(0);
+    expect(summary.totalFailedCount).toBe(0);
+    expect(summary.totalOutstandingCount).toBe(0);
+    expect(summary.byDomain.hydration.lastOutcome).toMatchObject({
+      operationId: "expired-hyd-1",
+    });
+    expect(summary.byDomain.nutrition.lastOutcome).toMatchObject({
+      operationId: "terminal-nut-1",
+    });
   });
 });

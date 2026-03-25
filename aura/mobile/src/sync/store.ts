@@ -17,7 +17,9 @@ import {
 import {
   createEmptySyncState,
   createOperationId,
+  isExpiredUnsyncedOperation,
   isSyncDomain,
+  isTerminalRetainedFailureReason,
   normalizeSyncingStatus,
   type HydrationSyncOperation,
   type HydrationSyncPayload,
@@ -259,6 +261,83 @@ function normalizeOutcome(value: unknown): SyncDomainOutcome | null {
   };
 }
 
+function isAuthLikeValidationMessage(message?: string): boolean {
+  if (!message) {
+    return false;
+  }
+
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("sign in again") ||
+    normalized.includes("authentication failed") ||
+    normalized.includes("unauthorized")
+  );
+}
+
+function shouldCompactTerminalFailure(operation: SyncOperation): boolean {
+  if (operation.status !== "failed") {
+    return false;
+  }
+
+  if (!isTerminalRetainedFailureReason(operation.lastFailureReason)) {
+    return false;
+  }
+
+  if (operation.lastFailureReason === "validation") {
+    return !isAuthLikeValidationMessage(operation.lastFailureMessage);
+  }
+
+  return true;
+}
+
+export type SyncStateCompactionResult = {
+  state: SyncPatientState;
+  removedCount: number;
+  expiredCount: number;
+  terminalCount: number;
+};
+
+export function compactSyncState(
+  state: SyncPatientState,
+  now = Date.now()
+): SyncStateCompactionResult {
+  let expiredCount = 0;
+  let terminalCount = 0;
+
+  const operations = state.operations.filter((operation) => {
+    if (isExpiredUnsyncedOperation(operation, now)) {
+      expiredCount += 1;
+      return false;
+    }
+
+    if (shouldCompactTerminalFailure(operation)) {
+      terminalCount += 1;
+      return false;
+    }
+
+    return true;
+  });
+
+  if (expiredCount === 0 && terminalCount === 0) {
+    return {
+      state,
+      removedCount: 0,
+      expiredCount: 0,
+      terminalCount: 0,
+    };
+  }
+
+  return {
+    state: {
+      ...state,
+      operations,
+    },
+    removedCount: expiredCount + terminalCount,
+    expiredCount,
+    terminalCount,
+  };
+}
+
 function normalizeState(value: unknown): SyncPatientState {
   if (!isObjectRecord(value)) {
     return createEmptySyncState();
@@ -308,6 +387,22 @@ async function persistState(
   state: SyncPatientState
 ): Promise<void> {
   await AsyncStorage.setItem(storageKey(patientId), JSON.stringify(state));
+}
+
+async function applyCompactionForPatient(
+  patientId: string,
+  state: SyncPatientState,
+  now = Date.now()
+): Promise<SyncStateCompactionResult> {
+  const compacted = compactSyncState(state, now);
+  if (compacted.removedCount > 0) {
+    await persistState(patientId, compacted.state);
+  }
+  stateCache.set(patientId, compacted.state);
+  if (compacted.removedCount > 0) {
+    notifyAll();
+  }
+  return compacted;
 }
 
 async function sweepLegacyQueues(
@@ -435,7 +530,7 @@ async function writeNextState(
 ): Promise<SyncPatientState> {
   return withPatientWriteLock(patientId, async () => {
     const current = await ensureSyncStateLoaded(patientId);
-    const next = updater(current);
+    const next = compactSyncState(updater(current)).state;
     await persistState(patientId, next);
     stateCache.set(patientId, next);
     notifyAll();
@@ -471,11 +566,11 @@ export async function ensureSyncStateLoaded(
 
   const loadingPromise = (async () => {
     const stored = await readStoredState(trimmedPatientId);
-    stateCache.set(trimmedPatientId, stored);
     const migrated = await sweepLegacyQueues(trimmedPatientId, stored);
-    stateCache.set(trimmedPatientId, migrated);
+    const compacted = await applyCompactionForPatient(trimmedPatientId, migrated);
+    stateCache.set(trimmedPatientId, compacted.state);
     notifyAll();
-    return migrated;
+    return compacted.state;
   })();
 
   loadPromises.set(trimmedPatientId, loadingPromise);
@@ -504,6 +599,26 @@ export function useSyncPatientState(patientId: string): SyncPatientState {
     () => getSyncSnapshot(trimmedPatientId),
     () => getSyncSnapshot(trimmedPatientId)
   );
+}
+
+export async function compactActiveSyncState(
+  patientId: string,
+  now = Date.now()
+): Promise<SyncStateCompactionResult> {
+  const trimmedPatientId = patientId.trim();
+  if (!trimmedPatientId) {
+    return {
+      state: createEmptySyncState(),
+      removedCount: 0,
+      expiredCount: 0,
+      terminalCount: 0,
+    };
+  }
+
+  return withPatientWriteLock(trimmedPatientId, async () => {
+    const current = await ensureSyncStateLoaded(trimmedPatientId);
+    return applyCompactionForPatient(trimmedPatientId, current, now);
+  });
 }
 
 export type EnqueueSyncOperationInput =

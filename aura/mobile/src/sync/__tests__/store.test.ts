@@ -16,6 +16,7 @@ import {
   setStoredSyncStateForTests,
   setSyncDomainOutcome,
 } from "@/src/sync/store";
+import { RETRYABLE_RETENTION_MS } from "@/src/sync/model";
 
 describe("sync store", () => {
   beforeEach(async () => {
@@ -187,5 +188,153 @@ describe("sync store", () => {
     expect(reloaded.operations[1]?.payload).toMatchObject({
       clientMutationId: "nutrition-legacy-1",
     });
+  });
+
+  it("removes expired retryable operations on load", async () => {
+    await setStoredSyncStateForTests("patient-a", {
+      version: 1,
+      migratedLegacy: true,
+      operations: [
+        {
+          operationId: "hydration-expired-1",
+          patientId: "patient-a",
+          domain: "hydration",
+          status: "blocked_offline",
+          createdAt: new Date(Date.now() - RETRYABLE_RETENTION_MS - 1000).toISOString(),
+          updatedAt: new Date(Date.now() - RETRYABLE_RETENTION_MS - 1000).toISOString(),
+          attemptCount: 4,
+          payload: {
+            date: "2026-03-10",
+            amountMl: 250,
+            clientMutationId: "hydration-expired-1",
+          },
+        },
+      ],
+      lastOutcomeByDomain: {},
+    });
+
+    await resetSyncStoreForTests();
+    const reloaded = await ensureSyncStateLoaded("patient-a");
+
+    expect(reloaded.operations).toEqual([]);
+  });
+
+  it("removes true terminal failed operations on load compaction", async () => {
+    const recentIso = new Date().toISOString();
+    await setStoredSyncStateForTests("patient-a", {
+      version: 1,
+      migratedLegacy: true,
+      operations: [
+        {
+          operationId: "nutrition-terminal-1",
+          patientId: "patient-a",
+          domain: "nutrition",
+          status: "failed",
+          createdAt: recentIso,
+          updatedAt: recentIso,
+          attemptCount: 1,
+          lastFailureReason: "validation",
+          lastFailureMessage: "The saved update is no longer valid.",
+          payload: {
+            date: "2026-03-24",
+            protein: "ok",
+            fruitVegServings: 3,
+            antiInflammatoryFocus: true,
+            mealRegularity: "mostly",
+            clientMutationId: "nutrition-terminal-1",
+          },
+        },
+      ],
+      lastOutcomeByDomain: {},
+    });
+
+    await resetSyncStoreForTests();
+    const reloaded = await ensureSyncStateLoaded("patient-a");
+
+    expect(reloaded.operations).toEqual([]);
+  });
+
+  it("keeps auth-like validation failures retained on load compaction", async () => {
+    const recentIso = new Date().toISOString();
+    await setStoredSyncStateForTests("patient-a", {
+      version: 1,
+      migratedLegacy: true,
+      operations: [
+        {
+          operationId: "med-auth-1",
+          patientId: "patient-a",
+          domain: "medications",
+          status: "failed",
+          createdAt: recentIso,
+          updatedAt: recentIso,
+          attemptCount: 1,
+          lastFailureReason: "validation",
+          lastFailureMessage: "Authentication failed. Please sign in again.",
+          payload: {
+            medicationId: "med-1",
+            date: "2026-03-24",
+            time: "08:00",
+            status: "taken",
+          },
+        },
+      ],
+      lastOutcomeByDomain: {},
+    });
+
+    await resetSyncStoreForTests();
+    const reloaded = await ensureSyncStateLoaded("patient-a");
+
+    expect(reloaded.operations).toHaveLength(1);
+    expect(reloaded.operations[0]?.lastFailureReason).toBe("validation");
+  });
+
+  it("normalizes persisted syncing to queued and compacts expired rows", async () => {
+    const recentIso = new Date().toISOString();
+    const expiredIso = new Date(Date.now() - RETRYABLE_RETENTION_MS - 1000).toISOString();
+    await setStoredSyncStateForTests("patient-a", {
+      version: 1,
+      migratedLegacy: true,
+      operations: [
+        {
+          operationId: "hyd-syncing-expired",
+          patientId: "patient-a",
+          domain: "hydration",
+          status: "syncing",
+          createdAt: expiredIso,
+          updatedAt: expiredIso,
+          attemptCount: 2,
+          payload: {
+            date: "2026-03-01",
+            amountMl: 200,
+            clientMutationId: "hyd-syncing-expired",
+          },
+        } as any,
+        {
+          operationId: "nut-syncing-fresh",
+          patientId: "patient-a",
+          domain: "nutrition",
+          status: "syncing",
+          createdAt: recentIso,
+          updatedAt: recentIso,
+          attemptCount: 1,
+          payload: {
+            date: "2026-03-24",
+            protein: "high",
+            fruitVegServings: 4,
+            antiInflammatoryFocus: true,
+            mealRegularity: "regular",
+            clientMutationId: "nut-syncing-fresh",
+          },
+        } as any,
+      ],
+      lastOutcomeByDomain: {},
+    });
+
+    await resetSyncStoreForTests();
+    const reloaded = await ensureSyncStateLoaded("patient-a");
+
+    expect(reloaded.operations).toHaveLength(1);
+    expect(reloaded.operations[0]?.operationId).toBe("nut-syncing-fresh");
+    expect(reloaded.operations[0]?.status).toBe("queued");
   });
 });

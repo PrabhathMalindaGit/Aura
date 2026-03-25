@@ -90,6 +90,8 @@ export type SyncPatientState = {
   lastOutcomeByDomain: Partial<Record<SyncDomain, SyncDomainOutcome>>;
 };
 
+export const RETRYABLE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+
 export function createEmptySyncState(): SyncPatientState {
   return {
     version: 1,
@@ -114,4 +116,22 @@ export function normalizeSyncingStatus(
   status: SyncOperationStatus
 ): SyncOperationStatus {
   return status === "syncing" ? "queued" : status;
+}
+
+export function isTerminalRetainedFailureReason(
+  reason?: SyncFailureReason
+): boolean {
+  return reason === "validation" || reason === "conflict";
+}
+
+export function isExpiredUnsyncedOperation(
+  operation: SyncOperation,
+  now = Date.now()
+): boolean {
+  const createdAtMs = Date.parse(operation.createdAt);
+  if (!Number.isFinite(createdAtMs)) {
+    return false;
+  }
+
+  return now - createdAtMs >= RETRYABLE_RETENTION_MS;
 }

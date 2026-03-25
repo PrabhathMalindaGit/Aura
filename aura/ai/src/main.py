@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import secrets
 import time
@@ -8,14 +9,21 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.config import get_settings
+from src.config import ConfigurationError, get_settings
 from src.logging_conf import setup_logging
 from src.routers.classify import router as classify_router
 from src.routers.health import router as health_router
 from src.routers.rag import router as rag_router
 
-settings = get_settings()
-setup_logging(settings.log_level)
+settings = None
+startup_config_error: ConfigurationError | None = None
+
+try:
+    settings = get_settings()
+    setup_logging(settings.log_level)
+except ConfigurationError as exc:
+    startup_config_error = exc
+    setup_logging(os.getenv("LOG_LEVEL", "INFO").strip().upper() or "INFO")
 
 logger = logging.getLogger(__name__)
 REQUEST_ID_HEADER = "x-request-id"
@@ -23,6 +31,15 @@ REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]+$")
 REQUEST_ID_MAX_LENGTH = 128
 
 app = FastAPI(title="Aura AI Service")
+
+if startup_config_error is not None:
+    logger.error(
+        "ai.startup.config_invalid",
+        extra={
+            "reason": "CONFIG_INVALID",
+            "errorType": type(startup_config_error).__name__,
+        },
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,13 +137,39 @@ async def require_service_auth(request: Request, call_next):
     if _is_health_path(request.url.path):
         return await call_next(request)
 
-    current_settings = get_settings()
+    try:
+        current_settings = get_settings()
+    except ConfigurationError as exc:
+        logger.error(
+            "ai.request.unready",
+            extra={
+                "requestId": request_id,
+                "route": request.url.path,
+                "reason": "CONFIG_INVALID",
+                "errorType": type(exc).__name__,
+            },
+        )
+        response = JSONResponse(
+            status_code=503,
+            content={"ok": False, "error": "SERVICE_UNREADY"},
+        )
+        response.headers[REQUEST_ID_HEADER] = request_id
+        return response
+
     provided_key = request.headers.get("x-aura-ai-key", "")
     expected_key = current_settings.aura_ai_service_key
 
     if not expected_key or not provided_key or not secrets.compare_digest(
         provided_key, expected_key
     ):
+        logger.warning(
+            "ai.auth.failed",
+            extra={
+                "requestId": request_id,
+                "route": request.url.path,
+                "statusCode": 401,
+            },
+        )
         response = JSONResponse(
             status_code=401,
             content={"ok": False, "error": "UNAUTHORIZED"},

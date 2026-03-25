@@ -101,6 +101,23 @@ describe("chatFlow integrity", () => {
     expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
+  it("creates no ChatMessage and no CommunicationReview when low-risk reply output is invalid", async () => {
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(ragReply).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "invalid_response",
+        aiOperation: "ragReply",
+      })
+    );
+
+    await expect(processChatMessage(lowRiskInput)).rejects.toBeInstanceOf(AIUnavailableError);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+  });
+
   it("rolls back the user message and leaves no CommunicationReview when alert creation fails", async () => {
     vi.mocked(classify).mockResolvedValue({
       risk: "high",

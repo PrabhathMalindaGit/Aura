@@ -1,4 +1,5 @@
 import axios from "axios";
+import { z } from "zod";
 
 import { env } from "../env";
 import type { RequestCorrelationContext } from "../middleware/requestContext";
@@ -27,10 +28,44 @@ export type RagReplyOutput = {
   citations: string[];
 };
 
+export type AIErrorKind =
+  | "timeout"
+  | "network"
+  | "unauthorized"
+  | "upstream_http"
+  | "invalid_response"
+  | "unknown";
+
+type AIOperation = "classify" | "ragReply";
+type AIRequestContext = RequestCorrelationContext & { flow?: string; patientId?: string };
+
+const classifyResponseSchema = z.object({
+  risk: z.enum(["low", "high"]),
+  reasons: z.array(z.enum(["PAIN_GE_THRESHOLD", "CRISIS_LANGUAGE"])),
+  ruleVersion: z.literal("v1"),
+});
+
+const ragReplyResponseSchema = z.object({
+  reply: z.string().trim().min(1).max(500),
+  citations: z.array(z.string()),
+});
+
 export class AIUnavailableError extends Error {
-  constructor(message = "AI service unavailable") {
-    super(message);
+  readonly kind: AIErrorKind;
+  readonly statusCode?: number;
+  readonly aiOperation: AIOperation;
+
+  constructor(options?: {
+    message?: string;
+    kind?: AIErrorKind;
+    statusCode?: number;
+    aiOperation?: AIOperation;
+  }) {
+    super(options?.message ?? "AI service unavailable");
     this.name = "AIUnavailableError";
+    this.kind = options?.kind ?? "unknown";
+    this.statusCode = options?.statusCode;
+    this.aiOperation = options?.aiOperation ?? "classify";
   }
 }
 
@@ -42,62 +77,154 @@ function buildHeaders(context?: RequestCorrelationContext): Record<string, strin
   };
 }
 
-export async function classify(
-  input: ClassifyInput,
-  context?: RequestCorrelationContext & { flow?: string; patientId?: string }
-): Promise<ClassifyOutput> {
+function buildLogContext(
+  aiOperation: AIOperation,
+  context?: AIRequestContext
+): Record<string, unknown> {
+  return {
+    requestId: context?.requestId,
+    flow: context?.flow,
+    patientId: context?.patientId,
+    aiOperation,
+    timeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+  };
+}
+
+function isNetworkErrorCode(code: string | undefined): boolean {
+  return (
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "ENOTFOUND" ||
+    code === "EPIPE" ||
+    code === "EAI_AGAIN"
+  );
+}
+
+function normalizeAIError(error: unknown, aiOperation: AIOperation): AIUnavailableError {
+  if (error instanceof AIUnavailableError) {
+    return error;
+  }
+
+  if (axios.isAxiosError(error)) {
+    const statusCode = error.response?.status;
+    if (error.code === "ECONNABORTED" || /timeout/i.test(error.message)) {
+      return new AIUnavailableError({
+        message: "AI request timed out",
+        kind: "timeout",
+        statusCode,
+        aiOperation,
+      });
+    }
+
+    if (statusCode === 401 || statusCode === 403) {
+      return new AIUnavailableError({
+        message: "AI request unauthorized",
+        kind: "unauthorized",
+        statusCode,
+        aiOperation,
+      });
+    }
+
+    if (typeof statusCode === "number") {
+      return new AIUnavailableError({
+        message: `AI upstream returned ${statusCode}`,
+        kind: "upstream_http",
+        statusCode,
+        aiOperation,
+      });
+    }
+
+    if (isNetworkErrorCode(error.code) || error.request) {
+      return new AIUnavailableError({
+        message: "AI network request failed",
+        kind: "network",
+        aiOperation,
+      });
+    }
+  }
+
+  return new AIUnavailableError({
+    message: error instanceof Error ? error.message : "AI request failed unexpectedly",
+    kind: "unknown",
+    aiOperation,
+  });
+}
+
+async function postToAI<TOutput>(
+  path: string,
+  aiOperation: AIOperation,
+  payload: unknown,
+  schema: z.ZodType<TOutput>,
+  context?: AIRequestContext
+): Promise<TOutput> {
+  logger.info("ai.request.started", {
+    ...buildLogContext(aiOperation, context),
+    path,
+  });
+
   try {
-    const response = await axios.post(`${env.AI_BASE_URL}/classify`, input, {
-      timeout: 4000,
+    const response = await axios.post(`${env.AI_BASE_URL}${path}`, payload, {
+      timeout: env.AI_REQUEST_TIMEOUT_MS,
       headers: buildHeaders(context),
     });
 
-    const risk = response?.data?.risk === "high" ? "high" : "low";
-    const reasons = Array.isArray(response?.data?.reasons)
-      ? response.data.reasons.filter((item: unknown) => typeof item === "string")
-      : [];
+    const parsed = schema.safeParse(response.data);
+    if (!parsed.success) {
+      throw new AIUnavailableError({
+        message: "AI response failed validation",
+        kind: "invalid_response",
+        statusCode: response.status,
+        aiOperation,
+      });
+    }
 
-    return { risk, reasons };
-  } catch (error) {
-    logger.error("ai.classify.failed", {
-      requestId: context?.requestId,
-      flow: context?.flow,
-      patientId: context?.patientId,
-      message: error instanceof Error ? error.message : String(error),
+    logger.info("ai.request.completed", {
+      ...buildLogContext(aiOperation, context),
+      path,
+      statusCode: response.status,
     });
-    throw new AIUnavailableError();
+
+    return parsed.data;
+  } catch (error) {
+    const aiError = normalizeAIError(error, aiOperation);
+    logger.error("ai.request.failed", {
+      ...buildLogContext(aiOperation, context),
+      path,
+      statusCode: aiError.statusCode,
+      aiErrorKind: aiError.kind,
+      message: aiError.message,
+    });
+    throw aiError;
   }
+}
+
+export async function classify(
+  input: ClassifyInput,
+  context?: AIRequestContext
+): Promise<ClassifyOutput> {
+  const parsed = await postToAI(
+    "/classify",
+    "classify",
+    input,
+    classifyResponseSchema,
+    context
+  );
+
+  return {
+    risk: parsed.risk,
+    reasons: parsed.reasons,
+  };
 }
 
 export async function ragReply(
   input: RagReplyInput,
-  context?: RequestCorrelationContext & { flow?: string; patientId?: string }
+  context?: AIRequestContext
 ): Promise<RagReplyOutput> {
-  try {
-    const response = await axios.post(`${env.AI_BASE_URL}/rag/reply`, input, {
-      timeout: 4000,
-      headers: buildHeaders(context),
-    });
-
-    const reply =
-      typeof response?.data?.reply === "string" && response.data.reply.trim()
-        ? response.data.reply
-        : "Thanks for the update. Keep following your rehab plan.";
-    const citations = Array.isArray(response?.data?.citations)
-      ? response.data.citations.filter((item: unknown) => typeof item === "string")
-      : [];
-
-    return {
-      reply,
-      citations,
-    };
-  } catch (error) {
-    logger.error("ai.rag.failed", {
-      requestId: context?.requestId,
-      flow: context?.flow,
-      patientId: context?.patientId,
-      message: error instanceof Error ? error.message : String(error),
-    });
-    throw new AIUnavailableError();
-  }
+  return postToAI(
+    "/rag/reply",
+    "ragReply",
+    input,
+    ragReplyResponseSchema,
+    context
+  );
 }

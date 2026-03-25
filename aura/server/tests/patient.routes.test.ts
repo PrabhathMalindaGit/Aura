@@ -356,6 +356,35 @@ describe("patient auth + patient endpoints", () => {
     expect(history.body.checkins).toEqual([]);
   });
 
+  it("returns 502 and does not persist a patient check-in when classify output is invalid", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "invalid_response",
+        aiOperation: "classify",
+      })
+    );
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-24",
+        mood: 2,
+        pain: 8,
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+  });
+
   it("escalates when urgent help is requested even if classifier returns low risk", async () => {
     await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
     vi.mocked(classify).mockResolvedValue({
@@ -748,6 +777,36 @@ describe("patient auth + patient endpoints", () => {
 
     expect(history.status).toBe(200);
     expect(history.body.messages).toEqual([]);
+  });
+
+  it("returns 502 and does not persist a patient chat message when low-risk reply output is invalid", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(ragReply).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "invalid_response",
+        aiOperation: "ragReply",
+      })
+    );
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/chat/send")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ message: "How should I pace exercise today?" });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
   it("returns patient chat history with default limit", async () => {

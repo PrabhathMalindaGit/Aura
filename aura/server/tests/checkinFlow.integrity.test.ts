@@ -29,7 +29,7 @@ import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import CheckIn from "../src/models/CheckIn";
 import Task from "../src/models/Task";
-import { classify } from "../src/services/ai";
+import { AIUnavailableError, classify } from "../src/services/ai";
 import { DuplicateCheckInError, processCheckIn } from "../src/services/checkinFlow";
 import { emitAlertCreated } from "../src/services/n8n";
 import { logger } from "../src/utils/logger";
@@ -82,6 +82,20 @@ describe("checkinFlow integrity", () => {
     await expect(processCheckIn(baseInput)).rejects.toThrow("alert write failed");
     expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+  });
+
+  it("creates no check-in when classify fails with invalid AI output", async () => {
+    vi.mocked(classify).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "invalid_response",
+        aiOperation: "classify",
+      })
+    );
+
+    await expect(processCheckIn(baseInput)).rejects.toBeInstanceOf(AIUnavailableError);
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CareEvent.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
   it("logs a high-severity integrity error when rollback fails and preserves the original error", async () => {

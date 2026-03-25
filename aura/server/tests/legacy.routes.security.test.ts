@@ -220,6 +220,35 @@ describe("legacy checkin/chat route security", () => {
     expect(history.body.checkins).toEqual([]);
   });
 
+  it("returns 502 and persists no record for legacy check-ins when classify output is invalid", async () => {
+    mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
+    mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
+    vi.mocked(classify).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "invalid_response",
+        aiOperation: "classify",
+      })
+    );
+
+    const response = await request(app)
+      .post("/checkins")
+      .set("x-aura-internal-key", "legacy-internal-key")
+      .send({
+        patientId: "p1",
+        date: "2026-03-03",
+        mood: 3,
+        pain: 2,
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+  });
+
   it("returns 502 and persists no record for legacy chat when classify is unavailable", async () => {
     mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
     mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
@@ -249,5 +278,33 @@ describe("legacy checkin/chat route security", () => {
 
     expect(history.status).toBe(200);
     expect(history.body.messages).toEqual([]);
+  });
+
+  it("returns 502 and persists no record for legacy chat when classify output is invalid", async () => {
+    mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
+    mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
+    vi.mocked(classify).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "invalid_response",
+        aiOperation: "classify",
+      })
+    );
+
+    const response = await request(app)
+      .post("/chat/send")
+      .set("x-aura-internal-key", "legacy-internal-key")
+      .send({
+        patientId: "p1",
+        text: "hello",
+      });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "AI_UNAVAILABLE",
+    });
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 });

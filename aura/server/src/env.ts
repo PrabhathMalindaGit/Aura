@@ -3,6 +3,19 @@ function toInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseIntEnv(name: string, value: string | undefined, fallback: number): number {
+  if (!value || !value.trim()) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${name} must be a valid integer`);
+  }
+
+  return parsed;
+}
+
 function toBool(value: string | undefined, fallback: boolean): boolean {
   if (!value) {
     return fallback;
@@ -46,6 +59,18 @@ function toLogLevel(
   return "info";
 }
 
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const MIN_AI_REQUEST_TIMEOUT_MS = 250;
+const MAX_AI_REQUEST_TIMEOUT_MS = 10_000;
+
 const nodeEnv = process.env.NODE_ENV || "development";
 
 export const env = {
@@ -54,6 +79,11 @@ export const env = {
   LOG_LEVEL: toLogLevel(process.env.LOG_LEVEL),
   MONGO_URL: process.env.MONGO_URL || "mongodb://localhost:27017/aura",
   AI_BASE_URL: process.env.AI_BASE_URL || "http://localhost:8001",
+  AI_REQUEST_TIMEOUT_MS: parseIntEnv(
+    "AI_REQUEST_TIMEOUT_MS",
+    process.env.AI_REQUEST_TIMEOUT_MS,
+    4000
+  ),
   N8N_WEBHOOK_ALERT:
     process.env.N8N_WEBHOOK_ALERT || "http://localhost:5678/webhook/alert-created",
   N8N_RETRY_WEBHOOK_URL: process.env.N8N_RETRY_WEBHOOK_URL || "",
@@ -93,6 +123,9 @@ type RuntimeEnv = {
   CORS_ALLOWED_ORIGINS: readonly string[];
   NODE_ENV: string;
   ALLOW_UNAUTH_CLINICIAN_BODY_IDS: boolean;
+  AI_BASE_URL: string;
+  AURA_AI_SERVICE_KEY: string;
+  AI_REQUEST_TIMEOUT_MS: number;
 };
 
 export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
@@ -107,6 +140,29 @@ export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
   ) {
     throw new Error(
       "CORS_ALLOWED_ORIGINS must be set for non-local environments"
+    );
+  }
+
+  if (!isValidHttpUrl(value.AI_BASE_URL)) {
+    throw new Error("AI_BASE_URL must be a valid http or https URL");
+  }
+
+  if (
+    value.AI_REQUEST_TIMEOUT_MS < MIN_AI_REQUEST_TIMEOUT_MS ||
+    value.AI_REQUEST_TIMEOUT_MS > MAX_AI_REQUEST_TIMEOUT_MS
+  ) {
+    throw new Error(
+      `AI_REQUEST_TIMEOUT_MS must be between ${MIN_AI_REQUEST_TIMEOUT_MS} and ${MAX_AI_REQUEST_TIMEOUT_MS}`
+    );
+  }
+
+  if (
+    value.NODE_ENV !== "development" &&
+    value.NODE_ENV !== "test" &&
+    !value.AURA_AI_SERVICE_KEY.trim()
+  ) {
+    throw new Error(
+      "AURA_AI_SERVICE_KEY must be set for non-local environments"
     );
   }
 }

@@ -607,6 +607,11 @@ export interface WorklistRecord {
   };
   communicationNeedsResponse: boolean;
   activeTaskCount: number;
+  proms?: {
+    dueCount: number;
+    overdueCount: number;
+    nextDueAt?: string;
+  };
   topIssue?: string;
   reviewReason?: string;
   priorityScore: number;

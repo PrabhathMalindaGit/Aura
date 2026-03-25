@@ -196,6 +196,21 @@ export async function setCachedProms(
   await AsyncStorage.setItem(storageKey(patientId), JSON.stringify(next));
 }
 
+export async function setCachedPromDueCards(
+  patientId: string,
+  dueCards: PromDueCard[]
+): Promise<void> {
+  const existing = await getCachedProms(patientId);
+  const next: PromsCacheRecord = {
+    cachedAt: Date.now(),
+    dueCards,
+    historyRows: existing?.historyRows ?? [],
+    instancesById: existing?.instancesById ?? {},
+  };
+
+  await AsyncStorage.setItem(storageKey(patientId), JSON.stringify(next));
+}
+
 export async function getCachedPromInstance(
   patientId: string,
   promId: string

@@ -5,7 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { listMyRequests, type AppointmentRequestItem } from "@/src/api/appointments";
 import { listPatientTasks } from "@/src/api/tasks";
-import type { CheckInItem } from "@/src/api/patient";
+import { getDueProms, type CheckInItem, type PromDueCard } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -31,7 +31,7 @@ import {
 import { getCachedCheckins } from "@/src/state/checkinsCache";
 import { getCachedExercisePlan } from "@/src/state/exercisePlanCache";
 import { getCachedInsights } from "@/src/state/insightsCache";
-import { getCachedProms } from "@/src/state/promsCache";
+import { getCachedProms, setCachedPromDueCards } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { getReminderReadState, markReminderRead, syncReminderReadState } from "@/src/state/inAppReminders";
 import { useLastRefreshed } from "@/src/state/refresh";
@@ -196,6 +196,7 @@ export default function HomeScreen() {
     status: "loading",
     dueCount: 0,
   });
+  const [promDueCards, setPromDueCards] = useState<PromDueCard[]>([]);
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary>({
     status: "loading",
     headline: "",
@@ -453,6 +454,7 @@ export default function HomeScreen() {
 
     if (!patientId) {
       setPromSummary({ status: "none", dueCount: 0 });
+      setPromDueCards([]);
       return () => {
         active = false;
       };
@@ -465,6 +467,7 @@ export default function HomeScreen() {
       }
 
       const dueCount = cached?.dueCards.length ?? 0;
+      setPromDueCards(cached?.dueCards ?? []);
       setPromSummary({
         status: dueCount > 0 ? "hasDue" : "none",
         dueCount,
@@ -629,12 +632,13 @@ export default function HomeScreen() {
 
       let active = true;
       void (async () => {
-        const [tasksResult, appointmentsResult] = await Promise.allSettled([
+        const [tasksResult, appointmentsResult, promsResult] = await Promise.allSettled([
           listPatientTasks(token, {
             status: ["open", "in_progress", "completed", "cancelled"],
             limit: 100,
           }),
           listMyRequests(token),
+          getDueProms(token, 100),
         ]);
 
         if (!active) {
@@ -676,12 +680,24 @@ export default function HomeScreen() {
             appointmentsRefresh.refreshLocal(),
           ]);
         }
+
+        if (promsResult.status === "fulfilled") {
+          setPromDueCards(promsResult.value);
+          setPromSummary({
+            status: promsResult.value.length > 0 ? "hasDue" : "none",
+            dueCount: promsResult.value.length,
+          });
+          await Promise.all([
+            setCachedPromDueCards(patientId, promsResult.value),
+            promsRefresh.refreshLocal(),
+          ]);
+        }
       })();
 
       return () => {
         active = false;
       };
-    }, [appointmentsRefresh, auth.token, isOffline, patientId, tasksRefresh]),
+    }, [appointmentsRefresh, auth.token, isOffline, patientId, promsRefresh, tasksRefresh]),
   );
 
   useFocusEffect(
@@ -703,7 +719,7 @@ export default function HomeScreen() {
 
         const synced = await syncReminderReadState(
           patientId,
-          buildReminderItems(taskItems, appointmentRequests, currentReadState).map((item) => item.id),
+          buildReminderItems(taskItems, appointmentRequests, promDueCards, currentReadState).map((item) => item.id),
         );
         if (!active) {
           return;
@@ -714,7 +730,7 @@ export default function HomeScreen() {
       return () => {
         active = false;
       };
-    }, [appointmentRequests, patientId, taskItems]),
+    }, [appointmentRequests, patientId, promDueCards, taskItems]),
   );
 
   const activeTaskCount = useMemo(
@@ -722,8 +738,8 @@ export default function HomeScreen() {
     [taskItems],
   );
   const reminders = useMemo(
-    () => buildReminderItems(taskItems, appointmentRequests, reminderReadState),
-    [appointmentRequests, reminderReadState, taskItems],
+    () => buildReminderItems(taskItems, appointmentRequests, promDueCards, reminderReadState),
+    [appointmentRequests, promDueCards, reminderReadState, taskItems],
   );
   const previewReminders = useMemo(
     () => buildReminderPreview(reminders, 3),
@@ -815,7 +831,7 @@ export default function HomeScreen() {
       {previewReminders.length > 0 ? (
         <Section
           title="Needs your attention"
-          subtitle="Follow-up steps, appointment updates, and care team prompts."
+          subtitle="Follow-up steps, questionnaires, appointment updates, and care team prompts."
           left={
             <View accessible={false} importantForAccessibility="no-hide-descendants">
               <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />

@@ -1,6 +1,7 @@
 import type { Href } from "expo-router";
 
 import type { AppointmentRequestItem } from "@/src/api/appointments";
+import type { PromDueCard } from "@/src/api/patient";
 import type { PatientTaskItem } from "@/src/types/task";
 import type {
   ReminderGroup,
@@ -206,6 +207,104 @@ function appointmentGroupAndStatus(
   return null;
 }
 
+function promGroupAndStatus(
+  item: PromDueCard,
+  now: Date,
+): {
+  group: ReminderGroup;
+  status: ReminderStatus;
+  tone: ReminderTone;
+} {
+  const dueAt = parseDate(item.dueAt);
+  if (!dueAt) {
+    return {
+      group: "soon",
+      status: "due",
+      tone: "info",
+    };
+  }
+
+  if (dueAt.getTime() < now.getTime()) {
+    return {
+      group: "attention",
+      status: "overdue",
+      tone: "warning",
+    };
+  }
+
+  if (hoursFromNow(item.dueAt, now) !== null && hoursFromNow(item.dueAt, now)! <= 24) {
+    return {
+      group: "attention",
+      status: "due",
+      tone: "warning",
+    };
+  }
+
+  return {
+    group: "soon",
+    status: "due",
+    tone: "info",
+  };
+}
+
+function formatPromTimingLabel(dueAt?: string, now = new Date()): string {
+  const parsed = parseDate(dueAt);
+  if (!parsed) {
+    return "Due soon";
+  }
+
+  if (parsed.getTime() < now.getTime()) {
+    return `Past due ${formatRelativeFromNow(parsed.getTime())}`;
+  }
+
+  const hoursUntil = hoursFromNow(dueAt, now);
+  if (hoursUntil !== null && hoursUntil <= 24) {
+    return "Due today";
+  }
+  if (hoursUntil !== null && hoursUntil <= 48) {
+    return "Due tomorrow";
+  }
+
+  return `Due ${formatRelativeFromNow(parsed.getTime())}`;
+}
+
+function buildPromReminder(
+  item: PromDueCard,
+  readState: ReminderReadState,
+  now: Date,
+): ReminderItem {
+  const meta = promGroupAndStatus(item, now);
+  const reminderId = `prom:${item.id}:${item.dueAt}`;
+  const unread = !readState.readById[reminderId];
+
+  return {
+    id: reminderId,
+    sourceType: "prom",
+    title: item.title,
+    message:
+      meta.status === "overdue"
+        ? "This recovery questionnaire is past due. Open it to review the questions when you are ready."
+        : "A recovery questionnaire is due and ready for your next update.",
+    status: meta.status,
+    tone: meta.tone,
+    group: meta.group,
+    unread,
+    createdAt: item.dueAt,
+    updatedAt: item.dueAt,
+    dueAt: item.dueAt,
+    linkedEntityId: item.id,
+    linkedRoute: {
+      pathname: "/prom-fill",
+      params: { promId: item.id },
+    } satisfies Href,
+    primaryActionLabel: "Open questionnaire",
+    primaryActionIcon: "proms",
+    timingLabel: formatPromTimingLabel(item.dueAt, now),
+    statusLabel: meta.status === "overdue" ? "Overdue" : meta.group === "attention" ? "Due today" : "Due soon",
+    chips: ["Questionnaire"],
+  };
+}
+
 function buildTaskReminder(
   task: PatientTaskItem,
   readState: ReminderReadState,
@@ -379,10 +478,12 @@ function buildAppointmentReminder(
 export function buildReminderItems(
   tasks: PatientTaskItem[],
   requests: AppointmentRequestItem[],
+  dueProms: PromDueCard[],
   readState: ReminderReadState,
   now = new Date(),
 ): ReminderItem[] {
   const reminders = [
+    ...dueProms.map((item) => buildPromReminder(item, readState, now)),
     ...tasks
       .map((task) => buildTaskReminder(task, readState, now))
       .filter((item): item is ReminderItem => Boolean(item)),

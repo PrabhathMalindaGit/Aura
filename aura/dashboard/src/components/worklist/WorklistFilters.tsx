@@ -7,7 +7,7 @@ interface WorklistFiltersProps {
   disabled?: boolean;
   onSearchChange: (value: string) => void;
   onToggleFilter: (
-    key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse' | 'missedCheckins' | 'assignedToMe',
+    key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse' | 'missedCheckins' | 'needsPromReview' | 'assignedToMe',
   ) => void;
   onStatusChange: (value: WorklistStatusFilter) => void;
   onSortChange: (value: WorklistSortOption) => void;
@@ -15,13 +15,14 @@ interface WorklistFiltersProps {
 }
 
 const TOGGLE_FILTERS: Array<{
-  key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse' | 'missedCheckins' | 'assignedToMe';
+  key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse' | 'missedCheckins' | 'needsPromReview' | 'assignedToMe';
   label: string;
 }> = [
   { key: 'highRiskOnly', label: 'High risk' },
   { key: 'hasOpenAlerts', label: 'Open alerts' },
   { key: 'needsResponse', label: 'Needs response' },
   { key: 'missedCheckins', label: 'Missed check-ins' },
+  { key: 'needsPromReview', label: 'PROMs due' },
   { key: 'assignedToMe', label: 'Assigned to me' },
 ];
 

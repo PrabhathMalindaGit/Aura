@@ -58,6 +58,7 @@ function normalizeWorklistWorkspaceState(value: unknown): WorklistFiltersState {
     hasOpenAlerts: candidate.hasOpenAlerts === true,
     needsResponse: candidate.needsResponse === true,
     missedCheckins: candidate.missedCheckins === true,
+    needsPromReview: candidate.needsPromReview === true,
     assignedToMe: candidate.assignedToMe === true,
     status: WORKLIST_STATUS_FILTERS.includes(candidate.status ?? 'all')
       ? (candidate.status as WorklistFiltersState['status'])
@@ -94,6 +95,7 @@ export function WorklistPage(): JSX.Element {
       hasOpenAlerts: filters.hasOpenAlerts,
       needsResponse: filters.needsResponse,
       missedCheckins: filters.missedCheckins,
+      needsPromReview: filters.needsPromReview,
       assignedToMe: filters.assignedToMe,
       status: filters.status,
       sort: filters.sort,

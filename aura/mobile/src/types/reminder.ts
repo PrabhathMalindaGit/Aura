@@ -7,6 +7,7 @@ export type ReminderSourceType =
   | "appointment"
   | "communication"
   | "checkin_followup"
+  | "prom"
   | "system";
 
 export type ReminderGroup = "attention" | "soon" | "recent";

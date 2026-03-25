@@ -88,6 +88,11 @@ const WORKLIST_ITEMS: WorklistRecord[] = [
     },
     communicationNeedsResponse: true,
     activeTaskCount: 2,
+    proms: {
+      dueCount: 2,
+      overdueCount: 1,
+      nextDueAt: '2026-03-09T06:00:00.000Z',
+    },
     topIssue: 'High pain escalation',
     reviewReason: 'Patient chat and safety review both need follow-up.',
     priorityScore: 92,
@@ -112,6 +117,11 @@ const WORKLIST_ITEMS: WorklistRecord[] = [
     },
     communicationNeedsResponse: false,
     activeTaskCount: 1,
+    proms: {
+      dueCount: 1,
+      overdueCount: 1,
+      nextDueAt: '2026-03-07T08:00:00.000Z',
+    },
     topIssue: 'Missed daily check-ins',
     reviewReason: 'Follow-up is needed before the next rehab step.',
     priorityScore: 48,
@@ -152,6 +162,10 @@ function installWorklistFetchMock(itemsSeed: WorklistRecord[] = WORKLIST_ITEMS):
 
       if (url.searchParams.get('missedCheckins') === 'true') {
         items = items.filter((item) => item.missedCheckins.flag);
+      }
+
+      if (url.searchParams.get('needsPromReview') === 'true') {
+        items = items.filter((item) => (item.proms?.dueCount ?? 0) > 0);
       }
 
       if (url.searchParams.get('assignedToMe') === 'true') {
@@ -203,6 +217,7 @@ describe('WorklistPage', () => {
     expect(screen.getByText('High pain escalation')).toBeInTheDocument();
     expect(screen.getByText('Missed daily check-ins')).toBeInTheDocument();
     expect(within(screen.getByTestId('worklist-row-p1')).getByText('Needs response')).toBeInTheDocument();
+    expect(within(screen.getByTestId('worklist-row-p1')).getByText('2 PROMs due (1 overdue)')).toBeInTheDocument();
 
     const jordanRow = screen.getByTestId('worklist-row-p1');
     await userEvent.click(within(jordanRow).getByRole('button', { name: 'Open patient' }));
@@ -292,6 +307,83 @@ describe('WorklistPage', () => {
     await waitFor(() => {
       expect(requests.some((request) => request.searchParams.get('sort') === 'patientName')).toBe(true);
     });
+  });
+
+  it('applies the PROMs due filter and sends the additive query param', async () => {
+    const { requests } = installWorklistFetchMock([
+      WORKLIST_ITEMS[0],
+      {
+        ...WORKLIST_ITEMS[1],
+        patientId: 'p3',
+        patientName: 'Taylor Fox',
+        missedCheckins: {
+          flag: false,
+          count: 0,
+        },
+        activeTaskCount: 0,
+        topIssue: 'Routine follow-up',
+        reviewReason: 'Routine follow-up',
+        proms: {
+          dueCount: 0,
+          overdueCount: 0,
+        },
+        priorityScore: 10,
+      },
+    ]);
+
+    renderWorklistPage();
+
+    expect(await screen.findByText('Jordan Lee')).toBeInTheDocument();
+    expect(screen.getByText('Taylor Fox')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'PROMs due' }));
+
+    await waitFor(() => {
+      expect(requests.some((request) => request.searchParams.get('needsPromReview') === 'true')).toBe(true);
+    });
+
+    expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
+    expect(screen.queryByText('Taylor Fox')).not.toBeInTheDocument();
+  });
+
+  it('shows PROM-led support only when higher-priority reasons are absent', async () => {
+    installWorklistFetchMock([
+      WORKLIST_ITEMS[0],
+      {
+        ...WORKLIST_ITEMS[1],
+        patientId: 'p-prom',
+        patientName: 'Sam Patel',
+        missedCheckins: {
+          flag: false,
+          count: 0,
+        },
+        activeTaskCount: 0,
+        communicationNeedsResponse: false,
+        topIssue: '1 overdue PROM',
+        reviewReason: '1 overdue PROM',
+        proms: {
+          dueCount: 1,
+          overdueCount: 1,
+          nextDueAt: '2026-03-07T08:00:00.000Z',
+        },
+        priorityScore: 2,
+      },
+    ]);
+
+    renderWorklistPage();
+
+    const jordanRow = await screen.findByTestId('worklist-row-p1');
+    expect(within(jordanRow).getByText('High pain escalation')).toBeInTheDocument();
+    expect(
+      within(jordanRow).queryByText('Recovery questionnaires are still due and include overdue follow-through.'),
+    ).not.toBeInTheDocument();
+
+    const promRow = screen.getByTestId('worklist-row-p-prom');
+    expect(within(promRow).getByText('1 overdue PROM')).toBeInTheDocument();
+    expect(within(promRow).getByText('1 PROM due (1 overdue)')).toBeInTheDocument();
+    expect(
+      within(promRow).getByText('Recovery questionnaires are still due and include overdue follow-through.'),
+    ).toBeInTheDocument();
   });
 
   it('renders filtered empty state and reset flow correctly', async () => {

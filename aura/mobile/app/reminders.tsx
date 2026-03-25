@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { listMyRequests, type AppointmentRequestItem } from "@/src/api/appointments";
+import { getDueProms, type PromDueCard } from "@/src/api/patient";
 import { completePatientTask, listPatientTasks } from "@/src/api/tasks";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
@@ -26,6 +27,7 @@ import {
   getCachedAppointmentRequests,
   setCachedAppointmentRequests,
 } from "@/src/state/appointmentsCache";
+import { getCachedProms, setCachedPromDueCards } from "@/src/state/promsCache";
 import {
   getReminderReadState,
   markAllRemindersRead,
@@ -106,6 +108,7 @@ export default function RemindersScreen() {
   const remindersRefresh = useLastRefreshed("reminders");
   const tasksRefresh = useLastRefreshed("tasks");
   const appointmentsRefresh = useLastRefreshed("appointments");
+  const promsRefresh = useLastRefreshed("proms");
   const remindersLoadError = useLastError("remindersLoad");
   const remindersActionError = useLastError("remindersAction");
 
@@ -116,6 +119,7 @@ export default function RemindersScreen() {
 
   const [tasks, setTasks] = useState<PatientTaskItem[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRequestItem[]>([]);
+  const [promDueCards, setPromDueCards] = useState<PromDueCard[]>([]);
   const [readState, setReadState] = useState<ReminderReadState>(emptyReadState());
   const [isLoading, setIsLoading] = useState(true);
   const [showingOfflineCache, setShowingOfflineCache] = useState(false);
@@ -123,8 +127,8 @@ export default function RemindersScreen() {
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
 
   const reminders = useMemo(
-    () => buildReminderItems(tasks, appointments, readState),
-    [appointments, readState, tasks],
+    () => buildReminderItems(tasks, appointments, promDueCards, readState),
+    [appointments, promDueCards, readState, tasks],
   );
   const unreadCount = useMemo(() => countUnreadReminders(reminders), [reminders]);
   const grouped = useMemo(() => splitReminderGroups(reminders), [reminders]);
@@ -133,21 +137,21 @@ export default function RemindersScreen() {
     if (!nextReminder) {
       return {
         title: "You’re caught up for now.",
-        body: "New follow-up prompts will show up here when a task, appointment, or care-team request changes.",
+        body: "New follow-up prompts will show up here when a questionnaire, task, appointment, or care-team request changes.",
       };
     }
 
     if (grouped.attention.length > 0) {
       return {
         title: "Start with what needs attention now.",
-        body: "Open the first reminder below to jump straight back into the right care step, conversation, or appointment view.",
+        body: "Open the first reminder below to jump straight back into the right questionnaire, care step, conversation, or appointment view.",
       };
     }
 
     if (grouped.soon.length > 0) {
       return {
         title: "Your next follow-up steps are lined up.",
-        body: "Use this screen to see what is coming up soon, then move into tasks or appointments when you are ready to act.",
+        body: "Use this screen to see what is coming up soon, then move into questionnaires, tasks, or appointments when you are ready to act.",
       };
     }
 
@@ -161,11 +165,13 @@ export default function RemindersScreen() {
     async (
       nextTasks: PatientTaskItem[],
       nextAppointments: AppointmentRequestItem[],
+      nextPromDueCards: PromDueCard[],
       currentReadState: ReminderReadState,
     ) => {
       const nextReminderIds = buildReminderItems(
         nextTasks,
         nextAppointments,
+        nextPromDueCards,
         currentReadState,
       ).map((item) => item.id);
       const synced = await syncReminderReadState(patientId, nextReminderIds);
@@ -186,17 +192,20 @@ export default function RemindersScreen() {
 
     try {
       if (isOffline) {
-        const [cachedTasks, cachedAppointments] = await Promise.all([
+        const [cachedTasks, cachedAppointments, cachedProms] = await Promise.all([
           getCachedTasks(patientId),
           getCachedAppointmentRequests(patientId),
+          getCachedProms(patientId),
         ]);
         const nextTasks = cachedTasks?.items ?? [];
         const nextAppointments = cachedAppointments?.requests ?? [];
+        const nextPromDueCards = cachedProms?.dueCards ?? [];
         setTasks(nextTasks);
         setAppointments(nextAppointments);
+        setPromDueCards(nextPromDueCards);
         setShowingOfflineCache(true);
-        await syncReadStateForItems(nextTasks, nextAppointments, currentReadState);
-        if (nextTasks.length === 0 && nextAppointments.length === 0) {
+        await syncReadStateForItems(nextTasks, nextAppointments, nextPromDueCards, currentReadState);
+        if (nextTasks.length === 0 && nextAppointments.length === 0 && nextPromDueCards.length === 0) {
           setNotice({
             variant: "warning",
             title: "Offline",
@@ -206,16 +215,18 @@ export default function RemindersScreen() {
         return;
       }
 
-      const [tasksResult, appointmentsResult] = await Promise.allSettled([
+      const [tasksResult, appointmentsResult, promsResult] = await Promise.allSettled([
         listPatientTasks(auth.token, {
           status: ["open", "in_progress", "completed", "cancelled"],
           limit: 100,
         }),
         listMyRequests(auth.token),
+        getDueProms(auth.token, 100),
       ]);
 
       let nextTasks: PatientTaskItem[] = [];
       let nextAppointments: AppointmentRequestItem[] = [];
+      let nextPromDueCards: PromDueCard[] = [];
       let usedCache = false;
       let hadFailure = false;
 
@@ -242,10 +253,24 @@ export default function RemindersScreen() {
         usedCache = usedCache || nextAppointments.length > 0;
       }
 
+      if (promsResult.status === "fulfilled") {
+        nextPromDueCards = promsResult.value;
+        await Promise.all([
+          setCachedPromDueCards(patientId, nextPromDueCards),
+          promsRefresh.refreshLocal(),
+        ]);
+      } else {
+        hadFailure = true;
+        const cachedProms = await getCachedProms(patientId);
+        nextPromDueCards = cachedProms?.dueCards ?? [];
+        usedCache = usedCache || nextPromDueCards.length > 0;
+      }
+
       setTasks(nextTasks);
       setAppointments(nextAppointments);
+      setPromDueCards(nextPromDueCards);
       setShowingOfflineCache(usedCache && hadFailure);
-      await syncReadStateForItems(nextTasks, nextAppointments, currentReadState);
+      await syncReadStateForItems(nextTasks, nextAppointments, nextPromDueCards, currentReadState);
 
       if (hadFailure) {
         await remindersLoadError.setLocalError({
@@ -273,21 +298,29 @@ export default function RemindersScreen() {
         retryable: friendly.retryable,
       });
 
-      const [cachedTasks, cachedAppointments] = await Promise.all([
+      const [cachedTasks, cachedAppointments, cachedProms] = await Promise.all([
         getCachedTasks(patientId),
         getCachedAppointmentRequests(patientId),
+        getCachedProms(patientId),
       ]);
       const nextTasks = cachedTasks?.items ?? [];
       const nextAppointments = cachedAppointments?.requests ?? [];
+      const nextPromDueCards = cachedProms?.dueCards ?? [];
       setTasks(nextTasks);
       setAppointments(nextAppointments);
-      setShowingOfflineCache(nextTasks.length > 0 || nextAppointments.length > 0);
-      await syncReadStateForItems(nextTasks, nextAppointments, currentReadState);
+      setPromDueCards(nextPromDueCards);
+      setShowingOfflineCache(
+        nextTasks.length > 0 || nextAppointments.length > 0 || nextPromDueCards.length > 0,
+      );
+      await syncReadStateForItems(nextTasks, nextAppointments, nextPromDueCards, currentReadState);
       setNotice({
-        variant: nextTasks.length > 0 || nextAppointments.length > 0 ? "warning" : "error",
+        variant:
+          nextTasks.length > 0 || nextAppointments.length > 0 || nextPromDueCards.length > 0
+            ? "warning"
+            : "error",
         title: friendly.title,
         message:
-          nextTasks.length > 0 || nextAppointments.length > 0
+          nextTasks.length > 0 || nextAppointments.length > 0 || nextPromDueCards.length > 0
             ? "Showing saved reminders."
             : friendly.message,
       });
@@ -299,6 +332,7 @@ export default function RemindersScreen() {
     auth.token,
     isOffline,
     patientId,
+    promsRefresh,
     remindersLoadError,
     remindersRefresh,
     syncReadStateForItems,
@@ -348,6 +382,7 @@ export default function RemindersScreen() {
         const relatedReminderIds = buildReminderItems(
           nextTasks,
           appointments,
+          promDueCards,
           provisionalReadState,
         )
           .filter((item) => item.linkedEntityId === completed.id)
@@ -386,6 +421,7 @@ export default function RemindersScreen() {
       auth.token,
       isOffline,
       patientId,
+      promDueCards,
       remindersActionError,
       remindersRefresh,
       tasks,

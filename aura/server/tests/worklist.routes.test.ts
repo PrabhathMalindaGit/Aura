@@ -19,15 +19,23 @@ import AppointmentSlot from "../src/models/AppointmentSlot";
 import CheckIn from "../src/models/CheckIn";
 import CommunicationReview from "../src/models/CommunicationReview";
 import Patient from "../src/models/Patient";
+import PromInstance from "../src/models/PromInstance";
 import Task from "../src/models/Task";
+import User from "../src/models/User";
 import { signAuthToken } from "../src/utils/jwt";
 
-function clinicianToken(userId = "clinician-1"): string {
+function clinicianToken(user: {
+  _id: unknown;
+  email: string;
+  displayName?: string;
+  sessionVersion?: number;
+}): string {
   return signAuthToken({
-    id: userId,
+    id: String(user._id),
     role: "clinician",
-    email: `${userId}@example.com`,
-    name: "Clinician One",
+    email: user.email,
+    name: user.displayName ?? "Clinician One",
+    sessionVersion: user.sessionVersion ?? 0,
   });
 }
 
@@ -57,7 +65,9 @@ describe("clinician worklist route", () => {
       CheckIn.deleteMany({}),
       CommunicationReview.deleteMany({}),
       Patient.deleteMany({}),
+      PromInstance.deleteMany({}),
       Task.deleteMany({}),
+      User.deleteMany({}),
     ]);
   });
 
@@ -66,12 +76,21 @@ describe("clinician worklist route", () => {
   });
 
   it("returns an aggregated operational worklist", async () => {
+    const clinicianUser = await User.create({
+      email: "clinician-1@example.com",
+      passwordHash: "unused-password-hash",
+      role: "clinician",
+      displayName: "Clinician One",
+      sessionVersion: 0,
+    });
+    const clinicianId = String(clinicianUser._id);
+
     await Patient.insertMany([
       {
         patientId: "p1",
         displayName: "Jordan Lee",
         status: "active",
-        clinicianId: "clinician-1",
+        clinicianId,
         rehab: {
           currentKey: "phase-strength",
           phases: [
@@ -95,6 +114,11 @@ describe("clinician worklist route", () => {
         displayName: "Avery Chen",
         status: "active",
       },
+      {
+        patientId: "p3",
+        displayName: "Taylor Fox",
+        status: "active",
+      },
     ]);
 
     await CheckIn.create({
@@ -114,11 +138,26 @@ describe("clinician worklist route", () => {
 
     await CheckIn.create({
       patientId: "p2",
-      date: "2026-03-04",
+      date: "2026-03-09",
       mood: 4,
       pain: 3,
       adherence: {
         exercises: 0.8,
+        medication: true,
+      },
+      risk: {
+        level: "low",
+        reasons: [],
+      },
+    });
+
+    await CheckIn.create({
+      patientId: "p3",
+      date: "2026-03-09",
+      mood: 5,
+      pain: 2,
+      adherence: {
+        exercises: 0.9,
         medication: true,
       },
       risk: {
@@ -132,7 +171,7 @@ describe("clinician worklist route", () => {
       reason: "High pain",
       source: { type: "checkin", sourceId: "checkin-p1" },
       status: "open",
-      assignedTo: "clinician-1",
+      assignedTo: clinicianId,
     });
 
     await Task.create({
@@ -141,8 +180,8 @@ describe("clinician worklist route", () => {
       type: "safety_review",
       priority: "urgent",
       status: "open",
-      assignedTo: "clinician-1",
-      createdBy: "clinician-1",
+      assignedTo: clinicianId,
+      createdBy: clinicianId,
       source: { type: "alert" },
     });
 
@@ -170,16 +209,76 @@ describe("clinician worklist route", () => {
       note: "Confirmed for today.",
     });
 
+    await PromInstance.insertMany([
+      {
+        patientId: "p1",
+        templateKey: "koos",
+        templateVersion: 1,
+        titleSnapshot: "KOOS",
+        questionsSnapshot: [
+          {
+            id: "q1",
+            text: "How is your knee today?",
+            type: "likert",
+            min: 0,
+            max: 10,
+            required: true,
+          },
+        ],
+        dueAt: new Date("2026-03-09T06:00:00.000Z"),
+        status: "due",
+      },
+      {
+        patientId: "p1",
+        templateKey: "promis",
+        templateVersion: 1,
+        titleSnapshot: "PROMIS Function",
+        questionsSnapshot: [
+          {
+            id: "q1",
+            text: "How is your movement today?",
+            type: "likert",
+            min: 0,
+            max: 10,
+            required: true,
+          },
+        ],
+        dueAt: new Date("2026-03-10T08:00:00.000Z"),
+        status: "due",
+      },
+      {
+        patientId: "p2",
+        templateKey: "lefs",
+        templateVersion: 1,
+        titleSnapshot: "LEFS",
+        questionsSnapshot: [
+          {
+            id: "q1",
+            text: "How easy was walking today?",
+            type: "likert",
+            min: 0,
+            max: 10,
+            required: true,
+          },
+        ],
+        dueAt: new Date("2026-03-07T08:00:00.000Z"),
+        status: "due",
+      },
+    ]);
+
     const response = await request(app)
       .get("/clinician/worklist")
-      .set("Authorization", `Bearer ${clinicianToken()}`);
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`);
 
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
-    expect(response.body.items).toHaveLength(2);
+    expect(response.body.items).toHaveLength(3);
+
+    expect(response.body.items[0].patientId).toBe("p1");
 
     const p1 = response.body.items.find((item: { patientId: string }) => item.patientId === "p1");
     const p2 = response.body.items.find((item: { patientId: string }) => item.patientId === "p2");
+    const p3 = response.body.items.find((item: { patientId: string }) => item.patientId === "p3");
 
     expect(p1).toMatchObject({
       patientId: "p1",
@@ -191,9 +290,14 @@ describe("clinician worklist route", () => {
       lastPainScore: 8,
       communicationNeedsResponse: true,
       activeTaskCount: 1,
+      proms: {
+        dueCount: 2,
+        overdueCount: 1,
+      },
     });
     expect(p1.missedCheckins.flag).toBe(false);
     expect(typeof p1.nextAppointmentAt).toBe("string");
+    expect(typeof p1.proms.nextDueAt).toBe("string");
     expect(typeof p1.updatedAt).toBe("string");
     expect(typeof p1.priorityScore).toBe("number");
 
@@ -203,8 +307,22 @@ describe("clinician worklist route", () => {
       patientStatus: "active",
       openAlertsCount: 0,
       latestRiskLevel: "low",
+      topIssue: "1 overdue PROM",
+      reviewReason: "1 overdue PROM",
+      proms: {
+        dueCount: 1,
+        overdueCount: 1,
+      },
     });
-    expect(p2.missedCheckins.flag).toBe(true);
+    expect(p2.missedCheckins.flag).toBe(false);
+
+    expect(p3).toMatchObject({
+      patientId: "p3",
+      proms: {
+        dueCount: 0,
+        overdueCount: 0,
+      },
+    });
 
     const filteredResponse = await request(app)
       .get("/clinician/worklist")
@@ -212,10 +330,24 @@ describe("clinician worklist route", () => {
         highRiskOnly: "true",
         assignedToMe: "true",
       })
-      .set("Authorization", `Bearer ${clinicianToken()}`);
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`);
 
     expect(filteredResponse.status).toBe(200);
     expect(filteredResponse.body.items).toHaveLength(1);
     expect(filteredResponse.body.items[0].patientId).toBe("p1");
+
+    const promFilteredResponse = await request(app)
+      .get("/clinician/worklist")
+      .query({
+        needsPromReview: "true",
+      })
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`);
+
+    expect(promFilteredResponse.status).toBe(200);
+    expect(promFilteredResponse.body.items).toHaveLength(2);
+    expect(promFilteredResponse.body.items.map((item: { patientId: string }) => item.patientId)).toEqual([
+      "p1",
+      "p2",
+    ]);
   });
 });

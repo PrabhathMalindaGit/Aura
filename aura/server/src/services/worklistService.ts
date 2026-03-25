@@ -1,6 +1,7 @@
 import Alert from "../models/Alert";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
+import PromInstance from "../models/PromInstance";
 import Task from "../models/Task";
 import { listAppointmentWorkflowItems } from "./appointmentWorkflowService";
 import { getCommunicationNeedsResponseSummaryByPatient } from "./communicationReviewService";
@@ -23,6 +24,7 @@ export type WorklistFilters = {
   hasOpenAlerts?: boolean;
   needsResponse?: boolean;
   missedCheckins?: boolean;
+  needsPromReview?: boolean;
   assignedToMe?: boolean;
   status?: "active" | "on_hold" | "discharged" | "inactive";
   sort?: WorklistSort;
@@ -49,6 +51,14 @@ type TaskSummaryRow = {
   activeTaskCount: number;
   latestTaskUpdatedAt?: Date;
   assignedToMeCount: number;
+};
+
+type PromSummaryRow = {
+  _id: string;
+  dueCount: number;
+  overdueCount: number;
+  nextDueAt?: Date;
+  latestPromUpdatedAt?: Date;
 };
 
 type WorklistRecordInternal = WorklistRecord & {
@@ -126,6 +136,10 @@ function deriveTopIssue(input: {
   communicationNeedsResponse: boolean;
   missedCheckins: { flag: boolean; count: number };
   activeTaskCount: number;
+  proms: {
+    dueCount: number;
+    overdueCount: number;
+  };
   appointmentStatus?: string;
   nextAppointmentAt?: string;
 }): string | undefined {
@@ -151,6 +165,15 @@ function deriveTopIssue(input: {
   if (input.nextAppointmentAt) {
     return "Upcoming appointment scheduled";
   }
+  if (input.proms.overdueCount > 0) {
+    if (input.proms.dueCount === input.proms.overdueCount) {
+      return `${input.proms.overdueCount} overdue PROM${input.proms.overdueCount === 1 ? "" : "s"}`;
+    }
+    return `${input.proms.dueCount} PROMs due (${input.proms.overdueCount} overdue)`;
+  }
+  if (input.proms.dueCount > 0) {
+    return `${input.proms.dueCount} PROM${input.proms.dueCount === 1 ? "" : "s"} due`;
+  }
   return undefined;
 }
 
@@ -161,6 +184,10 @@ function derivePriorityScore(input: {
   communicationNeedsResponse: boolean;
   missedCheckins: { flag: boolean; count: number };
   activeTaskCount: number;
+  proms: {
+    dueCount: number;
+    overdueCount: number;
+  };
   appointmentStatus?: string;
 }): number {
   let score = 0;
@@ -189,6 +216,9 @@ function derivePriorityScore(input: {
   } else if (input.appointmentStatus === "upcoming") {
     score += 4;
   }
+
+  score += input.proms.overdueCount * 2;
+  score += Math.max(0, input.proms.dueCount - input.proms.overdueCount);
 
   return score;
 }
@@ -239,7 +269,16 @@ export async function listClinicianWorklist(
   filters: WorklistFilters = {},
   clinicianId?: string
 ): Promise<WorklistRecord[]> {
-  const [patients, latestCheckins, openAlerts, openTasks, communicationSummaryMap, appointmentItems] =
+  const now = new Date();
+  const [
+    patients,
+    latestCheckins,
+    openAlerts,
+    openTasks,
+    dueProms,
+    communicationSummaryMap,
+    appointmentItems,
+  ] =
     await Promise.all([
       Patient.find({})
         .select({
@@ -299,6 +338,22 @@ export async function listClinicianWorklist(
           },
         },
       ]),
+      PromInstance.aggregate<PromSummaryRow>([
+        { $match: { status: "due" } },
+        {
+          $group: {
+            _id: "$patientId",
+            dueCount: { $sum: 1 },
+            overdueCount: {
+              $sum: {
+                $cond: [{ $lt: ["$dueAt", now] }, 1, 0],
+              },
+            },
+            nextDueAt: { $min: "$dueAt" },
+            latestPromUpdatedAt: { $max: "$updatedAt" },
+          },
+        },
+      ]),
       getCommunicationNeedsResponseSummaryByPatient(),
       listAppointmentWorkflowItems({
         workflowStatuses: [
@@ -316,6 +371,7 @@ export async function listClinicianWorklist(
   const latestCheckinMap = new Map(latestCheckins.map((row) => [row._id, row]));
   const openAlertMap = new Map(openAlerts.map((row) => [row._id, row]));
   const openTaskMap = new Map(openTasks.map((row) => [row._id, row]));
+  const duePromMap = new Map(dueProms.map((row) => [row._id, row]));
 
   const appointmentByPatient = new Map<
     string,
@@ -360,6 +416,9 @@ export async function listClinicianWorklist(
   for (const row of openTasks) {
     patientIds.add(row._id);
   }
+  for (const row of dueProms) {
+    patientIds.add(row._id);
+  }
   for (const patientId of communicationSummaryMap.keys()) {
     patientIds.add(patientId);
   }
@@ -367,13 +426,12 @@ export async function listClinicianWorklist(
     patientIds.add(item.patientId);
   }
 
-  const now = new Date();
-
   const rows: WorklistRecordInternal[] = Array.from(patientIds).map((patientId) => {
     const patient = patientMap.get(patientId);
     const latestCheckin = latestCheckinMap.get(patientId);
     const alertSummary = openAlertMap.get(patientId);
     const taskSummary = openTaskMap.get(patientId);
+    const promSummary = duePromMap.get(patientId);
     const communicationSummary = communicationSummaryMap.get(patientId);
     const appointmentSummary = appointmentByPatient.get(patientId);
 
@@ -396,11 +454,16 @@ export async function listClinicianWorklist(
         : "low";
 
     const nextAppointmentAtIso = toIso(appointmentSummary?.nextAppointmentAt);
+    const nextPromDueAtIso = toIso(promSummary?.nextDueAt);
     const topIssue = deriveTopIssue({
       openAlertsCount: alertSummary?.openAlertsCount ?? 0,
       communicationNeedsResponse: (communicationSummary?.needsResponseCount ?? 0) > 0,
       missedCheckins,
       activeTaskCount: taskSummary?.activeTaskCount ?? 0,
+      proms: {
+        dueCount: promSummary?.dueCount ?? 0,
+        overdueCount: promSummary?.overdueCount ?? 0,
+      },
       appointmentStatus: appointmentSummary?.appointmentStatus,
       nextAppointmentAt: nextAppointmentAtIso,
     });
@@ -410,6 +473,7 @@ export async function listClinicianWorklist(
       toDate(latestCheckin?.lastCheckinAt),
       toDate(alertSummary?.latestAlertAt),
       toDate(taskSummary?.latestTaskUpdatedAt),
+      toDate(promSummary?.latestPromUpdatedAt),
       toDate(communicationSummary?.latestMessageAt),
       appointmentSummary?.latestUpdatedAt,
     ]);
@@ -444,6 +508,11 @@ export async function listClinicianWorklist(
       missedCheckins,
       communicationNeedsResponse: (communicationSummary?.needsResponseCount ?? 0) > 0,
       activeTaskCount: taskSummary?.activeTaskCount ?? 0,
+      proms: {
+        dueCount: promSummary?.dueCount ?? 0,
+        overdueCount: promSummary?.overdueCount ?? 0,
+        nextDueAt: nextPromDueAtIso,
+      },
       topIssue,
       reviewReason: topIssue,
       priorityScore: derivePriorityScore({
@@ -453,6 +522,10 @@ export async function listClinicianWorklist(
         communicationNeedsResponse: (communicationSummary?.needsResponseCount ?? 0) > 0,
         missedCheckins,
         activeTaskCount: taskSummary?.activeTaskCount ?? 0,
+        proms: {
+          dueCount: promSummary?.dueCount ?? 0,
+          overdueCount: promSummary?.overdueCount ?? 0,
+        },
         appointmentStatus: appointmentSummary?.appointmentStatus,
       }),
       updatedAt: updatedAt.toISOString(),
@@ -491,6 +564,9 @@ export async function listClinicianWorklist(
         return false;
       }
       if (filters.assignedToMe && !row.assignedToMe) {
+        return false;
+      }
+      if (filters.needsPromReview && row.proms.dueCount <= 0) {
         return false;
       }
       return true;

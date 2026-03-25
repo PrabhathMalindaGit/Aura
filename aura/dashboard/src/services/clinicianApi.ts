@@ -121,6 +121,7 @@ export const clinicianQueryKeys = {
     hasOpenAlerts?: boolean;
     needsResponse?: boolean;
     missedCheckins?: boolean;
+    needsPromReview?: boolean;
     assignedToMe?: boolean;
     status?: string;
     sort?: WorklistSortOption;
@@ -938,6 +939,7 @@ export interface ListWorklistParams {
   hasOpenAlerts?: boolean;
   needsResponse?: boolean;
   missedCheckins?: boolean;
+  needsPromReview?: boolean;
   assignedToMe?: boolean;
   status?: string;
   sort?: WorklistSortOption;
@@ -954,6 +956,7 @@ export async function listClinicianWorklist(
       hasOpenAlerts: params.hasOpenAlerts === true ? 'true' : undefined,
       needsResponse: params.needsResponse === true ? 'true' : undefined,
       missedCheckins: params.missedCheckins === true ? 'true' : undefined,
+      needsPromReview: params.needsPromReview === true ? 'true' : undefined,
       assignedToMe: params.assignedToMe === true ? 'true' : undefined,
       status: params.status && params.status !== 'all' ? params.status : undefined,
       sort: params.sort ?? 'priority',
@@ -1418,6 +1421,7 @@ export function useClinicianWorklist(
       hasOpenAlerts: params.hasOpenAlerts === true,
       needsResponse: params.needsResponse === true,
       missedCheckins: params.missedCheckins === true,
+      needsPromReview: params.needsPromReview === true,
       assignedToMe: params.assignedToMe === true,
       status: params.status && params.status !== 'all' ? params.status : undefined,
       sort: params.sort ?? 'priority',

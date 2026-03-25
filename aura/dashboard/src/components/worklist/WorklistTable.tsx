@@ -38,6 +38,21 @@ function asPainText(value: number | undefined): string {
   return value.toFixed(1);
 }
 
+function formatPromBadgeLabel(item: WorklistRecord): string | null {
+  const dueCount = item.proms?.dueCount ?? 0;
+  const overdueCount = item.proms?.overdueCount ?? 0;
+
+  if (dueCount <= 0) {
+    return null;
+  }
+
+  if (overdueCount > 0) {
+    return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due (${overdueCount} overdue)`;
+  }
+
+  return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due`;
+}
+
 function moveFocusToRow(
   event: KeyboardEvent<HTMLTableRowElement>,
   direction: 'next' | 'prev',
@@ -89,6 +104,7 @@ export function WorklistTable({
             const patientName = item.patientName?.trim() || item.patientId;
             const hasCommunicationAction =
               item.communicationNeedsResponse && item.patientId.trim().length > 0;
+            const promBadgeLabel = formatPromBadgeLabel(item);
             return (
               <tr
                 key={item.patientId}
@@ -153,6 +169,9 @@ export function WorklistTable({
                     {item.activeTaskCount > 0 ? <Badge variant="neutral">{item.activeTaskCount} tasks</Badge> : null}
                     {item.missedCheckins.flag ? (
                       <Badge variant="warning">Missed {item.missedCheckins.count}</Badge>
+                    ) : null}
+                    {promBadgeLabel ? (
+                      <Badge variant={item.proms?.overdueCount ? 'warning' : 'default'}>{promBadgeLabel}</Badge>
                     ) : null}
                     {hasAppointment ? <Badge variant="default">Appointment</Badge> : null}
                   </div>

@@ -8,6 +8,7 @@ export interface WorklistFilters {
   hasOpenAlerts: boolean;
   needsResponse: boolean;
   missedCheckins: boolean;
+  needsPromReview: boolean;
   assignedToMe: boolean;
   status: WorklistStatusFilter;
   sort: WorklistSortOption;
@@ -20,6 +21,7 @@ export function defaultWorklistFilters(): WorklistFilters {
     hasOpenAlerts: false,
     needsResponse: false,
     missedCheckins: false,
+    needsPromReview: false,
     assignedToMe: false,
     status: 'all',
     sort: 'priority',
@@ -33,13 +35,32 @@ export function hasWorklistFilterConstraints(filters: WorklistFilters): boolean 
       filters.hasOpenAlerts ||
       filters.needsResponse ||
       filters.missedCheckins ||
+      filters.needsPromReview ||
       filters.assignedToMe ||
       filters.status !== 'all',
   );
 }
 
+function formatPromLabel(item: WorklistRecord): string | null {
+  const dueCount = item.proms?.dueCount ?? 0;
+  const overdueCount = item.proms?.overdueCount ?? 0;
+
+  if (dueCount <= 0) {
+    return null;
+  }
+
+  if (overdueCount > 0) {
+    if (overdueCount === dueCount) {
+      return `${overdueCount} overdue PROM${overdueCount === 1 ? '' : 's'}`;
+    }
+    return `${dueCount} PROMs due (${overdueCount} overdue)`;
+  }
+
+  return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due`;
+}
+
 export function getWorklistReviewLabel(item: WorklistRecord): string {
-  return item.topIssue?.trim() || item.reviewReason?.trim() || 'Needs review';
+  return item.topIssue?.trim() || item.reviewReason?.trim() || formatPromLabel(item) || 'Needs review';
 }
 
 export function getWorklistReviewSupport(item: WorklistRecord): string {
@@ -65,6 +86,14 @@ export function getWorklistReviewSupport(item: WorklistRecord): string {
 
   if (item.nextAppointmentAt) {
     return 'Upcoming appointment context is available for follow-up planning.';
+  }
+
+  if ((item.proms?.dueCount ?? 0) > 0) {
+    if ((item.proms?.overdueCount ?? 0) > 0) {
+      return 'Recovery questionnaires are still due and include overdue follow-through.';
+    }
+
+    return 'Recovery questionnaires are due and ready for clinician follow-through.';
   }
 
   return 'Monitor recovery progress and recent operational context.';

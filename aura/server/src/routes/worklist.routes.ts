@@ -12,6 +12,7 @@ const worklistQuerySchema = z.object({
   hasOpenAlerts: z.enum(["true", "false"]).optional(),
   needsResponse: z.enum(["true", "false"]).optional(),
   missedCheckins: z.enum(["true", "false"]).optional(),
+  needsPromReview: z.enum(["true", "false"]).optional(),
   assignedToMe: z.enum(["true", "false"]).optional(),
   status: z.enum(["active", "on_hold", "discharged", "inactive"]).optional(),
   sort: z
@@ -52,6 +53,7 @@ router.get("/clinician/worklist", async (req, res) => {
       hasOpenAlerts: toBoolean(parsedQuery.data.hasOpenAlerts),
       needsResponse: toBoolean(parsedQuery.data.needsResponse),
       missedCheckins: toBoolean(parsedQuery.data.missedCheckins),
+      needsPromReview: toBoolean(parsedQuery.data.needsPromReview),
       assignedToMe: toBoolean(parsedQuery.data.assignedToMe),
       status: parsedQuery.data.status,
       sort: parsedQuery.data.sort,

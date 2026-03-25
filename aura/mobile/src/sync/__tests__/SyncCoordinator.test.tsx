@@ -30,12 +30,24 @@ vi.mock("@/src/sync/store", () => ({
   })),
 }));
 
-import { useAuth } from "@/src/state/auth";
+import { useAuth, type AuthContextValue } from "@/src/state/auth";
 import { useNetwork } from "@/src/state/network";
 import { flushPendingWrites } from "@/src/sync/runner";
 import { SyncCoordinator } from "@/src/sync/SyncCoordinator";
 import { ensureSyncStateLoaded } from "@/src/sync/store";
 import { __setAppState } from "../../../test/react-native";
+
+function createAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
+  return {
+    status: "loading",
+    token: null,
+    patient: null,
+    signIn: vi.fn(),
+    signOut: vi.fn(),
+    refreshMe: vi.fn(),
+    ...overrides,
+  };
+}
 
 describe("SyncCoordinator", () => {
   beforeEach(() => {
@@ -44,14 +56,7 @@ describe("SyncCoordinator", () => {
   });
 
   it("does not flush while auth restore is still loading", async () => {
-    vi.mocked(useAuth).mockReturnValue({
-      status: "loading",
-      token: null,
-      patient: null,
-      signIn: vi.fn(),
-      signOut: vi.fn(),
-      refreshMe: vi.fn(),
-    });
+    vi.mocked(useAuth).mockReturnValue(createAuthValue());
     vi.mocked(useNetwork).mockReturnValue({
       isOffline: false,
       isOnline: true,
@@ -71,15 +76,8 @@ describe("SyncCoordinator", () => {
   });
 
   it("flushes only for the signed-in patient once auth restore completes", async () => {
-    let authValue = {
-      status: "loading" as const,
-      token: null,
-      patient: null,
-      signIn: vi.fn(),
-      signOut: vi.fn(),
-      refreshMe: vi.fn(),
-    };
-    vi.mocked(useAuth).mockImplementation(() => authValue as any);
+    let authValue: AuthContextValue = createAuthValue();
+    vi.mocked(useAuth).mockImplementation(() => authValue);
     vi.mocked(useNetwork).mockReturnValue({
       isOffline: false,
       isOnline: true,
@@ -96,12 +94,11 @@ describe("SyncCoordinator", () => {
       root = create(<SyncCoordinator />);
     });
 
-    authValue = {
-      ...authValue,
+    authValue = createAuthValue({
       status: "signedIn",
       token: "token-a",
       patient: { id: "patient-a" } as any,
-    };
+    });
 
     await act(async () => {
       root?.update(<SyncCoordinator />);

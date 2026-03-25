@@ -328,7 +328,9 @@ describe("tracker mutation identity", () => {
 
     const button = root!.root.findAll(
       (node) =>
-        node.type === "mock-secondary-button" && node.props.label === "Add 250 ml"
+        typeof node.type === "string" &&
+        String(node.type) === "mock-secondary-button" &&
+        node.props.label === "Add 250 ml"
     )[0];
 
     await act(async () => {
@@ -358,7 +360,8 @@ describe("tracker mutation identity", () => {
 
     const button = root!.root.findAll(
       (node) =>
-        node.type === "mock-primary-button" &&
+        typeof node.type === "string" &&
+        String(node.type) === "mock-primary-button" &&
         node.props.label === "Save today’s log"
     )[0];
 

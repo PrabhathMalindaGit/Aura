@@ -220,11 +220,16 @@ export async function ragReply(
   input: RagReplyInput,
   context?: AIRequestContext
 ): Promise<RagReplyOutput> {
-  return postToAI(
+  const parsed = await postToAI<RagReplyOutput>(
     "/rag/reply",
     "ragReply",
     input,
-    ragReplyResponseSchema,
+    ragReplyResponseSchema as z.ZodType<RagReplyOutput>,
     context
   );
+
+  return {
+    reply: parsed.reply,
+    citations: parsed.citations,
+  };
 }

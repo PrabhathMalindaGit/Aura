@@ -517,7 +517,9 @@ vi.mock("@/src/components/TrustCues", () => ({
 import HomeScreen from "../../../app/(tabs)/index";
 import RemindersScreen from "../../../app/reminders";
 
-function collectText(node: ReactTestRendererJSON | ReactTestRendererJSON[] | string | null): string[] {
+type RenderedTextNode = ReactTestRendererJSON | ReactTestRendererJSON[] | string | string[] | null;
+
+function collectText(node: RenderedTextNode): string[] {
   if (node === null) {
     return [];
   }
@@ -530,7 +532,7 @@ function collectText(node: ReactTestRendererJSON | ReactTestRendererJSON[] | str
     return node.flatMap((entry) => collectText(entry));
   }
 
-  return collectText(node.children as ReactTestRendererJSON[] | string[] | null);
+  return collectText(node.children as RenderedTextNode);
 }
 
 function renderedText(renderer: ReactTestRenderer): string {

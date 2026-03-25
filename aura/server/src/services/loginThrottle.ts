@@ -11,6 +11,7 @@ type LoginThrottleBucket = {
 type LoginThrottleResult =
   | {
       allowed: true;
+      retryAfterSeconds: 0;
     }
   | {
       allowed: false;
@@ -28,7 +29,7 @@ async function consumeBucket(params: {
 }): Promise<LoginThrottleResult> {
   const rawKey = params.bucket.key?.trim();
   if (!rawKey) {
-    return { allowed: true };
+    return { allowed: true, retryAfterSeconds: 0 };
   }
 
   const bucketKeyHash = normalizeBucketKey(
@@ -51,7 +52,7 @@ async function consumeBucket(params: {
       windowStartedAt: params.now,
       expiresAt: windowEndsAt,
     });
-    return { allowed: true };
+    return { allowed: true, retryAfterSeconds: 0 };
   }
 
   const currentWindowEndsAt = new Date(
@@ -62,7 +63,7 @@ async function consumeBucket(params: {
     existing.windowStartedAt = params.now;
     existing.expiresAt = windowEndsAt;
     await existing.save();
-    return { allowed: true };
+    return { allowed: true, retryAfterSeconds: 0 };
   }
 
   if (existing.count >= params.bucket.limit) {
@@ -78,7 +79,7 @@ async function consumeBucket(params: {
   existing.count += 1;
   existing.expiresAt = currentWindowEndsAt;
   await existing.save();
-  return { allowed: true };
+  return { allowed: true, retryAfterSeconds: 0 };
 }
 
 export async function consumeLoginThrottle(params: {
@@ -108,5 +109,5 @@ export async function consumeLoginThrottle(params: {
     };
   }
 
-  return { allowed: true };
+  return { allowed: true, retryAfterSeconds: 0 };
 }

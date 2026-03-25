@@ -173,6 +173,24 @@ describe("clinician route auth and RBAC", () => {
     expect(response.body.error).toBe("UNAUTHORIZED");
   });
 
+  it("accepts non-ObjectId clinician tokens only when the legacy test flag is enabled", async () => {
+    mutableEnv.ALLOW_UNAUTH_CLINICIAN_BODY_IDS = true;
+    const token = signAuthToken({
+      id: "legacy-clinician-id",
+      role: "clinician",
+      email: "legacy@example.com",
+      name: "Legacy Clinician",
+      sessionVersion: 0,
+    });
+
+    const response = await request(app)
+      .get("/clinician/alerts?status=open")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+  });
+
   it("returns 401 when a clinician token has a stale sessionVersion", async () => {
     const user = await User.create({
       email: "stale@example.com",

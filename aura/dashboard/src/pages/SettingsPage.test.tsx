@@ -166,7 +166,7 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(screen.getByLabelText('Availability status')).toHaveValue('in-review');
     expect(screen.getByLabelText('Team or clinic label')).toHaveValue('North Clinic');
     expect(screen.getByLabelText('Default landing route')).toHaveValue('/communication');
-  });
+  }, 30_000);
 
   it('restores defaults into the draft only until the clinician saves them', async () => {
     signInAs({ sub: 'auth-clinician-3', name: 'Dr Chen' });

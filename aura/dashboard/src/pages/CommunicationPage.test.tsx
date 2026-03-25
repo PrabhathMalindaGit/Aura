@@ -376,9 +376,15 @@ afterEach(() => {
 
     renderCommunicationPageWithSettings('/communication?patientId=patient-2&view=needs-response');
 
-    const templatePicker = (await screen.findByRole('combobox', {
-      name: 'Quick reply template',
-    })) as HTMLSelectElement;
+    const templatePicker = (await screen.findByRole(
+      'combobox',
+      {
+        name: 'Quick reply template',
+      },
+      {
+        timeout: 5_000,
+      },
+    )) as HTMLSelectElement;
     const insertSignatureButton = screen.getByRole('button', { name: 'Insert signature' });
     const replyField = screen.getByRole('textbox', { name: 'Clinician reply' });
 

@@ -1,6 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import { NextFunction, Request, Response } from "express";
 
+import { env } from "../env";
 import User from "../models/User";
 import type { RequestWithUser } from "../types/auth";
 import { logger } from "../utils/logger";
@@ -66,6 +67,10 @@ export function authenticateJwt(options: AuthOptions = {}) {
     requestWithUser.user = decoded;
     if (decoded.role === "clinician" || decoded.role === "admin") {
       if (!isValidObjectId(decoded.id)) {
+        if (env.ALLOW_UNAUTH_CLINICIAN_BODY_IDS) {
+          return next();
+        }
+
         logger.warn("JWT authentication rejected invalid clinician id", {
           route: req.path,
           userId: decoded.id,

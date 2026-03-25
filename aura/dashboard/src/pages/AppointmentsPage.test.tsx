@@ -245,13 +245,15 @@ function fillAndPublishAvailability(options: {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-16T12:00:00.000Z').getTime());
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-03-16T12:00:00.000Z'));
   installMatchMediaMock();
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
 });
 

@@ -2,6 +2,16 @@ import React from "react";
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+type CachedChatWrite = {
+  confirmedMessages: Array<Record<string, unknown>>;
+  localAttempt?: {
+    text: string;
+    status: "sending" | "failed" | "unknown";
+    createdAt?: string;
+  } | null;
+  cachedAt?: string;
+};
+
 const {
   routerPush,
   routerReplace,
@@ -28,7 +38,9 @@ const {
   chatHistory: vi.fn(),
   listPatientTasks: vi.fn(),
   getCachedChat: vi.fn(),
-  setCachedChat: vi.fn(async () => undefined),
+  setCachedChat: vi.fn<(patientId: string, record: CachedChatWrite) => Promise<void>>(
+    async () => undefined
+  ),
   getCachedTasks: vi.fn(async () => null),
   setCachedTasks: vi.fn(async () => undefined),
   refreshChat: vi.fn(async () => undefined),
@@ -393,7 +405,10 @@ function findByA11y(root: ReactTestInstance, label: string): ReactTestInstance {
 function getLocalAttemptCard(root: ReactTestInstance): ReactTestInstance | null {
   return (
     root.findAll(
-      (node) => node.type === "mock-tip-card" && node.props?.testID === "chat-local-attempt"
+      (node) =>
+        typeof node.type === "string" &&
+        String(node.type) === "mock-tip-card" &&
+        node.props?.testID === "chat-local-attempt"
     )[0] ?? null
   );
 }

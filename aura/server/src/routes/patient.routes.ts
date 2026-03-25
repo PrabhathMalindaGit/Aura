@@ -757,6 +757,14 @@ router.post(
             reasonCodes: result.reasonCodes,
           },
           alertId: result.alertId,
+          messages: {
+            user: {
+              id: result.userMessageId,
+              role: "user",
+              text: message,
+              createdAt: result.userCreatedAt,
+            },
+          },
         });
       }
 

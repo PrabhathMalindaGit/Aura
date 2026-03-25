@@ -665,7 +665,15 @@ describe("patient auth + patient endpoints", () => {
     expect(response.body.ok).toBe(true);
     expect(response.body.risk.level).toBe("high");
     expect(typeof response.body.alertId).toBe("string");
-    expect(response.body.messages).toBeUndefined();
+    expect(response.body.messages).toMatchObject({
+      user: {
+        role: "user",
+        text: "I feel unsafe",
+      },
+    });
+    expect(typeof response.body.messages.user.id).toBe("string");
+    expect(typeof response.body.messages.user.createdAt).toBe("string");
+    expect(response.body.messages.assistant).toBeUndefined();
 
     const messages = await ChatMessage.find({ patientId: "p1" }).lean();
     expect(messages).toHaveLength(1);

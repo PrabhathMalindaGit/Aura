@@ -638,7 +638,10 @@ export type ChatSendResponse = {
   assistant?: { text?: string; message?: string; reply?: string };
   reply?: string;
   message?: string;
-  messages?: ChatItem[];
+  messages?: {
+    user?: unknown;
+    assistant?: unknown;
+  };
 };
 
 function toPatient(value: PatientLike | null | undefined): Patient | null {
@@ -3479,6 +3482,9 @@ function toChatRole(value: unknown): ChatRole {
   if (value === "assistant" || value === "system" || value === "patient") {
     return value;
   }
+  if (value === "user") {
+    return "patient";
+  }
   return "assistant";
 }
 
@@ -3574,7 +3580,25 @@ export async function sendChat(
   });
 }
 
+export function extractConfirmedSendMessages(resp: ChatSendResponse): {
+  user: ChatItem | null;
+  assistant: ChatItem | null;
+} {
+  const messages =
+    resp.messages && typeof resp.messages === "object" ? resp.messages : undefined;
+
+  return {
+    user: toChatItem(messages?.user),
+    assistant: toChatItem(messages?.assistant),
+  };
+}
+
 export function extractAssistantText(resp: ChatSendResponse): string | null {
+  const { assistant } = extractConfirmedSendMessages(resp);
+  if (assistant?.text) {
+    return assistant.text.trim();
+  }
+
   const value =
     resp.reply ??
     resp.assistant?.reply ??
@@ -3592,19 +3616,6 @@ export function extractAssistantText(resp: ChatSendResponse): string | null {
     !resp.alertId
   ) {
     return resp.message.trim();
-  }
-
-  const assistantFromMessages = Array.isArray(resp.messages)
-    ? resp.messages.find(
-        (item) =>
-          item.role === "assistant" &&
-          typeof item.text === "string" &&
-          item.text.trim().length > 0
-      )
-    : undefined;
-
-  if (assistantFromMessages?.text) {
-    return assistantFromMessages.text.trim();
   }
 
   return null;

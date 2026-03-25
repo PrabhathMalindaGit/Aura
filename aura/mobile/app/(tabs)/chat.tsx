@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import {
   ActivityIndicator,
@@ -17,7 +17,7 @@ import {
 import { isApiError, type ApiError } from "@/src/api/client";
 import {
   chatHistory,
-  extractAssistantText,
+  extractConfirmedSendMessages,
   sendChat,
   type ChatItem,
   type ChatSendResponse,
@@ -36,7 +36,11 @@ import { SkeletonBlock } from "@/src/components/Skeleton";
 import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
-import { getCachedChat, setCachedChat } from "@/src/state/chatCache";
+import {
+  getCachedChat,
+  setCachedChat,
+  type ChatLocalAttempt,
+} from "@/src/state/chatCache";
 import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useLastError } from "@/src/state/lastError";
@@ -49,11 +53,8 @@ import { normalizeUnknownError } from "@/src/utils/errors";
 import { derivePatientTaskAction, formatTaskDueLabel, formatTaskSupportText, isCommunicationTask } from "@/src/utils/tasks";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
-type MessageDelivery = "sending" | "sent" | "failed";
-
 type MessageItem = ChatItem & {
   localId: string;
-  delivery: MessageDelivery;
 };
 
 type NoticeState = {
@@ -71,8 +72,6 @@ type ChatDevParams = {
 };
 
 const CHAT_LIMIT = 50;
-const ASSISTANT_FALLBACK =
-  "Thanks for checking in. Please continue your plan and let us know if anything changes.";
 const TIMESTAMP_GAP_MS = 30 * 60 * 1000;
 const TIMESTAMP_SENDER_CHANGE_GAP_MS = 10 * 60 * 1000;
 const COMPACT_GROUP_GAP_MS = 5 * 60 * 1000;
@@ -121,7 +120,6 @@ function toRenderable(items: ChatItem[]): MessageItem[] {
   return items.map((item, index) => ({
     ...item,
     localId: toLocalId(item, index),
-    delivery: "sent",
   }));
 }
 
@@ -272,6 +270,82 @@ function normalizeChatError(error: unknown): ApiError {
   };
 }
 
+function isDefiniteNoWrite(error: ApiError): boolean {
+  if (error.kind === "offline") {
+    return true;
+  }
+
+  if (error.status === 400 || error.status === 401 || error.status === 403) {
+    return true;
+  }
+
+  return error.status === 502;
+}
+
+function toSendFailureState(error: ApiError): {
+  localAttemptStatus: Exclude<ChatLocalAttempt["status"], "sending">;
+  message: string;
+  kind: ApiError["kind"];
+  retryable: boolean;
+} {
+  if (isDefiniteNoWrite(error)) {
+    if (error.kind === "offline") {
+      return {
+        localAttemptStatus: "failed",
+        message: "Offline · Nothing was sent.",
+        kind: "offline",
+        retryable: true,
+      };
+    }
+
+    if (error.status === 401 || error.status === 403) {
+      return {
+        localAttemptStatus: "failed",
+        message: "Nothing was sent. Please sign in again before retrying.",
+        kind: "validation",
+        retryable: true,
+      };
+    }
+
+    if (error.status === 400) {
+      return {
+        localAttemptStatus: "failed",
+        message: "Nothing was sent. Please review your message and try again.",
+        kind: "validation",
+        retryable: true,
+      };
+    }
+
+    return {
+      localAttemptStatus: "failed",
+      message: "Nothing was sent. Chat is temporarily unavailable.",
+      kind: "server",
+      retryable: true,
+    };
+  }
+
+  return {
+    localAttemptStatus: "unknown",
+    message: "Delivery not confirmed. Refresh chat before sending again.",
+    kind: error.kind,
+    retryable: false,
+  };
+}
+
+function getLocalAttemptTitle(status: ChatLocalAttempt["status"]): string {
+  if (status === "sending") {
+    return "Sending…";
+  }
+  if (status === "failed") {
+    return "Failed · Nothing was sent.";
+  }
+  return "Delivery not confirmed.";
+}
+
+function getLocalAttemptTone(status: ChatLocalAttempt["status"]): "info" | "warning" {
+  return status === "sending" ? "info" : "warning";
+}
+
 function toFriendlyMessage(error: ApiError, fallbackTitle: string): {
   title: string;
   message: string;
@@ -352,7 +426,8 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList<MessageItem>>(null);
   const inputRef = useRef<TextInput>(null);
   const isLoadingHistoryRef = useRef(false);
-  const lastUnsentMessageRef = useRef<string | null>(null);
+  const messagesRef = useRef<MessageItem[]>([]);
+  const localAttemptRef = useRef<ChatLocalAttempt | null>(null);
 
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
@@ -364,6 +439,7 @@ export default function ChatScreen() {
   });
 
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [localAttempt, setLocalAttempt] = useState<ChatLocalAttempt | null>(null);
   const [workflowTasks, setWorkflowTasks] = useState<PatientTaskItem[]>([]);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -548,25 +624,50 @@ export default function ChatScreen() {
     }
   }, [auth.token, isOffline, patientId, tasksRefresh]);
 
-  const persistRenderable = useCallback(
-    (nextMessages: MessageItem[]) => {
+  const persistChatSnapshot = useCallback(
+    (
+      nextMessages: MessageItem[] = messagesRef.current,
+      nextLocalAttempt: ChatLocalAttempt | null = localAttemptRef.current
+    ) => {
       if (!patientId) {
         return;
       }
-      void setCachedChat(patientId, toPersisted(nextMessages));
+      void setCachedChat(patientId, {
+        confirmedMessages: toPersisted(nextMessages),
+        localAttempt: nextLocalAttempt,
+      });
     },
     [patientId]
   );
 
-  const updateMessages = useCallback(
-    (updater: (previous: MessageItem[]) => MessageItem[]) => {
-      setMessages((previous) => {
-        const next = dedupeMessagesByIdentity(updater(previous));
-        persistRenderable(next);
-        return next;
-      });
+  const applyConfirmedMessages = useCallback(
+    (nextMessages: MessageItem[], persist = true) => {
+      const deduped = dedupeMessagesByIdentity(nextMessages);
+      messagesRef.current = deduped;
+      setMessages(deduped);
+      if (persist) {
+        persistChatSnapshot(deduped, localAttemptRef.current);
+      }
     },
-    [persistRenderable]
+    [persistChatSnapshot]
+  );
+
+  const replaceConfirmedHistory = useCallback(
+    (items: ChatItem[], persist = true) => {
+      applyConfirmedMessages(toRenderable(items), persist);
+    },
+    [applyConfirmedMessages]
+  );
+
+  const setLocalAttemptState = useCallback(
+    (nextLocalAttempt: ChatLocalAttempt | null, persist = true) => {
+      localAttemptRef.current = nextLocalAttempt;
+      setLocalAttempt(nextLocalAttempt);
+      if (persist) {
+        persistChatSnapshot(messagesRef.current, nextLocalAttempt);
+      }
+    },
+    [persistChatSnapshot]
   );
 
   // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
@@ -582,26 +683,21 @@ export default function ChatScreen() {
     try {
       if (isOffline) {
         const cached = await getCachedChat(patientId);
-        if (cached && cached.length > 0) {
-          setMessages(dedupeMessagesByIdentity(toRenderable(cached)));
-          setShowingOfflineCache(true);
-        } else {
-          setMessages([]);
-          setShowingOfflineCache(false);
-          setNotice(null);
-        }
+        replaceConfirmedHistory(cached?.confirmedMessages ?? [], false);
+        setLocalAttemptState(cached?.localAttempt ?? null, false);
+        setShowingOfflineCache(Boolean(cached && cached.confirmedMessages.length > 0));
         return;
       }
 
       const history = await chatHistory(auth.token, CHAT_LIMIT);
-      const renderable = dedupeMessagesByIdentity(toRenderable(history));
-      setMessages(renderable);
+      replaceConfirmedHistory(history, false);
       setShowingOfflineCache(false);
       await refreshChatStamp();
       await clearChatLoadError();
-      if (patientId) {
-        await setCachedChat(patientId, history);
-      }
+      persistChatSnapshot(
+        dedupeMessagesByIdentity(toRenderable(history)),
+        localAttemptRef.current
+      );
     } catch (error) {
       const normalized = normalizeChatError(error);
       const friendly = toFriendlyMessage(normalized, "Couldn’t load history");
@@ -613,9 +709,10 @@ export default function ChatScreen() {
       });
 
       const cached = await getCachedChat(patientId);
-      if (cached && cached.length > 0) {
-        setMessages(dedupeMessagesByIdentity(toRenderable(cached)));
-        setShowingOfflineCache(true);
+      if (cached) {
+        replaceConfirmedHistory(cached.confirmedMessages, false);
+        setLocalAttemptState(cached.localAttempt, false);
+        setShowingOfflineCache(cached.confirmedMessages.length > 0);
       }
 
       setNotice({
@@ -636,14 +733,17 @@ export default function ChatScreen() {
   }, [
     auth.token,
     clearChatLoadError,
+    replaceConfirmedHistory,
     refreshChatStamp,
     isOffline,
     patientId,
+    persistChatSnapshot,
     setChatLoadError,
+    setLocalAttemptState,
   ]);
 
   const handleSend = useCallback(
-    async (overrideMessage?: string, retryLocalId?: string) => {
+    async (overrideMessage?: string) => {
       if (!auth.token || !patientId) {
         router.replace("/(auth)/login");
         return;
@@ -654,52 +754,59 @@ export default function ChatScreen() {
         return;
       }
 
+      const attemptStartedAt = new Date().toISOString();
+
       if (isOffline) {
-        const offlineMessage = "You’re offline. Nothing was sent.";
-        await setChatSendError({
+        const failureState = toSendFailureState({
           title: "Couldn’t send",
-          message: offlineMessage,
+          message: "Offline · Nothing was sent.",
           kind: "offline",
           retryable: true,
+        });
+        await setChatSendError({
+          title: "Couldn’t send",
+          message: failureState.message,
+          kind: failureState.kind,
+          retryable: true,
+        });
+        setLocalAttemptState({
+          text: messageToSend,
+          status: failureState.localAttemptStatus,
+          createdAt: attemptStartedAt,
         });
         setNotice({
           variant: "warning",
           title: "Couldn’t send",
-          message: offlineMessage,
+          message: failureState.message,
         });
         return;
       }
 
-      let targetLocalId = retryLocalId;
-      if (retryLocalId) {
-        updateMessages((previous) =>
-          previous.map((item) =>
-            item.localId === retryLocalId ? { ...item, delivery: "sending" } : item
-          )
-        );
-      } else {
-        targetLocalId = `local-patient-${Date.now()}`;
-        const optimisticMessage: MessageItem = {
-          localId: targetLocalId,
-          role: "patient",
-          text: messageToSend,
-          createdAt: new Date().toISOString(),
-          delivery: "sending",
-        };
-        updateMessages((previous) => [...previous, optimisticMessage]);
-      }
-
-      if (!retryLocalId) {
+      if (!overrideMessage) {
         setDraft("");
       }
 
       setNotice(null);
       setIsSending(true);
       setIsSafetyChecking(true);
+      setLocalAttemptState({
+        text: messageToSend,
+        status: "sending",
+        createdAt: attemptStartedAt,
+      });
 
       try {
         const response: ChatSendResponse = await sendChat(auth.token, messageToSend);
         await clearChatSendError();
+        setLocalAttemptState(null);
+        setShowingOfflineCache(false);
+
+        const confirmedMessages = extractConfirmedSendMessages(response);
+        const appended: ChatItem[] = [
+          ...toPersisted(messagesRef.current),
+          ...(confirmedMessages.user ? [confirmedMessages.user] : []),
+          ...(confirmedMessages.assistant ? [confirmedMessages.assistant] : []),
+        ];
 
         if (response.risk?.level === "high") {
           const reasonCodes = response.risk.reasonCodes ?? [];
@@ -711,23 +818,10 @@ export default function ChatScreen() {
             routeParams.reasonCodes = reasonCodes.join(",");
           }
 
-          updateMessages((previous) => {
-            const marked: MessageItem[] = previous.map((item) =>
-              item.localId === targetLocalId
-                ? { ...item, delivery: "sent" as const }
-                : item
-            );
-            return [
-              ...marked,
-              {
-                localId: `system-safety-${Date.now()}`,
-                role: "system",
-                text: "Safety support is active. See the Safety screen.",
-                createdAt: new Date().toISOString(),
-                delivery: "sent" as const,
-              },
-            ];
-          });
+          if (confirmedMessages.user) {
+            replaceConfirmedHistory(appended);
+          }
+          await refreshChatStamp();
 
           router.push({
             pathname: "/safety",
@@ -736,57 +830,39 @@ export default function ChatScreen() {
           return;
         }
 
-        const assistantText = extractAssistantText(response) ?? ASSISTANT_FALLBACK;
+        if (confirmedMessages.user) {
+          replaceConfirmedHistory(appended);
+        }
 
-        updateMessages((previous) => {
-          const marked: MessageItem[] = previous.map((item) =>
-            item.localId === targetLocalId
-              ? { ...item, delivery: "sent" as const }
-              : item
-          );
-          return [
-            ...marked,
-            {
-              localId: `assistant-${Date.now()}`,
-              role: "assistant",
-              text: assistantText,
-              createdAt: new Date().toISOString(),
-              delivery: "sent" as const,
-            },
-          ];
-        });
+        if (confirmedMessages.user && !confirmedMessages.assistant) {
+          setNotice({
+            variant: "info",
+            title: "Reply unavailable",
+            message: "Your message was sent. Refresh chat to load Aura’s reply.",
+          });
+        }
 
         await refreshChatStamp();
-        lastUnsentMessageRef.current = null;
       } catch (error) {
         const normalized = normalizeChatError(error);
-        const friendly = toFriendlyMessage(normalized, "Couldn’t send");
+        const failureState = toSendFailureState(normalized);
 
         await setChatSendError({
-          title: friendly.title,
-          message: friendly.message,
-          kind: friendly.kind,
-          retryable: friendly.retryable,
+          title: "Couldn’t send",
+          message: failureState.message,
+          kind: failureState.kind,
+          retryable: failureState.localAttemptStatus === "failed",
         });
-        lastUnsentMessageRef.current = messageToSend;
-
-        updateMessages((previous) =>
-          previous.map((item) =>
-            item.localId === targetLocalId ? { ...item, delivery: "failed" } : item
-          )
-        );
+        setLocalAttemptState({
+          text: messageToSend,
+          status: failureState.localAttemptStatus,
+          createdAt: attemptStartedAt,
+        });
 
         setNotice({
           variant: "warning",
-          title: friendly.title,
-          message: friendly.message,
-          actionLabel: friendly.retryable && Boolean(targetLocalId) ? "Retry" : undefined,
-          action:
-            friendly.retryable && targetLocalId
-              ? () => {
-                  void handleSend(messageToSend, targetLocalId);
-                }
-              : undefined,
+          title: "Couldn’t send",
+          message: failureState.message,
         });
       } finally {
         setIsSafetyChecking(false);
@@ -799,12 +875,72 @@ export default function ChatScreen() {
       draft,
       isOffline,
       patientId,
+      replaceConfirmedHistory,
       refreshChatStamp,
       router,
       setChatSendError,
-      updateMessages,
+      setLocalAttemptState,
     ]
   );
+
+  const handleRetryLocalAttempt = useCallback(() => {
+    if (localAttemptRef.current?.status !== "failed") {
+      return;
+    }
+    void handleSend(localAttemptRef.current.text);
+  }, [handleSend]);
+
+  const handleRefreshUnknownAttempt = useCallback(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  const handleDismissLocalAttempt = useCallback(() => {
+    setLocalAttemptState(null);
+    setNotice(null);
+    void clearChatSendError();
+  }, [clearChatSendError, setLocalAttemptState]);
+
+  const localAttemptActions = useMemo(() => {
+    if (!localAttempt || localAttempt.status === "sending") {
+      return [];
+    }
+
+    if (localAttempt.status === "failed") {
+      return [
+        {
+          label: "Retry",
+          onPress: handleRetryLocalAttempt,
+          disabled: isSending || isSafetyChecking || isOffline,
+        },
+        {
+          label: "Dismiss",
+          kind: "secondary" as const,
+          onPress: handleDismissLocalAttempt,
+        },
+      ];
+    }
+
+    return [
+      {
+        label: "Refresh chat",
+        onPress: handleRefreshUnknownAttempt,
+        disabled: isSending || isSafetyChecking || isOffline,
+      },
+      {
+        label: "Dismiss",
+        kind: "secondary" as const,
+        onPress: handleDismissLocalAttempt,
+      },
+    ];
+  }, [
+    handleDismissLocalAttempt,
+    handleRefreshUnknownAttempt,
+    handleRetryLocalAttempt,
+    isOffline,
+    isSafetyChecking,
+    isSending,
+    localAttempt,
+  ]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: MessageItem; index: number }) => {
@@ -835,8 +971,7 @@ export default function ChatScreen() {
 
       const isPatient = item.role === "patient";
       const showAssistantAvatar = !isPatient && isGroupStart(messages, index);
-      const showSentLabel =
-        isPatient && item.delivery === "sent" && item.localId === latestPatientLocalId;
+      const showSentLabel = isPatient && item.localId === latestPatientLocalId;
       const showInlineTip =
         !isPatient &&
         inlineAssistantTip !== null &&
@@ -903,69 +1038,22 @@ export default function ChatScreen() {
             </View>
           </View>
 
-          {isPatient ? (
+          {isPatient && showSentLabel ? (
             <View style={[styles.deliveryMetaRow, isPatient ? styles.deliveryMetaRight : null]}>
-              {item.delivery === "sending" ? (
-                <View style={styles.deliveryMetaItem}>
-                  <MaterialCommunityIcons
-                    name="clock-outline"
-                    size={12}
-                    color={tokens.colors.textMuted}
-                  />
-                  <Text style={styles.deliveryText}>Sending…</Text>
-                </View>
-              ) : null}
-
-              {showSentLabel ? (
-                <View style={styles.deliveryMetaItem}>
-                  <MaterialCommunityIcons
-                    name="check"
-                    size={12}
-                    color={tokens.colors.textMuted}
-                  />
-                  <Text style={styles.deliveryText}>Sent</Text>
-                </View>
-              ) : null}
-
-              {item.delivery === "failed" ? (
-                <>
-                  <View style={styles.deliveryMetaItem}>
-                    <MaterialCommunityIcons
-                      name="alert-circle-outline"
-                      size={12}
-                      color={tokens.colors.warning}
-                    />
-                    <Text style={styles.deliveryFailedText}>Failed to send</Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Retry sending message"
-                    accessibilityState={{ disabled: isSending || isSafetyChecking }}
-                    disabled={isSending || isSafetyChecking}
-                    onPress={() => {
-                      void handleSend(item.text, item.localId);
-                    }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={({ pressed }) => [
-                      styles.retryInlineButton,
-                      (isSending || isSafetyChecking)
-                        ? styles.retryInlineButtonDisabled
-                        : null,
-                      pressed && !(isSending || isSafetyChecking)
-                        ? styles.retryInlineButtonPressed
-                        : null,
-                    ]}
-                  >
-                    <Text style={styles.retryInlineText}>Retry</Text>
-                  </Pressable>
-                </>
-              ) : null}
+              <View style={styles.deliveryMetaItem}>
+                <MaterialCommunityIcons
+                  name="check"
+                  size={12}
+                  color={tokens.colors.textMuted}
+                />
+                <Text style={styles.deliveryText}>Sent</Text>
+              </View>
             </View>
           ) : null}
         </View>
       );
     },
-    [handleSend, inlineAssistantTip, latestPatientLocalId, messages, styles, tokens.colors.textMuted, tokens.colors.warning]
+    [inlineAssistantTip, latestPatientLocalId, messages, styles, tokens.colors.textMuted]
   );
 
   useEffect(() => {
@@ -1283,6 +1371,27 @@ export default function ChatScreen() {
                 />
               ) : null}
 
+              {localAttempt ? (
+                <TipCard
+                  compact
+                  tone={getLocalAttemptTone(localAttempt.status)}
+                  leading={{
+                    type: "icon",
+                    icon:
+                      localAttempt.status === "sending"
+                        ? "chat"
+                        : localAttempt.status === "failed"
+                          ? "warning"
+                          : "info",
+                    tone: localAttempt.status === "sending" ? "accent" : "warning",
+                  }}
+                  title={getLocalAttemptTitle(localAttempt.status)}
+                  text={localAttempt.text}
+                  actions={localAttemptActions}
+                  testID="chat-local-attempt"
+                />
+              ) : null}
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1513,30 +1622,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-    },
-    deliveryFailedText: {
-      color: tokens.colors.warning,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    retryInlineButton: {
-      minHeight: 44,
-      paddingHorizontal: tokens.spacing.sm,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    retryInlineButtonPressed: {
-      opacity: 0.8,
-    },
-    retryInlineButtonDisabled: {
-      opacity: 0.5,
-    },
-    retryInlineText: {
-      color: tokens.colors.accent,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
     },
     composerWrap: {
       borderTopWidth: 1,

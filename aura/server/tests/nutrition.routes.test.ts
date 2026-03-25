@@ -6,6 +6,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import app from "../src/app";
 import NutritionLog from "../src/models/NutritionLog";
 import Patient from "../src/models/Patient";
+import User from "../src/models/User";
 import { signAuthToken } from "../src/utils/jwt";
 import { signPatientToken } from "../src/utils/patientJwt";
 
@@ -15,6 +16,7 @@ describe("nutrition routes", () => {
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
     await mongoose.connect(mongoServer.getUri());
+    await NutritionLog.init();
   });
 
   afterAll(async () => {
@@ -25,11 +27,23 @@ describe("nutrition routes", () => {
   });
 
   beforeEach(async () => {
-    await Promise.all([NutritionLog.deleteMany({}), Patient.deleteMany({})]);
+    await Promise.all([
+      NutritionLog.deleteMany({}),
+      Patient.deleteMany({}),
+      User.deleteMany({}),
+    ]);
     await Patient.insertMany([
       { patientId: "p1", displayName: "Patient One", status: "active" },
       { patientId: "p2", displayName: "Patient Two", status: "active" },
     ]);
+    await User.create({
+      _id: new mongoose.Types.ObjectId("507f1f77bcf86cd799439011"),
+      email: "clinician@example.com",
+      passwordHash: "hashed-password",
+      role: "clinician",
+      displayName: "Clinician One",
+      sessionVersion: 0,
+    });
   });
 
   function patientToken(patientId: string): string {
@@ -38,7 +52,7 @@ describe("nutrition routes", () => {
 
   function clinicianToken(): string {
     return signAuthToken({
-      id: "clinician-1",
+      id: "507f1f77bcf86cd799439011",
       role: "clinician",
       email: "clinician@example.com",
       name: "Clinician One",
@@ -93,6 +107,117 @@ describe("nutrition routes", () => {
       appetite: "normal",
       notes: "Second note",
     });
+  });
+
+  it("replays keyed nutrition requests without creating duplicates", async () => {
+    const token = patientToken("p1");
+
+    const first = await request(app)
+      .post("/patient/nutrition/log")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-03-01",
+        protein: "ok",
+        fruitVegServings: 4,
+        antiInflammatoryFocus: true,
+        mealRegularity: "mostly",
+        appetite: "normal",
+        notes: "  Soup and fruit  ",
+        clientMutationId: "nutrition-key-1",
+      });
+    const second = await request(app)
+      .post("/patient/nutrition/log")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-03-01",
+        protein: "ok",
+        fruitVegServings: 4,
+        antiInflammatoryFocus: true,
+        mealRegularity: "mostly",
+        appetite: "normal",
+        notes: "Soup and fruit",
+        clientMutationId: "nutrition-key-1",
+      });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(second.body.id).toBe(first.body.id);
+    expect(second.body.createdAt).toBe(first.body.createdAt);
+    expect(await NutritionLog.countDocuments({ patientId: "p1" })).toBe(1);
+  });
+
+  it("returns 409 when a nutrition idempotency key is reused with different content", async () => {
+    const token = patientToken("p1");
+
+    const first = await request(app)
+      .post("/patient/nutrition/log")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-03-01",
+        protein: "low",
+        fruitVegServings: 2,
+        antiInflammatoryFocus: false,
+        mealRegularity: "irregular",
+        appetite: "low",
+        notes: "First draft",
+        clientMutationId: "nutrition-key-2",
+      });
+    const second = await request(app)
+      .post("/patient/nutrition/log")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-03-01",
+        protein: "high",
+        fruitVegServings: 5,
+        antiInflammatoryFocus: true,
+        mealRegularity: "regular",
+        appetite: "normal",
+        notes: "Edited draft",
+        clientMutationId: "nutrition-key-2",
+      });
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(409);
+    expect(second.body).toMatchObject({
+      ok: false,
+      error: "IDEMPOTENCY_CONFLICT",
+    });
+    expect(await NutritionLog.countDocuments({ patientId: "p1" })).toBe(1);
+  });
+
+  it("does not create two rows for concurrent duplicate keyed nutrition requests", async () => {
+    const token = patientToken("p1");
+
+    const [first, second] = await Promise.all([
+      request(app)
+        .post("/patient/nutrition/log")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          date: "2026-03-01",
+          protein: "ok",
+          fruitVegServings: 3,
+          antiInflammatoryFocus: true,
+          mealRegularity: "mostly",
+          notes: "Concurrent",
+          clientMutationId: "nutrition-race-1",
+        }),
+      request(app)
+        .post("/patient/nutrition/log")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          date: "2026-03-01",
+          protein: "ok",
+          fruitVegServings: 3,
+          antiInflammatoryFocus: true,
+          mealRegularity: "mostly",
+          notes: "Concurrent",
+          clientMutationId: "nutrition-race-1",
+        }),
+    ]);
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await NutritionLog.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
   it("range returns per-day latest entries and null for missing days", async () => {

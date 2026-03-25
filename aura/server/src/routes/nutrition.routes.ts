@@ -22,6 +22,7 @@ const nutritionLogSchema = z.object({
   mealRegularity: z.enum(["irregular", "mostly", "regular"]),
   appetite: z.enum(["low", "normal", "high"]).optional(),
   notes: z.string().max(2_000).optional(),
+  clientMutationId: z.string().trim().min(1).max(120).optional(),
 });
 
 const rangeQuerySchema = z.object({
@@ -195,6 +196,69 @@ async function readLatestEntriesByDay(patientId: string, from: string, to: strin
   }));
 }
 
+type NutritionSemanticPayload = {
+  date: string;
+  protein: "low" | "ok" | "high";
+  fruitVegServings: number;
+  antiInflammatoryFocus: boolean;
+  mealRegularity: "irregular" | "mostly" | "regular";
+  appetite?: "low" | "normal" | "high";
+  notes?: string;
+};
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
+
+function matchesNutritionPayload(
+  entry: {
+    date?: unknown;
+    protein?: unknown;
+    fruitVegServings?: unknown;
+    antiInflammatoryFocus?: unknown;
+    mealRegularity?: unknown;
+    appetite?: unknown;
+    notes?: unknown;
+  },
+  payload: NutritionSemanticPayload
+): boolean {
+  return (
+    entry.date === payload.date &&
+    entry.protein === payload.protein &&
+    entry.fruitVegServings === payload.fruitVegServings &&
+    entry.antiInflammatoryFocus === payload.antiInflammatoryFocus &&
+    entry.mealRegularity === payload.mealRegularity &&
+    entry.appetite === payload.appetite &&
+    entry.notes === payload.notes
+  );
+}
+
+function toNutritionResponse(entry: {
+  _id?: unknown;
+  date?: unknown;
+  protein?: unknown;
+  fruitVegServings?: unknown;
+  antiInflammatoryFocus?: unknown;
+  mealRegularity?: unknown;
+  appetite?: unknown;
+  notes?: unknown;
+  createdAt?: unknown;
+}) {
+  const mappedEntry = mapEntry(entry);
+  return {
+    ok: true,
+    id: mappedEntry.id,
+    date: mappedEntry.date,
+    createdAt: mappedEntry.createdAt,
+    entry: mappedEntry,
+  };
+}
+
 router.post("/patient/nutrition/log", requirePatientAuth, async (req, res) => {
   const requestWithPatient = req as RequestWithPatient;
   const patientId = requestWithPatient.patient?.id;
@@ -224,7 +288,18 @@ router.post("/patient/nutrition/log", requirePatientAuth, async (req, res) => {
       });
     }
 
-    const created = await NutritionLog.create({
+    const safeNotes = toSafeNotes(parsedBody.data.notes);
+    const semanticPayload: NutritionSemanticPayload = {
+      date,
+      protein: parsedBody.data.protein,
+      fruitVegServings: parsedBody.data.fruitVegServings,
+      antiInflammatoryFocus: parsedBody.data.antiInflammatoryFocus,
+      mealRegularity: parsedBody.data.mealRegularity,
+      appetite: parsedBody.data.appetite,
+      notes: safeNotes,
+    };
+    const clientMutationId = parsedBody.data.clientMutationId;
+    const createData = {
       patientId,
       date,
       protein: parsedBody.data.protein,
@@ -232,17 +307,46 @@ router.post("/patient/nutrition/log", requirePatientAuth, async (req, res) => {
       antiInflammatoryFocus: parsedBody.data.antiInflammatoryFocus,
       mealRegularity: parsedBody.data.mealRegularity,
       appetite: parsedBody.data.appetite,
-      notes: toSafeNotes(parsedBody.data.notes),
-      source: "manual",
-    });
+      notes: safeNotes,
+      source: "manual" as const,
+    };
 
-    return res.json({
-      ok: true,
-      id: String(created._id),
-      date: created.date,
-      createdAt: created.createdAt?.toISOString() ?? new Date().toISOString(),
-      entry: mapEntry(created.toObject()),
-    });
+    if (!clientMutationId) {
+      const created = await NutritionLog.create(createData);
+      return res.json(toNutritionResponse(created.toObject()));
+    }
+
+    try {
+      const keyed = await NutritionLog.create({
+        ...createData,
+        clientMutationId,
+      });
+
+      return res.json(toNutritionResponse(keyed.toObject()));
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+
+      const existing = await NutritionLog.findOne({
+        patientId,
+        clientMutationId,
+      }).lean();
+
+      if (!existing) {
+        throw error;
+      }
+
+      if (matchesNutritionPayload(existing, semanticPayload)) {
+        return res.json(toNutritionResponse(existing));
+      }
+
+      return res.status(409).json({
+        ok: false,
+        error: "IDEMPOTENCY_CONFLICT",
+        message: "clientMutationId was already used for a different nutrition log.",
+      });
+    }
   } catch (error) {
     logger.error("Create nutrition log failed", {
       route: "POST /patient/nutrition/log",

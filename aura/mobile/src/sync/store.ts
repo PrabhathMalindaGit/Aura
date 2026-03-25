@@ -75,32 +75,57 @@ function normalizeFailureReason(value: unknown): SyncFailureReason | undefined {
     : undefined;
 }
 
+function normalizeClientMutationId(
+  value: unknown,
+  fallbackOperationId?: string
+): string | null {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  if (typeof fallbackOperationId === "string" && fallbackOperationId.trim()) {
+    return fallbackOperationId.trim();
+  }
+  return null;
+}
+
 function normalizeHydrationPayload(
-  value: unknown
+  value: unknown,
+  fallbackOperationId?: string
 ): HydrationSyncPayload | null {
   if (!isObjectRecord(value)) {
     return null;
   }
+  const clientMutationId = normalizeClientMutationId(
+    value.clientMutationId,
+    fallbackOperationId
+  );
   if (
     typeof value.date !== "string" ||
     !value.date.trim() ||
     typeof value.amountMl !== "number" ||
-    !Number.isFinite(value.amountMl)
+    !Number.isFinite(value.amountMl) ||
+    !clientMutationId
   ) {
     return null;
   }
   return {
     date: value.date,
     amountMl: Math.round(value.amountMl),
+    clientMutationId,
   };
 }
 
 function normalizeNutritionPayload(
-  value: unknown
+  value: unknown,
+  fallbackOperationId?: string
 ): NutritionSyncPayload | null {
   if (!isObjectRecord(value)) {
     return null;
   }
+  const clientMutationId = normalizeClientMutationId(
+    value.clientMutationId,
+    fallbackOperationId
+  );
   if (
     typeof value.date !== "string" ||
     !value.date.trim() ||
@@ -110,7 +135,8 @@ function normalizeNutritionPayload(
     typeof value.antiInflammatoryFocus !== "boolean" ||
     (value.mealRegularity !== "irregular" &&
       value.mealRegularity !== "mostly" &&
-      value.mealRegularity !== "regular")
+      value.mealRegularity !== "regular") ||
+    !clientMutationId
   ) {
     return null;
   }
@@ -130,6 +156,7 @@ function normalizeNutritionPayload(
     mealRegularity: value.mealRegularity,
     appetite,
     notes: typeof value.notes === "string" ? value.notes.slice(0, 280) : undefined,
+    clientMutationId,
   };
 }
 
@@ -197,12 +224,12 @@ function normalizeOperation(value: unknown): SyncOperation | null {
   } as const;
 
   if (value.domain === "hydration") {
-    const payload = normalizeHydrationPayload(value.payload);
+    const payload = normalizeHydrationPayload(value.payload, value.operationId);
     return payload ? { ...base, domain: "hydration", payload } : null;
   }
 
   if (value.domain === "nutrition") {
-    const payload = normalizeNutritionPayload(value.payload);
+    const payload = normalizeNutritionPayload(value.payload, value.operationId);
     return payload ? { ...base, domain: "nutrition", payload } : null;
   }
 
@@ -316,6 +343,7 @@ async function sweepLegacyQueues(
       payload: {
         date: entry.date,
         amountMl: entry.amountMl,
+        clientMutationId: entry.localId,
       },
     });
   }
@@ -336,6 +364,9 @@ async function sweepLegacyQueues(
       payload: {
         ...entry.payload,
         date: entry.date,
+        clientMutationId:
+          normalizeClientMutationId(entry.payload.clientMutationId, entry.localId) ??
+          entry.localId,
       },
     });
   }

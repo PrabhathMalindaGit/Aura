@@ -18,6 +18,7 @@ const state: SyncPatientState = {
       payload: {
         date: "2026-03-24",
         amountMl: 250,
+        clientMutationId: "hyd-1",
       },
     },
     {
@@ -34,6 +35,7 @@ const state: SyncPatientState = {
         fruitVegServings: 3,
         antiInflammatoryFocus: false,
         mealRegularity: "mostly",
+        clientMutationId: "nut-1",
       },
     },
     {

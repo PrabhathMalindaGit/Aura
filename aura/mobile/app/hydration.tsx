@@ -1,5 +1,5 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -41,6 +41,7 @@ import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { getPendingItemCopy, getQueueableSyncSurface } from "@/src/sync/copy";
 import { sendHydrationSync } from "@/src/sync/adapters/hydration";
+import { createOperationId } from "@/src/sync/model";
 import { flushPendingWrites, submitQueueableWrite } from "@/src/sync/runner";
 import { selectPendingHydrationEntries, useSyncDomainSummary } from "@/src/sync/selectors";
 import { removeSyncOperation, useSyncPatientState } from "@/src/sync/store";
@@ -359,50 +360,71 @@ export default function HydrationScreen() {
         return;
       }
 
-      const result = await submitQueueableWrite({
-        patientId,
-        token: auth.token,
-        isOffline,
-        domain: "hydration",
-        payload: { date: today, amountMl },
-        send: async (token, payload) => {
-          await sendHydrationSync(token, payload);
-          return true;
-        },
-      });
+      const payload = {
+        date: today,
+        amountMl,
+        clientMutationId: createOperationId(),
+      };
 
-      if (result.kind === "synced") {
-        await hydrationLogError.clear();
-        await loadToday();
-        setNotice({
-          variant: "info",
-          title: "Synced",
-          message: `${amountMl} ml synced.`,
+      try {
+        const result = await submitQueueableWrite({
+          patientId,
+          token: auth.token,
+          isOffline,
+          domain: "hydration",
+          payload,
+          send: async (token, nextPayload) => {
+            await sendHydrationSync(token, nextPayload);
+            return true;
+          },
         });
-        return;
+
+        if (result.kind === "synced") {
+          await hydrationLogError.clear();
+          await loadToday();
+          setNotice({
+            variant: "info",
+            title: "Synced",
+            message: `${amountMl} ml synced.`,
+          });
+          return;
+        }
+
+        const lastError = result.normalizedError;
+        const title =
+          result.operation.status === "failed"
+            ? "Couldn’t sync"
+            : "Saved on this device";
+        const message =
+          result.operation.status === "failed"
+            ? "Saved on this device. Retry sync when you’re ready."
+            : "Saved on this device. Sync when you’re back online.";
+
+        await hydrationLogError.setLocalError({
+          title,
+          message: lastError?.message ?? message,
+          kind: toLastErrorKind(lastError?.reason ?? "offline"),
+          retryable: true,
+        });
+        setNotice({
+          variant: "warning",
+          title,
+          message,
+        });
+      } catch (error) {
+        const friendly = toFriendlyHydrationError(error, "Couldn’t save hydration");
+        await hydrationLogError.setLocalError({
+          title: friendly.title,
+          message: friendly.message,
+          kind: friendly.kind,
+          retryable: friendly.retryable,
+        });
+        setNotice({
+          variant: "error",
+          title: friendly.title,
+          message: friendly.message,
+        });
       }
-
-      const lastError = result.normalizedError;
-      const title =
-        result.operation.status === "failed"
-          ? "Couldn’t sync"
-          : "Saved on this device";
-      const message =
-        result.operation.status === "failed"
-          ? "Saved on this device. Retry sync when you’re ready."
-          : "Saved on this device. Sync when you’re back online.";
-
-      await hydrationLogError.setLocalError({
-        title,
-        message: lastError?.message ?? message,
-        kind: toLastErrorKind(lastError?.reason ?? "offline"),
-        retryable: true,
-      });
-      setNotice({
-        variant: "warning",
-        title,
-        message,
-      });
     },
     [auth.token, hydrationLogError, isOffline, loadToday, patientId, today]
   );

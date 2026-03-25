@@ -18,6 +18,10 @@ const hydrationLogSchema = new Schema(
       min: 10,
       max: 5000,
     },
+    clientMutationId: {
+      type: String,
+      trim: true,
+    },
     source: {
       type: String,
       enum: ["manual"],
@@ -34,6 +38,15 @@ const hydrationLogSchema = new Schema(
 );
 
 hydrationLogSchema.index({ patientId: 1, date: 1, createdAt: 1 });
+hydrationLogSchema.index(
+  { patientId: 1, clientMutationId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      clientMutationId: { $exists: true, $type: "string" },
+    },
+  }
+);
 hydrationLogSchema.index({ demoTag: 1 });
 
 const HydrationLog = model("HydrationLog", hydrationLogSchema);

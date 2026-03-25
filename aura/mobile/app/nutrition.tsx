@@ -1,5 +1,5 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -45,6 +45,7 @@ import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { getQueueableSyncSurface } from "@/src/sync/copy";
 import { sendNutritionSync } from "@/src/sync/adapters/nutrition";
+import { createOperationId } from "@/src/sync/model";
 import { flushPendingWrites, submitQueueableWrite } from "@/src/sync/runner";
 import { selectPendingNutritionEntries, useSyncDomainSummary } from "@/src/sync/selectors";
 import { useSyncPatientState } from "@/src/sync/store";
@@ -400,7 +401,10 @@ export default function NutritionScreen() {
     if (!auth.token || !patientId || isSaving) {
       return;
     }
-    const payload = buildPayload();
+    const payload = {
+      ...buildPayload(),
+      clientMutationId: createOperationId(),
+    };
     setIsSaving(true);
 
     try {
@@ -447,6 +451,19 @@ export default function NutritionScreen() {
           message,
         });
       }
+    } catch (error) {
+      const friendly = toFriendlyNutritionError(error, "Couldn’t save nutrition");
+      await nutritionLogError.setLocalError({
+        title: friendly.title,
+        message: friendly.message,
+        kind: friendly.kind,
+        retryable: friendly.retryable,
+      });
+      setNotice({
+        variant: "error",
+        title: friendly.title,
+        message: friendly.message,
+      });
     } finally {
       setIsSaving(false);
     }

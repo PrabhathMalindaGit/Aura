@@ -42,6 +42,10 @@ const nutritionLogSchema = new Schema(
       maxlength: 280,
       required: false,
     },
+    clientMutationId: {
+      type: String,
+      trim: true,
+    },
     source: {
       type: String,
       enum: ["manual"],
@@ -58,6 +62,15 @@ const nutritionLogSchema = new Schema(
 );
 
 nutritionLogSchema.index({ patientId: 1, date: 1, createdAt: 1 });
+nutritionLogSchema.index(
+  { patientId: 1, clientMutationId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      clientMutationId: { $exists: true, $type: "string" },
+    },
+  }
+);
 nutritionLogSchema.index({ demoTag: 1 });
 
 const NutritionLog = model("NutritionLog", nutritionLogSchema);

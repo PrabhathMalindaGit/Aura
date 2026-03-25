@@ -76,6 +76,10 @@ function mapHttpError(status: number, payload: unknown): ApiError {
     payload && typeof payload === "object" && "message" in payload
       ? String((payload as { message?: unknown }).message ?? "")
       : "";
+  const payloadError =
+    payload && typeof payload === "object" && "error" in payload
+      ? String((payload as { error?: unknown }).error ?? "")
+      : "";
   const retryAfterSeconds =
     payload &&
     typeof payload === "object" &&
@@ -125,6 +129,22 @@ function mapHttpError(status: number, payload: unknown): ApiError {
       message: payloadMessage || "Requested resource was not found.",
       kind: "unknown",
       retryable: false,
+    });
+  }
+
+  if (status === 409) {
+    const isIdempotencyConflict = payloadError === "IDEMPOTENCY_CONFLICT";
+    return buildApiError({
+      status,
+      title: isIdempotencyConflict ? "Sync conflict" : "Conflict",
+      message:
+        payloadMessage ||
+        (isIdempotencyConflict
+          ? "This saved update conflicts with an earlier sync attempt."
+          : "The request conflicted with existing data."),
+      kind: "validation",
+      retryable: false,
+      detail: isIdempotencyConflict ? "conflict" : undefined,
     });
   }
 

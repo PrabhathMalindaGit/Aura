@@ -13,6 +13,7 @@ import {
   peekStoredSyncStateForTests,
   removeSyncOperation,
   resetSyncStoreForTests,
+  setStoredSyncStateForTests,
   setSyncDomainOutcome,
 } from "@/src/sync/store";
 
@@ -47,6 +48,12 @@ describe("sync store", () => {
     expect(summary.byDomain.hydration.pendingCount).toBe(1);
     expect(summary.byDomain.nutrition.pendingCount).toBe(1);
     expect(summary.byDomain.medications.pendingCount).toBe(1);
+    expect(state.operations.find((item) => item.domain === "hydration")?.payload).toMatchObject({
+      clientMutationId: expect.any(String),
+    });
+    expect(state.operations.find((item) => item.domain === "nutrition")?.payload).toMatchObject({
+      clientMutationId: expect.any(String),
+    });
     expect(await getPendingHydration("patient-a")).toEqual([]);
     expect(await getPendingNutrition("patient-a")).toEqual([]);
     expect(await getPendingMedicationLogs("patient-a")).toEqual([]);
@@ -59,6 +66,7 @@ describe("sync store", () => {
       payload: {
         date: "2026-03-24",
         amountMl: 250,
+        clientMutationId: "hydration-store-1",
       },
     });
     await enqueueSyncOperation("patient-b", {
@@ -88,6 +96,7 @@ describe("sync store", () => {
       payload: {
         date: "2026-03-24",
         amountMl: 450,
+        clientMutationId: "hydration-store-2",
       },
     });
 
@@ -105,6 +114,78 @@ describe("sync store", () => {
       status: "synced",
       operationId: operation.operationId,
       at: "2026-03-24T10:30:00.000Z",
+    });
+  });
+
+  it("retains clientMutationId across persisted queue reloads", async () => {
+    await enqueueSyncOperation("patient-a", {
+      domain: "nutrition",
+      status: "queued",
+      payload: {
+        date: "2026-03-24",
+        protein: "high",
+        fruitVegServings: 4,
+        antiInflammatoryFocus: true,
+        mealRegularity: "regular",
+        clientMutationId: "nutrition-store-1",
+      },
+    });
+
+    await resetSyncStoreForTests();
+    const reloaded = await ensureSyncStateLoaded("patient-a");
+
+    expect(reloaded.operations[0]?.payload).toMatchObject({
+      clientMutationId: "nutrition-store-1",
+    });
+  });
+
+  it("backfills missing hydration and nutrition clientMutationId from operationId on load", async () => {
+    await setStoredSyncStateForTests("patient-a", {
+      version: 1,
+      migratedLegacy: true,
+      operations: [
+        {
+          operationId: "hydration-legacy-1",
+          patientId: "patient-a",
+          domain: "hydration",
+          status: "queued",
+          createdAt: "2026-03-24T10:00:00.000Z",
+          updatedAt: "2026-03-24T10:00:00.000Z",
+          attemptCount: 0,
+          payload: {
+            date: "2026-03-24",
+            amountMl: 200,
+          } as any,
+        },
+        {
+          operationId: "nutrition-legacy-1",
+          patientId: "patient-a",
+          domain: "nutrition",
+          status: "queued",
+          createdAt: "2026-03-24T10:05:00.000Z",
+          updatedAt: "2026-03-24T10:05:00.000Z",
+          attemptCount: 0,
+          payload: {
+            date: "2026-03-24",
+            protein: "ok",
+            fruitVegServings: 3,
+            antiInflammatoryFocus: true,
+            mealRegularity: "mostly",
+          } as any,
+        },
+      ],
+      lastOutcomeByDomain: {},
+    });
+
+    await resetSyncStoreForTests();
+    const reloaded = await ensureSyncStateLoaded("patient-a");
+
+    expect(reloaded.operations).toHaveLength(2);
+    expect(reloaded.operations[0]?.payload).toMatchObject({
+      clientMutationId: "hydration-legacy-1",
+    });
+    expect(reloaded.operations[1]?.payload).toMatchObject({
+      clientMutationId: "nutrition-legacy-1",
     });
   });
 });

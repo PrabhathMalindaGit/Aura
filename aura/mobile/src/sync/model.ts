@@ -1,4 +1,5 @@
 import type {
+  HydrationLogPayload,
   MedicationLogPayload,
   NutritionLogPayload,
 } from "@/src/api/patient";
@@ -24,13 +25,14 @@ export type SyncFailureReason =
   | "conflict"
   | "unknown";
 
-export type HydrationSyncPayload = {
+export type HydrationSyncPayload = HydrationLogPayload & {
   date: string;
-  amountMl: number;
+  clientMutationId: string;
 };
 
 export type NutritionSyncPayload = NutritionLogPayload & {
   date: string;
+  clientMutationId: string;
 };
 
 export type MedicationSyncPayload = MedicationLogPayload & {

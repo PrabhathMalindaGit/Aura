@@ -92,6 +92,12 @@ export type HydrationEntry = {
   localId?: string;
 };
 
+export type HydrationLogPayload = {
+  date?: string;
+  amountMl: number;
+  clientMutationId?: string;
+};
+
 export type HydrationTodayResponse = {
   ok: boolean;
   date: string;
@@ -140,6 +146,7 @@ export type NutritionLogPayload = {
   mealRegularity: NutritionMealRegularity;
   appetite?: NutritionAppetite;
   notes?: string;
+  clientMutationId?: string;
 };
 
 export type NutritionTodayResponse = {
@@ -2653,7 +2660,7 @@ function normalizeApprovedInsight(value: unknown): ApprovedInsight | null {
 
 export async function logHydration(
   token: string,
-  payload: { date?: string; amountMl: number }
+  payload: HydrationLogPayload
 ): Promise<HydrationEntry> {
   const response = await apiFetchJson<{
     id?: unknown;

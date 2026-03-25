@@ -17,6 +17,7 @@ const DAILY_TARGET_ML = 2000;
 const hydrationLogSchema = z.object({
   date: z.string().regex(dateRegex).optional(),
   amountMl: z.number().int().min(10).max(5000),
+  clientMutationId: z.string().trim().min(1).max(120).optional(),
 });
 
 const rangeQuerySchema = z.object({
@@ -134,6 +135,55 @@ async function readDayTotals(patientId: string, from: string, to: string) {
   }));
 }
 
+type HydrationSemanticPayload = {
+  date: string;
+  amountMl: number;
+};
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 11000
+  );
+}
+
+function toHydrationResponse(entry: {
+  _id?: unknown;
+  date?: unknown;
+  amountMl?: unknown;
+  createdAt?: unknown;
+}) {
+  return {
+    ok: true,
+    id: String(entry._id ?? ""),
+    date: typeof entry.date === "string" ? entry.date : "",
+    amountMl:
+      typeof entry.amountMl === "number" && Number.isFinite(entry.amountMl)
+        ? entry.amountMl
+        : 0,
+    createdAt:
+      entry.createdAt instanceof Date
+        ? entry.createdAt.toISOString()
+        : new Date(0).toISOString(),
+  };
+}
+
+function matchesHydrationPayload(
+  entry: {
+    date?: unknown;
+    amountMl?: unknown;
+  },
+  payload: HydrationSemanticPayload
+): boolean {
+  return (
+    entry.date === payload.date &&
+    typeof entry.amountMl === "number" &&
+    entry.amountMl === payload.amountMl
+  );
+}
+
 router.post("/patient/hydration/log", requirePatientAuth, async (req, res) => {
   const requestWithPatient = req as RequestWithPatient;
   const patientId = requestWithPatient.patient?.id;
@@ -162,20 +212,57 @@ router.post("/patient/hydration/log", requirePatientAuth, async (req, res) => {
         details: [{ path: "date", message: "date must be a valid YYYY-MM-DD value" }],
       });
     }
-    const created = await HydrationLog.create({
-      patientId,
+    const semanticPayload: HydrationSemanticPayload = {
       date,
       amountMl: parsedBody.data.amountMl,
-      source: "manual",
-    });
+    };
+    const clientMutationId = parsedBody.data.clientMutationId;
 
-    return res.json({
-      ok: true,
-      id: String(created._id),
-      date: created.date,
-      amountMl: created.amountMl,
-      createdAt: created.createdAt?.toISOString() ?? new Date().toISOString(),
-    });
+    if (!clientMutationId) {
+      const created = await HydrationLog.create({
+        patientId,
+        date,
+        amountMl: parsedBody.data.amountMl,
+        source: "manual",
+      });
+
+      return res.json(toHydrationResponse(created.toObject()));
+    }
+
+    try {
+      const created = await HydrationLog.create({
+        patientId,
+        date,
+        amountMl: parsedBody.data.amountMl,
+        clientMutationId,
+        source: "manual",
+      });
+
+      return res.json(toHydrationResponse(created.toObject()));
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+
+      const existing = await HydrationLog.findOne({
+        patientId,
+        clientMutationId,
+      }).lean();
+
+      if (!existing) {
+        throw error;
+      }
+
+      if (matchesHydrationPayload(existing, semanticPayload)) {
+        return res.json(toHydrationResponse(existing));
+      }
+
+      return res.status(409).json({
+        ok: false,
+        error: "IDEMPOTENCY_CONFLICT",
+        message: "clientMutationId was already used for a different hydration log.",
+      });
+    }
   } catch (error) {
     logger.error("Create hydration log failed", {
       route: "POST /patient/hydration/log",

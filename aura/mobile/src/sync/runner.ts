@@ -301,6 +301,17 @@ async function flushPendingWritesInternal(options: {
       } else {
         failed += 1;
       }
+      if (lastError.reason === "conflict") {
+        await removeSyncOperation(trimmedPatientId, operation.operationId);
+        await setSyncDomainOutcome(trimmedPatientId, operation.domain, {
+          status: "failed",
+          operationId: operation.operationId,
+          at: new Date().toISOString(),
+          reason: lastError.reason,
+          message: lastError.message,
+        });
+        break;
+      }
       await updateSyncOperation(trimmedPatientId, operation.operationId, {
         status: lastError.nextStatus,
         lastFailureReason: lastError.reason,

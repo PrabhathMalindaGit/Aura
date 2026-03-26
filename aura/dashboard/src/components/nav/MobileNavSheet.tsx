@@ -10,6 +10,17 @@ interface MobileNavSheetProps {
   onClose: () => void;
 }
 
+function CloseIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M6.97 5.56a1 1 0 0 1 1.41 0L12 9.17l3.62-3.61a1 1 0 1 1 1.41 1.41L13.41 10.6l3.62 3.62a1 1 0 1 1-1.41 1.41L12 12.01l-3.62 3.62a1 1 0 1 1-1.41-1.41l3.62-3.62-3.62-3.63a1 1 0 0 1 0-1.41Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function MobileNavSheet({ open, onClose }: MobileNavSheetProps): JSX.Element | null {
   const panelRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -71,9 +82,12 @@ export function MobileNavSheet({ open, onClose }: MobileNavSheetProps): JSX.Elem
 
       <aside ref={panelRef} className="mobile-nav-sheet__panel glass-popover">
         <header className="mobile-nav-sheet__header">
-          <h2 className="mobile-nav-sheet__title">Navigation</h2>
+          <div>
+            <p className="mobile-nav-sheet__section-label">Clinician workspace</p>
+            <h2 className="mobile-nav-sheet__title">Aura Clinician</h2>
+          </div>
           <IconButton ref={closeButtonRef} aria-label="Close navigation menu" onClick={onClose}>
-            ✕
+            <CloseIcon />
           </IconButton>
         </header>
 
@@ -94,4 +108,3 @@ export function MobileNavSheet({ open, onClose }: MobileNavSheetProps): JSX.Elem
     </div>
   );
 }
-

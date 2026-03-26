@@ -10,6 +10,28 @@ interface SidebarProps {
   onToggleMode: () => void;
 }
 
+function CollapseIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14.78 6.72a1 1 0 0 1 0 1.41L10.91 12l3.87 3.87a1 1 0 1 1-1.41 1.41l-4.58-4.58a1 1 0 0 1 0-1.41l4.58-4.58a1 1 0 0 1 1.41 0Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function ExpandIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M9.22 17.28a1 1 0 0 1 0-1.41L13.09 12 9.22 8.13a1 1 0 1 1 1.41-1.41l4.58 4.58a1 1 0 0 1 0 1.41l-4.58 4.58a1 1 0 0 1-1.41 0Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
   const iconOnly = mode === 'icon';
   const sectionItems = NAV_SECTIONS.map((section) => ({
@@ -27,7 +49,7 @@ export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
           {iconOnly ? null : (
             <span className="sidebar__brand-copy">
               <span className="sidebar__brand-text">Aura Clinician</span>
-              <span className="sidebar__brand-subtitle">Clinical workspace</span>
+              <span className="sidebar__brand-subtitle">Local clinician workspace</span>
             </span>
           )}
         </div>
@@ -37,7 +59,7 @@ export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
           aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
           title={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {iconOnly ? '»' : '«'}
+          {iconOnly ? <ExpandIcon /> : <CollapseIcon />}
         </IconButton>
       </header>
 

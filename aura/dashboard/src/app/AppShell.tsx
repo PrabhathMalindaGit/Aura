@@ -163,6 +163,28 @@ function formatWorkspaceDateTimeTitle(nowMs: number, timeZone?: string): string 
   }
 }
 
+function MenuIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4 7.25A1.25 1.25 0 0 1 5.25 6h13.5a1.25 1.25 0 1 1 0 2.5H5.25A1.25 1.25 0 0 1 4 7.25Zm0 4.75a1.25 1.25 0 0 1 1.25-1.25h13.5a1.25 1.25 0 1 1 0 2.5H5.25A1.25 1.25 0 0 1 4 12Zm0 4.75a1.25 1.25 0 0 1 1.25-1.25h9.5a1.25 1.25 0 1 1 0 2.5h-9.5A1.25 1.25 0 0 1 4 16.75Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function SearchIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M10.5 4a6.5 6.5 0 1 0 3.96 11.65l3.94 3.94a1 1 0 0 0 1.41-1.42l-3.93-3.93A6.5 6.5 0 0 0 10.5 4Zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export function AppShell(): JSX.Element {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -330,11 +352,11 @@ export function AppShell(): JSX.Element {
                 className="mobile-only"
                 onClick={() => setMobileNavOpen(true)}
               >
-                ☰
+                <MenuIcon />
               </IconButton>
             ) : null}
             <div className="topbar__title-group">
-              <p className="topbar__eyebrow">Aura Clinician</p>
+              <p className="topbar__eyebrow">Clinician workspace</p>
               <h1 className="topbar__title">{pageConfig.title}</h1>
               <p className="topbar__subtitle">{pageConfig.subtitle}</p>
             </div>
@@ -342,7 +364,7 @@ export function AppShell(): JSX.Element {
 
           <form className="topbar__search" role="search" onSubmit={handleQuickOpenSubmit}>
             <span className="topbar__search-icon" aria-hidden="true">
-              ⌕
+              <SearchIcon />
             </span>
             <label className="visually-hidden" htmlFor="dashboard-shell-search">
               Quick open: page, patient ID, or alert ID

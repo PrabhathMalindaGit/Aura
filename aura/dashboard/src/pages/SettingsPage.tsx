@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { AlertBanner } from '../components/ui/AlertBanner';
+import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
@@ -582,12 +583,6 @@ export function SettingsPage(): JSX.Element {
   const identityStateLabel =
     [savedProfile.roleTitle.trim(), savedProfile.specialty.trim()].filter(Boolean).join(' · ') ||
     'Saved locally in this browser';
-  const workspaceStateLabel = [
-    workspacePreferences.availabilityLabel,
-    workspacePreferences.defaultLandingLabel,
-  ]
-    .filter(Boolean)
-    .join(' · ');
   const draftIdentityPreview = {
     displayName:
       draftProfile.displayName.trim() ||
@@ -647,6 +642,11 @@ export function SettingsPage(): JSX.Element {
   const savedQuietHoursLabel = savedProfile.notificationPreferences.quietHours.enabled
     ? `Quiet hours ${savedProfile.notificationPreferences.quietHours.startTime} - ${savedProfile.notificationPreferences.quietHours.endTime}`
     : 'Quiet hours off';
+  const communicationSummaryBadgeLabel = `${savedTemplateCount} ${savedTemplateCount === 1 ? 'template' : 'templates'}`;
+  const notificationSummaryBadgeLabel = savedProfile.notificationPreferences.quietHours.enabled
+    ? 'Quiet hours on'
+    : 'Quiet hours off';
+  const sessionProtectionBadgeLabel = sessionSettings.enabled ? 'Auto-logout on' : 'Auto-logout off';
 
   return (
     <div className="page-stack settings-page">
@@ -701,22 +701,6 @@ export function SettingsPage(): JSX.Element {
             <p className="settings-summary-strip__hint">{identityStateLabel}</p>
           </article>
         </section>
-
-        <section className="settings-workspace-note" aria-label="Settings workspace guidance">
-          <div className="settings-workspace-note__copy">
-            <p className="settings-workspace-note__eyebrow">Local workspace scope</p>
-            <p className="settings-workspace-note__text">
-              Keep this page aligned with the rest of Aura Clinician while staying truthful:
-              profile, appearance, and session changes here stay local to this browser.
-            </p>
-          </div>
-          <div className="settings-workspace-note__facts" aria-live="polite">
-            <span className="settings-workspace-note__fact">{themeSummaryLabel} mode</span>
-            <span className="settings-workspace-note__fact">{securityStateLabel}</span>
-            <span className="settings-workspace-note__fact">{identityStateLabel}</span>
-            <span className="settings-workspace-note__fact">{workspaceStateLabel}</span>
-          </div>
-        </section>
       </div>
 
       <section className="settings-groups" aria-label="Settings groups">
@@ -740,6 +724,7 @@ export function SettingsPage(): JSX.Element {
                 <span className="settings-group-card__title-meta">Workspace defaults</span>
               </span>
             }
+            action={<Badge variant="default">{themeSummaryLabel} mode</Badge>}
           >
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">Personal defaults</span>
@@ -860,6 +845,7 @@ export function SettingsPage(): JSX.Element {
                 <span className="settings-group-card__title-meta">Browser-local identity workspace</span>
               </span>
             }
+            action={<Badge variant="default">{workspacePreferences.availabilityLabel}</Badge>}
           >
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">This browser only</span>
@@ -1322,6 +1308,7 @@ export function SettingsPage(): JSX.Element {
                 <span className="settings-group-card__title-meta">Local reply helpers</span>
               </span>
             }
+            action={<Badge variant="default">{communicationSummaryBadgeLabel}</Badge>}
           >
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">This browser only</span>
@@ -1530,6 +1517,7 @@ export function SettingsPage(): JSX.Element {
                 <span className="settings-group-card__title-meta">Local attention cues</span>
               </span>
             }
+            action={<Badge variant="default">{notificationSummaryBadgeLabel}</Badge>}
           >
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">This browser only</span>
@@ -1733,6 +1721,11 @@ export function SettingsPage(): JSX.Element {
                 Session & security
                 <span className="settings-group-card__title-meta">Browser protection</span>
               </span>
+            }
+            action={
+              <Badge variant={sessionSettings.enabled ? 'success' : 'warning'}>
+                {sessionProtectionBadgeLabel}
+              </Badge>
             }
           >
             <div className="settings-group-card__context">

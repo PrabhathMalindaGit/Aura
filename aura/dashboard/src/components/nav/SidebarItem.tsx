@@ -9,7 +9,7 @@ interface SidebarItemProps {
 }
 
 interface NavIconProps {
-  icon: NavIconKey;
+  icon: NavIconKey | 'communication';
 }
 
 function NavIcon({ icon }: NavIconProps): JSX.Element {
@@ -79,6 +79,17 @@ function NavIcon({ icon }: NavIconProps): JSX.Element {
     );
   }
 
+  if (icon === 'communication') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M6.5 5.5A3.5 3.5 0 0 0 3 9v6a3.5 3.5 0 0 0 3.5 3.5h2.2l2.57 2.14a1 1 0 0 0 1.63-.77V18.5h4.6A3.5 3.5 0 0 0 21 15V9a3.5 3.5 0 0 0-3.5-3.5h-11Zm1.25 4a1 1 0 1 0 0 2h8.5a1 1 0 1 0 0-2h-8.5Zm0 3.75a1 1 0 1 0 0 2h5.5a1 1 0 1 0 0-2h-5.5Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
@@ -90,6 +101,8 @@ function NavIcon({ icon }: NavIconProps): JSX.Element {
 }
 
 export function SidebarItem({ item, iconOnly, onNavigate }: SidebarItemProps): JSX.Element {
+  const resolvedIcon: NavIconProps['icon'] = item.key === 'communication' ? 'communication' : item.icon;
+
   return (
     <NavLink
       to={item.to}
@@ -101,7 +114,7 @@ export function SidebarItem({ item, iconOnly, onNavigate }: SidebarItemProps): J
       }
     >
       <span className="sidebar-item__icon" aria-hidden="true">
-        <NavIcon icon={item.icon} />
+        <NavIcon icon={resolvedIcon} />
       </span>
       {iconOnly ? (
         <span className="visually-hidden">{item.label}</span>

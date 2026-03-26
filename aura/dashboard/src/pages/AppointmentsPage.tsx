@@ -782,6 +782,11 @@ export function AppointmentsPage(): JSX.Element {
       : availableSlotsCount > 0
         ? 'Capacity already published'
         : 'Publish only when needed';
+  const composerStatusVariant: BadgeVariant = capacityNeedsPublishing
+    ? 'warning'
+    : availableSlotsCount > 0
+      ? 'success'
+      : 'default';
   const requestsSectionNote =
     requestStatus === 'pending'
       ? pendingRequestsCount > 0
@@ -815,8 +820,8 @@ export function AppointmentsPage(): JSX.Element {
   const scheduleTitle = 'Schedule';
   const scheduleNote =
     scheduleView === 'week'
-      ? 'Visible open and closed capacity is shown for the current week only.'
-      : 'Visible open and closed capacity is shown for the current day only.';
+      ? 'Use the visible week to judge whether published capacity covers the request currently in review.'
+      : 'Use the visible day to judge whether published capacity covers the request currently in review.';
   const scheduleEmptyTitle =
     scheduleView === 'week' ? 'No visible capacity in this week' : 'No visible capacity in this day';
   const scheduleEmptyDescription =
@@ -826,8 +831,8 @@ export function AppointmentsPage(): JSX.Element {
   const slotsDetailTitle = slotStatus === 'available' ? 'Open capacity detail' : 'Closed capacity detail';
   const slotsDetailNote =
     slotStatus === 'available'
-      ? 'Review published open windows in the current visible range.'
-      : 'Review closed windows in the current visible range for schedule reference.';
+      ? 'Reference the open windows already visible in this range before publishing more clinician time.'
+      : 'Reference closed windows in this range without changing the current schedule view.';
 
   const visibleOpenSlotsCount = useMemo(
     () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === 'available').length,
@@ -1161,32 +1166,23 @@ export function AppointmentsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <section className="appointments-workspace-note" aria-label="Appointments workspace guidance">
-        <div className="appointments-workspace-note__copy">
-          <p className="appointments-workspace-note__eyebrow">Scheduling workspace</p>
-          <p className="appointments-workspace-note__text">
-            Requests create scheduling demand. Open capacity responds to that demand. Publish new
-            availability only when the current queue still needs coverage.
-          </p>
-        </div>
-        <div className="appointments-workspace-note__facts" aria-live="polite">
-          <span className="appointments-workspace-note__fact">{requestCountLabel}</span>
-          <span className="appointments-workspace-note__fact">{openCapacityLabel}</span>
-          <span
-            className={`appointments-workspace-note__fact appointments-workspace-note__fact--status appointments-workspace-note__fact--status-${coverageState.tone}`}
-          >
-            {capacityStatusLabel}
-          </span>
-        </div>
-      </section>
-
       <Card
         className="appointments-workspace-card"
-        title={
-          <span className="appointments-card-title">
-            Scheduling coordination
-            <span className="appointments-card-title__meta">Review demand before publishing</span>
-          </span>
+        title="Scheduling coordination"
+        action={
+          <div className="appointments-workspace__context-facts" aria-live="polite">
+            <span className="appointments-workspace__context-pill appointments-workspace__context-pill--demand">
+              {requestCountLabel}
+            </span>
+            <span className="appointments-workspace__context-pill appointments-workspace__context-pill--capacity">
+              {openCapacityLabel}
+            </span>
+            <span
+              className={`appointments-workspace__context-pill appointments-workspace__context-pill--status appointments-workspace__context-pill--status-${coverageState.tone}`}
+            >
+              {capacityStatusLabel}
+            </span>
+          </div>
         }
       >
         <div className="appointments-workspace">
@@ -1196,29 +1192,14 @@ export function AppointmentsPage(): JSX.Element {
               <p className="appointments-workspace__context-text">{coordinationState.note}</p>
               <p className="appointments-workspace__coverage-text">{coverageState.note}</p>
             </div>
-            <div className="appointments-workspace__context-facts" aria-live="polite">
-              <span className="appointments-workspace__context-pill appointments-workspace__context-pill--demand">
-                {requestCountLabel}
-              </span>
-              <span className="appointments-workspace__context-pill appointments-workspace__context-pill--capacity">
-                {openCapacityLabel}
-              </span>
-              <span
-                className={`appointments-workspace__context-pill appointments-workspace__context-pill--status appointments-workspace__context-pill--status-${coverageState.tone}`}
-              >
-                {coverageState.label}
-              </span>
-              {capacityNeedsPublishing ? (
+            {capacityNeedsPublishing ? (
+              <div className="appointments-workspace__context-facts" aria-live="polite">
                 <span className="appointments-workspace__context-pill appointments-workspace__context-pill--action">
                   {workspaceActionLabel}
                 </span>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
-          <p className="appointments-workspace__intro">
-            Start with request review, use open capacity to judge whether demand is covered, then
-            publish new availability only if the waiting queue still needs clinician time.
-          </p>
           {lastPublishOutcome && publishOutcomeCopy ? (
             <section
               className={`appointments-publish-outcome appointments-publish-outcome--${coverageState.tone}`}
@@ -1431,10 +1412,13 @@ export function AppointmentsPage(): JSX.Element {
                             {formatCalendarDay(item.startsAt)} · Video visit requested
                           </p>
                         </div>
+                        {item.note ? (
+                          <div className="appointments-item__reason">
+                            <p className="appointments-item__reason-label">Request note</p>
+                            <p className="appointments-item__reason-text">{item.note}</p>
+                          </div>
+                        ) : null}
                         <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                          <span className="appointments-item__meta-chip">
-                            Workflow {appointmentWorkflowLabel(item.workflowStatus)}
-                          </span>
                           <span className="appointments-item__meta-chip">
                             Created {formatDateTime(item.createdAt)}
                           </span>
@@ -1444,12 +1428,6 @@ export function AppointmentsPage(): JSX.Element {
                             </span>
                           ) : null}
                         </div>
-                        {item.note ? (
-                          <div className="appointments-item__reason">
-                            <p className="appointments-item__reason-label">Request note</p>
-                            <p className="appointments-item__reason-text">{item.note}</p>
-                          </div>
-                        ) : null}
                         {isPendingRequest ? (
                           <div className="appointments-item__actions appointments-item__actions--pending">
                             <Button
@@ -1523,6 +1501,43 @@ export function AppointmentsPage(): JSX.Element {
                   {scheduleRange.caption}
                 </Badge>
               </header>
+              {selectedRequest && requestScheduleContext ? (
+                <section
+                  className={`appointments-schedule-context appointments-schedule-context--${requestScheduleContext.tone}`}
+                  data-testid="appointments-schedule-context"
+                  aria-live="polite"
+                >
+                  <div className="appointments-schedule-context__copy">
+                    <p className="appointments-schedule-context__eyebrow">Selected request</p>
+                    <h4 className="appointments-schedule-context__title">
+                      {patientNameById.get(selectedRequest.patientId) ?? selectedRequest.patientId}
+                    </h4>
+                    <p className="appointments-schedule-context__text">
+                      {requestScheduleContext.label}
+                    </p>
+                    <p className="appointments-schedule-context__note">
+                      {requestScheduleContext.note}
+                    </p>
+                  </div>
+                  <div className="appointments-schedule-context__facts">
+                    <span className="appointments-item__meta-chip">
+                      {formatCalendarDay(selectedRequest.startsAt)}
+                    </span>
+                    <span className="appointments-item__meta-chip">
+                      {formatTimeRange(selectedRequest.startsAt, selectedRequest.endsAt)}
+                    </span>
+                    <span className="appointments-item__meta-chip">
+                      {formatWaitingDuration(selectedRequest.createdAt)}
+                    </span>
+                  </div>
+                  {selectedRequest.note ? (
+                    <div className="appointments-item__reason">
+                      <p className="appointments-item__reason-label">Request note</p>
+                      <p className="appointments-item__reason-text">{selectedRequest.note}</p>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
               <div className="appointments-schedule__toolbar">
                 <div className="appointments-filter-group appointments-filter-group--segmented">
                   <Button
@@ -1588,44 +1603,6 @@ export function AppointmentsPage(): JSX.Element {
                   {visibleClosedSlotsCount} closed visible
                 </span>
               </div>
-
-              {selectedRequest && requestScheduleContext ? (
-                <section
-                  className={`appointments-schedule-context appointments-schedule-context--${requestScheduleContext.tone}`}
-                  data-testid="appointments-schedule-context"
-                  aria-live="polite"
-                >
-                  <div className="appointments-schedule-context__copy">
-                    <p className="appointments-schedule-context__eyebrow">Selected request</p>
-                    <h4 className="appointments-schedule-context__title">
-                      {patientNameById.get(selectedRequest.patientId) ?? selectedRequest.patientId}
-                    </h4>
-                    <p className="appointments-schedule-context__text">
-                      {requestScheduleContext.label}
-                    </p>
-                    <p className="appointments-schedule-context__note">
-                      {requestScheduleContext.note}
-                    </p>
-                  </div>
-                  <div className="appointments-schedule-context__facts">
-                    <span className="appointments-item__meta-chip">
-                      {formatCalendarDay(selectedRequest.startsAt)}
-                    </span>
-                    <span className="appointments-item__meta-chip">
-                      {formatTimeRange(selectedRequest.startsAt, selectedRequest.endsAt)}
-                    </span>
-                    <span className="appointments-item__meta-chip">
-                      {formatWaitingDuration(selectedRequest.createdAt)}
-                    </span>
-                  </div>
-                  {selectedRequest.note ? (
-                    <div className="appointments-item__reason">
-                      <p className="appointments-item__reason-label">Request note</p>
-                      <p className="appointments-item__reason-text">{selectedRequest.note}</p>
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
 
               {scheduleSlotsQuery.error ? (
                 <AlertBanner variant="error" title="Could not load schedule">
@@ -1865,12 +1842,8 @@ export function AppointmentsPage(): JSX.Element {
 
       <Card
         className="appointments-composer-card"
-        title={
-          <span className="appointments-card-title">
-            Publish availability
-            <span className="appointments-card-title__meta">{composerMetaLabel}</span>
-          </span>
-        }
+        title="Publish availability"
+        action={<Badge variant={composerStatusVariant}>{composerMetaLabel}</Badge>}
       >
         <div className="appointments-composer">
           <div className="appointments-composer__context">

@@ -31,6 +31,7 @@ import { clearDashboardSessionData } from '../utils/storageKeys';
 import { cn } from '../utils/cn';
 
 interface ShellPageConfig {
+  key: string;
   title: string;
   subtitle: string;
 }
@@ -42,6 +43,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/patients/'),
     config: {
+      key: 'patient-detail',
       title: 'Patient Detail',
       subtitle: 'Longitudinal patient review with alerts, communication, tasks, and trends.',
     },
@@ -49,6 +51,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/worklist'),
     config: {
+      key: 'worklist',
       title: 'Worklist',
       subtitle:
         'Active review queue across safety, adherence, communication, tasks, and appointments.',
@@ -57,6 +60,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/communication'),
     config: {
+      key: 'communication',
       title: 'Communication',
       subtitle: 'Patient-linked communication review with response-needed and safety-aware follow-through.',
     },
@@ -64,6 +68,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/alerts'),
     config: {
+      key: 'alerts',
       title: 'Alerts',
       subtitle: 'Triage safety alerts with assignment, acknowledgment, and follow-up context.',
     },
@@ -71,6 +76,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/insights'),
     config: {
+      key: 'insights',
       title: 'Insights',
       subtitle: 'Review pending guidance before clinician approval.',
     },
@@ -78,6 +84,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/appointments'),
     config: {
+      key: 'appointments',
       title: 'Appointments',
       subtitle: 'Scheduling and capacity coordination for patient follow-up.',
     },
@@ -85,6 +92,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/patients'),
     config: {
+      key: 'patients',
       title: 'Patients',
       subtitle: 'Broad care roster before deeper patient review.',
     },
@@ -92,6 +100,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/settings'),
     config: {
+      key: 'settings',
       title: 'Settings',
       subtitle: 'Local browser-only workspace preferences and session protection.',
     },
@@ -99,6 +108,7 @@ const SHELL_PAGE_CONFIGS: Array<{
   {
     matches: (pathname) => pathname.startsWith('/dashboard'),
     config: {
+      key: 'dashboard',
       title: 'Dashboard',
       subtitle: "Command center for today's safety, follow-up, and coordination.",
     },
@@ -335,6 +345,7 @@ export function AppShell(): JSX.Element {
     <div
       className={cn(
         'app-shell',
+        `app-shell--page-${pageConfig.key}`,
         !isMobile && 'app-shell--with-sidebar',
         !isMobile && sidebarMode === 'expanded' && 'app-shell--sidebar-expanded',
         !isMobile && sidebarMode === 'icon' && 'app-shell--sidebar-icon',
@@ -343,7 +354,7 @@ export function AppShell(): JSX.Element {
       {!isMobile ? <Sidebar mode={sidebarMode} onToggleMode={toggleSidebarMode} /> : null}
 
       <div className="shell-main">
-        <header className={cn('topbar', 'glass-card')}>
+        <header className={cn('topbar', 'glass-card')} data-page={pageConfig.key}>
           <div className="topbar__left">
             {isMobile ? (
               <IconButton

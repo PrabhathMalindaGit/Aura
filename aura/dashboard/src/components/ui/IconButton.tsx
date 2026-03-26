@@ -14,7 +14,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
 ref,
 ): JSX.Element {
   return (
-    <button ref={ref} type={type} className={cn('icon-btn', className)} {...props}>
+    <button ref={ref} type={type} className={cn('icon-btn', className)} data-icon-button="true" {...props}>
       <span aria-hidden="true" className="icon-btn__glyph">
         {children}
       </span>

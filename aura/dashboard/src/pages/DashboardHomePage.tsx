@@ -777,11 +777,11 @@ export function DashboardHomePage(): JSX.Element {
     notificationPreferences.effectiveCommunicationCueMode === 'reduced';
 
   return (
-    <Stack className="page-stack dashboard-home-page" gap="4">
+    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--home dashboard-home-page" gap="4">
       <section className="dashboard-home-hero glass-card" aria-label="Dashboard overview">
         <div className="dashboard-home-hero__main">
           <Section
-            className="dashboard-page-header dashboard-home-page__header"
+            className="dashboard-page-header dashboard-page-header--home dashboard-home-page__header"
             eyebrow={`Command center for ${clinicianFirstName}`}
             title="Dashboard"
             subtitle={heroSubtitle}

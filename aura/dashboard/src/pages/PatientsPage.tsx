@@ -405,9 +405,9 @@ export function PatientsPage(): JSX.Element {
   }, [allPatients, patientsQuery.isLoading]);
 
   return (
-    <Stack className="page-stack patients-page" gap="5">
+    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--roster patients-page" gap="5">
       <Section
-        className="dashboard-page-header patients-page-header"
+        className="dashboard-page-header dashboard-page-header--roster patients-page-header"
         eyebrow="Care roster"
         title="Patients"
         subtitle="Scan the broader care roster before opening a deeper patient review."

@@ -649,9 +649,9 @@ export function SettingsPage(): JSX.Element {
   const sessionProtectionBadgeLabel = sessionSettings.enabled ? 'Auto-logout on' : 'Auto-logout off';
 
   return (
-    <div className="page-stack settings-page">
+    <div className="page-stack dashboard-page-shell dashboard-page-shell--settings settings-page">
       <Section
-        className="dashboard-page-header settings-page-header"
+        className="dashboard-page-header dashboard-page-header--settings settings-page-header"
         eyebrow="Workspace"
         title="Settings"
         subtitle="Configure this local clinician workspace for profile identity, appearance, and session protection."

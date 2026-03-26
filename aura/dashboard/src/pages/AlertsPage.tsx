@@ -1053,7 +1053,7 @@ export function AlertsPage(): JSX.Element {
     notificationPreferences.effectiveSafetyCueMode === 'reduced' ? [] : highlightedAlertIds;
 
   return (
-    <Stack className="page-stack alerts-page" gap="5">
+    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--alerts alerts-page" gap="5">
       {/*
         Acceptance test plan summary:
         1) Open /alerts and verify queue renders.
@@ -1064,7 +1064,7 @@ export function AlertsPage(): JSX.Element {
         6) Verify search/source/time filters and mobile card layout.
       */}
       <Section
-        className="dashboard-page-header alerts-page__header"
+        className="dashboard-page-header dashboard-page-header--alerts alerts-page__header"
         eyebrow="Safety operations"
         title="Alerts"
         subtitle="Review active safety issues, confirm ownership, and close escalations with clear clinical context."

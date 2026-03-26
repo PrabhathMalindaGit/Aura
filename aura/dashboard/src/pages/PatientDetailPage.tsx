@@ -1833,7 +1833,7 @@ export function PatientDetailPage(): JSX.Element {
   );
 
   return (
-    <div className="page-stack patient-detail-page">
+    <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page">
       <Card
         className={`patient-detail-hero-card${
           entryContext ? ` patient-detail-hero-card--source patient-detail-hero-card--source-${entryContext.focus}` : ''

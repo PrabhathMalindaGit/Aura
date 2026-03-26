@@ -362,9 +362,9 @@ export function CommunicationPage(): JSX.Element {
     notificationPreferences.effectiveCommunicationCueMode === 'reduced';
 
   return (
-    <Stack className="page-stack communication-page" gap="5">
+    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page" gap="5">
       <Section
-        className="dashboard-page-header communication-page__header"
+        className="dashboard-page-header dashboard-page-header--communication communication-page__header"
         eyebrow="Clinician follow-up"
         title="Communication"
         subtitle="Review patient-linked communication, respond calmly, and keep safety-sensitive threads connected to clinical follow-through."

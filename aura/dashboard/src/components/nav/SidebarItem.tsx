@@ -113,6 +113,7 @@ export function SidebarItem({ item, iconOnly, onNavigate }: SidebarItemProps): J
         cn('sidebar-item', iconOnly && 'sidebar-item--icon-only', isActive && 'sidebar-item--active')
       }
     >
+      <span className="sidebar-item__rail" aria-hidden="true" />
       <span className="sidebar-item__icon" aria-hidden="true">
         <NavIcon icon={resolvedIcon} />
       </span>

@@ -29,11 +29,20 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      className={cn('btn', `btn--${variant}`, `btn--${size}`, fullWidth && 'btn--full-width', className)}
+      data-size={size}
+      data-variant={variant}
+      className={cn(
+        'btn',
+        `btn--${variant}`,
+        `btn--${size}`,
+        leftIcon && 'btn--with-icon',
+        fullWidth && 'btn--full-width',
+        className,
+      )}
       {...props}
     >
       {leftIcon ? <span className="btn__icon">{leftIcon}</span> : null}
-      <span>{children}</span>
+      <span className="btn__label">{children}</span>
     </button>
   );
 });

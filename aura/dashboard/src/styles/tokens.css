@@ -5,34 +5,35 @@
   --bp-lg: 1200px;
 
   /* Typography */
-  --font-sans: 'IBM Plex Sans', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-sans: 'Figtree', 'IBM Plex Sans', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-heading: 'Figtree', 'IBM Plex Sans', 'Noto Sans', 'Segoe UI', 'Helvetica Neue', sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
-  --text-xs: clamp(11px, 0.9vw, 12px);
-  --text-sm: clamp(13px, 1.1vw, 14px);
-  --text-base: clamp(15px, 1.2vw, 16px);
-  --text-lg: clamp(18px, 1.6vw, 20px);
+  --text-xs: clamp(11.5px, 0.88vw, 12.5px);
+  --text-sm: clamp(13.5px, 1vw, 14.5px);
+  --text-base: clamp(15.5px, 1.12vw, 16.5px);
+  --text-lg: clamp(18.5px, 1.45vw, 21px);
   --leading-tight: 1.3;
   --leading-normal: 1.5;
   --font-normal: 400;
   --font-medium: 500;
   --font-semibold: 600;
   --font-bold: 700;
-  --tracking-tight: -0.01em;
+  --tracking-tight: -0.018em;
   --tracking-normal: 0;
   --nums: 'tnum' 1, 'lnum' 1;
 
   /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --page-padding: clamp(12px, 2vw, 24px);
-  --card-padding: clamp(12px, 1.6vw, 18px);
-  --card-gap: clamp(10px, 1.5vw, 18px);
-  --section-gap: clamp(16px, 2vw, 28px);
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 22px;
+  --space-6: 28px;
+  --space-8: 36px;
+  --page-padding: clamp(16px, 2.2vw, 32px);
+  --card-padding: clamp(16px, 1.55vw, 22px);
+  --card-gap: clamp(12px, 1.25vw, 18px);
+  --section-gap: clamp(18px, 2.2vw, 32px);
 
   /* Drawer + sheet sizing */
   --drawer-desktop-width: 540px;
@@ -41,53 +42,55 @@
   --sheet-radius: 18px;
 
   /* Radius */
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
-  --radius-2xl: 30px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 36px;
 
   /* Elevation (exactly 3 levels: background, card, popover) */
-  --shadow-1: 0 1px 2px hsl(216 26% 15% / 0.05), 0 8px 24px hsl(216 34% 24% / 0.08);
-  --shadow-2: 0 2px 8px hsl(216 30% 20% / 0.08), 0 18px 38px hsl(216 34% 20% / 0.15);
-  --shadow-3: 0 20px 48px hsl(248 22% 40% / 0.18), 0 6px 18px hsl(216 34% 20% / 0.08);
+  --shadow-1: 0 2px 6px hsl(210 34% 16% / 0.05), 0 16px 36px hsl(210 34% 18% / 0.08);
+  --shadow-2: 0 8px 18px hsl(210 34% 18% / 0.08), 0 26px 54px hsl(210 34% 16% / 0.14);
+  --shadow-3: 0 20px 42px hsl(210 34% 14% / 0.14), 0 44px 90px hsl(210 34% 12% / 0.18);
 
   /* Semantic color tokens (HSL triplets only) */
-  --background: 210 22% 95%;
-  --foreground: 220 34% 14%;
-  --muted: 210 18% 88%;
-  --muted-foreground: 218 17% 31%;
+  --background: 198 33% 96%;
+  --foreground: 213 35% 15%;
+  --muted: 196 28% 91%;
+  --muted-foreground: 214 18% 37%;
   --card: 0 0% 100%;
-  --card-foreground: 220 34% 14%;
-  --popover: 210 30% 99%;
-  --popover-foreground: 220 34% 14%;
-  --border: 214 18% 68%;
-  --input: 214 18% 68%;
-  --ring: 204 84% 44%;
-  --ring-offset: 210 26% 96%;
+  --card-foreground: 213 35% 15%;
+  --popover: 200 29% 99%;
+  --popover-foreground: 213 35% 15%;
+  --border: 201 23% 78%;
+  --input: 201 23% 78%;
+  --ring: 192 86% 38%;
+  --ring-offset: 198 33% 96%;
 
-  --primary: 204 88% 36%;
+  --primary: 193 85% 34%;
   --primary-foreground: 0 0% 100%;
-  --danger: 0 66% 43%;
+  --secondary: 199 55% 52%;
+  --secondary-foreground: 0 0% 100%;
+  --danger: 0 70% 46%;
   --danger-foreground: 0 0% 100%;
-  --warning: 36 86% 42%;
+  --warning: 35 85% 46%;
   --warning-foreground: 34 100% 11%;
-  --success: 153 58% 33%;
+  --success: 154 50% 34%;
   --success-foreground: 0 0% 100%;
-  --info: 214 72% 43%;
+  --info: 205 75% 42%;
   --info-foreground: 0 0% 100%;
 
-  --risk-high: 0 66% 43%;
-  --risk-medium: 36 86% 42%;
-  --risk-low: 153 58% 33%;
+  --risk-high: 0 70% 46%;
+  --risk-medium: 35 85% 46%;
+  --risk-low: 154 50% 34%;
 
-  --status-open: 214 72% 43%;
-  --status-ack: 36 86% 42%;
-  --status-resolved: 153 58% 33%;
+  --status-open: 205 75% 42%;
+  --status-ack: 35 85% 46%;
+  --status-resolved: 154 50% 34%;
 
-  --chart-pain: 0 66% 43%;
-  --chart-mood: 214 72% 43%;
-  --chart-adherence: 153 58% 33%;
+  --chart-pain: 0 70% 46%;
+  --chart-mood: 205 75% 42%;
+  --chart-adherence: 154 50% 34%;
   --chart-fill-alpha-start: 0.30;
   --chart-fill-alpha-end: 0;
   --chart-stroke-alpha: 1;
@@ -101,20 +104,20 @@
   --chart-height: var(--chart-height-mobile);
 
   --gradient-page: linear-gradient(
-    160deg,
-    hsl(var(--primary) / 0.05),
-    hsl(var(--background) / 0.992) 44%,
-    hsl(var(--info) / 0.03)
+    180deg,
+    hsl(196 42% 98%),
+    hsl(var(--background) / 0.996) 42%,
+    hsl(196 26% 95%)
   );
-  --gradient-shell: radial-gradient(circle at top left, hsl(206 46% 91% / 0.78), transparent 32%),
-    radial-gradient(circle at top right, hsl(194 40% 94% / 0.68), transparent 28%),
-    linear-gradient(180deg, hsl(212 20% 94%), hsl(var(--background) / 0.988) 42%, hsl(210 18% 94%));
-  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(210 36% 98% / 0.95));
-  --gradient-surface-lilac: linear-gradient(135deg, hsl(206 34% 95% / 0.9), hsl(var(--card) / 0.97) 58%);
+  --gradient-shell: radial-gradient(circle at top left, hsl(193 62% 88% / 0.68), transparent 30%),
+    radial-gradient(circle at top right, hsl(204 48% 92% / 0.62), transparent 24%),
+    linear-gradient(180deg, hsl(199 34% 97%), hsl(var(--background) / 0.99) 38%, hsl(199 28% 95%));
+  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(198 40% 98% / 0.96));
+  --gradient-surface-lilac: linear-gradient(135deg, hsl(192 42% 95% / 0.94), hsl(var(--card) / 0.98) 58%);
   --gradient-primary: linear-gradient(
     135deg,
-    hsl(var(--primary) / 0.18),
-    hsl(var(--primary) / 0.04)
+    hsl(var(--primary) / 0.2),
+    hsl(var(--primary) / 0.05)
   );
   --gradient-risk-high: linear-gradient(
     135deg,
@@ -147,7 +150,7 @@
     hsl(var(--chart-adherence) / var(--chart-fill-alpha-end))
   );
 
-  --focus-outline: 0 0 0 2px hsl(var(--ring-offset)), 0 0 0 4px hsl(var(--ring));
+  --focus-outline: 0 0 0 2px hsl(var(--ring-offset)), 0 0 0 5px hsl(var(--ring) / 0.24);
 
   /* Glassmorphism surface tokens */
   --glass-blur-desktop: 14px;
@@ -180,13 +183,13 @@
   --space-lg: var(--space-4);
   --space-xl: var(--space-6);
 
-  --sidebar-expanded-width: 260px;
-  --sidebar-icon-width: 76px;
-  --nav-item-height: 48px;
-  --nav-radius: var(--radius-md);
+  --sidebar-expanded-width: 276px;
+  --sidebar-icon-width: 82px;
+  --nav-item-height: 50px;
+  --nav-radius: calc(var(--radius-lg) - 2px);
   --nav-active-bg: var(--gradient-primary);
-  --shell-frame-padding: clamp(12px, 1.8vw, 22px);
-  --shell-surface-gap: clamp(12px, 1.5vw, 18px);
+  --shell-frame-padding: clamp(14px, 1.9vw, 24px);
+  --shell-surface-gap: clamp(14px, 1.45vw, 22px);
   --summary-shell-radius: calc(var(--radius-xl) - 3px);
   --summary-shell-padding: clamp(10px, 1vw, 12px);
   --summary-shell-gap: clamp(10px, 1vw, 12px);
@@ -218,22 +221,22 @@
   --queue-fact-height: 1.9rem;
   --queue-row-accent-width: 3px;
   --queue-secondary-action-height: 34px;
-  --action-height-sm: 38px;
-  --action-height-md: 44px;
-  --action-height-lg: 48px;
-  --action-height-shell: 38px;
-  --action-height-compact: 38px;
-  --action-radius: calc(var(--radius-lg) - 2px);
+  --action-height-sm: 40px;
+  --action-height-md: 46px;
+  --action-height-lg: 50px;
+  --action-height-shell: 40px;
+  --action-height-compact: 40px;
+  --action-radius: calc(var(--radius-lg) - 1px);
   --action-pill-radius: 999px;
   --action-compact-radius: calc(var(--radius-xl) - 4px);
   --action-padding-sm: var(--space-3);
   --action-padding-md: var(--space-4);
   --action-padding-lg: var(--space-6);
-  --action-shadow-soft: 0 8px 18px hsl(216 26% 30% / 0.08);
-  --action-shadow-shell: 0 7px 16px hsl(216 26% 30% / 0.07);
-  --action-shadow-compact: 0 6px 14px hsl(216 26% 30% / 0.06);
-  --action-shadow-primary: 0 14px 28px hsl(var(--primary) / 0.18);
-  --action-shadow-danger: 0 14px 28px hsl(var(--danger) / 0.16);
+  --action-shadow-soft: 0 10px 20px hsl(210 34% 20% / 0.08);
+  --action-shadow-shell: 0 8px 18px hsl(210 34% 20% / 0.07);
+  --action-shadow-compact: 0 8px 16px hsl(210 34% 20% / 0.06);
+  --action-shadow-primary: 0 16px 30px hsl(var(--primary) / 0.2);
+  --action-shadow-danger: 0 16px 30px hsl(var(--danger) / 0.18);
   --data-region-shell-radius: calc(var(--radius-2xl) - 5px);
   --data-region-shell-padding: clamp(15px, 1.15vw, 19px);
   --data-region-shell-gap: clamp(15px, 1vw, 19px);
@@ -272,66 +275,68 @@
 
 .dark {
   /* Level 0 surface */
-  --background: 221 28% 10%;
-  --foreground: 210 24% 95%;
-  --muted: 221 18% 16%;
-  --muted-foreground: 215 17% 76%;
+  --background: 213 31% 10%;
+  --foreground: 205 30% 95%;
+  --muted: 214 19% 18%;
+  --muted-foreground: 206 16% 74%;
 
   /* Level 1 surface */
-  --card: 222 23% 14%;
-  --card-foreground: 210 24% 95%;
+  --card: 214 24% 14%;
+  --card-foreground: 205 30% 95%;
 
   /* Level 2 surface */
-  --popover: 221 22% 18%;
-  --popover-foreground: 210 24% 96%;
+  --popover: 214 22% 18%;
+  --popover-foreground: 205 30% 96%;
 
-  --border: 218 18% 32%;
-  --input: 218 18% 32%;
-  --ring: 202 92% 66%;
-  --ring-offset: 221 28% 10%;
+  --border: 208 18% 31%;
+  --input: 208 18% 31%;
+  --ring: 191 82% 66%;
+  --ring-offset: 213 31% 10%;
 
-  --primary: 202 92% 64%;
-  --primary-foreground: 222 47% 11%;
+  --primary: 191 78% 62%;
+  --primary-foreground: 214 47% 11%;
+  --secondary: 199 60% 62%;
+  --secondary-foreground: 214 47% 11%;
   --danger: 0 84% 67%;
   --danger-foreground: 0 0% 100%;
-  --warning: 40 96% 67%;
+  --warning: 39 92% 66%;
   --warning-foreground: 37 86% 12%;
-  --success: 152 60% 56%;
+  --success: 153 59% 59%;
   --success-foreground: 153 78% 10%;
-  --info: 214 94% 72%;
-  --info-foreground: 221 43% 12%;
+  --info: 204 90% 72%;
+  --info-foreground: 214 43% 12%;
 
   --risk-high: 0 88% 69%;
-  --risk-medium: 40 96% 67%;
-  --risk-low: 152 64% 57%;
+  --risk-medium: 39 92% 66%;
+  --risk-low: 153 59% 59%;
 
-  --status-open: 214 94% 72%;
-  --status-ack: 40 96% 67%;
-  --status-resolved: 152 64% 57%;
+  --status-open: 204 90% 72%;
+  --status-ack: 39 92% 66%;
+  --status-resolved: 153 59% 59%;
 
   /* Dark charts need stronger saturation and slightly stronger fills/grids */
   --chart-pain: 0 90% 70%;
-  --chart-mood: 214 92% 74%;
-  --chart-adherence: 152 66% 62%;
+  --chart-mood: 204 90% 74%;
+  --chart-adherence: 153 62% 62%;
   --chart-fill-alpha-start: 0.36;
   --chart-fill-alpha-end: 0;
   --chart-grid-alpha: 0.28;
 
   --gradient-page: linear-gradient(
-    160deg,
-    hsl(var(--primary) / 0.13),
-    hsl(var(--background) / 0.985) 44%,
-    hsl(var(--info) / 0.08)
+    180deg,
+    hsl(213 30% 11%),
+    hsl(var(--background) / 0.985) 46%,
+    hsl(212 28% 9%)
   );
-  --gradient-shell: radial-gradient(circle at top left, hsl(208 42% 22% / 0.44), transparent 34%),
-    radial-gradient(circle at top right, hsl(195 38% 20% / 0.3), transparent 28%),
-    linear-gradient(180deg, hsl(225 24% 12%), hsl(var(--background) / 0.985) 42%, hsl(224 22% 11%));
-  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(220 18% 16% / 0.92));
-  --gradient-surface-lilac: linear-gradient(135deg, hsl(208 30% 19% / 0.7), hsl(var(--card) / 0.92) 58%);
+  --gradient-shell: radial-gradient(circle at top left, hsl(191 58% 18% / 0.46), transparent 32%),
+    radial-gradient(circle at top right, hsl(205 46% 20% / 0.28), transparent 26%),
+    linear-gradient(180deg, hsl(214 28% 12%), hsl(var(--background) / 0.986) 42%, hsl(214 26% 10%));
+  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(214 18% 16% / 0.94));
+  --gradient-surface-lilac: linear-gradient(135deg, hsl(195 30% 18% / 0.74), hsl(var(--card) / 0.94) 58%);
   --gradient-primary: linear-gradient(
     135deg,
-    hsl(var(--primary) / 0.28),
-    hsl(var(--primary) / 0.12)
+    hsl(var(--primary) / 0.3),
+    hsl(var(--primary) / 0.14)
   );
   --gradient-risk-high: linear-gradient(
     135deg,
@@ -350,12 +355,13 @@
   );
 
   /* Keep depth definition subtle in dark surfaces */
-  --shadow-1: 0 1px 0 hsl(210 20% 92% / 0.04), 0 10px 26px hsl(222 56% 3% / 0.34);
-  --shadow-2: 0 2px 10px hsl(222 56% 3% / 0.28), 0 20px 44px hsl(222 56% 2% / 0.44);
+  --shadow-1: 0 1px 0 hsl(205 20% 92% / 0.04), 0 16px 34px hsl(214 54% 4% / 0.34);
+  --shadow-2: 0 8px 18px hsl(214 54% 3% / 0.3), 0 30px 58px hsl(214 54% 2% / 0.46);
+  --shadow-3: 0 20px 42px hsl(214 56% 2% / 0.42), 0 52px 96px hsl(214 56% 1% / 0.48);
 
-  --glass-alpha-card: 0.74;
-  --glass-alpha-popover: 0.78;
+  --glass-alpha-card: 0.78;
+  --glass-alpha-popover: 0.82;
   --glass-alpha-overlay: 0.6;
-  --glass-border-alpha: 0.42;
-  --glass-border-alpha-strong: 0.52;
+  --glass-border-alpha: 0.46;
+  --glass-border-alpha-strong: 0.56;
 }

@@ -1097,9 +1097,9 @@ export function AppointmentsPage(): JSX.Element {
   }
 
   return (
-    <div className="page-stack appointments-page">
+    <div className="page-stack dashboard-page-shell dashboard-page-shell--appointments appointments-page">
       <Section
-        className="dashboard-page-header appointments-page-header"
+        className="dashboard-page-header dashboard-page-header--appointments appointments-page-header"
         eyebrow="Care coordination"
         title="Appointments"
         subtitle="Review scheduling demand, confirm whether open capacity is sufficient, and publish new availability only when it is truly needed."

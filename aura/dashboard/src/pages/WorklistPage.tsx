@@ -258,9 +258,9 @@ export function WorklistPage(): JSX.Element {
   }, [debouncedPersistedSearch, persistWorklistState]);
 
   return (
-    <Stack className="page-stack worklist-page" gap="5">
+    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--queue worklist-page" gap="5">
       <Section
-        className="dashboard-page-header worklist-page-header"
+        className="dashboard-page-header dashboard-page-header--queue worklist-page-header"
         eyebrow="Operational roster"
         title="Worklist"
         subtitle="Review active follow-up needs across safety, adherence, communication, tasks, and appointments."

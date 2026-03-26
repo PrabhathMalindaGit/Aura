@@ -82,7 +82,7 @@ export function MobileNavSheet({ open, onClose }: MobileNavSheetProps): JSX.Elem
 
       <aside ref={panelRef} className="mobile-nav-sheet__panel glass-popover">
         <header className="mobile-nav-sheet__header">
-          <div>
+          <div className="mobile-nav-sheet__header-copy">
             <p className="mobile-nav-sheet__section-label">Clinician workspace</p>
             <h2 className="mobile-nav-sheet__title">Aura Clinician</h2>
           </div>

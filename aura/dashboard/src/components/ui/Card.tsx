@@ -12,7 +12,7 @@ export function Card({ className, title, action, children, ...props }: CardProps
       {title || action ? (
         <header className="card__header">
           <h2 className="card__title">{title}</h2>
-          <div>{action}</div>
+          <div className="card__action">{action}</div>
         </header>
       ) : null}
       <div className="card__body">{children}</div>

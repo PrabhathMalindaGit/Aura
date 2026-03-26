@@ -40,7 +40,11 @@ export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
   })).filter((section) => section.items.length > 0);
 
   return (
-    <aside className={cn('sidebar', iconOnly ? 'sidebar--icon' : 'sidebar--expanded')} aria-label="Primary navigation">
+    <aside
+      className={cn('sidebar', iconOnly ? 'sidebar--icon' : 'sidebar--expanded')}
+      aria-label="Primary navigation"
+      data-mode={mode}
+    >
       <header className="sidebar__header">
         <div className="sidebar__brand">
           <span className="sidebar__brand-mark" aria-hidden="true">

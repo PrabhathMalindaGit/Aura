@@ -453,12 +453,6 @@ export function InsightsQueuePage(): JSX.Element {
     patientsQuery.isFetching;
   const isReviewSubmitting = isSubmittingId !== null || batchActionStatus !== null;
   const pendingCountLabel = `${pendingCount} awaiting review`;
-  const approvedCountLabel = approvedInsightsQuery.error
-    ? 'Approved unavailable'
-    : `${approvedCount} approved in current view`;
-  const rejectedCountLabel = rejectedInsightsQuery.error
-    ? 'Rejected unavailable'
-    : `${rejectedCount} rejected in current view`;
   const reviewedSummaryHint =
     reviewedCount === null
       ? 'Approved and rejected counts are unavailable right now.'
@@ -935,9 +929,9 @@ export function InsightsQueuePage(): JSX.Element {
   }
 
   return (
-    <div className="page-stack insights-page">
+    <div className="page-stack dashboard-page-shell dashboard-page-shell--insights insights-page">
       <Section
-        className="dashboard-page-header insights-page-header"
+        className="dashboard-page-header dashboard-page-header--insights insights-page-header"
         eyebrow="Clinical review"
         title="Insights"
         subtitle="Review suggested guidance deliberately, decide what belongs in clinician workflow, and confirm what was already handled in this current queue view."

@@ -22,7 +22,7 @@ import { NotificationPanel } from './NotificationPanel';
 import { RiskOverrideForm } from './RiskOverrideForm';
 import { TriggeringEventPanel } from './TriggeringEventPanel';
 import { asAppError, toUserMessage } from '../../utils/errors';
-import { formatRiskLabel } from '../../utils/risk';
+import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
 import { alertSourceLabel, alertStatusLabel, shortReferenceLabel } from '../../utils/notification';
 import { truncateText } from '../../utils/text';
 
@@ -208,6 +208,7 @@ export function AlertDetailDrawer({
   const resolveDisabled =
     !effectiveAlert || effectiveAlert.status === 'resolved' || mutationPending || assignmentBlocked;
   const patientNavigationId = effectiveAlert?.patientId.trim() ? effectiveAlert.patientId.trim() : null;
+  const effectiveRisk = effectiveAlert ? getEffectiveRisk(effectiveAlert) : null;
 
   function handleAcknowledge(): void {
     if (!effectiveAlert || acknowledgeDisabled) {
@@ -301,6 +302,11 @@ export function AlertDetailDrawer({
                 <Badge variant={statusBadgeVariant(effectiveAlert.status)} icon>
                   {alertStatusLabel(effectiveAlert.status)}
                 </Badge>
+                {effectiveRisk ? (
+                  <Badge variant={riskBadgeVariant(effectiveRisk)}>
+                    {formatRiskLabel(effectiveRisk)}
+                  </Badge>
+                ) : null}
                 <Badge variant={seen ? 'success' : 'new'} icon>
                   {seen ? 'Seen' : 'Unseen'}
                 </Badge>
@@ -320,8 +326,31 @@ export function AlertDetailDrawer({
                   >
                     Open patient
                   </Button>
+                  <AssignmentActions
+                    alert={effectiveAlert}
+                    clinicianId={clinicianId}
+                    busy={assignmentPending}
+                    allowUnassign
+                    size="sm"
+                    onAssignToMe={onAssignToMe}
+                    onTakeOver={onTakeOver}
+                    onUnassign={onUnassign}
+                  />
                 </div>
-              ) : null}
+              ) : (
+                <div className="drawer-meta__actions">
+                  <AssignmentActions
+                    alert={effectiveAlert}
+                    clinicianId={clinicianId}
+                    busy={assignmentPending}
+                    allowUnassign
+                    size="sm"
+                    onAssignToMe={onAssignToMe}
+                    onTakeOver={onTakeOver}
+                    onUnassign={onUnassign}
+                  />
+                </div>
+              )}
             </section>
 
             {assignmentBlocked ? (
@@ -339,42 +368,9 @@ export function AlertDetailDrawer({
 
             {uiNotice ? <AlertBanner variant="info" title="Action note">{uiNotice}</AlertBanner> : null}
 
-            <section className="drawer-section" aria-label="Assignment details">
-              <h3>Assignment</h3>
-              <p className="muted-text">
-                {effectiveAlert.assignedTo
-                  ? `Assigned to ${effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}${
-                      effectiveAlert.assignedAt
-                        ? ` at ${formatExactTime(effectiveAlert.assignedAt)}`
-                        : ''
-                    }.`
-                  : 'No clinician currently assigned.'}
-              </p>
-              <div className="drawer-inline-actions">
-                <AssignmentActions
-                  alert={effectiveAlert}
-                  clinicianId={clinicianId}
-                  busy={assignmentPending}
-                  allowUnassign
-                  onAssignToMe={onAssignToMe}
-                  onTakeOver={onTakeOver}
-                  onUnassign={onUnassign}
-                />
-                <span className="muted-text">Assignment changes save to the live alert record.</span>
-              </div>
-            </section>
-
             <section className="drawer-section" aria-label="Alert summary">
               <h3>Summary</h3>
               <dl className="summary-grid">
-                <div>
-                  <dt>Risk</dt>
-                  <dd>{formatRiskLabel(effectiveAlert.riskFinal ?? effectiveAlert.risk)}</dd>
-                </div>
-                <div>
-                  <dt>Auto risk</dt>
-                  <dd>{formatRiskLabel(effectiveAlert.riskAuto ?? effectiveAlert.risk)}</dd>
-                </div>
                 <div>
                   <dt>Reason</dt>
                   <dd>
@@ -408,6 +404,14 @@ export function AlertDetailDrawer({
                   </dd>
                 </div>
                 <div>
+                  <dt>Risk</dt>
+                  <dd>{formatRiskLabel(effectiveAlert.riskFinal ?? effectiveAlert.risk)}</dd>
+                </div>
+                <div>
+                  <dt>Auto risk</dt>
+                  <dd>{formatRiskLabel(effectiveAlert.riskAuto ?? effectiveAlert.risk)}</dd>
+                </div>
+                <div>
                   <dt>Created</dt>
                   <dd title={formatExactTime(effectiveAlert.createdAt)}>{formatRelativeTime(effectiveAlert.createdAt)}</dd>
                 </div>
@@ -425,6 +429,22 @@ export function AlertDetailDrawer({
                   <dd>{effectiveAlert._id}</dd>
                 </div>
               </dl>
+            </section>
+
+            <section className="drawer-section" aria-label="Assignment details">
+              <h3>Assignment</h3>
+              <p className="muted-text">
+                {effectiveAlert.assignedTo
+                  ? `Assigned to ${effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}${
+                      effectiveAlert.assignedAt
+                        ? ` at ${formatExactTime(effectiveAlert.assignedAt)}`
+                        : ''
+                    }.`
+                  : 'No clinician currently assigned.'}
+              </p>
+              <div className="drawer-inline-actions">
+                <span className="muted-text">Assignment changes save to the live alert record.</span>
+              </div>
             </section>
 
             <TriggeringEventPanel

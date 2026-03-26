@@ -131,8 +131,8 @@ export function AlertCardList({
                   ) : (
                     <span className="alerts-seen alerts-seen--quiet">Seen</span>
                   )}
-                  <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                    {alertStatusLabel(alert.status)}
+                  <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
+                    {formatRiskLabel(effectiveRisk)}
                   </Badge>
                 </div>
               </div>
@@ -163,11 +163,11 @@ export function AlertCardList({
 
                 <div className="alerts-card-list__meta">
                   <div className="alerts-card-list__meta-primary">
-                    <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
-                      {formatRiskLabel(effectiveRisk)}
+                    <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
+                      {alertStatusLabel(alert.status)}
                     </Badge>
-                    <OverrideChip alert={alert} />
                     <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                    <OverrideChip alert={alert} />
                   </div>
                   <div className="alerts-card-list__meta-secondary">
                     <span className="alerts-source-pill alerts-source-pill--row">
@@ -196,19 +196,21 @@ export function AlertCardList({
                   >
                     Review alert
                   </Button>
+                </div>
+                <div className="alerts-card-list__actions-secondary">
                   <AssignmentActions
                     alert={alert}
                     clinicianId={clinicianId}
                     busy={assignmentPending}
+                    size="sm"
                     fullWidth
                     onAssignToMe={onAssignToMe}
                     onTakeOver={onTakeOver}
                   />
-                </div>
-                <div className="alerts-card-list__actions-secondary">
                   <Button
                     className="alerts-actions__ack"
                     variant="secondary"
+                    size="sm"
                     disabled={alert.status !== 'open' || mutationPending || assignedToOther}
                     onClick={() => onAcknowledge(alert)}
                     fullWidth
@@ -218,6 +220,7 @@ export function AlertCardList({
                   <Button
                     className="alerts-actions__resolve"
                     variant="secondary"
+                    size="sm"
                     disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
                     onClick={() => onResolve(alert)}
                     fullWidth

@@ -36,8 +36,13 @@ export function PatientSummaryCards({ metrics, openAlertCount }: PatientSummaryC
 
   return (
     <section className="patient-summary-grid" aria-label="Patient summary metrics">
+      <SummaryCard
+        metric="open-alerts"
+        label="Open alerts"
+        value={String(openAlertCount)}
+        tone={openAlertCount > 0 ? 'danger' : 'default'}
+      />
       <SummaryCard metric="pain" label="Latest pain" value={formatPainValue(metrics.latestPain)} tone={painTone} />
-      <SummaryCard metric="mood" label="Latest mood" value={formatMoodValue(metrics.latestMood)} />
       <SummaryCard
         metric="adherence"
         label="Latest adherence"
@@ -46,16 +51,11 @@ export function PatientSummaryCards({ metrics, openAlertCount }: PatientSummaryC
         tone="success"
       />
       <SummaryCard
-        metric="open-alerts"
-        label="Open alerts"
-        value={String(openAlertCount)}
-        tone={openAlertCount > 0 ? 'danger' : 'default'}
-      />
-      <SummaryCard
         metric="last-checkin"
         label="Last check-in"
         value={metrics.lastCheckinDate ? formatDateKey(metrics.lastCheckinDate) : 'No check-ins yet'}
       />
+      <SummaryCard metric="mood" label="Latest mood" value={formatMoodValue(metrics.latestMood)} />
       <SummaryCard
         metric="avg-pain"
         label="Avg pain (7d)"

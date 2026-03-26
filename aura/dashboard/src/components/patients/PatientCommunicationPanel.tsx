@@ -179,12 +179,12 @@ export function PatientCommunicationPanel({
                         </span>
                       </div>
                       <div className="patient-communication-timeline__badges">
+                        {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
+                        {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
                         <Badge variant={event.kind === 'clinician-reply' ? 'default' : 'warning'}>
                           {event.kind === 'clinician-reply' ? 'Local clinician reply' : 'Patient message'}
                         </Badge>
-                        {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
-                        {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                        {event.localOnly ? <Badge variant="neutral">Stored locally</Badge> : null}
+                        {event.localOnly ? <Badge variant="neutral">Local to this browser</Badge> : null}
                       </div>
                     </div>
                     <p className="patient-communication-timeline__body">{event.preview}</p>
@@ -213,16 +213,6 @@ export function PatientCommunicationPanel({
 
           {showQuickReply && onQuickReplyChange && onSendQuickReply ? (
             <div className="patient-communication-quick-reply">
-              <div className="patient-communication-quick-reply__identity" aria-label="Local clinician identity">
-                <span className="patient-communication-quick-reply__identity-label">Local clinician identity</span>
-                <div className="patient-communication-quick-reply__identity-card">
-                  <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
-                  <div className="patient-communication-quick-reply__identity-copy">
-                    <strong>{clinicianIdentity.displayName}</strong>
-                    {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
-                  </div>
-                </div>
-              </div>
               {showQuickReplyHelpers ? (
                 <>
                   <div
@@ -274,7 +264,7 @@ export function PatientCommunicationPanel({
                     </div>
                   </div>
                   <p className="communication-authoring-tools__note" aria-live="polite">
-                    Local to this browser and still editable during this review pass.
+                    Applies only in this browser during this review pass.
                   </p>
                 </>
               ) : null}
@@ -289,7 +279,7 @@ export function PatientCommunicationPanel({
               </label>
               <div className="patient-communication-quick-reply__footer">
                 <p className="patient-communication-quick-reply__note">
-                  Stored locally for this clinician in this browser during this communication pass.
+                  Saved locally for this clinician in this browser during this review.
                 </p>
                 <Button
                   variant="primary"
@@ -299,6 +289,16 @@ export function PatientCommunicationPanel({
                 >
                   Save local reply
                 </Button>
+              </div>
+              <div className="patient-communication-quick-reply__identity" aria-label="Local clinician identity">
+                <span className="patient-communication-quick-reply__identity-label">Local clinician identity</span>
+                <div className="patient-communication-quick-reply__identity-card">
+                  <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                  <div className="patient-communication-quick-reply__identity-copy">
+                    <strong>{clinicianIdentity.displayName}</strong>
+                    {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}

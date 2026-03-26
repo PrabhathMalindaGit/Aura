@@ -65,7 +65,7 @@ export function FiltersBar({
           role="group"
           aria-label="Search and source controls"
         >
-          <span className="alerts-filters__cluster-label">Find alerts</span>
+          <span className="alerts-filters__cluster-label">Search and source</span>
           <div className="alerts-filters__cluster-body">
             <label className="alerts-filters__search form-field">
               <span className="alerts-filters__label">Search</span>
@@ -73,7 +73,7 @@ export function FiltersBar({
                 type="search"
                 value={searchValue}
                 onChange={(event) => onSearchValueChange(event.target.value)}
-                placeholder="Search patient, alert ID, reason, source"
+                placeholder="Search patient ID, alert ID, reason, or source"
                 aria-label="Search alerts"
               />
             </label>
@@ -106,7 +106,7 @@ export function FiltersBar({
             role="group"
             aria-label="Workflow filters"
           >
-            <span className="alerts-filters__cluster-label">Open queue focus</span>
+            <span className="alerts-filters__cluster-label">Open queue</span>
             <div className="alerts-filters__cluster-body alerts-filters__cluster-body--workflow">
               <div className="alerts-filters__toggle-wrap">
                 <div className="alerts-filters__toggle-group" role="group" aria-label="Open alert visibility filters">
@@ -164,7 +164,7 @@ export function FiltersBar({
           role="group"
           aria-label="View controls"
         >
-          <span className="alerts-filters__cluster-label">View options</span>
+          <span className="alerts-filters__cluster-label">Sort and range</span>
           <div className="alerts-filters__cluster-body alerts-filters__cluster-body--view">
             <label className="alerts-filters__control form-field">
               <span className="alerts-filters__label">Time range</span>
@@ -185,7 +185,7 @@ export function FiltersBar({
             </label>
 
             <div className="alerts-filters__refresh">
-              <Button variant="secondary" onClick={onRefresh} disabled={refreshing}>
+              <Button variant="secondary" size="sm" onClick={onRefresh} disabled={refreshing}>
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
             </div>

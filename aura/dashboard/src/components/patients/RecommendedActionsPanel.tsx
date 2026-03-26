@@ -31,6 +31,19 @@ function toneVariant(
   return 'neutral';
 }
 
+function toneLabel(tone: PatientRecommendedAction['tone']): string {
+  if (tone === 'danger') {
+    return 'Do now';
+  }
+  if (tone === 'warning') {
+    return 'Next up';
+  }
+  if (tone === 'success') {
+    return 'Supportive';
+  }
+  return 'Monitor';
+}
+
 export function RecommendedActionsPanel({
   items,
   isLoading = false,
@@ -73,7 +86,8 @@ export function RecommendedActionsPanel({
           {items.map((item) => (
             <article key={item.id} className={`patient-recommended-action patient-recommended-action--${item.tone}`}>
               <div className="patient-recommended-action__copy">
-                <Badge variant={toneVariant(item.tone)}>{item.title}</Badge>
+                <Badge variant={toneVariant(item.tone)}>{toneLabel(item.tone)}</Badge>
+                <strong>{item.title}</strong>
                 <p className="patient-recommended-action__description">{item.description}</p>
               </div>
               <Button variant="secondary" size="sm" onClick={() => onAction(item.actionKey)}>

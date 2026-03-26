@@ -1070,7 +1070,6 @@ export function AlertsPage(): JSX.Element {
         subtitle="Review active safety issues, confirm ownership, and close escalations with clear clinical context."
         meta={
           <span className="alerts-page__meta" aria-live="polite">
-            <span className="alerts-page__meta-pill alerts-page__meta-pill--count">{queueCountLabel}</span>
             {status === 'open' ? (
               <span className="alerts-page__meta-pill">Unseen {unseenCount}</span>
             ) : null}
@@ -1145,9 +1144,6 @@ export function AlertsPage(): JSX.Element {
           <>
             <div className="alerts-summary-strip__header">
               <h3 className="alerts-summary-strip__title">Attention now</h3>
-              <p className="alerts-overview-note">
-                Open workload, first-review visibility, ownership, and delivery follow-through at a glance.
-              </p>
             </div>
             <KpiRow summary={alertKpis} loading={overviewLoading} />
           </>
@@ -1156,12 +1152,7 @@ export function AlertsPage(): JSX.Element {
 
       <Card
         className="alerts-workspace-card"
-        title={
-          <span className="alerts-card-title">
-            Alerts queue
-            <span className="alerts-card-title__meta">Safety workspace</span>
-          </span>
-        }
+        title="Alerts queue"
         action={
           <Button className="alerts-workspace-card__export" variant="secondary" onClick={openAlertsExportModal}>
             Export CSV
@@ -1170,10 +1161,6 @@ export function AlertsPage(): JSX.Element {
       >
         <div className="alerts-workspace-card__heading-row">
           <div className="alerts-workspace-card__heading-copy">
-            <span className="alerts-workspace-card__eyebrow">Current queue</span>
-            <p className="alerts-queue-intro">
-              Review first visibility, ownership, and disposition from one tighter operational queue.
-            </p>
             {openedFromChat ? (
               <p className="alerts-chat-origin-note" data-testid="alerts-chat-origin-note">
                 {chatOriginPatientId
@@ -1183,16 +1170,16 @@ export function AlertsPage(): JSX.Element {
             ) : null}
             <p className="alerts-queue-follow-through">{queueFollowThroughText}</p>
           </div>
-            <div className="alerts-workspace-card__heading-actions">
-              <div className="alerts-workspace-card__queue-meta" aria-live="polite">
-                <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
-                <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
-              </div>
-              <div className="alerts-status-tabs-wrap">
+          <div className="alerts-workspace-card__heading-actions">
+            <div className="alerts-workspace-card__queue-meta" aria-live="polite">
+              <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
+              <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
+            </div>
+            <div className="alerts-status-tabs-wrap">
               <StatusTabs value={status} onChange={handleStatusChange} />
-              </div>
             </div>
           </div>
+        </div>
 
         <div className="alerts-workspace-card__controls">
           <FiltersBar

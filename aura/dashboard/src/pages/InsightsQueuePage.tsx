@@ -555,6 +555,12 @@ export function InsightsQueuePage(): JSX.Element {
     reviewOutcome?.kind === 'single' ? reviewOutcome.patientId.trim() : '';
   const canOpenOutcomePatient =
     reviewOutcome?.kind === 'single' && normalizedOutcomePatientId.length > 0;
+  const queueContextHint =
+    activeView === 'pending' && pendingCount > 0
+      ? `${pendingReviewRemaining.workspaceText} Start with priority review, then batch only the low-priority suggestions that do not need individual handling.`
+      : activeView === 'pending'
+        ? pendingReviewRemaining.workspaceText
+        : viewConfig.contextHint;
 
   useEffect(() => {
     setSelectedLowPriorityIds((previous) => {
@@ -801,7 +807,9 @@ export function InsightsQueuePage(): JSX.Element {
               </label>
             ) : null}
             <div className="insights-queue__item-main">
-              <p className="insights-queue__eyebrow">Guidance suggestion</p>
+              <p className="insights-queue__eyebrow">
+                {isPending ? 'Pending guidance' : 'Handled guidance'}
+              </p>
               <p className="insights-queue__title">{item.title}</p>
               <div className="insights-queue__patient-row">
                 <p className="insights-queue__patient">
@@ -836,11 +844,11 @@ export function InsightsQueuePage(): JSX.Element {
         </div>
 
         <div className="insights-queue__context-row" aria-label="Insight context">
-          <Badge className="insights-queue__badge insights-queue__badge--category" variant="neutral">
-            {categoryLabel(item.category)}
-          </Badge>
           <Badge className="insights-queue__badge insights-queue__badge--priority" variant="default">
             Priority {item.priority}
+          </Badge>
+          <Badge className="insights-queue__badge insights-queue__badge--category" variant="neutral">
+            {categoryLabel(item.category)}
           </Badge>
           <span className="insights-queue__context-chip insights-queue__context-chip--confidence">
             Confidence {item.confidence}
@@ -932,7 +940,7 @@ export function InsightsQueuePage(): JSX.Element {
         className="dashboard-page-header insights-page-header"
         eyebrow="Clinical review"
         title="Insights"
-        subtitle="Review suggested guidance deliberately, decide what belongs in clinician workflow, and confirm what was already approved or rejected in the current review context."
+        subtitle="Review suggested guidance deliberately, decide what belongs in clinician workflow, and confirm what was already handled in this current queue view."
         meta={
           <span className="insights-page__meta" aria-live="polite">
             <span className="insights-page__meta-pill insights-page__meta-pill--count">
@@ -991,20 +999,6 @@ export function InsightsQueuePage(): JSX.Element {
             <p className="insights-summary-strip__hint">Queue freshness for this review surface.</p>
           </article>
         </section>
-
-        <section className="insights-workspace-note" aria-label="Insights workspace guidance">
-          <div className="insights-workspace-note__copy">
-            <p className="insights-workspace-note__eyebrow">Review workspace</p>
-            <p className="insights-workspace-note__text">
-              {pendingReviewRemaining.workspaceText}
-            </p>
-          </div>
-          <div className="insights-workspace-note__facts" aria-live="polite">
-            <span className="insights-workspace-note__fact">{pendingCountLabel}</span>
-            <span className="insights-workspace-note__fact">{approvedCountLabel}</span>
-            <span className="insights-workspace-note__fact">{rejectedCountLabel}</span>
-          </div>
-        </section>
       </div>
 
       {reviewError ? (
@@ -1028,7 +1022,7 @@ export function InsightsQueuePage(): JSX.Element {
         <div className="insights-queue-context">
           <div className="insights-queue-context__copy">
             <p className="insights-queue-context__eyebrow">Review path</p>
-            <p className="insights-queue-context__text">{viewConfig.contextHint}</p>
+            <p className="insights-queue-context__text">{queueContextHint}</p>
           </div>
           <div className="insights-queue-context__facts" aria-live="polite">
             {viewConfig.facts.map((fact) => (
@@ -1111,8 +1105,6 @@ export function InsightsQueuePage(): JSX.Element {
           />
         </div>
 
-        <p className="insights-queue-intro">{viewConfig.intro}</p>
-
         {activeQuery.error && activeItems.length === 0 ? (
           <div className="insights-page__error">
             <AlertBanner variant="error" title={viewConfig.errorTitle}>
@@ -1171,7 +1163,7 @@ export function InsightsQueuePage(): JSX.Element {
                       <p className="insights-queue-section__eyebrow">Primary workflow</p>
                       <h3 className="insights-queue-section__title">Priority review</h3>
                       <p className="insights-queue-section__text">
-                        Keep medium- and high-priority suggestions in individual clinician review.
+                        Handle medium- and high-priority suggestions one at a time.
                       </p>
                     </div>
                     <span className="insights-queue-section__fact" aria-live="polite">
@@ -1196,8 +1188,8 @@ export function InsightsQueuePage(): JSX.Element {
                         <p className="insights-queue-section__eyebrow">Routine review</p>
                         <h3 className="insights-queue-section__title">Low-priority review</h3>
                         <p className="insights-queue-section__text">
-                          Batch only the currently visible low-priority suggestions that do not need
-                          deeper individual handling.
+                          Batch only the visible low-priority suggestions that do not need deeper
+                          individual handling.
                         </p>
                       </div>
                       <div className="insights-queue-section__controls">

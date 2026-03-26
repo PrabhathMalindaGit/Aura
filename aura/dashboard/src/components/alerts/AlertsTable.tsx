@@ -129,26 +129,26 @@ export function AlertsTable({
             <th scope="col" className="alerts-table__head alerts-table__head--unseen">
               New
             </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--created">
-              Created
-            </th>
             <th scope="col" className="alerts-table__head alerts-table__head--patient">
               Patient
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--reason">
               Attention
             </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--source">
-              Source
-            </th>
             <th scope="col" className="alerts-table__head alerts-table__head--risk">
               Risk
             </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--status">
-              Status
-            </th>
             <th scope="col" className="alerts-table__head alerts-table__head--assignment">
               Owner
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--created">
+              Created
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--source">
+              Source
+            </th>
+            <th scope="col" className="alerts-table__head alerts-table__head--status">
+              Status
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--notification">
               Delivery
@@ -216,14 +216,6 @@ export function AlertsTable({
                     <span className="alerts-seen alerts-seen--quiet">Seen</span>
                   )}
                 </td>
-                <td className="alerts-table__cell alerts-table__cell--created">
-                  <div className="alerts-time-cell">
-                    <time className="alerts-table__created-time" dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
-                      {formatRelativeTime(alert.createdAt)}
-                    </time>
-                    <span className="alerts-time-cell__meta">{formatExactTime(alert.createdAt)}</span>
-                  </div>
-                </td>
                 <td className="alerts-table__cell alerts-table__cell--patient">
                   <div className="alerts-patient-cell">
                     <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
@@ -236,14 +228,6 @@ export function AlertsTable({
                     <span className="alerts-reason-cell__meta">{statusSupportLabel(alert.status)}</span>
                   </div>
                 </td>
-                <td className="alerts-table__cell alerts-table__cell--source">
-                  <div className="alerts-source-cell">
-                    <span className="alerts-source-pill alerts-source-pill--row">
-                      {alertSourceLabel(alert.source.type)}
-                    </span>
-                    {sourceReference ? <span className="alerts-source-cell__id">{sourceReference}</span> : null}
-                  </div>
-                </td>
                 <td className="alerts-table__cell alerts-table__cell--risk">
                   <div className="alerts-risk-cell">
                     <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
@@ -252,20 +236,36 @@ export function AlertsTable({
                     <OverrideChip alert={alert} />
                   </div>
                 </td>
-                <td className="alerts-table__cell alerts-table__cell--status">
-                  <div className="alerts-status-cell">
-                    <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                      {alertStatusLabel(alert.status)}
-                    </Badge>
-                    <span className="alerts-status-cell__meta">{statusSupportLabel(alert.status)}</span>
-                  </div>
-                </td>
                 <td className="alerts-table__cell alerts-table__cell--assignment">
                   <div className="alerts-assignment-cell">
                     <AssignmentChip alert={alert} clinicianId={clinicianId} />
                     <span className="alerts-assignment-cell__meta">
                       {assignmentSupportLabel(alert, clinicianId)}
                     </span>
+                  </div>
+                </td>
+                <td className="alerts-table__cell alerts-table__cell--created">
+                  <div className="alerts-time-cell">
+                    <time className="alerts-table__created-time" dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
+                      {formatRelativeTime(alert.createdAt)}
+                    </time>
+                    <span className="alerts-time-cell__meta">{formatExactTime(alert.createdAt)}</span>
+                  </div>
+                </td>
+                <td className="alerts-table__cell alerts-table__cell--source">
+                  <div className="alerts-source-cell">
+                    <span className="alerts-source-pill alerts-source-pill--row">
+                      {alertSourceLabel(alert.source.type)}
+                    </span>
+                    {sourceReference ? <span className="alerts-source-cell__id">{sourceReference}</span> : null}
+                  </div>
+                </td>
+                <td className="alerts-table__cell alerts-table__cell--status">
+                  <div className="alerts-status-cell">
+                    <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
+                      {alertStatusLabel(alert.status)}
+                    </Badge>
+                    <span className="alerts-status-cell__meta">{statusSupportLabel(alert.status)}</span>
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--notification">
@@ -293,18 +293,20 @@ export function AlertsTable({
                       >
                         Review alert
                       </Button>
+                    </div>
+                    <div className="alerts-actions__secondary-row">
                       <AssignmentActions
                         alert={alert}
                         clinicianId={clinicianId}
                         busy={assignmentPending}
+                        size="sm"
                         onAssignToMe={onAssignToMe}
                         onTakeOver={onTakeOver}
                       />
-                    </div>
-                    <div className="alerts-actions__secondary-row">
                       <Button
                         className="alerts-actions__ack"
                         variant="secondary"
+                        size="sm"
                         disabled={alert.status !== 'open' || mutationPending || assignedToOther}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -316,6 +318,7 @@ export function AlertsTable({
                       <Button
                         className="alerts-actions__resolve"
                         variant="secondary"
+                        size="sm"
                         disabled={alert.status === 'resolved' || mutationPending || assignedToOther}
                         onClick={(event) => {
                           event.stopPropagation();

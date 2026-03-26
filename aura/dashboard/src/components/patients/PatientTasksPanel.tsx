@@ -82,12 +82,12 @@ export function PatientTasksPanel({
                 {activeTasks.map((task) => (
                   <article key={task.id} className="patient-task-item">
                     <div className="patient-task-item__copy">
+                      <strong className="patient-task-item__title">{task.title}</strong>
                       <div className="patient-task-item__meta">
                         <Badge variant={priorityVariant(task.priority)}>{taskPriorityLabel(task.priority)}</Badge>
                         <Badge variant="neutral">{humanizeDashboardLabel(task.type)}</Badge>
                         <Badge variant="default">{humanizeDashboardLabel(task.status)}</Badge>
                       </div>
-                      <strong className="patient-task-item__title">{task.title}</strong>
                       {task.description ? <p className="patient-task-item__description">{task.description}</p> : null}
                       <p className="muted-text">
                         Due{' '}
@@ -133,11 +133,11 @@ export function PatientTasksPanel({
                 {recentCompletedTasks.map((task) => (
                   <article key={task.id} className="patient-task-item patient-task-item--completed">
                     <div className="patient-task-item__copy">
+                      <strong className="patient-task-item__title">{task.title}</strong>
                       <div className="patient-task-item__meta">
                         <Badge variant="success">Completed</Badge>
                         <Badge variant="neutral">{humanizeDashboardLabel(task.type)}</Badge>
                       </div>
-                      <strong className="patient-task-item__title">{task.title}</strong>
                       <p className="muted-text">
                         Completed{' '}
                         <span title={formatDashboardDateTime(task.completedAt ?? task.updatedAt)}>

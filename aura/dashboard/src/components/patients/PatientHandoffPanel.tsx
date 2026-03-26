@@ -162,23 +162,6 @@ export function PatientHandoffPanel({
           />
         ) : null}
 
-        <section className="patient-handoff-panel__scope-note" aria-label="Local handoff storage note">
-          <div className="patient-handoff-panel__scope-copy">
-            <p className="patient-handoff-panel__scope-eyebrow">Browser-local workspace context</p>
-            <p className="patient-handoff-panel__scope-text">
-              Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.
-            </p>
-          </div>
-          <div className="patient-handoff-panel__scope-facts" aria-live="polite">
-            <span className="patient-handoff-panel__scope-fact">
-              {currentHandoff ? 'Structured handoff saved' : 'No current structured handoff'}
-            </span>
-            <span className="patient-handoff-panel__scope-fact">
-              {notes.length} {notes.length === 1 ? 'internal note' : 'internal notes'}
-            </span>
-          </div>
-        </section>
-
         {currentHandoff ? (
           <section
             className="patient-handoff-panel__current"
@@ -246,6 +229,23 @@ export function PatientHandoffPanel({
             </div>
           </section>
         ) : null}
+
+        <section className="patient-handoff-panel__scope-note" aria-label="Local handoff storage note">
+          <div className="patient-handoff-panel__scope-copy">
+            <p className="patient-handoff-panel__scope-eyebrow">Browser-local workspace context</p>
+            <p className="patient-handoff-panel__scope-text">
+              Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.
+            </p>
+          </div>
+          <div className="patient-handoff-panel__scope-facts" aria-live="polite">
+            <span className="patient-handoff-panel__scope-fact">
+              {currentHandoff ? 'Structured handoff saved' : 'No current structured handoff'}
+            </span>
+            <span className="patient-handoff-panel__scope-fact">
+              {notes.length} {notes.length === 1 ? 'internal note' : 'internal notes'}
+            </span>
+          </div>
+        </section>
 
         <form className="patient-handoff-panel__form" onSubmit={handleSaveHandoff}>
           <div className="patient-handoff-panel__form-heading">

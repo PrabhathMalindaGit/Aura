@@ -9,6 +9,7 @@ interface AssignmentActionsProps {
   busy?: boolean;
   allowUnassign?: boolean;
   fullWidth?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   onAssignToMe: (alert: AlertItem) => void | Promise<void>;
   onTakeOver: (alert: AlertItem) => void | Promise<void>;
   onUnassign?: (alert: AlertItem) => void | Promise<void>;
@@ -24,6 +25,7 @@ export function AssignmentActions({
   busy = false,
   allowUnassign = false,
   fullWidth = false,
+  size = 'md',
   onAssignToMe,
   onTakeOver,
   onUnassign,
@@ -40,6 +42,7 @@ export function AssignmentActions({
         allowUnassign ? (
           <Button
             variant="ghost"
+            size={size}
             onClick={() => {
               void onUnassign?.(alert);
             }}
@@ -49,7 +52,7 @@ export function AssignmentActions({
             Unassign
           </Button>
         ) : (
-          <Button variant="ghost" disabled aria-label="Assigned to me">
+          <Button variant="ghost" size={size} disabled fullWidth={fullWidth} aria-label="Assigned to me">
             Assigned to me
           </Button>
         )
@@ -57,6 +60,7 @@ export function AssignmentActions({
         <Button
           ref={takeoverTriggerRef}
           variant="secondary"
+          size={size}
           onClick={() => setShowTakeoverConfirm(true)}
           disabled={busy}
           fullWidth={fullWidth}
@@ -66,6 +70,7 @@ export function AssignmentActions({
       ) : (
         <Button
           variant="secondary"
+          size={size}
           onClick={() => {
             void onAssignToMe(alert);
           }}

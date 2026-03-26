@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Badge } from '../components/ui/Badge';
@@ -314,6 +314,23 @@ async function fetchPatientAlerts(patientId: string): Promise<AlertItem[]> {
   const filtered = filterAlertsForPatient(merged, patientId);
 
   return filtered.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+}
+
+function NoticeMessageList({
+  messages,
+}: {
+  messages: string[];
+}): JSX.Element {
+  return (
+    <>
+      {messages.map((message, index) => (
+        <Fragment key={`${index}-${message}`}>
+          {index > 0 ? <br /> : null}
+          <span>{message}</span>
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 export function PatientDetailPage(): JSX.Element {
@@ -1579,6 +1596,39 @@ export function PatientDetailPage(): JSX.Element {
     Boolean(patientExportRangeError) ||
     patientExportPreviewCount === 0;
 
+  const handleRefreshReviewSignals = useCallback((): void => {
+    void Promise.allSettled([trendsQuery.refetch(), patientAlertsQuery.refetch()]);
+  }, [patientAlertsQuery, trendsQuery]);
+
+  const handleRefreshCareReview = useCallback((): void => {
+    void Promise.allSettled([
+      patientRehabQuery.refetch(),
+      patientPromsQuery.refetch(),
+      patientInsightsQuery.refetch(),
+      patientSessionsQuery.refetch(),
+    ]);
+  }, [patientInsightsQuery, patientPromsQuery, patientRehabQuery, patientSessionsQuery]);
+
+  const handleRefreshReferenceSignals = useCallback((): void => {
+    void Promise.allSettled([
+      patientRecentCheckinsQuery.refetch(),
+      patientHydrationQuery.refetch(),
+      patientNutritionQuery.refetch(),
+      patientWearablesSummaryQuery.refetch(),
+      patientWearablesDailyQuery.refetch(),
+      patientMedicationAdherenceQuery.refetch(),
+      patientPhotosQuery.refetch(),
+    ]);
+  }, [
+    patientHydrationQuery,
+    patientMedicationAdherenceQuery,
+    patientNutritionQuery,
+    patientPhotosQuery,
+    patientRecentCheckinsQuery,
+    patientWearablesDailyQuery,
+    patientWearablesSummaryQuery,
+  ]);
+
   function openPatientExportModal(): void {
     setPatientExportOpen(true);
     setPatientExportRange(getPresetDateRange('last30'));
@@ -1750,6 +1800,37 @@ export function PatientDetailPage(): JSX.Element {
       ? formatPatientEntryReturnLabel(entryContext.source)
       : 'Back to patients';
   const entrySourceCue = entryContext ? formatPatientEntrySourceCue(entryContext.source) : null;
+  const activeFollowUpCount = patientActiveTasks.length + patientCommunicationItems.length;
+  const reviewIssueMessages = [
+    trendsQuery.error ? toUserMessage(trendsQuery.error) : null,
+    patientAlertsQuery.error ? toUserMessage(patientAlertsQuery.error) : null,
+  ].filter((message): message is string => Boolean(message));
+  const careReviewIssueMessages = [
+    patientRehabQuery.error ? toUserMessage(patientRehabQuery.error) : null,
+    patientPromsQuery.error ? toUserMessage(patientPromsQuery.error) : null,
+    patientInsightsQuery.error ? toUserMessage(patientInsightsQuery.error) : null,
+    patientSessionsQuery.error ? toUserMessage(patientSessionsQuery.error) : null,
+  ].filter((message): message is string => Boolean(message));
+  const referenceIssueMessages = [
+    patientRecentCheckinsQuery.error ? toUserMessage(patientRecentCheckinsQuery.error) : null,
+    patientHydrationQuery.error ? toUserMessage(patientHydrationQuery.error) : null,
+    patientNutritionQuery.error ? toUserMessage(patientNutritionQuery.error) : null,
+    patientWearablesSummaryQuery.error ? toUserMessage(patientWearablesSummaryQuery.error) : null,
+    patientWearablesDailyQuery.error ? toUserMessage(patientWearablesDailyQuery.error) : null,
+    patientMedicationAdherenceQuery.error ? toUserMessage(patientMedicationAdherenceQuery.error) : null,
+    patientPhotosQuery.error ? toUserMessage(patientPhotosQuery.error) : null,
+  ].filter((message): message is string => Boolean(message));
+  const workspaceIssueMessages = [
+    actionError,
+    photoOpenError,
+    rehabSaveError,
+    promSaveError,
+    insightActionError,
+    operationsError,
+  ].filter((message): message is string => Boolean(message));
+  const workspaceNoticeMessages = [insightActionNotice, operationsNotice].filter(
+    (message): message is string => Boolean(message),
+  );
 
   return (
     <div className="page-stack patient-detail-page">
@@ -1789,7 +1870,7 @@ export function PatientDetailPage(): JSX.Element {
                 ) : null}
               </div>
               <p className="patient-detail-title__subtitle">
-                Review current status, recent check-ins, alerts, and adherence before follow-up.
+                Confirm the current issue, recent trends, and follow-up burden before acting.
               </p>
             </div>
           </div>
@@ -1848,34 +1929,6 @@ export function PatientDetailPage(): JSX.Element {
         }
       >
         <div className="patient-detail-hero-body">
-          <div className="patient-detail-meta">
-            <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
-              {connection.online ? 'Online' : 'Offline'}
-            </Badge>
-            <Badge className="patient-detail-meta__alerts" variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
-              {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
-            </Badge>
-            {currentRehabPhaseTitle ? <Badge variant="neutral">{currentRehabPhaseTitle}</Badge> : null}
-            {patientActiveTasks.length > 0 ? (
-              <Badge variant={patientActiveTasks.some((task) => task.priority === 'urgent') ? 'danger' : 'warning'}>
-                {patientActiveTasks.length} active task{patientActiveTasks.length === 1 ? '' : 's'}
-              </Badge>
-            ) : null}
-            {patientCommunicationItems.length > 0 ? (
-              <Badge variant={patientCommunicationItems.some((item) => item.flaggedBySafety) ? 'danger' : 'warning'}>
-                Message needs response
-              </Badge>
-            ) : null}
-            {nextPatientAppointment ? (
-              <Badge variant={nextAppointmentBadgeVariant}>
-                {appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}
-              </Badge>
-            ) : null}
-            <span className="muted-text patient-detail-meta__updated">
-              Last updated: {formatLastUpdated(connection.lastSuccessAt)}
-            </span>
-          </div>
-
           <div
             className={`patient-detail-current-context${
               entryContext ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}` : ''
@@ -1883,7 +1936,7 @@ export function PatientDetailPage(): JSX.Element {
             data-testid="patient-detail-current-context"
           >
             <div className="patient-detail-current-context__copy">
-              <p className="patient-detail-current-context__eyebrow">Current context</p>
+              <p className="patient-detail-current-context__eyebrow">Review focus</p>
               <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
               <p className="patient-detail-current-context__text">{currentContextBody}</p>
               {entryReviewHint ? (
@@ -1897,12 +1950,12 @@ export function PatientDetailPage(): JSX.Element {
             </div>
             <div className="patient-detail-current-context__facts">
               <div className="patient-detail-current-context__fact">
-                <span>Priority state</span>
-                <strong>{patientPriorities.length > 0 ? `${patientPriorities.length} active` : 'Stable'}</strong>
+                <span>Open alerts</span>
+                <strong>{openAlertCount > 0 ? `${openAlertCount} active` : 'None open'}</strong>
               </div>
               <div className="patient-detail-current-context__fact">
-                <span>Last check-in</span>
-                <strong>{trendSummary.lastCheckinDate ?? '—'}</strong>
+                <span>Active follow-up</span>
+                <strong>{activeFollowUpCount > 0 ? `${activeFollowUpCount} waiting` : 'Queue steady'}</strong>
               </div>
               <div className="patient-detail-current-context__fact">
                 <span>Next appointment</span>
@@ -1913,6 +1966,34 @@ export function PatientDetailPage(): JSX.Element {
                 </strong>
               </div>
             </div>
+          </div>
+
+          <div className="patient-detail-meta">
+            <Badge className="patient-detail-meta__alerts" variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
+              {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
+            </Badge>
+            {patientActiveTasks.length > 0 ? (
+              <Badge variant={patientActiveTasks.some((task) => task.priority === 'urgent') ? 'danger' : 'warning'}>
+                {patientActiveTasks.length} active task{patientActiveTasks.length === 1 ? '' : 's'}
+              </Badge>
+            ) : null}
+            {patientCommunicationItems.length > 0 ? (
+              <Badge variant={patientCommunicationItems.some((item) => item.flaggedBySafety) ? 'danger' : 'warning'}>
+                {patientCommunicationItems.length === 1 ? '1 thread needs review' : `${patientCommunicationItems.length} threads need review`}
+              </Badge>
+            ) : null}
+            {nextPatientAppointment ? (
+              <Badge variant={nextAppointmentBadgeVariant}>
+                {appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}
+              </Badge>
+            ) : null}
+            {currentRehabPhaseTitle ? <Badge variant="neutral">{currentRehabPhaseTitle}</Badge> : null}
+            <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
+              {connection.online ? 'Online' : 'Offline'}
+            </Badge>
+            <span className="muted-text patient-detail-meta__updated">
+              Last updated {formatLastUpdated(connection.lastSuccessAt)}
+            </span>
           </div>
         </div>
       </Card>
@@ -1925,7 +2006,7 @@ export function PatientDetailPage(): JSX.Element {
         <div className="patient-detail-mini-nav__copy">
           <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
           <p className="patient-detail-mini-nav__text">
-            Move between the major review areas without changing the current review context.
+            Move between the major review areas without losing the current patient context.
           </p>
         </div>
         <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
@@ -1947,139 +2028,57 @@ export function PatientDetailPage(): JSX.Element {
         </div>
       </section>
 
-      {actionError ? (
-        <AlertBanner variant="error" title="Alert action failed">
-          {actionError}
+      {reviewIssueMessages.length > 0 ? (
+        <AlertBanner
+          variant="error"
+          title="Some core review data is unavailable"
+          action={
+            <Button variant="secondary" size="sm" onClick={handleRefreshReviewSignals}>
+              Refresh core review
+            </Button>
+          }
+        >
+          <NoticeMessageList messages={reviewIssueMessages} />
         </AlertBanner>
       ) : null}
 
-      {trendsQuery.error ? (
-        <div className="patient-detail-error-state">
-          <AlertBanner variant="error" title="Could not load trends">
-            {toUserMessage(trendsQuery.error)}
-          </AlertBanner>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void trendsQuery.refetch();
-            }}
-          >
-            Retry
-          </Button>
-        </div>
-      ) : null}
-
-      {patientAlertsQuery.error ? (
-        <AlertBanner variant="error" title="Could not load recent alerts">
-          {toUserMessage(patientAlertsQuery.error)}
+      {careReviewIssueMessages.length > 0 ? (
+        <AlertBanner
+          variant="error"
+          title="Some care review panels need refresh"
+          action={
+            <Button variant="secondary" size="sm" onClick={handleRefreshCareReview}>
+              Refresh care review
+            </Button>
+          }
+        >
+          <NoticeMessageList messages={careReviewIssueMessages} />
         </AlertBanner>
       ) : null}
 
-      {patientSessionsQuery.error ? (
-        <AlertBanner variant="error" title="Could not load exercise sessions">
-          {toUserMessage(patientSessionsQuery.error)}
+      {referenceIssueMessages.length > 0 ? (
+        <AlertBanner
+          variant="error"
+          title="Some deeper reference signals are unavailable"
+          action={
+            <Button variant="secondary" size="sm" onClick={handleRefreshReferenceSignals}>
+              Refresh reference data
+            </Button>
+          }
+        >
+          <NoticeMessageList messages={referenceIssueMessages} />
         </AlertBanner>
       ) : null}
 
-      {patientRehabQuery.error ? (
-        <AlertBanner variant="error" title="Could not load rehab phases">
-          {toUserMessage(patientRehabQuery.error)}
+      {workspaceIssueMessages.length > 0 ? (
+        <AlertBanner variant="error" title="A patient detail action needs attention">
+          <NoticeMessageList messages={workspaceIssueMessages} />
         </AlertBanner>
       ) : null}
 
-      {patientPromsQuery.error ? (
-        <AlertBanner variant="error" title="Could not load PROMs">
-          {toUserMessage(patientPromsQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientInsightsQuery.error ? (
-        <AlertBanner variant="error" title="Could not load insights">
-          {toUserMessage(patientInsightsQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientRecentCheckinsQuery.error ? (
-        <AlertBanner variant="error" title="Could not load recent sleep">
-          {toUserMessage(patientRecentCheckinsQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientHydrationQuery.error ? (
-        <AlertBanner variant="error" title="Could not load hydration">
-          {toUserMessage(patientHydrationQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientNutritionQuery.error ? (
-        <AlertBanner variant="error" title="Could not load nutrition">
-          {toUserMessage(patientNutritionQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientWearablesSummaryQuery.error ? (
-        <AlertBanner variant="error" title="Could not load wearables summary">
-          {toUserMessage(patientWearablesSummaryQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientWearablesDailyQuery.error ? (
-        <AlertBanner variant="error" title="Could not load wearables daily data">
-          {toUserMessage(patientWearablesDailyQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientMedicationAdherenceQuery.error ? (
-        <AlertBanner variant="error" title="Could not load medication adherence">
-          {toUserMessage(patientMedicationAdherenceQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {patientPhotosQuery.error ? (
-        <AlertBanner variant="error" title="Could not load symptom photos">
-          {toUserMessage(patientPhotosQuery.error)}
-        </AlertBanner>
-      ) : null}
-
-      {photoOpenError ? (
-        <AlertBanner variant="error" title="Could not open symptom photo">
-          {photoOpenError}
-        </AlertBanner>
-      ) : null}
-
-      {rehabSaveError ? (
-        <AlertBanner variant="error" title="Could not update rehab phase">
-          {rehabSaveError}
-        </AlertBanner>
-      ) : null}
-
-      {promSaveError ? (
-        <AlertBanner variant="error" title="Could not assign PROM">
-          {promSaveError}
-        </AlertBanner>
-      ) : null}
-
-      {insightActionError ? (
-        <AlertBanner variant="error" title="Could not update insights">
-          {insightActionError}
-        </AlertBanner>
-      ) : null}
-
-      {insightActionNotice ? (
-        <AlertBanner variant="success" title="Insights updated">
-          {insightActionNotice}
-        </AlertBanner>
-      ) : null}
-
-      {operationsError ? (
-        <AlertBanner variant="error" title="Operational action failed">
-          {operationsError}
-        </AlertBanner>
-      ) : null}
-
-      {operationsNotice ? (
-        <AlertBanner variant="success" title="Patient follow-up updated">
-          {operationsNotice}
+      {workspaceNoticeMessages.length > 0 ? (
+        <AlertBanner variant="success" title="Patient detail updated">
+          <NoticeMessageList messages={workspaceNoticeMessages} />
         </AlertBanner>
       ) : null}
 
@@ -2093,7 +2092,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Current priorities and next steps</h2>
           </div>
           <p className="patient-detail-section-note">
-            Start here before moving into the full detail.
+            Start here, then move into trend review and active follow-up.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--attention">
@@ -2136,7 +2135,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Current status summary</h2>
           </div>
           <p className="patient-detail-section-note">
-            Core recovery metrics for the selected {selectedDays}-day review window.
+            Quick state check for the selected {selectedDays}-day review window.
           </p>
         </div>
         <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
@@ -2152,7 +2151,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Trends and alert context</h2>
           </div>
           <p className="patient-detail-section-note">
-            Start with trajectory and recent safety events before drilling into daily detail.
+            Confirm the trajectory and recent safety events before opening day-level detail.
           </p>
         </div>
 
@@ -2211,7 +2210,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Communication, tasks, and appointments</h2>
           </div>
           <p className="patient-detail-section-note">
-            Review the active follow-up burden before moving into deeper historical detail.
+            Clear the active follow-up burden here before moving into slower supporting review.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--operational">
@@ -2277,8 +2276,7 @@ export function PatientDetailPage(): JSX.Element {
             <h2 className="patient-detail-section-title">Care plan, questionnaires, and insight review</h2>
           </div>
           <p className="patient-detail-section-note">
-            Confirm rehab phase, due questionnaires, and suggested guidance after active follow-up. Weekly reports
-            and recent sessions stay available as supporting context.
+            Use this after active follow-up is clear. Weekly reports and recent sessions stay available as supporting context.
           </p>
         </div>
         <div className="patient-detail-section-grid patient-detail-section-grid--workflow">
@@ -2698,12 +2696,10 @@ export function PatientDetailPage(): JSX.Element {
         <div className="patient-detail-reference-bridge__copy">
           <p className="patient-detail-reference-bridge__eyebrow">Deeper context</p>
           <strong className="patient-detail-reference-bridge__title">
-            Open the next sections only when slower daily history is needed for the current review.
+            Open the next sections only when slower daily history is needed.
           </strong>
           <p className="patient-detail-reference-bridge__text">
-            These lower panels stay available for symptom history and support tracking, but they
-            are intentionally compressed so immediate review and supporting clinician work remain
-            easier to scan.
+            These panels stay available for symptom history and support tracking, but they remain compressed so immediate review and follow-up stay easier to scan.
           </p>
         </div>
         <div className="patient-detail-reference-bridge__facts">
@@ -2735,8 +2731,7 @@ export function PatientDetailPage(): JSX.Element {
           </div>
           <div className="patient-detail-section-header__aside">
             <p className="patient-detail-section-note">
-              Use sleep, body-map, and photo history only when daily symptom context is needed to support the trend
-              review.
+              Use sleep, body-map, and photo history only when day-level symptom context is needed.
             </p>
             <div className="patient-detail-disclosure__controls">
               <span className="patient-detail-disclosure__state">
@@ -2931,7 +2926,7 @@ export function PatientDetailPage(): JSX.Element {
           </div>
           <div className="patient-detail-section-header__aside">
             <p className="patient-detail-section-note">
-              Hydration, nutrition, wearables, and medication patterns provide slower recovery and adherence context.
+              Hydration, nutrition, wearables, and medication patterns provide slower recovery context.
             </p>
             <div className="patient-detail-disclosure__controls">
               <span className="patient-detail-disclosure__state">

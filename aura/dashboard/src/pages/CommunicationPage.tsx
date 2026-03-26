@@ -52,6 +52,39 @@ function countThreadsByView(
   return filterCommunicationThreads(threads, view).length;
 }
 
+function getThreadMetaSummary(thread: CommunicationThread): string {
+  if (thread.latestEventKind === 'clinician-reply') {
+    return 'Latest local clinician reply';
+  }
+
+  if (thread.needsResponse) {
+    return 'Latest patient message waiting on clinician follow-up';
+  }
+
+  if (thread.unread) {
+    return 'Latest patient message not yet reviewed in this browser';
+  }
+
+  return 'Latest patient message';
+}
+
+function getEventTypeBadge(event: CommunicationThread['timeline'][number]): {
+  label: string;
+  variant: 'default' | 'neutral' | 'success';
+} {
+  if (event.kind === 'clinician-reply') {
+    return {
+      label: event.localOnly ? 'Local clinician reply' : 'Clinician reply',
+      variant: 'success',
+    };
+  }
+
+  return {
+    label: 'Patient message',
+    variant: 'neutral',
+  };
+}
+
 export function CommunicationPage(): JSX.Element {
   const navigate = useNavigate();
   const clinicianIdentity = useClinicianIdentity();
@@ -337,9 +370,6 @@ export function CommunicationPage(): JSX.Element {
         subtitle="Review patient-linked communication, respond calmly, and keep safety-sensitive threads connected to clinical follow-through."
         meta={
           <span className="communication-page__meta" aria-live="polite">
-            <span className="communication-page__meta-pill">
-              {allThreads.length} {allThreads.length === 1 ? 'thread' : 'threads'}
-            </span>
             <span
               className={`communication-page__meta-pill${
                 reduceCommunicationAttention ? '' : ' communication-page__meta-pill--attention'
@@ -350,6 +380,9 @@ export function CommunicationPage(): JSX.Element {
             </span>
             <span className="communication-page__meta-pill communication-page__meta-pill--risk">
               {countThreadsByView(allThreads, 'safety-flagged')} safety flagged
+            </span>
+            <span className="communication-page__meta-pill">
+              {allThreads.length} {allThreads.length === 1 ? 'thread' : 'threads'}
             </span>
           </span>
         }
@@ -374,7 +407,7 @@ export function CommunicationPage(): JSX.Element {
             <span className="communication-page__card-title">
               Communication queue
               <span className="communication-page__card-subtitle">
-                Patient-linked conversations ready for clinician review.
+                Patient-linked threads ready for clinician review.
               </span>
             </span>
           }
@@ -456,20 +489,20 @@ export function CommunicationPage(): JSX.Element {
                           className="communication-page__thread-time"
                           title={formatDashboardDateTime(thread.latestEventAt)}
                         >
-                          {formatDashboardRelativeTime(thread.latestEventAt)}
+                          {isSelected
+                            ? `Selected · ${formatDashboardRelativeTime(thread.latestEventAt)}`
+                            : formatDashboardRelativeTime(thread.latestEventAt)}
                         </span>
                       </div>
                       <p className="communication-page__thread-preview">{thread.latestEventPreview}</p>
                       <div className="communication-page__thread-meta">
                         <span className="communication-page__thread-meta-note">
-                          {thread.latestEventKind === 'clinician-reply'
-                            ? 'Latest clinician reply'
-                            : 'Latest patient message'}
+                          {getThreadMetaSummary(thread)}
                         </span>
                         <div className="communication-page__thread-badges">
-                          {thread.unread ? <Badge variant="warning">Unread</Badge> : null}
-                          {thread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
                           {thread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
+                          {thread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                          {thread.unread ? <Badge variant="new">Unread</Badge> : null}
                           {thread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
                           {thread.handled ? <Badge variant="success">Handled</Badge> : null}
                         </div>
@@ -495,16 +528,9 @@ export function CommunicationPage(): JSX.Element {
           action={
             activeThread?.validPatientId ? (
               <div className="communication-page__timeline-actions">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
-                >
-                  Open patient
-                </Button>
                 {activeThread.safetyFlagged ? (
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     onClick={() =>
                       navigate(
@@ -515,6 +541,13 @@ export function CommunicationPage(): JSX.Element {
                     Open alerts
                   </Button>
                 ) : null}
+                <Button
+                  variant={activeThread.safetyFlagged ? 'ghost' : 'secondary'}
+                  size="sm"
+                  onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
+                >
+                  Open patient
+                </Button>
               </div>
             ) : null
           }
@@ -536,9 +569,9 @@ export function CommunicationPage(): JSX.Element {
                   </p>
                 </div>
                 <div className="communication-page__timeline-badges">
-                  {activeThread.unread ? <Badge variant="warning">Unread</Badge> : null}
-                  {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
                   {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
+                  {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                  {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
                   {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
                 </div>
               </div>
@@ -552,9 +585,6 @@ export function CommunicationPage(): JSX.Element {
                   <div className="communication-page__handoff-copy">
                     <div className="communication-page__handoff-head">
                       <Badge variant="neutral">Internal handoff</Badge>
-                      <span className="muted-text">
-                        Stored only in this browser for local patient handoff continuity.
-                      </span>
                     </div>
                     {activePatientHandoff.currentHandoff?.summary ? (
                       <p className="communication-page__handoff-summary">
@@ -609,6 +639,9 @@ export function CommunicationPage(): JSX.Element {
                         </dd>
                       </div>
                     </dl>
+                    <p className="communication-page__timeline-note communication-page__timeline-note--muted">
+                      Stored only in this browser for local patient handoff continuity.
+                    </p>
                   </div>
                   {activePatientHandoff.currentHandoff?.nextAction &&
                   (activePatientHandoff.currentHandoff.nextAction === 'alerts' ||
@@ -630,70 +663,63 @@ export function CommunicationPage(): JSX.Element {
               ) : null}
 
               <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
-                {activeThread.timeline.map((event) => (
-                  <article
-                    key={event.id}
-                    className={`communication-page__timeline-event communication-page__timeline-event--${
-                      event.kind === 'clinician-reply' ? 'clinician' : 'patient'
-                    }`}
-                    role="listitem"
-                  >
-                    <div className="communication-page__timeline-event-head">
-                      <div className="communication-page__timeline-event-copy">
-                        {event.kind === 'clinician-reply' ? (
-                          <div className="communication-page__timeline-event-author">
-                            <ClinicianAvatar
-                              identity={{
-                                displayName: event.senderLabel,
-                                initials: getClinicianInitials(event.senderLabel),
-                                photo: null,
-                              }}
-                              decorative
-                              size="sm"
-                            />
-                            <div className="communication-page__timeline-event-author-copy">
-                              <strong>{event.senderLabel}</strong>
-                              {event.senderSecondaryLabel ? (
-                                <span className="communication-page__timeline-event-secondary">
-                                  {event.senderSecondaryLabel}
-                                </span>
-                              ) : null}
+                {activeThread.timeline.map((event) => {
+                  const eventTypeBadge = getEventTypeBadge(event);
+
+                  return (
+                    <article
+                      key={event.id}
+                      className={`communication-page__timeline-event communication-page__timeline-event--${
+                        event.kind === 'clinician-reply' ? 'clinician' : 'patient'
+                      }`}
+                      role="listitem"
+                    >
+                      <div className="communication-page__timeline-event-head">
+                        <div className="communication-page__timeline-event-copy">
+                          {event.kind === 'clinician-reply' ? (
+                            <div className="communication-page__timeline-event-author">
+                              <ClinicianAvatar
+                                identity={{
+                                  displayName: event.senderLabel,
+                                  initials: getClinicianInitials(event.senderLabel),
+                                  photo: null,
+                                }}
+                                decorative
+                                size="sm"
+                              />
+                              <div className="communication-page__timeline-event-author-copy">
+                                <strong>{event.senderLabel}</strong>
+                                {event.senderSecondaryLabel ? (
+                                  <span className="communication-page__timeline-event-secondary">
+                                    {event.senderSecondaryLabel}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <strong>{event.senderLabel}</strong>
-                        )}
-                        <span
-                          className="communication-page__timeline-event-time"
-                          title={formatDashboardDateTime(event.occurredAt)}
-                        >
-                          {formatDashboardRelativeTime(event.occurredAt)}
-                        </span>
+                          ) : (
+                            <strong>{event.senderLabel}</strong>
+                          )}
+                          <span
+                            className="communication-page__timeline-event-time"
+                            title={formatDashboardDateTime(event.occurredAt)}
+                          >
+                            {formatDashboardRelativeTime(event.occurredAt)}
+                          </span>
+                        </div>
+                        <div className="communication-page__timeline-event-badges">
+                          <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
+                          {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
+                          {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                          {event.localOnly ? <Badge variant="default">Local</Badge> : null}
+                        </div>
                       </div>
-                      <div className="communication-page__timeline-event-badges">
-                        {event.localOnly ? <Badge variant="default">Local</Badge> : null}
-                        {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
-                        {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                      </div>
-                    </div>
-                    <p className="communication-page__timeline-event-preview">{event.preview}</p>
-                  </article>
-                ))}
+                      <p className="communication-page__timeline-event-preview">{event.preview}</p>
+                    </article>
+                  );
+                })}
               </div>
 
               <div className="communication-page__composer">
-                <div className="communication-page__composer-identity" aria-label="Local clinician identity">
-                  <span className="communication-page__composer-identity-label">Local clinician identity</span>
-                  <div className="communication-page__composer-identity-card">
-                    <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
-                    <div className="communication-page__composer-identity-copy">
-                      <strong>{clinicianIdentity.displayName}</strong>
-                      {clinicianIdentity.secondaryLine ? (
-                        <span>{clinicianIdentity.secondaryLine}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
                 <div
                   className="communication-authoring-tools"
                   role="group"
@@ -744,8 +770,20 @@ export function CommunicationPage(): JSX.Element {
                   className="communication-authoring-tools__note"
                   aria-live="polite"
                 >
-                  Local to this browser and still editable during this review pass.
+                  Templates and signature stay editable during this review pass.
                 </p>
+                <div className="communication-page__composer-identity" aria-label="Local clinician identity">
+                  <span className="communication-page__composer-identity-label">Local clinician identity</span>
+                  <div className="communication-page__composer-identity-card">
+                    <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                    <div className="communication-page__composer-identity-copy">
+                      <strong>{clinicianIdentity.displayName}</strong>
+                      {clinicianIdentity.secondaryLine ? (
+                        <span>{clinicianIdentity.secondaryLine}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
                 <label className="form-field communication-page__composer-field">
                   <span>Clinician reply</span>
                   <textarea

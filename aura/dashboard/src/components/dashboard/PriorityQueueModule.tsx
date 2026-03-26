@@ -130,7 +130,7 @@ export function PriorityQueueModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Escalations and high-priority follow-up ready for clinician action.
+            Escalations and high-priority follow-up ready now.
           </span>
         </span>
       }
@@ -155,7 +155,7 @@ export function PriorityQueueModule({
       ) : items.length === 0 ? (
         <EmptyState
           title="Nothing urgent right now"
-          description="High-priority alerts, missed check-ins, appointment exceptions, and clinician follow-up items will appear here."
+          description="High-priority alerts, missed check-ins, appointment exceptions, and follow-up items will appear here."
           tone="success"
           action={
             <Button variant="secondary" size="sm" onClick={onRetry} disabled={retrying}>

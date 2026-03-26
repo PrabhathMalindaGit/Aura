@@ -30,6 +30,19 @@ function toneVariant(tone: PatientPriorityItem['tone']): 'danger' | 'warning' | 
   return 'neutral';
 }
 
+function toneLabel(tone: PatientPriorityItem['tone']): string {
+  if (tone === 'danger') {
+    return 'Urgent';
+  }
+  if (tone === 'warning') {
+    return 'Needs review';
+  }
+  if (tone === 'success') {
+    return 'On track';
+  }
+  return 'Monitor';
+}
+
 export function PatientCurrentPriorities({
   items,
   isLoading = false,
@@ -74,11 +87,12 @@ export function PatientCurrentPriorities({
             <article key={item.id} className={`patient-priority-item patient-priority-item--${item.tone}`}>
               <div className="patient-priority-item__copy">
                 <div className="patient-priority-item__meta">
-                  <Badge variant={toneVariant(item.tone)}>{item.title}</Badge>
+                  <Badge variant={toneVariant(item.tone)}>{toneLabel(item.tone)}</Badge>
                   {item.timestamp ? (
                     <span className="muted-text">{formatDashboardRelativeTime(item.timestamp)}</span>
                   ) : null}
                 </div>
+                <strong>{item.title}</strong>
                 <p className="patient-priority-item__reason">{item.reason}</p>
               </div>
               {item.actionKey && item.actionLabel ? (

@@ -712,13 +712,13 @@ export function DashboardHomePage(): JSX.Element {
     if (summaryQuery.data.openAlertsCount > 0) {
       return `${summaryQuery.data.openAlertsCount} ${
         summaryQuery.data.openAlertsCount === 1 ? 'open alert is' : 'open alerts are'
-      } leading today. Confirm safety pressure first, then work the queue below.`;
+      } leading today. Confirm safety first, then work the queue below.`;
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
       return `${followUpInFlightCount} ${
         followUpInFlightCount === 1 ? 'follow-up item is' : 'follow-up items are'
-      } setting the pace today. Clear the waiting work, then confirm today’s schedule.`;
+      } setting today’s pace. Clear the waiting work, then confirm today’s schedule.`;
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
@@ -756,11 +756,11 @@ export function DashboardHomePage(): JSX.Element {
     }
 
     if (summaryQuery.data.openAlertsCount > 0) {
-      return 'Start in the priority queue, then confirm the waiting tasks and visits.';
+      return 'Start in the priority queue, then confirm waiting tasks and visits.';
     }
 
     if ((followUpInFlightCount ?? 0) > 0) {
-      return 'Clear the waiting follow-up next and keep schedule risk in view.';
+      return 'Clear follow-up next and keep schedule risk in view.';
     }
 
     if (summaryQuery.data.todayAppointmentsCount > 0) {
@@ -770,9 +770,9 @@ export function DashboardHomePage(): JSX.Element {
     return 'No urgent item is leading. Confirm the snapshot and start with the queue below.';
   }, [followUpInFlightCount, summaryQuery.data]);
 
-  const primaryZoneCopy = 'Priority queue and recent safety activity for the first review pass.';
+  const primaryZoneCopy = 'Priority queue and safety activity for the first review pass.';
 
-  const secondaryZoneCopy = 'Appointments, tasks, and communication that keep the rest of the day moving.';
+  const secondaryZoneCopy = 'Appointments, tasks, and communication that keep the day moving.';
   const reduceCommunicationOverviewAttention =
     notificationPreferences.effectiveCommunicationCueMode === 'reduced';
 
@@ -842,9 +842,9 @@ export function DashboardHomePage(): JSX.Element {
         <div className="dashboard-analytics-band__header">
           <div className="dashboard-home-zone__intro">
             <p className="dashboard-home-zone__eyebrow">Operational analytics</p>
-            <h2 className="dashboard-home-zone__title">Current workload and visible capacity</h2>
+            <h2 className="dashboard-home-zone__title">Current workload and capacity</h2>
             <p className="dashboard-home-zone__copy">
-              Current-state workload mix from live safety, communication, insight, and scheduling data.
+              Live workload mix across safety, communication, insights, and scheduling.
             </p>
           </div>
         </div>
@@ -853,7 +853,7 @@ export function DashboardHomePage(): JSX.Element {
           <DashboardAnalyticsCard
             eyebrow="Safety"
             title="Safety workload"
-            subtitle="Current queue pressure and recent feed mix."
+            subtitle="Queue pressure and recent feed mix."
             headline={
               <div className="dashboard-analytics-card__headline-stack">
                 <strong>{typeof safetyHeadlineCount === 'number' ? safetyHeadlineCount : '—'}</strong>
@@ -880,7 +880,7 @@ export function DashboardHomePage(): JSX.Element {
           <DashboardAnalyticsCard
             eyebrow="Communication"
             title="Communication burden"
-            subtitle="Current follow-up state across patient-linked threads."
+            subtitle="Follow-up state across patient-linked threads."
             headline={
               <div className="dashboard-analytics-card__headline-stack">
                 <strong>{communicationNeedsResponseCount}</strong>
@@ -911,7 +911,7 @@ export function DashboardHomePage(): JSX.Element {
           <DashboardAnalyticsCard
             eyebrow="Insights"
             title="Insights backlog"
-            subtitle="Pending review pressure and category mix."
+            subtitle="Pending review pressure and mix."
             headline={
               <div className="dashboard-analytics-card__headline-stack">
                 <strong>{pendingInsightsCount}</strong>

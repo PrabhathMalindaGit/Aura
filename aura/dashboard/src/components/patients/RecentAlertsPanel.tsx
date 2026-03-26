@@ -72,9 +72,11 @@ export function RecentAlertsPanel({
               <li key={alert._id} className="recent-alert-list__item">
                 <div className="recent-alert-list__body">
                   <p>
-                    <strong className="recent-alert-list__id">{shortReferenceLabel(alert._id) ?? alert._id}</strong>
+                    <strong>{reasonText(alert.reason)}</strong>
                   </p>
-                  <p className="muted-text recent-alert-list__reason">{reasonText(alert.reason)}</p>
+                  <p className="muted-text recent-alert-list__reason">
+                    <span className="recent-alert-list__id">{shortReferenceLabel(alert._id) ?? alert._id}</span>
+                  </p>
                   <p className="muted-text recent-alert-list__date">
                     {alertSourceLabel(alert.source.type)} · {formatDateKey(toDateKey(alert.createdAt))}
                   </p>

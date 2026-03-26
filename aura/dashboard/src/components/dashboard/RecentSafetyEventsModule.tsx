@@ -134,7 +134,7 @@ export function RecentSafetyEventsModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Latest alert and notification activity from the Safety Spine.
+            Latest alert and notification activity.
           </span>
         </span>
       }

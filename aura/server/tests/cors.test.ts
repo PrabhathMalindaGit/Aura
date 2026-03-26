@@ -72,15 +72,30 @@ describe("server CORS policy", () => {
     mutableEnv.CORS_ALLOWED_ORIGINS = [];
 
     const response = await request(app)
-      .options("/auth/clinician/login")
-      .set("Origin", "http://localhost:5173")
+      .options("/patient/auth/login")
+      .set("Origin", "http://localhost:8082")
       .set("Access-Control-Request-Method", "POST")
-      .set("Access-Control-Request-Headers", "Content-Type, Authorization");
+      .set("Access-Control-Request-Headers", "Content-Type");
 
     expect(response.status).toBe(204);
     expect(response.headers["access-control-allow-origin"]).toBe(
-      "http://localhost:5173"
+      "http://localhost:8082"
     );
     expect(response.headers["access-control-allow-methods"]).toContain("POST");
+  });
+
+  it("emits CORS allow headers for browser-style patient login POSTs", async () => {
+    mutableEnv.NODE_ENV = "test";
+    mutableEnv.CORS_ALLOWED_ORIGINS = [];
+
+    const response = await request(app)
+      .post("/patient/auth/login")
+      .set("Origin", "http://localhost:8082")
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "http://localhost:8082"
+    );
   });
 });

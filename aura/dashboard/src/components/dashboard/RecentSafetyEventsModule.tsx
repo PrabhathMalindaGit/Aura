@@ -126,7 +126,7 @@ export function RecentSafetyEventsModule({
       className="dashboard-module-card dashboard-safety-card"
       title={
         <span className="dashboard-widget-heading dashboard-widget-heading--safety">
-          <span className="dashboard-widget-heading__eyebrow">Safety timeline</span>
+          <span className="dashboard-widget-heading__eyebrow">Safety feed</span>
           <span className="dashboard-module-card__title-row">
             <span className="dashboard-module-card__title">
               Recent safety events
@@ -134,7 +134,7 @@ export function RecentSafetyEventsModule({
             </span>
           </span>
           <span className="dashboard-widget-heading__copy">
-            Latest alert and notification activity.
+            Latest alert and notification movement.
           </span>
         </span>
       }
@@ -163,18 +163,18 @@ export function RecentSafetyEventsModule({
         />
       ) : (
         <div className="dashboard-safety-card__content">
-          <div className="dashboard-widget-bar dashboard-widget-bar--timeline" aria-label="Recent safety event summary">
-            <span className="dashboard-widget-bar__item">
+          <div className="dashboard-module-inline-stats dashboard-module-inline-stats--timeline" aria-label="Recent safety event summary">
+            <span className="dashboard-module-inline-stat dashboard-module-inline-stat--risk">
               <strong>{alertEventsCount}</strong>
               <span>alert events</span>
             </span>
-            <span className="dashboard-widget-bar__item">
+            <span className="dashboard-module-inline-stat dashboard-module-inline-stat--primary">
               <strong>{notificationEventsCount}</strong>
               <span>notification updates</span>
             </span>
           </div>
 
-          <div className="dashboard-list dashboard-list--timeline" role="list">
+          <div className="dashboard-safety-feed" role="list">
             {visibleItems.map((item) => {
               const streamLabel = eventStreamLabel(item);
               const supportingTags = timelineTags(item);
@@ -191,43 +191,39 @@ export function RecentSafetyEventsModule({
               return (
                 <article
                   key={item.id}
-                  className={`dashboard-list-item dashboard-list-item--timeline dashboard-list-item--timeline-${timelineTone(item)}`}
+                  className={`dashboard-safety-feed__item dashboard-safety-feed__item--${timelineTone(item)}`}
                   role="listitem"
                 >
-                  <div className="dashboard-list-item__timeline-rail" aria-hidden="true">
-                    <div className="dashboard-list-item__timeline-dot" />
+                  <div className="dashboard-safety-feed__rail" aria-hidden="true">
+                    <div className="dashboard-safety-feed__dot" />
                   </div>
-                  <div className="dashboard-list-item__content dashboard-list-item__content--timeline">
-                    <div className="dashboard-list-item__timeline-header">
-                      <div className="dashboard-list-item__patient-block dashboard-list-item__patient-block--timeline">
-                        <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
-                        <span className="dashboard-list-item__timeline-kind">{streamLabel}</span>
+                  <div className="dashboard-safety-feed__content">
+                    <div className="dashboard-safety-feed__top">
+                      <div className="dashboard-safety-feed__patient-block">
+                        <span className="dashboard-safety-feed__patient">{resolvePatientLabel(item.patientId)}</span>
+                        <span className="dashboard-safety-feed__kind">{streamLabel}</span>
                       </div>
                       <span
-                        className="dashboard-list-item__timestamp dashboard-list-item__timestamp--timeline"
+                        className="dashboard-safety-feed__freshness"
                         title={formatDashboardDateTime(item.createdAt)}
                       >
                         {formatDashboardRelativeTime(item.createdAt)}
                       </span>
                     </div>
 
-                    <div className="dashboard-list-item__title-row dashboard-list-item__title-row--timeline">
-                      <h3 className="dashboard-list-item__title dashboard-list-item__title--timeline">
-                        {humanizeDashboardLabel(item.type)}
-                      </h3>
+                    <div className="dashboard-safety-feed__title-row">
+                      <h3 className="dashboard-safety-feed__title">{humanizeDashboardLabel(item.type)}</h3>
                       {primaryBadge}
                     </div>
 
-                    <p className="dashboard-list-item__description dashboard-list-item__description--timeline">{item.summary}</p>
+                    <p className="dashboard-safety-feed__summary">{item.summary}</p>
 
-                    <div className="dashboard-list-item__footer dashboard-list-item__footer--timeline">
-                      <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--timeline">
+                    <div className="dashboard-safety-feed__facts">
                         <span>{timelineSupportLine(item)}</span>
                         {supportingTags.map((tag) => (
                           <span key={tag}>{tag}</span>
                         ))}
                         <span>{formatDashboardDateTime(item.createdAt)}</span>
-                      </div>
                     </div>
                   </div>
                 </article>

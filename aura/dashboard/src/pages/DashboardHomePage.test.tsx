@@ -384,12 +384,13 @@ describe('DashboardHomePage', () => {
     renderDashboardHome();
 
     expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByText('Today in focus')).toBeInTheDocument();
+    expect(screen.getByText('Operational snapshot')).toBeInTheDocument();
     expect(screen.getByText('Needs attention now')).toBeInTheDocument();
-    expect(screen.getByText('Follow-up waiting')).toBeInTheDocument();
-    expect(screen.getByText('Matters today')).toBeInTheDocument();
-    expect(await screen.findByText('Assigned to me')).toBeInTheDocument();
-    expect(screen.getByText('Operational analytics')).toBeInTheDocument();
+    expect(screen.getByText('Urgent work leads')).toBeInTheDocument();
+    expect(screen.getByText('Keep the day moving')).toBeInTheDocument();
+    expect(await screen.findByText('Main action list')).toBeInTheDocument();
+    expect(screen.getByText('Safety feed')).toBeInTheDocument();
+    expect(screen.getByText('Background workload and capacity')).toBeInTheDocument();
     expect(screen.getByText('Safety workload')).toBeInTheDocument();
     expect(screen.getByText('Communication burden')).toBeInTheDocument();
     expect(screen.getByText('Insights backlog')).toBeInTheDocument();

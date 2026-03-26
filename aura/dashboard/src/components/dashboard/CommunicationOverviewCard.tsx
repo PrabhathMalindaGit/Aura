@@ -20,6 +20,18 @@ interface CommunicationOverviewCardProps {
   onOpenCommunication: () => void;
 }
 
+function communicationToneClass(item: DashboardCommunicationOverview['items'][number]): string {
+  if (item.flaggedBySafety) {
+    return 'danger';
+  }
+
+  if (item.needsResponse) {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
 export function CommunicationOverviewCard({
   overview,
   visibleItemCount,
@@ -44,7 +56,7 @@ export function CommunicationOverviewCard({
       }`}
       title={
         <span className="dashboard-widget-heading dashboard-widget-heading--communication">
-          <span className="dashboard-widget-heading__eyebrow">Communication</span>
+          <span className="dashboard-widget-heading__eyebrow">Inbox review</span>
           <span className="dashboard-module-card__title-row">
             <span className="dashboard-module-card__title">
               Communication review
@@ -83,51 +95,55 @@ export function CommunicationOverviewCard({
       ) : (
         <div className="dashboard-communication-card__content">
           {counts ? (
-            <div className="dashboard-communication-card__summary" aria-label="Communication overview counts">
-              <div className="dashboard-communication-card__metric">
-                <span className="dashboard-communication-card__metric-label">Needs response</span>
-                <strong className="dashboard-communication-card__metric-value">{counts.needsResponseCount}</strong>
-              </div>
-              <div className="dashboard-communication-card__metric">
-                <span className="dashboard-communication-card__metric-label">Safety flagged</span>
-                <strong className="dashboard-communication-card__metric-value">{counts.flaggedBySafetyCount}</strong>
-              </div>
-              <div className="dashboard-communication-card__metric">
-                <span className="dashboard-communication-card__metric-label">Follow-up requested</span>
-                <strong className="dashboard-communication-card__metric-value">{counts.followUpRequestedCount}</strong>
-              </div>
+            <div className="dashboard-module-inline-stats dashboard-module-inline-stats--communication" aria-label="Communication overview counts">
+              <span className="dashboard-module-inline-stat dashboard-module-inline-stat--warning">
+                <strong>{counts.needsResponseCount}</strong>
+                <span>need response</span>
+              </span>
+              <span className="dashboard-module-inline-stat dashboard-module-inline-stat--risk">
+                <strong>{counts.flaggedBySafetyCount}</strong>
+                <span>safety flagged</span>
+              </span>
+              <span className="dashboard-module-inline-stat dashboard-module-inline-stat--primary">
+                <strong>{counts.followUpRequestedCount}</strong>
+                <span>follow-up requested</span>
+              </span>
             </div>
           ) : null}
 
-          <div className="dashboard-list dashboard-list--communication" role="list">
+          <div className="dashboard-side-widget__list dashboard-side-widget__list--communication" role="list">
             {visibleItems.map((item) => (
-              <article key={item.id} className="dashboard-list-item dashboard-list-item--communication" role="listitem">
-                <div className="dashboard-list-item__content">
-                  <div className="dashboard-list-item__eyebrow">
-                    <span className="dashboard-list-item__context-note">Latest patient message</span>
-                    <span className="dashboard-list-item__timestamp" title={formatDashboardDateTime(item.messageCreatedAt)}>
+              <article
+                key={item.id}
+                className={`dashboard-side-widget__item dashboard-side-widget__item--communication dashboard-side-widget__item--${communicationToneClass(
+                  item,
+                )}`}
+                role="listitem"
+              >
+                <div className="dashboard-side-widget__body">
+                  <div className="dashboard-side-widget__top">
+                    <span className="dashboard-side-widget__eyebrow">Latest patient message</span>
+                    <span className="dashboard-side-widget__freshness" title={formatDashboardDateTime(item.messageCreatedAt)}>
                       {formatDashboardRelativeTime(item.messageCreatedAt)}
                     </span>
                   </div>
-                  <div className="dashboard-list-item__title-row">
-                    <h3 className="dashboard-list-item__title">{item.patientName}</h3>
+                  <div className="dashboard-side-widget__title-row">
+                    <h3 className="dashboard-side-widget__title">{item.patientName}</h3>
                     {item.flaggedBySafety ? <Badge variant="risk-high">Safety flagged</Badge> : <Badge variant="warning">Needs response</Badge>}
                   </div>
-                  <p className="dashboard-list-item__description">
+                  <p className="dashboard-side-widget__copy">
                     {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
                   </p>
-                  <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
-                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
+                  <div className="dashboard-side-widget__footer">
+                    <div className="dashboard-side-widget__meta">
                       <span>Needs clinician response</span>
                       {item.followUpRequested ? <span>Follow-up requested</span> : null}
                       {item.linkedTaskId ? <span>Task linked</span> : null}
                       <span>Received {formatDashboardDateTime(item.messageCreatedAt)}</span>
                     </div>
-                    <div className="dashboard-list-item__action">
-                      <Button variant="secondary" size="sm" onClick={() => onOpenThread(item.patientId)}>
-                        Open thread
-                      </Button>
-                    </div>
+                    <Button variant="secondary" size="sm" onClick={() => onOpenThread(item.patientId)}>
+                      Open thread
+                    </Button>
                   </div>
                 </div>
               </article>

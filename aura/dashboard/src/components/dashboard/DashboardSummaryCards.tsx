@@ -29,6 +29,21 @@ function SummaryMetricIcon({ metricKey }: { metricKey: string }): JSX.Element {
           <path d="M10.2 18a2 2 0 0 0 3.6 0" />
         </svg>
       );
+    case 'messages-needing-response':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v6A2.5 2.5 0 0 1 16.5 16H11l-3.5 3v-3H7.5A2.5 2.5 0 0 1 5 13.5Z" />
+          <path d="M8.5 9.5h7M8.5 12.5h4.5" />
+        </svg>
+      );
+    case 'tasks-due-today':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="5" y="4.5" width="14" height="15" rx="2.5" />
+          <path d="M8.5 3.5v3M15.5 3.5v3M5 9.5h14" />
+          <path d="m9 14 1.75 1.75L15 11.5" />
+        </svg>
+      );
     case 'assigned-to-me':
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -82,9 +97,12 @@ export function DashboardSummaryCards({
 }: DashboardSummaryCardsProps): JSX.Element {
   if (loading && metrics.length === 0) {
     return (
-      <section className="dashboard-summary-grid" aria-label="Dashboard summary loading">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={`dashboard-summary-loading-${index}`} className="dashboard-summary-card dashboard-summary-card--loading">
+      <section className="dashboard-summary-strip dashboard-summary-strip--loading" aria-label="Dashboard KPI strip loading">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={`dashboard-summary-loading-${index}`}
+            className="dashboard-summary-strip__item dashboard-summary-strip__item--loading"
+          >
             <DashboardModuleState mode="loading" lines={2} />
           </div>
         ))}
@@ -94,11 +112,11 @@ export function DashboardSummaryCards({
 
   if (hasError && metrics.length === 0) {
     return (
-      <section className="dashboard-summary-grid dashboard-summary-grid--state" aria-label="Dashboard summary error">
+      <section className="dashboard-summary-strip dashboard-summary-strip--state" aria-label="Dashboard KPI strip error">
         <DashboardModuleState
           mode="error"
-          title="Unable to load dashboard summary"
-          description="The command-center counters could not be loaded."
+          title="Unable to load the dashboard snapshot"
+          description="The top operational counters could not be loaded."
           onRetry={onRetry}
           retrying={retrying}
         />
@@ -107,35 +125,24 @@ export function DashboardSummaryCards({
   }
 
   return (
-    <section className="dashboard-summary-grid" aria-label="Dashboard summary">
+    <section className="dashboard-summary-strip" aria-label="Dashboard KPI strip">
       {metrics.map((metric) => {
-        const tierClass =
-          metric.key === 'open-alerts'
-            ? 'dashboard-summary-card--featured'
-            : metric.key === 'follow-up-tasks'
-              ? 'dashboard-summary-card--overview'
-              : metric.key === 'today-appointments' || metric.key === 'assigned-to-me'
-                ? 'dashboard-summary-card--support'
-                : 'dashboard-summary-card--secondary-tier';
-
         const content = (
           <>
-            <div className="dashboard-summary-card__topline">
-              <span className="dashboard-summary-card__icon" aria-hidden="true">
+            <div className="dashboard-summary-strip__topline">
+              <span className="dashboard-summary-strip__icon" aria-hidden="true">
                 <SummaryMetricIcon metricKey={metric.key} />
               </span>
+              <span className="dashboard-summary-strip__label">{metric.label}</span>
               {metric.onSelect ? (
-                <span className="dashboard-summary-card__chevron" aria-hidden="true">
+                <span className="dashboard-summary-strip__chevron" aria-hidden="true">
                   ↗
                 </span>
               ) : null}
             </div>
-            <div className="dashboard-summary-card__content">
-              <div className="dashboard-summary-card__metric">
-                <p className="dashboard-summary-card__label">{metric.label}</p>
-                <p className="dashboard-summary-card__value">{metric.value}</p>
-              </div>
-              <p className="dashboard-summary-card__helper">{metric.helper}</p>
+            <div className="dashboard-summary-strip__content">
+              <p className="dashboard-summary-strip__value">{metric.value}</p>
+              <p className="dashboard-summary-strip__helper">{metric.helper}</p>
             </div>
           </>
         );
@@ -145,11 +152,10 @@ export function DashboardSummaryCards({
             <article
               key={metric.key}
               className={cn(
-                'dashboard-summary-card',
-                tierClass,
-                `dashboard-summary-card--metric-${metric.key}`,
-                metric.emphasis && `dashboard-summary-card--${metric.emphasis}`,
-                metric.tone && `dashboard-summary-card--${metric.tone}`,
+                'dashboard-summary-strip__item',
+                `dashboard-summary-strip__item--metric-${metric.key}`,
+                metric.emphasis && `dashboard-summary-strip__item--${metric.emphasis}`,
+                metric.tone && `dashboard-summary-strip__item--${metric.tone}`,
               )}
             >
               {content}
@@ -162,11 +168,10 @@ export function DashboardSummaryCards({
             key={metric.key}
             type="button"
             className={cn(
-              'dashboard-summary-card',
-              tierClass,
-              `dashboard-summary-card--metric-${metric.key}`,
-              metric.emphasis && `dashboard-summary-card--${metric.emphasis}`,
-              metric.tone && `dashboard-summary-card--${metric.tone}`,
+              'dashboard-summary-strip__item',
+              `dashboard-summary-strip__item--metric-${metric.key}`,
+              metric.emphasis && `dashboard-summary-strip__item--${metric.emphasis}`,
+              metric.tone && `dashboard-summary-strip__item--${metric.tone}`,
             )}
             onClick={metric.onSelect}
           >
@@ -176,7 +181,7 @@ export function DashboardSummaryCards({
       })}
 
       {hasError ? (
-        <div className="dashboard-summary-grid__footer">
+        <div className="dashboard-summary-strip__footer">
           <Button variant="ghost" size="sm" onClick={onRetry} disabled={retrying}>
             {retrying ? 'Refreshing...' : 'Refresh summary'}
           </Button>

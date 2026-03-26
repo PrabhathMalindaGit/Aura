@@ -47,6 +47,26 @@ function actionLabel(item: DashboardFollowUpTaskItem): string {
   return 'Open patient';
 }
 
+function taskToneClass(priority: DashboardFollowUpTaskItem['priority']): string {
+  if (priority === 'urgent' || priority === 'high') {
+    return 'danger';
+  }
+
+  if (priority === 'medium') {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
+function taskSupportLine(item: DashboardFollowUpTaskItem): string {
+  if (item.dueAt) {
+    return `Due ${formatDashboardRelativeTime(item.dueAt)}.`;
+  }
+
+  return `Updated ${formatDashboardRelativeTime(item.updatedAt)}.`;
+}
+
 export function FollowUpTasksCard({
   items,
   totalCount,
@@ -82,7 +102,7 @@ export function FollowUpTasksCard({
       className="dashboard-module-card dashboard-tasks-card"
       title={
         <span className="dashboard-widget-heading dashboard-widget-heading--tasks">
-          <span className="dashboard-widget-heading__eyebrow">Follow-through</span>
+          <span className="dashboard-widget-heading__eyebrow">Due today</span>
           <span className="dashboard-module-card__title-row">
             <span className="dashboard-module-card__title">
               Follow-up tasks
@@ -120,48 +140,54 @@ export function FollowUpTasksCard({
         />
       ) : (
         <div className="dashboard-tasks-card__content">
-          <div className="dashboard-widget-bar dashboard-widget-bar--tasks" aria-label="Follow-up task summary">
-            <span className="dashboard-widget-bar__item">
+          <div className="dashboard-module-inline-stats dashboard-module-inline-stats--tasks" aria-label="Follow-up task summary">
+            <span className="dashboard-module-inline-stat dashboard-module-inline-stat--neutral">
               <strong>{taskCount}</strong>
               <span>open tasks</span>
             </span>
-            <span className="dashboard-widget-bar__item">
+            <span className="dashboard-module-inline-stat dashboard-module-inline-stat--risk">
               <strong>{urgentCount}</strong>
               <span>urgent or high</span>
             </span>
-            <span className="dashboard-widget-bar__item">
+            <span className="dashboard-module-inline-stat dashboard-module-inline-stat--warning">
               <strong>{dueTodayCount}</strong>
               <span>due today</span>
             </span>
           </div>
 
-          <div className="dashboard-list dashboard-list--tasks" role="list">
+          <div className="dashboard-side-widget__list dashboard-side-widget__list--tasks" role="list">
             {visibleItems.map((item) => (
-              <article key={item.id} className="dashboard-list-item dashboard-list-item--tasks" role="listitem">
-                <div className="dashboard-list-item__content">
-                  <div className="dashboard-list-item__eyebrow">
-                    <span className="dashboard-list-item__patient">{resolvePatientLabel(item.patientId)}</span>
+              <article
+                key={item.id}
+                className={`dashboard-side-widget__item dashboard-side-widget__item--tasks dashboard-side-widget__item--${taskToneClass(
+                  item.priority,
+                )}`}
+                role="listitem"
+              >
+                <div className="dashboard-side-widget__body">
+                  <div className="dashboard-side-widget__top">
+                    <span className="dashboard-side-widget__eyebrow">{resolvePatientLabel(item.patientId)}</span>
                     <span
-                      className="dashboard-list-item__timestamp"
+                      className="dashboard-side-widget__freshness"
                       title={item.dueAt ? formatDashboardDateTime(item.dueAt) : formatDashboardDateTime(item.updatedAt)}
                     >
                       {item.dueAt ? `Due ${formatDashboardRelativeTime(item.dueAt)}` : `Updated ${formatDashboardRelativeTime(item.updatedAt)}`}
                     </span>
                   </div>
-                  <div className="dashboard-list-item__title-row">
-                    <h3 className="dashboard-list-item__title">{item.title}</h3>
+                  <div className="dashboard-side-widget__title-row">
+                    <h3 className="dashboard-side-widget__title">{item.title}</h3>
                     <Badge variant={priorityVariant(item.priority)}>{humanizeDashboardLabel(item.priority)}</Badge>
                   </div>
-                  <div className="dashboard-list-item__footer dashboard-list-item__footer--rail">
-                    <div className="dashboard-list-item__meta dashboard-list-item__meta--supporting dashboard-list-item__meta--rail">
-                      <span>{`${humanizeDashboardLabel(item.type)} · ${humanizeDashboardLabel(item.status)}`}</span>
+                  <p className="dashboard-side-widget__copy">{taskSupportLine(item)}</p>
+                  <div className="dashboard-side-widget__footer">
+                    <div className="dashboard-side-widget__meta">
+                      <span>{humanizeDashboardLabel(item.type)}</span>
+                      <span>{humanizeDashboardLabel(item.status)}</span>
                       {item.dueAt ? <span>Due {formatDashboardDateTime(item.dueAt)}</span> : <span>Updated {formatDashboardDateTime(item.updatedAt)}</span>}
                     </div>
-                    <div className="dashboard-list-item__action">
-                      <Button variant="secondary" size="sm" onClick={() => onOpenTaskItem(item)}>
-                        {actionLabel(item)}
-                      </Button>
-                    </div>
+                    <Button variant="secondary" size="sm" onClick={() => onOpenTaskItem(item)}>
+                      {actionLabel(item)}
+                    </Button>
                   </div>
                 </div>
               </article>

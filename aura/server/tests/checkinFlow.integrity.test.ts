@@ -1,6 +1,20 @@
+import axios from "axios";
 import mongoose from "mongoose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
+
+vi.mock("axios", () => ({
+  default: {
+    post: vi.fn(),
+    isAxiosError: (error: unknown) =>
+      Boolean(
+        error &&
+          typeof error === "object" &&
+          "isAxiosError" in error &&
+          (error as { isAxiosError?: boolean }).isAxiosError === true
+      ),
+  },
+}));
 
 vi.mock("../src/services/ai", async () => {
   const actual = await vi.importActual<typeof import("../src/services/ai")>(
@@ -29,7 +43,7 @@ import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import CheckIn from "../src/models/CheckIn";
 import Task from "../src/models/Task";
-import { AIUnavailableError, classify } from "../src/services/ai";
+import { classify } from "../src/services/ai";
 import { DuplicateCheckInError, processCheckIn } from "../src/services/checkinFlow";
 import { emitAlertCreated } from "../src/services/n8n";
 import { logger } from "../src/utils/logger";
@@ -53,6 +67,7 @@ describe("checkinFlow integrity", () => {
     vi.restoreAllMocks();
     vi.mocked(classify).mockReset();
     vi.mocked(emitAlertCreated).mockReset();
+    vi.mocked(axios.post).mockReset();
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
 
     await Promise.all([
@@ -84,18 +99,50 @@ describe("checkinFlow integrity", () => {
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
-  it("creates no check-in when classify fails with invalid AI output", async () => {
-    vi.mocked(classify).mockRejectedValue(
-      new AIUnavailableError({
-        kind: "invalid_response",
-        aiOperation: "classify",
-      })
+  it("persists a low-risk check-in when classify falls back after a timeout", async () => {
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("timeout of 4000ms exceeded"), {
+        code: "ECONNABORTED",
+        isAxiosError: true,
+      }) as never
     );
 
-    await expect(processCheckIn(baseInput)).rejects.toBeInstanceOf(AIUnavailableError);
-    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    const result = await processCheckIn(baseInput);
+
+    expect(result.riskLevel).toBe("low");
+    expect(result.reasonCodes).toEqual([]);
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
     expect(await CareEvent.countDocuments({ patientId: "p1" })).toBe(0);
+  });
+
+  it("creates alert state when classify falls back to high risk", async () => {
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("upstream returned 500"), {
+        response: { status: 500 },
+        isAxiosError: true,
+      }) as never
+    );
+
+    const result = await processCheckIn({
+      ...baseInput,
+      pain: 8,
+    });
+
+    expect(result.riskLevel).toBe("high");
+    expect(result.reasonCodes).toEqual(["PAIN_GE_THRESHOLD"]);
+    expect(typeof result.alertId).toBe("string");
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await AlertNotificationJob.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
   it("logs a high-severity integrity error when rollback fails and preserves the original error", async () => {

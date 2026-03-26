@@ -11,7 +11,7 @@ import { upsertCommunicationReview } from "./communicationReviewService";
 import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
 import { redactText } from "../utils/redact";
-import { classify, ragReply } from "./ai";
+import { AIUnavailableError, classify, ragReply } from "./ai";
 
 export const HIGH_RISK_REPLY =
   "I'm concerned about your safety. I've alerted your clinician. If you feel in danger, contact local emergency services now.";
@@ -52,19 +52,41 @@ export async function processChatMessage(
       patientId: input.patientId,
     }
   );
-  const assistantReply =
-    aiResult.risk === "low"
-      ? input.lowRiskMode === "rag"
-        ? (await ragReply({
-            patientId: input.patientId,
-            message: input.text,
-          }, {
-            requestId: requestContext?.requestId,
-            flow: "chat",
-            patientId: input.patientId,
-          })).reply
-        : LOW_RISK_REPLY
-      : undefined;
+  let assistantReply: string | undefined;
+  if (aiResult.risk === "low") {
+    if (input.lowRiskMode === "rag") {
+      try {
+        assistantReply = (
+          await ragReply(
+            {
+              patientId: input.patientId,
+              message: input.text,
+            },
+            {
+              requestId: requestContext?.requestId,
+              flow: "chat",
+              patientId: input.patientId,
+            }
+          )
+        ).reply;
+      } catch (error) {
+        if (!(error instanceof AIUnavailableError)) {
+          throw error;
+        }
+
+        logger.warn("chat.low_risk_reply_fallback_used", {
+          requestId: requestContext?.requestId,
+          flow: "chat",
+          patientId: input.patientId,
+          aiErrorKind: error.kind,
+          statusCode: error.statusCode,
+        });
+        assistantReply = LOW_RISK_REPLY;
+      }
+    } else {
+      assistantReply = LOW_RISK_REPLY;
+    }
+  }
 
   // The critical write set is user+assistant for low risk and user+alert for high risk.
   const userMsg = await ChatMessage.create({

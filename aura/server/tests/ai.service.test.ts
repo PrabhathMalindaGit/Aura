@@ -113,8 +113,9 @@ describe("AI service client", () => {
     );
   });
 
-  it("classifies timeout failures internally and logs structured metadata", async () => {
-    const loggerSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+  it("falls back to local classify rules on timeout and logs the fallback usage", async () => {
+    const errorLoggerSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+    const warnLoggerSpy = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     const timeoutError = Object.assign(new Error("timeout of 4500ms exceeded"), {
       code: "ECONNABORTED",
       isAxiosError: true,
@@ -125,7 +126,7 @@ describe("AI service client", () => {
       classify(
         {
           type: "chat",
-          text: "I need help",
+          text: "I can't breathe",
         },
         {
           requestId: "req-ai-timeout",
@@ -133,13 +134,12 @@ describe("AI service client", () => {
           patientId: "p1",
         }
       )
-    ).rejects.toMatchObject({
-      name: "AIUnavailableError",
-      kind: "timeout",
-      aiOperation: "classify",
+    ).resolves.toEqual({
+      risk: "high",
+      reasons: ["CRISIS_LANGUAGE"],
     });
 
-    expect(loggerSpy).toHaveBeenCalledWith(
+    expect(errorLoggerSpy).toHaveBeenCalledWith(
       "ai.request.failed",
       expect.objectContaining({
         requestId: "req-ai-timeout",
@@ -148,6 +148,18 @@ describe("AI service client", () => {
         aiOperation: "classify",
         timeoutMs: 4500,
         aiErrorKind: "timeout",
+      })
+    );
+    expect(warnLoggerSpy).toHaveBeenCalledWith(
+      "ai.classify.fallback_used",
+      expect.objectContaining({
+        requestId: "req-ai-timeout",
+        flow: "chat",
+        patientId: "p1",
+        aiOperation: "classify",
+        aiErrorKind: "timeout",
+        fallbackRisk: "high",
+        fallbackReasons: ["CRISIS_LANGUAGE"],
       })
     );
   });
@@ -190,7 +202,7 @@ describe("AI service client", () => {
     });
   });
 
-  it("rejects malformed classify responses instead of coercing them to low risk", async () => {
+  it("falls back to local classify rules when classify response validation fails", async () => {
     vi.mocked(axios.post).mockResolvedValue({
       status: 200,
       data: {
@@ -205,11 +217,45 @@ describe("AI service client", () => {
         type: "checkin",
         pain: 8,
       })
-    ).rejects.toMatchObject({
-      name: "AIUnavailableError",
-      kind: "invalid_response",
-      statusCode: 200,
-      aiOperation: "classify",
+    ).resolves.toEqual({
+      risk: "high",
+      reasons: ["PAIN_GE_THRESHOLD"],
+    });
+  });
+
+  it("falls back to local classify rules on network and upstream HTTP failures", async () => {
+    const networkError = Object.assign(new Error("connect ECONNREFUSED"), {
+      code: "ECONNREFUSED",
+      request: {},
+      isAxiosError: true,
+    });
+    vi.mocked(axios.post).mockRejectedValueOnce(networkError as never);
+
+    await expect(
+      classify({
+        type: "checkin",
+        pain: 3,
+        text: "I feel unsafe",
+      })
+    ).resolves.toEqual({
+      risk: "high",
+      reasons: ["CRISIS_LANGUAGE"],
+    });
+
+    const upstreamError = Object.assign(new Error("bad gateway"), {
+      response: { status: 502 },
+      isAxiosError: true,
+    });
+    vi.mocked(axios.post).mockRejectedValueOnce(upstreamError as never);
+
+    await expect(
+      classify({
+        type: "checkin",
+        pain: 2,
+      })
+    ).resolves.toEqual({
+      risk: "low",
+      reasons: [],
     });
   });
 

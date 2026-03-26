@@ -1,6 +1,20 @@
+import axios from "axios";
 import mongoose from "mongoose";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
+
+vi.mock("axios", () => ({
+  default: {
+    post: vi.fn(),
+    isAxiosError: (error: unknown) =>
+      Boolean(
+        error &&
+          typeof error === "object" &&
+          "isAxiosError" in error &&
+          (error as { isAxiosError?: boolean }).isAxiosError === true
+      ),
+  },
+}));
 
 vi.mock("../src/services/ai", async () => {
   const actual = await vi.importActual<typeof import("../src/services/ai")>(
@@ -32,7 +46,7 @@ import ChatMessage from "../src/models/ChatMessage";
 import CommunicationReview from "../src/models/CommunicationReview";
 import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
 import * as communicationReviewService from "../src/services/communicationReviewService";
-import { HIGH_RISK_REPLY, processChatMessage } from "../src/services/chatFlow";
+import { HIGH_RISK_REPLY, LOW_RISK_REPLY, processChatMessage } from "../src/services/chatFlow";
 import { emitAlertCreated } from "../src/services/n8n";
 import { logger } from "../src/utils/logger";
 
@@ -56,6 +70,7 @@ describe("chatFlow integrity", () => {
     vi.mocked(classify).mockReset();
     vi.mocked(ragReply).mockReset();
     vi.mocked(emitAlertCreated).mockReset();
+    vi.mocked(axios.post).mockReset();
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
 
     await Promise.all([
@@ -81,27 +96,35 @@ describe("chatFlow integrity", () => {
     persistHighRiskAssistantReply: false,
   };
 
-  it("creates no ChatMessage and no CommunicationReview when classify fails", async () => {
-    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+  it("creates no ChatMessage and no CommunicationReview when classify fails without fallback eligibility", async () => {
+    vi.mocked(classify).mockRejectedValue(
+      new AIUnavailableError({
+        kind: "unauthorized",
+        aiOperation: "classify",
+      })
+    );
 
     await expect(processChatMessage(lowRiskInput)).rejects.toBeInstanceOf(AIUnavailableError);
     expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
     expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
-  it("creates no ChatMessage and no CommunicationReview when low-risk reply fails", async () => {
+  it("falls back to the static low-risk reply when ragReply fails", async () => {
     vi.mocked(classify).mockResolvedValue({
       risk: "low",
       reasons: [],
     });
     vi.mocked(ragReply).mockRejectedValue(new AIUnavailableError());
 
-    await expect(processChatMessage(lowRiskInput)).rejects.toBeInstanceOf(AIUnavailableError);
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    const result = await processChatMessage(lowRiskInput);
+
+    expect(result.riskLevel).toBe("low");
+    expect(result.assistantReply).toBe(LOW_RISK_REPLY);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(2);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
-  it("creates no ChatMessage and no CommunicationReview when low-risk reply output is invalid", async () => {
+  it("falls back to the static low-risk reply when ragReply output is invalid", async () => {
     vi.mocked(classify).mockResolvedValue({
       risk: "low",
       reasons: [],
@@ -113,9 +136,56 @@ describe("chatFlow integrity", () => {
       })
     );
 
-    await expect(processChatMessage(lowRiskInput)).rejects.toBeInstanceOf(AIUnavailableError);
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    const result = await processChatMessage(lowRiskInput);
+
+    expect(result.riskLevel).toBe("low");
+    expect(result.assistantReply).toBe(LOW_RISK_REPLY);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(2);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
+  });
+
+  it("creates high-risk alert state when classify falls back after an upstream failure", async () => {
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("bad gateway"), {
+        response: { status: 502 },
+        isAxiosError: true,
+      }) as never
+    );
+
+    const result = await processChatMessage(highRiskInput);
+
+    expect(result.riskLevel).toBe("high");
+    expect(result.reasonCodes).toEqual(["CRISIS_LANGUAGE"]);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
+  });
+
+  it("returns a low-risk assistant reply when classify falls back after a timeout", async () => {
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("timeout of 4000ms exceeded"), {
+        code: "ECONNABORTED",
+        isAxiosError: true,
+      }) as never
+    );
+    vi.mocked(ragReply).mockResolvedValue({
+      reply: "Stub RAG reply",
+      citations: [],
+    });
+
+    const result = await processChatMessage(lowRiskInput);
+
+    expect(result.riskLevel).toBe("low");
+    expect(result.assistantReply).toBe("Stub RAG reply");
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(2);
   });
 
   it("rolls back the user message and leaves no CommunicationReview when alert creation fails", async () => {

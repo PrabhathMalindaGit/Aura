@@ -1,7 +1,21 @@
+import axios from "axios";
 import mongoose from "mongoose";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
+
+vi.mock("axios", () => ({
+  default: {
+    post: vi.fn(),
+    isAxiosError: (error: unknown) =>
+      Boolean(
+        error &&
+          typeof error === "object" &&
+          "isAxiosError" in error &&
+          (error as { isAxiosError?: boolean }).isAxiosError === true
+      ),
+  },
+}));
 
 vi.mock("../src/services/ai", async () => {
   const actual = await vi.importActual<typeof import("../src/services/ai")>(
@@ -75,6 +89,7 @@ describe("patient auth + patient endpoints", () => {
     vi.mocked(classify).mockReset();
     vi.mocked(ragReply).mockReset();
     vi.mocked(emitAlertCreated).mockReset();
+    vi.mocked(axios.post).mockReset();
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
 
     await Promise.all([
@@ -324,45 +339,17 @@ describe("patient auth + patient endpoints", () => {
     });
   });
 
-  it("returns 502 and does not persist a patient check-in when classify is unavailable", async () => {
+  it("persists a patient check-in when classify falls back after an upstream timeout", async () => {
     await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
-    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
-
-    const token = await loginWithAccessCode("P1-DEMO");
-
-    const response = await request(app)
-      .post("/patient/checkins")
-      .set("Authorization", `Bearer ${token}`)
-      .send({
-        date: "2026-02-24",
-        mood: 2,
-        pain: 8,
-      });
-
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CareEvent.countDocuments({ patientId: "p1" })).toBe(0);
-
-    const history = await request(app)
-      .get("/patient/checkins")
-      .set("Authorization", `Bearer ${token}`);
-
-    expect(history.status).toBe(200);
-    expect(history.body.checkins).toEqual([]);
-  });
-
-  it("returns 502 and does not persist a patient check-in when classify output is invalid", async () => {
-    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
-    vi.mocked(classify).mockRejectedValue(
-      new AIUnavailableError({
-        kind: "invalid_response",
-        aiOperation: "classify",
-      })
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("timeout of 4000ms exceeded"), {
+        code: "ECONNABORTED",
+        isAxiosError: true,
+      }) as never
     );
 
     const token = await loginWithAccessCode("P1-DEMO");
@@ -376,13 +363,55 @@ describe("patient auth + patient endpoints", () => {
         pain: 8,
       });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.risk).toEqual({
+      level: "high",
+      reasonCodes: ["PAIN_GE_THRESHOLD"],
     });
-    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await CareEvent.countDocuments({ patientId: "p1" })).toBe(1);
+
+    const history = await request(app)
+      .get("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.checkins).toHaveLength(1);
+  });
+
+  it("persists a patient check-in when classify output is invalid and fallback applies", async () => {
+    await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockResolvedValue({
+      status: 200,
+      data: {
+        risk: "unexpected",
+        reasons: [],
+        ruleVersion: "v1",
+      },
+    } as never);
+
+    const token = await loginWithAccessCode("P1-DEMO");
+
+    const response = await request(app)
+      .post("/patient/checkins")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        date: "2026-02-24",
+        mood: 2,
+        pain: 8,
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.risk.level).toBe("high");
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
   it("escalates when urgent help is requested even if classifier returns low risk", async () => {
@@ -719,9 +748,19 @@ describe("patient auth + patient endpoints", () => {
     expect(await AlertNotificationJob.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
-  it("returns 502 and does not persist a patient chat message when classify is unavailable", async () => {
+  it("persists a patient chat message when classify falls back after a network failure", async () => {
     await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
-    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("connect ECONNREFUSED"), {
+        code: "ECONNREFUSED",
+        request: {},
+        isAxiosError: true,
+      }) as never
+    );
 
     const token = await loginWithAccessCode("P1-DEMO");
 
@@ -730,24 +769,22 @@ describe("patient auth + patient endpoints", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ message: "I feel unsafe" });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.risk.level).toBe("high");
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
 
     const history = await request(app)
       .get("/patient/chat/history")
       .set("Authorization", `Bearer ${token}`);
 
     expect(history.status).toBe(200);
-    expect(history.body.messages).toEqual([]);
+    expect(history.body.messages).toHaveLength(1);
   });
 
-  it("returns 502 and does not persist a patient chat message when low-risk reply generation fails", async () => {
+  it("falls back to the static low-risk reply when patient rag reply generation fails", async () => {
     await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
     vi.mocked(classify).mockResolvedValue({
       risk: "low",
@@ -762,13 +799,14 @@ describe("patient auth + patient endpoints", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ message: "How should I pace exercise today?" });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.risk.level).toBe("low");
+    expect(response.body.messages.assistant.text).toBe(
+      "Thanks for sharing. I can help you track your rehab and coping strategies. What symptom changed today?"
+    );
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(2);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
 
     const history = await request(app)
@@ -776,10 +814,10 @@ describe("patient auth + patient endpoints", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(history.status).toBe(200);
-    expect(history.body.messages).toEqual([]);
+    expect(history.body.messages).toHaveLength(2);
   });
 
-  it("returns 502 and does not persist a patient chat message when low-risk reply output is invalid", async () => {
+  it("falls back to the static low-risk reply when patient rag reply output is invalid", async () => {
     await seedPatient({ patientId: "p1", accessCode: "P1-DEMO" });
     vi.mocked(classify).mockResolvedValue({
       risk: "low",
@@ -799,13 +837,14 @@ describe("patient auth + patient endpoints", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ message: "How should I pace exercise today?" });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.risk.level).toBe("low");
+    expect(response.body.messages.assistant.text).toBe(
+      "Thanks for sharing. I can help you track your rehab and coping strategies. What symptom changed today?"
+    );
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(2);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 

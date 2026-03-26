@@ -1,7 +1,21 @@
+import axios from "axios";
 import mongoose from "mongoose";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
+
+vi.mock("axios", () => ({
+  default: {
+    post: vi.fn(),
+    isAxiosError: (error: unknown) =>
+      Boolean(
+        error &&
+          typeof error === "object" &&
+          "isAxiosError" in error &&
+          (error as { isAxiosError?: boolean }).isAxiosError === true
+      ),
+  },
+}));
 
 vi.mock("../src/services/ai", async () => {
   const actual = await vi.importActual<typeof import("../src/services/ai")>(
@@ -34,7 +48,7 @@ import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
 import CommunicationReview from "../src/models/CommunicationReview";
 import Patient from "../src/models/Patient";
-import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
+import { classify, ragReply } from "../src/services/ai";
 import { emitAlertCreated } from "../src/services/n8n";
 import { signPatientToken } from "../src/utils/patientJwt";
 
@@ -77,6 +91,7 @@ describe("legacy checkin/chat route security", () => {
     vi.mocked(classify).mockReset();
     vi.mocked(ragReply).mockReset();
     vi.mocked(emitAlertCreated).mockReset();
+    vi.mocked(axios.post).mockReset();
     vi.mocked(classify).mockResolvedValue({ risk: "low", reasons: [] });
     vi.mocked(ragReply).mockResolvedValue({ reply: "stub reply" });
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
@@ -188,10 +203,19 @@ describe("legacy checkin/chat route security", () => {
     expect(p2Messages).toBe(0);
   });
 
-  it("returns 502 and persists no record for legacy check-ins when classify is unavailable", async () => {
+  it("persists a legacy check-in when classify falls back after an upstream timeout", async () => {
     mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
     mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
-    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("timeout of 4000ms exceeded"), {
+        code: "ECONNABORTED",
+        isAxiosError: true,
+      }) as never
+    );
 
     const response = await request(app)
       .post("/checkins")
@@ -203,12 +227,9 @@ describe("legacy checkin/chat route security", () => {
         pain: 2,
       });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
 
     const token = signPatientToken({ id: "p1", displayName: "Patient One" });
@@ -217,18 +238,24 @@ describe("legacy checkin/chat route security", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(history.status).toBe(200);
-    expect(history.body.checkins).toEqual([]);
+    expect(history.body.checkins).toHaveLength(1);
   });
 
-  it("returns 502 and persists no record for legacy check-ins when classify output is invalid", async () => {
+  it("persists a legacy check-in when classify output is invalid and fallback applies", async () => {
     mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
     mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
-    vi.mocked(classify).mockRejectedValue(
-      new AIUnavailableError({
-        kind: "invalid_response",
-        aiOperation: "classify",
-      })
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
     );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockResolvedValue({
+      status: 200,
+      data: {
+        risk: "unexpected",
+        reasons: [],
+        ruleVersion: "v1",
+      },
+    } as never);
 
     const response = await request(app)
       .post("/checkins")
@@ -240,54 +267,25 @@ describe("legacy checkin/chat route security", () => {
         pain: 2,
       });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(await CheckIn.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 
-  it("returns 502 and persists no record for legacy chat when classify is unavailable", async () => {
+  it("persists a legacy chat message when classify falls back after a network failure", async () => {
     mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
     mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
-    vi.mocked(classify).mockRejectedValue(new AIUnavailableError());
-
-    const response = await request(app)
-      .post("/chat/send")
-      .set("x-aura-internal-key", "legacy-internal-key")
-      .send({
-        patientId: "p1",
-        text: "hello",
-      });
-
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
-
-    const token = signPatientToken({ id: "p1", displayName: "Patient One" });
-    const history = await request(app)
-      .get("/patient/chat/history")
-      .set("Authorization", `Bearer ${token}`);
-
-    expect(history.status).toBe(200);
-    expect(history.body.messages).toEqual([]);
-  });
-
-  it("returns 502 and persists no record for legacy chat when classify output is invalid", async () => {
-    mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
-    mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
-    vi.mocked(classify).mockRejectedValue(
-      new AIUnavailableError({
-        kind: "invalid_response",
-        aiOperation: "classify",
-      })
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockRejectedValue(
+      Object.assign(new Error("connect ECONNREFUSED"), {
+        code: "ECONNREFUSED",
+        request: {},
+        isAxiosError: true,
+      }) as never
     );
 
     const response = await request(app)
@@ -298,13 +296,49 @@ describe("legacy checkin/chat route security", () => {
         text: "hello",
       });
 
-    expect(response.status).toBe(502);
-    expect(response.body).toEqual({
-      ok: false,
-      error: "AI_UNAVAILABLE",
-    });
-    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(0);
-    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBeGreaterThan(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
+
+    const token = signPatientToken({ id: "p1", displayName: "Patient One" });
+    const history = await request(app)
+      .get("/patient/chat/history")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(history.status).toBe(200);
+    expect(history.body.messages).toHaveLength(2);
+  });
+
+  it("persists a legacy chat message when classify output is invalid and fallback applies", async () => {
+    mutableEnv.LEGACY_PUBLIC_ENDPOINTS_ENABLED = true;
+    mutableEnv.AURA_INTERNAL_KEY = "legacy-internal-key";
+    const actualAi = await vi.importActual<typeof import("../src/services/ai")>(
+      "../src/services/ai"
+    );
+    vi.mocked(classify).mockImplementation(actualAi.classify);
+    vi.mocked(axios.post).mockResolvedValue({
+      status: 200,
+      data: {
+        risk: "unexpected",
+        reasons: [],
+        ruleVersion: "v1",
+      },
+    } as never);
+
+    const response = await request(app)
+      .post("/chat/send")
+      .set("x-aura-internal-key", "legacy-internal-key")
+      .send({
+        patientId: "p1",
+        text: "hello",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBeGreaterThan(0);
+    expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(0);
   });
 });

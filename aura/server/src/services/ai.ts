@@ -5,6 +5,7 @@ import { env } from "../env";
 import type { RequestCorrelationContext } from "../middleware/requestContext";
 import { REQUEST_ID_HEADER } from "../middleware/requestContext";
 import { logger } from "../utils/logger";
+import { fallbackSafetyClassify } from "./fallbackSafetyClassifier";
 
 export type ClassifyInput = {
   type: "checkin" | "chat";
@@ -38,6 +39,13 @@ export type AIErrorKind =
 
 type AIOperation = "classify" | "ragReply";
 type AIRequestContext = RequestCorrelationContext & { flow?: string; patientId?: string };
+
+const FALLBACK_CLASSIFY_ERROR_KINDS = new Set<AIErrorKind>([
+  "timeout",
+  "network",
+  "upstream_http",
+  "invalid_response",
+]);
 
 const classifyResponseSchema = z.object({
   risk: z.enum(["low", "high"]),
@@ -202,18 +210,39 @@ export async function classify(
   input: ClassifyInput,
   context?: AIRequestContext
 ): Promise<ClassifyOutput> {
-  const parsed = await postToAI(
-    "/classify",
-    "classify",
-    input,
-    classifyResponseSchema,
-    context
-  );
+  try {
+    const parsed = await postToAI(
+      "/classify",
+      "classify",
+      input,
+      classifyResponseSchema,
+      context
+    );
 
-  return {
-    risk: parsed.risk,
-    reasons: parsed.reasons,
-  };
+    return {
+      risk: parsed.risk,
+      reasons: parsed.reasons,
+    };
+  } catch (error) {
+    if (
+      !(error instanceof AIUnavailableError) ||
+      !FALLBACK_CLASSIFY_ERROR_KINDS.has(error.kind)
+    ) {
+      throw error;
+    }
+
+    const fallback = fallbackSafetyClassify(input, env.PAIN_HIGH_THRESHOLD);
+    logger.warn("ai.classify.fallback_used", {
+      ...buildLogContext("classify", context),
+      aiErrorKind: error.kind,
+      statusCode: error.statusCode,
+      fallbackRisk: fallback.risk,
+      fallbackReasonCount: fallback.reasons.length,
+      fallbackReasons: fallback.reasons,
+    });
+
+    return fallback;
+  }
 }
 
 export async function ragReply(

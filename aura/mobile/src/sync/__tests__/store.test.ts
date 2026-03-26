@@ -10,6 +10,7 @@ import { selectSyncSummary } from "@/src/sync/selectors";
 import {
   enqueueSyncOperation,
   ensureSyncStateLoaded,
+  getSyncSnapshot,
   peekStoredSyncStateForTests,
   removeSyncOperation,
   resetSyncStoreForTests,
@@ -336,5 +337,10 @@ describe("sync store", () => {
     expect(reloaded.operations).toHaveLength(1);
     expect(reloaded.operations[0]?.operationId).toBe("nut-syncing-fresh");
     expect(reloaded.operations[0]?.status).toBe("queued");
+  });
+
+  it("returns a stable empty snapshot before a patient store is loaded", () => {
+    expect(getSyncSnapshot("")).toBe(getSyncSnapshot(""));
+    expect(getSyncSnapshot("patient-a")).toBe(getSyncSnapshot("patient-a"));
   });
 });

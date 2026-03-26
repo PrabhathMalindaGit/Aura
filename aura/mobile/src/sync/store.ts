@@ -37,6 +37,7 @@ import {
 } from "@/src/sync/model";
 
 const STORAGE_PREFIX = "aura:sync:v1:";
+const EMPTY_SYNC_STATE = createEmptySyncState();
 
 const listeners = new Set<() => void>();
 const stateCache = new Map<string, SyncPatientState>();
@@ -541,9 +542,9 @@ async function writeNextState(
 export function getSyncSnapshot(patientId: string): SyncPatientState {
   const trimmedPatientId = patientId.trim();
   if (!trimmedPatientId) {
-    return createEmptySyncState();
+    return EMPTY_SYNC_STATE;
   }
-  return stateCache.get(trimmedPatientId) ?? createEmptySyncState();
+  return stateCache.get(trimmedPatientId) ?? EMPTY_SYNC_STATE;
 }
 
 export async function ensureSyncStateLoaded(

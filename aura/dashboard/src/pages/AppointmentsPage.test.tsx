@@ -245,7 +245,7 @@ function fillAndPublishAvailability(options: {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  vi.useFakeTimers();
+  vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-16T12:00:00.000Z'));
   installMatchMediaMock();
   window.localStorage.clear();

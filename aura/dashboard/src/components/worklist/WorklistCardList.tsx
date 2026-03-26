@@ -68,6 +68,8 @@ export function WorklistCardList({
         const hasCommunicationAction =
           item.communicationNeedsResponse && item.patientId.trim().length > 0;
         const promBadgeLabel = formatPromBadgeLabel(item);
+        const reviewLabel = getWorklistReviewLabel(item);
+        const reviewSupport = getWorklistReviewSupport(item);
         return (
           <Card
             key={item.patientId}
@@ -93,44 +95,60 @@ export function WorklistCardList({
                     </div>
                   </div>
                 </div>
-                <WorklistPriorityBadge item={item} />
               </div>
 
               <div className="worklist-card__reason">
-                <strong className="worklist-card__reason-title">{getWorklistReviewLabel(item)}</strong>
-                <p className="worklist-card__reason-support">{getWorklistReviewSupport(item)}</p>
+                <div className="worklist-card__reason-top">
+                  <WorklistPriorityBadge className="worklist-card__priority" item={item} />
+                </div>
+                <strong className="worklist-card__reason-title">{reviewLabel}</strong>
+                <p className="worklist-card__reason-support">{reviewSupport}</p>
               </div>
 
               <div className="worklist-card__signals">
-                <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
-                  {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
-                </Badge>
-                {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
-                {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                {item.activeTaskCount > 0 ? <Badge variant="neutral">{item.activeTaskCount} tasks</Badge> : null}
-                {item.missedCheckins.flag ? <Badge variant="warning">Missed {item.missedCheckins.count}</Badge> : null}
-                {promBadgeLabel ? (
-                  <Badge variant={item.proms?.overdueCount ? 'warning' : 'default'}>{promBadgeLabel}</Badge>
-                ) : null}
-                {hasAppointment ? <Badge variant="default">Appointment</Badge> : null}
+                <div className="worklist-card__signal-group worklist-card__signal-group--primary">
+                  <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
+                    {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
+                  </Badge>
+                  {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                  {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
+                </div>
+                <div className="worklist-card__signal-group worklist-card__signal-group--secondary">
+                  {item.activeTaskCount > 0 ? <Badge variant="neutral">{item.activeTaskCount} tasks</Badge> : null}
+                  {item.missedCheckins.flag ? (
+                    <Badge variant="warning">Missed {item.missedCheckins.count}</Badge>
+                  ) : null}
+                  {promBadgeLabel ? (
+                    <Badge variant={item.proms?.overdueCount ? 'warning' : 'default'}>{promBadgeLabel}</Badge>
+                  ) : null}
+                  {hasAppointment ? <Badge variant="default">Appointment</Badge> : null}
+                </div>
               </div>
 
               <dl className="worklist-card__activity">
-                <div>
+                <div className="worklist-card__activity-highlights">
                   <dt>Last check-in</dt>
                   <dd title={formatDashboardDateTime(item.lastCheckinAt)}>
                     {formatDashboardRelativeTime(item.lastCheckinAt)}
                   </dd>
                 </div>
-                <div>
+                {hasAppointment ? (
+                  <div className="worklist-card__activity-highlights">
+                    <dt>Next appointment</dt>
+                    <dd title={formatDashboardDateTime(item.nextAppointmentAt)}>
+                      {formatDashboardDateTime(item.nextAppointmentAt)}
+                    </dd>
+                  </div>
+                ) : null}
+                <div className="worklist-card__activity-stat">
                   <dt>Pain</dt>
                   <dd>{asPainText(item.lastPainScore)}</dd>
                 </div>
-                <div>
+                <div className="worklist-card__activity-stat">
                   <dt>Exercises</dt>
                   <dd>{formatExercisesPct(item.adherenceSummary.exercisesPct)}</dd>
                 </div>
-                <div>
+                <div className="worklist-card__activity-stat">
                   <dt>Medication</dt>
                   <dd>
                     {typeof item.adherenceSummary.medicationTaken === 'boolean'
@@ -140,14 +158,6 @@ export function WorklistCardList({
                       : '—'}
                   </dd>
                 </div>
-                {hasAppointment ? (
-                  <div>
-                    <dt>Next appointment</dt>
-                    <dd title={formatDashboardDateTime(item.nextAppointmentAt)}>
-                      {formatDashboardDateTime(item.nextAppointmentAt)}
-                    </dd>
-                  </div>
-                ) : null}
               </dl>
 
               <div className="worklist-card__actions">

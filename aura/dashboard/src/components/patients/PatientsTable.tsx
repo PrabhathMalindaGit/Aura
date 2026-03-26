@@ -190,17 +190,21 @@ export function PatientsTable({
                     className="patients-table__actions"
                     onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
                   >
-                    <Button
-                      className="patients-table__view"
-                      variant="secondary"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenPatient(patient.id);
-                      }}
-                    >
-                      Open review
-                    </Button>
-                    <PatientStatusMenu currentStatus={status} compact />
+                    <div className="patients-table__actions-primary">
+                      <Button
+                        className="patients-table__view"
+                        variant="secondary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenPatient(patient.id);
+                        }}
+                      >
+                        Open review
+                      </Button>
+                    </div>
+                    <div className="patients-table__actions-secondary">
+                      <PatientStatusMenu currentStatus={status} compact />
+                    </div>
                   </div>
                 </td>
               </tr>

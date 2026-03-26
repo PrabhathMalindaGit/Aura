@@ -210,6 +210,10 @@ export function PatientsPage(): JSX.Element {
       : visibleSummary.recentlyActive > 0
         ? `${visibleSummary.recentlyActive} ${visibleSummary.recentlyActive === 1 ? 'patient checked in' : 'patients checked in'} during the last 7 days`
         : 'The current roster view is steady';
+  const workspaceHeaderSupport =
+    workspaceStatusLine === workspaceSupportLine
+      ? workspaceSupportLine
+      : `${workspaceStatusLine}. ${workspaceSupportLine}.`;
   const updatedAtLabel = connection.lastSuccessAt
     ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
         hour: '2-digit',
@@ -463,78 +467,74 @@ export function PatientsPage(): JSX.Element {
         </article>
       </section>
 
-      <section className="patients-roster-note" aria-label="Roster workspace guidance">
-        <div className="patients-roster-note__copy">
-          <p className="patients-roster-note__eyebrow">Roster workspace</p>
-          <p className="patients-roster-note__text">
-            Use the roster to decide which patient needs deeper review next.
-          </p>
-        </div>
-        <div className="patients-roster-note__facts" aria-live="polite">
-          <span className="patients-roster-note__fact">{rosterViewLabel}</span>
-          <span className="patients-roster-note__fact">{reviewBurdenLabel}</span>
-        </div>
-      </section>
-
       <Card
         className="patients-workspace-card"
         title={
           <span className="patients-card-title">
-            Patients
-            <span className="patients-card-title__meta">Broad review</span>
+            <span className="patients-card-title__eyebrow">Roster workspace</span>
+            <span className="patients-card-title__row">
+              <span className="patients-card-title__text">Patients</span>
+              <span className="patients-card-title__meta">{rosterViewLabel}</span>
+            </span>
+            <span className="patients-card-title__support">{workspaceHeaderSupport}</span>
           </span>
         }
         action={
-          <Button
-            className="patients-workspace-card__refresh"
-            variant="secondary"
-            onClick={() => {
-              void patientsQuery.refetch();
-            }}
-            disabled={patientsQuery.isFetching}
-          >
-            {patientsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
-          </Button>
+          <div className="patients-workspace-card__header-meta">
+            <div className="patients-workspace-card__facts" aria-live="polite">
+              <span className="patients-workspace-card__fact">{visibleSummary.needsReview} need review</span>
+              <span className="patients-workspace-card__fact">{visibleSummary.openAlerts} with alerts</span>
+              <span className="patients-workspace-card__fact">{visibleSummary.recentlyActive} active 7d</span>
+            </div>
+            <Button
+              className="patients-workspace-card__refresh"
+              variant="secondary"
+              onClick={() => {
+                void patientsQuery.refetch();
+              }}
+              disabled={patientsQuery.isFetching}
+            >
+              {patientsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
         }
       >
         <Stack gap="4">
           <div className="patients-workspace-card__controls">
-            <div className="patients-workspace-card__context">
-              <p className="patients-workspace-card__status-line" aria-live="polite">
-                {rosterViewLabel} · {workspaceStatusLine}
-              </p>
-              <p className="patients-workspace-card__support-line" aria-live="polite">
-                {workspaceSupportLine}
-              </p>
-            </div>
-            <div className="patients-triage-presets" role="group" aria-label="Quick triage views">
-              <span className="patients-triage-presets__label">Quick triage views</span>
-              <div className="patients-triage-presets__items">
-                {PATIENT_TRIAGE_PRESETS.map((preset) => {
-                  const isActive = activeTriagePreset?.id === preset.id;
+            <div className="patients-workspace-card__control-overview">
+              <div className="patients-triage-presets" role="group" aria-label="Quick triage views">
+                <span className="patients-triage-presets__label">Quick triage views</span>
+                <div className="patients-triage-presets__items">
+                  {PATIENT_TRIAGE_PRESETS.map((preset) => {
+                    const isActive = activeTriagePreset?.id === preset.id;
 
-                  return (
-                    <Button
-                      key={preset.id}
-                      className={`patients-triage-presets__button${
-                        isActive ? ' patients-triage-presets__button--active' : ''
-                      }`}
-                      variant={isActive ? 'secondary' : 'ghost'}
-                      size="sm"
-                      aria-pressed={isActive}
-                      onClick={() => {
-                        applyNonSearchFilters(preset.filters);
-                      }}
-                    >
-                      {preset.label}
-                    </Button>
-                  );
-                })}
+                    return (
+                      <Button
+                        key={preset.id}
+                        className={`patients-triage-presets__button${
+                          isActive ? ' patients-triage-presets__button--active' : ''
+                        }`}
+                        variant={isActive ? 'secondary' : 'ghost'}
+                        size="sm"
+                        aria-pressed={isActive}
+                        onClick={() => {
+                          applyNonSearchFilters(preset.filters);
+                        }}
+                      >
+                        {preset.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="patients-roster-cues" aria-label="Roster cues guide">
+                <p className="patients-roster-cues__eyebrow">Roster cues</p>
+                <div className="patients-roster-cues__items">
+                  <span className="patients-roster-cues__item">Alert burden shows current open-alert count only</span>
+                  <span className="patients-roster-cues__item">Pain level shows the latest reported score only</span>
+                </div>
               </div>
             </div>
-            <p className="patients-queue-intro">
-              Scan identity, recent activity, alert burden, pain level, and the next review step from one roster view.
-            </p>
             {comparePatients.length > 0 ? (
               <div
                 className="patients-compare-tray"
@@ -575,15 +575,6 @@ export function PatientsPage(): JSX.Element {
                 </div>
               </div>
             ) : null}
-            <div className="patients-roster-cues" aria-label="Roster cues guide">
-              <p className="patients-roster-cues__eyebrow">Roster cues</p>
-              <div className="patients-roster-cues__items">
-                <span className="patients-roster-cues__item">Alert burden shows count magnitude only</span>
-                <span className="patients-roster-cues__item">
-                  Pain level: <strong>7+ elevated</strong> · <strong>4-6.9 moderate</strong> · <strong>under 4 lower</strong>
-                </span>
-              </div>
-            </div>
             <PatientsFiltersBar
               filters={filters}
               onSearchChange={(search) => {

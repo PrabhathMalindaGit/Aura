@@ -212,6 +212,12 @@
   --control-surface-height: 46px;
   --control-chip-gap: var(--space-sm);
   --control-chip-padding-x: var(--space-3);
+  --queue-summary-min-height: 4.4rem;
+  --queue-control-band-padding: clamp(12px, 0.95vw, 16px);
+  --queue-control-band-gap: clamp(10px, 0.8vw, 14px);
+  --queue-fact-height: 1.9rem;
+  --queue-row-accent-width: 3px;
+  --queue-secondary-action-height: 34px;
   --action-height-sm: 38px;
   --action-height-md: 44px;
   --action-height-lg: 48px;

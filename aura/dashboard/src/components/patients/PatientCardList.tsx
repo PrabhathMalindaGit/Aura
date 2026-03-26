@@ -95,27 +95,31 @@ export function PatientCardList({
               </div>
 
               <div className="patients-card-list__actions">
-                <Button
-                  className="patients-card-list__view"
-                  variant="secondary"
-                  fullWidth
-                  onClick={() => onOpenPatient(patient.id)}
-                >
-                  Open review
-                </Button>
-                <Button
-                  className="patients-card-list__compare"
-                  variant={isSelectedForCompare ? 'secondary' : 'ghost'}
-                  size="sm"
-                  disabled={compareDisabled}
-                  onClick={() => onToggleComparePatient(patient.id)}
-                  aria-label={`${
-                    isSelectedForCompare ? 'Remove' : 'Add'
-                  } ${displayName} ${isSelectedForCompare ? 'from' : 'to'} compare`}
-                >
-                  {isSelectedForCompare ? 'Remove from compare' : 'Add to compare'}
-                </Button>
-                <PatientStatusMenu currentStatus={status} compact />
+                <div className="patients-card-list__actions-primary">
+                  <Button
+                    className="patients-card-list__view"
+                    variant="secondary"
+                    fullWidth
+                    onClick={() => onOpenPatient(patient.id)}
+                  >
+                    Open review
+                  </Button>
+                </div>
+                <div className="patients-card-list__actions-secondary">
+                  <Button
+                    className="patients-card-list__compare"
+                    variant={isSelectedForCompare ? 'secondary' : 'ghost'}
+                    size="sm"
+                    disabled={compareDisabled}
+                    onClick={() => onToggleComparePatient(patient.id)}
+                    aria-label={`${
+                      isSelectedForCompare ? 'Remove' : 'Add'
+                    } ${displayName} ${isSelectedForCompare ? 'from' : 'to'} compare`}
+                  >
+                    {isSelectedForCompare ? 'Remove from compare' : 'Add to compare'}
+                  </Button>
+                  <PatientStatusMenu currentStatus={status} compact />
+                </div>
               </div>
             </div>
           </Card>

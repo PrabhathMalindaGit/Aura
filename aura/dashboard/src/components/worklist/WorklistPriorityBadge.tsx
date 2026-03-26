@@ -1,3 +1,4 @@
+import { cn } from '../../utils/cn';
 import { Badge } from '../ui/Badge';
 import type { WorklistRecord } from '../../types/models';
 import { worklistPriorityLabel, worklistPriorityTone } from '../../utils/worklist';
@@ -12,7 +13,7 @@ export function WorklistPriorityBadge({
   className,
 }: WorklistPriorityBadgeProps): JSX.Element {
   return (
-    <Badge className={className} variant={worklistPriorityTone(item)}>
+    <Badge className={cn('worklist-priority-badge', className)} variant={worklistPriorityTone(item)}>
       {worklistPriorityLabel(item)}
     </Badge>
   );

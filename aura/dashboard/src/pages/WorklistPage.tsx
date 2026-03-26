@@ -321,30 +321,34 @@ export function WorklistPage(): JSX.Element {
         </article>
       </section>
 
-      <section className="worklist-workspace-note" aria-label="Worklist workspace guidance">
-        <div className="worklist-workspace-note__copy">
-          <p className="worklist-workspace-note__eyebrow">Active review workspace</p>
-          <p className="worklist-workspace-note__text">{worklistGuidanceLine}</p>
-        </div>
-        <div className="worklist-workspace-note__facts" aria-live="polite">
-          <span className="worklist-workspace-note__fact">{queueViewLabel}</span>
-          <span className="worklist-workspace-note__fact">{summary.highRisk} high risk</span>
-          <span className="worklist-workspace-note__fact">{summary.needsResponse} need response</span>
-        </div>
-      </section>
-
       <Card
         className="worklist-workspace-card"
         title={
           <span className="worklist-card-title">
-            Active review queue
-            <span className="worklist-card-title__meta">Attention workspace</span>
+            <span className="worklist-card-title__eyebrow">Active review workspace</span>
+            <span className="worklist-card-title__row">
+              <span className="worklist-card-title__text">Active review queue</span>
+              <span className="worklist-card-title__meta">{queueViewLabel}</span>
+            </span>
+            <span className="worklist-card-title__support">{worklistGuidanceLine}</span>
           </span>
         }
         action={
-          <Button variant="ghost" size="sm" onClick={clearSavedWorklistState} disabled={worklistQuery.isFetching}>
-            Clear view
-          </Button>
+          <div className="worklist-workspace-card__header-meta">
+            <div className="worklist-workspace-card__facts" aria-live="polite">
+              <span className="worklist-workspace-card__fact">{summary.highRisk} high risk</span>
+              <span className="worklist-workspace-card__fact">{summary.needsResponse} need response</span>
+              <span className="worklist-workspace-card__fact">{summary.openAlerts} with alerts</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSavedWorklistState}
+              disabled={worklistQuery.isFetching}
+            >
+              Clear view
+            </Button>
+          </div>
         }
       >
         <Stack gap="4">

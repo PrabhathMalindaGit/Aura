@@ -24479,3 +24479,961 @@ button.dashboard-summary-card:hover {
     align-items: stretch;
   }
 }
+
+/* Pass 10B: Worklist queue hierarchy */
+
+.worklist-page {
+  gap: var(--space-3);
+}
+
+.worklist-summary-strip {
+  gap: clamp(10px, 0.85vw, 12px);
+  padding: var(--queue-control-band-padding);
+}
+
+.worklist-summary-strip__item {
+  min-height: var(--queue-summary-min-height);
+  padding: 0.85rem 0.95rem;
+  gap: 0.35rem;
+}
+
+.worklist-summary-strip__value {
+  font-size: clamp(1.02rem, 1.45vw, 1.18rem);
+}
+
+.worklist-summary-strip__hint {
+  max-width: 26ch;
+}
+
+.worklist-workspace-card {
+  overflow: hidden;
+}
+
+.worklist-workspace-card .card__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.worklist-workspace-card .card__body {
+  padding: 0 var(--space-5) var(--space-5);
+  gap: var(--space-4);
+}
+
+.worklist-card-title {
+  display: grid;
+  gap: 0.38rem;
+  max-width: 58ch;
+}
+
+.worklist-card-title__eyebrow {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.worklist-card-title__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.worklist-card-title__text {
+  color: hsl(var(--foreground));
+  font-size: clamp(1rem, 1.08vw, 1.08rem);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.worklist-card-title__meta {
+  min-height: var(--queue-fact-height);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid hsl(var(--primary) / 0.18);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--primary) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  color: hsl(var(--foreground) / 0.82);
+  font-size: 0.7rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.worklist-card-title__support {
+  color: hsl(var(--foreground) / 0.74);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.worklist-workspace-card__header-meta {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: end;
+}
+
+.worklist-workspace-card__facts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.worklist-workspace-card__fact {
+  min-height: var(--queue-fact-height);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+  color: hsl(var(--foreground) / 0.72);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: var(--font-medium);
+  font-feature-settings: var(--nums);
+}
+
+.worklist-workspace-card__controls {
+  padding: var(--queue-control-band-padding);
+  gap: var(--queue-control-band-gap);
+  border-radius: calc(var(--radius-xl) - 7px);
+}
+
+.worklist-filters {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: var(--queue-control-band-gap);
+}
+
+.worklist-filters__clusters {
+  gap: var(--queue-control-band-gap);
+}
+
+.worklist-filters__row {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1.25fr) minmax(16rem, 0.95fr);
+  gap: var(--queue-control-band-gap);
+}
+
+.worklist-filters__cluster {
+  padding: 0.78rem 0.9rem;
+  border-radius: calc(var(--radius-lg) - 4px);
+  border: 1px solid hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+  gap: 0.55rem;
+}
+
+.worklist-filters__cluster-heading {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.worklist-filters__cluster-label {
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.worklist-filters__cluster-support {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  max-width: 46ch;
+}
+
+.worklist-filters__search,
+.worklist-filters__control {
+  gap: 0.3rem;
+}
+
+.worklist-filters__label {
+  color: hsl(var(--foreground) / 0.56);
+}
+
+.worklist-filters__select-row {
+  gap: 0.65rem;
+}
+
+.worklist-filters__control {
+  min-width: 11rem;
+}
+
+.worklist-filters__toggle {
+  min-height: 2.3rem;
+}
+
+.worklist-filters__reset {
+  margin-left: 0;
+}
+
+.worklist-priority-badge.badge {
+  min-height: 1.7rem;
+  padding: 0 0.7rem;
+  font-size: 0.68rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.worklist-table-wrap {
+  border-radius: calc(var(--radius-xl) - 6px);
+}
+
+.worklist-table__head {
+  padding: 0 0 0.72rem;
+}
+
+.worklist-table__row {
+  position: relative;
+}
+
+.worklist-table__row--high-risk {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.82);
+}
+
+.worklist-table__row--response:not(.worklist-table__row--high-risk) {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--warning) / 0.76);
+}
+
+.worklist-table__cell {
+  padding: 1rem 0.85rem 1rem 0;
+}
+
+.worklist-table__cell--patient {
+  padding-left: var(--space-1);
+}
+
+.worklist-table__avatar,
+.worklist-card__avatar {
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.18), transparent 62%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.08));
+  color: hsl(var(--primary));
+}
+
+.worklist-table__patient-meta,
+.worklist-card__patient-meta {
+  gap: 0.35rem 0.55rem;
+}
+
+.worklist-table__reason,
+.worklist-card__reason {
+  gap: 0.45rem;
+}
+
+.worklist-table__reason-top,
+.worklist-card__reason-top {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.worklist-table__reason-title,
+.worklist-card__reason-title {
+  max-width: 30ch;
+}
+
+.worklist-table__signals,
+.worklist-card__signals {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.worklist-table__signal-group,
+.worklist-card__signal-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.worklist-table__signal-group--primary .badge,
+.worklist-card__signal-group--primary .badge {
+  font-weight: var(--font-semibold);
+}
+
+.worklist-table__activity,
+.worklist-card__activity {
+  gap: 0.7rem;
+  opacity: 1;
+}
+
+.worklist-table__activity-highlights,
+.worklist-card__activity-highlights {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.46);
+}
+
+.worklist-table__activity-line {
+  gap: var(--space-2);
+}
+
+.worklist-table__activity-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 0.75rem;
+}
+
+.worklist-table__activity-stat,
+.worklist-card__activity-stat {
+  display: grid;
+  gap: 0.16rem;
+}
+
+.worklist-table__activity-label,
+.worklist-card__activity dt {
+  color: hsl(var(--foreground) / 0.5);
+  font-size: 0.63rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.worklist-table__activity-value,
+.worklist-table__activity-line time,
+.worklist-table__activity-line span:last-child,
+.worklist-card__activity dd {
+  color: hsl(var(--foreground) / 0.86);
+  font-weight: var(--font-medium);
+}
+
+.worklist-table__actions,
+.worklist-card__actions {
+  gap: 0.55rem;
+}
+
+.worklist-table__actions-primary .btn,
+.worklist-card__actions-primary .btn {
+  min-height: 2.5rem;
+}
+
+.worklist-table__actions-secondary .btn,
+.worklist-card__actions-secondary .btn {
+  min-height: var(--queue-secondary-action-height);
+  padding-inline: 0.8rem;
+  font-size: 0.75rem;
+}
+
+.worklist-card-list {
+  gap: 0.85rem;
+}
+
+.worklist-card {
+  position: relative;
+}
+
+.worklist-card--high-risk {
+  box-shadow:
+    inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.78),
+    0 16px 30px hsl(248 30% 20% / 0.07),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.worklist-card--response:not(.worklist-card--high-risk) {
+  box-shadow:
+    inset var(--queue-row-accent-width) 0 0 hsl(var(--warning) / 0.72),
+    0 16px 30px hsl(248 30% 20% / 0.07),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.worklist-card__body {
+  gap: 0.95rem;
+}
+
+.worklist-card__header {
+  justify-content: flex-start;
+}
+
+.worklist-card__activity {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.85rem;
+}
+
+.worklist-card__activity-highlights {
+  grid-column: 1 / -1;
+}
+
+.worklist-card__activity dt {
+  margin: 0;
+}
+
+.worklist-card__activity dd {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.worklist-card__actions-secondary {
+  justify-content: flex-start;
+}
+
+.dark .worklist-card-title__meta,
+.dark .worklist-workspace-card__fact {
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .worklist-card-title__support,
+.dark .worklist-filters__cluster-support {
+  color: hsl(var(--foreground) / 0.78);
+}
+
+.dark .worklist-table__row--high-risk {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.84);
+}
+
+.dark .worklist-table__row--response:not(.worklist-table__row--high-risk) {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--warning) / 0.74);
+}
+
+.dark .worklist-card--high-risk {
+  box-shadow:
+    inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.82),
+    0 18px 32px hsl(224 48% 4% / 0.2),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.dark .worklist-card--response:not(.worklist-card--high-risk) {
+  box-shadow:
+    inset var(--queue-row-accent-width) 0 0 hsl(var(--warning) / 0.74),
+    0 18px 32px hsl(224 48% 4% / 0.2),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.dark .worklist-table__activity-highlights,
+.dark .worklist-card__activity-highlights {
+  border-bottom-color: hsl(var(--border) / 0.42);
+}
+
+@media (max-width: 920px) {
+  .worklist-workspace-card .card__header {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-workspace-card__header-meta,
+  .worklist-workspace-card__facts {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .worklist-filters__row {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-filters__select-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .worklist-filters__reset {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 680px) {
+  .worklist-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .worklist-summary-strip__item--total {
+    grid-column: 1 / -1;
+  }
+
+  .worklist-filters__select-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .worklist-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-workspace-card .card__header,
+  .worklist-workspace-card .card__body {
+    padding-inline: var(--space-4);
+  }
+
+  .worklist-card__activity {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-card__actions-secondary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Pass 10C: Patients queue hierarchy */
+
+.patients-page {
+  gap: var(--space-3);
+}
+
+.patients-summary-strip {
+  gap: clamp(10px, 0.85vw, 12px);
+  padding: var(--queue-control-band-padding);
+}
+
+.patients-summary-strip__item {
+  min-height: var(--queue-summary-min-height);
+  padding: 0.85rem 0.95rem;
+  gap: 0.35rem;
+}
+
+.patients-summary-strip__hint {
+  max-width: 24ch;
+}
+
+.patients-workspace-card {
+  overflow: hidden;
+}
+
+.patients-workspace-card .card__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.patients-workspace-card .card__body {
+  padding: 0 var(--space-5) var(--space-5);
+  gap: var(--space-4);
+}
+
+.patients-card-title {
+  display: grid;
+  gap: 0.38rem;
+  max-width: 60ch;
+}
+
+.patients-card-title__eyebrow {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.patients-card-title__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.patients-card-title__text {
+  color: hsl(var(--foreground));
+  font-size: clamp(1rem, 1.08vw, 1.08rem);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.patients-card-title__meta {
+  min-height: var(--queue-fact-height);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid hsl(var(--primary) / 0.18);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--primary) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  color: hsl(var(--foreground) / 0.82);
+  font-size: 0.7rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.patients-card-title__support {
+  color: hsl(var(--foreground) / 0.74);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.patients-workspace-card__header-meta {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: end;
+}
+
+.patients-workspace-card__facts {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.patients-workspace-card__fact {
+  min-height: var(--queue-fact-height);
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+  color: hsl(var(--foreground) / 0.72);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: var(--font-medium);
+  font-feature-settings: var(--nums);
+}
+
+.patients-workspace-card__controls {
+  padding: var(--queue-control-band-padding);
+  gap: var(--queue-control-band-gap);
+  border-radius: calc(var(--radius-xl) - 7px);
+}
+
+.patients-workspace-card__control-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: var(--queue-control-band-gap);
+}
+
+.patients-triage-presets,
+.patients-roster-cues {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.78rem 0.9rem;
+  border-radius: calc(var(--radius-lg) - 4px);
+  border: 1px solid hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.patients-triage-presets__label,
+.patients-roster-cues__eyebrow {
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.patients-roster-cues__item {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 84%);
+  color: hsl(var(--foreground) / 0.74);
+}
+
+.patients-compare-tray {
+  padding: 0.82rem 0.95rem;
+  border-radius: calc(var(--radius-xl) - 7px);
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.88);
+}
+
+.patients-compare-tray__count {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--primary) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  color: hsl(var(--foreground) / 0.86);
+  border: 1px solid hsl(var(--primary) / 0.18);
+}
+
+.patients-compare-tray__chip {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 84%);
+}
+
+.patients-filters {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: var(--queue-control-band-gap);
+}
+
+.patients-filters__clusters {
+  gap: var(--queue-control-band-gap);
+}
+
+.patients-filters__row {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1.2fr) minmax(22rem, 1fr);
+  gap: var(--queue-control-band-gap);
+}
+
+.patients-filters__cluster {
+  padding: 0.78rem 0.9rem;
+  border-radius: calc(var(--radius-lg) - 4px);
+  gap: 0.55rem;
+}
+
+.patients-filters__cluster-heading {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.patients-filters__cluster-label {
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.patients-filters__cluster-support {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  max-width: 46ch;
+}
+
+.patients-filters__search,
+.patients-filters__control {
+  gap: 0.3rem;
+}
+
+.patients-filters__label {
+  color: hsl(var(--foreground) / 0.56);
+}
+
+.patients-filters__cluster-body--view {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 0.65rem;
+}
+
+.patients-filters__cluster-body--workflow {
+  grid-template-columns: 1fr;
+}
+
+.patients-filters__toggle-group {
+  gap: 0.55rem;
+}
+
+.patients-filters__toggle {
+  min-height: 2.3rem;
+  padding-inline: 0.9rem;
+}
+
+.patients-filters__reset.btn {
+  margin-left: 0;
+  min-height: 2.5rem;
+}
+
+.patients-table-wrap {
+  border-radius: calc(var(--radius-xl) - 6px);
+}
+
+.patients-table__row {
+  position: relative;
+}
+
+.patients-table__row--attention {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.72);
+}
+
+.patients-table__row--missed:not(.patients-table__row--attention) {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--warning) / 0.68);
+}
+
+.patients-table__row--attention.patients-table__row--missed {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.72);
+}
+
+.patients-table__patient-support {
+  max-width: 28ch;
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.patients-table__checkin-time {
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.patients-table__actions {
+  display: grid;
+  align-content: start;
+  justify-content: end;
+  gap: 0.45rem;
+}
+
+.patients-table__actions-primary,
+.patients-table__actions-secondary {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.patients-table__actions-primary .btn {
+  min-width: 7rem;
+}
+
+.patients-table__actions-secondary .patient-status-menu--compact {
+  justify-content: center;
+}
+
+.patients-card-list {
+  gap: 0.85rem;
+}
+
+.patients-card-list__card {
+  overflow: hidden;
+}
+
+.patients-card-list__body {
+  gap: 0.85rem;
+}
+
+.patients-card-list__metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.85rem;
+}
+
+.patients-card-list__metric:first-child {
+  grid-column: 1 / -1;
+}
+
+.patients-card-list__metric {
+  padding-top: 0.55rem;
+}
+
+.patients-card-list__actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.patients-card-list__actions-primary,
+.patients-card-list__actions-secondary {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.patients-card-list__actions-secondary .patient-status-menu--compact {
+  justify-content: center;
+}
+
+.patients-card-list__compare {
+  flex: 1 1 12rem;
+}
+
+.patient-status-menu--compact {
+  min-height: var(--queue-secondary-action-height);
+  border-radius: 999px;
+}
+
+.patient-alert-burden__count,
+.patient-pain-level__value {
+  font-size: 0.95rem;
+}
+
+.dark .patients-card-title__meta,
+.dark .patients-workspace-card__fact,
+.dark .patients-compare-tray__count,
+.dark .patients-compare-tray__chip {
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.32)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .patients-card-title__support,
+.dark .patients-filters__cluster-support,
+.dark .patients-table__patient-support {
+  color: hsl(var(--foreground) / 0.78);
+}
+
+.dark .patients-triage-presets,
+.dark .patients-roster-cues,
+.dark .patients-compare-tray {
+  border-color: hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .patients-table__row--attention {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--danger) / 0.78);
+}
+
+.dark .patients-table__row--missed:not(.patients-table__row--attention) {
+  box-shadow: inset var(--queue-row-accent-width) 0 0 hsl(var(--warning) / 0.72);
+}
+
+@media (max-width: 1024px) {
+  .patients-workspace-card__control-overview,
+  .patients-filters__row {
+    grid-template-columns: 1fr;
+  }
+
+  .patients-filters__cluster-body--view {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patients-filters__reset.btn {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 920px) {
+  .patients-workspace-card .card__header {
+    grid-template-columns: 1fr;
+  }
+
+  .patients-workspace-card__header-meta,
+  .patients-workspace-card__facts {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 680px) {
+  .patients-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patients-summary-strip__item--total,
+  .patients-summary-strip__item--attention {
+    grid-column: 1 / -1;
+  }
+
+  .patients-filters__cluster-body--view {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .patients-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .patients-workspace-card .card__header,
+  .patients-workspace-card .card__body {
+    padding-inline: var(--space-4);
+  }
+
+  .patients-card-list__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .patients-card-list__actions-secondary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -105,6 +105,8 @@ export function WorklistTable({
             const hasCommunicationAction =
               item.communicationNeedsResponse && item.patientId.trim().length > 0;
             const promBadgeLabel = formatPromBadgeLabel(item);
+            const reviewLabel = getWorklistReviewLabel(item);
+            const reviewSupport = getWorklistReviewSupport(item);
             return (
               <tr
                 key={item.patientId}
@@ -152,63 +154,75 @@ export function WorklistTable({
                 <td className="worklist-table__cell worklist-table__cell--reason">
                   <div className="worklist-table__reason">
                     <div className="worklist-table__reason-top">
-                      <WorklistPriorityBadge item={item} />
+                      <WorklistPriorityBadge className="worklist-table__priority" item={item} />
                     </div>
-                    <strong className="worklist-table__reason-title">{getWorklistReviewLabel(item)}</strong>
-                    <p className="worklist-table__reason-support">{getWorklistReviewSupport(item)}</p>
+                    <strong className="worklist-table__reason-title">{reviewLabel}</strong>
+                    <p className="worklist-table__reason-support">{reviewSupport}</p>
                   </div>
                 </td>
 
                 <td className="worklist-table__cell worklist-table__cell--signals">
                   <div className="worklist-table__signals">
-                    <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
-                      {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
-                    </Badge>
-                    {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
-                    {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                    {item.activeTaskCount > 0 ? <Badge variant="neutral">{item.activeTaskCount} tasks</Badge> : null}
-                    {item.missedCheckins.flag ? (
-                      <Badge variant="warning">Missed {item.missedCheckins.count}</Badge>
-                    ) : null}
-                    {promBadgeLabel ? (
-                      <Badge variant={item.proms?.overdueCount ? 'warning' : 'default'}>{promBadgeLabel}</Badge>
-                    ) : null}
-                    {hasAppointment ? <Badge variant="default">Appointment</Badge> : null}
+                    <div className="worklist-table__signal-group worklist-table__signal-group--primary">
+                      <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
+                        {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
+                      </Badge>
+                      {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                      {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
+                    </div>
+                    <div className="worklist-table__signal-group worklist-table__signal-group--secondary">
+                      {item.activeTaskCount > 0 ? <Badge variant="neutral">{item.activeTaskCount} tasks</Badge> : null}
+                      {item.missedCheckins.flag ? (
+                        <Badge variant="warning">Missed {item.missedCheckins.count}</Badge>
+                      ) : null}
+                      {promBadgeLabel ? (
+                        <Badge variant={item.proms?.overdueCount ? 'warning' : 'default'}>{promBadgeLabel}</Badge>
+                      ) : null}
+                      {hasAppointment ? <Badge variant="default">Appointment</Badge> : null}
+                    </div>
                   </div>
                 </td>
 
                 <td className="worklist-table__cell worklist-table__cell--activity">
                   <div className="worklist-table__activity">
-                    <div className="worklist-table__activity-line">
-                      <span className="worklist-table__activity-label">Last check-in</span>
-                      <time title={formatDashboardDateTime(item.lastCheckinAt)}>{formatDashboardRelativeTime(item.lastCheckinAt)}</time>
-                    </div>
-                    <div className="worklist-table__activity-line">
-                      <span className="worklist-table__activity-label">Pain</span>
-                      <span>{asPainText(item.lastPainScore)}</span>
-                    </div>
-                    <div className="worklist-table__activity-line">
-                      <span className="worklist-table__activity-label">Exercises</span>
-                      <span>{formatExercisesPct(item.adherenceSummary.exercisesPct)}</span>
-                    </div>
-                    <div className="worklist-table__activity-line">
-                      <span className="worklist-table__activity-label">Medication</span>
-                      <span>
-                        {typeof item.adherenceSummary.medicationTaken === 'boolean'
-                          ? item.adherenceSummary.medicationTaken
-                            ? 'Taken'
-                            : 'Missed'
-                          : '—'}
-                      </span>
-                    </div>
-                    {hasAppointment ? (
-                      <div className="worklist-table__activity-line">
-                        <span className="worklist-table__activity-label">Next appointment</span>
-                        <time title={formatDashboardDateTime(item.nextAppointmentAt)}>
-                          {formatDashboardDateTime(item.nextAppointmentAt)}
+                    <div className="worklist-table__activity-highlights">
+                      <div className="worklist-table__activity-line worklist-table__activity-line--lead">
+                        <span className="worklist-table__activity-label">Last check-in</span>
+                        <time title={formatDashboardDateTime(item.lastCheckinAt)}>
+                          {formatDashboardRelativeTime(item.lastCheckinAt)}
                         </time>
                       </div>
-                    ) : null}
+                      {hasAppointment ? (
+                        <div className="worklist-table__activity-line">
+                          <span className="worklist-table__activity-label">Next appointment</span>
+                          <time title={formatDashboardDateTime(item.nextAppointmentAt)}>
+                            {formatDashboardDateTime(item.nextAppointmentAt)}
+                          </time>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="worklist-table__activity-metrics">
+                      <div className="worklist-table__activity-stat">
+                        <span className="worklist-table__activity-label">Pain</span>
+                        <span className="worklist-table__activity-value">{asPainText(item.lastPainScore)}</span>
+                      </div>
+                      <div className="worklist-table__activity-stat">
+                        <span className="worklist-table__activity-label">Exercises</span>
+                        <span className="worklist-table__activity-value">
+                          {formatExercisesPct(item.adherenceSummary.exercisesPct)}
+                        </span>
+                      </div>
+                      <div className="worklist-table__activity-stat">
+                        <span className="worklist-table__activity-label">Medication</span>
+                        <span className="worklist-table__activity-value">
+                          {typeof item.adherenceSummary.medicationTaken === 'boolean'
+                            ? item.adherenceSummary.medicationTaken
+                              ? 'Taken'
+                              : 'Missed'
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </td>
 

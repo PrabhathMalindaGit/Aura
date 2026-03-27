@@ -35616,3 +35616,881 @@ button.dashboard-summary-strip__item:hover {
     gap: 0.5rem;
   }
 }
+
+/* Aura Clinician pass 10: patient detail cockpit redesign */
+
+.patient-detail-page {
+  gap: clamp(20px, 2vw, 28px);
+}
+
+.patient-detail-page .patient-detail-hero-card {
+  overflow: hidden;
+  border-color: hsl(var(--border) / 0.74);
+  border-radius: calc(var(--radius-2xl) + 2px);
+  background:
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.16), transparent 34%),
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.93)),
+    linear-gradient(150deg, hsl(var(--primary) / 0.05), transparent 76%);
+  box-shadow:
+    0 26px 52px hsl(216 36% 18% / 0.08),
+    0 10px 24px hsl(216 36% 18% / 0.05),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.patient-detail-page .patient-detail-hero-card .card__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) auto;
+  gap: clamp(16px, 2vw, 28px);
+  align-items: start;
+  padding: clamp(20px, 2.2vw, 30px);
+}
+
+.patient-detail-page .patient-detail-hero-card .card__body {
+  padding: 0 clamp(20px, 2.2vw, 30px) clamp(20px, 2.2vw, 30px);
+}
+
+.patient-detail-page .patient-detail-title {
+  gap: var(--space-4);
+}
+
+.patient-detail-page .patient-detail-title__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: hsl(var(--foreground) / 0.64);
+}
+
+.patient-detail-page .patient-detail-title__text {
+  font-size: clamp(1.7rem, 2.9vw, 2.4rem);
+  line-height: 1.02;
+}
+
+.patient-detail-page .patient-detail-title__subtitle {
+  max-width: 58ch;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.98rem;
+  line-height: 1.58;
+}
+
+.patient-detail-page .patient-detail-header-actions {
+  gap: var(--space-3);
+  min-width: min(26rem, 100%);
+}
+
+.patient-detail-page .patient-detail-window-tabs,
+.patient-detail-page .patient-detail-meta,
+.patient-detail-page .patient-detail-mini-nav {
+  border-color: hsl(var(--border) / 0.66);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  box-shadow:
+    0 12px 24px hsl(216 28% 20% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-detail-window-tabs .tabs {
+  gap: 0.45rem;
+  padding: 0.2rem;
+  background: hsl(var(--muted) / 0.24);
+}
+
+.patient-detail-page .patient-detail-window-tabs .tabs__tab {
+  min-height: 2.25rem;
+  font-size: 0.78rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.02em;
+}
+
+.patient-detail-page .patient-detail-hero-body {
+  gap: var(--space-4);
+}
+
+.patient-detail-page .patient-detail-hero-grid {
+  display: grid;
+  gap: clamp(16px, 2vw, 22px);
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.96fr);
+  align-items: stretch;
+}
+
+.patient-detail-page .patient-detail-current-context,
+.patient-detail-page .patient-detail-cockpit-signals {
+  min-height: 100%;
+  border-color: hsl(var(--border) / 0.62);
+  border-radius: calc(var(--radius-2xl) - 4px);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 82%);
+  box-shadow:
+    0 16px 30px hsl(216 28% 20% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-detail-current-context {
+  gap: var(--space-4);
+  padding: clamp(18px, 2vw, 24px);
+}
+
+.patient-detail-page .patient-detail-current-context__title {
+  font-size: clamp(1.2rem, 1.8vw, 1.45rem);
+  line-height: 1.18;
+}
+
+.patient-detail-page .patient-detail-current-context__text {
+  color: hsl(var(--foreground) / 0.72);
+  font-size: 0.98rem;
+  line-height: 1.58;
+}
+
+.patient-detail-page .patient-detail-current-context__facts {
+  gap: 0.8rem;
+}
+
+.patient-detail-page .patient-detail-current-context__fact {
+  min-height: 5rem;
+  border-radius: 18px;
+  border-color: hsl(var(--border) / 0.58);
+}
+
+.patient-detail-page .patient-detail-cockpit-signals {
+  display: grid;
+  gap: var(--space-4);
+  padding: clamp(18px, 2vw, 24px);
+}
+
+.patient-detail-page .patient-detail-cockpit-signals__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.patient-detail-page .patient-detail-cockpit-signals__eyebrow,
+.patient-detail-page .patient-priority-list__eyebrow,
+.patient-detail-page .patient-recommended-actions__eyebrow,
+.patient-detail-page .recent-alert-list__eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.62);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .patient-detail-cockpit-signals__title,
+.patient-detail-page .patient-priority-list__headline,
+.patient-detail-page .patient-recommended-actions__headline,
+.patient-detail-page .recent-alert-list__headline {
+  font-size: 1.08rem;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.2;
+}
+
+.patient-detail-page .patient-detail-cockpit-signals__note,
+.patient-detail-page .patient-priority-list__hint,
+.patient-detail-page .patient-recommended-actions__hint,
+.patient-detail-page .recent-alert-list__hint {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.62);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.patient-detail-page .patient-detail-cockpit-signals__grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page .patient-detail-cockpit-signal {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  border: 1px solid hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-detail-cockpit-signal::before,
+.patient-detail-page .patient-priority-item::before,
+.patient-detail-page .patient-recommended-action::before,
+.patient-detail-page .recent-alert-list__item::before,
+.patient-detail-page .patient-task-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: hsl(var(--border) / 0.56);
+}
+
+.patient-detail-page .patient-detail-cockpit-signal__label {
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .patient-detail-cockpit-signal__value {
+  font-size: 1.05rem;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-page .patient-detail-cockpit-signal__note {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.62);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.patient-detail-page .patient-detail-cockpit-signal--critical,
+.patient-detail-page .patient-priority-item--danger,
+.patient-detail-page .recent-alert-list__item--critical,
+.patient-detail-page .patient-task-item--danger {
+  border-color: hsl(var(--danger) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--danger) / 0.08), hsl(var(--card) / 0.99)),
+    linear-gradient(145deg, hsl(var(--danger) / 0.05), transparent 82%);
+}
+
+.patient-detail-page .patient-detail-cockpit-signal--critical::before,
+.patient-detail-page .patient-priority-item--danger::before,
+.patient-detail-page .recent-alert-list__item--critical::before,
+.patient-detail-page .patient-task-item--danger::before {
+  background: hsl(var(--danger));
+}
+
+.patient-detail-page .patient-detail-cockpit-signal--warning,
+.patient-detail-page .patient-priority-item--warning,
+.patient-detail-page .patient-recommended-action--warning,
+.patient-detail-page .recent-alert-list__item--warning,
+.patient-detail-page .patient-task-item--warning {
+  border-color: hsl(var(--warning) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.08), hsl(var(--card) / 0.99)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.05), transparent 82%);
+}
+
+.patient-detail-page .patient-detail-cockpit-signal--warning::before,
+.patient-detail-page .patient-priority-item--warning::before,
+.patient-detail-page .patient-recommended-action--warning::before,
+.patient-detail-page .recent-alert-list__item--warning::before,
+.patient-detail-page .patient-task-item--warning::before {
+  background: hsl(var(--warning));
+}
+
+.patient-detail-page .patient-detail-cockpit-signal--active::before,
+.patient-detail-page .patient-recommended-action--danger::before {
+  background: hsl(var(--primary));
+}
+
+.patient-detail-page .patient-detail-cockpit-signal--stable::before,
+.patient-detail-page .patient-task-item--completed::before {
+  background: hsl(var(--success));
+}
+
+.patient-detail-page .patient-detail-mini-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: clamp(16px, 1.8vw, 22px);
+  border-radius: calc(var(--radius-2xl) - 4px);
+}
+
+.patient-detail-page .patient-detail-mini-nav__actions {
+  gap: 0.55rem;
+}
+
+.patient-detail-page .patient-detail-mini-nav__button.btn {
+  min-height: 2.35rem;
+  border-radius: 999px;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout,
+.patient-detail-page .patient-detail-cockpit-layout__main,
+.patient-detail-page .patient-detail-cockpit-layout__support,
+.patient-detail-page .patient-detail-clinical-zone {
+  display: grid;
+  gap: clamp(18px, 2vw, 24px);
+}
+
+.patient-detail-page .patient-detail-cockpit-layout {
+  grid-template-columns: minmax(0, 1.42fr) minmax(320px, 0.92fr);
+  align-items: start;
+}
+
+.patient-detail-page .patient-detail-clinical-zone {
+  grid-template-columns: minmax(0, 1.48fr) minmax(300px, 0.9fr);
+  align-items: start;
+}
+
+.patient-detail-page #patient-summary-section {
+  grid-column: 2;
+  align-self: start;
+}
+
+.patient-detail-page #patient-trends-section {
+  grid-column: 1;
+}
+
+.patient-detail-page .patient-detail-section-block--cockpit,
+.patient-detail-page .patient-detail-summary-shell--cockpit,
+.patient-detail-page .patient-detail-section-block--workflow-support,
+.patient-detail-page .patient-detail-section-block--care-review,
+.patient-detail-page .patient-detail-reference-bridge {
+  padding: clamp(18px, 2vw, 26px);
+  border-radius: calc(var(--radius-2xl) + 2px);
+}
+
+.patient-detail-page .patient-detail-section-block--cockpit {
+  box-shadow:
+    0 22px 42px hsl(216 28% 20% / 0.06),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-detail-section-block--workflow-support {
+  border-color: hsl(var(--border) / 0.72);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 82%);
+  box-shadow:
+    0 18px 34px hsl(216 28% 20% / 0.06),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-detail-section-block--care-review {
+  border-color: hsl(var(--border) / 0.62);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.14)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+}
+
+.patient-detail-page .patient-detail-reference-bridge {
+  border-color: hsl(var(--border) / 0.56);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.1)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.015), transparent 86%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.9);
+}
+
+.patient-detail-page .patient-detail-section-block--reference {
+  border-color: hsl(var(--border) / 0.48);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.012), transparent 86%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.9);
+}
+
+.patient-detail-page .patient-detail-section-header {
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom-color: hsl(var(--border) / 0.34);
+}
+
+.patient-detail-page .patient-detail-section-title {
+  font-size: clamp(1.22rem, 1.9vw, 1.55rem);
+  line-height: 1.12;
+}
+
+.patient-detail-page .patient-detail-section-note {
+  max-width: 56ch;
+  color: hsl(var(--foreground) / 0.64);
+}
+
+.patient-detail-page .patient-priority-list,
+.patient-detail-page .patient-recommended-actions,
+.patient-detail-page .recent-alert-list,
+.patient-detail-page .patient-task-groups,
+.patient-detail-page .patient-communication-list,
+.patient-detail-page .patient-appointment-panel {
+  gap: 0.9rem;
+}
+
+.patient-detail-page .patient-priority-list__intro,
+.patient-detail-page .patient-recommended-actions__intro,
+.patient-detail-page .recent-alert-list__intro,
+.patient-detail-page .patient-task-groups__overview,
+.patient-detail-page .patient-communication-overview {
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.14)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.035), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-priority-list__intro,
+.patient-detail-page .patient-recommended-actions__intro,
+.patient-detail-page .recent-alert-list__intro {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.05rem;
+}
+
+.patient-detail-page .patient-priority-item,
+.patient-detail-page .patient-recommended-action {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  padding: 1rem 1rem 1rem 1.15rem;
+  border-radius: 20px;
+  border-color: hsl(var(--border) / 0.64);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-priority-item__title,
+.patient-detail-page .patient-recommended-action__title,
+.patient-detail-page .recent-alert-list__title,
+.patient-detail-page .patient-task-item__title,
+.patient-detail-page .patient-appointment-callout__title {
+  font-size: 1.02rem;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.24;
+}
+
+.patient-detail-page .patient-priority-item__reason,
+.patient-detail-page .patient-recommended-action__description,
+.patient-detail-page .patient-task-item__description,
+.patient-detail-page .patient-appointment-callout__note,
+.patient-detail-page .patient-appointment-item__note {
+  color: hsl(var(--foreground) / 0.64);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.patient-detail-page .patient-priority-item__action.btn,
+.patient-detail-page .patient-recommended-action__action.btn {
+  min-width: 8.25rem;
+  align-self: center;
+}
+
+.patient-detail-page .patient-detail-panel--attention-primary {
+  border-color: hsl(var(--warning) / 0.36);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--warning) / 0.04)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.08), transparent 84%);
+}
+
+.patient-detail-page .patient-detail-panel--attention-secondary {
+  border-color: hsl(var(--primary) / 0.26);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--primary) / 0.03)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+}
+
+.patient-detail-page .patient-summary-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page .patient-summary-card {
+  gap: 0.5rem;
+  min-height: 7rem;
+  border-radius: 20px;
+  border-color: hsl(var(--border) / 0.66);
+  padding: 1rem 1.05rem;
+}
+
+.patient-detail-page .patient-summary-card--lead {
+  grid-column: 1 / -1;
+  min-height: 0;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--primary) / 0.05)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+  box-shadow:
+    0 16px 30px hsl(216 28% 20% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-summary-card--lead .patient-summary-card__value {
+  font-size: clamp(1.8rem, 2.3vw, 2.3rem);
+  line-height: 1;
+}
+
+.patient-detail-page .patient-summary-card__label {
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.patient-detail-page .patient-summary-card__caption {
+  color: hsl(var(--foreground) / 0.62);
+}
+
+.patient-detail-page .patient-summary-card__meter {
+  display: grid;
+}
+
+.patient-detail-page .patient-summary-card__meter-track {
+  width: 100%;
+  height: 0.4rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--muted) / 0.5);
+}
+
+.patient-detail-page .patient-summary-card__meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--info)));
+}
+
+.patient-detail-page .patient-detail-clinical-review-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.88fr);
+  align-items: start;
+}
+
+.patient-detail-page .patient-detail-clinical-review-grid__trends,
+.patient-detail-page .patient-detail-clinical-review-grid__alerts {
+  display: grid;
+  gap: 1rem;
+}
+
+.patient-detail-page .trend-chart-card {
+  border-radius: 22px;
+  border-color: hsl(var(--border) / 0.68);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  box-shadow:
+    0 16px 30px hsl(216 28% 20% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .trend-chart__title {
+  gap: 0.35rem;
+}
+
+.patient-detail-page .trend-chart__title span {
+  font-size: 1rem;
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-page .trend-chart__canvas {
+  min-height: 290px;
+}
+
+.patient-detail-page .trend-chart__canvas--expanded {
+  min-height: 380px;
+}
+
+.patient-detail-page .recent-alert-list > ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.patient-detail-page .recent-alert-list__item {
+  position: relative;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1rem 1rem 1.15rem;
+  border: 1px solid hsl(var(--border) / 0.64);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 84%);
+}
+
+.patient-detail-page .recent-alert-list__item--calm::before {
+  background: hsl(var(--primary));
+}
+
+.patient-detail-page .recent-alert-list__eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.patient-detail-page .recent-alert-list__source {
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .recent-alert-list__meta {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.patient-detail-page .recent-alert-list__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.patient-detail-page .patient-task-groups__overview,
+.patient-detail-page .patient-communication-overview {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 1rem;
+}
+
+.patient-detail-page .patient-communication-overview {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page .patient-task-groups__overview-fact,
+.patient-detail-page .patient-communication-overview__fact {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 16px;
+  border: 1px solid hsl(var(--border) / 0.56);
+  background: hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-task-groups__overview-fact span,
+.patient-detail-page .patient-communication-overview__fact span {
+  color: hsl(var(--foreground) / 0.56);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .patient-task-groups__overview-fact strong,
+.patient-detail-page .patient-communication-overview__fact strong {
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.patient-detail-page .patient-task-groups__overview-fact--warning,
+.patient-detail-page .patient-communication-overview__fact--warning {
+  border-color: hsl(var(--warning) / 0.34);
+}
+
+.patient-detail-page .patient-communication-overview__fact--danger {
+  border-color: hsl(var(--danger) / 0.34);
+}
+
+.patient-detail-page .patient-task-item {
+  position: relative;
+  padding-left: 1.15rem;
+}
+
+.patient-detail-page .patient-task-item__actions,
+.patient-detail-page .patient-appointment-list,
+.patient-detail-page .patient-appointment-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.patient-detail-page .patient-communication-timeline {
+  gap: 0.9rem;
+}
+
+.patient-detail-page .patient-communication-timeline__event {
+  border-radius: 20px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-communication-timeline__event--patient {
+  border-color: hsl(var(--warning) / 0.28);
+}
+
+.patient-detail-page .patient-communication-timeline__event--clinician {
+  border-color: hsl(var(--primary) / 0.24);
+}
+
+.patient-detail-page .patient-communication-timeline__body {
+  color: hsl(var(--foreground) / 0.84);
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+
+.patient-detail-page .patient-communication-inline-state {
+  border-color: hsl(var(--warning) / 0.3);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.11), hsl(var(--card) / 0.98)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.06), transparent 84%);
+}
+
+.patient-detail-page .patient-communication-quick-reply {
+  border-color: hsl(var(--border) / 0.72);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.14)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  box-shadow:
+    0 16px 30px hsl(216 28% 20% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-communication-quick-reply__identity-card {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.patient-detail-page .patient-communication-quick-reply__footer-copy {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.patient-detail-page .patient-detail-panel--operations-secondary,
+.patient-detail-page .patient-handoff-panel__scope-note,
+.patient-detail-page .patient-handoff-panel__current,
+.patient-detail-page .patient-handoff-panel__note-item,
+.patient-detail-page .patient-appointment-callout,
+.patient-detail-page .patient-appointment-item {
+  border-radius: 20px;
+}
+
+.patient-detail-page .patient-detail-panel--operations-secondary {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.14)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 84%);
+}
+
+.patient-detail-page .patient-appointment-callout {
+  padding: 1rem 1.05rem;
+  border: 1px solid hsl(var(--border) / 0.64);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-appointment-list {
+  display: grid;
+}
+
+.patient-detail-page .patient-appointment-item {
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.58);
+  background: hsl(var(--card) / 0.92);
+}
+
+.patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.patient-detail-page .patient-detail-disclosure__hint {
+  color: hsl(var(--foreground) / 0.58);
+}
+
+.dark .patient-detail-page .patient-detail-hero-card,
+.dark .patient-detail-page .patient-detail-current-context,
+.dark .patient-detail-page .patient-detail-cockpit-signals,
+.dark .patient-detail-page .patient-detail-mini-nav,
+.dark .patient-detail-page .patient-detail-summary-shell--cockpit,
+.dark .patient-detail-page .patient-detail-section-block--cockpit,
+.dark .patient-detail-page .patient-detail-section-block--workflow-support,
+.dark .patient-detail-page .patient-detail-section-block--care-review,
+.dark .patient-detail-page .patient-detail-reference-bridge,
+.dark .patient-detail-page .patient-detail-section-block--reference,
+.dark .patient-detail-page .patient-detail-window-tabs,
+.dark .patient-detail-page .patient-detail-meta,
+.dark .patient-detail-page .patient-priority-list__intro,
+.dark .patient-detail-page .patient-recommended-actions__intro,
+.dark .patient-detail-page .recent-alert-list__intro,
+.dark .patient-detail-page .patient-task-groups__overview,
+.dark .patient-detail-page .patient-communication-overview,
+.dark .patient-detail-page .patient-communication-quick-reply,
+.dark .patient-detail-page .patient-communication-timeline__event,
+.dark .patient-detail-page .patient-appointment-callout,
+.dark .patient-detail-page .patient-appointment-item {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.26)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.07), transparent 84%);
+}
+
+.dark .patient-detail-page .patient-detail-cockpit-signal,
+.dark .patient-detail-page .patient-priority-item,
+.dark .patient-detail-page .patient-recommended-action,
+.dark .patient-detail-page .recent-alert-list__item,
+.dark .patient-detail-page .patient-task-item,
+.dark .patient-detail-page .patient-task-groups__overview-fact,
+.dark .patient-detail-page .patient-communication-overview__fact {
+  background: hsl(var(--card) / 0.92);
+}
+
+@media (max-width: 1260px) {
+  .patient-detail-page .patient-detail-cockpit-layout,
+  .patient-detail-page .patient-detail-clinical-zone,
+  .patient-detail-page .patient-detail-clinical-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page #patient-summary-section,
+  .patient-detail-page #patient-trends-section {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 980px) {
+  .patient-detail-page .patient-detail-hero-card .card__header,
+  .patient-detail-page .patient-detail-mini-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .patient-detail-page .patient-detail-cockpit-signals__grid,
+  .patient-detail-page .patient-summary-grid,
+  .patient-detail-page .patient-task-groups__overview,
+  .patient-detail-page .patient-communication-overview,
+  .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-priority-item,
+  .patient-detail-page .patient-recommended-action,
+  .patient-detail-page .patient-appointment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-priority-item__action.btn,
+  .patient-detail-page .patient-recommended-action__action.btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .patient-detail-page .patient-detail-actions,
+  .patient-detail-page .recent-alert-list__actions,
+  .patient-detail-page .patient-task-item__actions,
+  .patient-detail-page .patient-communication-quick-reply__footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-actions .btn,
+  .patient-detail-page .recent-alert-list__actions .btn,
+  .patient-detail-page .patient-task-item__actions .btn,
+  .patient-detail-page .patient-communication-quick-reply__footer .btn {
+    width: 100%;
+  }
+}

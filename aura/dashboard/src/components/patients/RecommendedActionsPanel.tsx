@@ -54,7 +54,7 @@ export function RecommendedActionsPanel({
   return (
     <Card
       id="patient-recommended-actions"
-      className="patient-detail-panel patient-detail-panel--attention"
+      className="patient-detail-panel patient-detail-panel--attention patient-detail-panel--attention-secondary"
       title="Recommended actions"
       action={
         <Button variant="ghost" size="sm" onClick={onRetry}>
@@ -83,14 +83,30 @@ export function RecommendedActionsPanel({
         />
       ) : (
         <div className="patient-recommended-actions">
+          <div className="patient-recommended-actions__intro">
+            <p className="patient-recommended-actions__eyebrow">Clinician next steps</p>
+            <strong className="patient-recommended-actions__headline">
+              {items.length} recommended {items.length === 1 ? 'action' : 'actions'} grounded in the current review
+            </strong>
+            <p className="patient-recommended-actions__hint">
+              Use these after confirming the urgent issue and the most recent patient signal.
+            </p>
+          </div>
           {items.map((item) => (
             <article key={item.id} className={`patient-recommended-action patient-recommended-action--${item.tone}`}>
               <div className="patient-recommended-action__copy">
-                <Badge variant={toneVariant(item.tone)}>{toneLabel(item.tone)}</Badge>
-                <strong>{item.title}</strong>
+                <div className="patient-recommended-action__meta">
+                  <Badge variant={toneVariant(item.tone)}>{toneLabel(item.tone)}</Badge>
+                </div>
+                <strong className="patient-recommended-action__title">{item.title}</strong>
                 <p className="patient-recommended-action__description">{item.description}</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => onAction(item.actionKey)}>
+              <Button
+                className="patient-recommended-action__action"
+                variant="secondary"
+                size="sm"
+                onClick={() => onAction(item.actionKey)}
+              >
                 {item.actionLabel}
               </Button>
             </article>

@@ -38,10 +38,12 @@ export function PatientTasksPanel({
   onOpenAlerts,
   onOpenAppointments,
 }: PatientTasksPanelProps): JSX.Element {
+  const urgentCount = activeTasks.filter((task) => task.priority === 'urgent').length;
+
   return (
     <Card
       id="patient-tasks-panel"
-      className="patient-detail-panel patient-detail-panel--operational"
+      className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-primary patient-detail-panel--workflow-tasks"
       title="Tasks and follow-up"
       action={
         <Button variant="ghost" size="sm" onClick={onRetry}>
@@ -70,6 +72,21 @@ export function PatientTasksPanel({
         />
       ) : (
         <div className="patient-task-groups">
+          <div className="patient-task-groups__overview">
+            <div className="patient-task-groups__overview-fact">
+              <span>Open now</span>
+              <strong>{activeTasks.length}</strong>
+            </div>
+            <div className="patient-task-groups__overview-fact patient-task-groups__overview-fact--warning">
+              <span>Urgent</span>
+              <strong>{urgentCount}</strong>
+            </div>
+            <div className="patient-task-groups__overview-fact">
+              <span>Completed</span>
+              <strong>{recentCompletedTasks.length}</strong>
+            </div>
+          </div>
+
           <div className="patient-task-group">
             <div className="patient-task-group__header">
               <strong>Open now</strong>
@@ -80,7 +97,10 @@ export function PatientTasksPanel({
             ) : (
               <div className="patient-task-list">
                 {activeTasks.map((task) => (
-                  <article key={task.id} className="patient-task-item">
+                  <article
+                    key={task.id}
+                    className={`patient-task-item patient-task-item--${taskPriorityTone(task.priority)}`}
+                  >
                     <div className="patient-task-item__copy">
                       <strong className="patient-task-item__title">{task.title}</strong>
                       <div className="patient-task-item__meta">

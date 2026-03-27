@@ -149,7 +149,7 @@ export function PatientHandoffPanel({
   return (
     <Card
       id="patient-handoff-panel"
-      className="patient-detail-panel patient-detail-panel--operational patient-handoff-panel"
+      className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-secondary patient-handoff-panel"
       title="Internal notes and handoff"
       data-testid="patient-handoff-panel"
     >

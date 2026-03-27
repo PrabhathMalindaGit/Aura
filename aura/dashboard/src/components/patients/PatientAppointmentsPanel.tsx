@@ -54,7 +54,7 @@ export function PatientAppointmentsPanel({
   return (
     <Card
       id="patient-appointments-panel"
-      className="patient-detail-panel patient-detail-panel--operational"
+      className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-secondary patient-detail-panel--workflow-appointments"
       title="Appointments"
       action={
         <div className="patient-detail-actions">

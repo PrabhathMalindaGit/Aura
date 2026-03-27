@@ -53,7 +53,7 @@ export function PatientCurrentPriorities({
   return (
     <Card
       id="patient-current-priorities"
-      className="patient-detail-panel patient-detail-panel--attention"
+      className="patient-detail-panel patient-detail-panel--attention patient-detail-panel--attention-primary"
       title="Current priorities"
       action={
         <Button variant="ghost" size="sm" onClick={onRetry}>
@@ -83,6 +83,15 @@ export function PatientCurrentPriorities({
         />
       ) : (
         <div className="patient-priority-list">
+          <div className="patient-priority-list__intro">
+            <p className="patient-priority-list__eyebrow">Decision focus</p>
+            <strong className="patient-priority-list__headline">
+              {items.length} active {items.length === 1 ? 'priority' : 'priorities'} in this review pass
+            </strong>
+            <p className="patient-priority-list__hint">
+              Review these issue-first cues before moving into slower trajectory or reference context.
+            </p>
+          </div>
           {items.map((item) => (
             <article key={item.id} className={`patient-priority-item patient-priority-item--${item.tone}`}>
               <div className="patient-priority-item__copy">
@@ -92,11 +101,16 @@ export function PatientCurrentPriorities({
                     <span className="muted-text">{formatDashboardRelativeTime(item.timestamp)}</span>
                   ) : null}
                 </div>
-                <strong>{item.title}</strong>
+                <strong className="patient-priority-item__title">{item.title}</strong>
                 <p className="patient-priority-item__reason">{item.reason}</p>
               </div>
               {item.actionKey && item.actionLabel ? (
-                <Button variant="secondary" size="sm" onClick={() => onAction(item.actionKey!)}>
+                <Button
+                  className="patient-priority-item__action"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onAction(item.actionKey!)}
+                >
                   {item.actionLabel}
                 </Button>
               ) : null}

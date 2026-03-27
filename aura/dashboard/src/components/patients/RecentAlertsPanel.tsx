@@ -36,6 +36,18 @@ function reasonText(value: string | string[]): string {
   return Array.isArray(value) ? value.join(', ') : value;
 }
 
+function alertToneClass(alert: AlertItem, unseen: boolean): 'critical' | 'warning' | 'calm' {
+  if (unseen && alert.status === 'open') {
+    return 'critical';
+  }
+
+  if (alert.status === 'open') {
+    return 'warning';
+  }
+
+  return 'calm';
+}
+
 export function RecentAlertsPanel({
   alerts,
   seenAlertMap,
@@ -48,7 +60,7 @@ export function RecentAlertsPanel({
 
   return (
     <Card
-      className="patient-detail-recent-alerts-card"
+      className="patient-detail-panel patient-detail-panel--attention patient-detail-panel--review-feed patient-detail-recent-alerts-card"
       title="Recent alerts"
       action={
         alerts.length > 5 && onViewAll ? (
@@ -64,59 +76,76 @@ export function RecentAlertsPanel({
           description="This patient has no alerts in the fetched queue."
         />
       ) : (
-        <ul className="recent-alert-list" aria-label="Recent alerts for patient">
-          {visibleAlerts.map((alert) => {
-            const unseen = isAlertUnseenForUi(alert, seenAlertMap);
+        <div className="recent-alert-list">
+          <div className="recent-alert-list__intro">
+            <p className="recent-alert-list__eyebrow">Safety feed</p>
+            <strong className="recent-alert-list__headline">
+              {visibleAlerts.length} recent {visibleAlerts.length === 1 ? 'alert' : 'alerts'} in patient context
+            </strong>
+            <p className="recent-alert-list__hint">
+              Open and unseen events stay visually ahead of acknowledged or resolved history.
+            </p>
+          </div>
+          <ul aria-label="Recent alerts for patient">
+            {visibleAlerts.map((alert) => {
+              const unseen = isAlertUnseenForUi(alert, seenAlertMap);
 
-            return (
-              <li key={alert._id} className="recent-alert-list__item">
-                <div className="recent-alert-list__body">
-                  <p>
-                    <strong>{reasonText(alert.reason)}</strong>
-                  </p>
-                  <p className="muted-text recent-alert-list__reason">
-                    <span className="recent-alert-list__id">{shortReferenceLabel(alert._id) ?? alert._id}</span>
-                  </p>
-                  <p className="muted-text recent-alert-list__date">
-                    {alertSourceLabel(alert.source.type)} · {formatDateKey(toDateKey(alert.createdAt))}
-                  </p>
-                </div>
-                <div className="recent-alert-list__meta">
-                  <div className="recent-alert-list__badges">
-                    {unseen ? (
-                      <Badge className="recent-alert-list__unseen" variant="new" icon aria-label="Unseen alert">
-                        Unseen
+              return (
+                <li
+                  key={alert._id}
+                  className={`recent-alert-list__item recent-alert-list__item--${alertToneClass(alert, unseen)}`}
+                >
+                  <div className="recent-alert-list__body">
+                    <div className="recent-alert-list__eyebrow-row">
+                      <span className="recent-alert-list__source">{alertSourceLabel(alert.source.type)} safety event</span>
+                      <span className="muted-text recent-alert-list__date">
+                        {formatDateKey(toDateKey(alert.createdAt))}
+                      </span>
+                    </div>
+                    <p>
+                      <strong className="recent-alert-list__title">{reasonText(alert.reason)}</strong>
+                    </p>
+                    <p className="muted-text recent-alert-list__reason">
+                      <span className="recent-alert-list__id">{shortReferenceLabel(alert._id) ?? alert._id}</span>
+                    </p>
+                  </div>
+                  <div className="recent-alert-list__meta">
+                    <div className="recent-alert-list__badges">
+                      {unseen ? (
+                        <Badge className="recent-alert-list__unseen" variant="new" icon aria-label="Unseen alert">
+                          Unseen
+                        </Badge>
+                      ) : (
+                        <span className="alerts-seen recent-alert-list__seen">Seen</span>
+                      )}
+                      <Badge className="recent-alert-list__status" variant={statusBadgeVariant(alert.status)} icon>
+                        {alertStatusLabel(alert.status)}
                       </Badge>
-                    ) : (
-                      <span className="alerts-seen recent-alert-list__seen">Seen</span>
-                    )}
-                    <Badge className="recent-alert-list__status" variant={statusBadgeVariant(alert.status)} icon>
-                      {alertStatusLabel(alert.status)}
-                    </Badge>
+                    </div>
+                    <div className="recent-alert-list__actions">
+                      <Button
+                        className="recent-alert-list__ack"
+                        variant="secondary"
+                        disabled={alert.status !== 'open' || mutationPending}
+                        onClick={() => onAcknowledge(alert)}
+                      >
+                        Acknowledge
+                      </Button>
+                      <Button
+                        className="recent-alert-list__resolve"
+                        variant="secondary"
+                        disabled={alert.status === 'resolved' || mutationPending}
+                        onClick={() => onResolve(alert)}
+                      >
+                        Resolve
+                      </Button>
+                    </div>
                   </div>
-                  <div className="recent-alert-list__actions">
-                    <Button
-                      className="recent-alert-list__ack"
-                      variant="secondary"
-                      disabled={alert.status !== 'open' || mutationPending}
-                      onClick={() => onAcknowledge(alert)}
-                    >
-                      Acknowledge
-                    </Button>
-                    <Button
-                      className="recent-alert-list__resolve"
-                      variant="secondary"
-                      disabled={alert.status === 'resolved' || mutationPending}
-                      onClick={() => onResolve(alert)}
-                    >
-                      Resolve
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </Card>
   );

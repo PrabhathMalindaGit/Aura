@@ -191,6 +191,12 @@ export function SettingsPage(): JSX.Element {
     setSessionNotice('Session security settings updated.');
   }
 
+  function handleRestoreSessionDefaults(): void {
+    const reset = setSessionSettings(DEFAULT_SESSION_SETTINGS);
+    setLocalSessionSettings(reset);
+    setSessionNotice('Session security settings reset to defaults.');
+  }
+
   function updateDraftProfile<K extends keyof ClinicianProfile>(
     key: K,
     value: ClinicianProfile[K],
@@ -647,6 +653,19 @@ export function SettingsPage(): JSX.Element {
     ? 'Quiet hours on'
     : 'Quiet hours off';
   const sessionProtectionBadgeLabel = sessionSettings.enabled ? 'Auto-logout on' : 'Auto-logout off';
+  const attentionCueStateLabel = savedProfile.notificationPreferences.quietHours.enabled
+    ? 'Quiet window active'
+    : 'Quiet window off';
+  const workspaceStateSummaryLabel =
+    profileWorkspaceDirty || communicationAuthoringDirty || notificationPreferencesDirty
+      ? 'Draft changes pending'
+      : 'Workspace state saved';
+  const timeoutWarningLabel = sessionSettings.enabled
+    ? 'Warns 1m before idle lock and 5m before max session.'
+    : 'Protection warnings resume when session guard is on.';
+  const localWorkspaceGuidanceLabel =
+    'Browser-backed controls only. They do not change shared product settings or other devices.';
+  const notificationCueSummaryLabel = `${savedCommunicationCueLabel} · ${savedSafetyCueLabel}`;
 
   return (
     <div className="page-stack dashboard-page-shell dashboard-page-shell--settings settings-page">
@@ -679,163 +698,244 @@ export function SettingsPage(): JSX.Element {
         }
       />
 
-      <div className="settings-overview-stack">
-        <section className="settings-summary-strip" aria-label="Settings summary">
+      <div className="settings-overview-stack settings-overview-stack--console">
+        <section className="settings-summary-strip settings-summary-strip--console" aria-label="Workspace state summary">
           <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
-            <p className="settings-summary-strip__label">Appearance</p>
+            <p className="settings-summary-strip__label">Appearance mode</p>
             <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
             <p className="settings-summary-strip__hint">{preferencesSummaryLabel}</p>
           </article>
           <article className="settings-summary-strip__item settings-summary-strip__item--security">
-            <p className="settings-summary-strip__label">Session security</p>
+            <p className="settings-summary-strip__label">Session guard</p>
             <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">
-              {sessionSettings.enabled
-                ? 'Auto-lock warning enabled'
-                : 'Enable guard for unattended sessions'}
-            </p>
+            <p className="settings-summary-strip__hint">{securityStateLabel}</p>
           </article>
           <article className="settings-summary-strip__item settings-summary-strip__item--identity">
             <p className="settings-summary-strip__label">Clinician profile</p>
             <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
             <p className="settings-summary-strip__hint">{identityStateLabel}</p>
           </article>
+          <article className="settings-summary-strip__item settings-summary-strip__item--notifications">
+            <p className="settings-summary-strip__label">Attention cues</p>
+            <p className="settings-summary-strip__value">{attentionCueStateLabel}</p>
+            <p className="settings-summary-strip__hint">{savedQuietHoursLabel} · {notificationCueSummaryLabel}</p>
+          </article>
+          <article className="settings-summary-strip__item settings-summary-strip__item--workspace-state">
+            <p className="settings-summary-strip__label">Workspace state</p>
+            <p className="settings-summary-strip__value">{workspaceStateSummaryLabel}</p>
+            <p className="settings-summary-strip__hint">This browser only · does not sync across devices</p>
+          </article>
+        </section>
+
+        <section className="settings-quick-controls-band" aria-label="Quick controls">
+          <div className="settings-quick-controls-band__header">
+            <div className="settings-quick-controls-band__copy">
+              <p className="settings-column-shell__eyebrow">Quick controls</p>
+              <h3 className="settings-column-shell__title">Workspace state and session protection</h3>
+              <p className="settings-column-shell__text">
+                Put the controls a clinician reaches most often at the top: visual mode, session guard,
+                timeout behavior, and quiet-hours emphasis for this browser.
+              </p>
+            </div>
+            <div className="settings-quick-controls-band__facts" aria-label="Quick control status">
+              <span className="settings-profile-summary__fact">{sessionProtectionBadgeLabel}</span>
+              <span className="settings-profile-summary__fact">{notificationSummaryBadgeLabel}</span>
+              <span className="settings-profile-summary__fact">Local workspace</span>
+            </div>
+          </div>
+
+          <div className="settings-quick-controls-band__grid">
+            <fieldset className="setting-item setting-item--field setting-item--theme settings-quick-control" aria-label="Theme mode">
+              <legend>
+                <strong>Theme mode</strong>
+                <small>System follows your OS preference by default.</small>
+              </legend>
+              <div className="theme-mode-group" role="radiogroup" aria-label="Theme mode">
+                <label className="theme-mode-option" htmlFor="theme-mode-system">
+                  <input
+                    id="theme-mode-system"
+                    type="radio"
+                    name="theme-mode"
+                    value="system"
+                    checked={themeMode === 'system'}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        const nextMode = setThemeMode('system');
+                        setThemeModeState(nextMode);
+                        setThemeNotice('Theme set to system preference.');
+                      }
+                    }}
+                  />
+                  <span>System</span>
+                </label>
+
+                <label className="theme-mode-option" htmlFor="theme-mode-light">
+                  <input
+                    id="theme-mode-light"
+                    type="radio"
+                    name="theme-mode"
+                    value="light"
+                    checked={themeMode === 'light'}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        const nextMode = setThemeMode('light');
+                        setThemeModeState(nextMode);
+                        setThemeNotice('Theme set to light.');
+                      }
+                    }}
+                  />
+                  <span>Light</span>
+                </label>
+
+                <label className="theme-mode-option" htmlFor="theme-mode-dark">
+                  <input
+                    id="theme-mode-dark"
+                    type="radio"
+                    name="theme-mode"
+                    value="dark"
+                    checked={themeMode === 'dark'}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        const nextMode = setThemeMode('dark');
+                        setThemeModeState(nextMode);
+                        setThemeNotice('Theme set to dark.');
+                      }
+                    }}
+                  />
+                  <span>Dark</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <label className="setting-item setting-item--toggle settings-quick-control" htmlFor="idle-timeout-enabled-toggle">
+              <span>
+                <strong>Enable idle auto-logout</strong>
+                <small>Lock unattended sessions for patient safety.</small>
+              </span>
+              <input
+                id="idle-timeout-enabled-toggle"
+                type="checkbox"
+                checked={sessionSettings.enabled}
+                onChange={(event) => {
+                  applySessionSettings({ enabled: event.target.checked });
+                }}
+              />
+            </label>
+
+            <label className="setting-item setting-item--field form-field settings-quick-control" htmlFor="idle-timeout-minutes">
+              <span>
+                <strong>Idle timeout</strong>
+                <small>Show warning 60 seconds before lock.</small>
+              </span>
+              <select
+                id="idle-timeout-minutes"
+                value={String(sessionSettings.idleMinutes)}
+                onChange={(event) => {
+                  applySessionSettings({ idleMinutes: Number(event.target.value) });
+                }}
+                aria-label="Idle timeout minutes"
+              >
+                <option value="5">5 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+              </select>
+            </label>
+
+            <label className="setting-item setting-item--field form-field settings-quick-control" htmlFor="absolute-timeout-hours">
+              <span>
+                <strong>Absolute session timeout</strong>
+                <small>Show warning 5 minutes before maximum session duration.</small>
+              </span>
+              <select
+                id="absolute-timeout-hours"
+                value={String(sessionSettings.absoluteHours)}
+                onChange={(event) => {
+                  applySessionSettings({ absoluteHours: Number(event.target.value) });
+                }}
+                aria-label="Absolute timeout hours"
+              >
+                <option value="2">2 hours</option>
+                <option value="4">4 hours</option>
+                <option value="8">8 hours</option>
+              </select>
+            </label>
+
+            <label className="setting-item setting-item--toggle settings-quick-control" htmlFor="notification-quiet-hours-enabled">
+              <span>
+                <strong>Quiet hours</strong>
+                <small>Reduce secondary in-app emphasis only during a local daily window in this browser.</small>
+              </span>
+              <input
+                id="notification-quiet-hours-enabled"
+                type="checkbox"
+                checked={draftProfile.notificationPreferences.quietHours.enabled}
+                onChange={(event) => updateDraftNotificationQuietHours('enabled', event.target.checked)}
+              />
+            </label>
+
+            <article className="settings-quick-note settings-quick-note--timing">
+              <p className="settings-quick-note__label">Timeout warnings</p>
+              <p className="settings-quick-note__value">{timeoutWarningLabel}</p>
+            </article>
+
+            <article className="settings-quick-note settings-quick-note--scope">
+              <p className="settings-quick-note__label">Browser-local workspace</p>
+              <p className="settings-quick-note__value">{localWorkspaceGuidanceLabel}</p>
+            </article>
+          </div>
+
+          {(themeNotice || sessionNotice) ? (
+            <div className="settings-quick-controls-band__notices" aria-live="polite">
+              {themeNotice ? (
+                <p className="settings-inline-notice muted-text" role="status">
+                  {themeNotice}
+                </p>
+              ) : null}
+              {sessionNotice ? (
+                <p className="settings-inline-notice muted-text" role="status">
+                  {sessionNotice}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </div>
 
-      <section className="settings-groups" aria-label="Settings groups">
-        <section
-          className="settings-groups__column settings-groups__column--primary settings-column-shell settings-column-shell--workspace"
-          aria-label="Workspace defaults settings"
-        >
-          <div className="settings-column-shell__intro">
-            <p className="settings-column-shell__eyebrow">Workspace defaults</p>
-            <h3 className="settings-column-shell__title">Personal workspace controls</h3>
+      <section className="settings-control-environment" aria-label="Settings control workspace">
+        <section className="settings-control-environment__main" aria-label="Workspace defaults settings">
+          <div className="settings-column-shell__intro settings-column-shell__intro--workspace">
+            <p className="settings-column-shell__eyebrow">Workspace identity and defaults</p>
+            <h3 className="settings-column-shell__title">Clinician workspace controls</h3>
             <p className="settings-column-shell__text">
-              Keep appearance, clinician identity, and assignment labels consistent for the
-              clinician using this browser.
+              Keep the active clinician identity, schedule context, and daily defaults aligned for the
+              workstation that is currently in use.
             </p>
           </div>
-          <Card
-            className="settings-group-card settings-group-card--preferences"
-            title={
-              <span className="settings-group-card__title">
-                Appearance & preferences
-                <span className="settings-group-card__title-meta">Workspace defaults</span>
-              </span>
-            }
-            action={<Badge variant="default">{themeSummaryLabel} mode</Badge>}
-          >
-            <div className="settings-group-card__context">
-              <span className="settings-group-card__context-pill">Personal defaults</span>
-              <p className="settings-group-card__context-note">
-                Only real browser-backed preferences are interactive here.
-              </p>
-            </div>
-            <p className="settings-group-card__intro">
-              Keep the workspace comfortable to review without drifting away from Aura&apos;s shared
-              operational style. Browser-backed preferences stay interactive here, while shared
-              workspace behaviors remain read-only on this device.
-            </p>
-            <div className="settings-list settings-list--refined">
-              <fieldset className="setting-item setting-item--field setting-item--theme" aria-label="Theme mode">
-                <legend>
-                  <strong>Theme mode</strong>
-                  <small>System follows your OS preference by default.</small>
-                </legend>
-                <div className="theme-mode-group" role="radiogroup" aria-label="Theme mode">
-                  <label className="theme-mode-option" htmlFor="theme-mode-system">
-                    <input
-                      id="theme-mode-system"
-                      type="radio"
-                      name="theme-mode"
-                      value="system"
-                      checked={themeMode === 'system'}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          const nextMode = setThemeMode('system');
-                          setThemeModeState(nextMode);
-                          setThemeNotice('Theme set to system preference.');
-                        }
-                      }}
-                    />
-                    <span>System</span>
-                  </label>
 
-                  <label className="theme-mode-option" htmlFor="theme-mode-light">
-                    <input
-                      id="theme-mode-light"
-                      type="radio"
-                      name="theme-mode"
-                      value="light"
-                      checked={themeMode === 'light'}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          const nextMode = setThemeMode('light');
-                          setThemeModeState(nextMode);
-                          setThemeNotice('Theme set to light.');
-                        }
-                      }}
-                    />
-                    <span>Light</span>
-                  </label>
-
-                  <label className="theme-mode-option" htmlFor="theme-mode-dark">
-                    <input
-                      id="theme-mode-dark"
-                      type="radio"
-                      name="theme-mode"
-                      value="dark"
-                      checked={themeMode === 'dark'}
-                      onChange={(event) => {
-                        if (event.target.checked) {
-                          const nextMode = setThemeMode('dark');
-                          setThemeModeState(nextMode);
-                          setThemeNotice('Theme set to dark.');
-                        }
-                      }}
-                    />
-                    <span>Dark</span>
-                  </label>
-                </div>
-              </fieldset>
-
-              <div className="setting-item setting-item--note" aria-label="Offline warning banner setting status">
-                <span>
-                  <strong>Offline warning banner</strong>
-                  <small>
-                    Warning display follows the live connection state in Aura&apos;s shared shell for
-                    this browser.
-                  </small>
-                </span>
-                <span className="setting-item__status-note">Shared shell default</span>
+          <section className="settings-display-context" aria-label="Workspace display alignment">
+            <article className="settings-display-context__item" aria-label="Offline warning banner setting status">
+              <div>
+                <p className="settings-display-context__label">Shared shell state</p>
+                <strong>Offline warning banner</strong>
+                <p className="settings-display-context__text">
+                  Warning display follows the live connection state in Aura&apos;s shared shell for this browser.
+                </p>
               </div>
+              <span className="setting-item__status-note">Shared shell default</span>
+            </article>
 
-              <div className="setting-item setting-item--note" aria-label="Compact table density setting status">
-                <span>
-                  <strong>Compact table mode</strong>
-                  <small>
-                    Table density currently follows Aura Clinician&apos;s shared workspace default in
-                    this browser.
-                  </small>
-                </span>
-                <span className="setting-item__status-note">Shared workspace default</span>
+            <article className="settings-display-context__item" aria-label="Compact table density setting status">
+              <div>
+                <p className="settings-display-context__label">Workspace density</p>
+                <strong>Compact table mode</strong>
+                <p className="settings-display-context__text">
+                  Table density currently follows Aura Clinician&apos;s shared workspace default in this browser.
+                </p>
               </div>
-            </div>
-
-            <div className="settings-card-footer settings-card-footer--quiet">
-              <p className="settings-card-footer__note">
-                Theme changes apply immediately. Other appearance settings in this section stay
-                aligned with current browser defaults.
-              </p>
-            </div>
-
-            {themeNotice ? (
-              <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
-                {themeNotice}
-              </p>
-            ) : null}
-          </Card>
+              <span className="setting-item__status-note">Shared workspace default</span>
+            </article>
+          </section>
 
           <Card
             className="settings-group-card settings-group-card--identity"
@@ -859,7 +959,7 @@ export function SettingsPage(): JSX.Element {
               and local identity surfaces on this device.
             </p>
 
-            <section className="settings-profile-summary" aria-label="Saved clinician profile summary">
+            <section className="settings-profile-summary settings-profile-summary--hero" aria-label="Saved clinician profile summary">
               <ClinicianAvatar
                 identity={clinicianIdentity}
                 className="settings-profile-summary__avatar"
@@ -945,320 +1045,327 @@ export function SettingsPage(): JSX.Element {
               />
             </section>
 
-            <div className="settings-list settings-list--refined">
-              <div className="settings-profile-section-label">Identity</div>
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-display-name-input">
-                <span>
-                  <strong>Display name</strong>
-                  <small>Shown in browser-local clinician identity surfaces.</small>
-                  {profileValidation.displayName ? (
-                    <small className="validation-text">{profileValidation.displayName}</small>
-                  ) : null}
-                </span>
-                <input
-                  id="clinician-display-name-input"
-                  type="text"
-                  value={draftProfile.displayName}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.displayName}
-                  onChange={(event) => updateDraftProfile('displayName', event.target.value)}
-                  placeholder="Clinician 1"
-                  aria-label="Clinician display name"
-                />
-              </label>
+            <div className="settings-profile-editor">
+              <section className="settings-field-cluster settings-field-cluster--identity">
+                <div className="settings-profile-section-label">Identity</div>
+                <div className="settings-field-cluster__grid settings-field-cluster__grid--identity">
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-display-name-input">
+                    <span>
+                      <strong>Display name</strong>
+                      <small>Shown in browser-local clinician identity surfaces.</small>
+                      {profileValidation.displayName ? (
+                        <small className="validation-text">{profileValidation.displayName}</small>
+                      ) : null}
+                    </span>
+                    <input
+                      id="clinician-display-name-input"
+                      type="text"
+                      value={draftProfile.displayName}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.displayName}
+                      onChange={(event) => updateDraftProfile('displayName', event.target.value)}
+                      placeholder="Clinician 1"
+                      aria-label="Clinician display name"
+                    />
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
-                <span>
-                  <strong>Clinician ID</strong>
-                  <small>
-                    Editable for workspace labeling. It does not change which clinician profile this
-                    browser is currently using.
-                  </small>
-                  {profileValidation.clinicianId ? (
-                    <small className="validation-text">{profileValidation.clinicianId}</small>
-                  ) : null}
-                </span>
-                <input
-                  id="clinician-id-input"
-                  type="text"
-                  value={draftProfile.clinicianId}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.clinicianId}
-                  onChange={(event) => updateDraftProfile('clinicianId', event.target.value)}
-                  placeholder="clinician-1"
-                  aria-label="Clinician ID"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-id-input">
+                    <span>
+                      <strong>Clinician ID</strong>
+                      <small>
+                        Editable for workspace labeling. It does not change which clinician profile this browser is currently using.
+                      </small>
+                      {profileValidation.clinicianId ? (
+                        <small className="validation-text">{profileValidation.clinicianId}</small>
+                      ) : null}
+                    </span>
+                    <input
+                      id="clinician-id-input"
+                      type="text"
+                      value={draftProfile.clinicianId}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.clinicianId}
+                      onChange={(event) => updateDraftProfile('clinicianId', event.target.value)}
+                      placeholder="clinician-1"
+                      aria-label="Clinician ID"
+                    />
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-role-title-input">
-                <span>
-                  <strong>Role / title</strong>
-                  <small>Use a local operational title for this clinician workspace.</small>
-                </span>
-                <input
-                  id="clinician-role-title-input"
-                  type="text"
-                  value={draftProfile.roleTitle}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.roleTitle}
-                  onChange={(event) => updateDraftProfile('roleTitle', event.target.value)}
-                  placeholder="Rehab clinician"
-                  aria-label="Clinician role or title"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-role-title-input">
+                    <span>
+                      <strong>Role / title</strong>
+                      <small>Use a local operational title for this clinician workspace.</small>
+                    </span>
+                    <input
+                      id="clinician-role-title-input"
+                      type="text"
+                      value={draftProfile.roleTitle}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.roleTitle}
+                      onChange={(event) => updateDraftProfile('roleTitle', event.target.value)}
+                      placeholder="Rehab clinician"
+                      aria-label="Clinician role or title"
+                    />
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-specialty-input">
-                <span>
-                  <strong>Specialty</strong>
-                  <small>Keep the specialty label brief and clinically relevant.</small>
-                </span>
-                <input
-                  id="clinician-specialty-input"
-                  type="text"
-                  value={draftProfile.specialty}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.specialty}
-                  onChange={(event) => updateDraftProfile('specialty', event.target.value)}
-                  placeholder="Recovery follow-up"
-                  aria-label="Clinician specialty"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-specialty-input">
+                    <span>
+                      <strong>Specialty</strong>
+                      <small>Keep the specialty label brief and clinically relevant.</small>
+                    </span>
+                    <input
+                      id="clinician-specialty-input"
+                      type="text"
+                      value={draftProfile.specialty}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.specialty}
+                      onChange={(event) => updateDraftProfile('specialty', event.target.value)}
+                      placeholder="Recovery follow-up"
+                      aria-label="Clinician specialty"
+                    />
+                  </label>
+                </div>
+              </section>
 
-              <div className="settings-profile-section-label">Care focus & handoff</div>
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-bio-input">
-                <span>
-                  <strong>Short bio / care focus</strong>
-                  <small>Use a concise note for how this clinician workspace is framed locally.</small>
-                </span>
-                <textarea
-                  id="clinician-bio-input"
-                  value={draftProfile.bio}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.bio}
-                  onChange={(event) => updateDraftProfile('bio', event.target.value)}
-                  placeholder="Safety-aware rehab follow-up and review."
-                  aria-label="Short bio or care focus"
-                />
-              </label>
+              <section className="settings-field-cluster settings-field-cluster--context">
+                <div className="settings-profile-section-label">Care focus & handoff</div>
+                <div className="settings-field-cluster__grid settings-field-cluster__grid--context">
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-bio-input">
+                    <span>
+                      <strong>Short bio / care focus</strong>
+                      <small>Use a concise note for how this clinician workspace is framed locally.</small>
+                    </span>
+                    <textarea
+                      id="clinician-bio-input"
+                      value={draftProfile.bio}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.bio}
+                      onChange={(event) => updateDraftProfile('bio', event.target.value)}
+                      placeholder="Safety-aware rehab follow-up and review."
+                      aria-label="Short bio or care focus"
+                    />
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-pronouns-input">
-                <span>
-                  <strong>Preferred pronouns</strong>
-                  <small>Optional. Stored only in this browser.</small>
-                </span>
-                <input
-                  id="clinician-pronouns-input"
-                  type="text"
-                  value={draftProfile.preferredPronouns ?? ''}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.preferredPronouns}
-                  onChange={(event) => updateDraftProfile('preferredPronouns', event.target.value || undefined)}
-                  placeholder="Optional"
-                  aria-label="Preferred pronouns"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-pronouns-input">
+                    <span>
+                      <strong>Preferred pronouns</strong>
+                      <small>Optional. Stored only in this browser.</small>
+                    </span>
+                    <input
+                      id="clinician-pronouns-input"
+                      type="text"
+                      value={draftProfile.preferredPronouns ?? ''}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.preferredPronouns}
+                      onChange={(event) => updateDraftProfile('preferredPronouns', event.target.value || undefined)}
+                      placeholder="Optional"
+                      aria-label="Preferred pronouns"
+                    />
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="clinician-contact-note-input">
-                <span>
-                  <strong>Contact / handoff note</strong>
-                  <small>Use this for local handoff context, not shared contact management.</small>
-                </span>
-                <textarea
-                  id="clinician-contact-note-input"
-                  value={draftProfile.contactNote}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.contactNote}
-                  onChange={(event) => updateDraftProfile('contactNote', event.target.value)}
-                  placeholder="Local handoff note for this browser workspace."
-                  aria-label="Contact or handoff note"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="clinician-contact-note-input">
+                    <span>
+                      <strong>Contact / handoff note</strong>
+                      <small>Use this for local handoff context, not shared contact management.</small>
+                    </span>
+                    <textarea
+                      id="clinician-contact-note-input"
+                      value={draftProfile.contactNote}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.contactNote}
+                      onChange={(event) => updateDraftProfile('contactNote', event.target.value)}
+                      placeholder="Local handoff note for this browser workspace."
+                      aria-label="Contact or handoff note"
+                    />
+                  </label>
+                </div>
+              </section>
 
-              <div className="settings-profile-section-label">Workspace context & defaults</div>
-              <label className="setting-item setting-item--field form-field" htmlFor="workspace-availability-select">
-                <span>
-                  <strong>Availability status</strong>
-                  <small>Local workspace status only. It does not broadcast to other clinicians.</small>
-                </span>
-                <select
-                  id="workspace-availability-select"
-                  value={draftProfile.workspacePreferences.availabilityStatus}
-                  onChange={(event) =>
-                    updateDraftWorkspacePreference(
-                      'availabilityStatus',
-                      event.target.value as ClinicianAvailabilityStatus,
-                    )
-                  }
-                  aria-label="Availability status"
-                >
-                  {AVAILABILITY_STATUS_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <section className="settings-field-cluster settings-field-cluster--workspace">
+                <div className="settings-profile-section-label">Workspace context</div>
+                <div className="settings-field-cluster__grid settings-field-cluster__grid--workspace">
+                  <label className="setting-item setting-item--field form-field" htmlFor="workspace-availability-select">
+                    <span>
+                      <strong>Availability status</strong>
+                      <small>Local workspace status only. It does not broadcast to other clinicians.</small>
+                    </span>
+                    <select
+                      id="workspace-availability-select"
+                      value={draftProfile.workspacePreferences.availabilityStatus}
+                      onChange={(event) =>
+                        updateDraftWorkspacePreference(
+                          'availabilityStatus',
+                          event.target.value as ClinicianAvailabilityStatus,
+                        )
+                      }
+                      aria-label="Availability status"
+                    >
+                      {AVAILABILITY_STATUS_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="workspace-team-label-input">
-                <span>
-                  <strong>Team / clinic label</strong>
-                  <small>Optional local context for this clinician workspace.</small>
-                </span>
-                <input
-                  id="workspace-team-label-input"
-                  type="text"
-                  value={draftProfile.workspacePreferences.teamLabel}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.teamLabel}
-                  onChange={(event) => updateDraftWorkspacePreference('teamLabel', event.target.value)}
-                  placeholder="Optional team or clinic"
-                  aria-label="Team or clinic label"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="workspace-team-label-input">
+                    <span>
+                      <strong>Team / clinic label</strong>
+                      <small>Optional local context for this clinician workspace.</small>
+                    </span>
+                    <input
+                      id="workspace-team-label-input"
+                      type="text"
+                      value={draftProfile.workspacePreferences.teamLabel}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.teamLabel}
+                      onChange={(event) => updateDraftWorkspacePreference('teamLabel', event.target.value)}
+                      placeholder="Optional team or clinic"
+                      aria-label="Team or clinic label"
+                    />
+                  </label>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="workspace-timezone-input">
-                <span>
-                  <strong>Timezone</strong>
-                  <small>
-                    Used for this browser workspace. Aura falls back safely to the current browser
-                    timezone if needed.
-                  </small>
-                </span>
-                <input
-                  id="workspace-timezone-input"
-                  type="text"
-                  list="settings-timezone-options"
-                  value={draftProfile.workspacePreferences.timezone}
-                  maxLength={CLINICIAN_PROFILE_LIMITS.timezone}
-                  onChange={(event) => updateDraftWorkspacePreference('timezone', event.target.value)}
-                  placeholder={workspacePreferences.resolvedTimezone}
-                  aria-label="Workspace timezone"
-                />
-              </label>
+                  <label className="setting-item setting-item--field form-field" htmlFor="workspace-timezone-input">
+                    <span>
+                      <strong>Timezone</strong>
+                      <small>
+                        Used for this browser workspace. Aura falls back safely to the current browser timezone if needed.
+                      </small>
+                    </span>
+                    <input
+                      id="workspace-timezone-input"
+                      type="text"
+                      list="settings-timezone-options"
+                      value={draftProfile.workspacePreferences.timezone}
+                      maxLength={CLINICIAN_PROFILE_LIMITS.timezone}
+                      onChange={(event) => updateDraftWorkspacePreference('timezone', event.target.value)}
+                      placeholder={workspacePreferences.resolvedTimezone}
+                      aria-label="Workspace timezone"
+                    />
+                  </label>
 
-              <fieldset
-                className="setting-item setting-item--field form-field settings-working-hours"
-                aria-label="Working hours"
-              >
-                <legend>
-                  <strong>Working hours</strong>
-                  <small>
-                    Simple local context only. Aura does not derive availability or scheduling from
-                    this automatically.
-                  </small>
-                  {profileValidation.workingHours ? (
-                    <small className="validation-text">{profileValidation.workingHours}</small>
-                  ) : null}
-                </legend>
-                <div className="settings-working-hours__days" role="group" aria-label="Working days">
-                  {WORKING_DAY_OPTIONS.map((day) => {
-                    const checked = draftProfile.workspacePreferences.workingHours.enabledDays.includes(day.id);
+                  <fieldset
+                    className="setting-item setting-item--field form-field settings-working-hours"
+                    aria-label="Working hours"
+                  >
+                    <legend>
+                      <strong>Working hours</strong>
+                      <small>
+                        Simple local context only. Aura does not derive availability or scheduling from this automatically.
+                      </small>
+                      {profileValidation.workingHours ? (
+                        <small className="validation-text">{profileValidation.workingHours}</small>
+                      ) : null}
+                    </legend>
+                    <div className="settings-working-hours__days" role="group" aria-label="Working days">
+                      {WORKING_DAY_OPTIONS.map((day) => {
+                        const checked = draftProfile.workspacePreferences.workingHours.enabledDays.includes(day.id);
 
-                    return (
-                      <label key={day.id} className="settings-working-hours__day">
+                        return (
+                          <label key={day.id} className="settings-working-hours__day">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) => updateDraftWorkingDays(day.id, event.target.checked)}
+                              aria-label={day.label}
+                            />
+                            <span>{day.shortLabel}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div className="settings-working-hours__times">
+                      <label className="settings-working-hours__time-field" htmlFor="workspace-start-time">
+                        <span>Start</span>
                         <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(event) => updateDraftWorkingDays(day.id, event.target.checked)}
-                          aria-label={day.label}
+                          id="workspace-start-time"
+                          type="time"
+                          value={draftProfile.workspacePreferences.workingHours.startTime}
+                          onChange={(event) => updateDraftWorkingTime('startTime', event.target.value)}
+                          aria-label="Working hours start time"
                         />
-                        <span>{day.shortLabel}</span>
                       </label>
-                    );
-                  })}
+                      <label className="settings-working-hours__time-field" htmlFor="workspace-end-time">
+                        <span>End</span>
+                        <input
+                          id="workspace-end-time"
+                          type="time"
+                          value={draftProfile.workspacePreferences.workingHours.endTime}
+                          onChange={(event) => updateDraftWorkingTime('endTime', event.target.value)}
+                          aria-label="Working hours end time"
+                        />
+                      </label>
+                    </div>
+                  </fieldset>
                 </div>
-                <div className="settings-working-hours__times">
-                  <label className="settings-working-hours__time-field" htmlFor="workspace-start-time">
-                    <span>Start</span>
-                    <input
-                      id="workspace-start-time"
-                      type="time"
-                      value={draftProfile.workspacePreferences.workingHours.startTime}
-                      onChange={(event) => updateDraftWorkingTime('startTime', event.target.value)}
-                      aria-label="Working hours start time"
-                    />
+              </section>
+
+              <section className="settings-field-cluster settings-field-cluster--defaults">
+                <div className="settings-profile-section-label">Daily defaults</div>
+                <div className="settings-field-cluster__grid settings-field-cluster__grid--defaults">
+                  <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-landing-select">
+                    <span>
+                      <strong>Default landing route</strong>
+                      <small>Used only when Aura opens without a stronger redirect or deep link intent.</small>
+                    </span>
+                    <select
+                      id="workspace-default-landing-select"
+                      value={draftProfile.workspacePreferences.defaultLandingRoute}
+                      onChange={(event) =>
+                        updateDraftWorkspacePreference('defaultLandingRoute', event.target.value as ClinicianProfile['workspacePreferences']['defaultLandingRoute'])
+                      }
+                      aria-label="Default landing route"
+                    >
+                      {LANDING_ROUTE_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
-                  <label className="settings-working-hours__time-field" htmlFor="workspace-end-time">
-                    <span>End</span>
-                    <input
-                      id="workspace-end-time"
-                      type="time"
-                      value={draftProfile.workspacePreferences.workingHours.endTime}
-                      onChange={(event) => updateDraftWorkingTime('endTime', event.target.value)}
-                      aria-label="Working hours end time"
-                    />
+
+                  <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-patients-preset-select">
+                    <span>
+                      <strong>Default Patients preset</strong>
+                      <small>Applied only on a clean Patients entry when no stronger saved roster state exists.</small>
+                    </span>
+                    <select
+                      id="workspace-default-patients-preset-select"
+                      value={draftProfile.workspacePreferences.defaultPatientsPreset}
+                      onChange={(event) =>
+                        updateDraftWorkspacePreference(
+                          'defaultPatientsPreset',
+                          event.target.value as ClinicianProfile['workspacePreferences']['defaultPatientsPreset'],
+                        )
+                      }
+                      aria-label="Default Patients preset"
+                    >
+                      <option value="">No default preset</option>
+                      {PATIENT_TRIAGE_PRESETS.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-communication-filter-select">
+                    <span>
+                      <strong>Default Communication filter</strong>
+                      <small>Applied only when Communication opens without an explicit filter in the route.</small>
+                    </span>
+                    <select
+                      id="workspace-default-communication-filter-select"
+                      value={draftProfile.workspacePreferences.defaultCommunicationFilter}
+                      onChange={(event) =>
+                        updateDraftWorkspacePreference(
+                          'defaultCommunicationFilter',
+                          event.target.value as ClinicianProfile['workspacePreferences']['defaultCommunicationFilter'],
+                        )
+                      }
+                      aria-label="Default Communication filter"
+                    >
+                      {COMMUNICATION_THREAD_VIEW_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
-              </fieldset>
-
-              <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-landing-select">
-                <span>
-                  <strong>Default landing route</strong>
-                  <small>
-                    Used only when Aura opens without a stronger redirect or deep link intent.
-                  </small>
-                </span>
-                <select
-                  id="workspace-default-landing-select"
-                  value={draftProfile.workspacePreferences.defaultLandingRoute}
-                  onChange={(event) =>
-                    updateDraftWorkspacePreference('defaultLandingRoute', event.target.value as ClinicianProfile['workspacePreferences']['defaultLandingRoute'])
-                  }
-                  aria-label="Default landing route"
-                >
-                  {LANDING_ROUTE_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-patients-preset-select">
-                <span>
-                  <strong>Default Patients preset</strong>
-                  <small>
-                    Applied only on a clean Patients entry when no stronger saved roster state
-                    exists.
-                  </small>
-                </span>
-                <select
-                  id="workspace-default-patients-preset-select"
-                  value={draftProfile.workspacePreferences.defaultPatientsPreset}
-                  onChange={(event) =>
-                    updateDraftWorkspacePreference(
-                      'defaultPatientsPreset',
-                      event.target.value as ClinicianProfile['workspacePreferences']['defaultPatientsPreset'],
-                    )
-                  }
-                  aria-label="Default Patients preset"
-                >
-                  <option value="">No default preset</option>
-                  {PATIENT_TRIAGE_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-communication-filter-select">
-                <span>
-                  <strong>Default Communication filter</strong>
-                  <small>
-                    Applied only when Communication opens without an explicit filter in the route.
-                  </small>
-                </span>
-                <select
-                  id="workspace-default-communication-filter-select"
-                  value={draftProfile.workspacePreferences.defaultCommunicationFilter}
-                  onChange={(event) =>
-                    updateDraftWorkspacePreference(
-                      'defaultCommunicationFilter',
-                      event.target.value as ClinicianProfile['workspacePreferences']['defaultCommunicationFilter'],
-                    )
-                  }
-                  aria-label="Default Communication filter"
-                >
-                  {COMMUNICATION_THREAD_VIEW_OPTIONS.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              </section>
             </div>
 
             <datalist id="settings-timezone-options">
@@ -1276,9 +1383,6 @@ export function SettingsPage(): JSX.Element {
               <div className="inline-actions settings-actions settings-actions--primary settings-actions--identity">
                 <Button onClick={() => handleSaveProfile('profile')} disabled={!profileWorkspaceDirty}>
                   Save profile
-                </Button>
-                <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
-                  Restore defaults
                 </Button>
               </div>
             </div>
@@ -1299,7 +1403,108 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
           </Card>
+        </section>
 
+        <aside className="settings-control-environment__side" aria-label="Session protection settings">
+          <div className="settings-column-shell__intro settings-column-shell__intro--protection">
+            <p className="settings-column-shell__eyebrow">Protection</p>
+            <h3 className="settings-column-shell__title">Session safety controls</h3>
+            <p className="settings-column-shell__text">
+              Keep unattended access risk low while preserving the local scope of this browser.
+            </p>
+          </div>
+          <Card
+            className="settings-group-card settings-group-card--security"
+            title={
+              <span className="settings-group-card__title">
+                Session & security
+                <span className="settings-group-card__title-meta">Browser protection</span>
+              </span>
+            }
+            action={
+              <Badge variant={sessionSettings.enabled ? 'success' : 'warning'}>
+                {sessionProtectionBadgeLabel}
+              </Badge>
+            }
+          >
+            <div className="settings-group-card__context">
+              <span className="settings-group-card__context-pill">Local protection</span>
+              <p className="settings-group-card__context-note">
+                Takes effect immediately in this browser.
+              </p>
+            </div>
+            <p className="settings-group-card__intro">
+              Session safeguards apply immediately to this browser and do not publish a shared
+              organization-wide policy.
+            </p>
+            <div className="settings-security-panel">
+              <div className="settings-security-panel__state">
+                <article className="settings-security-panel__fact">
+                  <span>Protection state</span>
+                  <strong>{sessionProtectionBadgeLabel}</strong>
+                  <p>{sessionSettings.enabled ? 'Session guard is active for this browser.' : 'Protection is currently off for this browser.'}</p>
+                </article>
+                <article className="settings-security-panel__fact">
+                  <span>Idle timeout</span>
+                  <strong>{sessionSettings.idleMinutes} minutes</strong>
+                  <p>Used for unattended-session lock timing.</p>
+                </article>
+                <article className="settings-security-panel__fact">
+                  <span>Absolute timeout</span>
+                  <strong>{sessionSettings.absoluteHours} hours</strong>
+                  <p>Maximum session duration before forced sign-out.</p>
+                </article>
+                <article className="settings-security-panel__fact">
+                  <span>Quiet-hours state</span>
+                  <strong>{draftProfile.notificationPreferences.quietHours.enabled ? 'Quiet hours enabled' : 'Quiet hours off'}</strong>
+                  <p>Secondary in-app emphasis only, never core alert visibility.</p>
+                </article>
+              </div>
+
+              <div className="settings-security-panel__notes">
+                <article className="settings-security-panel__note">
+                  <p className="settings-security-panel__note-label">Warning ladder</p>
+                  <p>{timeoutWarningLabel}</p>
+                </article>
+                <article className="settings-security-panel__note">
+                  <p className="settings-security-panel__note-label">Local protection scope</p>
+                  <p>Auto-logout timing updates the current browser session manager right away.</p>
+                </article>
+              </div>
+            </div>
+
+            {sessionNotice ? (
+              <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
+                {sessionNotice}
+              </p>
+            ) : null}
+          </Card>
+
+          <section className="settings-column-shell__support" aria-label="Workspace guidance">
+            <p className="settings-column-shell__support-label">Workspace guidance</p>
+            <p className="settings-column-shell__support-text">
+              Use these reminders to keep the local scope of this browser clear for the clinician
+              using it.
+            </p>
+            <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
+              Settings on this page are browser-backed. They change how this clinician workspace
+              behaves on this device, but they do not publish shared product-wide preferences.
+            </AlertBanner>
+          </section>
+        </aside>
+      </section>
+
+      <section className="settings-modules-stage" aria-label="Communication and notification settings">
+        <div className="settings-column-shell__intro settings-column-shell__intro--modules">
+          <p className="settings-column-shell__eyebrow">Communication and notification defaults</p>
+          <h3 className="settings-column-shell__title">Authoring and local attention modules</h3>
+          <p className="settings-column-shell__text">
+            Keep reply drafting, quick templates, and in-app attention cues coordinated without changing
+            product-wide behavior outside this browser.
+          </p>
+        </div>
+
+        <div className="settings-modules-stage__grid">
           <Card
             className="settings-group-card settings-group-card--communication-authoring"
             title={
@@ -1586,77 +1791,74 @@ export function SettingsPage(): JSX.Element {
                 </select>
               </label>
 
-              <label className="setting-item setting-item--toggle" htmlFor="notification-quiet-hours-enabled">
-                <span>
-                  <strong>Quiet hours</strong>
-                  <small>
-                    Reduce secondary in-app emphasis only during a local daily window in this
-                    browser.
-                  </small>
-                </span>
-                <input
-                  id="notification-quiet-hours-enabled"
-                  type="checkbox"
-                  checked={draftProfile.notificationPreferences.quietHours.enabled}
-                  onChange={(event) =>
-                    updateDraftNotificationQuietHours('enabled', event.target.checked)
-                  }
-                />
-              </label>
-
-              {draftProfile.notificationPreferences.quietHours.enabled ? (
-                <div className="settings-notification-preferences__quiet-hours">
-                  <label
-                    className="setting-item setting-item--field form-field"
-                    htmlFor="notification-quiet-hours-start"
-                  >
-                    <span>
-                      <strong>Quiet hours start</strong>
-                      <small>Local browser time.</small>
-                    </span>
-                    <input
-                      id="notification-quiet-hours-start"
-                      type="time"
-                      value={draftProfile.notificationPreferences.quietHours.startTime}
-                      onChange={(event) =>
-                        updateDraftNotificationQuietHours('startTime', event.target.value)
-                      }
-                      aria-label="Quiet hours start time"
-                      aria-invalid={profileValidation.notificationQuietHours ? 'true' : undefined}
-                      aria-describedby={
-                        profileValidation.notificationQuietHours
-                          ? quietHoursValidationId
-                          : undefined
-                      }
-                    />
-                  </label>
-
-                  <label
-                    className="setting-item setting-item--field form-field"
-                    htmlFor="notification-quiet-hours-end"
-                  >
-                    <span>
-                      <strong>Quiet hours end</strong>
-                      <small>Local browser time.</small>
-                    </span>
-                    <input
-                      id="notification-quiet-hours-end"
-                      type="time"
-                      value={draftProfile.notificationPreferences.quietHours.endTime}
-                      onChange={(event) =>
-                        updateDraftNotificationQuietHours('endTime', event.target.value)
-                      }
-                      aria-label="Quiet hours end time"
-                      aria-invalid={profileValidation.notificationQuietHours ? 'true' : undefined}
-                      aria-describedby={
-                        profileValidation.notificationQuietHours
-                          ? quietHoursValidationId
-                          : undefined
-                      }
-                    />
-                  </label>
+              <div className="settings-notification-preferences__quiet-panel">
+                <div className="settings-notification-preferences__quiet-copy">
+                  <p className="settings-profile-section-label">Quiet hours window</p>
+                  <p className="settings-group-card__context-note">
+                    Quiet hours stay controlled from the quick band above so session protection remains easy to reach early.
+                  </p>
                 </div>
-              ) : null}
+
+                {draftProfile.notificationPreferences.quietHours.enabled ? (
+                  <div className="settings-notification-preferences__quiet-hours">
+                    <label
+                      className="setting-item setting-item--field form-field"
+                      htmlFor="notification-quiet-hours-start"
+                    >
+                      <span>
+                        <strong>Quiet hours start</strong>
+                        <small>Local browser time.</small>
+                      </span>
+                      <input
+                        id="notification-quiet-hours-start"
+                        type="time"
+                        value={draftProfile.notificationPreferences.quietHours.startTime}
+                        onChange={(event) =>
+                          updateDraftNotificationQuietHours('startTime', event.target.value)
+                        }
+                        aria-label="Quiet hours start time"
+                        aria-invalid={profileValidation.notificationQuietHours ? 'true' : undefined}
+                        aria-describedby={
+                          profileValidation.notificationQuietHours
+                            ? quietHoursValidationId
+                            : undefined
+                        }
+                      />
+                    </label>
+
+                    <label
+                      className="setting-item setting-item--field form-field"
+                      htmlFor="notification-quiet-hours-end"
+                    >
+                      <span>
+                        <strong>Quiet hours end</strong>
+                        <small>Local browser time.</small>
+                      </span>
+                      <input
+                        id="notification-quiet-hours-end"
+                        type="time"
+                        value={draftProfile.notificationPreferences.quietHours.endTime}
+                        onChange={(event) =>
+                          updateDraftNotificationQuietHours('endTime', event.target.value)
+                        }
+                        aria-label="Quiet hours end time"
+                        aria-invalid={profileValidation.notificationQuietHours ? 'true' : undefined}
+                        aria-describedby={
+                          profileValidation.notificationQuietHours
+                            ? quietHoursValidationId
+                            : undefined
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="settings-notification-preferences__quiet-empty">
+                    <p className="muted-text">
+                      Quiet hours are currently off for this browser. Turn them on in quick controls to set a local window.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {profileValidation.notificationQuietHours ? (
                 <p
@@ -1701,136 +1903,46 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
           </Card>
-        </section>
+        </div>
+      </section>
 
-        <section
-          className="settings-groups__column settings-groups__column--secondary settings-column-shell settings-column-shell--protection"
-          aria-label="Session protection settings"
-        >
-          <div className="settings-column-shell__intro">
-            <p className="settings-column-shell__eyebrow">Protection</p>
-            <h3 className="settings-column-shell__title">Session safety controls</h3>
-            <p className="settings-column-shell__text">
-              Keep unattended access risk low while preserving the local scope of this browser.
-            </p>
-          </div>
-          <Card
-            className="settings-group-card settings-group-card--security"
-            title={
-              <span className="settings-group-card__title">
-                Session & security
-                <span className="settings-group-card__title-meta">Browser protection</span>
-              </span>
-            }
-            action={
-              <Badge variant={sessionSettings.enabled ? 'success' : 'warning'}>
-                {sessionProtectionBadgeLabel}
-              </Badge>
-            }
-          >
-            <div className="settings-group-card__context">
-              <span className="settings-group-card__context-pill">Local protection</span>
-              <p className="settings-group-card__context-note">
-                Takes effect immediately in this browser.
+      <section className="settings-admin-zone" aria-label="Restore and maintenance actions">
+        <div className="settings-column-shell__intro settings-column-shell__intro--admin">
+          <p className="settings-column-shell__eyebrow">Restore and maintenance</p>
+          <h3 className="settings-column-shell__title">Lower-priority control resets</h3>
+          <p className="settings-column-shell__text">
+            Keep resets separate from day-to-day workspace controls so clinicians can reach them intentionally
+            without confusing them with normal preference updates.
+          </p>
+        </div>
+
+        <div className="settings-admin-zone__actions">
+          <article className="settings-admin-action">
+            <div className="settings-admin-action__copy">
+              <p className="settings-admin-action__eyebrow">Profile draft</p>
+              <h4 className="settings-admin-action__title">Restore workspace profile defaults</h4>
+              <p className="settings-admin-action__text">
+                Reset the editable profile form to Aura&apos;s local clinician defaults. The saved browser profile does not change until you save again.
               </p>
             </div>
-            <p className="settings-group-card__intro">
-              Session safeguards apply immediately to this browser and do not publish a shared
-              organization-wide policy.
-            </p>
-            <div className="settings-list settings-list--refined">
-              <label className="setting-item setting-item--toggle" htmlFor="idle-timeout-enabled-toggle">
-                <span>
-                  <strong>Enable idle auto-logout</strong>
-                  <small>Lock unattended sessions for patient safety.</small>
-                </span>
-                <input
-                  id="idle-timeout-enabled-toggle"
-                  type="checkbox"
-                  checked={sessionSettings.enabled}
-                  onChange={(event) => {
-                    applySessionSettings({ enabled: event.target.checked });
-                  }}
-                />
-              </label>
+            <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
+              Restore defaults
+            </Button>
+          </article>
 
-              <label className="setting-item setting-item--field form-field" htmlFor="idle-timeout-minutes">
-                <span>
-                  <strong>Idle timeout</strong>
-                  <small>Show warning 60 seconds before lock.</small>
-                </span>
-                <select
-                  id="idle-timeout-minutes"
-                  value={String(sessionSettings.idleMinutes)}
-                  onChange={(event) => {
-                    applySessionSettings({ idleMinutes: Number(event.target.value) });
-                  }}
-                  aria-label="Idle timeout minutes"
-                >
-                  <option value="5">5 minutes</option>
-                  <option value="10">10 minutes</option>
-                  <option value="15">15 minutes</option>
-                  <option value="30">30 minutes</option>
-                </select>
-              </label>
-
-              <label className="setting-item setting-item--field form-field" htmlFor="absolute-timeout-hours">
-                <span>
-                  <strong>Absolute session timeout</strong>
-                  <small>Show warning 5 minutes before maximum session duration.</small>
-                </span>
-                <select
-                  id="absolute-timeout-hours"
-                  value={String(sessionSettings.absoluteHours)}
-                  onChange={(event) => {
-                    applySessionSettings({ absoluteHours: Number(event.target.value) });
-                  }}
-                  aria-label="Absolute timeout hours"
-                >
-                  <option value="2">2 hours</option>
-                  <option value="4">4 hours</option>
-                  <option value="8">8 hours</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="settings-card-footer">
-              <div className="inline-actions settings-actions settings-actions--security">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    const reset = setSessionSettings(DEFAULT_SESSION_SETTINGS);
-                    setLocalSessionSettings(reset);
-                    setSessionNotice('Session security settings reset to defaults.');
-                  }}
-                >
-                  Restore session defaults
-                </Button>
-              </div>
-              <p className="settings-card-footer__note">
-                Auto-logout timing updates the current browser session manager right away.
+          <article className="settings-admin-action settings-admin-action--protection">
+            <div className="settings-admin-action__copy">
+              <p className="settings-admin-action__eyebrow">Session protection</p>
+              <h4 className="settings-admin-action__title">Restore session defaults</h4>
+              <p className="settings-admin-action__text">
+                Return this browser&apos;s idle and absolute session timing to the default protection policy.
               </p>
             </div>
-
-            {sessionNotice ? (
-              <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
-                {sessionNotice}
-              </p>
-            ) : null}
-          </Card>
-
-          <section className="settings-column-shell__support" aria-label="Workspace guidance">
-            <p className="settings-column-shell__support-label">Workspace guidance</p>
-            <p className="settings-column-shell__support-text">
-              Use these reminders to keep the local scope of this browser clear for the clinician
-              using it.
-            </p>
-            <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
-              Settings on this page are browser-backed. They change how this clinician workspace
-              behaves on this device, but they do not publish shared product-wide preferences.
-            </AlertBanner>
-          </section>
-        </section>
+            <Button variant="secondary" onClick={handleRestoreSessionDefaults}>
+              Restore session defaults
+            </Button>
+          </article>
+        </div>
       </section>
     </div>
   );

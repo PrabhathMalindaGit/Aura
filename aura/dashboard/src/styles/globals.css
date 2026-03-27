@@ -36494,3 +36494,598 @@ button.dashboard-summary-strip__item:hover {
     width: 100%;
   }
 }
+
+/* Settings page control-console redesign */
+
+.settings-page {
+  gap: clamp(1.35rem, 2.2vw, 2rem);
+}
+
+.settings-page .settings-page-header {
+  margin-bottom: 0.1rem;
+}
+
+.settings-page .settings-page__meta {
+  gap: 0.5rem;
+}
+
+.settings-overview-stack--console {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.settings-page .settings-summary-strip--console {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid hsl(var(--border) / 0.64);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.1)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.06), transparent 78%);
+  box-shadow:
+    0 24px 48px hsl(214 36% 22% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+  overflow: hidden;
+}
+
+.settings-page .settings-summary-strip--console::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.24), transparent);
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__item {
+  min-height: 0;
+  padding: 1rem 1rem 1.05rem;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--card) / 0.9)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.035), transparent 78%);
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__item--security,
+.settings-page .settings-summary-strip--console .settings-summary-strip__item--workspace-state {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.075), transparent 76%);
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__item--notifications {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--warning) / 0.08)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.07), transparent 76%);
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__label {
+  color: hsl(var(--foreground) / 0.62);
+  font-size: 0.67rem;
+  letter-spacing: 0.14em;
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__value {
+  font-size: clamp(1.08rem, 1vw + 0.84rem, 1.48rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__hint {
+  color: hsl(var(--foreground) / 0.7);
+  font-size: 0.82rem;
+  line-height: 1.48;
+}
+
+.settings-quick-controls-band,
+.settings-control-environment,
+.settings-modules-stage,
+.settings-admin-zone {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-quick-controls-band {
+  padding: 1rem;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: 30px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.992), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.055), transparent 82%);
+  box-shadow:
+    0 26px 46px hsl(214 36% 22% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.settings-quick-controls-band__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  align-items: end;
+}
+
+.settings-quick-controls-band__copy {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 48rem;
+}
+
+.settings-quick-controls-band__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.settings-quick-controls-band__grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.settings-quick-controls-band .settings-quick-control,
+.settings-quick-controls-band .settings-quick-note {
+  min-height: 100%;
+}
+
+.settings-quick-controls-band .setting-item--theme {
+  grid-column: span 5;
+  align-content: start;
+}
+
+.settings-quick-controls-band .setting-item--toggle,
+.settings-quick-controls-band .setting-item--field {
+  grid-column: span 3;
+}
+
+.settings-quick-note {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1rem 1.05rem;
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.035), transparent 78%);
+}
+
+.settings-quick-note--timing {
+  grid-column: span 4;
+}
+
+.settings-quick-note--scope {
+  grid-column: span 5;
+}
+
+.settings-quick-note__label {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.6);
+  font-size: 0.67rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-quick-note__value {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.8);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.settings-quick-controls-band__notices {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.settings-control-environment {
+  grid-template-columns: minmax(0, 1.24fr) minmax(20rem, 0.82fr);
+  align-items: start;
+}
+
+.settings-control-environment__main,
+.settings-control-environment__side {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.settings-page .settings-column-shell__intro--workspace,
+.settings-page .settings-column-shell__intro--protection,
+.settings-page .settings-column-shell__intro--modules,
+.settings-page .settings-column-shell__intro--admin {
+  padding: 1rem 1.1rem;
+  border-radius: 26px;
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.1)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.045), transparent 80%);
+  box-shadow:
+    0 18px 34px hsl(214 36% 22% / 0.06),
+    inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.settings-display-context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.settings-display-context__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1rem 1.05rem;
+  border: 1px solid hsl(var(--border) / 0.52);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.12)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 80%);
+}
+
+.settings-display-context__item strong {
+  display: block;
+  font-size: 0.98rem;
+  line-height: 1.2;
+}
+
+.settings-display-context__label {
+  margin: 0 0 0.3rem;
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 0.67rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-display-context__text {
+  margin: 0.35rem 0 0;
+  color: hsl(var(--foreground) / 0.72);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  max-width: 34ch;
+}
+
+.settings-page .settings-group-card {
+  border-radius: 30px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.1)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+  box-shadow:
+    0 26px 48px hsl(214 36% 22% / 0.08),
+    inset 0 1px 0 hsl(var(--foreground) / 0.04);
+}
+
+.settings-page .settings-group-card--identity,
+.settings-page .settings-group-card--security {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.045), transparent 80%);
+}
+
+.settings-page .settings-group-card .card__header {
+  padding: 1.35rem 1.4rem 1rem;
+}
+
+.settings-page .settings-group-card .card__body {
+  padding: 0 1.4rem 1.4rem;
+  gap: 1rem;
+}
+
+.settings-page .settings-group-card__title {
+  gap: 0.25rem;
+  font-size: clamp(1.1rem, 0.95rem + 0.5vw, 1.42rem);
+}
+
+.settings-profile-summary--hero {
+  padding: 1.15rem 1.2rem;
+  border-radius: 24px;
+  border-color: hsl(var(--border) / 0.58);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 1), hsl(var(--muted) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.settings-profile-summary--hero .settings-profile-summary__name {
+  font-size: clamp(1.05rem, 0.94rem + 0.45vw, 1.38rem);
+}
+
+.settings-profile-editor {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.settings-field-cluster {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.95rem;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--muted) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.028), transparent 82%);
+}
+
+.settings-field-cluster__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.settings-field-cluster__grid--context .setting-item:first-child,
+.settings-field-cluster__grid--workspace .settings-working-hours,
+.settings-field-cluster__grid--defaults .setting-item:first-child {
+  grid-column: 1 / -1;
+}
+
+.settings-security-panel {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.settings-security-panel__state {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.settings-security-panel__fact,
+.settings-security-panel__note {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.95rem 1rem;
+  border-radius: 22px;
+  border: 1px solid hsl(var(--border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.11)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 82%);
+}
+
+.settings-security-panel__fact span,
+.settings-security-panel__note-label {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 0.67rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-security-panel__fact strong {
+  font-size: 1.02rem;
+  line-height: 1.12;
+}
+
+.settings-security-panel__fact p,
+.settings-security-panel__note p:last-child {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.76);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.settings-security-panel__notes {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.settings-modules-stage__grid,
+.settings-admin-zone__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.settings-page .settings-group-card--communication-authoring,
+.settings-page .settings-group-card--notification-preferences {
+  min-height: 100%;
+}
+
+.settings-notification-preferences__quiet-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.95rem;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.11)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.04), transparent 82%);
+}
+
+.settings-notification-preferences__quiet-empty {
+  padding: 0.3rem 0;
+}
+
+.settings-admin-zone__actions {
+  align-items: stretch;
+}
+
+.settings-admin-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 24px;
+  border: 1px solid hsl(var(--border) / 0.52);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--muted) / 0.08)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.022), transparent 84%);
+}
+
+.settings-admin-action--protection {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--warning) / 0.06)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.05), transparent 82%);
+}
+
+.settings-admin-action__copy {
+  display: grid;
+  gap: 0.32rem;
+  max-width: 36rem;
+}
+
+.settings-admin-action__eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 0.67rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-admin-action__title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.settings-admin-action__text {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.74);
+  font-size: 0.85rem;
+  line-height: 1.56;
+}
+
+.dark .settings-page .settings-summary-strip--console,
+.dark .settings-quick-controls-band,
+.dark .settings-page .settings-group-card,
+.dark .settings-page .settings-column-shell__intro--workspace,
+.dark .settings-page .settings-column-shell__intro--protection,
+.dark .settings-page .settings-column-shell__intro--modules,
+.dark .settings-page .settings-column-shell__intro--admin,
+.dark .settings-page .settings-display-context__item,
+.dark .settings-page .settings-field-cluster,
+.dark .settings-page .settings-security-panel__fact,
+.dark .settings-page .settings-security-panel__note,
+.dark .settings-page .settings-notification-preferences__quiet-panel,
+.dark .settings-page .settings-admin-action,
+.dark .settings-page .settings-quick-note {
+  box-shadow:
+    0 26px 48px hsl(224 52% 4% / 0.22),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .settings-page .settings-summary-strip--console {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.26)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 78%);
+}
+
+.dark .settings-page .settings-summary-strip--console .settings-summary-strip__item,
+.dark .settings-quick-controls-band,
+.dark .settings-page .settings-display-context__item,
+.dark .settings-page .settings-field-cluster,
+.dark .settings-page .settings-security-panel__fact,
+.dark .settings-page .settings-security-panel__note,
+.dark .settings-page .settings-notification-preferences__quiet-panel,
+.dark .settings-page .settings-admin-action,
+.dark .settings-page .settings-quick-note {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--muted) / 0.28)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.1), transparent 80%);
+}
+
+.dark .settings-page .settings-summary-strip--console .settings-summary-strip__item--notifications,
+.dark .settings-page .settings-admin-action--protection {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--warning) / 0.14)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.12), transparent 80%);
+}
+
+.dark .settings-page .settings-profile-summary--hero {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.14), transparent 82%);
+}
+
+@media (max-width: 1280px) {
+  .settings-page .settings-summary-strip--console {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .settings-quick-controls-band__grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .settings-quick-controls-band .setting-item--theme,
+  .settings-quick-note--scope {
+    grid-column: span 6;
+  }
+
+  .settings-quick-controls-band .setting-item--toggle,
+  .settings-quick-controls-band .setting-item--field,
+  .settings-quick-note--timing {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 1080px) {
+  .settings-control-environment,
+  .settings-modules-stage__grid,
+  .settings-admin-zone__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-field-cluster__grid,
+  .settings-security-panel__state,
+  .settings-display-context {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .settings-page .settings-summary-strip--console {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.8rem;
+  }
+
+  .settings-quick-controls-band__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-quick-controls-band .setting-item--theme,
+  .settings-quick-controls-band .setting-item--toggle,
+  .settings-quick-controls-band .setting-item--field,
+  .settings-quick-note--timing,
+  .settings-quick-note--scope {
+    grid-column: auto;
+  }
+
+  .settings-page .settings-group-card .card__header,
+  .settings-page .settings-group-card .card__body {
+    padding-inline: 1rem;
+  }
+
+  .settings-admin-action {
+    display: grid;
+  }
+}
+
+@media (max-width: 520px) {
+  .settings-page .settings-summary-strip--console {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-quick-controls-band,
+  .settings-page .settings-column-shell__intro--workspace,
+  .settings-page .settings-column-shell__intro--protection,
+  .settings-page .settings-column-shell__intro--modules,
+  .settings-page .settings-column-shell__intro--admin,
+  .settings-page .settings-group-card,
+  .settings-display-context__item,
+  .settings-field-cluster,
+  .settings-admin-action {
+    border-radius: 24px;
+  }
+}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { AlertItem } from '../../types/models';
 import type { SeenAlertMap } from '../../services/seenStore';
 import { isAlertUnseenForUi } from '../../utils/seen';
-import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
+import { formatRiskLabel, getEffectiveRisk, hasRiskOverride, riskBadgeVariant } from '../../utils/risk';
 import {
   alertSourceLabel,
   alertStatusLabel,
@@ -18,6 +18,8 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
 import { cn } from '../../utils/cn';
+
+const HOURS_24_MS = 24 * 60 * 60 * 1000;
 
 interface AlertCardListProps {
   alerts: AlertItem[];
@@ -35,6 +37,11 @@ interface AlertCardListProps {
 
 function asReasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(', ') : reason;
+}
+
+function patientAnchorLabel(patientId: string): string {
+  const compact = patientId.replace(/[^a-z0-9]/gi, '').toUpperCase();
+  return compact.slice(-3) || 'PT';
 }
 
 function statusBadgeVariant(
@@ -91,6 +98,9 @@ export function AlertCardList({
         const unseen = isAlertUnseenForUi(alert, seenAlertMap);
         const assignedToOther = Boolean(alert.assignedTo && alert.assignedTo !== clinicianId);
         const effectiveRisk = getEffectiveRisk(alert);
+        const notificationStatus = resolveNotificationStatus(alert.notificationStatus);
+        const createdAtMs = Date.parse(alert.createdAt);
+        const isAged = Number.isFinite(createdAtMs) && Date.now() - createdAtMs > HOURS_24_MS;
         const isReasonExpanded = Boolean(expandedReasonByAlertId[alert._id]);
         const showReasonToggle = reasonText.length > 120;
         const alertReference = shortReferenceLabel(alert._id);
@@ -104,6 +114,10 @@ export function AlertCardList({
               'alerts-card-list__card',
               unseen && 'alerts-card-list__card--unseen',
               effectiveRisk === 'high' && 'alerts-card-list__card--high-risk',
+              notificationStatus === 'failed' && 'alerts-card-list__card--delivery-failed',
+              alert.assignedTo === clinicianId && 'alerts-card-list__card--assigned-me',
+              isAged && 'alerts-card-list__card--aged',
+              hasRiskOverride(alert) && 'alerts-card-list__card--overridden',
               highlightedAlertIds.includes(alert._id) && 'alert-arrived',
             )}
             aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}
@@ -112,12 +126,18 @@ export function AlertCardList({
             <div className="alerts-card-list__body">
               <div className="alerts-card-list__top">
                 <div className="alerts-card-list__patient-group">
-                  <strong className="alerts-card-list__patient patient-id-text">
-                    Patient {alert.patientId}
-                  </strong>
-                  <span className="muted-text alerts-card-list__meta-line">{alertReference ?? alert._id}</span>
-                  <span className="muted-text alerts-card-list__meta-line">
-                    Created{' '}
+                  <div className="alerts-card-list__patient-anchor">
+                    <span className="alerts-card-list__patient-avatar" aria-hidden="true">
+                      {patientAnchorLabel(alert.patientId)}
+                    </span>
+                    <div className="alerts-card-list__patient-copy">
+                      <strong className="alerts-card-list__patient patient-id-text">
+                        Patient {alert.patientId}
+                      </strong>
+                      <span className="muted-text alerts-card-list__meta-line">{alertReference ?? alert._id}</span>
+                    </div>
+                  </div>
+                  <span className="muted-text alerts-card-list__meta-line alerts-card-list__time-pill">
                     <time dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
                       {formatRelativeTime(alert.createdAt)}
                     </time>
@@ -146,6 +166,18 @@ export function AlertCardList({
                 >
                   {reasonText}
                 </p>
+                <div className="alerts-card-list__reason-flags">
+                  {notificationStatus === 'failed' ? (
+                    <span className="alerts-card-list__reason-flag alerts-card-list__reason-flag--delivery">
+                      Delivery issue
+                    </span>
+                  ) : null}
+                  {isAged ? (
+                    <span className="alerts-card-list__reason-flag alerts-card-list__reason-flag--aged">
+                      Older than 24h
+                    </span>
+                  ) : null}
+                </div>
                 {showReasonToggle ? (
                   <Button
                     variant="ghost"
@@ -189,7 +221,7 @@ export function AlertCardList({
                 <div className="alerts-card-list__actions-primary">
                   <Button
                     className="alerts-actions__open"
-                    variant="ghost"
+                    variant="primary"
                     data-testid={`alert-open-${alert._id}`}
                     onClick={(event) => onOpen(alert, event.currentTarget)}
                     fullWidth

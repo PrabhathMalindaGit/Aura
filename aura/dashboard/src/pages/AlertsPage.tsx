@@ -5,7 +5,6 @@ import type { AlertItem, AlertStatus } from '../types/models';
 import { AlertCardList } from '../components/alerts/AlertCardList';
 import { AlertDetailDrawer } from '../components/alerts/AlertDetailDrawer';
 import { AlertsTable } from '../components/alerts/AlertsTable';
-import { KpiRow } from '../components/overview/KpiRow';
 import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import {
   FiltersBar,
@@ -1051,6 +1050,56 @@ export function AlertsPage(): JSX.Element {
   const statusViewLabel = formatStatusViewLabel(status);
   const runtimeHighlightedAlertIds =
     notificationPreferences.effectiveSafetyCueMode === 'reduced' ? [] : highlightedAlertIds;
+  const acknowledgedAlertsForOverview = useMemo(() => {
+    if (status === 'acknowledged') {
+      return sourceAlerts;
+    }
+
+    const cachedAcknowledgedAlerts =
+      queryClient.getQueryData<AlertItem[]>(clinicianQueryKeys.alerts('acknowledged')) ?? [];
+    return applyAlertOverrides(applyAlertAssignments(cachedAcknowledgedAlerts));
+  }, [applyAlertAssignments, applyAlertOverrides, queryClient, sourceAlerts, status]);
+  const resolvedAlertsForOverview = useMemo(() => {
+    if (status === 'resolved') {
+      return sourceAlerts;
+    }
+
+    const cachedResolvedAlerts =
+      queryClient.getQueryData<AlertItem[]>(clinicianQueryKeys.alerts('resolved')) ?? [];
+    return applyAlertOverrides(applyAlertAssignments(cachedResolvedAlerts));
+  }, [applyAlertAssignments, applyAlertOverrides, queryClient, sourceAlerts, status]);
+  const statusTabCounts = useMemo(
+    () => ({
+      open: alertKpis.openCount,
+      acknowledged: acknowledgedAlertsForOverview.length,
+      resolved: resolvedAlertsForOverview.length,
+    }),
+    [acknowledgedAlertsForOverview.length, alertKpis.openCount, resolvedAlertsForOverview.length],
+  );
+  const alertStatusNarrative = allClear
+    ? 'No open safety issues currently need clinician review in this browser session.'
+    : alertKpis.overdueCount > 0
+      ? `${alertKpis.overdueCount} open alert${alertKpis.overdueCount === 1 ? '' : 's'} are older than 24h and should lead triage.`
+      : alertKpis.unseenCount > 0
+        ? `${alertKpis.unseenCount} alert${alertKpis.unseenCount === 1 ? '' : 's'} still need first clinician review.`
+        : alertKpis.notifFailedCount > 0
+          ? `${alertKpis.notifFailedCount} alert deliver${alertKpis.notifFailedCount === 1 ? 'y issue remains' : 'y issues remain'} while open triage continues.`
+          : `${alertKpis.openCount} open alert${alertKpis.openCount === 1 ? '' : 's'} remain active in the current safety queue.`;
+  const alertAgingComposition = useMemo(
+    () => [
+      {
+        key: 'aged',
+        label: 'Older than 24h',
+        value: alertKpis.overdueCount,
+      },
+      {
+        key: 'fresh',
+        label: 'Last 24h',
+        value: alertKpis.createdLast24hCount,
+      },
+    ],
+    [alertKpis.createdLast24hCount, alertKpis.overdueCount],
+  );
 
   return (
     <Stack className="page-stack dashboard-page-shell dashboard-page-shell--alerts alerts-page" gap="5">
@@ -1067,21 +1116,7 @@ export function AlertsPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--alerts alerts-page__header"
         eyebrow="Safety operations"
         title="Alerts"
-        subtitle="Review active safety issues, confirm ownership, and close escalations with clear clinical context."
-        meta={
-          <span className="alerts-page__meta" aria-live="polite">
-            {status === 'open' ? (
-              <span className="alerts-page__meta-pill">Unseen {unseenCount}</span>
-            ) : null}
-            {status === 'open' && alertKpis.assignedToMeCount > 0 ? (
-              <span className="alerts-page__meta-pill">Assigned to you {alertKpis.assignedToMeCount}</span>
-            ) : null}
-            {alertKpis.notifFailedCount > 0 ? (
-              <span className="alerts-page__meta-pill">Delivery issues {alertKpis.notifFailedCount}</span>
-            ) : null}
-            <span className="alerts-page__meta-pill">{updatedAtLabel}</span>
-          </span>
-        }
+        subtitle="Triage active safety issues, confirm ownership quickly, and close escalations with grounded clinical context."
       />
 
       {staleErrorBannerVisible ? (
@@ -1116,43 +1151,92 @@ export function AlertsPage(): JSX.Element {
         className={cn('alerts-summary-strip', allClear && 'alerts-summary-strip--all-clear')}
         aria-label="Alerts overview"
       >
-        {allClear ? (
-          <div className="alerts-all-clear" role="status" aria-live="polite">
-            <div className="alerts-all-clear__heading">
-              <span className="alerts-all-clear__icon" aria-hidden="true">
-                ✓
-              </span>
-              <p className="alerts-all-clear__title">All clear</p>
-            </div>
-            <p className="alerts-all-clear__summary">No open alerts need attention right now.</p>
-            <div className="alerts-all-clear__footer">
-              <p className="alerts-all-clear__meta">Monitoring active · Last updated {formatLastUpdated(connection.lastSuccessAt)}</p>
-              <Button
-                className="alerts-all-clear__refresh"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  void alertsQuery.refetch();
-                }}
-                disabled={alertsQuery.isFetching}
-              >
-                {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
-              </Button>
-            </div>
+        <div className="alerts-summary-strip__lead">
+          <div className="alerts-summary-strip__copy">
+            <p className="alerts-summary-strip__eyebrow">Safety triage status</p>
+            <h3 className="alerts-summary-strip__title">
+              {allClear ? 'Open triage is clear' : 'Clinical safety triage'}
+            </h3>
+            <p className="alerts-summary-strip__narrative">{alertStatusNarrative}</p>
           </div>
-        ) : (
-          <>
-            <div className="alerts-summary-strip__header">
-              <h3 className="alerts-summary-strip__title">Attention now</h3>
-            </div>
-            <KpiRow summary={alertKpis} loading={overviewLoading} />
-          </>
-        )}
+          <div className="alerts-summary-strip__pills" aria-live="polite">
+            <span className="alerts-summary-strip__pill">{statusViewLabel}</span>
+            <span className="alerts-summary-strip__pill">{updatedAtLabel}</span>
+          </div>
+        </div>
+
+        <div className="alerts-summary-strip__composition" aria-label="Alert aging mix">
+          <div className="alerts-summary-strip__bar" aria-hidden="true">
+            {alertAgingComposition.map((segment) => (
+              <span
+                key={segment.key}
+                className={`alerts-summary-strip__bar-segment alerts-summary-strip__bar-segment--${segment.key}`}
+                style={{ flexGrow: Math.max(segment.value, 1) }}
+              />
+            ))}
+          </div>
+          <div className="alerts-summary-strip__legend" role="list">
+            {alertAgingComposition.map((segment) => (
+              <span
+                key={segment.key}
+                className={`alerts-summary-strip__legend-item alerts-summary-strip__legend-item--${segment.key}`}
+                role="listitem"
+              >
+                <span className="alerts-summary-strip__legend-swatch" aria-hidden="true" />
+                <span>{segment.label}</span>
+                <strong>{segment.value}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="alerts-summary-strip__metrics">
+          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--lead">
+            <p className="alerts-summary-strip__metric-label">Open alerts</p>
+            <p className="alerts-summary-strip__metric-value">
+              {overviewLoading ? '...' : alertKpis.openCount}
+            </p>
+            <p className="alerts-summary-strip__metric-hint">Active safety triage items in the live queue</p>
+          </article>
+          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--unseen">
+            <p className="alerts-summary-strip__metric-label">Unseen</p>
+            <p className="alerts-summary-strip__metric-value">
+              {overviewLoading ? '...' : alertKpis.unseenCount}
+            </p>
+            <p className="alerts-summary-strip__metric-hint">Needs first review</p>
+          </article>
+          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--assigned">
+            <p className="alerts-summary-strip__metric-label">Assigned to me</p>
+            <p className="alerts-summary-strip__metric-value">
+              {overviewLoading ? '...' : alertKpis.assignedToMeCount}
+            </p>
+            <p className="alerts-summary-strip__metric-hint">Current ownership in this browser session</p>
+          </article>
+          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--delivery">
+            <p className="alerts-summary-strip__metric-label">Delivery failed</p>
+            <p className="alerts-summary-strip__metric-value">
+              {overviewLoading ? '...' : alertKpis.notifFailedCount}
+            </p>
+            <p className="alerts-summary-strip__metric-hint">Needs delivery follow-through</p>
+          </article>
+          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--aging">
+            <p className="alerts-summary-strip__metric-label">Older than 24h</p>
+            <p className="alerts-summary-strip__metric-value">
+              {overviewLoading ? '...' : alertKpis.overdueCount}
+            </p>
+            <p className="alerts-summary-strip__metric-hint">Older safety issues still in triage</p>
+          </article>
+        </div>
       </section>
 
       <Card
         className="alerts-workspace-card"
-        title="Alerts queue"
+        title={
+          <span className="alerts-workspace-card__title-shell">
+            <span className="alerts-workspace-card__eyebrow">Safety triage workspace</span>
+            <span className="alerts-workspace-card__title-text">Alerts queue</span>
+          </span>
+        }
         action={
           <Button className="alerts-workspace-card__export" variant="secondary" onClick={openAlertsExportModal}>
             Export CSV
@@ -1168,6 +1252,7 @@ export function AlertsPage(): JSX.Element {
                   : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
               </p>
             ) : null}
+            <p className="alerts-workspace-card__heading-label">Queue state</p>
             <p className="alerts-queue-follow-through">{queueFollowThroughText}</p>
           </div>
           <div className="alerts-workspace-card__heading-actions">
@@ -1175,207 +1260,230 @@ export function AlertsPage(): JSX.Element {
               <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
               <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
             </div>
-            <div className="alerts-status-tabs-wrap">
-              <StatusTabs value={status} onChange={handleStatusChange} />
-            </div>
           </div>
         </div>
 
-        <div className="alerts-workspace-card__controls">
-          <FiltersBar
-            status={status}
-            searchValue={searchValue}
-            sourceFilter={sourceFilter}
-            timeRange={timeRange}
-            sortOrder={sortOrder}
-            unseenOnly={unseenOnly}
-            unseenCount={unseenCount}
-            assignedToMeOnly={assignedToMeOnly}
-            unassignedOnly={unassignedOnly}
-            overriddenOnly={overriddenOnly}
-            refreshing={alertsQuery.isFetching}
-            onSearchValueChange={(value) => {
-              searchPersistenceEnabledRef.current = true;
-              setSearchValue(value);
-            }}
-            onSourceFilterChange={(value) => {
-              setSourceFilter(value);
-              persistAlertsWorkspaceState({ sourceFilter: value }, { persistSearch: false });
-            }}
-            onTimeRangeChange={(value) => {
-              setTimeRange(value);
-              persistAlertsWorkspaceState({ timeRange: value }, { persistSearch: false });
-            }}
-            onSortOrderChange={(value) => {
-              setSortOrder(value);
-              persistAlertsWorkspaceState({ sortOrder: value }, { persistSearch: false });
-            }}
-            onUnseenOnlyChange={(value) => {
-              setUnseenOnly(value);
-              persistAlertsWorkspaceState({ unseenOnly: value }, { persistSearch: false });
-            }}
-            onAssignedToMeOnlyChange={(value) => {
-              setAssignedToMeOnly(value);
-              const nextUnassignedOnly = value ? false : unassignedOnly;
-              if (value) {
-                setUnassignedOnly(false);
-              }
-              persistAlertsWorkspaceState(
-                {
-                  assignedToMeOnly: value,
-                  unassignedOnly: nextUnassignedOnly,
-                },
-                { persistSearch: false },
-              );
-            }}
-            onUnassignedOnlyChange={(value) => {
-              setUnassignedOnly(value);
-              const nextAssignedToMeOnly = value ? false : assignedToMeOnly;
-              if (value) {
-                setAssignedToMeOnly(false);
-              }
-              persistAlertsWorkspaceState(
-                {
-                  assignedToMeOnly: nextAssignedToMeOnly,
-                  unassignedOnly: value,
-                },
-                { persistSearch: false },
-              );
-            }}
-            onOverriddenOnlyChange={(value) => {
-              setOverriddenOnly(value);
-              persistAlertsWorkspaceState({ overriddenOnly: value }, { persistSearch: false });
-            }}
-            onRefresh={() => {
-              void alertsQuery.refetch();
-            }}
-          />
+        <div className="alerts-workspace-card__triage-shell">
+          <div className="alerts-workspace-card__tab-bar">
+            <StatusTabs value={status} onChange={handleStatusChange} counts={statusTabCounts} />
+          </div>
+
+          <div className="alerts-workspace-card__controls">
+            <FiltersBar
+              status={status}
+              searchValue={searchValue}
+              sourceFilter={sourceFilter}
+              timeRange={timeRange}
+              sortOrder={sortOrder}
+              unseenOnly={unseenOnly}
+              unseenCount={unseenCount}
+              assignedToMeOnly={assignedToMeOnly}
+              unassignedOnly={unassignedOnly}
+              overriddenOnly={overriddenOnly}
+              refreshing={alertsQuery.isFetching}
+              onSearchValueChange={(value) => {
+                searchPersistenceEnabledRef.current = true;
+                setSearchValue(value);
+              }}
+              onSourceFilterChange={(value) => {
+                setSourceFilter(value);
+                persistAlertsWorkspaceState({ sourceFilter: value }, { persistSearch: false });
+              }}
+              onTimeRangeChange={(value) => {
+                setTimeRange(value);
+                persistAlertsWorkspaceState({ timeRange: value }, { persistSearch: false });
+              }}
+              onSortOrderChange={(value) => {
+                setSortOrder(value);
+                persistAlertsWorkspaceState({ sortOrder: value }, { persistSearch: false });
+              }}
+              onUnseenOnlyChange={(value) => {
+                setUnseenOnly(value);
+                persistAlertsWorkspaceState({ unseenOnly: value }, { persistSearch: false });
+              }}
+              onAssignedToMeOnlyChange={(value) => {
+                setAssignedToMeOnly(value);
+                const nextUnassignedOnly = value ? false : unassignedOnly;
+                if (value) {
+                  setUnassignedOnly(false);
+                }
+                persistAlertsWorkspaceState(
+                  {
+                    assignedToMeOnly: value,
+                    unassignedOnly: nextUnassignedOnly,
+                  },
+                  { persistSearch: false },
+                );
+              }}
+              onUnassignedOnlyChange={(value) => {
+                setUnassignedOnly(value);
+                const nextAssignedToMeOnly = value ? false : assignedToMeOnly;
+                if (value) {
+                  setAssignedToMeOnly(false);
+                }
+                persistAlertsWorkspaceState(
+                  {
+                    assignedToMeOnly: nextAssignedToMeOnly,
+                    unassignedOnly: value,
+                  },
+                  { persistSearch: false },
+                );
+              }}
+              onOverriddenOnlyChange={(value) => {
+                setOverriddenOnly(value);
+                persistAlertsWorkspaceState({ overriddenOnly: value }, { persistSearch: false });
+              }}
+              onRefresh={() => {
+                void alertsQuery.refetch();
+              }}
+            />
+          </div>
+
+          <div className="alerts-workspace-card__results">
+            {status === 'open' && lastTriageOutcome ? (
+              <div
+                className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status}`}
+                data-testid="alerts-triage-outcome"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="alerts-triage-outcome__copy">
+                  <p className="alerts-triage-outcome__eyebrow">Latest triage</p>
+                  <strong className="alerts-triage-outcome__title">{triageOutcomeTitle}</strong>
+                  <p className="alerts-triage-outcome__text">
+                    Alert for {lastTriageOutcome.patientId} moved out of Open and is now visible in{' '}
+                    {triageOutcomeDestinationLabel}.
+                  </p>
+                  <p className="alerts-triage-outcome__next">{triageOutcomeFollowThrough}</p>
+                </div>
+                <div className="alerts-triage-outcome__actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      handleStatusChange(lastTriageOutcome.status);
+                    }}
+                  >
+                    {lastTriageOutcome.status === 'resolved' ? 'View resolved' : 'View acknowledged'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {showInitialLoading ? (
+              <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+              </div>
+            ) : blockingErrorVisible && errorView ? (
+              <StatusPanel
+                variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
+                title="Unable to load alerts"
+                description={errorView.description}
+                actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+                details={troubleshootingDetails}
+              />
+            ) : blockingOfflineVisible ? (
+              <StatusPanel
+                variant="info"
+                title="Offline"
+                description="No cached alerts are available yet. Reconnect and retry."
+                actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
+                details={troubleshootingDetails}
+              />
+            ) : status === 'open' && sourceAlerts.length === 0 ? (
+              <div className="alerts-empty-state alerts-empty-state--all-clear" role="status" aria-live="polite">
+                <div className="alerts-empty-state__title-row">
+                  <span className="alerts-empty-state__icon" aria-hidden="true">
+                    ✓
+                  </span>
+                  <h3 className="alerts-empty-state__title">All clear</h3>
+                </div>
+                <p className="alerts-empty-state__description">No open alerts need attention right now.</p>
+                <p className="alerts-empty-state__meta">
+                  System monitoring is active. Last updated {formatLastUpdated(connection.lastSuccessAt)}.
+                </p>
+                <div className="alerts-empty-state__actions">
+                  <Button
+                    className="alerts-empty-state__refresh"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      void alertsQuery.refetch();
+                    }}
+                    disabled={alertsQuery.isFetching}
+                  >
+                    {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
+                  </Button>
+                </div>
+              </div>
+            ) : sourceAlerts.length === 0 ? (
+              <div className="alerts-empty-state" role="status" aria-live="polite">
+                <div className="alerts-empty-state__title-row">
+                  <span className="alerts-empty-state__icon" aria-hidden="true">
+                    ○
+                  </span>
+                  <h3 className="alerts-empty-state__title">{`No ${status} alerts`}</h3>
+                </div>
+                <p className="alerts-empty-state__description">
+                  Alerts in this queue will appear here as they are updated.
+                </p>
+                <p className="alerts-empty-state__meta">Switch queues or refresh when new triage work lands.</p>
+              </div>
+            ) : visibleAlerts.length === 0 ? (
+              <div className="alerts-empty-state alerts-empty-state--filtered" role="status" aria-live="polite">
+                <div className="alerts-empty-state__title-row">
+                  <span className="alerts-empty-state__icon" aria-hidden="true">
+                    ○
+                  </span>
+                  <h3 className="alerts-empty-state__title">No results</h3>
+                </div>
+                <p className="alerts-empty-state__description">Try clearing filters or searching by patient ID.</p>
+                <p className="alerts-empty-state__meta">
+                  The triage toolbar is currently narrowing every alert out of this view.
+                </p>
+              </div>
+            ) : isMobileLayout ? (
+              <AlertCardList
+                alerts={visibleAlerts}
+                seenAlertMap={seenAlertMap}
+                highlightedAlertIds={runtimeHighlightedAlertIds}
+                clinicianId={clinicianId}
+                mutationPending={updateAlertMutation.isPending}
+                assignmentPending={assignments.assignmentBusy}
+                onOpen={openAlert}
+                onAssignToMe={handleAssignToMe}
+                onTakeOver={handleTakeOver}
+                onAcknowledge={(alert) => {
+                  void handleStatusUpdate('acknowledged', alert);
+                }}
+                onResolve={(alert) => {
+                  void handleStatusUpdate('resolved', alert);
+                }}
+              />
+            ) : (
+              <AlertsTable
+                alerts={visibleAlerts}
+                seenAlertMap={seenAlertMap}
+                highlightedAlertIds={runtimeHighlightedAlertIds}
+                clinicianId={clinicianId}
+                mutationPending={updateAlertMutation.isPending}
+                assignmentPending={assignments.assignmentBusy}
+                onOpen={openAlert}
+                onAssignToMe={handleAssignToMe}
+                onTakeOver={handleTakeOver}
+                onAcknowledge={(alert) => {
+                  void handleStatusUpdate('acknowledged', alert);
+                }}
+                onResolve={(alert) => {
+                  void handleStatusUpdate('resolved', alert);
+                }}
+              />
+            )}
+          </div>
         </div>
-
-        {status === 'open' && lastTriageOutcome ? (
-          <div
-            className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status}`}
-            data-testid="alerts-triage-outcome"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="alerts-triage-outcome__copy">
-              <p className="alerts-triage-outcome__eyebrow">Latest triage</p>
-              <strong className="alerts-triage-outcome__title">{triageOutcomeTitle}</strong>
-              <p className="alerts-triage-outcome__text">
-                Alert for {lastTriageOutcome.patientId} moved out of Open and is now visible in{' '}
-                {triageOutcomeDestinationLabel}.
-              </p>
-              <p className="alerts-triage-outcome__next">{triageOutcomeFollowThrough}</p>
-            </div>
-            <div className="alerts-triage-outcome__actions">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  handleStatusChange(lastTriageOutcome.status);
-                }}
-              >
-                {lastTriageOutcome.status === 'resolved' ? 'View resolved' : 'View acknowledged'}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {showInitialLoading ? (
-          <div className="alerts-skeleton-stack" aria-label="Alerts loading placeholder">
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-            <Skeleton height={72} />
-          </div>
-        ) : blockingErrorVisible && errorView ? (
-          <StatusPanel
-            variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
-            title="Unable to load alerts"
-            description={errorView.description}
-            actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
-            details={troubleshootingDetails}
-          />
-        ) : blockingOfflineVisible ? (
-          <StatusPanel
-            variant="info"
-            title="Offline"
-            description="No cached alerts are available yet. Reconnect and retry."
-            actions={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
-            details={troubleshootingDetails}
-          />
-        ) : status === 'open' && sourceAlerts.length === 0 ? (
-          <div className="alerts-empty-state" role="status" aria-live="polite">
-            <div className="alerts-empty-state__title-row">
-              <span className="alerts-empty-state__icon" aria-hidden="true">
-                ✓
-              </span>
-              <h3 className="alerts-empty-state__title">All clear</h3>
-            </div>
-            <p className="alerts-empty-state__description">No open alerts need attention right now.</p>
-            <p className="alerts-empty-state__meta">
-              System monitoring is active. Last updated {formatLastUpdated(connection.lastSuccessAt)}.
-            </p>
-            <div className="alerts-empty-state__actions">
-              <Button
-                className="alerts-empty-state__refresh"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  void alertsQuery.refetch();
-                }}
-                disabled={alertsQuery.isFetching}
-              >
-                {alertsQuery.isFetching ? 'Refreshing...' : 'Refresh alerts'}
-              </Button>
-            </div>
-          </div>
-        ) : sourceAlerts.length === 0 ? (
-          <StatusPanel
-            variant="empty"
-            title={`No ${status} alerts`}
-            description="Alerts in this queue will appear here as they are updated."
-          />
-        ) : visibleAlerts.length === 0 ? (
-          <StatusPanel variant="empty" title="No results" description="Try clearing filters or searching by patient ID." />
-        ) : isMobileLayout ? (
-          <AlertCardList
-            alerts={visibleAlerts}
-            seenAlertMap={seenAlertMap}
-            highlightedAlertIds={runtimeHighlightedAlertIds}
-            clinicianId={clinicianId}
-            mutationPending={updateAlertMutation.isPending}
-            assignmentPending={assignments.assignmentBusy}
-            onOpen={openAlert}
-            onAssignToMe={handleAssignToMe}
-            onTakeOver={handleTakeOver}
-            onAcknowledge={(alert) => {
-              void handleStatusUpdate('acknowledged', alert);
-            }}
-            onResolve={(alert) => {
-              void handleStatusUpdate('resolved', alert);
-            }}
-          />
-        ) : (
-          <AlertsTable
-            alerts={visibleAlerts}
-            seenAlertMap={seenAlertMap}
-            highlightedAlertIds={runtimeHighlightedAlertIds}
-            clinicianId={clinicianId}
-            mutationPending={updateAlertMutation.isPending}
-            assignmentPending={assignments.assignmentBusy}
-            onOpen={openAlert}
-            onAssignToMe={handleAssignToMe}
-            onTakeOver={handleTakeOver}
-            onAcknowledge={(alert) => {
-              void handleStatusUpdate('acknowledged', alert);
-            }}
-            onResolve={(alert) => {
-              void handleStatusUpdate('resolved', alert);
-            }}
-          />
-        )}
       </Card>
 
       <ExportCsvModal

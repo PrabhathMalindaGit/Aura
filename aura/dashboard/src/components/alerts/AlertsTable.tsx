@@ -2,7 +2,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import type { AlertItem } from '../../types/models';
 import type { SeenAlertMap } from '../../services/seenStore';
 import { isAlertUnseenForUi } from '../../utils/seen';
-import { formatRiskLabel, getEffectiveRisk, riskBadgeVariant } from '../../utils/risk';
+import { formatRiskLabel, getEffectiveRisk, hasRiskOverride, riskBadgeVariant } from '../../utils/risk';
 import {
   alertSourceLabel,
   alertStatusLabel,
@@ -17,6 +17,8 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
 import { cn } from '../../utils/cn';
+
+const HOURS_24_MS = 24 * 60 * 60 * 1000;
 
 interface AlertsTableProps {
   alerts: AlertItem[];
@@ -34,6 +36,11 @@ interface AlertsTableProps {
 
 function asReasonText(reason: string | string[]): string {
   return Array.isArray(reason) ? reason.join(', ') : reason;
+}
+
+function patientAnchorLabel(patientId: string): string {
+  const compact = patientId.replace(/[^a-z0-9]/gi, '').toUpperCase();
+  return compact.slice(-3) || 'PT';
 }
 
 function statusBadgeVariant(
@@ -164,6 +171,9 @@ export function AlertsTable({
             const reasonText = asReasonText(alert.reason);
             const assignedToOther = Boolean(alert.assignedTo && alert.assignedTo !== clinicianId);
             const effectiveRisk = getEffectiveRisk(alert);
+            const notificationStatus = resolveNotificationStatus(alert.notificationStatus);
+            const createdAtMs = Date.parse(alert.createdAt);
+            const isAged = Number.isFinite(createdAtMs) && Date.now() - createdAtMs > HOURS_24_MS;
             const alertReference = shortReferenceLabel(alert._id);
             const sourceReference = shortReferenceLabel(alert.source.sourceId, 'Source ref');
 
@@ -178,6 +188,10 @@ export function AlertsTable({
                   unseen && 'alerts-table__row--unseen',
                   effectiveRisk === 'high' && 'alerts-table__row--high-risk',
                   assignedToOther && 'alerts-table__row--assigned-other',
+                  alert.assignedTo === clinicianId && 'alerts-table__row--assigned-me',
+                  notificationStatus === 'failed' && 'alerts-table__row--delivery-failed',
+                  isAged && 'alerts-table__row--aged',
+                  hasRiskOverride(alert) && 'alerts-table__row--overridden',
                   highlightedAlertIds.includes(alert._id) && 'alert-arrived',
                 )}
                 onClick={(event) => onOpen(alert, event.currentTarget)}
@@ -218,14 +232,31 @@ export function AlertsTable({
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--patient">
                   <div className="alerts-patient-cell">
-                    <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
-                    <span className="alerts-patient-cell__meta">{alertReference ?? alert._id}</span>
+                    <span className="alerts-patient-cell__avatar" aria-hidden="true">
+                      {patientAnchorLabel(alert.patientId)}
+                    </span>
+                    <div className="alerts-patient-cell__copy">
+                      <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
+                      <span className="alerts-patient-cell__meta">{alertReference ?? alert._id}</span>
+                    </div>
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--reason" title={reasonText}>
                   <div className="alerts-reason-cell">
                     <p className="alerts-table__reason">{reasonText}</p>
-                    <span className="alerts-reason-cell__meta">{statusSupportLabel(alert.status)}</span>
+                    <div className="alerts-reason-cell__meta-row">
+                      <span className="alerts-reason-cell__meta">{statusSupportLabel(alert.status)}</span>
+                      {notificationStatus === 'failed' ? (
+                        <span className="alerts-reason-cell__flag alerts-reason-cell__flag--delivery">
+                          Delivery issue
+                        </span>
+                      ) : null}
+                      {isAged ? (
+                        <span className="alerts-reason-cell__flag alerts-reason-cell__flag--aged">
+                          Older than 24h
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--risk">
@@ -284,7 +315,7 @@ export function AlertsTable({
                     <div className="alerts-actions__primary-row">
                       <Button
                         className="alerts-actions__open"
-                        variant="ghost"
+                        variant="primary"
                         data-testid={`alert-open-${alert._id}`}
                         onClick={(event) => {
                           event.stopPropagation();

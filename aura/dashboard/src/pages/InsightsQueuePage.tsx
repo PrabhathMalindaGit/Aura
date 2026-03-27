@@ -377,6 +377,20 @@ function formatSelectedInsightCount(count: number): string {
   return `${count} low-priority suggestion${count === 1 ? '' : 's'} selected`;
 }
 
+function patientInitials(label: string): string {
+  const normalized = label.trim();
+  if (!normalized) {
+    return 'PT';
+  }
+
+  const parts = normalized.split(/\s+/).slice(0, 2);
+  const initials = parts
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+
+  return initials || normalized.slice(0, 2).toUpperCase();
+}
+
 export function InsightsQueuePage(): JSX.Element {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState<QueueView>(() =>
@@ -453,6 +467,38 @@ export function InsightsQueuePage(): JSX.Element {
     patientsQuery.isFetching;
   const isReviewSubmitting = isSubmittingId !== null || batchActionStatus !== null;
   const pendingCountLabel = `${pendingCount} awaiting review`;
+  const priorityReviewShare = pendingCount > 0 ? Math.round((priorityReviewItems.length / pendingCount) * 100) : 0;
+  const reviewMixTotal = pendingCount + approvedCount + rejectedCount;
+  const reviewMixSegments = [
+    {
+      key: 'pending',
+      label: 'Pending',
+      count: pendingCount,
+      width: reviewMixTotal > 0 ? `${(pendingCount / reviewMixTotal) * 100}%` : '0%',
+    },
+    {
+      key: 'approved',
+      label: 'Approved',
+      count: approvedCount,
+      width: reviewMixTotal > 0 ? `${(approvedCount / reviewMixTotal) * 100}%` : '0%',
+    },
+    {
+      key: 'rejected',
+      label: 'Rejected',
+      count: rejectedCount,
+      width: reviewMixTotal > 0 ? `${(rejectedCount / reviewMixTotal) * 100}%` : '0%',
+    },
+  ];
+  const statusStripTitle =
+    pendingCount > 0 ? 'Pending clinician review' : queueState.label;
+  const statusStripNarrative =
+    pendingCount > 0
+      ? priorityReviewItems.length > 0
+        ? `${priorityReviewItems.length} suggestion${
+            priorityReviewItems.length === 1 ? '' : 's'
+          } need individual review before any routine batching.`
+        : 'Pending review is currently low-signal and ready for routine handling.'
+      : queueState.hint;
   const reviewedSummaryHint =
     reviewedCount === null
       ? 'Approved and rejected counts are unavailable right now.'
@@ -760,6 +806,7 @@ export function InsightsQueuePage(): JSX.Element {
       item.patientDisplayName?.trim() ||
       patientNameById.get(item.patientId) ||
       item.patientId;
+    const patientMonogram = patientInitials(patientLabel);
     const priorityTone = insightPriorityTone(item.priority);
     const isPending = item.status === 'pending';
     const isSelectable = options?.selectable === true && isPending && priorityTone === 'low';
@@ -801,21 +848,33 @@ export function InsightsQueuePage(): JSX.Element {
               </label>
             ) : null}
             <div className="insights-queue__item-main">
-              <p className="insights-queue__eyebrow">
-                {isPending ? 'Pending guidance' : 'Handled guidance'}
-              </p>
-              <p className="insights-queue__title">{item.title}</p>
-              <div className="insights-queue__patient-row">
-                <p className="insights-queue__patient">
-                  <span className="insights-queue__patient-label">Patient</span>
-                  <Link
-                    to={`/patients/${encodeURIComponent(item.patientId)}`}
-                    state={buildInsightPatientEntryState(item)}
-                  >
-                    {patientLabel}
-                  </Link>
+              <div className="insights-queue__eyebrow-row">
+                <p className="insights-queue__eyebrow">
+                  {isPending ? 'Pending guidance' : 'Handled guidance'}
                 </p>
-                <p className="insights-queue__patient-id">Patient ID {item.patientId}</p>
+                <span className="insights-queue__freshness">
+                  {item.reviewedAt ? 'Reviewed' : 'Created'} {formatDateTime(item.reviewedAt ?? item.createdAt)}
+                </span>
+              </div>
+              <h3 className="insights-queue__title">{item.title}</h3>
+              <div className="insights-queue__patient-row">
+                <div className="insights-queue__patient-anchor">
+                  <span className="insights-queue__patient-avatar" aria-hidden="true">
+                    {patientMonogram}
+                  </span>
+                  <div className="insights-queue__patient-copy">
+                    <p className="insights-queue__patient">
+                      <span className="insights-queue__patient-label">Patient</span>
+                      <Link
+                        to={`/patients/${encodeURIComponent(item.patientId)}`}
+                        state={buildInsightPatientEntryState(item)}
+                      >
+                        {patientLabel}
+                      </Link>
+                    </p>
+                    <p className="insights-queue__patient-id">Patient ID {item.patientId}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -826,6 +885,9 @@ export function InsightsQueuePage(): JSX.Element {
             >
               {insightLifecycleLabel(item.status)}
             </Badge>
+            <span className={`insights-queue__state-chip insights-queue__state-chip--${priorityTone}`}>
+              Priority {item.priority}
+            </span>
             {isJustReviewed ? (
               <span
                 className="insights-queue__just-reviewed"
@@ -838,9 +900,6 @@ export function InsightsQueuePage(): JSX.Element {
         </div>
 
         <div className="insights-queue__context-row" aria-label="Insight context">
-          <Badge className="insights-queue__badge insights-queue__badge--priority" variant="default">
-            Priority {item.priority}
-          </Badge>
           <Badge className="insights-queue__badge insights-queue__badge--category" variant="neutral">
             {categoryLabel(item.category)}
           </Badge>
@@ -857,7 +916,14 @@ export function InsightsQueuePage(): JSX.Element {
         </div>
 
         <div className="insights-queue__reason">
-          <p className="insights-queue__reason-label">{insightReasonLabel(item.status)}</p>
+          <div className="insights-queue__reason-header">
+            <p className="insights-queue__reason-label">{insightReasonLabel(item.status)}</p>
+            {priorityTone !== 'low' ? (
+              <span className={`insights-queue__reason-callout insights-queue__reason-callout--${priorityTone}`}>
+                {priorityTone === 'high' ? 'Priority lane' : 'Focused review'}
+              </span>
+            ) : null}
+          </div>
           <p className="insights-queue__message">{item.message}</p>
         </div>
 
@@ -934,22 +1000,7 @@ export function InsightsQueuePage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--insights insights-page-header"
         eyebrow="Clinical review"
         title="Insights"
-        subtitle="Review suggested guidance deliberately, decide what belongs in clinician workflow, and confirm what was already handled in this current queue view."
-        meta={
-          <span className="insights-page__meta" aria-live="polite">
-            <span className="insights-page__meta-pill insights-page__meta-pill--count">
-              {pendingCountLabel}
-            </span>
-            <span
-              className={`insights-page__meta-pill insights-page__meta-pill--status insights-page__meta-pill--status-${queueState.tone}`}
-            >
-              {queueState.label}
-            </span>
-            <span className="insights-page__meta-pill insights-page__meta-pill--updated">
-              Updated {updatedAtLabel}
-            </span>
-          </span>
-        }
+        subtitle="Review pending guidance, move the right suggestions into clinician workflow, and confirm what has already been handled in this current queue view."
         actions={
           <Button
             variant="secondary"
@@ -966,6 +1017,40 @@ export function InsightsQueuePage(): JSX.Element {
 
       <div className="insights-overview-stack">
         <section className="insights-summary-strip" aria-label="Insights queue summary">
+          <article className={`insights-summary-strip__lead insights-summary-strip__lead--${queueState.tone}`}>
+            <div className="insights-summary-strip__lead-copy">
+              <p className="insights-summary-strip__eyebrow">Guidance review status</p>
+              <div className="insights-summary-strip__headline">
+                <p className="insights-summary-strip__lead-value">{pendingCount}</p>
+                <div className="insights-summary-strip__headline-copy">
+                  <p className="insights-summary-strip__headline-title">{statusStripTitle}</p>
+                  <p className="insights-summary-strip__hint">{statusStripNarrative}</p>
+                </div>
+              </div>
+            </div>
+            <div className="insights-summary-strip__mix" aria-label="Review mix">
+              <div className="insights-summary-strip__mix-bar" aria-hidden="true">
+                {reviewMixSegments.map((segment) => (
+                  <span
+                    key={segment.key}
+                    className={`insights-summary-strip__mix-segment insights-summary-strip__mix-segment--${segment.key}`}
+                    style={{ width: segment.width }}
+                  />
+                ))}
+              </div>
+              <div className="insights-summary-strip__mix-legend">
+                {reviewMixSegments.map((segment) => (
+                  <span key={segment.key} className="insights-summary-strip__mix-item">
+                    <span
+                      className={`insights-summary-strip__mix-dot insights-summary-strip__mix-dot--${segment.key}`}
+                      aria-hidden="true"
+                    />
+                    {segment.label} {segment.count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </article>
           <article className="insights-summary-strip__item insights-summary-strip__item--pending">
             <p className="insights-summary-strip__label">Awaiting review</p>
             <p className="insights-summary-strip__value">{pendingCount}</p>
@@ -974,13 +1059,26 @@ export function InsightsQueuePage(): JSX.Element {
             </p>
           </article>
           <article className="insights-summary-strip__item insights-summary-strip__item--status">
-            <p className="insights-summary-strip__label">Queue state</p>
+            <p className="insights-summary-strip__label">Active review</p>
             <p
               className={`insights-summary-strip__value insights-summary-strip__value--${queueState.tone}`}
             >
               {queueState.label}
             </p>
             <p className="insights-summary-strip__hint">{queueState.hint}</p>
+          </article>
+          <article className="insights-summary-strip__item insights-summary-strip__item--priority">
+            <p className="insights-summary-strip__label">Priority review share</p>
+            <p className="insights-summary-strip__value">
+              {pendingCount > 0 ? `${priorityReviewShare}%` : '--'}
+            </p>
+            <p className="insights-summary-strip__hint">
+              {pendingCount > 0
+                ? `${priorityReviewItems.length} suggestion${
+                    priorityReviewItems.length === 1 ? '' : 's'
+                  } need individual review first.`
+                : 'No pending suggestions are waiting right now.'}
+            </p>
           </article>
           <article className="insights-summary-strip__item insights-summary-strip__item--reviewed">
             <p className="insights-summary-strip__label">Reviewed in current queue view</p>
@@ -995,281 +1093,299 @@ export function InsightsQueuePage(): JSX.Element {
         </section>
       </div>
 
-      {reviewError ? (
-        <AlertBanner variant="error" title={reviewError.title}>
-          {reviewError.message}
-        </AlertBanner>
-      ) : null}
-
       <Card
         className="insights-workspace-card"
         title={
-          <span className="insights-workspace-card__title">
-            <span className="insights-workspace-card__title-text">Guidance review queue</span>
-            <span className="insights-workspace-card__title-count">
-              {activeQuery.error ? '--' : activeItems.length}
+          <span className="insights-workspace-card__title insights-workspace-card__title-shell">
+            <span className="insights-workspace-card__title-copy">
+              <span className="insights-workspace-card__title-eyebrow">Guidance review queue</span>
+              <span className="insights-workspace-card__title-text">Clinician review console</span>
             </span>
-            <span className="insights-workspace-card__title-meta">{viewConfig.titleMeta}</span>
+            <span className="insights-workspace-card__title-side">
+              <span className="insights-workspace-card__title-count">
+                {activeQuery.error ? '--' : activeItems.length}
+              </span>
+              <span className="insights-workspace-card__title-meta">{viewConfig.titleMeta}</span>
+            </span>
           </span>
         }
       >
-        <div className="insights-queue-context">
-          <div className="insights-queue-context__copy">
-            <p className="insights-queue-context__eyebrow">Review path</p>
-            <p className="insights-queue-context__text">{queueContextHint}</p>
-          </div>
-          <div className="insights-queue-context__facts" aria-live="polite">
-            {viewConfig.facts.map((fact) => (
-              <span key={fact} className="insights-queue-context__fact">
-                {fact}
-              </span>
-            ))}
-          </div>
-        </div>
+        <div className="insights-review-console">
+          <div className="insights-review-console__controls">
+            <div className="insights-lifecycle-tabs">
+              <Tabs
+                tabs={tabs}
+                value={activeView}
+                onValueChange={(id) => {
+                  const nextView =
+                    id === 'approved' || id === 'rejected' ? (id as QueueView) : 'pending';
+                  setQueueView(nextView);
+                }}
+                getTabTestId={(id) => `insights-tab-${id}`}
+              />
+            </div>
 
-        {reviewOutcome ? (
-          <div
-            className={`insights-review-outcome insights-review-outcome--${reviewOutcome.status}`}
-            data-testid="insights-review-outcome"
-            role="status"
-            aria-live="polite"
-          >
-            <div className="insights-review-outcome__copy">
-              <p className="insights-review-outcome__eyebrow">Latest review</p>
-              <div className="insights-review-outcome__title-row">
-                <strong className="insights-review-outcome__title">{outcomePanelTitle}</strong>
+            <div
+              className={`insights-queue-context insights-queue-context--${activeView}${
+                activeView === 'pending' && priorityReviewItems.length > 0
+                  ? ' insights-queue-context--priority'
+                  : ''
+              }`}
+            >
+              <div className="insights-queue-context__copy">
+                <p className="insights-queue-context__eyebrow">Decision path</p>
+                <h3 className="insights-queue-context__title">{viewConfig.titleMeta}</h3>
+                <p className="insights-queue-context__text">{queueContextHint}</p>
+              </div>
+              <div className="insights-queue-context__facts" aria-live="polite">
+                {viewConfig.facts.map((fact) => (
+                  <span key={fact} className="insights-queue-context__fact">
+                    {fact}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {reviewError ? (
+            <AlertBanner variant="error" title={reviewError.title}>
+              {reviewError.message}
+            </AlertBanner>
+          ) : null}
+
+          {reviewOutcome ? (
+            <div
+              className={`insights-review-outcome insights-review-outcome--${reviewOutcome.status}`}
+              data-testid="insights-review-outcome"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="insights-review-outcome__copy">
+                <p className="insights-review-outcome__eyebrow">Latest review</p>
+                <div className="insights-review-outcome__title-row">
+                  <strong className="insights-review-outcome__title">{outcomePanelTitle}</strong>
+                  {reviewOutcome.kind === 'single' ? (
+                    <span className="insights-review-outcome__patient">{reviewOutcome.patientLabel}</span>
+                  ) : null}
+                </div>
                 {reviewOutcome.kind === 'single' ? (
-                  <span className="insights-review-outcome__patient">{reviewOutcome.patientLabel}</span>
+                  <p className="insights-review-outcome__text">
+                    <span className="insights-review-outcome__item">{reviewOutcome.title}</span>{' '}
+                    moved out of Pending and is now visible in {outcomeDestinationLabel} in this current
+                    queue view.
+                  </p>
+                ) : (
+                  <p className="insights-review-outcome__text">
+                    {reviewOutcome.successCount} low-priority suggestion
+                    {reviewOutcome.successCount === 1 ? '' : 's'}{' '}
+                    {reviewOutcome.status === 'approved'
+                      ? 'approved into workflow.'
+                      : 'rejected from workflow.'}
+                  </p>
+                )}
+                <p className="insights-review-outcome__next">{outcomeFollowThrough}</p>
+              </div>
+              <div className="insights-review-outcome__actions">
+                <Button
+                  className="insights-review-outcome__action insights-review-outcome__action--view"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    if (reviewOutcomeView) {
+                      setQueueView(reviewOutcomeView);
+                    }
+                  }}
+                >
+                  {reviewOutcome.status === 'approved' ? 'View approved' : 'View rejected'}
+                </Button>
+                {canOpenOutcomePatient ? (
+                  <Button
+                    className="insights-review-outcome__action insights-review-outcome__action--open"
+                    variant="secondary"
+                    size="sm"
+                    onClick={openPatientFromOutcome}
+                  >
+                    Open patient
+                  </Button>
                 ) : null}
               </div>
-              {reviewOutcome.kind === 'single' ? (
-                <p className="insights-review-outcome__text">
-                  <span className="insights-review-outcome__item">{reviewOutcome.title}</span>{' '}
-                  moved out of Pending and is now visible in {outcomeDestinationLabel} in this current
-                  queue view.
-                </p>
-              ) : (
-                <p className="insights-review-outcome__text">
-                  {reviewOutcome.successCount} low-priority suggestion
-                  {reviewOutcome.successCount === 1 ? '' : 's'}{' '}
-                  {reviewOutcome.status === 'approved'
-                    ? 'approved into workflow.'
-                    : 'rejected from workflow.'}
-                </p>
-              )}
-              <p className="insights-review-outcome__next">{outcomeFollowThrough}</p>
             </div>
-            <div className="insights-review-outcome__actions">
-              <Button
-                className="insights-review-outcome__action insights-review-outcome__action--view"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (reviewOutcomeView) {
-                    setQueueView(reviewOutcomeView);
-                  }
-                }}
-              >
-                {reviewOutcome.status === 'approved' ? 'View approved' : 'View rejected'}
-              </Button>
-              {canOpenOutcomePatient ? (
+          ) : null}
+
+          <div className="insights-review-console__content">
+            {activeQuery.error && activeItems.length === 0 ? (
+              <div className="insights-page__error">
+                <AlertBanner variant="error" title={viewConfig.errorTitle}>
+                  {toUserMessage(activeQuery.error)}
+                </AlertBanner>
                 <Button
-                  className="insights-review-outcome__action insights-review-outcome__action--open"
                   variant="secondary"
-                  size="sm"
-                  onClick={openPatientFromOutcome}
+                  onClick={() => {
+                    void handleRefreshQueue();
+                  }}
                 >
-                  Open patient
+                  Retry
                 </Button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="insights-lifecycle-tabs">
-          <Tabs
-            tabs={tabs}
-            value={activeView}
-            onValueChange={(id) => {
-              const nextView =
-                id === 'approved' || id === 'rejected' ? (id as QueueView) : 'pending';
-              setQueueView(nextView);
-            }}
-            getTabTestId={(id) => `insights-tab-${id}`}
-          />
-        </div>
-
-        {activeQuery.error && activeItems.length === 0 ? (
-          <div className="insights-page__error">
-            <AlertBanner variant="error" title={viewConfig.errorTitle}>
-              {toUserMessage(activeQuery.error)}
-            </AlertBanner>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                void handleRefreshQueue();
-              }}
-            >
-              Retry
-            </Button>
-          </div>
-        ) : activeQuery.isLoading && activeItems.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Insights queue loading placeholder">
-            <Skeleton height={52} />
-            <Skeleton height={100} />
-            <Skeleton height={100} />
-          </div>
-        ) : activeItems.length === 0 ? (
-          <div className="insights-empty-state" role="status" aria-live="polite">
-            <div className="insights-empty-state__title-row">
-              <span className="insights-empty-state__icon" aria-hidden="true">
-                ✓
-              </span>
-              <h3 className="insights-empty-state__title">{viewConfig.emptyTitle}</h3>
-            </div>
-            <p className="insights-empty-state__description">{viewConfig.emptyDescription}</p>
-            <div className="insights-empty-state__footer">
-              <div className="insights-empty-state__meta-group">
-                <p className="insights-empty-state__meta">Last updated {updatedAtLabel}</p>
-                <p className="insights-empty-state__meta insights-empty-state__meta--quiet">
-                  {viewConfig.emptyMeta}
-                </p>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={isRefreshingQueue}
-                onClick={() => {
-                  void handleRefreshQueue();
-                }}
-              >
-                Refresh queue
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {activeView === 'pending' ? (
-              <div className="insights-queue-sections">
-                <section className="insights-queue-section insights-queue-section--priority">
-                  <div className="insights-queue-section__header">
-                    <div className="insights-queue-section__copy">
-                      <p className="insights-queue-section__eyebrow">Primary workflow</p>
-                      <h3 className="insights-queue-section__title">Priority review</h3>
-                      <p className="insights-queue-section__text">
-                        Handle medium- and high-priority suggestions one at a time.
-                      </p>
-                    </div>
-                    <span className="insights-queue-section__fact" aria-live="polite">
-                      {priorityReviewItems.length} requiring individual review
-                    </span>
-                  </div>
-                  {priorityReviewItems.length > 0 ? (
-                    <div className="stack stack--2 insights-queue-list">
-                      {priorityReviewItems.map((item) => renderInsightCard(item))}
-                    </div>
-                  ) : (
-                    <p className="insights-queue-section__empty">
-                      No medium- or high-priority suggestions are waiting now.
+            ) : activeQuery.isLoading && activeItems.length === 0 ? (
+              <div className="patient-detail-skeleton-grid" aria-label="Insights queue loading placeholder">
+                <Skeleton height={52} />
+                <Skeleton height={100} />
+                <Skeleton height={100} />
+              </div>
+            ) : activeItems.length === 0 ? (
+              <div className="insights-empty-state" role="status" aria-live="polite">
+                <div className="insights-empty-state__title-row">
+                  <span className="insights-empty-state__icon" aria-hidden="true">
+                    ✓
+                  </span>
+                  <h3 className="insights-empty-state__title">{viewConfig.emptyTitle}</h3>
+                </div>
+                <p className="insights-empty-state__description">{viewConfig.emptyDescription}</p>
+                <div className="insights-empty-state__footer">
+                  <div className="insights-empty-state__meta-group">
+                    <p className="insights-empty-state__meta">Last updated {updatedAtLabel}</p>
+                    <p className="insights-empty-state__meta insights-empty-state__meta--quiet">
+                      {viewConfig.emptyMeta}
                     </p>
-                  )}
-                </section>
-
-                {lowPriorityPendingItems.length > 0 ? (
-                  <section className="insights-queue-section insights-queue-section--low">
-                    <div className="insights-queue-section__header">
-                      <div className="insights-queue-section__copy">
-                        <p className="insights-queue-section__eyebrow">Routine review</p>
-                        <h3 className="insights-queue-section__title">Low-priority review</h3>
-                        <p className="insights-queue-section__text">
-                          Batch only the visible low-priority suggestions that do not need deeper
-                          individual handling.
-                        </p>
-                      </div>
-                      <div className="insights-queue-section__controls">
-                        <span className="insights-queue-section__fact" aria-live="polite">
-                          {lowPriorityPendingItems.length} batchable now
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={isReviewSubmitting || allVisibleLowPrioritySelected}
-                          onClick={() => {
-                            selectAllVisibleLowPriority();
-                          }}
-                        >
-                          Select all visible low-priority
-                        </Button>
-                      </div>
-                    </div>
-
-                    {selectedLowPriorityCount > 0 ? (
-                      <div
-                        className="insights-batch-action-bar"
-                        data-testid="insights-batch-action-bar"
-                        role="status"
-                        aria-live="polite"
-                      >
-                        <div className="insights-batch-action-bar__copy">
-                          <p className="insights-batch-action-bar__eyebrow">Batch review</p>
-                          <p className="insights-batch-action-bar__text">
-                            {formatSelectedInsightCount(selectedLowPriorityCount)}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={isRefreshingQueue}
+                    onClick={() => {
+                      void handleRefreshQueue();
+                    }}
+                  >
+                    Refresh queue
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {activeView === 'pending' ? (
+                  <div className="insights-queue-sections">
+                    <section className="insights-queue-section insights-queue-section--priority">
+                      <div className="insights-queue-section__header">
+                        <div className="insights-queue-section__copy">
+                          <p className="insights-queue-section__eyebrow">Primary workflow</p>
+                          <h3 className="insights-queue-section__title">Priority review</h3>
+                          <p className="insights-queue-section__text">
+                            Handle medium- and high-priority suggestions one at a time.
                           </p>
                         </div>
-                        <div className="insights-batch-action-bar__actions">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            disabled={isReviewSubmitting}
-                            onClick={() => {
-                              void handleBatchReview('approved');
-                            }}
-                          >
-                            {batchActionStatus === 'approved'
-                              ? 'Approving…'
-                              : 'Approve selected'}
-                          </Button>
+                        <span className="insights-queue-section__fact" aria-live="polite">
+                          {priorityReviewItems.length} requiring individual review
+                        </span>
+                      </div>
+                      {priorityReviewItems.length > 0 ? (
+                        <div className="stack stack--2 insights-queue-list">
+                          {priorityReviewItems.map((item) => renderInsightCard(item))}
+                        </div>
+                      ) : (
+                        <p className="insights-queue-section__empty">
+                          No medium- or high-priority suggestions are waiting now.
+                        </p>
+                      )}
+                  </section>
+
+                  {lowPriorityPendingItems.length > 0 ? (
+                    <section className="insights-queue-section insights-queue-section--low">
+                      <div className="insights-queue-section__header">
+                        <div className="insights-queue-section__copy">
+                          <p className="insights-queue-section__eyebrow">Routine review</p>
+                          <h3 className="insights-queue-section__title">Low-priority review</h3>
+                          <p className="insights-queue-section__text">
+                            Batch only the visible low-priority suggestions that do not need deeper
+                            individual handling.
+                          </p>
+                        </div>
+                        <div className="insights-queue-section__controls">
+                          <span className="insights-queue-section__fact" aria-live="polite">
+                            {lowPriorityPendingItems.length} batchable now
+                          </span>
                           <Button
                             variant="ghost"
                             size="sm"
-                            disabled={isReviewSubmitting}
+                            disabled={isReviewSubmitting || allVisibleLowPrioritySelected}
                             onClick={() => {
-                              void handleBatchReview('rejected');
+                              selectAllVisibleLowPriority();
                             }}
                           >
-                            {batchActionStatus === 'rejected'
-                              ? 'Rejecting…'
-                              : 'Reject selected'}
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={isReviewSubmitting}
-                            onClick={() => {
-                              clearLowPrioritySelection();
-                            }}
-                          >
-                            Clear selection
+                            Select all visible low-priority
                           </Button>
                         </div>
                       </div>
-                    ) : null}
 
-                    <div className="stack stack--2 insights-queue-list insights-queue-list--low">
-                      {lowPriorityPendingItems.map((item) =>
-                        renderInsightCard(item, { selectable: true }),
-                      )}
-                    </div>
-                  </section>
-                ) : null}
-              </div>
-            ) : (
-              <div className="stack stack--2 insights-queue-list">
-                {activeItems.map((item) => renderInsightCard(item))}
-              </div>
-            )}
-          </>
-        )}
+                      {selectedLowPriorityCount > 0 ? (
+                        <div
+                          className="insights-batch-action-bar"
+                          data-testid="insights-batch-action-bar"
+                          role="status"
+                          aria-live="polite"
+                        >
+                          <div className="insights-batch-action-bar__copy">
+                            <p className="insights-batch-action-bar__eyebrow">Batch review</p>
+                            <p className="insights-batch-action-bar__text">
+                              {formatSelectedInsightCount(selectedLowPriorityCount)}
+                            </p>
+                          </div>
+                          <div className="insights-batch-action-bar__actions">
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              disabled={isReviewSubmitting}
+                              onClick={() => {
+                                void handleBatchReview('approved');
+                              }}
+                            >
+                              {batchActionStatus === 'approved'
+                                ? 'Approving…'
+                                : 'Approve selected'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isReviewSubmitting}
+                              onClick={() => {
+                                void handleBatchReview('rejected');
+                              }}
+                            >
+                              {batchActionStatus === 'rejected'
+                                ? 'Rejecting…'
+                                : 'Reject selected'}
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={isReviewSubmitting}
+                              onClick={() => {
+                                clearLowPrioritySelection();
+                              }}
+                            >
+                              Clear selection
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="stack stack--2 insights-queue-list insights-queue-list--low">
+                        {lowPriorityPendingItems.map((item) =>
+                          renderInsightCard(item, { selectable: true }),
+                        )}
+                      </div>
+                    </section>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="stack stack--2 insights-queue-list">
+                  {activeItems.map((item) => renderInsightCard(item))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
       </Card>
     </div>
   );

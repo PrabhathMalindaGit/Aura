@@ -70,10 +70,23 @@ export function WorklistCardList({
         const promBadgeLabel = formatPromBadgeLabel(item);
         const reviewLabel = getWorklistReviewLabel(item);
         const reviewSupport = getWorklistReviewSupport(item);
+        const cardToneClass =
+          item.latestRiskLevel === 'high'
+            ? ' worklist-card--high-risk'
+            : item.communicationNeedsResponse
+              ? ' worklist-card--response'
+              : item.openAlertsCount > 0
+                ? ' worklist-card--alerts'
+                : item.activeTaskCount > 0 ||
+                    item.missedCheckins.flag ||
+                    Boolean(promBadgeLabel) ||
+                    hasAppointment
+                  ? ' worklist-card--follow-through'
+                  : ' worklist-card--monitor';
         return (
           <Card
             key={item.patientId}
-            className={`worklist-card${item.latestRiskLevel === 'high' ? ' worklist-card--high-risk' : ''}${item.communicationNeedsResponse ? ' worklist-card--response' : ''}`}
+            className={`worklist-card${cardToneClass}`}
             title={null}
             data-testid={`worklist-card-${item.patientId}`}
             aria-label={`Worklist patient ${patientName}`}
@@ -95,12 +108,18 @@ export function WorklistCardList({
                     </div>
                   </div>
                 </div>
+                <div className="worklist-card__header-side">
+                  <WorklistPriorityBadge className="worklist-card__priority" item={item} />
+                  <span
+                    className="worklist-card__updated"
+                    title={formatDashboardDateTime(item.updatedAt)}
+                  >
+                    Updated {formatDashboardRelativeTime(item.updatedAt)}
+                  </span>
+                </div>
               </div>
 
               <div className="worklist-card__reason">
-                <div className="worklist-card__reason-top">
-                  <WorklistPriorityBadge className="worklist-card__priority" item={item} />
-                </div>
                 <strong className="worklist-card__reason-title">{reviewLabel}</strong>
                 <p className="worklist-card__reason-support">{reviewSupport}</p>
               </div>

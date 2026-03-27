@@ -116,6 +116,52 @@ export function WorklistPage(): JSX.Element {
       activeTasks: items.filter((item) => item.activeTaskCount > 0).length,
     };
   }, [items]);
+  const queueComposition = useMemo(() => {
+    const buckets = {
+      highRisk: 0,
+      response: 0,
+      alerts: 0,
+      followThrough: 0,
+      monitor: 0,
+    };
+
+    for (const item of items) {
+      if (item.latestRiskLevel === 'high') {
+        buckets.highRisk += 1;
+        continue;
+      }
+
+      if (item.communicationNeedsResponse) {
+        buckets.response += 1;
+        continue;
+      }
+
+      if (item.openAlertsCount > 0) {
+        buckets.alerts += 1;
+        continue;
+      }
+
+      if (
+        item.activeTaskCount > 0 ||
+        item.missedCheckins.flag ||
+        (item.proms?.dueCount ?? 0) > 0 ||
+        Boolean(item.nextAppointmentAt)
+      ) {
+        buckets.followThrough += 1;
+        continue;
+      }
+
+      buckets.monitor += 1;
+    }
+
+    return [
+      { key: 'high-risk', label: 'High risk', value: buckets.highRisk },
+      { key: 'response', label: 'Needs response', value: buckets.response },
+      { key: 'alerts', label: 'Alert review', value: buckets.alerts },
+      { key: 'follow-through', label: 'Follow-through', value: buckets.followThrough },
+      { key: 'monitor', label: 'Monitor', value: buckets.monitor },
+    ];
+  }, [items]);
   const queueViewLabel = activeFilterConstraints ? 'Focused queue view' : 'Full review queue';
   const worklistGuidanceLine =
     items.length === 0
@@ -261,14 +307,11 @@ export function WorklistPage(): JSX.Element {
     <Stack className="page-stack dashboard-page-shell dashboard-page-shell--queue worklist-page" gap="5">
       <Section
         className="dashboard-page-header dashboard-page-header--queue worklist-page-header"
-        eyebrow="Operational roster"
+        eyebrow="Active review console"
         title="Worklist"
-        subtitle="Review active follow-up needs across safety, adherence, communication, tasks, and appointments."
+        subtitle="Active clinician review across safety, communication, adherence, tasks, and appointments."
         meta={
           <span className="worklist-page__meta" aria-live="polite">
-            <span className="worklist-page__meta-pill worklist-page__meta-pill--count">
-              {total} in view
-            </span>
             <span className="worklist-page__meta-pill worklist-page__meta-pill--updated">Updated {updatedAtLabel}</span>
           </span>
         }
@@ -290,47 +333,87 @@ export function WorklistPage(): JSX.Element {
       ) : null}
 
       <section className="worklist-summary-strip" aria-label="Worklist summary">
-        <article className="worklist-summary-strip__item worklist-summary-strip__item--total">
-          <p className="worklist-summary-strip__label">In view</p>
-          <p className="worklist-summary-strip__value">{total}</p>
-          <p className="worklist-summary-strip__hint">{items.length} rows loaded in the current queue</p>
-        </article>
-        <article
-          className={`worklist-summary-strip__item worklist-summary-strip__item--risk${
-            summary.highRisk > 0 ? ' worklist-summary-strip__item--risk-hot' : ''
-          }`}
-        >
-          <p className="worklist-summary-strip__label">High risk</p>
-          <p className="worklist-summary-strip__value">{summary.highRisk}</p>
-          <p className="worklist-summary-strip__hint">Latest patient risk currently marked high</p>
-        </article>
-        <article className="worklist-summary-strip__item worklist-summary-strip__item--response">
-          <p className="worklist-summary-strip__label">Needs response</p>
-          <p className="worklist-summary-strip__value">{summary.needsResponse}</p>
-          <p className="worklist-summary-strip__hint">Communication follow-up still waiting</p>
-        </article>
-        <article className="worklist-summary-strip__item worklist-summary-strip__item--alerts">
-          <p className="worklist-summary-strip__label">With alerts</p>
-          <p className="worklist-summary-strip__value">{summary.openAlerts}</p>
-          <p className="worklist-summary-strip__hint">Patients with open alert burden</p>
-        </article>
-        <article className="worklist-summary-strip__item worklist-summary-strip__item--tasks">
-          <p className="worklist-summary-strip__label">With tasks</p>
-          <p className="worklist-summary-strip__value">{summary.activeTasks}</p>
-          <p className="worklist-summary-strip__hint">Linked follow-up work still active</p>
-        </article>
+        <div className="worklist-summary-strip__lead">
+          <div className="worklist-summary-strip__lead-copy">
+            <p className="worklist-summary-strip__eyebrow">Queue status</p>
+            <h2 className="worklist-summary-strip__title">Active review queue</h2>
+            <p className="worklist-summary-strip__narrative">{worklistGuidanceLine}</p>
+          </div>
+          <div className="worklist-summary-strip__status">
+            <span className="worklist-summary-strip__status-pill">{queueViewLabel}</span>
+            <span className="worklist-summary-strip__status-pill">{total} in view</span>
+          </div>
+        </div>
+
+        <div className="worklist-summary-strip__composition" aria-label="Queue composition">
+          <div className="worklist-summary-strip__bar" aria-hidden="true">
+            {queueComposition.map((segment) => (
+              <span
+                key={segment.key}
+                className={`worklist-summary-strip__bar-segment worklist-summary-strip__bar-segment--${segment.key}`}
+                style={{ flexGrow: Math.max(segment.value, 1) }}
+              />
+            ))}
+          </div>
+          <div className="worklist-summary-strip__legend" role="list">
+            {queueComposition.map((segment) => (
+              <span
+                key={segment.key}
+                className={`worklist-summary-strip__legend-item worklist-summary-strip__legend-item--${segment.key}`}
+                role="listitem"
+              >
+                <span className="worklist-summary-strip__legend-swatch" aria-hidden="true" />
+                <span className="worklist-summary-strip__legend-label">{segment.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="worklist-summary-strip__metrics">
+          <article className="worklist-summary-strip__item worklist-summary-strip__item--total">
+            <p className="worklist-summary-strip__label">In view</p>
+            <p className="worklist-summary-strip__value">{total}</p>
+            <p className="worklist-summary-strip__hint">{items.length} rows loaded in the current queue</p>
+          </article>
+          <article
+            className={`worklist-summary-strip__item worklist-summary-strip__item--risk${
+              summary.highRisk > 0 ? ' worklist-summary-strip__item--risk-hot' : ''
+            }`}
+          >
+            <p className="worklist-summary-strip__label">High risk</p>
+            <p className="worklist-summary-strip__value">{summary.highRisk}</p>
+            <p className="worklist-summary-strip__hint">Latest patient risk currently marked high</p>
+          </article>
+          <article className="worklist-summary-strip__item worklist-summary-strip__item--response">
+            <p className="worklist-summary-strip__label">Needs response</p>
+            <p className="worklist-summary-strip__value">{summary.needsResponse}</p>
+            <p className="worklist-summary-strip__hint">Communication follow-up still waiting</p>
+          </article>
+          <article className="worklist-summary-strip__item worklist-summary-strip__item--alerts">
+            <p className="worklist-summary-strip__label">With alerts</p>
+            <p className="worklist-summary-strip__value">{summary.openAlerts}</p>
+            <p className="worklist-summary-strip__hint">Patients with open alert burden</p>
+          </article>
+          <article className="worklist-summary-strip__item worklist-summary-strip__item--tasks">
+            <p className="worklist-summary-strip__label">With tasks</p>
+            <p className="worklist-summary-strip__value">{summary.activeTasks}</p>
+            <p className="worklist-summary-strip__hint">Linked follow-up work still active</p>
+          </article>
+        </div>
       </section>
 
       <Card
         className="worklist-workspace-card"
         title={
           <span className="worklist-card-title">
-            <span className="worklist-card-title__eyebrow">Active review workspace</span>
+            <span className="worklist-card-title__eyebrow">Review workspace</span>
             <span className="worklist-card-title__row">
-              <span className="worklist-card-title__text">Active review queue</span>
+              <span className="worklist-card-title__text">Queue workspace</span>
               <span className="worklist-card-title__meta">{queueViewLabel}</span>
             </span>
-            <span className="worklist-card-title__support">{worklistGuidanceLine}</span>
+            <span className="worklist-card-title__support">
+              Search, narrow, and open the next patient from one review surface.
+            </span>
           </span>
         }
         action={
@@ -351,7 +434,7 @@ export function WorklistPage(): JSX.Element {
           </div>
         }
       >
-        <Stack gap="4">
+        <div className="worklist-review-console">
           <div className="worklist-workspace-card__controls">
             <WorklistFilters
               filters={filters}
@@ -478,7 +561,7 @@ export function WorklistPage(): JSX.Element {
               onOpenAppointments={() => navigate('/appointments')}
             />
           )}
-        </Stack>
+        </div>
       </Card>
     </Stack>
   );

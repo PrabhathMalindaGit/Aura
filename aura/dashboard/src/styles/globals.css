@@ -29078,7 +29078,1099 @@ button.dashboard-summary-strip__item:hover {
     padding-bottom: 14px;
   }
 
-  .dashboard-home-page--command-center .dashboard-module-card .card__body {
+.dashboard-home-page--command-center .dashboard-module-card .card__body {
     padding-bottom: 16px;
+  }
+}
+
+/* Pass 11D: Worklist editorial console */
+
+.worklist-page {
+  gap: clamp(16px, 1.45vw, 22px);
+}
+
+.worklist-page .worklist-page-header {
+  padding: clamp(16px, 1.25vw, 22px) clamp(18px, 1.6vw, 26px);
+  border-color: hsl(var(--border) / 0.82);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(200 40% 97% / 0.9)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.16), transparent 28%),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.12), transparent 78%);
+  box-shadow:
+    0 24px 52px hsl(214 24% 14% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-page-header::before {
+  width: 12rem;
+  max-width: 28%;
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.76), transparent);
+}
+
+.worklist-page .worklist-page-header .section__header {
+  gap: clamp(14px, 1.3vw, 20px);
+}
+
+.worklist-page .worklist-page-header .section__title-group {
+  gap: 8px;
+}
+
+.worklist-page .worklist-page-header .section__eyebrow {
+  letter-spacing: 0.18em;
+}
+
+.worklist-page .worklist-page-header .section__title {
+  font-size: clamp(2.2rem, 2.85vw, 2.85rem);
+  line-height: 0.98;
+}
+
+.worklist-page .worklist-page-header .section__subtitle {
+  max-width: 52ch;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.worklist-page .worklist-page-header .section__actions .btn {
+  min-height: 40px;
+  padding-inline: 16px;
+}
+
+.worklist-page .worklist-page__meta-pill--updated {
+  border-color: hsl(var(--primary) / 0.2);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--primary) / 0.08)),
+    linear-gradient(135deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.worklist-page .worklist-summary-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.95fr);
+  gap: 14px 16px;
+  padding: clamp(16px, 1.35vw, 22px);
+  border-color: hsl(var(--border) / 0.82);
+  border-radius: 34px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 40% 97% / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.16), transparent 28%),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.1), transparent 80%);
+  box-shadow:
+    0 28px 60px hsl(214 24% 14% / 0.1),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-summary-strip__lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 2px;
+}
+
+.worklist-page .worklist-summary-strip__lead-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.worklist-page .worklist-summary-strip__eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.56);
+  font-size: 0.71rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.worklist-page .worklist-summary-strip__title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 2vw, 1.95rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.worklist-page .worklist-summary-strip__narrative {
+  margin: 0;
+  max-width: 44ch;
+  color: hsl(var(--foreground) / 0.76);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.worklist-page .worklist-summary-strip__status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.worklist-page .worklist-summary-strip__status-pill {
+  min-height: 2.2rem;
+  padding: 0 12px;
+  border: 1px solid hsl(var(--border) / 0.7);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.26)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.96);
+  color: hsl(var(--foreground) / 0.8);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.worklist-page .worklist-summary-strip__composition {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 18px 34px hsl(214 22% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-summary-strip__bar {
+  display: flex;
+  min-height: 0.88rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.08);
+}
+
+.worklist-page .worklist-summary-strip__bar-segment {
+  min-width: 8px;
+}
+
+.worklist-page .worklist-summary-strip__bar-segment--high-risk {
+  background: linear-gradient(90deg, hsl(var(--danger) / 0.96), hsl(var(--danger) / 0.74));
+}
+
+.worklist-page .worklist-summary-strip__bar-segment--response {
+  background: linear-gradient(90deg, hsl(var(--warning) / 0.92), hsl(31 92% 62% / 0.88));
+}
+
+.worklist-page .worklist-summary-strip__bar-segment--alerts {
+  background: linear-gradient(90deg, hsl(27 88% 60% / 0.9), hsl(37 92% 65% / 0.82));
+}
+
+.worklist-page .worklist-summary-strip__bar-segment--follow-through {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.9), hsl(var(--secondary) / 0.82));
+}
+
+.worklist-page .worklist-summary-strip__bar-segment--monitor {
+  background: linear-gradient(90deg, hsl(var(--success) / 0.8), hsl(var(--success) / 0.58));
+}
+
+.worklist-page .worklist-summary-strip__legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.worklist-page .worklist-summary-strip__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: hsl(var(--foreground) / 0.72);
+  font-size: 0.76rem;
+  font-weight: var(--font-medium);
+}
+
+.worklist-page .worklist-summary-strip__legend-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.worklist-page .worklist-summary-strip__legend-item--high-risk .worklist-summary-strip__legend-swatch {
+  background: hsl(var(--danger));
+}
+
+.worklist-page .worklist-summary-strip__legend-item--response .worklist-summary-strip__legend-swatch {
+  background: hsl(var(--warning));
+}
+
+.worklist-page .worklist-summary-strip__legend-item--alerts .worklist-summary-strip__legend-swatch {
+  background: hsl(30 88% 58%);
+}
+
+.worklist-page .worklist-summary-strip__legend-item--follow-through .worklist-summary-strip__legend-swatch {
+  background: hsl(var(--primary));
+}
+
+.worklist-page .worklist-summary-strip__legend-item--monitor .worklist-summary-strip__legend-swatch {
+  background: hsl(var(--success));
+}
+
+.worklist-page .worklist-summary-strip__legend-label {
+  min-width: 0;
+}
+
+.worklist-page .worklist-summary-strip__metrics {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.worklist-page .worklist-summary-strip__item {
+  min-height: unset;
+  padding: 16px 16px 14px;
+  border-color: hsl(var(--border) / 0.68);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  box-shadow:
+    0 14px 24px hsl(214 20% 14% / 0.04),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-summary-strip__item::before {
+  height: 2px;
+}
+
+.worklist-page .worklist-summary-strip__item--total {
+  border-color: hsl(var(--primary) / 0.22);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--primary) / 0.08)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+}
+
+.worklist-page .worklist-summary-strip__item--risk,
+.worklist-page .worklist-summary-strip__item--risk-hot {
+  background:
+    linear-gradient(180deg, hsl(var(--danger) / 0.1), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--danger) / 0.08), transparent 84%);
+}
+
+.worklist-page .worklist-summary-strip__item--response {
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.1), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--warning) / 0.06), transparent 84%);
+}
+
+.worklist-page .worklist-summary-strip__item--alerts {
+  background:
+    linear-gradient(180deg, hsl(30 88% 58% / 0.12), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(30 88% 58% / 0.08), transparent 84%);
+}
+
+.worklist-page .worklist-summary-strip__item--tasks {
+  background:
+    linear-gradient(180deg, hsl(var(--secondary) / 0.12), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+}
+
+.worklist-page .worklist-summary-strip__label {
+  color: hsl(var(--foreground) / 0.54);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+}
+
+.worklist-page .worklist-summary-strip__value {
+  font-size: clamp(1.7rem, 2.1vw, 2.2rem);
+  line-height: 0.92;
+}
+
+.worklist-page .worklist-summary-strip__hint {
+  max-width: none;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.worklist-page .worklist-workspace-card {
+  position: relative;
+  overflow: hidden;
+  border-color: hsl(var(--border) / 0.82);
+  border-radius: 38px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(198 40% 97% / 0.9)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.18), transparent 28%),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.1), transparent 80%);
+  box-shadow:
+    0 32px 72px hsl(214 28% 12% / 0.12),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-workspace-card::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.56), transparent 68%);
+  pointer-events: none;
+}
+
+.worklist-page .worklist-workspace-card .card__header {
+  grid-template-columns: minmax(0, 1.2fr) auto;
+  gap: 18px;
+  padding: clamp(20px, 1.7vw, 28px) clamp(20px, 1.7vw, 28px) 14px;
+  border-bottom: 0;
+}
+
+.worklist-page .worklist-workspace-card .card__body {
+  padding: 0 clamp(20px, 1.7vw, 28px) clamp(20px, 1.7vw, 28px);
+}
+
+.worklist-page .worklist-card-title {
+  max-width: 48rem;
+  gap: 0.5rem;
+}
+
+.worklist-page .worklist-card-title__eyebrow {
+  color: hsl(var(--foreground) / 0.55);
+  letter-spacing: 0.18em;
+}
+
+.worklist-page .worklist-card-title__text {
+  font-size: clamp(1.2rem, 1.6vw, 1.6rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.worklist-page .worklist-card-title__meta {
+  min-height: 2.1rem;
+}
+
+.worklist-page .worklist-card-title__support {
+  max-width: 44ch;
+  color: hsl(var(--foreground) / 0.72);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.worklist-page .worklist-workspace-card__header-meta {
+  align-content: start;
+}
+
+.worklist-page .worklist-workspace-card__facts {
+  gap: 8px;
+}
+
+.worklist-page .worklist-workspace-card__fact {
+  min-height: 2.1rem;
+}
+
+.worklist-page .worklist-review-console {
+  display: grid;
+  gap: 16px;
+}
+
+.worklist-page .worklist-workspace-card__controls {
+  padding: clamp(14px, 1.15vw, 18px);
+  border-color: hsl(var(--border) / 0.74);
+  border-radius: 30px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 18px 34px hsl(214 22% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-filters {
+  display: grid;
+  gap: 12px;
+}
+
+.worklist-page .worklist-filters__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 1fr);
+  gap: 12px;
+}
+
+.worklist-page .worklist-filters__cluster {
+  gap: 10px;
+  padding: 16px 18px;
+  border-color: hsl(var(--border) / 0.74);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.06), transparent 84%);
+  box-shadow:
+    0 14px 26px hsl(214 20% 14% / 0.04),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-filters__cluster--toggles {
+  padding-block: 14px;
+}
+
+.worklist-page .worklist-filters__cluster-heading {
+  gap: 4px;
+}
+
+.worklist-page .worklist-filters__cluster-label {
+  color: hsl(var(--foreground) / 0.56);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+}
+
+.worklist-page .worklist-filters__cluster-support {
+  color: hsl(var(--foreground) / 0.7);
+  font-size: 0.8rem;
+  line-height: 1.42;
+}
+
+.worklist-page .worklist-filters__label {
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.worklist-page .worklist-filters__search,
+.worklist-page .worklist-filters__control {
+  gap: 6px;
+}
+
+.worklist-page .worklist-filters__search input,
+.worklist-page .worklist-filters__control select {
+  min-height: 52px;
+  border-radius: 18px;
+  font-size: 0.95rem;
+}
+
+.worklist-page .worklist-filters__select-row {
+  align-items: end;
+  gap: 10px;
+}
+
+.worklist-page .worklist-filters__control {
+  min-width: 0;
+}
+
+.worklist-page .worklist-filters__reset {
+  min-width: 7.5rem;
+}
+
+.worklist-page .worklist-filters__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.worklist-page .worklist-filters__toggle {
+  min-height: 2.45rem;
+  padding-inline: 14px;
+}
+
+.worklist-page .worklist-filters__toggle.btn--primary {
+  box-shadow:
+    0 14px 26px hsl(var(--primary) / 0.18),
+    inset 0 1px 0 hsl(var(--primary-foreground) / 0.22);
+}
+
+.worklist-page .worklist-priority-badge.badge {
+  min-height: 1.85rem;
+  padding: 0 10px;
+  border-width: 1px;
+  font-size: 0.67rem;
+  letter-spacing: 0.16em;
+}
+
+.worklist-page .worklist-priority-badge--risk-high.badge {
+  border-color: hsl(var(--danger) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--danger) / 0.18), hsl(var(--card) / 0.98)),
+    linear-gradient(145deg, hsl(var(--danger) / 0.1), transparent 82%);
+  color: hsl(0 58% 40%);
+}
+
+.worklist-page .worklist-priority-badge--warning.badge {
+  border-color: hsl(var(--warning) / 0.36);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.18), hsl(var(--card) / 0.98)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.1), transparent 82%);
+  color: hsl(27 74% 34%);
+}
+
+.worklist-page .worklist-priority-badge--neutral.badge {
+  border-color: hsl(var(--primary) / 0.26);
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.12), hsl(var(--card) / 0.98)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 82%);
+  color: hsl(var(--primary));
+}
+
+.worklist-page .worklist-table-wrap {
+  border-color: hsl(var(--border) / 0.82);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 38% 97% / 0.92)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 28px 60px hsl(214 24% 14% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-table {
+  table-layout: fixed;
+}
+
+.worklist-page .worklist-table__head--patient {
+  width: 22%;
+}
+
+.worklist-page .worklist-table__head--reason {
+  width: 26%;
+}
+
+.worklist-page .worklist-table__head--signals {
+  width: 22%;
+}
+
+.worklist-page .worklist-table__head--activity {
+  width: 18%;
+}
+
+.worklist-page .worklist-table__head--actions {
+  width: 12%;
+}
+
+.worklist-page .worklist-table__head {
+  padding-bottom: 0.9rem;
+  color: hsl(var(--foreground) / 0.46);
+  font-size: 0.65rem;
+  letter-spacing: 0.18em;
+}
+
+.worklist-page .worklist-table__row {
+  --worklist-row-accent: hsl(var(--primary));
+  --worklist-row-tint: hsl(var(--primary) / 0.08);
+  background:
+    linear-gradient(90deg, var(--worklist-row-tint), transparent 18%),
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 34% 97% / 0.88));
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.worklist-page .worklist-table__row:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 6px 0 0 var(--worklist-row-accent),
+    0 16px 30px hsl(214 22% 12% / 0.08);
+}
+
+.worklist-page .worklist-table__row--high-risk {
+  --worklist-row-accent: hsl(var(--danger));
+  --worklist-row-tint: hsl(var(--danger) / 0.11);
+}
+
+.worklist-page .worklist-table__row--response {
+  --worklist-row-accent: hsl(var(--warning));
+  --worklist-row-tint: hsl(var(--warning) / 0.1);
+}
+
+.worklist-page .worklist-table__row--alerts {
+  --worklist-row-accent: hsl(30 88% 58%);
+  --worklist-row-tint: hsl(30 88% 58% / 0.09);
+}
+
+.worklist-page .worklist-table__row--follow-through {
+  --worklist-row-accent: hsl(var(--primary));
+  --worklist-row-tint: hsl(var(--primary) / 0.08);
+}
+
+.worklist-page .worklist-table__row--monitor {
+  --worklist-row-accent: hsl(var(--success));
+  --worklist-row-tint: hsl(var(--success) / 0.08);
+}
+
+.worklist-page .worklist-table__row--high-risk,
+.worklist-page .worklist-table__row--response,
+.worklist-page .worklist-table__row--alerts,
+.worklist-page .worklist-table__row--follow-through,
+.worklist-page .worklist-table__row--monitor {
+  box-shadow:
+    inset 6px 0 0 var(--worklist-row-accent),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-table__row--high-risk:hover,
+.worklist-page .worklist-table__row--response:hover,
+.worklist-page .worklist-table__row--alerts:hover,
+.worklist-page .worklist-table__row--follow-through:hover,
+.worklist-page .worklist-table__row--monitor:hover {
+  box-shadow:
+    inset 6px 0 0 var(--worklist-row-accent),
+    0 16px 30px hsl(214 22% 12% / 0.08);
+}
+
+.worklist-page .worklist-table__cell {
+  padding: 18px 14px 18px 0;
+  vertical-align: top;
+}
+
+.worklist-page .worklist-table__cell--patient {
+  padding-left: 14px;
+}
+
+.worklist-page .worklist-table__avatar,
+.worklist-page .worklist-card__avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid hsl(var(--primary) / 0.18);
+  box-shadow:
+    0 12px 20px hsl(var(--primary) / 0.12),
+    inset 0 1px 0 hsl(var(--card) / 0.72);
+}
+
+.worklist-page .worklist-table__patient {
+  gap: 12px;
+}
+
+.worklist-page .worklist-table__patient-name,
+.worklist-page .worklist-card__patient-name {
+  font-family: var(--font-heading);
+  font-size: 1.04rem;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.worklist-page .worklist-table__patient-meta,
+.worklist-page .worklist-card__patient-meta {
+  color: hsl(var(--foreground) / 0.56);
+  font-size: 0.76rem;
+}
+
+.worklist-page .worklist-table__reason,
+.worklist-page .worklist-card__reason {
+  gap: 0.52rem;
+}
+
+.worklist-page .worklist-table__reason-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.worklist-page .worklist-table__reason-title,
+.worklist-page .worklist-card__reason-title {
+  max-width: none;
+  font-family: var(--font-heading);
+  font-size: 1.08rem;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.worklist-page .worklist-table__reason-support,
+.worklist-page .worklist-card__reason-support {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.84rem;
+  line-height: 1.48;
+}
+
+.worklist-page .worklist-table__updated,
+.worklist-page .worklist-card__updated {
+  min-height: 1.8rem;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border) / 0.64);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.05), transparent 84%);
+  color: hsl(var(--foreground) / 0.62);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.worklist-page .worklist-table__signals,
+.worklist-page .worklist-card__signals {
+  gap: 0.5rem;
+}
+
+.worklist-page .worklist-table__signal-group,
+.worklist-page .worklist-card__signal-group {
+  gap: 0.42rem;
+}
+
+.worklist-page .worklist-table__signal-group .badge,
+.worklist-page .worklist-card__signal-group .badge {
+  min-height: 1.95rem;
+  padding-inline: 11px;
+}
+
+.worklist-page .worklist-table__signal-group--primary .badge,
+.worklist-page .worklist-card__signal-group--primary .badge {
+  box-shadow:
+    0 10px 18px hsl(214 20% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-table__signal-group--secondary .badge,
+.worklist-page .worklist-card__signal-group--secondary .badge {
+  color: hsl(var(--foreground) / 0.74);
+}
+
+.worklist-page .worklist-table__activity {
+  gap: 0.75rem;
+}
+
+.worklist-page .worklist-table__activity-highlights,
+.worklist-page .worklist-card__activity-highlights {
+  gap: 0.45rem;
+  padding: 12px 14px;
+  border: 1px solid hsl(var(--border) / 0.54);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.06), transparent 84%);
+}
+
+.worklist-page .worklist-table__activity-line {
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.worklist-page .worklist-table__activity-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.worklist-page .worklist-table__activity-stat,
+.worklist-page .worklist-card__activity-stat {
+  padding: 10px 12px;
+  border: 1px solid hsl(var(--border) / 0.48);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.04), transparent 84%);
+}
+
+.worklist-page .worklist-table__activity-label,
+.worklist-page .worklist-card__activity dt {
+  color: hsl(var(--foreground) / 0.48);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+}
+
+.worklist-page .worklist-table__activity-value,
+.worklist-page .worklist-table__activity-line time,
+.worklist-page .worklist-card__activity dd {
+  color: hsl(var(--foreground) / 0.84);
+  font-size: 0.82rem;
+}
+
+.worklist-page .worklist-table__actions {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.worklist-page .worklist-table__actions-primary .btn,
+.worklist-page .worklist-card__actions-primary .btn {
+  width: 100%;
+  min-height: 2.7rem;
+}
+
+.worklist-page .worklist-table__actions-secondary,
+.worklist-page .worklist-card__actions-secondary {
+  display: grid;
+  gap: 8px;
+}
+
+.worklist-page .worklist-table__actions-secondary .btn,
+.worklist-page .worklist-card__actions-secondary .btn {
+  width: 100%;
+  min-height: 2.25rem;
+  justify-content: center;
+}
+
+.worklist-page .worklist-card-list {
+  gap: 16px;
+}
+
+.worklist-page .worklist-card {
+  --worklist-card-accent: hsl(var(--primary));
+  --worklist-card-tint: hsl(var(--primary) / 0.08);
+  position: relative;
+  border-color: hsl(var(--border) / 0.8);
+  border-radius: 30px;
+  background:
+    linear-gradient(90deg, var(--worklist-card-tint), transparent 20%),
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 36% 97% / 0.9)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    inset 6px 0 0 var(--worklist-card-accent),
+    0 26px 56px hsl(214 24% 14% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.worklist-page .worklist-card--high-risk {
+  --worklist-card-accent: hsl(var(--danger));
+  --worklist-card-tint: hsl(var(--danger) / 0.12);
+}
+
+.worklist-page .worklist-card--response {
+  --worklist-card-accent: hsl(var(--warning));
+  --worklist-card-tint: hsl(var(--warning) / 0.1);
+}
+
+.worklist-page .worklist-card--alerts {
+  --worklist-card-accent: hsl(30 88% 58%);
+  --worklist-card-tint: hsl(30 88% 58% / 0.1);
+}
+
+.worklist-page .worklist-card--follow-through {
+  --worklist-card-accent: hsl(var(--primary));
+  --worklist-card-tint: hsl(var(--primary) / 0.08);
+}
+
+.worklist-page .worklist-card--monitor {
+  --worklist-card-accent: hsl(var(--success));
+  --worklist-card-tint: hsl(var(--success) / 0.08);
+}
+
+.worklist-page .worklist-card__body {
+  gap: 14px;
+}
+
+.worklist-page .worklist-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.worklist-page .worklist-card__header-side {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  flex: 0 0 auto;
+}
+
+.worklist-page .worklist-card__reason {
+  padding: 14px 16px;
+  border: 1px solid hsl(var(--border) / 0.56);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.06), transparent 84%);
+}
+
+.worklist-page .worklist-card__activity {
+  gap: 0.65rem 0.75rem;
+}
+
+.worklist-page .worklist-card__actions {
+  gap: 10px;
+}
+
+.dark .worklist-page .worklist-page-header,
+.dark .worklist-page .worklist-summary-strip,
+.dark .worklist-page .worklist-workspace-card,
+.dark .worklist-page .worklist-workspace-card__controls,
+.dark .worklist-page .worklist-filters__cluster,
+.dark .worklist-page .worklist-table-wrap,
+.dark .worklist-page .worklist-card {
+  border-color: hsl(var(--border) / 0.76);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(214 20% 15% / 0.92)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.14), transparent 84%);
+}
+
+.dark .worklist-page .worklist-summary-strip__composition,
+.dark .worklist-page .worklist-summary-strip__item,
+.dark .worklist-page .worklist-summary-strip__status-pill,
+.dark .worklist-page .worklist-page__meta-pill--updated,
+.dark .worklist-page .worklist-workspace-card__fact,
+.dark .worklist-page .worklist-card-title__meta,
+.dark .worklist-page .worklist-table__activity-highlights,
+.dark .worklist-page .worklist-card__activity-highlights,
+.dark .worklist-page .worklist-table__activity-stat,
+.dark .worklist-page .worklist-card__activity-stat,
+.dark .worklist-page .worklist-table__updated,
+.dark .worklist-page .worklist-card__updated,
+.dark .worklist-page .worklist-card__reason {
+  border-color: hsl(var(--border) / 0.68);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.92), hsl(var(--muted) / 0.36)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 84%);
+}
+
+.dark .worklist-page .worklist-summary-strip__narrative,
+.dark .worklist-page .worklist-card-title__support,
+.dark .worklist-page .worklist-filters__cluster-support,
+.dark .worklist-page .worklist-table__reason-support,
+.dark .worklist-page .worklist-card__reason-support {
+  color: hsl(var(--foreground) / 0.78);
+}
+
+.dark .worklist-page .worklist-table__row,
+.dark .worklist-page .worklist-card {
+  background:
+    linear-gradient(90deg, var(--worklist-row-tint, hsl(var(--primary) / 0.1)), transparent 20%),
+    linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(214 20% 16% / 0.88)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 84%);
+}
+
+.dark .worklist-page .worklist-card {
+  background:
+    linear-gradient(90deg, var(--worklist-card-tint), transparent 20%),
+    linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(214 20% 16% / 0.88)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 84%);
+}
+
+.dark .worklist-page .worklist-table__row:hover {
+  box-shadow:
+    inset 6px 0 0 var(--worklist-row-accent),
+    0 18px 36px hsl(214 58% 3% / 0.24);
+}
+
+.dark .worklist-page .worklist-priority-badge--risk-high.badge {
+  color: hsl(0 88% 84%);
+}
+
+.dark .worklist-page .worklist-priority-badge--warning.badge {
+  color: hsl(40 92% 78%);
+}
+
+.dark .worklist-page .worklist-priority-badge--neutral.badge {
+  color: hsl(191 78% 78%);
+}
+
+@media (max-width: 1180px) {
+  .worklist-page .worklist-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-page .worklist-summary-strip__composition {
+    order: 3;
+  }
+
+  .worklist-page .worklist-summary-strip__metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .worklist-page .worklist-workspace-card .card__header {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-page .worklist-workspace-card__header-meta,
+  .worklist-page .worklist-workspace-card__facts {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .worklist-page .worklist-filters__toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 920px) {
+  .worklist-page .worklist-page-header .section__header {
+    gap: 12px;
+  }
+
+  .worklist-page .worklist-summary-strip__lead {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-page .worklist-summary-strip__status {
+    justify-content: flex-start;
+  }
+
+  .worklist-page .worklist-summary-strip__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .worklist-page .worklist-filters__select-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .worklist-page .worklist-filters__reset {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .worklist-page .worklist-page-header {
+    padding: 18px;
+  }
+
+  .worklist-page .worklist-page-header .section__title {
+    font-size: clamp(1.9rem, 9vw, 2.25rem);
+  }
+
+  .worklist-page .worklist-summary-strip,
+  .worklist-page .worklist-workspace-card__controls {
+    padding: 16px;
+  }
+
+  .worklist-page .worklist-summary-strip__legend {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-page .worklist-summary-strip__metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-page .worklist-card__header {
+    flex-direction: column;
+  }
+
+  .worklist-page .worklist-card__header-side {
+    width: 100%;
+    justify-items: start;
+  }
+
+  .worklist-page .worklist-card__actions-secondary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .worklist-page .worklist-page__meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .worklist-page .worklist-page__meta-pill--updated {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .worklist-page .worklist-page-header .section__actions {
+    width: 100%;
+  }
+
+  .worklist-page .worklist-page-header .section__actions .btn {
+    width: 100%;
+  }
+
+  .worklist-page .worklist-workspace-card .card__header,
+  .worklist-page .worklist-workspace-card .card__body {
+    padding-inline: 18px;
+  }
+
+  .worklist-page .worklist-filters__select-row {
+    grid-template-columns: 1fr;
+  }
+
+  .worklist-page .worklist-card__activity {
+    grid-template-columns: 1fr;
   }
 }

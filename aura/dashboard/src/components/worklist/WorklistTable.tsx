@@ -107,13 +107,26 @@ export function WorklistTable({
             const promBadgeLabel = formatPromBadgeLabel(item);
             const reviewLabel = getWorklistReviewLabel(item);
             const reviewSupport = getWorklistReviewSupport(item);
+            const rowToneClass =
+              item.latestRiskLevel === 'high'
+                ? ' worklist-table__row--high-risk'
+                : item.communicationNeedsResponse
+                  ? ' worklist-table__row--response'
+                  : item.openAlertsCount > 0
+                    ? ' worklist-table__row--alerts'
+                    : item.activeTaskCount > 0 ||
+                        item.missedCheckins.flag ||
+                        Boolean(promBadgeLabel) ||
+                        hasAppointment
+                      ? ' worklist-table__row--follow-through'
+                      : ' worklist-table__row--monitor';
             return (
               <tr
                 key={item.patientId}
                 data-row-index={index}
                 data-testid={`worklist-row-${item.patientId}`}
                 tabIndex={0}
-                className={`worklist-table__row${item.latestRiskLevel === 'high' ? ' worklist-table__row--high-risk' : ''}${item.communicationNeedsResponse ? ' worklist-table__row--response' : ''}`}
+                className={`worklist-table__row${rowToneClass}`}
                 onClick={() => onOpenPatient(item.patientId)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
@@ -155,6 +168,12 @@ export function WorklistTable({
                   <div className="worklist-table__reason">
                     <div className="worklist-table__reason-top">
                       <WorklistPriorityBadge className="worklist-table__priority" item={item} />
+                      <span
+                        className="worklist-table__updated"
+                        title={formatDashboardDateTime(item.updatedAt)}
+                      >
+                        Updated {formatDashboardRelativeTime(item.updatedAt)}
+                      </span>
                     </div>
                     <strong className="worklist-table__reason-title">{reviewLabel}</strong>
                     <p className="worklist-table__reason-support">{reviewSupport}</p>

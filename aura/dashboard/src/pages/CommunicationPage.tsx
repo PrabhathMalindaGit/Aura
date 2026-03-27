@@ -68,6 +68,37 @@ function getThreadMetaSummary(thread: CommunicationThread): string {
   return 'Latest patient message';
 }
 
+function getPatientInitials(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((segment) => segment[0]?.toUpperCase() ?? '')
+      .join('') || 'P'
+  );
+}
+
+function getCommunicationThreadTone(thread: CommunicationThread): 'safety' | 'response' | 'follow-up' | 'unread' | 'reviewed' {
+  if (thread.safetyFlagged) {
+    return 'safety';
+  }
+
+  if (thread.needsResponse) {
+    return 'response';
+  }
+
+  if (thread.followUpRequested) {
+    return 'follow-up';
+  }
+
+  if (thread.unread) {
+    return 'unread';
+  }
+
+  return 'reviewed';
+}
+
 function getEventTypeBadge(event: CommunicationThread['timeline'][number]): {
   label: string;
   variant: 'default' | 'neutral' | 'success';
@@ -114,6 +145,11 @@ export function CommunicationPage(): JSX.Element {
   const filteredThreads = useMemo(
     () => filterCommunicationThreads(allThreads, currentView),
     [allThreads, currentView],
+  );
+  const currentViewLabel = useMemo(
+    () =>
+      COMMUNICATION_THREAD_VIEW_OPTIONS.find((option) => option.id === currentView)?.label ?? 'All',
+    [currentView],
   );
   const requestedThread = useMemo(
     () => findCommunicationThreadByPatientId(allThreads, requestedPatientId),
@@ -360,6 +396,72 @@ export function CommunicationPage(): JSX.Element {
   const hasVisibleThreads = visibleThreads.length > 0;
   const reduceCommunicationAttention =
     notificationPreferences.effectiveCommunicationCueMode === 'reduced';
+  const activeThreadTone = activeThread ? getCommunicationThreadTone(activeThread) : null;
+  const communicationSummary = useMemo(
+    () => ({
+      inReview: allThreads.length,
+      needsResponse: allThreads.filter((thread) => thread.needsResponse).length,
+      safetyFlagged: allThreads.filter((thread) => thread.safetyFlagged).length,
+      followUpRequested: allThreads.filter((thread) => thread.followUpRequested).length,
+      unread: allThreads.filter((thread) => thread.unread).length,
+    }),
+    [allThreads],
+  );
+  const inboxComposition = useMemo(() => {
+    const buckets = {
+      safety: 0,
+      response: 0,
+      followUp: 0,
+      unread: 0,
+      reviewed: 0,
+    };
+
+    for (const thread of allThreads) {
+      const tone = getCommunicationThreadTone(thread);
+
+      if (tone === 'safety') {
+        buckets.safety += 1;
+        continue;
+      }
+
+      if (tone === 'response') {
+        buckets.response += 1;
+        continue;
+      }
+
+      if (tone === 'follow-up') {
+        buckets.followUp += 1;
+        continue;
+      }
+
+      if (tone === 'unread') {
+        buckets.unread += 1;
+        continue;
+      }
+
+      buckets.reviewed += 1;
+    }
+
+    return [
+      { key: 'safety', label: 'Safety flagged', value: buckets.safety },
+      { key: 'response', label: 'Needs response', value: buckets.response },
+      { key: 'follow-up', label: 'Follow-up requested', value: buckets.followUp },
+      { key: 'unread', label: 'Unread', value: buckets.unread },
+      { key: 'reviewed', label: 'In review', value: buckets.reviewed },
+    ];
+  }, [allThreads]);
+  const communicationGuidance =
+    communicationSummary.safetyFlagged > 0
+      ? 'Safety-sensitive threads still require clinician review.'
+      : communicationSummary.needsResponse > 0
+        ? 'Response-needed follow-up still leads the inbox.'
+        : communicationSummary.followUpRequested > 0
+          ? 'Follow-up requested threads still need a clinician pass.'
+          : communicationSummary.unread > 0
+            ? 'Unread threads still need first review in this browser.'
+            : hasThreads
+              ? 'Current inbox review is clear in this browser.'
+              : 'No patient communication is waiting in this workspace.';
 
   return (
     <Stack className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page" gap="5">
@@ -367,25 +469,7 @@ export function CommunicationPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--communication communication-page__header"
         eyebrow="Clinician follow-up"
         title="Communication"
-        subtitle="Review patient-linked communication, respond calmly, and keep safety-sensitive threads connected to clinical follow-through."
-        meta={
-          <span className="communication-page__meta" aria-live="polite">
-            <span
-              className={`communication-page__meta-pill${
-                reduceCommunicationAttention ? '' : ' communication-page__meta-pill--attention'
-              }`}
-              data-testid="communication-needs-response-pill"
-            >
-              {countThreadsByView(allThreads, 'needs-response')} need response
-            </span>
-            <span className="communication-page__meta-pill communication-page__meta-pill--risk">
-              {countThreadsByView(allThreads, 'safety-flagged')} safety flagged
-            </span>
-            <span className="communication-page__meta-pill">
-              {allThreads.length} {allThreads.length === 1 ? 'thread' : 'threads'}
-            </span>
-          </span>
-        }
+        subtitle="Review patient-linked communication, surface safety context early, and respond with browser-local continuity."
         actions={
           <Button
             variant="secondary"
@@ -399,6 +483,79 @@ export function CommunicationPage(): JSX.Element {
           </Button>
         }
       />
+
+      <section className="communication-page__status-strip" aria-label="Communication inbox summary">
+        <div className="communication-page__status-strip-lead">
+          <div className="communication-page__status-strip-copy">
+            <p className="communication-page__status-strip-eyebrow">Inbox status</p>
+            <h2 className="communication-page__status-strip-title">Clinical communication review</h2>
+            <p className="communication-page__status-strip-narrative">{communicationGuidance}</p>
+          </div>
+          <div className="communication-page__status-strip-pills">
+            <span className="communication-page__status-strip-pill">{currentViewLabel} view</span>
+            <span className="communication-page__status-strip-pill">
+              {communicationSummary.inReview} in review
+            </span>
+          </div>
+        </div>
+
+        <div className="communication-page__status-strip-composition" aria-label="Inbox composition">
+          <div className="communication-page__status-strip-bar" aria-hidden="true">
+            {inboxComposition.map((segment) => (
+              <span
+                key={segment.key}
+                className={`communication-page__status-strip-bar-segment communication-page__status-strip-bar-segment--${segment.key}`}
+                style={{ flexGrow: Math.max(segment.value, 1) }}
+              />
+            ))}
+          </div>
+          <div className="communication-page__status-strip-legend" role="list">
+            {inboxComposition.map((segment) => (
+              <span
+                key={segment.key}
+                className={`communication-page__status-strip-legend-item communication-page__status-strip-legend-item--${segment.key}`}
+                role="listitem"
+              >
+                <span className="communication-page__status-strip-legend-swatch" aria-hidden="true" />
+                <span className="communication-page__status-strip-legend-label">{segment.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="communication-page__status-strip-metrics">
+          <article className="communication-page__status-card communication-page__status-card--lead">
+            <p className="communication-page__status-card-label">In review</p>
+            <p className="communication-page__status-card-value">{communicationSummary.inReview}</p>
+            <p className="communication-page__status-card-hint">Patient-linked inbox threads currently surfaced</p>
+          </article>
+          <article
+            className={`communication-page__status-card communication-page__status-card--response${
+              reduceCommunicationAttention ? '' : ' communication-page__status-card--response-hot'
+            }`}
+            data-testid="communication-needs-response-pill"
+          >
+            <p className="communication-page__status-card-label">Needs response</p>
+            <p className="communication-page__status-card-value">{communicationSummary.needsResponse}</p>
+            <p className="communication-page__status-card-hint">Threads still waiting on clinician follow-up</p>
+          </article>
+          <article className="communication-page__status-card communication-page__status-card--safety">
+            <p className="communication-page__status-card-label">Safety flagged</p>
+            <p className="communication-page__status-card-value">{communicationSummary.safetyFlagged}</p>
+            <p className="communication-page__status-card-hint">Escalation-sensitive communication in view</p>
+          </article>
+          <article className="communication-page__status-card communication-page__status-card--follow-up">
+            <p className="communication-page__status-card-label">Follow-up requested</p>
+            <p className="communication-page__status-card-value">{communicationSummary.followUpRequested}</p>
+            <p className="communication-page__status-card-hint">Threads that still need explicit next-step handling</p>
+          </article>
+          <article className="communication-page__status-card communication-page__status-card--unread">
+            <p className="communication-page__status-card-label">Unread</p>
+            <p className="communication-page__status-card-value">{communicationSummary.unread}</p>
+            <p className="communication-page__status-card-hint">Messages not yet reviewed in this browser</p>
+          </article>
+        </div>
+      </section>
 
       <div className="communication-page__layout">
         <Card
@@ -468,31 +625,35 @@ export function CommunicationPage(): JSX.Element {
             <div className="communication-page__thread-list" role="list" aria-label="Communication threads">
               {visibleThreads.map((thread) => {
                 const isSelected = thread.id === activeThread?.id;
+                const threadTone = getCommunicationThreadTone(thread);
                 return (
                   <article key={thread.id} className="communication-page__thread-list-item" role="listitem">
                     <button
                       type="button"
                       className={`communication-page__thread-item${
                         isSelected ? ' communication-page__thread-item--active' : ''
-                      }`}
+                      } communication-page__thread-item--${threadTone}`}
                       aria-pressed={isSelected}
                       onClick={() => handleSelectThread(thread)}
                     >
-                      <div className="communication-page__thread-item-top">
-                        <div>
-                          <strong className="communication-page__thread-name">{thread.patientName}</strong>
+                      <div className="communication-page__thread-identity">
+                        <span className="communication-page__thread-avatar" aria-hidden="true">
+                          {getPatientInitials(thread.patientName)}
+                        </span>
+                        <div className="communication-page__thread-identity-copy">
+                          <div className="communication-page__thread-item-top">
+                            <strong className="communication-page__thread-name">{thread.patientName}</strong>
+                            <span
+                              className="communication-page__thread-time"
+                              title={formatDashboardDateTime(thread.latestEventAt)}
+                            >
+                              {formatDashboardRelativeTime(thread.latestEventAt)}
+                            </span>
+                          </div>
                           {thread.validPatientId ? (
                             <span className="communication-page__thread-id">ID: {thread.patientId}</span>
                           ) : null}
                         </div>
-                        <span
-                          className="communication-page__thread-time"
-                          title={formatDashboardDateTime(thread.latestEventAt)}
-                        >
-                          {isSelected
-                            ? `Selected · ${formatDashboardRelativeTime(thread.latestEventAt)}`
-                            : formatDashboardRelativeTime(thread.latestEventAt)}
-                        </span>
                       </div>
                       <p className="communication-page__thread-preview">{thread.latestEventPreview}</p>
                       <div className="communication-page__thread-meta">
@@ -500,6 +661,7 @@ export function CommunicationPage(): JSX.Element {
                           {getThreadMetaSummary(thread)}
                         </span>
                         <div className="communication-page__thread-badges">
+                          {isSelected ? <Badge variant="default">Current review</Badge> : null}
                           {thread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
                           {thread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
                           {thread.unread ? <Badge variant="new">Unread</Badge> : null}
@@ -515,42 +677,11 @@ export function CommunicationPage(): JSX.Element {
           )}
         </Card>
 
-        <Card
-          className="communication-page__timeline"
-          title={
-            <span className="communication-page__card-title">
-              {activeThread ? activeThread.patientName : 'Patient communication timeline'}
-              <span className="communication-page__card-subtitle">
-                Review the current communication context before responding.
-              </span>
-            </span>
-          }
-          action={
-            activeThread?.validPatientId ? (
-              <div className="communication-page__timeline-actions">
-                {activeThread.safetyFlagged ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      navigate(
-                        `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
-                      )
-                    }
-                  >
-                    Open alerts
-                  </Button>
-                ) : null}
-                <Button
-                  variant={activeThread.safetyFlagged ? 'ghost' : 'secondary'}
-                  size="sm"
-                  onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
-                >
-                  Open patient
-                </Button>
-              </div>
-            ) : null
-          }
+        <section
+          className={`communication-page__timeline${
+            activeThreadTone ? ` communication-page__timeline--${activeThreadTone}` : ''
+          }`}
+          aria-label="Active communication review"
         >
           {communicationQuery.isLoading && !hasThreads ? (
             <div className="communication-page__timeline-skeletons" aria-label="Communication timeline loading placeholder">
@@ -559,257 +690,329 @@ export function CommunicationPage(): JSX.Element {
             </div>
           ) : activeThread ? (
             <div className="communication-page__timeline-body">
-              <div className="communication-page__timeline-intro">
-                <div className="communication-page__timeline-intro-copy">
-                  <p className="communication-page__timeline-note">
-                    This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.
-                  </p>
-                  <p className="communication-page__timeline-note communication-page__timeline-note--muted">
-                    Earlier patient message history may not be available in this foundation workspace.
-                  </p>
-                </div>
-                <div className="communication-page__timeline-badges">
-                  {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
-                  {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                  {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
-                  {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                </div>
-              </div>
-
-              {activePatientHandoff ? (
-                <section
-                  className="communication-page__handoff"
-                  aria-label="Internal handoff context"
-                  data-testid="communication-handoff-context"
-                >
-                  <div className="communication-page__handoff-copy">
-                    <div className="communication-page__handoff-head">
-                      <Badge variant="neutral">Internal handoff</Badge>
+              <header
+                className={`communication-page__thread-stage${
+                  activeThreadTone ? ` communication-page__thread-stage--${activeThreadTone}` : ''
+                }`}
+              >
+                <div className="communication-page__thread-stage-main">
+                  <div className="communication-page__thread-stage-anchor">
+                    <span className="communication-page__thread-stage-avatar" aria-hidden="true">
+                      {getPatientInitials(activeThread.patientName)}
+                    </span>
+                    <div className="communication-page__thread-stage-copy">
+                      <p className="communication-page__zone-eyebrow">Active clinical thread</p>
+                      <h2 className="communication-page__thread-stage-title">{activeThread.patientName}</h2>
+                      <p className="communication-page__thread-stage-subtitle">
+                        {activeThread.validPatientId ? `ID: ${activeThread.patientId} · ` : ''}
+                        {getThreadMetaSummary(activeThread)}
+                      </p>
                     </div>
-                    {activePatientHandoff.currentHandoff?.summary ? (
-                      <p className="communication-page__handoff-summary">
-                        {activePatientHandoff.currentHandoff.summary}
-                      </p>
-                    ) : latestPatientHandoffNote ? (
-                      <p className="communication-page__handoff-summary">
-                        {truncateText(latestPatientHandoffNote.text, 180).text}
-                      </p>
-                    ) : null}
-                    <dl className="communication-page__handoff-facts">
-                      {activePatientHandoff.currentHandoff ? (
-                        <>
-                          <div>
-                            <dt>Next step</dt>
-                            <dd>{getPatientHandoffNextActionLabel(activePatientHandoff.currentHandoff.nextAction)}</dd>
-                          </div>
-                          <div>
-                            <dt>Follow-up owner</dt>
-                            <dd>
-                              {getPatientHandoffFollowUpOwnerLabel(
-                                activePatientHandoff.currentHandoff.followUpOwner,
-                              )}
-                            </dd>
-                          </div>
-                        </>
-                      ) : null}
-                      <div>
-                        <dt>{activePatientHandoff.currentHandoff ? 'Updated by' : 'Latest note by'}</dt>
-                        <dd>
-                          {activePatientHandoff.currentHandoff
-                            ? activePatientHandoff.currentHandoff.updatedBy.authorDisplayName
-                            : latestPatientHandoffNote?.createdBy.authorDisplayName ?? '—'}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>{activePatientHandoff.currentHandoff ? 'Updated' : 'Latest note'}</dt>
-                        <dd>
-                          <span
-                            title={formatDashboardDateTime(
-                              activePatientHandoff.currentHandoff?.updatedAt ??
-                                latestPatientHandoffNote?.createdAt ??
-                                '',
-                            )}
-                          >
-                            {formatDashboardRelativeTime(
-                              activePatientHandoff.currentHandoff?.updatedAt ??
-                                latestPatientHandoffNote?.createdAt ??
-                                new Date(0).toISOString(),
-                            )}
-                          </span>
-                        </dd>
-                      </div>
-                    </dl>
-                    <p className="communication-page__timeline-note communication-page__timeline-note--muted">
-                      Stored only in this browser for local patient handoff continuity.
-                    </p>
                   </div>
-                  {activePatientHandoff.currentHandoff?.nextAction &&
-                  (activePatientHandoff.currentHandoff.nextAction === 'alerts' ||
-                    activePatientHandoff.currentHandoff.nextAction === 'appointments' ||
-                    activePatientHandoff.currentHandoff.nextAction === 'plan') ? (
-                    <div className="communication-page__handoff-actions">
+                  <div className="communication-page__thread-stage-pills">
+                    <span className="communication-page__thread-stage-pill">{currentViewLabel} view</span>
+                    <span
+                      className="communication-page__thread-stage-pill"
+                      title={formatDashboardDateTime(activeThread.latestEventAt)}
+                    >
+                      Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
+                    </span>
+                  </div>
+                </div>
+                {activeThread.validPatientId ? (
+                  <div className="communication-page__timeline-actions">
+                    {activeThread.safetyFlagged ? (
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={() =>
-                          handleOpenHandoffNextAction(activePatientHandoff.currentHandoff!.nextAction)
+                          navigate(
+                            `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
+                          )
                         }
                       >
-                        {getPatientHandoffNextActionLabel(activePatientHandoff.currentHandoff.nextAction)}
+                        Open alerts
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant={activeThread.safetyFlagged ? 'ghost' : 'secondary'}
+                      size="sm"
+                      onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
+                    >
+                      Open patient
+                    </Button>
+                  </div>
+                ) : null}
+              </header>
+
+              <section className="communication-page__context-stage">
+                <div
+                  className={`communication-page__timeline-intro${
+                    activeThreadTone ? ` communication-page__timeline-intro--${activeThreadTone}` : ''
+                  }`}
+                >
+                  <div className="communication-page__timeline-intro-copy">
+                    <p className="communication-page__zone-eyebrow">Thread state</p>
+                    <p className="communication-page__timeline-note">
+                      This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.
+                    </p>
+                    <p className="communication-page__timeline-note communication-page__timeline-note--muted">
+                      Earlier patient message history may not be available in this foundation workspace.
+                    </p>
+                  </div>
+                  <div className="communication-page__timeline-badges">
+                    {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
+                    {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                    {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
+                    {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                  </div>
+                </div>
+
+                {activePatientHandoff ? (
+                  <section
+                    className="communication-page__handoff"
+                    aria-label="Internal handoff context"
+                    data-testid="communication-handoff-context"
+                  >
+                    <div className="communication-page__handoff-copy">
+                      <div className="communication-page__handoff-head">
+                        <Badge variant="neutral">Internal handoff</Badge>
+                      </div>
+                      {activePatientHandoff.currentHandoff?.summary ? (
+                        <p className="communication-page__handoff-summary">
+                          {activePatientHandoff.currentHandoff.summary}
+                        </p>
+                      ) : latestPatientHandoffNote ? (
+                        <p className="communication-page__handoff-summary">
+                          {truncateText(latestPatientHandoffNote.text, 180).text}
+                        </p>
+                      ) : null}
+                      <dl className="communication-page__handoff-facts">
+                        {activePatientHandoff.currentHandoff ? (
+                          <>
+                            <div>
+                              <dt>Next step</dt>
+                              <dd>{getPatientHandoffNextActionLabel(activePatientHandoff.currentHandoff.nextAction)}</dd>
+                            </div>
+                            <div>
+                              <dt>Follow-up owner</dt>
+                              <dd>
+                                {getPatientHandoffFollowUpOwnerLabel(
+                                  activePatientHandoff.currentHandoff.followUpOwner,
+                                )}
+                              </dd>
+                            </div>
+                          </>
+                        ) : null}
+                        <div>
+                          <dt>{activePatientHandoff.currentHandoff ? 'Updated by' : 'Latest note by'}</dt>
+                          <dd>
+                            {activePatientHandoff.currentHandoff
+                              ? activePatientHandoff.currentHandoff.updatedBy.authorDisplayName
+                              : latestPatientHandoffNote?.createdBy.authorDisplayName ?? '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{activePatientHandoff.currentHandoff ? 'Updated' : 'Latest note'}</dt>
+                          <dd>
+                            <span
+                              title={formatDashboardDateTime(
+                                activePatientHandoff.currentHandoff?.updatedAt ??
+                                  latestPatientHandoffNote?.createdAt ??
+                                  '',
+                              )}
+                            >
+                              {formatDashboardRelativeTime(
+                                activePatientHandoff.currentHandoff?.updatedAt ??
+                                  latestPatientHandoffNote?.createdAt ??
+                                  new Date(0).toISOString(),
+                              )}
+                            </span>
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="communication-page__timeline-note communication-page__timeline-note--muted">
+                        Stored only in this browser for local patient handoff continuity.
+                      </p>
+                    </div>
+                    {activePatientHandoff.currentHandoff?.nextAction &&
+                    (activePatientHandoff.currentHandoff.nextAction === 'alerts' ||
+                      activePatientHandoff.currentHandoff.nextAction === 'appointments' ||
+                      activePatientHandoff.currentHandoff.nextAction === 'plan') ? (
+                      <div className="communication-page__handoff-actions">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            handleOpenHandoffNextAction(activePatientHandoff.currentHandoff!.nextAction)
+                          }
+                        >
+                          {getPatientHandoffNextActionLabel(activePatientHandoff.currentHandoff.nextAction)}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+              </section>
+
+              <section className="communication-page__stream-stage">
+                <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
+                  {activeThread.timeline.map((event) => {
+                    const eventTypeBadge = getEventTypeBadge(event);
+
+                    return (
+                      <article
+                        key={event.id}
+                        className={`communication-page__timeline-event communication-page__timeline-event--${
+                          event.kind === 'clinician-reply' ? 'clinician' : 'patient'
+                        }`}
+                        role="listitem"
+                      >
+                        <div className="communication-page__timeline-event-head">
+                          <div className="communication-page__timeline-event-copy">
+                            {event.kind === 'clinician-reply' ? (
+                              <div className="communication-page__timeline-event-author">
+                                <ClinicianAvatar
+                                  identity={{
+                                    displayName: event.senderLabel,
+                                    initials: getClinicianInitials(event.senderLabel),
+                                    photo: null,
+                                  }}
+                                  decorative
+                                  size="sm"
+                                />
+                                <div className="communication-page__timeline-event-author-copy">
+                                  <strong>{event.senderLabel}</strong>
+                                  {event.senderSecondaryLabel ? (
+                                    <span className="communication-page__timeline-event-secondary">
+                                      {event.senderSecondaryLabel}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : (
+                              <strong>{event.senderLabel}</strong>
+                            )}
+                            <span
+                              className="communication-page__timeline-event-time"
+                              title={formatDashboardDateTime(event.occurredAt)}
+                            >
+                              {formatDashboardRelativeTime(event.occurredAt)}
+                            </span>
+                          </div>
+                          <div className="communication-page__timeline-event-badges">
+                            <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
+                            {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
+                            {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                            {event.localOnly ? <Badge variant="default">Local</Badge> : null}
+                          </div>
+                        </div>
+                        <p className="communication-page__timeline-event-preview">{event.preview}</p>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="communication-page__compose-stage">
+                <div className="communication-page__compose-stage-head">
+                  <div>
+                    <p className="communication-page__zone-eyebrow">Compose console</p>
+                    <h3 className="communication-page__compose-stage-title">Clinician reply</h3>
+                  </div>
+                </div>
+                <div className="communication-page__composer">
+                  <div
+                    className="communication-authoring-tools"
+                    role="group"
+                    aria-label="Reply helpers"
+                  >
+                    <label
+                      className="form-field communication-authoring-tools__picker"
+                      htmlFor="communication-reply-template-picker"
+                    >
+                      <span>Quick reply template</span>
+                      <select
+                        id="communication-reply-template-picker"
+                        value={selectedTemplateId}
+                        onChange={(event) => setSelectedTemplateId(event.target.value)}
+                        aria-label="Quick reply template"
+                        disabled={communicationAuthoring.templates.length === 0}
+                      >
+                        {communicationAuthoring.templates.length === 0 ? (
+                          <option value="">No saved templates in Settings</option>
+                        ) : null}
+                        {communicationAuthoring.templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="communication-authoring-tools__actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleInsertTemplate}
+                        disabled={!selectedTemplate}
+                      >
+                        Insert template
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleInsertSignature}
+                        disabled={!communicationAuthoring.hasSignature}
+                      >
+                        Insert signature
                       </Button>
                     </div>
-                  ) : null}
-                </section>
-              ) : null}
-
-              <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
-                {activeThread.timeline.map((event) => {
-                  const eventTypeBadge = getEventTypeBadge(event);
-
-                  return (
-                    <article
-                      key={event.id}
-                      className={`communication-page__timeline-event communication-page__timeline-event--${
-                        event.kind === 'clinician-reply' ? 'clinician' : 'patient'
-                      }`}
-                      role="listitem"
+                    <p
+                      className="communication-authoring-tools__note"
+                      aria-live="polite"
                     >
-                      <div className="communication-page__timeline-event-head">
-                        <div className="communication-page__timeline-event-copy">
-                          {event.kind === 'clinician-reply' ? (
-                            <div className="communication-page__timeline-event-author">
-                              <ClinicianAvatar
-                                identity={{
-                                  displayName: event.senderLabel,
-                                  initials: getClinicianInitials(event.senderLabel),
-                                  photo: null,
-                                }}
-                                decorative
-                                size="sm"
-                              />
-                              <div className="communication-page__timeline-event-author-copy">
-                                <strong>{event.senderLabel}</strong>
-                                {event.senderSecondaryLabel ? (
-                                  <span className="communication-page__timeline-event-secondary">
-                                    {event.senderSecondaryLabel}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-                          ) : (
-                            <strong>{event.senderLabel}</strong>
-                          )}
-                          <span
-                            className="communication-page__timeline-event-time"
-                            title={formatDashboardDateTime(event.occurredAt)}
-                          >
-                            {formatDashboardRelativeTime(event.occurredAt)}
-                          </span>
-                        </div>
-                        <div className="communication-page__timeline-event-badges">
-                          <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
-                          {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
-                          {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                          {event.localOnly ? <Badge variant="default">Local</Badge> : null}
-                        </div>
-                      </div>
-                      <p className="communication-page__timeline-event-preview">{event.preview}</p>
-                    </article>
-                  );
-                })}
-              </div>
-
-              <div className="communication-page__composer">
-                <div
-                  className="communication-authoring-tools"
-                  role="group"
-                  aria-label="Reply helpers"
-                >
-                  <label
-                    className="form-field communication-authoring-tools__picker"
-                    htmlFor="communication-reply-template-picker"
-                  >
-                    <span>Quick reply template</span>
-                    <select
-                      id="communication-reply-template-picker"
-                      value={selectedTemplateId}
-                      onChange={(event) => setSelectedTemplateId(event.target.value)}
-                      aria-label="Quick reply template"
-                      disabled={communicationAuthoring.templates.length === 0}
-                    >
-                      {communicationAuthoring.templates.length === 0 ? (
-                        <option value="">No saved templates in Settings</option>
-                      ) : null}
-                      {communicationAuthoring.templates.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="communication-authoring-tools__actions">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleInsertTemplate}
-                      disabled={!selectedTemplate}
-                    >
-                      Insert template
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleInsertSignature}
-                      disabled={!communicationAuthoring.hasSignature}
-                    >
-                      Insert signature
-                    </Button>
+                      Templates and signature stay editable during this review pass.
+                    </p>
                   </div>
-                </div>
-                <p
-                  className="communication-authoring-tools__note"
-                  aria-live="polite"
-                >
-                  Templates and signature stay editable during this review pass.
-                </p>
-                <div className="communication-page__composer-identity" aria-label="Local clinician identity">
-                  <span className="communication-page__composer-identity-label">Local clinician identity</span>
-                  <div className="communication-page__composer-identity-card">
-                    <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
-                    <div className="communication-page__composer-identity-copy">
-                      <strong>{clinicianIdentity.displayName}</strong>
-                      {clinicianIdentity.secondaryLine ? (
-                        <span>{clinicianIdentity.secondaryLine}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-                <label className="form-field communication-page__composer-field">
-                  <span>Clinician reply</span>
-                  <textarea
-                    value={draftReply}
-                    onChange={(event) => {
-                      setDraftReply(event.target.value);
-                    }}
-                    rows={4}
-                    placeholder="Add a calm clinician follow-up note for this patient thread."
-                    disabled={!activeThread.validPatientId}
-                  />
-                </label>
-                <div className="communication-page__composer-footer">
-                  <p className="communication-page__composer-note">
+                  <p className="communication-page__composer-truth">
                     Replies are stored only in this browser for the current clinician during this foundation pass.
                   </p>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleSendReply}
-                    disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
-                  >
-                    Save local reply
-                  </Button>
+                  <div className="communication-page__composer-identity" aria-label="Local clinician identity">
+                    <span className="communication-page__composer-identity-label">Local clinician identity</span>
+                    <div className="communication-page__composer-identity-card">
+                      <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                      <div className="communication-page__composer-identity-copy">
+                        <strong>{clinicianIdentity.displayName}</strong>
+                        {clinicianIdentity.secondaryLine ? (
+                          <span>{clinicianIdentity.secondaryLine}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="form-field communication-page__composer-field">
+                    <span>Clinician reply</span>
+                    <textarea
+                      value={draftReply}
+                      onChange={(event) => {
+                        setDraftReply(event.target.value);
+                      }}
+                      rows={4}
+                      placeholder="Add a calm clinician follow-up note for this patient thread."
+                      disabled={!activeThread.validPatientId}
+                    />
+                  </label>
+                  <div className="communication-page__composer-footer">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSendReply}
+                      disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
+                    >
+                      Save local reply
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </section>
             </div>
           ) : activeThreadMissingFromView ? (
             <EmptyState
@@ -830,7 +1033,7 @@ export function CommunicationPage(): JSX.Element {
               tone="neutral"
             />
           )}
-        </Card>
+        </section>
       </div>
     </Stack>
   );

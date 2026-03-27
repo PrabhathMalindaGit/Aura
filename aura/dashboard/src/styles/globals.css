@@ -30174,3 +30174,1239 @@ button.dashboard-summary-strip__item:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Pass 11E: Communication review console */
+
+.communication-page {
+  gap: clamp(16px, 1.45vw, 22px);
+}
+
+.communication-page .communication-page__header {
+  padding: clamp(16px, 1.2vw, 22px) clamp(18px, 1.6vw, 26px);
+  border-color: hsl(var(--border) / 0.82);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(199 40% 97% / 0.9)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.16), transparent 28%),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.12), transparent 78%);
+  box-shadow:
+    0 24px 52px hsl(214 24% 14% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__header::before {
+  width: 11rem;
+  max-width: 26%;
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.76), transparent);
+}
+
+.communication-page .communication-page__header .section__header {
+  gap: clamp(14px, 1.2vw, 18px);
+}
+
+.communication-page .communication-page__header .section__title-group {
+  gap: 8px;
+}
+
+.communication-page .communication-page__header .section__title {
+  font-size: clamp(2.15rem, 2.8vw, 2.8rem);
+  line-height: 0.98;
+}
+
+.communication-page .communication-page__header .section__subtitle {
+  max-width: 54ch;
+  font-size: 0.92rem;
+  line-height: 1.52;
+}
+
+.communication-page .communication-page__header .section__actions .btn {
+  min-height: 40px;
+  padding-inline: 16px;
+}
+
+.communication-page .communication-page__status-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.95fr);
+  gap: 14px 16px;
+  padding: clamp(16px, 1.35vw, 22px);
+  border: 1px solid hsl(var(--border) / 0.82);
+  border-radius: 34px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 40% 97% / 0.92)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.16), transparent 28%),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.1), transparent 80%);
+  box-shadow:
+    0 28px 60px hsl(214 24% 14% / 0.1),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__status-strip-lead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.communication-page .communication-page__status-strip-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.communication-page .communication-page__status-strip-eyebrow,
+.communication-page .communication-page__zone-eyebrow {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.56);
+  font-size: 0.71rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__status-strip-title,
+.communication-page .communication-page__thread-stage-title,
+.communication-page .communication-page__compose-stage-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  letter-spacing: -0.04em;
+}
+
+.communication-page .communication-page__status-strip-title {
+  font-size: clamp(1.5rem, 2vw, 1.95rem);
+  line-height: 0.98;
+}
+
+.communication-page .communication-page__status-strip-narrative {
+  margin: 0;
+  max-width: 46ch;
+  color: hsl(var(--foreground) / 0.76);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.communication-page .communication-page__status-strip-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.communication-page .communication-page__status-strip-pill {
+  min-height: 2.2rem;
+  padding: 0 12px;
+  border: 1px solid hsl(var(--border) / 0.7);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.26)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.96);
+  color: hsl(var(--foreground) / 0.8);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__status-strip-composition {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 18px 34px hsl(214 22% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__status-strip-bar {
+  display: flex;
+  min-height: 0.88rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.08);
+}
+
+.communication-page .communication-page__status-strip-bar-segment {
+  min-width: 8px;
+}
+
+.communication-page .communication-page__status-strip-bar-segment--safety {
+  background: linear-gradient(90deg, hsl(var(--danger) / 0.96), hsl(var(--danger) / 0.74));
+}
+
+.communication-page .communication-page__status-strip-bar-segment--response {
+  background: linear-gradient(90deg, hsl(var(--warning) / 0.92), hsl(32 92% 62% / 0.88));
+}
+
+.communication-page .communication-page__status-strip-bar-segment--follow-up {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.92), hsl(var(--secondary) / 0.82));
+}
+
+.communication-page .communication-page__status-strip-bar-segment--unread {
+  background: linear-gradient(90deg, hsl(var(--secondary) / 0.9), hsl(var(--primary) / 0.72));
+}
+
+.communication-page .communication-page__status-strip-bar-segment--reviewed {
+  background: linear-gradient(90deg, hsl(var(--success) / 0.82), hsl(var(--success) / 0.58));
+}
+
+.communication-page .communication-page__status-strip-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.communication-page .communication-page__status-strip-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: hsl(var(--foreground) / 0.72);
+  font-size: 0.76rem;
+  font-weight: var(--font-medium);
+}
+
+.communication-page .communication-page__status-strip-legend-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.communication-page .communication-page__status-strip-legend-item--safety .communication-page__status-strip-legend-swatch {
+  background: hsl(var(--danger));
+}
+
+.communication-page .communication-page__status-strip-legend-item--response .communication-page__status-strip-legend-swatch {
+  background: hsl(var(--warning));
+}
+
+.communication-page .communication-page__status-strip-legend-item--follow-up .communication-page__status-strip-legend-swatch {
+  background: hsl(var(--primary));
+}
+
+.communication-page .communication-page__status-strip-legend-item--unread .communication-page__status-strip-legend-swatch {
+  background: hsl(var(--secondary));
+}
+
+.communication-page .communication-page__status-strip-legend-item--reviewed .communication-page__status-strip-legend-swatch {
+  background: hsl(var(--success));
+}
+
+.communication-page .communication-page__status-strip-metrics {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.communication-page .communication-page__status-card {
+  position: relative;
+  min-height: unset;
+  padding: 16px 16px 14px;
+  border: 1px solid hsl(var(--border) / 0.68);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+  box-shadow:
+    0 14px 24px hsl(214 20% 14% / 0.04),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+  overflow: hidden;
+}
+
+.communication-page .communication-page__status-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, hsl(var(--primary)), transparent 82%);
+}
+
+.communication-page .communication-page__status-card--lead {
+  border-color: hsl(var(--primary) / 0.22);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--primary) / 0.08)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__status-card--response::before {
+  background: linear-gradient(90deg, hsl(var(--warning)), transparent 82%);
+}
+
+.communication-page .communication-page__status-card--response-hot {
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.12), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--warning) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__status-card--safety::before {
+  background: linear-gradient(90deg, hsl(var(--danger)), transparent 82%);
+}
+
+.communication-page .communication-page__status-card--safety {
+  background:
+    linear-gradient(180deg, hsl(var(--danger) / 0.12), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--danger) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__status-card--follow-up::before {
+  background: linear-gradient(90deg, hsl(var(--primary)), transparent 82%);
+}
+
+.communication-page .communication-page__status-card--unread::before {
+  background: linear-gradient(90deg, hsl(var(--secondary)), transparent 82%);
+}
+
+.communication-page .communication-page__status-card-label {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.54);
+  font-size: 0.66rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__status-card-value {
+  margin: 6px 0 0;
+  font-family: var(--font-heading);
+  font-size: clamp(1.7rem, 2.1vw, 2.2rem);
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+}
+
+.communication-page .communication-page__status-card-hint {
+  margin: 8px 0 0;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.communication-page .communication-page__layout {
+  grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.communication-page .communication-page__threads {
+  min-width: 0;
+  border-color: hsl(var(--border) / 0.82);
+  border-radius: 36px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 36% 97% / 0.92)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 28px 60px hsl(214 24% 14% / 0.08),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__threads .card__header {
+  padding: clamp(18px, 1.5vw, 24px) clamp(18px, 1.5vw, 24px) 12px;
+  border-bottom: 0;
+}
+
+.communication-page .communication-page__threads .card__body {
+  padding: 0 clamp(18px, 1.5vw, 24px) clamp(18px, 1.5vw, 24px);
+  gap: 14px;
+}
+
+.communication-page .communication-page__card-title {
+  gap: 6px;
+}
+
+.communication-page .communication-page__card-title,
+.communication-page .communication-page__thread-name {
+  font-family: var(--font-heading);
+}
+
+.communication-page .communication-page__card-title {
+  letter-spacing: -0.03em;
+}
+
+.communication-page .communication-page__card-subtitle {
+  max-width: 34ch;
+  color: hsl(var(--foreground) / 0.68);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.communication-page .communication-page__filters {
+  margin-bottom: 0;
+  padding: 14px;
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 16px 30px hsl(214 22% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__filter-button {
+  min-height: 2.4rem;
+  padding-inline: 12px;
+  gap: 8px;
+}
+
+.communication-page .communication-page__filter-count {
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  border: 1px solid hsl(var(--foreground) / 0.08);
+  background: hsl(var(--foreground) / 0.08);
+  font-weight: var(--font-semibold);
+}
+
+.communication-page .communication-page__thread-list {
+  gap: 10px;
+}
+
+.communication-page .communication-page__thread-list-item {
+  min-width: 0;
+}
+
+.communication-page .communication-page__thread-item {
+  --communication-thread-accent: var(--primary);
+  --communication-thread-tint: hsl(var(--primary) / 0.08);
+  gap: 10px;
+  padding: 14px 16px 14px 18px;
+  border-color: hsl(var(--border) / 0.74);
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg, var(--communication-thread-tint), transparent 18%),
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.18));
+  box-shadow:
+    inset 4px 0 0 hsl(var(--communication-thread-accent)),
+    0 14px 26px hsl(214 22% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__thread-item::before {
+  inset: 14px auto 14px 12px;
+  width: 5px;
+  background: linear-gradient(180deg, hsl(var(--communication-thread-accent)), transparent);
+  opacity: 0.58;
+}
+
+.communication-page .communication-page__thread-item--safety {
+  --communication-thread-accent: var(--danger);
+  --communication-thread-tint: hsl(var(--danger) / 0.12);
+}
+
+.communication-page .communication-page__thread-item--response {
+  --communication-thread-accent: var(--warning);
+  --communication-thread-tint: hsl(var(--warning) / 0.1);
+}
+
+.communication-page .communication-page__thread-item--follow-up {
+  --communication-thread-accent: var(--primary);
+  --communication-thread-tint: hsl(var(--primary) / 0.08);
+}
+
+.communication-page .communication-page__thread-item--unread {
+  --communication-thread-accent: var(--secondary);
+  --communication-thread-tint: hsl(var(--secondary) / 0.08);
+}
+
+.communication-page .communication-page__thread-item--reviewed {
+  --communication-thread-accent: var(--success);
+  --communication-thread-tint: hsl(var(--success) / 0.08);
+}
+
+.communication-page .communication-page__thread-item:hover {
+  transform: translateY(-1px);
+  border-color: hsl(var(--communication-thread-accent) / 0.36);
+  background:
+    linear-gradient(90deg, var(--communication-thread-tint), transparent 18%),
+    linear-gradient(180deg, hsl(var(--card)), hsl(var(--muted) / 0.28));
+  box-shadow:
+    inset 4px 0 0 hsl(var(--communication-thread-accent)),
+    0 18px 32px hsl(214 22% 12% / 0.08);
+}
+
+.communication-page .communication-page__thread-item--active {
+  border-color: hsl(var(--communication-thread-accent) / 0.42);
+  background:
+    linear-gradient(90deg, var(--communication-thread-tint), transparent 18%),
+    linear-gradient(180deg, hsl(var(--card)), hsl(var(--muted) / 0.34)),
+    linear-gradient(145deg, hsl(var(--communication-thread-accent) / 0.08), transparent 82%);
+  box-shadow:
+    inset 4px 0 0 hsl(var(--communication-thread-accent)),
+    0 22px 40px hsl(var(--communication-thread-accent) / 0.14),
+    inset 0 0 0 1px hsl(var(--communication-thread-accent) / 0.12);
+}
+
+.communication-page .communication-page__thread-item--active::before {
+  opacity: 1;
+}
+
+.communication-page .communication-page__thread-identity {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.communication-page .communication-page__thread-avatar,
+.communication-page .communication-page__thread-stage-avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 18px;
+  border: 1px solid hsl(var(--primary) / 0.16);
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.18), transparent 62%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.08));
+  color: hsl(var(--primary));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.86rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  box-shadow:
+    0 12px 20px hsl(var(--primary) / 0.12),
+    inset 0 1px 0 hsl(var(--card) / 0.72);
+  flex: 0 0 auto;
+}
+
+.communication-page .communication-page__thread-identity-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.communication-page .communication-page__thread-item-top {
+  gap: 10px;
+  align-items: baseline;
+}
+
+.communication-page .communication-page__thread-name {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.communication-page .communication-page__thread-id,
+.communication-page .communication-page__thread-time,
+.communication-page .communication-page__thread-meta-note,
+.communication-page .communication-page__timeline-note,
+.communication-page .communication-page__timeline-event-time,
+.communication-page .communication-page__composer-note,
+.communication-page .communication-page__composer-truth {
+  color: hsl(var(--foreground) / 0.58);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.communication-page .communication-page__thread-time {
+  min-height: 1.8rem;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.05), transparent 84%);
+  display: inline-flex;
+  align-items: center;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__thread-id {
+  margin-top: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__thread-preview {
+  font-size: 0.92rem;
+  line-height: 1.56;
+  -webkit-line-clamp: 3;
+}
+
+.communication-page .communication-page__thread-meta {
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.communication-page .communication-page__thread-badges {
+  justify-content: flex-start;
+}
+
+.communication-page .communication-page__thread-badges .badge {
+  min-height: 1.9rem;
+  padding-inline: 11px;
+}
+
+.communication-page .communication-page__timeline {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  padding: clamp(18px, 1.5vw, 24px);
+  border: 1px solid hsl(var(--border) / 0.82);
+  border-radius: 38px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(199 40% 97% / 0.9)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.16), transparent 28%),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.1), transparent 80%);
+  box-shadow:
+    0 32px 72px hsl(214 28% 12% / 0.12),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__timeline-body {
+  gap: 14px;
+}
+
+.communication-page .communication-page__thread-stage,
+.communication-page .communication-page__context-stage,
+.communication-page .communication-page__stream-stage,
+.communication-page .communication-page__compose-stage {
+  display: grid;
+  gap: 12px;
+  padding: clamp(16px, 1.35vw, 20px);
+  border: 1px solid hsl(var(--border) / 0.72);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.22)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 18px 34px hsl(214 22% 14% / 0.05),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__thread-stage,
+.communication-page .communication-page__compose-stage {
+  position: relative;
+  overflow: hidden;
+}
+
+.communication-page .communication-page__thread-stage::before,
+.communication-page .communication-page__compose-stage::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.56), transparent 72%);
+  pointer-events: none;
+}
+
+.communication-page .communication-page__thread-stage--safety {
+  border-color: hsl(var(--danger) / 0.3);
+  background:
+    linear-gradient(180deg, hsl(var(--danger) / 0.1), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--danger) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__thread-stage--response {
+  border-color: hsl(var(--warning) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.1), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--warning) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__thread-stage-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.communication-page .communication-page__thread-stage-anchor {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.communication-page .communication-page__thread-stage-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.communication-page .communication-page__thread-stage-title {
+  font-size: clamp(1.35rem, 1.8vw, 1.75rem);
+  line-height: 0.98;
+}
+
+.communication-page .communication-page__thread-stage-subtitle {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.7);
+  font-size: 0.88rem;
+  line-height: 1.48;
+}
+
+.communication-page .communication-page__thread-stage-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.communication-page .communication-page__thread-stage-pill {
+  min-height: 2rem;
+  padding: 0 11px;
+  border: 1px solid hsl(var(--border) / 0.64);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.05), transparent 84%);
+  color: hsl(var(--foreground) / 0.68);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__timeline-actions {
+  gap: 10px;
+}
+
+.communication-page .communication-page__timeline-actions .btn {
+  min-height: 2.45rem;
+}
+
+.communication-page .communication-page__context-stage {
+  gap: 12px;
+}
+
+.communication-page .communication-page__timeline-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 16px 18px;
+  border-color: hsl(var(--border) / 0.72);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.24)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 14px 28px hsl(214 20% 14% / 0.04),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__timeline-intro--safety {
+  border-color: hsl(var(--danger) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--danger) / 0.1), hsl(var(--card) / 0.98) 76%),
+    linear-gradient(145deg, hsl(var(--danger) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__timeline-intro--response {
+  border-color: hsl(var(--warning) / 0.32);
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.08), hsl(var(--card) / 0.98) 78%),
+    linear-gradient(145deg, hsl(var(--warning) / 0.06), transparent 84%);
+}
+
+.communication-page .communication-page__timeline-intro-copy {
+  gap: 8px;
+}
+
+.communication-page .communication-page__timeline-note {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.72);
+  font-size: 0.86rem;
+  line-height: 1.52;
+}
+
+.communication-page .communication-page__timeline-note--muted {
+  color: hsl(var(--foreground) / 0.56);
+}
+
+.communication-page .communication-page__timeline-badges {
+  align-content: start;
+}
+
+.communication-page .communication-page__timeline-badges .badge {
+  min-height: 1.95rem;
+  padding-inline: 11px;
+}
+
+.communication-page .communication-page__handoff {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  padding: 16px 18px;
+  border-color: hsl(var(--border) / 0.68);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.2)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.08), transparent 84%);
+  box-shadow:
+    0 14px 26px hsl(214 20% 14% / 0.04),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__handoff-copy {
+  gap: 10px;
+}
+
+.communication-page .communication-page__handoff-head {
+  justify-content: flex-start;
+}
+
+.communication-page .communication-page__handoff-summary {
+  font-size: 0.92rem;
+  line-height: 1.62;
+}
+
+.communication-page .communication-page__handoff-actions {
+  align-self: end;
+}
+
+.communication-page .communication-page__stream-stage {
+  gap: 14px;
+}
+
+.communication-page .communication-page__timeline-list {
+  position: relative;
+  gap: 12px;
+  padding-left: 18px;
+}
+
+.communication-page .communication-page__timeline-list::before {
+  content: '';
+  position: absolute;
+  inset: 4px auto 4px 2px;
+  width: 1px;
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.28), hsl(var(--secondary) / 0.16));
+}
+
+.communication-page .communication-page__timeline-event {
+  position: relative;
+  gap: 10px;
+  padding: 16px 18px 16px 22px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.996), hsl(var(--muted) / 0.16)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.04), transparent 84%);
+  box-shadow:
+    0 12px 24px hsl(214 20% 14% / 0.04),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page .communication-page__timeline-event::before {
+  content: '';
+  position: absolute;
+  inset: 18px auto auto -22px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid hsl(var(--card));
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.12);
+}
+
+.communication-page .communication-page__timeline-event--patient {
+  border-left: 0;
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.08), hsl(var(--card) / 0.98) 76%),
+    linear-gradient(145deg, hsl(var(--warning) / 0.06), transparent 84%);
+}
+
+.communication-page .communication-page__timeline-event--patient::before {
+  background: hsl(var(--warning));
+  box-shadow: 0 0 0 4px hsl(var(--warning) / 0.12);
+}
+
+.communication-page .communication-page__timeline-event--clinician {
+  border-left: 0;
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.08), hsl(var(--card) / 0.98) 76%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.06), transparent 84%);
+}
+
+.communication-page .communication-page__timeline-event-head {
+  gap: 12px;
+}
+
+.communication-page .communication-page__timeline-event-copy {
+  gap: 8px;
+  align-items: center;
+}
+
+.communication-page .communication-page__timeline-event-author {
+  gap: 10px;
+}
+
+.communication-page .communication-page__timeline-event-author-copy strong,
+.communication-page .communication-page__timeline-event-copy > strong {
+  font-family: var(--font-heading);
+  font-size: 0.96rem;
+  letter-spacing: -0.02em;
+}
+
+.communication-page .communication-page__timeline-event-secondary {
+  font-size: 0.74rem;
+}
+
+.communication-page .communication-page__timeline-event-time {
+  min-height: 1.8rem;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border) / 0.56);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.05), transparent 84%);
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.communication-page .communication-page__timeline-event-badges {
+  justify-content: flex-start;
+}
+
+.communication-page .communication-page__timeline-event-badges .badge {
+  min-height: 1.8rem;
+  padding-inline: 10px;
+}
+
+.communication-page .communication-page__timeline-event-preview {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.68;
+}
+
+.communication-page .communication-page__compose-stage {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(198 36% 97% / 0.92)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 84%);
+}
+
+.communication-page .communication-page__compose-stage-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.communication-page .communication-page__compose-stage-title {
+  font-size: clamp(1.18rem, 1.5vw, 1.42rem);
+  line-height: 1;
+}
+
+.communication-page .communication-page__composer {
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.communication-page .communication-authoring-tools {
+  gap: 12px;
+  padding: 16px 18px;
+  border-color: hsl(var(--border) / 0.7);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.06), transparent 84%);
+}
+
+.communication-page .communication-authoring-tools__picker {
+  gap: 6px;
+}
+
+.communication-page .communication-authoring-tools__picker select {
+  min-height: 50px;
+  border-radius: 18px;
+}
+
+.communication-page .communication-authoring-tools__actions {
+  gap: 8px;
+}
+
+.communication-page .communication-authoring-tools__note {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.62);
+}
+
+.communication-page .communication-page__composer-truth {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.04), transparent 84%);
+}
+
+.communication-page .communication-page__composer-identity {
+  gap: 8px;
+}
+
+.communication-page .communication-page__composer-identity-card {
+  min-width: 0;
+  padding: 12px 14px;
+  border-color: hsl(var(--border) / 0.68);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.99), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.05), transparent 84%);
+}
+
+.communication-page .communication-page__composer-field {
+  gap: 8px;
+}
+
+.communication-page .communication-page__composer-field textarea {
+  min-height: 10rem;
+  border-radius: 20px;
+  border-color: hsl(var(--border) / 0.76);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.18)),
+    linear-gradient(145deg, hsl(var(--secondary) / 0.04), transparent 84%);
+  box-shadow:
+    inset 0 1px 0 hsl(var(--card) / 0.98),
+    0 10px 18px hsl(214 18% 14% / 0.04);
+}
+
+.communication-page .communication-page__composer-footer {
+  justify-content: flex-end;
+}
+
+.communication-page .communication-page__composer-footer .btn {
+  min-width: 10rem;
+}
+
+.dark .communication-page .communication-page__header,
+.dark .communication-page .communication-page__status-strip,
+.dark .communication-page .communication-page__threads,
+.dark .communication-page .communication-page__timeline,
+.dark .communication-page .communication-page__thread-stage,
+.dark .communication-page .communication-page__context-stage,
+.dark .communication-page .communication-page__stream-stage,
+.dark .communication-page .communication-page__compose-stage,
+.dark .communication-page .communication-page__filters,
+.dark .communication-page .communication-page__timeline-intro,
+.dark .communication-page .communication-page__handoff,
+.dark .communication-page .communication-page__timeline-event,
+.dark .communication-page .communication-authoring-tools,
+.dark .communication-page .communication-page__composer-truth,
+.dark .communication-page .communication-page__composer-identity-card,
+.dark .communication-page .communication-page__status-strip-composition,
+.dark .communication-page .communication-page__status-card,
+.dark .communication-page .communication-page__status-strip-pill,
+.dark .communication-page .communication-page__thread-time,
+.dark .communication-page .communication-page__thread-stage-pill,
+.dark .communication-page .communication-page__timeline-event-time {
+  border-color: hsl(var(--border) / 0.72);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(var(--muted) / 0.36)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 84%);
+}
+
+.dark .communication-page .communication-page__thread-item {
+  background:
+    linear-gradient(90deg, var(--communication-thread-tint), transparent 18%),
+    linear-gradient(180deg, hsl(var(--card) / 0.94), hsl(214 20% 16% / 0.88)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 84%);
+}
+
+.dark .communication-page .communication-page__thread-item:hover,
+.dark .communication-page .communication-page__thread-item--active {
+  box-shadow:
+    inset 4px 0 0 hsl(var(--communication-thread-accent)),
+    0 20px 38px hsl(214 58% 3% / 0.24);
+}
+
+.dark .communication-page .communication-page__timeline-event--patient {
+  background:
+    linear-gradient(180deg, hsl(var(--warning) / 0.12), hsl(var(--card) / 0.94) 74%),
+    linear-gradient(145deg, hsl(var(--warning) / 0.08), transparent 84%);
+}
+
+.dark .communication-page .communication-page__timeline-event--clinician {
+  background:
+    linear-gradient(180deg, hsl(var(--primary) / 0.12), hsl(var(--card) / 0.94) 74%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 84%);
+}
+
+.dark .communication-page .communication-page__status-strip-narrative,
+.dark .communication-page .communication-page__card-subtitle,
+.dark .communication-page .communication-page__thread-stage-subtitle,
+.dark .communication-page .communication-page__timeline-note,
+.dark .communication-page .communication-page__handoff-summary,
+.dark .communication-page .communication-page__composer-truth,
+.dark .communication-page .communication-authoring-tools__note {
+  color: hsl(var(--foreground) / 0.8);
+}
+
+@media (max-width: 1180px) {
+  .communication-page .communication-page__status-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page .communication-page__status-strip-composition {
+    order: 3;
+  }
+
+  .communication-page .communication-page__status-strip-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .communication-page .communication-page__layout {
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+  }
+
+  .communication-page .communication-page__thread-stage-main {
+    flex-direction: column;
+  }
+
+  .communication-page .communication-page__thread-stage-pills {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 920px) {
+  .communication-page .communication-page__header {
+    padding: 18px;
+  }
+
+  .communication-page .communication-page__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page .communication-page__status-strip-lead {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page .communication-page__status-strip-pills {
+    justify-content: flex-start;
+  }
+
+  .communication-page .communication-page__status-strip-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .communication-page .communication-page__timeline-intro,
+  .communication-page .communication-page__handoff {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page .communication-page__thread-meta,
+  .communication-page .communication-page__timeline-event-head,
+  .communication-page .communication-page__compose-stage-head,
+  .communication-page .communication-page__timeline-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .communication-page .communication-page__thread-badges,
+  .communication-page .communication-page__timeline-badges,
+  .communication-page .communication-page__timeline-event-badges {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .communication-page .communication-page__header .section__title {
+    font-size: clamp(1.9rem, 9vw, 2.25rem);
+  }
+
+  .communication-page .communication-page__status-strip,
+  .communication-page .communication-page__timeline,
+  .communication-page .communication-page__thread-stage,
+  .communication-page .communication-page__context-stage,
+  .communication-page .communication-page__stream-stage,
+  .communication-page .communication-page__compose-stage {
+    padding: 16px;
+  }
+
+  .communication-page .communication-page__status-strip-legend {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page .communication-page__status-strip-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page .communication-page__thread-identity,
+  .communication-page .communication-page__thread-stage-anchor {
+    align-items: flex-start;
+  }
+
+  .communication-page .communication-page__thread-item-top,
+  .communication-page .communication-page__thread-stage-main,
+  .communication-page .communication-page__thread-stage-anchor {
+    flex-direction: column;
+  }
+
+  .communication-page .communication-page__thread-time,
+  .communication-page .communication-page__thread-stage-pill {
+    width: fit-content;
+  }
+
+  .communication-page .communication-page__timeline-list {
+    padding-left: 14px;
+  }
+
+  .communication-page .communication-page__timeline-event::before {
+    inset-inline-start: -18px;
+  }
+}
+
+@media (max-width: 520px) {
+  .communication-page .communication-page__header .section__actions {
+    width: 100%;
+  }
+
+  .communication-page .communication-page__header .section__actions .btn {
+    width: 100%;
+  }
+
+  .communication-page .communication-page__filters {
+    padding: 12px;
+  }
+
+  .communication-page .communication-page__filter-button {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .communication-page .communication-page__thread-item {
+    padding: 14px;
+  }
+
+  .communication-page .communication-page__thread-item::before {
+    inset: 12px auto 12px 10px;
+  }
+
+  .communication-page .communication-page__thread-avatar,
+  .communication-page .communication-page__thread-stage-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .communication-page .communication-page__timeline-list {
+    padding-left: 12px;
+  }
+
+  .communication-page .communication-page__timeline-event {
+    padding: 14px 14px 14px 18px;
+  }
+
+  .communication-page .communication-page__timeline-event::before {
+    inset-inline-start: -16px;
+  }
+
+  .communication-page .communication-page__composer-footer .btn {
+    width: 100%;
+  }
+}

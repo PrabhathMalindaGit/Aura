@@ -439,7 +439,7 @@ afterEach(() => {
 
     expect(await screen.findByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
     const needsResponsePill = await screen.findByTestId('communication-needs-response-pill');
-    expect(needsResponsePill).not.toHaveClass('communication-page__meta-pill--attention');
+    expect(needsResponsePill).not.toHaveClass('communication-page__status-card--response-hot');
     expect(
       within(screen.getByRole('group', { name: 'Communication filters' })).getByRole('button', {
         name: /Needs response/i,
@@ -460,13 +460,13 @@ afterEach(() => {
     const needsResponsePill = (await screen.findByTestId(
       'communication-needs-response-pill',
     )) as HTMLElement;
-    expect(needsResponsePill).toHaveClass('communication-page__meta-pill--attention');
+    expect(needsResponsePill).toHaveClass('communication-page__status-card--response-hot');
 
     await user.selectOptions(screen.getByLabelText('Communication attention cues'), 'reduced');
     await user.click(screen.getByRole('button', { name: 'Save notification settings' }));
 
     await waitFor(() => {
-      expect(needsResponsePill).not.toHaveClass('communication-page__meta-pill--attention');
+      expect(needsResponsePill).not.toHaveClass('communication-page__status-card--response-hot');
     });
     expect(screen.getByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
     expect(

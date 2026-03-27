@@ -242,7 +242,7 @@ export function PatientsFiltersBar({
           </div>
 
           <div className="patients-filters__cluster patients-filters__cluster--view">
-            <span className="patients-filters__cluster-label">Queue controls</span>
+            <span className="patients-filters__cluster-label">Roster controls</span>
             <div className="patients-filters__cluster-body patients-filters__cluster-body--view">
               <label className="patients-filters__control form-field">
                 <span className="patients-filters__label">Status</span>

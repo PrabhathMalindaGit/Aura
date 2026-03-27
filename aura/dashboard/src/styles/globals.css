@@ -34903,3 +34903,716 @@ button.dashboard-summary-strip__item:hover {
     width: 100%;
   }
 }
+
+.dashboard-page-shell--roster.patients-page {
+  gap: 1.12rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-page-header {
+  padding: 1.1rem 1.3rem 0.2rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-page-header .section__header {
+  gap: 0.95rem;
+  align-items: end;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-page-header .section__title {
+  font-size: clamp(1.95rem, 2.5vw, 2.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-page-header .section__subtitle {
+  max-width: 48rem;
+  color: hsl(var(--muted-foreground) / 0.84);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__lead {
+  grid-column: span 4;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(18rem, 0.92fr);
+  gap: 1rem;
+  padding: 1.15rem 1.18rem;
+  border-radius: calc(var(--radius-xl) + 0.38rem);
+  border: 1px solid hsl(var(--border) / 0.78);
+  background:
+    linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.96) 62%, hsl(var(--primary) / 0.08) 100%);
+  box-shadow:
+    0 24px 46px hsl(198 34% 18% / 0.1),
+    inset 0 1px 0 hsl(0 0% 100% / 0.72);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__lead-copy,
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-copy,
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-copy {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__eyebrow,
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-label,
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-eyebrow,
+.dashboard-page-shell--roster.patients-page .patients-table__action-label,
+.dashboard-page-shell--roster.patients-page .patients-card-list__action-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.72);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__headline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.95rem;
+  align-items: start;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__lead-value {
+  margin: 0;
+  font-size: clamp(2.7rem, 4vw, 3.5rem);
+  font-weight: 760;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  color: hsl(var(--foreground) / 0.96);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__headline-copy {
+  display: grid;
+  gap: 0.38rem;
+  padding-top: 0.16rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__headline-title,
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-title {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 720;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__lead-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__lead-pill {
+  padding: 0.44rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.74);
+  background: hsl(var(--background) / 0.74);
+  font-size: 0.74rem;
+  font-weight: 620;
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison {
+  display: grid;
+  gap: 0.82rem;
+  align-content: start;
+  padding: 1rem;
+  border-radius: calc(var(--radius-xl) - 0.1rem);
+  border: 1px solid hsl(var(--border) / 0.68);
+  background: hsl(var(--background) / 0.7);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-note,
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-text {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.48;
+  color: hsl(var(--muted-foreground) / 0.82);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-bars {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-row {
+  display: grid;
+  grid-template-columns: minmax(0, 7.4rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-row-label,
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-count {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-track {
+  position: relative;
+  height: 0.56rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: hsl(var(--muted) / 0.82);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-fill--active {
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.95), hsl(190 76% 58%));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-fill--review {
+  background: linear-gradient(90deg, hsl(18 92% 58%), hsl(30 92% 62%));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-fill--hold {
+  background: linear-gradient(90deg, hsl(38 80% 62%), hsl(45 76% 58%));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-fill--discharged {
+  background: linear-gradient(90deg, hsl(214 14% 63%), hsl(214 12% 74%));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__item {
+  grid-column: span 1;
+  min-height: 100%;
+  padding: 1rem 1rem 1.04rem;
+  border-radius: calc(var(--radius-xl) - 0.1rem);
+  border: 1px solid hsl(var(--border) / 0.78);
+  background: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.92) 100%);
+  box-shadow:
+    0 16px 30px hsl(198 34% 18% / 0.08),
+    inset 0 1px 0 hsl(0 0% 100% / 0.62);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-summary-strip__value {
+  font-size: 1.96rem;
+  font-weight: 760;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card {
+  overflow: hidden;
+  border-radius: calc(var(--radius-xl) + 0.42rem);
+  border: 1px solid hsl(var(--border) / 0.8);
+  background:
+    linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.96) 100%);
+  box-shadow:
+    0 28px 56px hsl(198 34% 16% / 0.1),
+    inset 0 1px 0 hsl(0 0% 100% / 0.72);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card .card__header {
+  padding: 1.2rem 1.2rem 0.95rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.62);
+  background: linear-gradient(180deg, hsl(var(--background) / 0.72), transparent);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card .card__body {
+  padding: 1.15rem 1.2rem 1.2rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-title {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-title__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-title__text {
+  font-size: 1.2rem;
+  font-weight: 720;
+  letter-spacing: -0.03em;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__fact {
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.72);
+  background: hsl(var(--background) / 0.7);
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: hsl(var(--foreground) / 0.86);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__fact--emphasis {
+  border-color: hsl(24 88% 78%);
+  background: hsl(30 100% 96%);
+  color: hsl(20 78% 38%);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-strip,
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__controls,
+.dashboard-page-shell--roster.patients-page .patients-filters,
+.dashboard-page-shell--roster.patients-page .patients-compare-tray,
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__roster-stage,
+.dashboard-page-shell--roster.patients-page .patients-empty-state,
+.dashboard-page-shell--roster.patients-page .patients-table-wrap,
+.dashboard-page-shell--roster.patients-page .patients-card-list__card {
+  border-radius: calc(var(--radius-xl) - 0.1rem);
+  border: 1px solid hsl(var(--border) / 0.74);
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.76), hsl(var(--card) / 0.94));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: start;
+  padding: 1rem 1.05rem;
+  background:
+    linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--background) / 0.86));
+  border-color: hsl(var(--primary) / 0.12);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__command-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__controls {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.56),
+    0 14px 28px hsl(198 24% 16% / 0.05);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__control-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: 0.9rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-triage-presets,
+.dashboard-page-shell--roster.patients-page .patients-roster-cues {
+  padding: 0.95rem 1rem;
+  border-radius: calc(var(--radius-xl) - 0.2rem);
+  border: 1px solid hsl(var(--border) / 0.68);
+  background: hsl(var(--card) / 0.84);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-triage-presets__items,
+.dashboard-page-shell--roster.patients-page .patients-roster-cues__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.46rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-triage-presets__button.btn {
+  min-height: 2.28rem;
+  border-radius: calc(var(--radius-md) + 0.08rem);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-roster-cues__item {
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  background: hsl(var(--background) / 0.82);
+  font-size: 0.74rem;
+  font-weight: 620;
+  color: hsl(var(--muted-foreground) / 0.86);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-filters {
+  padding: 1rem;
+  gap: 0.9rem;
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.56),
+    0 14px 28px hsl(198 24% 16% / 0.05);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-filters__clusters {
+  gap: 0.9rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-filters__row,
+.dashboard-page-shell--roster.patients-page .patients-filters__cluster-body--view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-filters__cluster,
+.dashboard-page-shell--roster.patients-page .patients-filters__cluster-body--workflow,
+.dashboard-page-shell--roster.patients-page .patients-filters__toggle-group {
+  gap: 0.7rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-filters__cluster {
+  padding: 0.95rem 1rem;
+  border-radius: calc(var(--radius-xl) - 0.2rem);
+  border: 1px solid hsl(var(--border) / 0.68);
+  background: hsl(var(--card) / 0.84);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-filters__toggle {
+  min-height: 2.7rem;
+  border-radius: calc(var(--radius-lg) - 0.05rem);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-compare-tray {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.95rem 1rem;
+  background:
+    linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--background) / 0.86));
+  border-color: hsl(var(--primary) / 0.14);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.52),
+    0 14px 28px hsl(198 24% 16% / 0.06);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-compare-tray__count {
+  font-size: 0.8rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-compare-tray__chip {
+  border-color: hsl(var(--primary) / 0.12);
+  background: hsl(var(--card) / 0.9);
+  font-weight: 620;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-workspace-card__roster-stage {
+  padding: 0.5rem;
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.56),
+    0 18px 34px hsl(198 24% 16% / 0.06);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table-wrap {
+  padding: 0.25rem;
+  overflow: hidden;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table {
+  border-collapse: separate;
+  border-spacing: 0 0.68rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table th {
+  padding-top: 0.4rem;
+  padding-bottom: 0.6rem;
+  font-size: 0.69rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.72);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table td {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  background: hsl(var(--card) / 0.88);
+  border-top: 1px solid hsl(var(--border) / 0.6);
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table td:first-child {
+  border-left: 1px solid hsl(var(--border) / 0.6);
+  border-radius: calc(var(--radius-xl) - 0.18rem) 0 0 calc(var(--radius-xl) - 0.18rem);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table td:last-child {
+  border-right: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 0 calc(var(--radius-xl) - 0.18rem) calc(var(--radius-xl) - 0.18rem) 0;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__row {
+  position: relative;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__row--attention td {
+  background: linear-gradient(180deg, hsl(32 100% 98%), hsl(var(--card)));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__row--missed td {
+  border-left-color: hsl(30 94% 68%);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__row--discharged td {
+  background: hsl(var(--background) / 0.84);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__row--compare-selected td {
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.18);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__patient {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 0.82rem;
+  align-items: center;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__avatar,
+.dashboard-page-shell--roster.patients-page .patients-card-list__avatar {
+  border-color: hsl(var(--primary) / 0.14);
+  background: linear-gradient(180deg, hsl(var(--primary) / 0.14), hsl(var(--primary) / 0.08));
+  color: hsl(var(--primary));
+  font-weight: 760;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__patient-head,
+.dashboard-page-shell--roster.patients-page .patients-card-list__headline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.44rem;
+  align-items: center;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__patient-name,
+.dashboard-page-shell--roster.patients-page .patients-card-list__name {
+  font-size: 1.08rem;
+  font-weight: 720;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__review-cue,
+.dashboard-page-shell--roster.patients-page .patients-card-list__review-cue {
+  padding: 0.34rem 0.62rem;
+  border-radius: 999px;
+  background: hsl(var(--muted) / 0.82);
+  font-size: 0.72rem;
+  font-weight: 680;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__review-cue--attention,
+.dashboard-page-shell--roster.patients-page .patients-card-list__review-cue--attention {
+  background: hsl(24 100% 95%);
+  color: hsl(20 78% 38%);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__patient-support,
+.dashboard-page-shell--roster.patients-page .patients-card-list__support {
+  font-size: 0.78rem;
+  line-height: 1.48;
+  color: hsl(var(--muted-foreground) / 0.84);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__metric,
+.dashboard-page-shell--roster.patients-page .patients-card-list__metric {
+  gap: 0.42rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__actions-copy,
+.dashboard-page-shell--roster.patients-page .patients-card-list__actions-copy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__action-note,
+.dashboard-page-shell--roster.patients-page .patients-card-list__action-note {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground) / 0.82);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-table__actions .btn,
+.dashboard-page-shell--roster.patients-page .patients-card-list__actions .btn {
+  min-height: 2.45rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patient-alert-burden,
+.dashboard-page-shell--roster.patients-page .patient-pain-level,
+.dashboard-page-shell--roster.patients-page .patient-status-menu--compact {
+  padding: 0.7rem 0.8rem;
+  border-radius: calc(var(--radius-lg) - 0.05rem);
+  background: hsl(var(--background) / 0.84);
+  border: 1px solid hsl(var(--border) / 0.64);
+}
+
+.dashboard-page-shell--roster.patients-page .patient-alert-burden__summary,
+.dashboard-page-shell--roster.patients-page .patient-pain-level__summary {
+  gap: 0.34rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__card {
+  overflow: hidden;
+  box-shadow:
+    0 18px 34px hsl(198 24% 16% / 0.08),
+    inset 0 1px 0 hsl(0 0% 100% / 0.62);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__card--attention {
+  border-color: hsl(24 88% 78%);
+  background: linear-gradient(180deg, hsl(32 100% 99%), hsl(var(--card)));
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__card--selected {
+  box-shadow:
+    0 22px 42px hsl(192 44% 22% / 0.12),
+    inset 0 0 0 1px hsl(var(--primary) / 0.18);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__title {
+  align-items: start;
+  gap: 0.78rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__badges {
+  gap: 0.44rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__metrics {
+  gap: 0.62rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__metric {
+  padding: 0.85rem 0.9rem;
+  border-radius: calc(var(--radius-lg) - 0.05rem);
+  border: 1px solid hsl(var(--border) / 0.62);
+  background: hsl(var(--background) / 0.82);
+}
+
+.dashboard-page-shell--roster.patients-page .patients-card-list__actions {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.dashboard-page-shell--roster.patients-page .patients-empty-state {
+  padding: 1.5rem 1.2rem;
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.56),
+    0 18px 34px hsl(198 24% 16% / 0.06);
+}
+
+.dark .dashboard-page-shell--roster.patients-page .patients-summary-strip__lead,
+.dark .dashboard-page-shell--roster.patients-page .patients-summary-strip__item,
+.dark .dashboard-page-shell--roster.patients-page .patients-workspace-card,
+.dark .dashboard-page-shell--roster.patients-page .patients-workspace-card__command-strip,
+.dark .dashboard-page-shell--roster.patients-page .patients-workspace-card__controls,
+.dark .dashboard-page-shell--roster.patients-page .patients-filters,
+.dark .dashboard-page-shell--roster.patients-page .patients-compare-tray,
+.dark .dashboard-page-shell--roster.patients-page .patients-workspace-card__roster-stage,
+.dark .dashboard-page-shell--roster.patients-page .patients-table-wrap,
+.dark .dashboard-page-shell--roster.patients-page .patients-card-list__card,
+.dark .dashboard-page-shell--roster.patients-page .patients-empty-state,
+.dark .dashboard-page-shell--roster.patients-page .patients-triage-presets,
+.dark .dashboard-page-shell--roster.patients-page .patients-roster-cues,
+.dark .dashboard-page-shell--roster.patients-page .patients-filters__cluster,
+.dark .dashboard-page-shell--roster.patients-page .patients-card-list__metric,
+.dark .dashboard-page-shell--roster.patients-page .patient-alert-burden,
+.dark .dashboard-page-shell--roster.patients-page .patient-pain-level,
+.dark .dashboard-page-shell--roster.patients-page .patient-status-menu--compact {
+  box-shadow:
+    0 24px 42px hsl(224 48% 4% / 0.18),
+    inset 0 1px 0 hsl(0 0% 100% / 0.04);
+}
+
+.dark .dashboard-page-shell--roster.patients-page .patients-summary-strip__lead-pill,
+.dark .dashboard-page-shell--roster.patients-page .patients-workspace-card__fact,
+.dark .dashboard-page-shell--roster.patients-page .patients-roster-cues__item {
+  background: hsl(var(--card) / 0.86);
+}
+
+@media (max-width: 1180px) {
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip__lead {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip__item {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip__lead,
+  .dashboard-page-shell--roster.patients-page .patients-workspace-card__command-strip,
+  .dashboard-page-shell--roster.patients-page .patients-workspace-card__control-overview,
+  .dashboard-page-shell--roster.patients-page .patients-filters__row,
+  .dashboard-page-shell--roster.patients-page .patients-filters__cluster-body--view,
+  .dashboard-page-shell--roster.patients-page .patients-compare-tray {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-workspace-card__command-facts,
+  .dashboard-page-shell--roster.patients-page .patients-compare-tray__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip__lead,
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip__item {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-summary-strip__lead {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-filters,
+  .dashboard-page-shell--roster.patients-page .patients-workspace-card__controls {
+    padding: 0.9rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-page-shell--roster.patients-page .patients-compare-tray__actions .btn,
+  .dashboard-page-shell--roster.patients-page .patients-card-list__actions .btn {
+    width: 100%;
+  }
+
+  .dashboard-page-shell--roster.patients-page .patients-card-list__actions-secondary {
+    display: grid;
+    gap: 0.5rem;
+  }
+}

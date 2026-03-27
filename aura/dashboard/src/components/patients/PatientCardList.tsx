@@ -40,6 +40,15 @@ export function PatientCardList({
         const rosterSupportLine = buildPatientTriageSupportLine(patient);
         const isSelectedForCompare = selectedComparePatientIds.includes(patient.id);
         const compareDisabled = !isSelectedForCompare && compareSelectionLimitReached;
+        const reviewCueLabel = hasOpenAlertCount
+          ? `Alert burden ${openAlertCount}`
+          : missedCheckin
+            ? 'Missed recent check-in'
+            : status === 'on_hold'
+              ? 'Paused follow-up'
+              : status === 'discharged'
+                ? 'Discharged reference'
+                : 'Stable review';
         const initials = displayName
           .split(/\s+/)
           .filter(Boolean)
@@ -52,14 +61,23 @@ export function PatientCardList({
             key={patient.id}
             className={`patients-card-list__card${hasOpenAlertCount ? ' patients-card-list__card--attention' : ''}${
               missedCheckin ? ' patients-card-list__card--missed' : ''
-            }`}
+            }${isSelectedForCompare ? ' patients-card-list__card--selected' : ''}`}
             title={
               <span className="patients-card-list__title">
                 <span className="patients-card-list__avatar" aria-hidden="true">
                   {initials}
                 </span>
                 <span className="patients-card-list__title-text">
-                  <span className="patients-card-list__name">{displayName}</span>
+                  <span className="patients-card-list__headline">
+                    <span className="patients-card-list__name">{displayName}</span>
+                    <span
+                      className={`patients-card-list__review-cue${
+                        hasOpenAlertCount || missedCheckin ? ' patients-card-list__review-cue--attention' : ''
+                      }`}
+                    >
+                      {reviewCueLabel}
+                    </span>
+                  </span>
                   <span className="patients-card-list__support">{rosterSupportLine}</span>
                 </span>
               </span>
@@ -95,6 +113,16 @@ export function PatientCardList({
               </div>
 
               <div className="patients-card-list__actions">
+                <div className="patients-card-list__actions-copy">
+                  <span className="patients-card-list__action-label">Next step</span>
+                  <span className="patients-card-list__action-note">
+                    {hasOpenAlertCount || missedCheckin
+                      ? 'Open review now'
+                      : status === 'discharged'
+                        ? 'Open summary'
+                        : 'Open patient context'}
+                  </span>
+                </div>
                 <div className="patients-card-list__actions-primary">
                   <Button
                     className="patients-card-list__view"

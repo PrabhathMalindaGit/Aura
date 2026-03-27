@@ -84,6 +84,21 @@ export function PatientsTable({
             const rosterSupportLine = buildPatientTriageSupportLine(patient);
             const isSelectedForCompare = selectedComparePatientIds.includes(patient.id);
             const compareDisabled = !isSelectedForCompare && compareSelectionLimitReached;
+            const reviewCueLabel = hasOpenAlertCount
+              ? `Alert burden ${openAlertCount}`
+              : missedCheckin
+                ? 'Missed recent check-in'
+                : status === 'on_hold'
+                  ? 'Paused follow-up'
+                  : status === 'discharged'
+                    ? 'Discharged reference'
+                    : 'Stable review';
+            const actionSupportLabel =
+              hasOpenAlertCount || missedCheckin
+                ? 'Open review now'
+                : status === 'discharged'
+                  ? 'Open summary'
+                  : 'Open patient context';
             const initials = displayName
               .split(/\s+/)
               .filter(Boolean)
@@ -96,7 +111,7 @@ export function PatientsTable({
                 key={patient.id}
                 data-row-index={index}
                 tabIndex={0}
-                className={`patients-table__row${hasOpenAlertCount ? ' patients-table__row--attention' : ''}${missedCheckin ? ' patients-table__row--missed' : ''}`}
+                className={`patients-table__row${hasOpenAlertCount ? ' patients-table__row--attention' : ''}${missedCheckin ? ' patients-table__row--missed' : ''}${status === 'discharged' ? ' patients-table__row--discharged' : ''}${isSelectedForCompare ? ' patients-table__row--compare-selected' : ''}`}
                 onClick={() => onOpenPatient(patient.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown') {
@@ -136,9 +151,14 @@ export function PatientsTable({
                       {initials}
                     </span>
                     <div className="patients-table__patient-text">
-                      <strong className={showIdSubline ? 'patients-table__patient-name' : 'patient-id-text patients-table__patient-name'}>
-                        {displayName}
-                      </strong>
+                      <div className="patients-table__patient-head">
+                        <strong className={showIdSubline ? 'patients-table__patient-name' : 'patient-id-text patients-table__patient-name'}>
+                          {displayName}
+                        </strong>
+                        <span className={`patients-table__review-cue${hasOpenAlertCount || missedCheckin ? ' patients-table__review-cue--attention' : ''}`}>
+                          {reviewCueLabel}
+                        </span>
+                      </div>
                       {showIdSubline ? <span className="patient-id-text patients-table__patient-id">ID: {patient.id}</span> : null}
                       <span className="patients-table__patient-support">{rosterSupportLine}</span>
                     </div>
@@ -190,6 +210,10 @@ export function PatientsTable({
                     className="patients-table__actions"
                     onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
                   >
+                    <div className="patients-table__actions-copy">
+                      <span className="patients-table__action-label">Next step</span>
+                      <span className="patients-table__action-note">{actionSupportLabel}</span>
+                    </div>
                     <div className="patients-table__actions-primary">
                       <Button
                         className="patients-table__view"

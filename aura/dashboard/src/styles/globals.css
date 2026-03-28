@@ -35900,7 +35900,7 @@ button.dashboard-summary-strip__item:hover {
 .patient-detail-page .patient-detail-hero-grid {
   display: grid;
   gap: clamp(16px, 2vw, 22px);
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.96fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.96fr);
   align-items: stretch;
 }
 
@@ -35935,6 +35935,7 @@ button.dashboard-summary-strip__item:hover {
 
 .patient-detail-page .patient-detail-current-context__facts {
   gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
 }
 
 .patient-detail-page .patient-detail-current-context__fact {
@@ -35988,7 +35989,7 @@ button.dashboard-summary-strip__item:hover {
 .patient-detail-page .patient-detail-cockpit-signals__grid {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
 }
 
 .patient-detail-page .patient-detail-cockpit-signal {
@@ -36112,13 +36113,18 @@ button.dashboard-summary-strip__item:hover {
 }
 
 .patient-detail-page .patient-detail-cockpit-layout {
-  grid-template-columns: minmax(0, 1.42fr) minmax(320px, 0.92fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(360px, 0.94fr);
   align-items: start;
 }
 
 .patient-detail-page .patient-detail-clinical-zone {
-  grid-template-columns: minmax(0, 1.48fr) minmax(300px, 0.9fr);
+  grid-template-columns: minmax(0, 1.22fr) minmax(340px, 0.96fr);
   align-items: start;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout > .patient-detail-section-block--care-review {
+  grid-column: 1;
+  align-self: start;
 }
 
 .patient-detail-page #patient-summary-section {
@@ -36285,6 +36291,10 @@ button.dashboard-summary-strip__item:hover {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.patient-detail-page #patient-summary-section .patient-summary-grid {
+  grid-template-columns: 1fr;
+}
+
 .patient-detail-page .patient-summary-card {
   gap: 0.5rem;
   min-height: 7rem;
@@ -36341,7 +36351,7 @@ button.dashboard-summary-strip__item:hover {
 .patient-detail-page .patient-detail-clinical-review-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.88fr);
+  grid-template-columns: minmax(0, 1.24fr) minmax(320px, 0.92fr);
   align-items: start;
 }
 
@@ -36440,6 +36450,20 @@ button.dashboard-summary-strip__item:hover {
 
 .patient-detail-page .patient-communication-overview {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support .patient-detail-section-grid--operational {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support .patient-task-groups__overview,
+.patient-detail-page .patient-detail-cockpit-layout__support .patient-communication-overview {
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support .patient-handoff-panel__current,
+.patient-detail-page .patient-detail-cockpit-layout__support .patient-handoff-panel__field-grid {
+  grid-template-columns: 1fr;
 }
 
 .patient-detail-page .patient-task-groups__overview-fact,
@@ -36625,11 +36649,19 @@ button.dashboard-summary-strip__item:hover {
   background: hsl(var(--card) / 0.92);
 }
 
-@media (max-width: 1260px) {
+@media (max-width: 1380px) {
   .patient-detail-page .patient-detail-cockpit-layout,
   .patient-detail-page .patient-detail-clinical-zone,
   .patient-detail-page .patient-detail-clinical-review-grid {
     grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-cockpit-layout > .patient-detail-section-block--care-review {
+    grid-column: auto;
+  }
+
+  .patient-detail-page #patient-summary-section .patient-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .patient-detail-page #patient-summary-section,
@@ -36709,9 +36741,9 @@ button.dashboard-summary-strip__item:hover {
 .settings-page .settings-summary-strip--console {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.75rem;
-  padding: 0.9rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  padding: 1rem;
   border: 1px solid hsl(var(--border) / 0.64);
   border-radius: 28px;
   background:
@@ -36732,7 +36764,7 @@ button.dashboard-summary-strip__item:hover {
 }
 
 .settings-page .settings-summary-strip--console .settings-summary-strip__item {
-  min-height: 0;
+  min-height: 8.1rem;
   padding: 1rem 1rem 1.05rem;
   border: 1px solid hsl(var(--border) / 0.48);
   border-radius: 22px;
@@ -36816,8 +36848,8 @@ button.dashboard-summary-strip__item:hover {
 
 .settings-quick-controls-band__grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 0.8rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
 }
 
 .settings-quick-controls-band .settings-quick-control,
@@ -36826,13 +36858,13 @@ button.dashboard-summary-strip__item:hover {
 }
 
 .settings-quick-controls-band .setting-item--theme {
-  grid-column: span 5;
+  grid-column: span 2;
   align-content: start;
 }
 
 .settings-quick-controls-band .setting-item--toggle,
 .settings-quick-controls-band .setting-item--field {
-  grid-column: span 3;
+  grid-column: span 1;
 }
 
 .settings-quick-note {
@@ -36847,11 +36879,11 @@ button.dashboard-summary-strip__item:hover {
 }
 
 .settings-quick-note--timing {
-  grid-column: span 4;
+  grid-column: span 1;
 }
 
 .settings-quick-note--scope {
-  grid-column: span 5;
+  grid-column: span 2;
 }
 
 .settings-quick-note__label {
@@ -36876,7 +36908,7 @@ button.dashboard-summary-strip__item:hover {
 }
 
 .settings-control-environment {
-  grid-template-columns: minmax(0, 1.24fr) minmax(20rem, 0.82fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(24rem, 0.92fr);
   align-items: start;
 }
 
@@ -36904,7 +36936,7 @@ button.dashboard-summary-strip__item:hover {
 
 .settings-display-context {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 0.8rem;
 }
 
@@ -37024,7 +37056,7 @@ button.dashboard-summary-strip__item:hover {
 
 .settings-security-panel__state {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
   gap: 0.75rem;
 }
 
@@ -37071,7 +37103,7 @@ button.dashboard-summary-strip__item:hover {
 .settings-modules-stage__grid,
 .settings-admin-zone__actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   gap: 1rem;
 }
 
@@ -37203,26 +37235,26 @@ button.dashboard-summary-strip__item:hover {
 
 @media (max-width: 1280px) {
   .settings-page .settings-summary-strip--console {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .settings-quick-controls-band__grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .settings-quick-controls-band .setting-item--theme,
   .settings-quick-note--scope {
-    grid-column: span 6;
+    grid-column: span 2;
   }
 
   .settings-quick-controls-band .setting-item--toggle,
   .settings-quick-controls-band .setting-item--field,
   .settings-quick-note--timing {
-    grid-column: span 3;
+    grid-column: span 1;
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .settings-control-environment,
   .settings-modules-stage__grid,
   .settings-admin-zone__actions {

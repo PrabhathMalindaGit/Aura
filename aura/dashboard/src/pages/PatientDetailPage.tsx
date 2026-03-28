@@ -2374,9 +2374,8 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </section>
         </div>
-      </div>
 
-      <section
+        <section
         id="patient-care-review-section"
         className="patient-detail-section-block patient-detail-section-block--operations patient-detail-section-block--care-review"
         data-testid="patient-detail-care-review"
@@ -2797,6 +2796,8 @@ export function PatientDetailPage(): JSX.Element {
           </Card>
         </div>
       </section>
+
+      </div>
 
       <section
         id="patient-reference-section"

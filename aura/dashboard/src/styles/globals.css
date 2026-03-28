@@ -41137,3 +41137,432 @@ a {
     align-items: stretch;
   }
 }
+
+/* Phase 4: Safety, Roster, Workspace */
+
+.alerts-page--safety-phase4 .safety-brief,
+.alerts-page--safety-phase4 .safety-queue-surface,
+.alerts-page--safety-phase4 .safety-detail-rail,
+.alerts-page--safety-phase4 .alerts-detail-panel,
+.alerts-page--safety-phase4 .safety-detail-empty,
+.patients-page--roster-phase4 .roster-brief,
+.patients-page--roster-phase4 .roster-surface,
+.settings-page--workspace-phase4 .workspace-brief,
+.settings-page--workspace-phase4 .settings-quick-controls-band,
+.settings-page--workspace-phase4 .settings-group-card,
+.settings-page--workspace-phase4 .settings-guidance-banner,
+.settings-page--workspace-phase4 .settings-admin-action {
+  border: 1px solid hsl(var(--border) / 0.34);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.055)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.015), transparent 84%);
+  box-shadow: none;
+}
+
+.alerts-page--safety-phase4 .alerts-detail-panel,
+.alerts-page--safety-phase4 .safety-detail-empty {
+  min-height: 100%;
+}
+
+.alerts-page--safety-phase4 .alerts-detail-panel__header,
+.alerts-page--safety-phase4 .alerts-detail-panel__footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.alerts-page--safety-phase4 .alerts-detail-panel__header {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.28);
+}
+
+.alerts-page--safety-phase4 .alerts-detail-panel__body {
+  padding: 1rem 0;
+}
+
+.patients-page--roster-phase4 .roster-brief,
+.settings-page--workspace-phase4 .workspace-brief {
+  display: grid;
+  gap: 1.15rem;
+  padding: clamp(1.15rem, 1.8vw, 1.65rem);
+}
+
+.patients-page--roster-phase4 .roster-brief__lead,
+.settings-page--workspace-phase4 .workspace-brief__lead {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.patients-page--roster-phase4 .roster-brief__copy,
+.settings-page--workspace-phase4 .workspace-brief__copy {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 56rem;
+}
+
+.patients-page--roster-phase4 .roster-brief__eyebrow,
+.patients-page--roster-phase4 .roster-surface__eyebrow,
+.patients-page--roster-phase4 .roster-toolbar__label,
+.settings-page--workspace-phase4 .workspace-brief__eyebrow,
+.settings-page--workspace-phase4 .workspace-form-zone__eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--label-size-compact);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--label-tracking-strong);
+  text-transform: uppercase;
+}
+
+.patients-page--roster-phase4 .roster-brief__title,
+.patients-page--roster-phase4 .roster-surface__title,
+.settings-page--workspace-phase4 .workspace-brief__title,
+.settings-page--workspace-phase4 .workspace-form-zone__title {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--font-heading);
+  font-size: clamp(1.4rem, 1.7vw, 2rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.patients-page--roster-phase4 .roster-brief__text,
+.patients-page--roster-phase4 .roster-surface__text,
+.patients-page--roster-phase4 .roster-toolbar__note,
+.settings-page--workspace-phase4 .workspace-brief__text,
+.settings-page--workspace-phase4 .workspace-form-zone__text {
+  margin: 0;
+  max-width: 64ch;
+  color: hsl(var(--muted-foreground));
+}
+
+.patients-page--roster-phase4 .roster-brief__meta,
+.patients-page--roster-phase4 .roster-surface__meta,
+.settings-page--workspace-phase4 .workspace-brief__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.patients-page--roster-phase4 .roster-brief__pill,
+.patients-page--roster-phase4 .roster-surface__meta-pill,
+.settings-page--workspace-phase4 .workspace-brief__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid hsl(var(--border) / 0.28);
+  border-radius: 999px;
+  background: hsl(var(--background) / 0.7);
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+}
+
+.patients-page--roster-phase4 .roster-brief__facts,
+.settings-page--workspace-phase4 .workspace-brief__facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.patients-page--roster-phase4 .roster-brief__fact,
+.settings-page--workspace-phase4 .workspace-brief__fact {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.22);
+  border-radius: 22px;
+  background: hsl(var(--background) / 0.56);
+}
+
+.patients-page--roster-phase4 .roster-brief__fact-value,
+.settings-page--workspace-phase4 .workspace-brief__fact-value {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, 1.9vw, 2.2rem);
+  line-height: 1;
+}
+
+.patients-page--roster-phase4 .roster-brief__fact-label,
+.patients-page--roster-phase4 .roster-brief__fact-detail,
+.settings-page--workspace-phase4 .workspace-brief__fact-label,
+.settings-page--workspace-phase4 .workspace-brief__fact-detail {
+  margin: 0;
+}
+
+.patients-page--roster-phase4 .roster-brief__fact-label,
+.settings-page--workspace-phase4 .workspace-brief__fact-label {
+  color: hsl(var(--muted-foreground));
+  font-size: var(--label-size-compact);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--label-tracking-compact);
+  text-transform: uppercase;
+}
+
+.patients-page--roster-phase4 .roster-brief__fact-detail,
+.settings-page--workspace-phase4 .workspace-brief__fact-detail {
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-sm);
+}
+
+.patients-page--roster-phase4 .roster-surface {
+  display: grid;
+  gap: 1.15rem;
+  padding: clamp(1.15rem, 1.8vw, 1.65rem);
+}
+
+.patients-page--roster-phase4 .roster-surface__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.patients-page--roster-phase4 .roster-surface__intro {
+  display: grid;
+  gap: 0.45rem;
+  max-width: 56rem;
+}
+
+.patients-page--roster-phase4 .roster-toolbar {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--border) / 0.24);
+  border-radius: 24px;
+  background: hsl(var(--background) / 0.6);
+}
+
+.patients-page--roster-phase4 .roster-toolbar__presets {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.patients-page--roster-phase4 .roster-toolbar__preset-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.patients-page--roster-phase4 .roster-toolbar__preset.btn {
+  border-color: hsl(var(--border) / 0.24);
+  background: transparent;
+}
+
+.patients-page--roster-phase4 .roster-toolbar__preset--active.btn {
+  border-color: hsl(var(--primary) / 0.28);
+  background: hsl(var(--primary) / 0.08);
+}
+
+.patients-page--roster-phase4 .roster-toolbar .patients-filters {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.patients-page--roster-phase4 .roster-toolbar .patients-filters__clusters,
+.patients-page--roster-phase4 .roster-toolbar .patients-filters__row {
+  gap: 0.85rem;
+}
+
+.patients-page--roster-phase4 .roster-toolbar .patients-filters__cluster {
+  border-radius: 22px;
+  border-color: hsl(var(--border) / 0.24);
+  background: hsl(var(--card) / 0.84);
+  box-shadow: none;
+}
+
+.patients-page--roster-phase4 .patients-compare-tray--phase4 {
+  border-color: hsl(var(--border) / 0.24);
+  background: hsl(var(--background) / 0.42);
+}
+
+.patients-page--roster-phase4 .roster-surface__results {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.patients-page--roster-phase4 .patients-table-wrap,
+.patients-page--roster-phase4 .patients-card-list {
+  border: 1px solid hsl(var(--border) / 0.24);
+  border-radius: 24px;
+  background: hsl(var(--card) / 0.92);
+  overflow: hidden;
+}
+
+.settings-page--workspace-phase4 .settings-quick-controls-band {
+  padding: clamp(1rem, 1.5vw, 1.45rem);
+}
+
+.settings-page--workspace-phase4 .settings-quick-controls-band__header,
+.settings-page--workspace-phase4 .settings-control-environment,
+.settings-page--workspace-phase4 .settings-modules-stage__grid {
+  gap: 1rem;
+}
+
+.settings-page--workspace-phase4 .settings-quick-controls-band__grid {
+  gap: 0.85rem;
+}
+
+.settings-page--workspace-phase4 .settings-quick-controls-band .settings-quick-control,
+.settings-page--workspace-phase4 .settings-quick-controls-band .settings-quick-note {
+  border-radius: 22px;
+  border-color: hsl(var(--border) / 0.24);
+  background: hsl(var(--background) / 0.56);
+}
+
+.settings-page--workspace-phase4 .settings-control-environment {
+  align-items: start;
+}
+
+.settings-page--workspace-phase4 .settings-group-card {
+  padding: 0;
+}
+
+.settings-page--workspace-phase4 .settings-group-card .card__header,
+.settings-page--workspace-phase4 .settings-group-card .card__body {
+  padding-left: clamp(1.05rem, 1.55vw, 1.45rem);
+  padding-right: clamp(1.05rem, 1.55vw, 1.45rem);
+}
+
+.settings-page--workspace-phase4 .settings-group-card .card__header {
+  padding-top: 1.1rem;
+  padding-bottom: 0.8rem;
+}
+
+.settings-page--workspace-phase4 .settings-group-card .card__body {
+  display: grid;
+  gap: 1rem;
+  padding-top: 0;
+  padding-bottom: 1.2rem;
+}
+
+.settings-page--workspace-phase4 .settings-display-context {
+  border-radius: 24px;
+  border: 1px solid hsl(var(--border) / 0.24);
+  background: hsl(var(--background) / 0.52);
+}
+
+.settings-page--workspace-phase4 .settings-profile-editor--workspace {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-page--workspace-phase4 .workspace-form-zone {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--border) / 0.22);
+  border-radius: 24px;
+  background: hsl(var(--background) / 0.46);
+}
+
+.settings-page--workspace-phase4 .workspace-form-zone__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.settings-page--workspace-phase4 .workspace-form-zone .settings-field-cluster {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.settings-page--workspace-phase4 .settings-security-panel__state,
+.settings-page--workspace-phase4 .settings-security-panel__notes {
+  gap: 0.85rem;
+}
+
+.settings-page--workspace-phase4 .settings-security-panel__fact,
+.settings-page--workspace-phase4 .settings-security-panel__note,
+.settings-page--workspace-phase4 .settings-communication-template {
+  border-radius: 22px;
+  border-color: hsl(var(--border) / 0.22);
+  background: hsl(var(--background) / 0.5);
+}
+
+.settings-page--workspace-phase4 .settings-admin-zone__actions {
+  gap: 0.9rem;
+}
+
+.settings-page--workspace-phase4 .settings-admin-action {
+  padding: 1rem 1.1rem;
+}
+
+.dark .alerts-page--safety-phase4 .safety-brief,
+.dark .alerts-page--safety-phase4 .safety-queue-surface,
+.dark .alerts-page--safety-phase4 .safety-detail-rail,
+.dark .alerts-page--safety-phase4 .alerts-detail-panel,
+.dark .alerts-page--safety-phase4 .safety-detail-empty,
+.dark .patients-page--roster-phase4 .roster-brief,
+.dark .patients-page--roster-phase4 .roster-surface,
+.dark .settings-page--workspace-phase4 .workspace-brief,
+.dark .settings-page--workspace-phase4 .settings-quick-controls-band,
+.dark .settings-page--workspace-phase4 .settings-group-card,
+.dark .settings-page--workspace-phase4 .settings-guidance-banner,
+.dark .settings-page--workspace-phase4 .settings-admin-action {
+  border-color: hsl(var(--border) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.8)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .patients-page--roster-phase4 .roster-brief__fact,
+.dark .settings-page--workspace-phase4 .workspace-brief__fact,
+.dark .patients-page--roster-phase4 .roster-toolbar,
+.dark .patients-page--roster-phase4 .roster-toolbar .patients-filters__cluster,
+.dark .patients-page--roster-phase4 .patients-table-wrap,
+.dark .patients-page--roster-phase4 .patients-card-list,
+.dark .settings-page--workspace-phase4 .settings-quick-controls-band .settings-quick-control,
+.dark .settings-page--workspace-phase4 .settings-quick-controls-band .settings-quick-note,
+.dark .settings-page--workspace-phase4 .settings-display-context,
+.dark .settings-page--workspace-phase4 .workspace-form-zone,
+.dark .settings-page--workspace-phase4 .settings-security-panel__fact,
+.dark .settings-page--workspace-phase4 .settings-security-panel__note,
+.dark .settings-page--workspace-phase4 .settings-communication-template,
+.dark .patients-page--roster-phase4 .patients-compare-tray--phase4 {
+  border-color: hsl(var(--border) / 0.36);
+  background: hsl(var(--background) / 0.22);
+}
+
+@media (max-width: 1100px) {
+  .patients-page--roster-phase4 .roster-brief__facts,
+  .settings-page--workspace-phase4 .workspace-brief__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patients-page--roster-phase4 .roster-brief__lead,
+  .patients-page--roster-phase4 .roster-surface__header,
+  .settings-page--workspace-phase4 .workspace-brief__lead {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .patients-page--roster-phase4 .roster-brief,
+  .patients-page--roster-phase4 .roster-surface,
+  .settings-page--workspace-phase4 .workspace-brief,
+  .settings-page--workspace-phase4 .settings-quick-controls-band,
+  .settings-page--workspace-phase4 .settings-group-card,
+  .settings-page--workspace-phase4 .settings-admin-action {
+    padding: 1rem;
+    border-radius: 24px;
+  }
+
+  .patients-page--roster-phase4 .roster-brief__facts,
+  .settings-page--workspace-phase4 .workspace-brief__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .patients-page--roster-phase4 .roster-toolbar,
+  .settings-page--workspace-phase4 .workspace-form-zone {
+    padding: 0.9rem;
+  }
+}

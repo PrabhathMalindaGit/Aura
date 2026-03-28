@@ -15,7 +15,6 @@ import {
 import { StatusTabs } from '../components/alerts/StatusTabs';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
@@ -72,7 +71,6 @@ import { hasRiskOverride } from '../utils/risk';
 import { isAlertSeenForUi, isAlertUnseenForUi } from '../utils/seen';
 import { isAfterWithinDays } from '../utils/time';
 import { toErrorView } from '../utils/errorView';
-import { cn } from '../utils/cn';
 import {
   buildPatientEntryReturnTo,
   createPatientEntryState,
@@ -1084,7 +1082,30 @@ export function AlertsPage(): JSX.Element {
         ? `${alertKpis.unseenCount} alert${alertKpis.unseenCount === 1 ? '' : 's'} still need first clinician review.`
         : alertKpis.notifFailedCount > 0
           ? `${alertKpis.notifFailedCount} alert deliver${alertKpis.notifFailedCount === 1 ? 'y issue remains' : 'y issues remain'} while open triage continues.`
-          : `${alertKpis.openCount} open alert${alertKpis.openCount === 1 ? '' : 's'} remain active in the current safety queue.`;
+        : `${alertKpis.openCount} open alert${alertKpis.openCount === 1 ? '' : 's'} remain active in the current safety queue.`;
+  const unassignedAlertsCount = useMemo(
+    () => openAlertsForOverview.filter((alert) => alert.status === 'open' && !alert.assignedTo).length,
+    [openAlertsForOverview],
+  );
+  const safetyBriefTitle = allClear
+    ? 'Open triage is clear'
+    : alertKpis.overdueCount > 0
+      ? 'Aging alerts need review'
+      : unassignedAlertsCount > 0
+        ? 'Ownership needs a decision'
+        : alertKpis.unseenCount > 0
+          ? 'First review is still waiting'
+          : 'Safety review is active';
+  const safetyDetailTitle = activeAlert
+    ? `Reviewing ${activeAlert.patientId}`
+    : status === 'open'
+      ? 'Select an alert to review'
+      : `Select a ${status} alert to inspect`;
+  const safetyDetailSupport = activeAlert
+    ? reasonText(activeAlert.reason)
+    : status === 'open'
+      ? 'Keep patient context, ownership, and next actions visible while you work the queue.'
+      : 'Use the queue to inspect earlier decisions without reopening the whole page.';
   const alertAgingComposition = useMemo(
     () => [
       {
@@ -1102,7 +1123,10 @@ export function AlertsPage(): JSX.Element {
   );
 
   return (
-    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--alerts alerts-page" gap="5">
+    <Stack
+      className="page-stack dashboard-page-shell dashboard-page-shell--alerts alerts-page alerts-page--safety-phase4"
+      gap="5"
+    >
       {/*
         Acceptance test plan summary:
         1) Open /alerts and verify queue renders.
@@ -1117,6 +1141,12 @@ export function AlertsPage(): JSX.Element {
         eyebrow="Safety operations"
         title="Safety"
         subtitle="Triage active safety issues, confirm ownership quickly, and close escalations with grounded clinical context."
+        meta={
+          <span className="alerts-page__meta" aria-live="polite">
+            <span className="alerts-page__meta-pill">{statusViewLabel}</span>
+            <span className="alerts-page__meta-pill">{updatedAtLabel}</span>
+          </span>
+        }
       />
 
       {staleErrorBannerVisible ? (
@@ -1147,128 +1177,84 @@ export function AlertsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <section
-        className={cn('alerts-summary-strip', allClear && 'alerts-summary-strip--all-clear')}
-        aria-label="Alerts overview"
-      >
-        <div className="alerts-summary-strip__lead">
-          <div className="alerts-summary-strip__copy">
-            <p className="alerts-summary-strip__eyebrow">Safety triage status</p>
-            <h3 className="alerts-summary-strip__title">
-              {allClear ? 'Open triage is clear' : 'Clinical safety triage'}
-            </h3>
-            <p className="alerts-summary-strip__narrative">{alertStatusNarrative}</p>
+      <section className="safety-brief" aria-label="Safety triage summary">
+        <div className="safety-brief__lead">
+          <div className="safety-brief__copy">
+            <p className="safety-brief__eyebrow">Safety triage</p>
+            <h3 className="safety-brief__title">{safetyBriefTitle}</h3>
+            <p className="safety-brief__text">{alertStatusNarrative}</p>
           </div>
-          <div className="alerts-summary-strip__pills" aria-live="polite">
-            <span className="alerts-summary-strip__pill">{statusViewLabel}</span>
-            <span className="alerts-summary-strip__pill">{updatedAtLabel}</span>
+          <div className="safety-brief__mode">
+            <p className="safety-brief__mode-label">Review mode</p>
+            <StatusTabs value={status} onChange={handleStatusChange} counts={statusTabCounts} />
           </div>
         </div>
-
-        <div className="alerts-summary-strip__composition" aria-label="Alert aging mix">
-          <div className="alerts-summary-strip__bar" aria-hidden="true">
-            {alertAgingComposition.map((segment) => (
-              <span
-                key={segment.key}
-                className={`alerts-summary-strip__bar-segment alerts-summary-strip__bar-segment--${segment.key}`}
-                style={{ flexGrow: Math.max(segment.value, 1) }}
-              />
-            ))}
-          </div>
-          <div className="alerts-summary-strip__legend" role="list">
-            {alertAgingComposition.map((segment) => (
-              <span
-                key={segment.key}
-                className={`alerts-summary-strip__legend-item alerts-summary-strip__legend-item--${segment.key}`}
-                role="listitem"
-              >
-                <span className="alerts-summary-strip__legend-swatch" aria-hidden="true" />
-                <span>{segment.label}</span>
-                <strong>{segment.value}</strong>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="alerts-summary-strip__metrics">
-          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--lead">
-            <p className="alerts-summary-strip__metric-label">Open alerts</p>
-            <p className="alerts-summary-strip__metric-value">
-              {overviewLoading ? '...' : alertKpis.openCount}
-            </p>
-            <p className="alerts-summary-strip__metric-hint">Active safety triage items in the live queue</p>
+        <div className="safety-brief__facts" role="list" aria-label="Triage priorities">
+          <article className="safety-brief__fact safety-brief__fact--open" role="listitem">
+            <p className="safety-brief__fact-label">Open alerts</p>
+            <p className="safety-brief__fact-value">{overviewLoading ? '...' : alertKpis.openCount}</p>
+            <p className="safety-brief__fact-detail">{queueCountLabel}</p>
           </article>
-          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--unseen">
-            <p className="alerts-summary-strip__metric-label">Unseen</p>
-            <p className="alerts-summary-strip__metric-value">
-              {overviewLoading ? '...' : alertKpis.unseenCount}
+          <article className="safety-brief__fact safety-brief__fact--aging" role="listitem">
+            <p className="safety-brief__fact-label">Aging pressure</p>
+            <p className="safety-brief__fact-value">{overviewLoading ? '...' : alertKpis.overdueCount}</p>
+            <p className="safety-brief__fact-detail">
+              {alertAgingComposition[1]?.value ?? 0} opened within the last 24h
             </p>
-            <p className="alerts-summary-strip__metric-hint">Needs first review</p>
           </article>
-          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--assigned">
-            <p className="alerts-summary-strip__metric-label">Assigned to me</p>
-            <p className="alerts-summary-strip__metric-value">
+          <article className="safety-brief__fact safety-brief__fact--ownership" role="listitem">
+            <p className="safety-brief__fact-label">Assigned to me</p>
+            <p className="safety-brief__fact-value">
               {overviewLoading ? '...' : alertKpis.assignedToMeCount}
             </p>
-            <p className="alerts-summary-strip__metric-hint">Current ownership in this browser session</p>
+            <p className="safety-brief__fact-detail">
+              {unassignedAlertsCount} without an owner
+            </p>
           </article>
-          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--delivery">
-            <p className="alerts-summary-strip__metric-label">Delivery failed</p>
-            <p className="alerts-summary-strip__metric-value">
+          <article className="safety-brief__fact safety-brief__fact--delivery" role="listitem">
+            <p className="safety-brief__fact-label">Delivery issues</p>
+            <p className="safety-brief__fact-value">
               {overviewLoading ? '...' : alertKpis.notifFailedCount}
             </p>
-            <p className="alerts-summary-strip__metric-hint">Needs delivery follow-through</p>
-          </article>
-          <article className="alerts-summary-strip__metric alerts-summary-strip__metric--aging">
-            <p className="alerts-summary-strip__metric-label">Older than 24h</p>
-            <p className="alerts-summary-strip__metric-value">
-              {overviewLoading ? '...' : alertKpis.overdueCount}
+            <p className="safety-brief__fact-detail">
+              {alertKpis.unseenCount} still need first review
             </p>
-            <p className="alerts-summary-strip__metric-hint">Older safety issues still in triage</p>
           </article>
         </div>
       </section>
 
-      <Card
-        className="alerts-workspace-card"
-        title={
-          <span className="alerts-workspace-card__title-shell">
-            <span className="alerts-workspace-card__eyebrow">Safety triage workspace</span>
-            <span className="alerts-workspace-card__title-text">Alerts queue</span>
-          </span>
-        }
-        action={
-          <Button className="alerts-workspace-card__export" variant="secondary" onClick={openAlertsExportModal}>
-            Export CSV
-          </Button>
-        }
-      >
-        <div className="alerts-workspace-card__heading-row">
-          <div className="alerts-workspace-card__heading-copy">
-            {openedFromChat ? (
-              <p className="alerts-chat-origin-note" data-testid="alerts-chat-origin-note">
-                {chatOriginPatientId
-                  ? `Opened from patient communication for ${chatOriginPatientId}. Keep alert review anchored to this patient context.`
-                  : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
-              </p>
-            ) : null}
-            <p className="alerts-workspace-card__heading-label">Queue state</p>
-            <p className="alerts-queue-follow-through">{queueFollowThroughText}</p>
-          </div>
-          <div className="alerts-workspace-card__heading-actions">
-            <div className="alerts-workspace-card__queue-meta" aria-live="polite">
-              <span className="alerts-workspace-card__queue-pill">{statusViewLabel}</span>
-              <span className="alerts-workspace-card__queue-count">{queueCountLabel}</span>
+      <div className="safety-layout">
+        <section className="safety-queue-surface" aria-label="Safety triage workspace">
+          <header className="safety-queue-surface__header">
+            <div className="safety-queue-surface__intro">
+              {openedFromChat ? (
+                <p className="alerts-chat-origin-note" data-testid="alerts-chat-origin-note">
+                  {chatOriginPatientId
+                    ? `Opened from patient communication for ${chatOriginPatientId}. Keep alert review anchored to this patient context.`
+                    : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
+                </p>
+              ) : null}
+              <p className="safety-queue-surface__eyebrow">Triage workspace</p>
+              <h3 className="safety-queue-surface__title">Alert list</h3>
+              <p className="safety-queue-surface__text">{queueFollowThroughText}</p>
             </div>
-          </div>
-        </div>
+            <div className="safety-queue-surface__meta" aria-live="polite">
+              <span className="safety-queue-surface__meta-pill">{statusViewLabel}</span>
+              <span className="safety-queue-surface__meta-pill">{queueCountLabel}</span>
+              {isMobileLayout ? (
+                <Button
+                  className="safety-queue-surface__export"
+                  variant="secondary"
+                  size="sm"
+                  onClick={openAlertsExportModal}
+                >
+                  Export CSV
+                </Button>
+              ) : null}
+            </div>
+          </header>
 
-        <div className="alerts-workspace-card__triage-shell">
-          <div className="alerts-workspace-card__tab-bar">
-            <StatusTabs value={status} onChange={handleStatusChange} counts={statusTabCounts} />
-          </div>
-
-          <div className="alerts-workspace-card__controls">
+          <div className="safety-queue-surface__controls">
             <FiltersBar
               status={status}
               searchValue={searchValue}
@@ -1339,8 +1325,8 @@ export function AlertsPage(): JSX.Element {
             />
           </div>
 
-          <div className="alerts-workspace-card__results">
-            {status === 'open' && lastTriageOutcome ? (
+          <div className="safety-queue-surface__results">
+            {status === 'open' && lastTriageOutcome && isMobileLayout ? (
               <div
                 className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status}`}
                 data-testid="alerts-triage-outcome"
@@ -1483,8 +1469,99 @@ export function AlertsPage(): JSX.Element {
               />
             )}
           </div>
-        </div>
-      </Card>
+        </section>
+
+        {!isMobileLayout ? (
+          <aside className="safety-detail-rail" aria-label="Persistent alert detail">
+            <section className="safety-detail-rail__support">
+              <div className="safety-detail-rail__support-copy">
+                <p className="safety-detail-rail__eyebrow">Detail context</p>
+                <h3 className="safety-detail-rail__title">{safetyDetailTitle}</h3>
+                <p className="safety-detail-rail__text">{safetyDetailSupport}</p>
+              </div>
+              <div className="safety-detail-rail__support-actions">
+                <Button
+                  className="safety-detail-rail__export"
+                  variant="secondary"
+                  size="sm"
+                  onClick={openAlertsExportModal}
+                >
+                  Export CSV
+                </Button>
+                <div className="safety-detail-rail__support-facts" aria-live="polite">
+                  <span className="safety-detail-rail__support-pill">{updatedAtLabel}</span>
+                  <span className="safety-detail-rail__support-pill">{statusViewLabel}</span>
+                </div>
+              </div>
+            </section>
+
+            {status === 'open' && lastTriageOutcome && !activeAlert ? (
+              <div
+                className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status} alerts-triage-outcome--side`}
+                data-testid="alerts-triage-outcome"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="alerts-triage-outcome__copy">
+                  <p className="alerts-triage-outcome__eyebrow">Latest triage</p>
+                  <strong className="alerts-triage-outcome__title">{triageOutcomeTitle}</strong>
+                  <p className="alerts-triage-outcome__text">
+                    Alert for {lastTriageOutcome.patientId} moved out of Open and is now visible in{' '}
+                    {triageOutcomeDestinationLabel}.
+                  </p>
+                  <p className="alerts-triage-outcome__next">{triageOutcomeFollowThrough}</p>
+                </div>
+                <div className="alerts-triage-outcome__actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      handleStatusChange(lastTriageOutcome.status);
+                    }}
+                  >
+                    {lastTriageOutcome.status === 'resolved' ? 'View resolved' : 'View acknowledged'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {activeAlert ? (
+              <AlertDetailDrawer
+                presentation="inline"
+                open={Boolean(activeAlert)}
+                alert={activeAlert}
+                mutationPending={updateAlertMutation.isPending}
+                assignmentPending={assignments.assignmentBusy}
+                overridePending={overrides.overrideBusy}
+                clinicianId={clinicianId}
+                seen={activeAlertSeen}
+                returnFocusRef={drawerFocusReturnRef}
+                onOpenPatient={openPatientFromAlert}
+                onClose={() => setSelectedAlert(null)}
+                onAssignToMe={handleAssignToMe}
+                onTakeOver={handleTakeOver}
+                onUnassign={handleUnassign}
+                onSaveRiskOverride={handleSaveRiskOverride}
+                onClearRiskOverride={handleClearRiskOverride}
+                onAcknowledge={(alert) => {
+                  void handleStatusUpdate('acknowledged', alert);
+                }}
+                onResolve={(alert) => {
+                  void handleStatusUpdate('resolved', alert);
+                }}
+              />
+            ) : (
+              <section className="safety-detail-empty" role="dialog" aria-modal="false" aria-label="Alert detail">
+                <p className="safety-detail-empty__eyebrow">Persistent detail</p>
+                <h3 className="safety-detail-empty__title">No alert selected</h3>
+                <p className="safety-detail-empty__text">
+                  Choose an alert from the list to keep patient context, ownership, and action controls visible beside the queue.
+                </p>
+              </section>
+            )}
+          </aside>
+        ) : null}
+      </div>
 
       <ExportCsvModal
         open={alertsExportOpen}
@@ -1530,29 +1607,31 @@ export function AlertsPage(): JSX.Element {
         }}
       />
 
-      <AlertDetailDrawer
-        open={Boolean(activeAlert)}
-        alert={activeAlert}
-        mutationPending={updateAlertMutation.isPending}
-        assignmentPending={assignments.assignmentBusy}
-        overridePending={overrides.overrideBusy}
-        clinicianId={clinicianId}
-        seen={activeAlertSeen}
-        returnFocusRef={drawerFocusReturnRef}
-        onOpenPatient={openPatientFromAlert}
-        onClose={() => setSelectedAlert(null)}
-        onAssignToMe={handleAssignToMe}
-        onTakeOver={handleTakeOver}
-        onUnassign={handleUnassign}
-        onSaveRiskOverride={handleSaveRiskOverride}
-        onClearRiskOverride={handleClearRiskOverride}
-        onAcknowledge={(alert) => {
-          void handleStatusUpdate('acknowledged', alert);
-        }}
-        onResolve={(alert) => {
-          void handleStatusUpdate('resolved', alert);
-        }}
-      />
+      {isMobileLayout ? (
+        <AlertDetailDrawer
+          open={Boolean(activeAlert)}
+          alert={activeAlert}
+          mutationPending={updateAlertMutation.isPending}
+          assignmentPending={assignments.assignmentBusy}
+          overridePending={overrides.overrideBusy}
+          clinicianId={clinicianId}
+          seen={activeAlertSeen}
+          returnFocusRef={drawerFocusReturnRef}
+          onOpenPatient={openPatientFromAlert}
+          onClose={() => setSelectedAlert(null)}
+          onAssignToMe={handleAssignToMe}
+          onTakeOver={handleTakeOver}
+          onUnassign={handleUnassign}
+          onSaveRiskOverride={handleSaveRiskOverride}
+          onClearRiskOverride={handleClearRiskOverride}
+          onAcknowledge={(alert) => {
+            void handleStatusUpdate('acknowledged', alert);
+          }}
+          onResolve={(alert) => {
+            void handleStatusUpdate('resolved', alert);
+          }}
+        />
+      ) : null}
     </Stack>
   );
 }

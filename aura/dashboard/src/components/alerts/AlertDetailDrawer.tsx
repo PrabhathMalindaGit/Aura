@@ -47,6 +47,7 @@ interface AlertDetailDrawerProps {
   onClearRiskOverride: (alert: AlertItem) => void | Promise<void>;
   onAcknowledge: (alert: AlertItem) => void;
   onResolve: (alert: AlertItem) => void;
+  presentation?: 'drawer' | 'inline';
 }
 
 const DRAWER_TITLE_ID = 'alert-drawer-title';
@@ -106,6 +107,7 @@ export function AlertDetailDrawer({
   onClearRiskOverride,
   onAcknowledge,
   onResolve,
+  presentation = 'drawer',
 }: AlertDetailDrawerProps): JSX.Element {
   const [uiNotice, setUiNotice] = useState<string | null>(null);
   const [showResolveConfirm, setShowResolveConfirm] = useState(false);
@@ -252,6 +254,263 @@ export function AlertDetailDrawer({
     retryNotificationMutation.mutate(effectiveAlert);
   }
 
+  const footerActions = effectiveAlert ? (
+    <div className="drawer-footer-actions safe-bottom">
+      {presentation === 'drawer' ? (
+        <Button variant="ghost" onClick={onClose} aria-label="Close alert drawer">
+          Close
+        </Button>
+      ) : null}
+      <Button
+        ref={resolveActionRef}
+        className="alerts-drawer__resolve"
+        variant="secondary"
+        disabled={resolveDisabled}
+        onClick={handleResolve}
+        aria-label="Resolve alert"
+        data-testid="alert-resolve"
+      >
+        Resolve
+      </Button>
+      <Button
+        variant="primary"
+        disabled={acknowledgeDisabled}
+        onClick={handleAcknowledge}
+        aria-label="Acknowledge alert"
+        data-testid="alert-acknowledge"
+      >
+        Acknowledge
+      </Button>
+    </div>
+  ) : null;
+
+  const detailContent = effectiveAlert ? (
+    <div className="drawer-stack">
+      <section className="drawer-meta" aria-label="Alert header context">
+        <h3>Alert</h3>
+        <div className="drawer-meta__badges">
+          <span className="drawer-meta__patient">Patient {effectiveAlert.patientId}</span>
+          <Badge variant={statusBadgeVariant(effectiveAlert.status)} icon>
+            {alertStatusLabel(effectiveAlert.status)}
+          </Badge>
+          {effectiveRisk ? (
+            <Badge variant={riskBadgeVariant(effectiveRisk)}>
+              {formatRiskLabel(effectiveRisk)}
+            </Badge>
+          ) : null}
+          <Badge variant={seen ? 'success' : 'new'} icon>
+            {seen ? 'Seen' : 'Unseen'}
+          </Badge>
+          <AssignmentChip alert={effectiveAlert} clinicianId={clinicianId} />
+        </div>
+        <p id={DRAWER_DESCRIPTION_ID} className="muted-text">
+          {shortReferenceLabel(effectiveAlert._id) ?? effectiveAlert._id}. Source{' '}
+          {alertSourceLabel(effectiveAlert.source.type)}.
+        </p>
+        {patientNavigationId ? (
+          <div className="drawer-meta__actions">
+            <Button
+              className="alerts-drawer__open-patient"
+              variant="secondary"
+              size="sm"
+              onClick={() => onOpenPatient(patientNavigationId)}
+            >
+              Open patient
+            </Button>
+            <AssignmentActions
+              alert={effectiveAlert}
+              clinicianId={clinicianId}
+              busy={assignmentPending}
+              allowUnassign
+              size="sm"
+              onAssignToMe={onAssignToMe}
+              onTakeOver={onTakeOver}
+              onUnassign={onUnassign}
+            />
+          </div>
+        ) : (
+          <div className="drawer-meta__actions">
+            <AssignmentActions
+              alert={effectiveAlert}
+              clinicianId={clinicianId}
+              busy={assignmentPending}
+              allowUnassign
+              size="sm"
+              onAssignToMe={onAssignToMe}
+              onTakeOver={onTakeOver}
+              onUnassign={onUnassign}
+            />
+          </div>
+        )}
+      </section>
+
+      {assignmentBlocked ? (
+        <AlertBanner variant="warning" title="Action blocked by assignment">
+          Assigned to {effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}. Take over to enable
+          acknowledge and resolve.
+        </AlertBanner>
+      ) : null}
+
+      {alertContextQuery.error ? (
+        <AlertBanner variant="warning" title="Could not load extended context">
+          {toUserMessage(asAppError(alertContextQuery.error))}
+        </AlertBanner>
+      ) : null}
+
+      {uiNotice ? <AlertBanner variant="info" title="Action note">{uiNotice}</AlertBanner> : null}
+
+      <section className="drawer-section" aria-label="Alert summary">
+        <h3>Summary</h3>
+        <dl className="summary-grid">
+          <div>
+            <dt>Reason</dt>
+            <dd>
+              {reasonSummary.text}
+              {!showFullReason && reasonSummary.truncated ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="timeline__toggle"
+                    onClick={() => setShowFullReason(true)}
+                    aria-label="Show full alert reason"
+                  >
+                    Show more
+                  </button>
+                </>
+              ) : null}
+              {showFullReason && reasonSummary.text.length > 180 ? (
+                <>
+                  {' '}
+                  <button
+                    type="button"
+                    className="timeline__toggle"
+                    onClick={() => setShowFullReason(false)}
+                    aria-label="Show shorter alert reason"
+                  >
+                    Show less
+                  </button>
+                </>
+              ) : null}
+            </dd>
+          </div>
+          <div>
+            <dt>Risk</dt>
+            <dd>{formatRiskLabel(effectiveAlert.riskFinal ?? effectiveAlert.risk)}</dd>
+          </div>
+          <div>
+            <dt>Auto risk</dt>
+            <dd>{formatRiskLabel(effectiveAlert.riskAuto ?? effectiveAlert.risk)}</dd>
+          </div>
+          <div>
+            <dt>Created</dt>
+            <dd title={formatExactTime(effectiveAlert.createdAt)}>{formatRelativeTime(effectiveAlert.createdAt)}</dd>
+          </div>
+          <div>
+            <dt>Source</dt>
+            <dd>
+              {alertSourceLabel(effectiveAlert.source.type)}
+              {effectiveAlert.source.sourceId
+                ? ` (${shortReferenceLabel(effectiveAlert.source.sourceId, 'Source ref')})`
+                : ''}
+            </dd>
+          </div>
+          <div>
+            <dt>Alert ID</dt>
+            <dd>{effectiveAlert._id}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="drawer-section" aria-label="Assignment details">
+        <h3>Assignment</h3>
+        <p className="muted-text">
+          {effectiveAlert.assignedTo
+            ? `Assigned to ${effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}${
+                effectiveAlert.assignedAt ? ` at ${formatExactTime(effectiveAlert.assignedAt)}` : ''
+              }.`
+            : 'No clinician currently assigned.'}
+        </p>
+        <div className="drawer-inline-actions">
+          <span className="muted-text">Assignment changes save to the live alert record.</span>
+        </div>
+      </section>
+
+      <TriggeringEventPanel
+        event={alertContextQuery.data?.triggeringEvent}
+        loading={alertContextQuery.isFetching}
+        onFetchDetails={() => {
+          void alertContextQuery.refetch();
+        }}
+        fetchDisabled={alertContextQuery.isFetching}
+      />
+
+      <AlertTimeline events={timeline} loading={alertContextQuery.isFetching && timeline.length === 0} />
+
+      <RiskOverrideForm
+        alert={effectiveAlert}
+        saving={overridePending}
+        onSave={(payload) => onSaveRiskOverride(effectiveAlert, payload)}
+        onClear={() => onClearRiskOverride(effectiveAlert)}
+      />
+
+      <NotificationPanel
+        alert={effectiveAlert}
+        busy={retryNotificationMutation.isPending}
+        onRetry={handleRetryNotification}
+      />
+    </div>
+  ) : open ? (
+    <div className="drawer-stack" aria-label="Alert detail loading">
+      <Skeleton height={104} />
+      <Skeleton height={180} />
+      <Skeleton height={180} />
+    </div>
+  ) : null;
+
+  if (presentation === 'inline') {
+    return (
+      <>
+        {open ? (
+          <section
+            className="alerts-detail-panel"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby={DRAWER_TITLE_ID}
+            aria-describedby={DRAWER_DESCRIPTION_ID}
+            data-testid="alert-drawer"
+          >
+            <header className="alerts-detail-panel__header">
+              <div className="alerts-detail-panel__heading">
+                <p className="alerts-detail-panel__eyebrow">Persistent detail</p>
+                <h2 id={DRAWER_TITLE_ID}>Alert</h2>
+                <p className="alerts-detail-panel__subtitle">
+                  Keep patient context, ownership, and next actions visible while triage continues.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close alert drawer">
+                Close
+              </Button>
+            </header>
+            <div className="alerts-detail-panel__body">{detailContent}</div>
+            {footerActions ? <footer className="alerts-detail-panel__footer">{footerActions}</footer> : null}
+          </section>
+        ) : null}
+
+        <ConfirmDialog
+          open={showResolveConfirm}
+          title="Resolve alert now?"
+          description="This alert is still open. Resolve only if clinical follow-up is complete."
+          confirmLabel="Resolve"
+          confirmVariant="danger"
+          returnFocusRef={resolveActionRef}
+          onCancel={() => setShowResolveConfirm(false)}
+          onConfirm={handleResolveConfirmed}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <Drawer
@@ -263,221 +522,9 @@ export function AlertDetailDrawer({
         dataTestId="alert-drawer"
         onClose={onClose}
         returnFocusRef={returnFocusRef}
-        footer={
-          effectiveAlert ? (
-            <div className="drawer-footer-actions safe-bottom">
-              <Button variant="ghost" onClick={onClose} aria-label="Close alert drawer">
-                Close
-              </Button>
-              <Button
-                ref={resolveActionRef}
-                className="alerts-drawer__resolve"
-                variant="secondary"
-                disabled={resolveDisabled}
-                onClick={handleResolve}
-                aria-label="Resolve alert"
-                data-testid="alert-resolve"
-              >
-                Resolve
-              </Button>
-              <Button
-                variant="primary"
-                disabled={acknowledgeDisabled}
-                onClick={handleAcknowledge}
-                aria-label="Acknowledge alert"
-                data-testid="alert-acknowledge"
-              >
-                Acknowledge
-              </Button>
-            </div>
-          ) : null
-        }
+        footer={footerActions}
       >
-        {effectiveAlert ? (
-          <div className="drawer-stack">
-            <section className="drawer-meta" aria-label="Alert header context">
-              <h3>Alert</h3>
-              <div className="drawer-meta__badges">
-                <span className="drawer-meta__patient">Patient {effectiveAlert.patientId}</span>
-                <Badge variant={statusBadgeVariant(effectiveAlert.status)} icon>
-                  {alertStatusLabel(effectiveAlert.status)}
-                </Badge>
-                {effectiveRisk ? (
-                  <Badge variant={riskBadgeVariant(effectiveRisk)}>
-                    {formatRiskLabel(effectiveRisk)}
-                  </Badge>
-                ) : null}
-                <Badge variant={seen ? 'success' : 'new'} icon>
-                  {seen ? 'Seen' : 'Unseen'}
-                </Badge>
-                <AssignmentChip alert={effectiveAlert} clinicianId={clinicianId} />
-              </div>
-              <p id={DRAWER_DESCRIPTION_ID} className="muted-text">
-                {shortReferenceLabel(effectiveAlert._id) ?? effectiveAlert._id}. Source{' '}
-                {alertSourceLabel(effectiveAlert.source.type)}.
-              </p>
-              {patientNavigationId ? (
-                <div className="drawer-meta__actions">
-                  <Button
-                    className="alerts-drawer__open-patient"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onOpenPatient(patientNavigationId)}
-                  >
-                    Open patient
-                  </Button>
-                  <AssignmentActions
-                    alert={effectiveAlert}
-                    clinicianId={clinicianId}
-                    busy={assignmentPending}
-                    allowUnassign
-                    size="sm"
-                    onAssignToMe={onAssignToMe}
-                    onTakeOver={onTakeOver}
-                    onUnassign={onUnassign}
-                  />
-                </div>
-              ) : (
-                <div className="drawer-meta__actions">
-                  <AssignmentActions
-                    alert={effectiveAlert}
-                    clinicianId={clinicianId}
-                    busy={assignmentPending}
-                    allowUnassign
-                    size="sm"
-                    onAssignToMe={onAssignToMe}
-                    onTakeOver={onTakeOver}
-                    onUnassign={onUnassign}
-                  />
-                </div>
-              )}
-            </section>
-
-            {assignmentBlocked ? (
-              <AlertBanner variant="warning" title="Action blocked by assignment">
-                Assigned to {effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}. Take over to enable
-                acknowledge and resolve.
-              </AlertBanner>
-            ) : null}
-
-            {alertContextQuery.error ? (
-              <AlertBanner variant="warning" title="Could not load extended context">
-                {toUserMessage(asAppError(alertContextQuery.error))}
-              </AlertBanner>
-            ) : null}
-
-            {uiNotice ? <AlertBanner variant="info" title="Action note">{uiNotice}</AlertBanner> : null}
-
-            <section className="drawer-section" aria-label="Alert summary">
-              <h3>Summary</h3>
-              <dl className="summary-grid">
-                <div>
-                  <dt>Reason</dt>
-                  <dd>
-                    {reasonSummary.text}
-                    {!showFullReason && reasonSummary.truncated ? (
-                      <>
-                        {' '}
-                        <button
-                          type="button"
-                          className="timeline__toggle"
-                          onClick={() => setShowFullReason(true)}
-                          aria-label="Show full alert reason"
-                        >
-                          Show more
-                        </button>
-                      </>
-                    ) : null}
-                    {showFullReason && reasonSummary.text.length > 180 ? (
-                      <>
-                        {' '}
-                        <button
-                          type="button"
-                          className="timeline__toggle"
-                          onClick={() => setShowFullReason(false)}
-                          aria-label="Show shorter alert reason"
-                        >
-                          Show less
-                        </button>
-                      </>
-                    ) : null}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Risk</dt>
-                  <dd>{formatRiskLabel(effectiveAlert.riskFinal ?? effectiveAlert.risk)}</dd>
-                </div>
-                <div>
-                  <dt>Auto risk</dt>
-                  <dd>{formatRiskLabel(effectiveAlert.riskAuto ?? effectiveAlert.risk)}</dd>
-                </div>
-                <div>
-                  <dt>Created</dt>
-                  <dd title={formatExactTime(effectiveAlert.createdAt)}>{formatRelativeTime(effectiveAlert.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd>
-                    {alertSourceLabel(effectiveAlert.source.type)}
-                    {effectiveAlert.source.sourceId
-                      ? ` (${shortReferenceLabel(effectiveAlert.source.sourceId, 'Source ref')})`
-                      : ''}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Alert ID</dt>
-                  <dd>{effectiveAlert._id}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="drawer-section" aria-label="Assignment details">
-              <h3>Assignment</h3>
-              <p className="muted-text">
-                {effectiveAlert.assignedTo
-                  ? `Assigned to ${effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}${
-                      effectiveAlert.assignedAt
-                        ? ` at ${formatExactTime(effectiveAlert.assignedAt)}`
-                        : ''
-                    }.`
-                  : 'No clinician currently assigned.'}
-              </p>
-              <div className="drawer-inline-actions">
-                <span className="muted-text">Assignment changes save to the live alert record.</span>
-              </div>
-            </section>
-
-            <TriggeringEventPanel
-              event={alertContextQuery.data?.triggeringEvent}
-              loading={alertContextQuery.isFetching}
-              onFetchDetails={() => {
-                void alertContextQuery.refetch();
-              }}
-              fetchDisabled={alertContextQuery.isFetching}
-            />
-
-            <AlertTimeline events={timeline} loading={alertContextQuery.isFetching && timeline.length === 0} />
-
-            <RiskOverrideForm
-              alert={effectiveAlert}
-              saving={overridePending}
-              onSave={(payload) => onSaveRiskOverride(effectiveAlert, payload)}
-              onClear={() => onClearRiskOverride(effectiveAlert)}
-            />
-
-            <NotificationPanel
-              alert={effectiveAlert}
-              busy={retryNotificationMutation.isPending}
-              onRetry={handleRetryNotification}
-            />
-          </div>
-        ) : open ? (
-          <div className="drawer-stack" aria-label="Alert detail loading">
-            <Skeleton height={104} />
-            <Skeleton height={180} />
-            <Skeleton height={180} />
-          </div>
-        ) : null}
+        {detailContent}
       </Drawer>
 
       <ConfirmDialog

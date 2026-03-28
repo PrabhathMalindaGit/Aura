@@ -65,7 +65,7 @@ export function FiltersBar({
           role="group"
           aria-label="Search and source controls"
         >
-          <span className="alerts-filters__cluster-label">Search and source</span>
+          <span className="alerts-filters__cluster-label">Search alerts</span>
           <div className="alerts-filters__cluster-body">
             <label className="alerts-filters__search form-field">
               <span className="alerts-filters__label">Search</span>
@@ -106,7 +106,7 @@ export function FiltersBar({
             role="group"
             aria-label="Workflow filters"
           >
-            <span className="alerts-filters__cluster-label">Open queue</span>
+            <span className="alerts-filters__cluster-label">Open review</span>
             <div className="alerts-filters__cluster-body alerts-filters__cluster-body--workflow">
               <div className="alerts-filters__toggle-wrap">
                 <div className="alerts-filters__toggle-group" role="group" aria-label="Open alert visibility filters">
@@ -164,7 +164,7 @@ export function FiltersBar({
           role="group"
           aria-label="View controls"
         >
-          <span className="alerts-filters__cluster-label">Sort and range</span>
+          <span className="alerts-filters__cluster-label">Queue view</span>
           <div className="alerts-filters__cluster-body alerts-filters__cluster-body--view">
             <label className="alerts-filters__control form-field">
               <span className="alerts-filters__label">Time range</span>

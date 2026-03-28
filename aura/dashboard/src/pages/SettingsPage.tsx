@@ -668,12 +668,12 @@ export function SettingsPage(): JSX.Element {
   const notificationCueSummaryLabel = `${savedCommunicationCueLabel} · ${savedSafetyCueLabel}`;
 
   return (
-    <div className="page-stack dashboard-page-shell dashboard-page-shell--settings settings-page">
+    <div className="page-stack dashboard-page-shell dashboard-page-shell--settings settings-page settings-page--workspace-phase4">
       <Section
         className="dashboard-page-header dashboard-page-header--settings settings-page-header"
         eyebrow="Workspace"
-        title="Settings"
-        subtitle="Configure this browser-local clinician workspace for identity, defaults, and session protection."
+        title="Workspace"
+        subtitle="Local clinician controls for identity, defaults, authoring, and session protection."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
@@ -699,39 +699,50 @@ export function SettingsPage(): JSX.Element {
       />
 
       <div className="settings-overview-stack settings-overview-stack--console">
-        <section className="settings-summary-strip settings-summary-strip--console" aria-label="Workspace state summary">
-          <article className="settings-summary-strip__item settings-summary-strip__item--appearance">
-            <p className="settings-summary-strip__label">Appearance mode</p>
-            <p className="settings-summary-strip__value">{themeSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">{preferencesSummaryLabel}</p>
-          </article>
-          <article className="settings-summary-strip__item settings-summary-strip__item--security">
-            <p className="settings-summary-strip__label">Session guard</p>
-            <p className="settings-summary-strip__value">{sessionSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">{securityStateLabel}</p>
-          </article>
-          <article className="settings-summary-strip__item settings-summary-strip__item--identity">
-            <p className="settings-summary-strip__label">Clinician profile</p>
-            <p className="settings-summary-strip__value">{identitySummaryLabel}</p>
-            <p className="settings-summary-strip__hint">{identityStateLabel}</p>
-          </article>
-          <article className="settings-summary-strip__item settings-summary-strip__item--notifications">
-            <p className="settings-summary-strip__label">Attention cues</p>
-            <p className="settings-summary-strip__value">{attentionCueStateLabel}</p>
-            <p className="settings-summary-strip__hint">{savedQuietHoursLabel} · {notificationCueSummaryLabel}</p>
-          </article>
-          <article className="settings-summary-strip__item settings-summary-strip__item--workspace-state">
-            <p className="settings-summary-strip__label">Workspace state</p>
-            <p className="settings-summary-strip__value">{workspaceStateSummaryLabel}</p>
-            <p className="settings-summary-strip__hint">This browser only · does not sync across devices</p>
-          </article>
+        <section className="workspace-brief" aria-label="Workspace state summary">
+          <div className="workspace-brief__lead">
+            <div className="workspace-brief__copy">
+              <p className="workspace-brief__eyebrow">Workspace state</p>
+              <h3 className="workspace-brief__title">{workspaceStateSummaryLabel}</h3>
+              <p className="workspace-brief__text">
+                Keep the local clinician profile, quick protections, and reply tools aligned for the workstation in use.
+              </p>
+            </div>
+            <div className="workspace-brief__meta" aria-live="polite">
+              <span className="workspace-brief__pill">{identitySummaryLabel}</span>
+              <span className="workspace-brief__pill">{securityStateLabel}</span>
+              <span className="workspace-brief__pill">This browser only</span>
+            </div>
+          </div>
+          <div className="workspace-brief__facts" role="list" aria-label="Workspace summary facts">
+            <article className="workspace-brief__fact workspace-brief__fact--identity" role="listitem">
+              <p className="workspace-brief__fact-label">Clinician profile</p>
+              <p className="workspace-brief__fact-value">{identitySummaryLabel}</p>
+              <p className="workspace-brief__fact-detail">{identityStateLabel}</p>
+            </article>
+            <article className="workspace-brief__fact workspace-brief__fact--security" role="listitem">
+              <p className="workspace-brief__fact-label">Session guard</p>
+              <p className="workspace-brief__fact-value">{sessionSummaryLabel}</p>
+              <p className="workspace-brief__fact-detail">{securityStateLabel}</p>
+            </article>
+            <article className="workspace-brief__fact workspace-brief__fact--appearance" role="listitem">
+              <p className="workspace-brief__fact-label">Appearance</p>
+              <p className="workspace-brief__fact-value">{themeSummaryLabel}</p>
+              <p className="workspace-brief__fact-detail">{preferencesSummaryLabel}</p>
+            </article>
+            <article className="workspace-brief__fact workspace-brief__fact--notifications" role="listitem">
+              <p className="workspace-brief__fact-label">Attention cues</p>
+              <p className="workspace-brief__fact-value">{attentionCueStateLabel}</p>
+              <p className="workspace-brief__fact-detail">{savedQuietHoursLabel} · {notificationCueSummaryLabel}</p>
+            </article>
+          </div>
         </section>
 
         <section className="settings-quick-controls-band" aria-label="Quick controls">
           <div className="settings-quick-controls-band__header">
             <div className="settings-quick-controls-band__copy">
               <p className="settings-column-shell__eyebrow">Quick controls</p>
-              <h3 className="settings-column-shell__title">Workspace state and session protection</h3>
+              <h3 className="settings-column-shell__title">Immediate workspace controls</h3>
               <p className="settings-column-shell__text">
                 Keep theme, session guard, timeout behavior, and quiet hours within immediate reach.
               </p>
@@ -904,8 +915,8 @@ export function SettingsPage(): JSX.Element {
       <section className="settings-control-environment" aria-label="Settings control workspace">
         <section className="settings-control-environment__main" aria-label="Workspace defaults settings">
           <div className="settings-column-shell__intro settings-column-shell__intro--workspace">
-            <p className="settings-column-shell__eyebrow">Workspace identity and defaults</p>
-            <h3 className="settings-column-shell__title">Clinician workspace controls</h3>
+            <p className="settings-column-shell__eyebrow">Profile</p>
+            <h3 className="settings-column-shell__title">Clinician identity and defaults</h3>
             <p className="settings-column-shell__text">
               Keep identity, local defaults, and daily context aligned for the workstation in use.
             </p>
@@ -1038,10 +1049,19 @@ export function SettingsPage(): JSX.Element {
               />
             </section>
 
-            <div className="settings-profile-editor">
-              <section className="settings-field-cluster settings-field-cluster--identity">
-                <div className="settings-profile-section-label">Identity</div>
-                <div className="settings-field-cluster__grid settings-field-cluster__grid--identity">
+            <div className="settings-profile-editor settings-profile-editor--workspace">
+              <section className="workspace-form-zone workspace-form-zone--profile" aria-label="Profile settings">
+                <div className="workspace-form-zone__header">
+                  <p className="workspace-form-zone__eyebrow">Profile</p>
+                  <h4 className="workspace-form-zone__title">Clinician identity and handoff</h4>
+                  <p className="workspace-form-zone__text">
+                    Keep the saved clinician identity and local handoff context clear for the person using this workstation.
+                  </p>
+                </div>
+
+                <section className="settings-field-cluster settings-field-cluster--identity">
+                  <div className="settings-profile-section-label">Identity</div>
+                  <div className="settings-field-cluster__grid settings-field-cluster__grid--identity">
                   <label className="setting-item setting-item--field form-field" htmlFor="clinician-display-name-input">
                     <span>
                       <strong>Display name</strong>
@@ -1113,12 +1133,12 @@ export function SettingsPage(): JSX.Element {
                       aria-label="Clinician specialty"
                     />
                   </label>
-                </div>
-              </section>
+                  </div>
+                </section>
 
-              <section className="settings-field-cluster settings-field-cluster--context">
-                <div className="settings-profile-section-label">Care focus & handoff</div>
-                <div className="settings-field-cluster__grid settings-field-cluster__grid--context">
+                <section className="settings-field-cluster settings-field-cluster--context">
+                  <div className="settings-profile-section-label">Care focus & handoff</div>
+                  <div className="settings-field-cluster__grid settings-field-cluster__grid--context">
                   <label className="setting-item setting-item--field form-field" htmlFor="clinician-bio-input">
                     <span>
                       <strong>Short bio / care focus</strong>
@@ -1164,12 +1184,22 @@ export function SettingsPage(): JSX.Element {
                       aria-label="Contact or handoff note"
                     />
                   </label>
-                </div>
+                  </div>
+                </section>
               </section>
 
-              <section className="settings-field-cluster settings-field-cluster--workspace">
-                <div className="settings-profile-section-label">Workspace context</div>
-                <div className="settings-field-cluster__grid settings-field-cluster__grid--workspace">
+              <section className="workspace-form-zone workspace-form-zone--defaults" aria-label="Workspace defaults settings">
+                <div className="workspace-form-zone__header">
+                  <p className="workspace-form-zone__eyebrow">Workspace defaults</p>
+                  <h4 className="workspace-form-zone__title">Daily context and opening defaults</h4>
+                  <p className="workspace-form-zone__text">
+                    Set the local care state, working context, and clean-entry defaults this browser should remember.
+                  </p>
+                </div>
+
+                <section className="settings-field-cluster settings-field-cluster--workspace">
+                  <div className="settings-profile-section-label">Workspace context</div>
+                  <div className="settings-field-cluster__grid settings-field-cluster__grid--workspace">
                   <label className="setting-item setting-item--field form-field" htmlFor="workspace-availability-select">
                     <span>
                       <strong>Availability status</strong>
@@ -1282,12 +1312,12 @@ export function SettingsPage(): JSX.Element {
                       </label>
                     </div>
                   </fieldset>
-                </div>
-              </section>
+                  </div>
+                </section>
 
-              <section className="settings-field-cluster settings-field-cluster--defaults">
-                <div className="settings-profile-section-label">Daily defaults</div>
-                <div className="settings-field-cluster__grid settings-field-cluster__grid--defaults">
+                <section className="settings-field-cluster settings-field-cluster--defaults">
+                  <div className="settings-profile-section-label">Daily defaults</div>
+                  <div className="settings-field-cluster__grid settings-field-cluster__grid--defaults">
                   <label className="setting-item setting-item--field form-field" htmlFor="workspace-default-landing-select">
                     <span>
                       <strong>Default landing route</strong>
@@ -1357,7 +1387,8 @@ export function SettingsPage(): JSX.Element {
                       ))}
                     </select>
                   </label>
-                </div>
+                  </div>
+                </section>
               </section>
             </div>
 
@@ -1400,8 +1431,8 @@ export function SettingsPage(): JSX.Element {
 
         <aside className="settings-control-environment__side" aria-label="Session protection settings">
           <div className="settings-column-shell__intro settings-column-shell__intro--protection">
-            <p className="settings-column-shell__eyebrow">Protection</p>
-            <h3 className="settings-column-shell__title">Session safety controls</h3>
+            <p className="settings-column-shell__eyebrow">Protection & authoring</p>
+            <h3 className="settings-column-shell__title">Session safety and local reply controls</h3>
             <p className="settings-column-shell__text">
               Keep unattended access risk low while preserving browser-local scope.
             </p>
@@ -1484,7 +1515,7 @@ export function SettingsPage(): JSX.Element {
 
       <section className="settings-modules-stage" aria-label="Communication and notification settings">
         <div className="settings-column-shell__intro settings-column-shell__intro--modules">
-          <p className="settings-column-shell__eyebrow">Communication and notification defaults</p>
+          <p className="settings-column-shell__eyebrow">Protection & authoring</p>
           <h3 className="settings-column-shell__title">Authoring and local attention modules</h3>
           <p className="settings-column-shell__text">
             Keep reply drafting and in-app attention cues coordinated without changing anything outside this browser.
@@ -1884,7 +1915,7 @@ export function SettingsPage(): JSX.Element {
 
       <section className="settings-admin-zone" aria-label="Restore and maintenance actions">
         <div className="settings-column-shell__intro settings-column-shell__intro--admin">
-          <p className="settings-column-shell__eyebrow">Restore and maintenance</p>
+          <p className="settings-column-shell__eyebrow">Advanced & maintenance</p>
           <h3 className="settings-column-shell__title">Lower-priority control resets</h3>
           <p className="settings-column-shell__text">
             Keep resets separate from day-to-day controls so clinicians reach them intentionally.

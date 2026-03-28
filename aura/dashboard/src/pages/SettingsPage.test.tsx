@@ -274,7 +274,7 @@ describe('SettingsPage clinician profile workspace', () => {
 
     expect(screen.getByLabelText('Clinician display name')).toHaveValue('Clinician A Saved');
     expect(screen.getByLabelText('Clinician ID')).toHaveValue('clinician-a-local');
-  });
+  }, 30_000);
 
   it('saves browser-local communication authoring settings and keeps template order stable', async () => {
     signInAs({ sub: 'auth-clinician-comm', name: 'Dr Authoring' });

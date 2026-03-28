@@ -58,7 +58,7 @@ export function PatientsFiltersBar({
         <section className="patients-filters patients-filters--compact" aria-label="Patient filters">
           <div className="patients-filters__clusters">
             <div className="patients-filters__cluster patients-filters__cluster--search-source">
-              <span className="patients-filters__cluster-label">Find patients</span>
+              <span className="patients-filters__cluster-label">Search roster</span>
               <label className="patients-filters__search form-field">
                 <span className="patients-filters__label">Search roster</span>
                 <input
@@ -227,7 +227,7 @@ export function PatientsFiltersBar({
       <div className="patients-filters__clusters">
         <div className="patients-filters__row">
           <div className="patients-filters__cluster patients-filters__cluster--search-source">
-            <span className="patients-filters__cluster-label">Find patient</span>
+            <span className="patients-filters__cluster-label">Search roster</span>
             <label className="patients-filters__search form-field">
               <span className="patients-filters__label">Search patients</span>
               <input
@@ -242,7 +242,7 @@ export function PatientsFiltersBar({
           </div>
 
           <div className="patients-filters__cluster patients-filters__cluster--view">
-            <span className="patients-filters__cluster-label">Roster controls</span>
+            <span className="patients-filters__cluster-label">Filters and sort</span>
             <div className="patients-filters__cluster-body patients-filters__cluster-body--view">
               <label className="patients-filters__control form-field">
                 <span className="patients-filters__label">Status</span>
@@ -299,10 +299,7 @@ export function PatientsFiltersBar({
 
         <div className="patients-filters__cluster patients-filters__cluster--workflow">
           <div className="patients-filters__cluster-heading">
-            <span className="patients-filters__cluster-label">Quick filters</span>
-            <p className="patients-filters__cluster-support">
-              Narrow the roster to the patients who most likely need follow-up next.
-            </p>
+            <span className="patients-filters__cluster-label">Review filters</span>
           </div>
           <div className="patients-filters__cluster-body patients-filters__cluster-body--workflow">
             <div className="patients-filters__toggle-group" role="group" aria-label="Patient workflow toggles">

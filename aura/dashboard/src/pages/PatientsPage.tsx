@@ -7,7 +7,6 @@ import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
@@ -210,10 +209,6 @@ export function PatientsPage(): JSX.Element {
       : visibleSummary.recentlyActive > 0
         ? `${visibleSummary.recentlyActive} ${visibleSummary.recentlyActive === 1 ? 'patient checked in' : 'patients checked in'} during the last 7 days`
         : 'The current roster view is steady';
-  const workspaceHeaderSupport =
-    workspaceStatusLine === workspaceSupportLine
-      ? workspaceSupportLine
-      : `${workspaceStatusLine}. ${workspaceSupportLine}.`;
   const updatedAtLabel = connection.lastSuccessAt
     ? new Date(connection.lastSuccessAt).toLocaleTimeString([], {
         hour: '2-digit',
@@ -241,39 +236,6 @@ export function PatientsPage(): JSX.Element {
             visibleSummary.recentlyActive === 1 ? 'patient is' : 'patients are'
           } recently active in this view, with quieter review burden across the rest of the roster.`
         : 'No immediate review burden is dominating this roster view right now. Keep the cohort visible and open individual reviews as needed.';
-  const rosterMixScale = Math.max(
-    visibleSummary.active,
-    visibleSummary.onHold,
-    visibleSummary.discharged,
-    visibleSummary.needsReview,
-    1,
-  );
-  const rosterMixBars = [
-    {
-      key: 'active',
-      label: 'Active care',
-      count: visibleSummary.active,
-      width: `${(visibleSummary.active / rosterMixScale) * 100}%`,
-    },
-    {
-      key: 'review',
-      label: 'Needs review',
-      count: visibleSummary.needsReview,
-      width: `${(visibleSummary.needsReview / rosterMixScale) * 100}%`,
-    },
-    {
-      key: 'hold',
-      label: 'On hold',
-      count: visibleSummary.onHold,
-      width: `${(visibleSummary.onHold / rosterMixScale) * 100}%`,
-    },
-    {
-      key: 'discharged',
-      label: 'Discharged',
-      count: visibleSummary.discharged,
-      width: `${(visibleSummary.discharged / rosterMixScale) * 100}%`,
-    },
-  ] as const;
   const comparePatients = useMemo(() => {
     const patientById = new Map(allPatients.map((patient) => [patient.id.trim(), patient] as const));
 
@@ -454,12 +416,15 @@ export function PatientsPage(): JSX.Element {
   }, [allPatients, patientsQuery.isLoading]);
 
   return (
-    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--roster patients-page" gap="5">
+    <Stack
+      className="page-stack dashboard-page-shell dashboard-page-shell--roster patients-page patients-page--roster-phase4"
+      gap="5"
+    >
       <Section
         className="dashboard-page-header dashboard-page-header--roster patients-page-header"
         eyebrow="Care roster"
-        title="Patients"
-        subtitle="Scan the broader care roster before opening a deeper patient review."
+        title="Roster"
+        subtitle="Scan the active roster, narrow fast, and open the right patient without extra dashboard furniture."
         actions={
           <Button
             variant="secondary"
@@ -490,315 +455,257 @@ export function PatientsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <section className="patients-summary-strip" aria-label="Patient roster summary">
-        <article className="patients-summary-strip__lead">
-          <div className="patients-summary-strip__lead-copy">
-            <p className="patients-summary-strip__eyebrow">Roster console</p>
-            <div className="patients-summary-strip__headline">
-              <p className="patients-summary-strip__lead-value">{visiblePatients.length}</p>
-              <div className="patients-summary-strip__headline-copy">
-                <p className="patients-summary-strip__headline-title">{summaryLeadTitle}</p>
-                <p className="patients-summary-strip__hint">{summaryLeadNarrative}</p>
-              </div>
-            </div>
-            <div className="patients-summary-strip__lead-pills" aria-live="polite">
-              <span className="patients-summary-strip__lead-pill">{rosterViewLabel}</span>
-              <span className="patients-summary-strip__lead-pill">{reviewBurdenLabel}</span>
-              <span className="patients-summary-strip__lead-pill">Updated {updatedAtLabel}</span>
-            </div>
+      <section className="roster-brief" aria-label="Roster summary">
+        <div className="roster-brief__lead">
+          <div className="roster-brief__copy">
+            <p className="roster-brief__eyebrow">Roster in view</p>
+            <h3 className="roster-brief__title">{summaryLeadTitle}</h3>
+            <p className="roster-brief__text">{summaryLeadNarrative}</p>
           </div>
-          <div className="patients-summary-strip__comparison" aria-label="Roster mix">
-            <div className="patients-summary-strip__comparison-copy">
-              <p className="patients-summary-strip__comparison-label">Roster mix</p>
-              <p className="patients-summary-strip__comparison-note">
-                Compare the visible cohort across active care, review burden, on-hold monitoring, and discharged follow-through.
-              </p>
-            </div>
-            <div className="patients-summary-strip__comparison-bars">
-              {rosterMixBars.map((bar) => (
-                <div key={bar.key} className="patients-summary-strip__comparison-row">
-                  <span className="patients-summary-strip__comparison-row-label">{bar.label}</span>
-                  <div className="patients-summary-strip__comparison-track" aria-hidden="true">
-                    <span
-                      className={`patients-summary-strip__comparison-fill patients-summary-strip__comparison-fill--${bar.key}`}
-                      style={{ width: bar.width }}
-                    />
-                  </div>
-                  <span className="patients-summary-strip__comparison-count">{bar.count}</span>
-                </div>
-              ))}
-            </div>
+          <div className="roster-brief__meta" aria-live="polite">
+            <span className="roster-brief__pill">{rosterViewLabel}</span>
+            <span className="roster-brief__pill">{reviewBurdenLabel}</span>
+            <span className="roster-brief__pill">Updated {updatedAtLabel}</span>
           </div>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--total">
-          <p className="patients-summary-strip__label">Roster in view</p>
-          <p className="patients-summary-strip__value">{visiblePatients.length}</p>
-          <p className="patients-summary-strip__hint">of {rosterSummary.total} total patients</p>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--active">
-          <p className="patients-summary-strip__label">Active care</p>
-          <p className="patients-summary-strip__value">{visibleSummary.active}</p>
-          <p className="patients-summary-strip__hint">
-            {visibleSummary.onHold} on hold · {visibleSummary.discharged} discharged
-          </p>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--attention">
-          <p className="patients-summary-strip__label">Needs review</p>
-          <p className="patients-summary-strip__value">{visibleSummary.needsReview}</p>
-          <p className="patients-summary-strip__hint">
-            {visibleSummary.openAlerts} with active alerts in view
-          </p>
-        </article>
-        <article className="patients-summary-strip__item patients-summary-strip__item--active">
-          <p className="patients-summary-strip__label">Recently active</p>
-          <p className="patients-summary-strip__value">{visibleSummary.recentlyActive}</p>
-          <p className="patients-summary-strip__hint">Checked in during the last 7 days</p>
-        </article>
+        </div>
+        <div className="roster-brief__facts" role="list" aria-label="Roster priorities">
+          <article className="roster-brief__fact roster-brief__fact--total" role="listitem">
+            <p className="roster-brief__fact-label">Roster in view</p>
+            <p className="roster-brief__fact-value">{visiblePatients.length}</p>
+            <p className="roster-brief__fact-detail">of {rosterSummary.total} total patients</p>
+          </article>
+          <article className="roster-brief__fact roster-brief__fact--attention" role="listitem">
+            <p className="roster-brief__fact-label">Needs review</p>
+            <p className="roster-brief__fact-value">{visibleSummary.needsReview}</p>
+            <p className="roster-brief__fact-detail">{visibleSummary.openAlerts} with active alerts</p>
+          </article>
+          <article className="roster-brief__fact roster-brief__fact--active" role="listitem">
+            <p className="roster-brief__fact-label">Active care</p>
+            <p className="roster-brief__fact-value">{visibleSummary.active}</p>
+            <p className="roster-brief__fact-detail">
+              {visibleSummary.onHold} on hold · {visibleSummary.discharged} discharged
+            </p>
+          </article>
+          <article className="roster-brief__fact roster-brief__fact--fresh" role="listitem">
+            <p className="roster-brief__fact-label">Recently active</p>
+            <p className="roster-brief__fact-value">{visibleSummary.recentlyActive}</p>
+            <p className="roster-brief__fact-detail">Checked in during the last 7 days</p>
+          </article>
+        </div>
       </section>
 
-      <Card
-        className="patients-workspace-card"
-        title={
-          <span className="patients-card-title">
-            <span className="patients-card-title__eyebrow">Roster workspace</span>
-            <span className="patients-card-title__row">
-              <span className="patients-card-title__text">Care roster console</span>
-              <span className="patients-card-title__meta">{rosterViewLabel}</span>
-            </span>
-            <span className="patients-card-title__support">{workspaceHeaderSupport}</span>
-          </span>
-        }
-        action={
-          <div className="patients-workspace-card__facts" aria-live="polite">
-            <span className="patients-workspace-card__fact">{visibleSummary.needsReview} need review</span>
-            <span className="patients-workspace-card__fact">{visibleSummary.openAlerts} with alerts</span>
-            <span className="patients-workspace-card__fact">{visibleSummary.recentlyActive} active 7d</span>
+      <section className="roster-surface" aria-label="Roster workspace">
+        <header className="roster-surface__header">
+          <div className="roster-surface__intro">
+            <p className="roster-surface__eyebrow">Roster workspace</p>
+            <h3 className="roster-surface__title">Scan and open</h3>
+            <p className="roster-surface__text">
+              {workspaceStatusLine}. {workspaceSupportLine}.
+            </p>
           </div>
-        }
-      >
-        <Stack gap="4">
-          <div className="patients-workspace-card__command-strip">
-            <div className="patients-workspace-card__command-copy">
-              <p className="patients-workspace-card__command-eyebrow">What needs attention now</p>
-              <p className="patients-workspace-card__command-title">{summaryLeadTitle}</p>
-              <p className="patients-workspace-card__command-text">{summaryLeadNarrative}</p>
-            </div>
-            <div className="patients-workspace-card__command-facts" aria-live="polite">
-              <span className="patients-workspace-card__fact patients-workspace-card__fact--emphasis">
-                {visibleSummary.needsReview} review now
-              </span>
-              <span className="patients-workspace-card__fact">{visibleSummary.active} active care</span>
-              <span className="patients-workspace-card__fact">{visibleSummary.recentlyActive} recently active</span>
-            </div>
+          <div className="roster-surface__meta" aria-live="polite">
+            <span className="roster-surface__meta-pill">{rosterViewLabel}</span>
+            <span className="roster-surface__meta-pill">{visibleSummary.needsReview} need review</span>
+            <span className="roster-surface__meta-pill">Updated {updatedAtLabel}</span>
           </div>
-          <div className="patients-workspace-card__controls">
-            <div className="patients-workspace-card__control-overview">
-              <div className="patients-triage-presets" role="group" aria-label="Quick triage views">
-                <span className="patients-triage-presets__label">Quick triage views</span>
-                <div className="patients-triage-presets__items">
-                  {PATIENT_TRIAGE_PRESETS.map((preset) => {
-                    const isActive = activeTriagePreset?.id === preset.id;
+        </header>
 
-                    return (
-                      <Button
-                        key={preset.id}
-                        className={`patients-triage-presets__button${
-                          isActive ? ' patients-triage-presets__button--active' : ''
-                        }`}
-                        variant={isActive ? 'secondary' : 'ghost'}
-                        size="sm"
-                        aria-pressed={isActive}
-                        onClick={() => {
-                          applyNonSearchFilters(preset.filters);
-                        }}
-                      >
-                        {preset.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="patients-roster-cues" aria-label="Roster cues guide">
-                <p className="patients-roster-cues__eyebrow">Roster cues</p>
-                <div className="patients-roster-cues__items">
-                  <span className="patients-roster-cues__item">Alert burden shows current open-alert count only</span>
-                  <span className="patients-roster-cues__item">Pain level shows the latest reported score only</span>
-                </div>
+        <div className="roster-toolbar">
+          <div className="roster-toolbar__presets" role="group" aria-label="Quick triage views">
+            <span className="roster-toolbar__label">Review focus</span>
+            <div className="roster-toolbar__preset-items">
+              {PATIENT_TRIAGE_PRESETS.map((preset) => {
+                const isActive = activeTriagePreset?.id === preset.id;
+
+                return (
+                  <Button
+                    key={preset.id}
+                    className={
+                      isActive
+                        ? 'roster-toolbar__preset roster-toolbar__preset--active'
+                        : 'roster-toolbar__preset'
+                    }
+                    variant={isActive ? 'secondary' : 'ghost'}
+                    size="sm"
+                    aria-pressed={isActive}
+                    onClick={() => {
+                      applyNonSearchFilters(preset.filters);
+                    }}
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          <PatientsFiltersBar
+            filters={filters}
+            onSearchChange={(search) => {
+              searchPersistenceEnabledRef.current = true;
+              setFilters((current) => ({ ...current, search }));
+            }}
+            onStatusChange={(status) => applyNonSearchFilters({ status })}
+            onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
+              applyNonSearchFilters({ hasOpenAlertsOnly })
+            }
+            onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
+              applyNonSearchFilters({ missedCheckinsOnly })
+            }
+            onRecentlyActiveChange={(recentlyActive) => applyNonSearchFilters({ recentlyActive })}
+            onSortChange={(sort) => applyNonSearchFilters({ sort })}
+            onReset={clearSavedPatientsState}
+          />
+
+          <p className="roster-toolbar__note">
+            Alert burden shows current open-alert count only. Pain level shows the latest reported score only.
+          </p>
+        </div>
+
+        {comparePatients.length > 0 ? (
+          <div
+            className="patients-compare-tray patients-compare-tray--phase4"
+            role="group"
+            aria-label="Patients selected for compare"
+          >
+            <div className="patients-compare-tray__summary" aria-live="polite">
+              <span className="patients-compare-tray__count">{comparePatients.length} selected</span>
+              <div className="patients-compare-tray__chips">
+                {comparePatients.map((patient) => (
+                  <span key={patient.id} className="patients-compare-tray__chip">
+                    {getPatientDisplayName(patient)}
+                  </span>
+                ))}
               </div>
             </div>
-            <PatientsFiltersBar
-              filters={filters}
-              onSearchChange={(search) => {
-                searchPersistenceEnabledRef.current = true;
-                setFilters((current) => ({ ...current, search }));
-              }}
-              onStatusChange={(status) => applyNonSearchFilters({ status })}
-              onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-                applyNonSearchFilters({ hasOpenAlertsOnly })
-              }
-              onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-                applyNonSearchFilters({ missedCheckinsOnly })
-              }
-              onRecentlyActiveChange={(recentlyActive) =>
-                applyNonSearchFilters({ recentlyActive })
-              }
-              onSortChange={(sort) => applyNonSearchFilters({ sort })}
-              onReset={clearSavedPatientsState}
-            />
-            {comparePatients.length > 0 ? (
-              <div
-                className="patients-compare-tray"
-                role="group"
-                aria-label="Patients selected for compare"
+            <div className="patients-compare-tray__actions">
+              <Button variant="ghost" size="sm" onClick={clearComparePatients}>
+                Clear
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={openCompareMode}
+                disabled={comparePatients.length < 2}
+                aria-label={`Compare ${comparePatients.length} selected patient${
+                  comparePatients.length === 1 ? '' : 's'
+                }`}
               >
-                <div className="patients-compare-tray__summary" aria-live="polite">
-                  <span className="patients-compare-tray__count">
-                    {comparePatients.length} selected
-                  </span>
-                  <div className="patients-compare-tray__chips">
-                    {comparePatients.map((patient) => (
-                      <span key={patient.id} className="patients-compare-tray__chip">
-                        {getPatientDisplayName(patient)}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="patients-compare-tray__actions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearComparePatients}
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={openCompareMode}
-                    disabled={comparePatients.length < 2}
-                    aria-label={`Compare ${comparePatients.length} selected patient${
-                      comparePatients.length === 1 ? '' : 's'
-                    }`}
-                  >
-                    Compare selected ({comparePatients.length})
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+                Compare selected ({comparePatients.length})
+              </Button>
+            </div>
           </div>
+        ) : null}
 
-          <div className="patients-workspace-card__roster-stage">
-            {showInitialLoading ? (
-              <div className="patients-skeleton" aria-label="Patients loading placeholder">
-                <Skeleton height={64} />
-                <Skeleton height={64} />
-                <Skeleton height={64} />
-                <Skeleton height={64} />
+        <div className="roster-surface__results">
+          {showInitialLoading ? (
+            <div className="patients-skeleton" aria-label="Patients loading placeholder">
+              <Skeleton height={64} />
+              <Skeleton height={64} />
+              <Skeleton height={64} />
+              <Skeleton height={64} />
+            </div>
+          ) : endpointMissing ? (
+            <StatusPanel
+              variant="info"
+              title="Patients list not available yet"
+              description="The backend endpoint /clinician/patients is not implemented."
+              actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
+              hint={
+                <details className="status-panel__details">
+                  <summary>Show developer hint</summary>
+                  <p className="muted-text">{PATIENTS_ENDPOINT_HINT}</p>
+                </details>
+              }
+              details={{
+                endpoint: '/clinician/patients',
+                status: 404,
+                timestamp: connection.lastErrorAt
+                  ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
+                  : undefined,
+              }}
+            />
+          ) : genericError && !staleDataAvailable && errorView ? (
+            <StatusPanel
+              variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
+              title="Unable to load patients"
+              description={errorView.description}
+              actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
+              details={{
+                endpoint: connection.lastEndpoint,
+                status: connection.lastHttpStatus,
+                timestamp: connection.lastErrorAt
+                  ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                    })
+                  : undefined,
+              }}
+            />
+          ) : blockingOfflineVisible ? (
+            <StatusPanel
+              variant="info"
+              title="Offline"
+              description="No cached patient list is available yet. Reconnect and retry."
+              actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
+            />
+          ) : allPatients.length === 0 ? (
+            <div className="patients-empty-state patients-empty-state--clear" role="status" aria-live="polite">
+              <div className="patients-empty-state__title-row">
+                <span className="patients-empty-state__icon" aria-hidden="true">
+                  ✓
+                </span>
+                <h3 className="patients-empty-state__title">No patient records yet</h3>
               </div>
-            ) : endpointMissing ? (
-              <StatusPanel
-                variant="info"
-                title="Patients list not available yet"
-                description="The backend endpoint /clinician/patients is not implemented."
-                actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
-                hint={
-                  <details className="status-panel__details">
-                    <summary>Show developer hint</summary>
-                    <p className="muted-text">{PATIENTS_ENDPOINT_HINT}</p>
-                  </details>
-                }
-                details={{
-                  endpoint: '/clinician/patients',
-                  status: 404,
-                  timestamp: connection.lastErrorAt
-                    ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })
-                    : undefined,
-                }}
-              />
-            ) : genericError && !staleDataAvailable && errorView ? (
-              <StatusPanel
-                variant={errorView.variant === 'warning' ? 'error' : errorView.variant}
-                title="Unable to load patients"
-                description={errorView.description}
-                actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
-                details={{
-                  endpoint: connection.lastEndpoint,
-                  status: connection.lastHttpStatus,
-                  timestamp: connection.lastErrorAt
-                    ? new Date(connection.lastErrorAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })
-                    : undefined,
-                }}
-              />
-            ) : blockingOfflineVisible ? (
-              <StatusPanel
-                variant="info"
-                title="Offline"
-                description="No cached patient list is available yet. Reconnect and retry."
-                actions={<RetryButton onRetry={retryPatients} loading={patientsQuery.isFetching} />}
-              />
-            ) : allPatients.length === 0 ? (
-              <div className="patients-empty-state patients-empty-state--clear" role="status" aria-live="polite">
-                <div className="patients-empty-state__title-row">
-                  <span className="patients-empty-state__icon" aria-hidden="true">
-                    ✓
-                  </span>
-                  <h3 className="patients-empty-state__title">No patient records yet</h3>
-                </div>
-                <p className="patients-empty-state__description">
-                  No patient records are available yet. This roster will populate as patient check-ins, alerts, and care activity begin to appear.
-                </p>
-                <p className="patients-empty-state__meta">Last updated {updatedAtLabel}</p>
+              <p className="patients-empty-state__description">
+                No patient records are available yet. This roster will populate as patient check-ins, alerts, and care activity begin to appear.
+              </p>
+              <p className="patients-empty-state__meta">Last updated {updatedAtLabel}</p>
+            </div>
+          ) : visiblePatients.length === 0 ? (
+            <div className="patients-empty-state patients-empty-state--filtered" role="status" aria-live="polite">
+              <div className="patients-empty-state__title-row">
+                <span className="patients-empty-state__icon" aria-hidden="true">
+                  ⌕
+                </span>
+                <h3 className="patients-empty-state__title">No patients match this view</h3>
               </div>
-            ) : visiblePatients.length === 0 ? (
-              <div className="patients-empty-state patients-empty-state--filtered" role="status" aria-live="polite">
-                <div className="patients-empty-state__title-row">
-                  <span className="patients-empty-state__icon" aria-hidden="true">
-                    ⌕
-                  </span>
-                  <h3 className="patients-empty-state__title">No patients match this view</h3>
-                </div>
-                <p className="patients-empty-state__description">
-                  {filteredEmptyDescription}
-                </p>
-                <div className="patients-empty-state__actions">
-                  <Button
-                    className="patients-empty-state__reset"
-                    variant="secondary"
-                    size="sm"
-                    onClick={clearSavedPatientsState}
-                  >
-                    Reset filters
-                  </Button>
-                </div>
+              <p className="patients-empty-state__description">{filteredEmptyDescription}</p>
+              <div className="patients-empty-state__actions">
+                <Button
+                  className="patients-empty-state__reset"
+                  variant="secondary"
+                  size="sm"
+                  onClick={clearSavedPatientsState}
+                >
+                  Reset filters
+                </Button>
               </div>
-            ) : isMobileLayout ? (
-              <PatientCardList
-                patients={visiblePatients}
-                onOpenPatient={openPatientFromRoster}
-                selectedComparePatientIds={comparePatientIds}
-                onToggleComparePatient={toggleComparePatient}
-                compareSelectionLimitReached={compareSelectionLimitReached}
-              />
-            ) : (
-              <PatientsTable
-                patients={visiblePatients}
-                onOpenPatient={openPatientFromRoster}
-                selectedComparePatientIds={comparePatientIds}
-                onToggleComparePatient={toggleComparePatient}
-                compareSelectionLimitReached={compareSelectionLimitReached}
-              />
-            )}
-          </div>
-        </Stack>
-      </Card>
+            </div>
+          ) : isMobileLayout ? (
+            <PatientCardList
+              patients={visiblePatients}
+              onOpenPatient={openPatientFromRoster}
+              selectedComparePatientIds={comparePatientIds}
+              onToggleComparePatient={toggleComparePatient}
+              compareSelectionLimitReached={compareSelectionLimitReached}
+            />
+          ) : (
+            <PatientsTable
+              patients={visiblePatients}
+              onOpenPatient={openPatientFromRoster}
+              selectedComparePatientIds={comparePatientIds}
+              onToggleComparePatient={toggleComparePatient}
+              compareSelectionLimitReached={compareSelectionLimitReached}
+            />
+          )}
+        </div>
+      </section>
     </Stack>
   );
 }

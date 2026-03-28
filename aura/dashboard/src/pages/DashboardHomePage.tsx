@@ -51,6 +51,7 @@ type DashboardAnalyticsCardProps = {
   rows?: DashboardAnalyticsSegment[];
   emptyLabel: string;
   footnote: string;
+  variant?: 'lead' | 'support' | 'compact';
 };
 
 type DashboardAttentionSignalTone = 'risk' | 'warning' | 'primary' | 'success' | 'neutral';
@@ -214,9 +215,10 @@ function DashboardAnalyticsCard({
   rows,
   emptyLabel,
   footnote,
+  variant = 'support',
 }: DashboardAnalyticsCardProps): JSX.Element {
   return (
-    <article className="dashboard-analytics-card">
+    <article className={`dashboard-analytics-card dashboard-analytics-card--${variant}`}>
       <div className="dashboard-analytics-card__header">
         <p className="dashboard-analytics-card__eyebrow">{eyebrow}</p>
         <h3 className="dashboard-analytics-card__title">{title}</h3>
@@ -1023,11 +1025,12 @@ export function DashboardHomePage(): JSX.Element {
           </div>
         </div>
 
-        <div className="dashboard-analytics-band__grid">
+        <div className="dashboard-analytics-band__stage">
           <DashboardAnalyticsCard
             eyebrow="Safety"
             title="Safety workload"
             subtitle="Queue pressure and recent feed mix."
+            variant="lead"
             headline={
               <div className="dashboard-analytics-card__headline-stack">
                 <strong>{typeof safetyHeadlineCount === 'number' ? safetyHeadlineCount : '—'}</strong>
@@ -1051,41 +1054,54 @@ export function DashboardHomePage(): JSX.Element {
             }
           />
 
-          <DashboardAnalyticsCard
-            eyebrow="Communication"
-            title="Communication burden"
-            subtitle="Follow-up state across patient-linked threads."
-            headline={
-              <div className="dashboard-analytics-card__headline-stack">
-                <strong>{communicationNeedsResponseCount}</strong>
-                <span>
-                  {communicationNeedsResponseCount === 1
-                    ? 'thread needs response'
-                    : 'threads need response'}
-                </span>
-              </div>
-            }
-            stats={[
-              { label: 'Safety flagged', value: communicationSafetyFlaggedCount },
-              { label: 'Follow-up requested', value: communicationFollowUpRequestedCount },
-            ]}
-            rows={communicationRows}
-            emptyLabel="No communication follow-up is waiting right now."
-            footnote={
-              communicationSafetyFlaggedCount > 0
-                ? `${communicationSafetyFlaggedCount} ${
-                    communicationSafetyFlaggedCount === 1
-                      ? 'thread carries safety-sensitive language.'
-                      : 'threads carry safety-sensitive language.'
-                  }`
-                : 'Routine message follow-through currently leads this queue.'
-            }
-          />
+          <div className="dashboard-analytics-band__support-stack">
+            <DashboardAnalyticsCard
+              eyebrow="Communication"
+              title="Communication burden"
+              subtitle="Follow-up state across patient-linked threads."
+              variant="support"
+              headline={
+                <div className="dashboard-analytics-card__headline-stack">
+                  <strong>{communicationNeedsResponseCount}</strong>
+                  <span>
+                    {communicationNeedsResponseCount === 1
+                      ? 'thread needs response'
+                      : 'threads need response'}
+                  </span>
+                </div>
+              }
+              stats={[
+                { label: 'Safety flagged', value: communicationSafetyFlaggedCount },
+                { label: 'Follow-up requested', value: communicationFollowUpRequestedCount },
+              ]}
+              rows={communicationRows}
+              emptyLabel="No communication follow-up is waiting right now."
+              footnote={
+                communicationSafetyFlaggedCount > 0
+                  ? `${communicationSafetyFlaggedCount} ${
+                      communicationSafetyFlaggedCount === 1
+                        ? 'thread carries safety-sensitive language.'
+                        : 'threads carry safety-sensitive language.'
+                    }`
+                  : 'Routine message follow-through currently leads this queue.'
+              }
+            />
 
+            <div className="dashboard-analytics-band__bridge" aria-label="Supporting operational context">
+              <p className="dashboard-analytics-band__bridge-eyebrow">Supporting context</p>
+              <p className="dashboard-analytics-band__bridge-copy">
+                Backlog and scheduling stay visible below the live safety and communication pressure so the command lane remains the story.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-analytics-band__support-grid">
           <DashboardAnalyticsCard
             eyebrow="Insights"
             title="Insights backlog"
             subtitle="Pending review pressure and mix."
+            variant="compact"
             headline={
               <div className="dashboard-analytics-card__headline-stack">
                 <strong>{pendingInsightsCount}</strong>
@@ -1107,6 +1123,7 @@ export function DashboardHomePage(): JSX.Element {
             eyebrow="Scheduling"
             title="Scheduling balance"
             subtitle={`Visible demand and capacity for ${schedulingRange.label}.`}
+            variant="compact"
             headline={
               <div className="dashboard-analytics-card__headline-split">
                 <div className="dashboard-analytics-card__headline-stack">

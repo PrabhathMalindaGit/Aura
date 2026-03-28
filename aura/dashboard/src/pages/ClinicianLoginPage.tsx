@@ -50,7 +50,7 @@ function reasonMessage(reason: LoginReason | undefined): string {
     return 'You signed out of the dashboard.';
   }
 
-  return 'Sign in with your clinician account to access the command center, alerts, and patient data.';
+  return "Sign in with your clinician account to access today's queue, patient review, inbox, and schedule coordination.";
 }
 
 function toSafeRedirectPath(candidate: string | undefined): string {
@@ -160,107 +160,169 @@ export function ClinicianLoginPage(): JSX.Element {
 
   return (
     <div className="auth-entry-page login-page">
-      <div className="auth-entry-shell">
-        <section className="auth-entry-intro" aria-label="Clinician dashboard access">
-          <p className="auth-entry-intro__eyebrow">Aura platform</p>
-          <h1 className="auth-entry-intro__title">Aura Clinician Dashboard</h1>
-          <p className="auth-entry-intro__subtitle">
-            Secure access for clinician review, triage, and patient monitoring.
-          </p>
-          <div className="auth-entry-intro__facts" aria-label="Clinician access context">
-            <span className="auth-entry-intro__fact">Secure clinician access</span>
-            <span className="auth-entry-intro__fact">Operational review workspace</span>
+      <div className="auth-entry-shell auth-entry-shell--login">
+        <section className="login-access-frame" aria-label="Clinician dashboard access">
+          <header className="login-access-brief">
+            <div className="login-access-brief__copy">
+              <p className="auth-entry-intro__eyebrow">Aura clinician workspace</p>
+              <h1 className="login-access-brief__title">Clinician access</h1>
+              <p className="login-access-brief__text">
+                Secure entry to the review queue, patient cockpit, and clinical follow-through
+                workspace.
+              </p>
+            </div>
+            <div className="login-access-brief__facts" aria-label="Clinician access context">
+              <span className="login-access-brief__fact">Queue, inbox, and schedule</span>
+              <span className="login-access-brief__fact">Protected patient review</span>
+              <span className="login-access-brief__fact">Return to current workflow</span>
+            </div>
+          </header>
+
+          <div className="login-access-grid">
+            <Card
+              className="login-card auth-surface-card login-card--editorial"
+              title={
+                <span className="login-card__title-shell">
+                  <span className="login-card__eyebrow">Clinician sign in</span>
+                  <span className="login-card__title">Enter your credentials</span>
+                </span>
+              }
+              action={
+                showDemoCredentials ? (
+                  <span className="login-card__action-note">Local demo available</span>
+                ) : null
+              }
+            >
+              <div className="page-stack login-card__stack">
+                <section className="login-context" aria-live="polite">
+                  <div className="login-context__header">
+                    <span className="login-context__state">{reasonLabel(state.reason)}</span>
+                    <span className="login-context__summary">
+                      {state.reason === 'expired'
+                        ? 'Re-enter to continue clinician review.'
+                        : state.reason === 'signedOut'
+                          ? 'Access has been closed for this session.'
+                          : 'Protected access is required.'}
+                    </span>
+                  </div>
+                  <p className="login-context__message">{reasonMessage(state.reason)}</p>
+                </section>
+
+                {error ? (
+                  <AlertBanner className="login-error-banner" variant="error" title="Sign-in failed">
+                    {error}
+                  </AlertBanner>
+                ) : null}
+
+                <form className="login-form" onSubmit={(event) => void handleSubmit(event)}>
+                  <label className="login-field" htmlFor="login-email">
+                    <span>Email</span>
+                    <input
+                      id="login-email"
+                      type="email"
+                      value={email}
+                      autoComplete="username"
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="clinician@example.com"
+                      required
+                    />
+                  </label>
+
+                  <div className="login-field login-field--password">
+                    <div className="login-field__header">
+                      <label htmlFor="login-password">Password</label>
+                      <button
+                        type="button"
+                        className="login-field__toggle"
+                        onClick={() => setShowPassword((current) => !current)}
+                        aria-controls="login-password"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      autoComplete="current-password"
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+
+                  <div className="login-form__support">
+                    <button
+                      type="button"
+                      className="login-form__link"
+                      aria-expanded={forgotPasswordHelpOpen}
+                      onClick={() => setForgotPasswordHelpOpen((current) => !current)}
+                    >
+                      Forgot password?
+                    </button>
+                    {forgotPasswordHelpOpen ? (
+                      <p className="login-form__help" role="note">
+                        Password recovery is handled outside this dashboard right now. Use your clinic
+                        administrator&apos;s recovery process before trying again.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="inline-actions login-actions">
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? 'Signing in...' : 'Sign in'}
+                    </Button>
+                    {showDemoCredentials ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
+                          setEmail(DEMO_EMAIL);
+                          setPassword(DEMO_PASSWORD);
+                        }}
+                      >
+                        Use local demo credentials
+                      </Button>
+                    ) : null}
+                  </div>
+                </form>
+              </div>
+            </Card>
+
+            <aside className="login-access-trust" aria-label="Access context">
+              <div className="login-access-trust__panel">
+                <p className="login-access-trust__eyebrow">Before you enter</p>
+                <h2 className="login-access-trust__title">
+                  Clinician work resumes from the same protected workspace.
+                </h2>
+                <p className="login-access-trust__text">
+                  Sign in to continue patient review, response handling, safety triage, and schedule
+                  coordination.
+                </p>
+              </div>
+
+              <div className="login-access-trust__facts">
+                <div className="login-access-trust__fact">
+                  <p className="login-access-trust__fact-label">Review</p>
+                  <p className="login-access-trust__fact-text">Queue, patients, and today&apos;s priorities.</p>
+                </div>
+                <div className="login-access-trust__fact">
+                  <p className="login-access-trust__fact-label">Follow-through</p>
+                  <p className="login-access-trust__fact-text">Inbox, safety, and scheduling stay behind sign-in.</p>
+                </div>
+                {showDemoCredentials ? (
+                  <div className="login-access-trust__fact login-access-trust__fact--demo">
+                    <p className="login-access-trust__fact-label">Local development</p>
+                    <p className="login-access-trust__fact-text">
+                      Demo credentials are available on this local device only.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </aside>
           </div>
         </section>
-
-        <Card className="login-card auth-surface-card" title="Clinician sign in">
-          <div className="page-stack login-card__stack">
-            <section className="login-context" aria-live="polite">
-              <span className="login-context__state">{reasonLabel(state.reason)}</span>
-              <p className="login-context__message">{reasonMessage(state.reason)}</p>
-            </section>
-
-            {error ? (
-              <AlertBanner className="login-error-banner" variant="error" title="Sign-in failed">
-                {error}
-              </AlertBanner>
-            ) : null}
-
-            <form className="login-form" onSubmit={(event) => void handleSubmit(event)}>
-              <label className="login-field" htmlFor="login-email">
-                <span>Email</span>
-                <input
-                  id="login-email"
-                  type="email"
-                  value={email}
-                  autoComplete="username"
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="clinician@example.com"
-                  required
-                />
-              </label>
-
-              <div className="login-field login-field--password">
-                <div className="login-field__header">
-                  <label htmlFor="login-password">Password</label>
-                  <button
-                    type="button"
-                    className="login-field__toggle"
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-controls="login-password"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-                <input
-                  id="login-password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  autoComplete="current-password"
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <div className="login-form__support">
-                <button
-                  type="button"
-                  className="login-form__link"
-                  aria-expanded={forgotPasswordHelpOpen}
-                  onClick={() => setForgotPasswordHelpOpen((current) => !current)}
-                >
-                  Forgot password?
-                </button>
-                {forgotPasswordHelpOpen ? (
-                  <p className="login-form__help" role="note">
-                    Password recovery is handled outside this dashboard right now. Use your clinic
-                    administrator&apos;s recovery process before trying again.
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="inline-actions login-actions">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Signing in...' : 'Sign in'}
-                </Button>
-                {showDemoCredentials ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      setEmail(DEMO_EMAIL);
-                      setPassword(DEMO_PASSWORD);
-                    }}
-                  >
-                    Use local demo credentials
-                  </Button>
-                ) : null}
-              </div>
-            </form>
-          </div>
-        </Card>
       </div>
     </div>
   );

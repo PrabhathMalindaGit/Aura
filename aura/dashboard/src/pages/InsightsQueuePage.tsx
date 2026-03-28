@@ -997,9 +997,9 @@ export function InsightsQueuePage(): JSX.Element {
     <div className="page-stack dashboard-page-shell dashboard-page-shell--insights insights-page">
       <Section
         className="dashboard-page-header dashboard-page-header--insights insights-page-header"
-        eyebrow="Clinical review"
-        title="Insights"
-        subtitle="Review pending guidance, move the right suggestions into workflow, and confirm what was already handled in this queue view."
+        eyebrow="Specialized review"
+        title="Guidance review"
+        subtitle="Specialized queue for clinician review of suggested guidance outside the main review surface."
         actions={
           <Button
             variant="secondary"
@@ -1018,7 +1018,7 @@ export function InsightsQueuePage(): JSX.Element {
         <section className="insights-summary-strip" aria-label="Insights queue summary">
           <article className={`insights-summary-strip__lead insights-summary-strip__lead--${queueState.tone}`}>
             <div className="insights-summary-strip__lead-copy">
-              <p className="insights-summary-strip__eyebrow">Guidance review status</p>
+              <p className="insights-summary-strip__eyebrow">Guidance queue status</p>
               <div className="insights-summary-strip__headline">
                 <p className="insights-summary-strip__lead-value">{pendingCount}</p>
                 <div className="insights-summary-strip__headline-copy">
@@ -1081,8 +1081,8 @@ export function InsightsQueuePage(): JSX.Element {
         title={
           <span className="insights-workspace-card__title insights-workspace-card__title-shell">
             <span className="insights-workspace-card__title-copy">
-              <span className="insights-workspace-card__title-eyebrow">Guidance review queue</span>
-              <span className="insights-workspace-card__title-text">Clinician review console</span>
+              <span className="insights-workspace-card__title-eyebrow">Specialized queue</span>
+              <span className="insights-workspace-card__title-text">Guidance review console</span>
             </span>
             <span className="insights-workspace-card__title-side">
               <span className="insights-workspace-card__title-count">
@@ -1128,7 +1128,7 @@ export function InsightsQueuePage(): JSX.Element {
             }`}
           >
             <div className="insights-queue-context__copy">
-              <p className="insights-queue-context__eyebrow">Review path</p>
+              <p className="insights-queue-context__eyebrow">Review mode</p>
               <h3 className="insights-queue-context__title">
                 {activeView === 'pending' ? 'Priority items lead this queue' : viewConfig.titleMeta}
               </h3>

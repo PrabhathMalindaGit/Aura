@@ -689,6 +689,7 @@ export function AppointmentsPage(): JSX.Element {
     () => sortSlotsByStart(scheduleSlotsQuery.data ?? []),
     [scheduleSlotsQuery.data],
   );
+  const hasScheduleSlotsInRange = scheduleSlots.length > 0;
   const slots = useMemo(
     () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === slotStatus),
     [scheduleSlots, slotStatus],
@@ -842,6 +843,10 @@ export function AppointmentsPage(): JSX.Element {
     scheduleView === 'week'
       ? 'No open or closed slots are present in the current fetched week. Move to another week or publish availability when demand needs coverage.'
       : 'No open or closed slots are present in the current fetched day. Move to another day or publish availability when demand needs coverage.';
+  const scheduleSurfaceEmptyDescription =
+    pendingRequestsCount > 0 && slotStatus === 'available'
+      ? slotsEmptyDescription
+      : scheduleEmptyDescription;
   const slotsDetailTitle = slotStatus === 'available' ? 'Open capacity detail' : 'Closed capacity detail';
   const slotsDetailNote =
     slotStatus === 'available'
@@ -853,6 +858,7 @@ export function AppointmentsPage(): JSX.Element {
     [scheduleSlots],
   );
   const visibleClosedSlotsCount = Math.max(scheduleSlots.length - visibleOpenSlotsCount, 0);
+  const hasScheduleErrorWithoutData = Boolean(scheduleSlotsQuery.error) && !hasScheduleSlotsInRange;
   const selectedRequest = useMemo(
     () => requests.find((item) => item.requestId === selectedRequestId) ?? requests[0] ?? null,
     [requests, selectedRequestId],
@@ -1370,6 +1376,10 @@ export function AppointmentsPage(): JSX.Element {
             <section
               className={`appointments-workspace__section appointments-workspace__section--requests${
                 requestStatus === 'pending' ? ' appointments-workspace__section--requests-active' : ''
+              }${
+                !requestsQuery.isLoading && requests.length === 0
+                  ? ' appointments-workspace__section--requests-empty'
+                  : ''
               }`}
               aria-label="Appointment requests"
             >
@@ -1432,7 +1442,11 @@ export function AppointmentsPage(): JSX.Element {
                   <Skeleton height={96} />
                 </div>
               ) : requests.length === 0 ? (
-                <div className="appointments-empty-state appointments-empty-state--requests" role="status" aria-live="polite">
+                <div
+                  className="appointments-empty-state appointments-empty-state--requests appointments-empty-state--compact"
+                  role="status"
+                  aria-live="polite"
+                >
                   <div className="appointments-empty-state__title-row">
                     <span className="appointments-empty-state__icon" aria-hidden="true">
                       ✓
@@ -1632,6 +1646,10 @@ export function AppointmentsPage(): JSX.Element {
             <section
               className={`appointments-workspace__section appointments-workspace__section--slots${
                 slotStatus === 'available' ? ' appointments-workspace__section--slots-available' : ''
+              }${
+                !scheduleSlotsQuery.isLoading && !hasScheduleSlotsInRange
+                  ? ' appointments-workspace__section--slots-empty'
+                  : ''
               }`}
               aria-label="Schedule"
             >
@@ -1769,224 +1787,228 @@ export function AppointmentsPage(): JSX.Element {
                 </div>
               ) : (
                 <>
-                  {scheduleSlots.length === 0 ? (
-                    <div className="appointments-empty-state appointments-empty-state--slots" role="status" aria-live="polite">
+                  {!hasScheduleErrorWithoutData && !hasScheduleSlotsInRange ? (
+                    <div
+                      className="appointments-empty-state appointments-empty-state--slots appointments-empty-state--compact"
+                      role="status"
+                      aria-live="polite"
+                    >
                       <div className="appointments-empty-state__title-row">
                         <span className="appointments-empty-state__icon" aria-hidden="true">
                           ⏱
                         </span>
                         <h3 className="appointments-empty-state__title">{scheduleEmptyTitle}</h3>
                       </div>
-                      <p className="appointments-empty-state__description">{scheduleEmptyDescription}</p>
+                      <p className="appointments-empty-state__description">{scheduleSurfaceEmptyDescription}</p>
                     </div>
                   ) : null}
-                  {scheduleView === 'week' ? (
-                    <div className="appointments-schedule-week" data-testid="appointments-schedule-week">
-                      {scheduleRange.dayKeys.map((dayKey) => {
-                        const daySlots = scheduleSlotsByDay.get(dayKey) ?? [];
-                        const isToday = dayKey === todayDateKey;
-                        const isRequestDay =
-                          selectedRequestDayKey !== null &&
-                          requestScheduleContext?.inRange === true &&
-                          selectedRequestDayKey === dayKey;
+                  {hasScheduleSlotsInRange ? (
+                    scheduleView === 'week' ? (
+                      <div className="appointments-schedule-week" data-testid="appointments-schedule-week">
+                        {scheduleRange.dayKeys.map((dayKey) => {
+                          const daySlots = scheduleSlotsByDay.get(dayKey) ?? [];
+                          const isToday = dayKey === todayDateKey;
+                          const isRequestDay =
+                            selectedRequestDayKey !== null &&
+                            requestScheduleContext?.inRange === true &&
+                            selectedRequestDayKey === dayKey;
 
-                        return (
-                          <section
-                            key={dayKey}
-                            className={`appointments-schedule-day${
-                              isToday ? ' appointments-schedule-day--today' : ''
-                            }${isRequestDay ? ' appointments-schedule-day--request-context' : ''}`}
-                            aria-label={`Schedule for ${formatDayHeader(dayKey)}`}
-                          >
-                            <header className="appointments-schedule-day__header">
-                              <p className="appointments-schedule-day__title">{formatDayHeader(dayKey)}</p>
-                              <p className="appointments-schedule-day__meta">
-                                {daySlots.length === 0
-                                  ? 'No fetched slots'
-                                  : `${daySlots.length} slot${daySlots.length === 1 ? '' : 's'}`}
-                              </p>
-                            </header>
-                            {daySlots.length === 0 ? (
-                              <p className="appointments-schedule-day__empty">
-                                No visible capacity in this day.
-                              </p>
-                            ) : (
-                              <div className="appointments-schedule-day__slots">
-                                {daySlots.map((slot) => renderScheduleSlot(slot))}
-                              </div>
-                            )}
-                          </section>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="appointments-schedule-day-agenda" data-testid="appointments-schedule-day">
-                      <header className="appointments-schedule-day-agenda__header">
-                        <p className="appointments-schedule-day-agenda__title">{scheduleRange.label}</p>
-                        <p className="appointments-schedule-day-agenda__meta">
-                          {scheduleSlots.length === 0
-                            ? 'No fetched slots in this day'
-                            : `${scheduleSlots.length} slot${scheduleSlots.length === 1 ? '' : 's'} visible`}
-                        </p>
-                      </header>
-                      {scheduleSlots.length === 0 ? (
-                        <p className="appointments-schedule-day__empty">
-                          No visible capacity in this day.
-                        </p>
-                      ) : (
+                          return (
+                            <section
+                              key={dayKey}
+                              className={`appointments-schedule-day${
+                                isToday ? ' appointments-schedule-day--today' : ''
+                              }${isRequestDay ? ' appointments-schedule-day--request-context' : ''}`}
+                              aria-label={`Schedule for ${formatDayHeader(dayKey)}`}
+                            >
+                              <header className="appointments-schedule-day__header">
+                                <p className="appointments-schedule-day__title">{formatDayHeader(dayKey)}</p>
+                                <p className="appointments-schedule-day__meta">
+                                  {daySlots.length === 0
+                                    ? 'No fetched slots'
+                                    : `${daySlots.length} slot${daySlots.length === 1 ? '' : 's'}`}
+                                </p>
+                              </header>
+                              {daySlots.length === 0 ? (
+                                <p className="appointments-schedule-day__empty">
+                                  No visible capacity in this day.
+                                </p>
+                              ) : (
+                                <div className="appointments-schedule-day__slots">
+                                  {daySlots.map((slot) => renderScheduleSlot(slot))}
+                                </div>
+                              )}
+                            </section>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="appointments-schedule-day-agenda" data-testid="appointments-schedule-day">
+                        <header className="appointments-schedule-day-agenda__header">
+                          <p className="appointments-schedule-day-agenda__title">{scheduleRange.label}</p>
+                          <p className="appointments-schedule-day-agenda__meta">
+                            {`${scheduleSlots.length} slot${scheduleSlots.length === 1 ? '' : 's'} visible`}
+                          </p>
+                        </header>
                         <div className="appointments-schedule-day-agenda__slots">
                           {scheduleSlots.map((slot) => renderScheduleSlot(slot))}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )
+                  ) : null}
                 </>
               )}
 
-              <div className="appointments-workspace__divider" />
+              {hasScheduleSlotsInRange ? (
+                <>
+                  <div className="appointments-workspace__divider" />
 
-              <div className="appointments-schedule-detail">
-                <header className="appointments-workspace__section-header appointments-schedule-detail__header">
-                  <div className="appointments-workspace__section-heading">
-                    <h4 className="appointments-workspace__section-title">{slotsDetailTitle}</h4>
-                    <p className="appointments-workspace__section-note">{slotsDetailNote}</p>
-                  </div>
-                  <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
-                    {slotViewLabel}
-                  </Badge>
-                </header>
-                <div className="appointments-filter-group appointments-filter-group--segmented">
-                  <Button
-                    variant={slotStatus === 'available' ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => {
-                      handleSlotStatusChange('available');
-                    }}
-                  >
-                    Open capacity
-                  </Button>
-                  <Button
-                    variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => {
-                      handleSlotStatusChange('closed');
-                    }}
-                  >
-                    Closed capacity
-                  </Button>
-                </div>
-
-                {scheduleSlotsQuery.isLoading && scheduleSlots.length === 0 ? (
-                  <div className="appointments-skeleton" aria-label="Appointment slots loading placeholder">
-                    <Skeleton height={88} />
-                    <Skeleton height={88} />
-                    <Skeleton height={88} />
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div className="appointments-empty-state appointments-empty-state--slots" role="status" aria-live="polite">
-                    <div className="appointments-empty-state__title-row">
-                      <span className="appointments-empty-state__icon" aria-hidden="true">
-                        ⏱
-                      </span>
-                      <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
-                    </div>
-                    <p className="appointments-empty-state__description">{slotsEmptyDescription}</p>
-                    <div className="appointments-empty-state__footer">
-                      <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
+                  <div className="appointments-schedule-detail">
+                    <header className="appointments-workspace__section-header appointments-schedule-detail__header">
+                      <div className="appointments-workspace__section-heading">
+                        <h4 className="appointments-workspace__section-title">{slotsDetailTitle}</h4>
+                        <p className="appointments-workspace__section-note">{slotsDetailNote}</p>
+                      </div>
+                      <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
+                        {slotViewLabel}
+                      </Badge>
+                    </header>
+                    <div className="appointments-filter-group appointments-filter-group--segmented">
                       <Button
-                        variant="secondary"
+                        variant={slotStatus === 'available' ? 'primary' : 'secondary'}
                         size="sm"
-                        disabled={isRefreshingWorkspace}
                         onClick={() => {
-                          void handleRefreshWorkspace();
+                          handleSlotStatusChange('available');
                         }}
                       >
-                        Refresh
+                        Open capacity
+                      </Button>
+                      <Button
+                        variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
+                        size="sm"
+                        onClick={() => {
+                          handleSlotStatusChange('closed');
+                        }}
+                      >
+                        Closed capacity
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="stack stack--2">
-                    {slots.map((slot) => {
-                      const resolvedStatus = slot.status ?? 'available';
-                      const readinessLabel =
-                        resolvedStatus === 'available'
-                          ? 'Ready to absorb demand'
-                          : 'Not open for new bookings';
 
-                      return (
-                        <div
-                          key={slot.slotId}
-                          className={`appointments-item appointments-item--slot${
-                            resolvedStatus === 'available'
-                              ? ' appointments-item--slot-available'
-                              : ' appointments-item--slot-closed'
-                          }${
-                            slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
-                              ? ' appointments-item--slot-just-published'
-                              : ''
-                          }${
-                            selectedRequest !== null &&
-                            requestScheduleContext?.inRange === true &&
-                            rangesOverlap(
-                              slot.startsAt,
-                              slot.endsAt,
-                              selectedRequest.startsAt,
-                              selectedRequest.endsAt,
-                            )
-                              ? ' appointments-item--slot-request-context'
-                              : ''
-                          }`}
-                        >
-                          <div className="appointments-item__header">
-                            <div className="appointments-item__title-group">
-                              <p className="appointments-item__eyebrow">
-                                {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
-                              </p>
-                              <p className="appointments-item__title">{formatTimeRange(slot.startsAt, slot.endsAt)}</p>
-                              <p className="appointments-item__subtitle">{formatCalendarDay(slot.startsAt)}</p>
-                              <p className="appointments-item__support">{readinessLabel}</p>
-                            </div>
-                            <Badge variant={toStatusVariant(resolvedStatus)}>
-                              {resolvedStatus.toUpperCase()}
-                            </Badge>
-                          </div>
-                          <div className="appointments-item__schedule appointments-item__schedule--capacity">
-                            <p className="appointments-item__schedule-label">
-                              {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
-                            </p>
-                            <p className="appointments-item__schedule-value">{readinessLabel}</p>
-                            <p className="appointments-item__schedule-support">
-                              {slotStatus === 'available'
-                                ? 'Ready if reviewed demand needs this time.'
-                                : 'Kept for schedule reference after changes or completed sessions.'}
-                            </p>
-                          </div>
-                          <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                            <span className="appointments-item__meta-chip">Video visit</span>
-                            {slot.clinicianName ? (
-                              <span className="appointments-item__meta-chip">Clinician {slot.clinicianName}</span>
-                            ) : null}
-                            {slot.createdAt ? (
-                              <span className="appointments-item__meta-chip">
-                                Created {formatDateTime(slot.createdAt)}
-                              </span>
-                            ) : null}
-                          </div>
-                          {slot.meetingLink ? (
-                            <p className="appointments-item__meta appointments-item__meta--link">
-                              Meeting link:{' '}
-                              <a href={slot.meetingLink} target="_blank" rel="noreferrer">
-                                {slot.meetingLink}
-                              </a>
-                            </p>
-                          ) : null}
+                    {slots.length === 0 ? (
+                      <div
+                        className="appointments-empty-state appointments-empty-state--slots appointments-empty-state--compact"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <div className="appointments-empty-state__title-row">
+                          <span className="appointments-empty-state__icon" aria-hidden="true">
+                            ⏱
+                          </span>
+                          <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
                         </div>
-                      );
-                    })}
+                        <p className="appointments-empty-state__description">{slotsEmptyDescription}</p>
+                        <div className="appointments-empty-state__footer">
+                          <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={isRefreshingWorkspace}
+                            onClick={() => {
+                              void handleRefreshWorkspace();
+                            }}
+                          >
+                            Refresh
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="stack stack--2">
+                        {slots.map((slot) => {
+                          const resolvedStatus = slot.status ?? 'available';
+                          const readinessLabel =
+                            resolvedStatus === 'available'
+                              ? 'Ready to absorb demand'
+                              : 'Not open for new bookings';
+
+                          return (
+                            <div
+                              key={slot.slotId}
+                              className={`appointments-item appointments-item--slot${
+                                resolvedStatus === 'available'
+                                  ? ' appointments-item--slot-available'
+                                  : ' appointments-item--slot-closed'
+                              }${
+                                slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
+                                  ? ' appointments-item--slot-just-published'
+                                  : ''
+                              }${
+                                selectedRequest !== null &&
+                                requestScheduleContext?.inRange === true &&
+                                rangesOverlap(
+                                  slot.startsAt,
+                                  slot.endsAt,
+                                  selectedRequest.startsAt,
+                                  selectedRequest.endsAt,
+                                )
+                                  ? ' appointments-item--slot-request-context'
+                                  : ''
+                              }`}
+                            >
+                              <div className="appointments-item__header">
+                                <div className="appointments-item__title-group">
+                                  <p className="appointments-item__eyebrow">
+                                    {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
+                                  </p>
+                                  <p className="appointments-item__title">
+                                    {formatTimeRange(slot.startsAt, slot.endsAt)}
+                                  </p>
+                                  <p className="appointments-item__subtitle">{formatCalendarDay(slot.startsAt)}</p>
+                                  <p className="appointments-item__support">{readinessLabel}</p>
+                                </div>
+                                <Badge variant={toStatusVariant(resolvedStatus)}>
+                                  {resolvedStatus.toUpperCase()}
+                                </Badge>
+                              </div>
+                              <div className="appointments-item__schedule appointments-item__schedule--capacity">
+                                <p className="appointments-item__schedule-label">
+                                  {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
+                                </p>
+                                <p className="appointments-item__schedule-value">{readinessLabel}</p>
+                                <p className="appointments-item__schedule-support">
+                                  {slotStatus === 'available'
+                                    ? 'Ready if reviewed demand needs this time.'
+                                    : 'Kept for schedule reference after changes or completed sessions.'}
+                                </p>
+                              </div>
+                              <div className="appointments-item__meta-row appointments-item__meta-row--primary">
+                                <span className="appointments-item__meta-chip">Video visit</span>
+                                {slot.clinicianName ? (
+                                  <span className="appointments-item__meta-chip">
+                                    Clinician {slot.clinicianName}
+                                  </span>
+                                ) : null}
+                                {slot.createdAt ? (
+                                  <span className="appointments-item__meta-chip">
+                                    Created {formatDateTime(slot.createdAt)}
+                                  </span>
+                                ) : null}
+                              </div>
+                              {slot.meetingLink ? (
+                                <p className="appointments-item__meta appointments-item__meta--link">
+                                  Meeting link:{' '}
+                                  <a href={slot.meetingLink} target="_blank" rel="noreferrer">
+                                    {slot.meetingLink}
+                                  </a>
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              ) : null}
             </section>
           </div>
         </div>

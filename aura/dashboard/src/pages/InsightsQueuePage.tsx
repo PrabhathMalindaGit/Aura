@@ -466,7 +466,6 @@ export function InsightsQueuePage(): JSX.Element {
     rejectedInsightsQuery.isFetching ||
     patientsQuery.isFetching;
   const isReviewSubmitting = isSubmittingId !== null || batchActionStatus !== null;
-  const pendingCountLabel = `${pendingCount} awaiting review`;
   const priorityReviewShare = pendingCount > 0 ? Math.round((priorityReviewItems.length / pendingCount) * 100) : 0;
   const reviewMixTotal = pendingCount + approvedCount + rejectedCount;
   const reviewMixSegments = [

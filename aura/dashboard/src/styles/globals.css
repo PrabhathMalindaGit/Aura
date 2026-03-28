@@ -37781,6 +37781,10 @@ button.dashboard-summary-strip__item:hover {
     .patient-detail-title__eyebrow,
     .patient-detail-section-eyebrow,
     .patient-detail-current-context__eyebrow,
+    .patient-detail-cockpit-signals__eyebrow,
+    .patient-priority-list__eyebrow,
+    .patient-recommended-actions__eyebrow,
+    .recent-alert-list__eyebrow,
     .patient-detail-mini-nav__eyebrow,
     .patient-detail-reference-bridge__eyebrow,
     .patient-handoff-panel__scope-eyebrow,
@@ -37831,7 +37835,13 @@ button.dashboard-summary-strip__item:hover {
     .alerts-page .alerts-status-tabs__label,
     .settings-quick-note__label,
     .settings-display-context__label,
+    .settings-security-panel__fact span,
+    .settings-security-panel__note-label,
+    .settings-admin-action__eyebrow,
     .patient-detail-page .patient-detail-cockpit-signal__label,
+    .patient-detail-page .recent-alert-list__source,
+    .patient-detail-page .patient-task-groups__overview-fact span,
+    .patient-detail-page .patient-communication-overview__fact span,
     .patient-pain-level__label,
     .appointments-schedule-slot__label
   ) {
@@ -37915,7 +37925,9 @@ button.dashboard-summary-strip__item:hover {
     .worklist-page .worklist-summary-strip__hint,
     .alerts-page .alerts-summary-strip__metric-hint,
     .settings-page .settings-summary-strip--console .settings-summary-strip__hint,
-    .patient-detail-page .patient-detail-cockpit-signal__note
+    .patient-detail-page .patient-detail-cockpit-signal__note,
+    .settings-page .settings-security-panel__fact p,
+    .settings-page .settings-security-panel__note p:last-child
   ) {
   font-size: var(--label-size-compact);
   line-height: var(--label-leading);
@@ -37926,7 +37938,253 @@ button.dashboard-summary-strip__item:hover {
     .worklist-page .worklist-summary-strip__hint,
     .alerts-page .alerts-summary-strip__metric-hint,
     .settings-page .settings-summary-strip--console .settings-summary-strip__hint,
-    .patient-detail-page .patient-detail-cockpit-signal__note
+    .patient-detail-page .patient-detail-cockpit-signal__note,
+    .settings-page .settings-security-panel__fact p,
+    .settings-page .settings-security-panel__note p:last-child
   ) {
   color: hsl(var(--muted-foreground) / var(--micro-copy-alpha));
+}
+
+/* Final production hardening: content-width container bridges for high-risk dashboard layouts. */
+
+@container dashboard-page (max-width: 1180px) {
+  .dashboard-home-page--command-center .dashboard-home-command-grid,
+  .dashboard-home-page--command-center .dashboard-analytics-band__stage {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-home-page--command-center .dashboard-home-support-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container dashboard-page (max-width: 920px) {
+  .dashboard-home-page--command-center .dashboard-home-page__header .section__header,
+  .dashboard-home-page--command-center .dashboard-home-attention-hero,
+  .dashboard-home-page--command-center .dashboard-home-zone__header {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-home-page--command-center .dashboard-home-page__header .section__header {
+    align-items: start;
+  }
+
+  .dashboard-home-page--command-center .dashboard-home-zone__header {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .dashboard-home-page--command-center .dashboard-home-attention-hero__signals,
+  .dashboard-home-page--command-center .dashboard-home-support-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-home-page--command-center .dashboard-analytics-band__support-grid,
+  .dashboard-home-page--command-center .dashboard-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-home-page--command-center .dashboard-summary-strip__item,
+  .dashboard-home-page--command-center .dashboard-summary-strip__item--lead {
+    grid-column: span 1;
+  }
+}
+
+@container dashboard-page (max-width: 720px) {
+  .dashboard-home-page--command-center .dashboard-home-attention-hero__signals,
+  .dashboard-home-page--command-center .dashboard-home-support-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-home-page--command-center .dashboard-home-attention-hero__actions,
+  .dashboard-home-page--command-center .dashboard-priority-entry__top,
+  .dashboard-home-page--command-center .dashboard-priority-entry__footer,
+  .dashboard-home-page--command-center .dashboard-side-widget__top,
+  .dashboard-home-page--command-center .dashboard-side-widget__title-row,
+  .dashboard-home-page--command-center .dashboard-side-widget__footer,
+  .dashboard-home-page--command-center .dashboard-safety-feed__top,
+  .dashboard-home-page--command-center .dashboard-safety-feed__title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dashboard-home-page--command-center .dashboard-priority-entry__status {
+    justify-items: start;
+  }
+}
+
+@container dashboard-page (max-width: 640px) {
+  .dashboard-home-page--command-center .dashboard-home-summary-shell--command,
+  .dashboard-home-page--command-center .dashboard-home-attention-hero,
+  .dashboard-home-page--command-center .dashboard-home-zone,
+  .dashboard-home-page--command-center .dashboard-analytics-band--secondary {
+    padding: 18px;
+    border-radius: 26px;
+  }
+
+  .dashboard-home-page--command-center .dashboard-summary-strip,
+  .dashboard-home-page--command-center .dashboard-side-widget__item--appointments {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-home-page--command-center .dashboard-side-widget__time {
+    min-width: 0;
+    justify-self: start;
+  }
+
+  .dashboard-home-page--command-center .dashboard-module-card .card__header,
+  .dashboard-home-page--command-center .dashboard-module-card .card__body {
+    padding-inline: 16px;
+  }
+
+  .dashboard-home-page--command-center .dashboard-module-card .card__header {
+    padding-top: 18px;
+    padding-bottom: 14px;
+  }
+
+  .dashboard-home-page--command-center .dashboard-module-card .card__body {
+    padding-bottom: 16px;
+  }
+}
+
+@container dashboard-page (max-width: 1380px) {
+  .patient-detail-page .patient-detail-cockpit-layout,
+  .patient-detail-page .patient-detail-clinical-zone,
+  .patient-detail-page .patient-detail-clinical-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-cockpit-layout > .patient-detail-section-block--care-review {
+    grid-column: auto;
+  }
+
+  .patient-detail-page #patient-summary-section .patient-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patient-detail-page #patient-summary-section,
+  .patient-detail-page #patient-trends-section {
+    grid-column: auto;
+  }
+}
+
+@container dashboard-page (max-width: 980px) {
+  .patient-detail-page .patient-detail-hero-card .card__header,
+  .patient-detail-page .patient-detail-mini-nav,
+  .patient-detail-page .patient-detail-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container dashboard-page (max-width: 720px) {
+  .patient-detail-page .patient-detail-cockpit-signals__grid,
+  .patient-detail-page .patient-summary-grid,
+  .patient-detail-page .patient-task-groups__overview,
+  .patient-detail-page .patient-communication-overview,
+  .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary,
+  .patient-detail-page .patient-priority-item,
+  .patient-detail-page .patient-recommended-action,
+  .patient-detail-page .patient-appointment-item {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-priority-item__action.btn,
+  .patient-detail-page .patient-recommended-action__action.btn {
+    width: 100%;
+  }
+}
+
+@container dashboard-page (max-width: 560px) {
+  .patient-detail-page .patient-detail-actions,
+  .patient-detail-page .recent-alert-list__actions,
+  .patient-detail-page .patient-task-item__actions,
+  .patient-detail-page .patient-communication-quick-reply__footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-actions .btn,
+  .patient-detail-page .recent-alert-list__actions .btn,
+  .patient-detail-page .patient-task-item__actions .btn,
+  .patient-detail-page .patient-communication-quick-reply__footer .btn {
+    width: 100%;
+  }
+}
+
+@container dashboard-page (max-width: 1280px) {
+  .settings-page .settings-summary-strip--console {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-quick-controls-band__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settings-quick-controls-band .setting-item--theme,
+  .settings-quick-note--scope {
+    grid-column: span 2;
+  }
+
+  .settings-quick-controls-band .setting-item--toggle,
+  .settings-quick-controls-band .setting-item--field,
+  .settings-quick-note--timing {
+    grid-column: span 1;
+  }
+}
+
+@container dashboard-page (max-width: 1180px) {
+  .settings-control-environment,
+  .settings-modules-stage__grid,
+  .settings-admin-zone__actions,
+  .settings-field-cluster__grid,
+  .settings-security-panel__state,
+  .settings-display-context {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container dashboard-page (max-width: 760px) {
+  .settings-page .settings-summary-strip--console {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.8rem;
+  }
+
+  .settings-quick-controls-band__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-quick-controls-band .setting-item--theme,
+  .settings-quick-controls-band .setting-item--toggle,
+  .settings-quick-controls-band .setting-item--field,
+  .settings-quick-note--timing,
+  .settings-quick-note--scope {
+    grid-column: auto;
+  }
+
+  .settings-page .settings-group-card .card__header,
+  .settings-page .settings-group-card .card__body {
+    padding-inline: 1rem;
+  }
+
+  .settings-admin-action {
+    display: grid;
+  }
+}
+
+@container dashboard-page (max-width: 520px) {
+  .settings-page .settings-summary-strip--console {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-quick-controls-band,
+  .settings-page .settings-column-shell__intro--workspace,
+  .settings-page .settings-column-shell__intro--protection,
+  .settings-page .settings-column-shell__intro--modules,
+  .settings-page .settings-column-shell__intro--admin,
+  .settings-page .settings-group-card,
+  .settings-display-context__item,
+  .settings-field-cluster,
+  .settings-admin-action {
+    border-radius: 24px;
+  }
 }

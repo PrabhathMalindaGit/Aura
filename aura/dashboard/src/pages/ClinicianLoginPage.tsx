@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { setClinicianIdentity } from '../services/clinicianIdentity';
 import { getApiBaseUrl, setStoredClinicianToken } from '../services/apiClient';
 import { getPreferredDashboardLandingPath } from '../services/clinicianWorkspacePreferences';
+import { shouldShowDemoCredentials } from './clinicianLoginSupport';
 
 const DEMO_EMAIL = 'clinician1@example.com';
 const DEMO_PASSWORD = 'devpass123';
@@ -62,13 +63,6 @@ function toSafeRedirectPath(candidate: string | undefined): string {
   }
 
   return candidate;
-}
-
-export function shouldShowDemoCredentials(hostname?: string): boolean {
-  const normalizedHostname =
-    typeof hostname === 'string' ? hostname.trim().toLowerCase() : '';
-
-  return normalizedHostname === 'localhost' || normalizedHostname === '127.0.0.1';
 }
 
 export function ClinicianLoginPage(): JSX.Element {

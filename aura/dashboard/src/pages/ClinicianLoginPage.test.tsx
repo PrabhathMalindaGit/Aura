@@ -4,7 +4,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ClinicianLoginPage, shouldShowDemoCredentials } from './ClinicianLoginPage';
+import { ClinicianLoginPage } from './ClinicianLoginPage';
+import { shouldShowDemoCredentials } from './clinicianLoginSupport';
 import { getClinicianProfileStorageKey } from '../services/clinicianProfile';
 
 function toBase64Url(value: string): string {

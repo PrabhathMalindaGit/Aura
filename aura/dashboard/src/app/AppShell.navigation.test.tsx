@@ -161,28 +161,28 @@ describe('AppShell navigation', () => {
     expect(screen.getByText('Worklist workspace')).toBeInTheDocument();
   });
 
-  it('shows the alerts title and subtitle for the alerts workspace', () => {
+  it('shows a compact route cue for the alerts workspace instead of a full shell page header', () => {
     installResponsiveViewport(1680);
     renderShell('/alerts');
 
-    expect(screen.getByRole('heading', { name: 'Safety' })).toBeInTheDocument();
+    expect(screen.getByText('Safety', { selector: '.topbar__route-label' })).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Triage safety alerts with ownership, acknowledgment, and follow-up context.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
-  it('shows the communication title and subtitle for the communication workspace', () => {
+  it('shows a compact route cue for the communication workspace instead of a full shell page header', () => {
     installResponsiveViewport(1680);
     renderShell('/communication');
 
-    expect(screen.getByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    expect(screen.getByText('Inbox', { selector: '.topbar__route-label' })).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Patient-linked conversation review with response-needed and safety-aware follow-through.',
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
 
     const activeLink = screen.getByRole('link', { name: 'Inbox' });
     expect(activeLink).toHaveClass('sidebar-item--active');

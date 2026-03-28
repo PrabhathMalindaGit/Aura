@@ -33,7 +33,6 @@ import { cn } from '../utils/cn';
 interface ShellPageConfig {
   key: string;
   title: string;
-  subtitle: string;
 }
 
 const SHELL_PAGE_CONFIGS: Array<{
@@ -45,7 +44,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'patient-detail',
       title: 'Patient detail',
-      subtitle: 'Longitudinal patient review across risk, follow-through, and communication.',
     },
   },
   {
@@ -53,7 +51,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'worklist',
       title: 'Queue',
-      subtitle: 'Active clinician review across safety, response, appointments, and follow-through.',
     },
   },
   {
@@ -61,7 +58,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'communication',
       title: 'Inbox',
-      subtitle: 'Patient-linked conversation review with response-needed and safety-aware follow-through.',
     },
   },
   {
@@ -69,7 +65,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'alerts',
       title: 'Safety',
-      subtitle: 'Triage safety alerts with ownership, acknowledgment, and follow-up context.',
     },
   },
   {
@@ -77,7 +72,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'insights',
       title: 'Guidance',
-      subtitle: 'Compatibility review surface for pending guidance before clinician approval.',
     },
   },
   {
@@ -85,7 +79,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'appointments',
       title: 'Schedule',
-      subtitle: 'Scheduling and capacity coordination for patient follow-up.',
     },
   },
   {
@@ -93,7 +86,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'patients',
       title: 'Patients',
-      subtitle: 'Broad care roster before deeper patient review.',
     },
   },
   {
@@ -101,7 +93,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'settings',
       title: 'Settings',
-      subtitle: 'Workspace defaults, local preferences, and session protection.',
     },
   },
   {
@@ -109,7 +100,6 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'dashboard',
       title: 'Today',
-      subtitle: "Command center for today's safety, follow-up, and coordination.",
     },
   },
 ];
@@ -361,7 +351,7 @@ export function AppShell(): JSX.Element {
         !isShellMobile && sidebarMode === 'icon' && 'app-shell--sidebar-icon',
       )}
       data-shell-breakpoint={shellBreakpoint}
-      data-route-header-owner="shell"
+      data-route-header-owner="page"
     >
       {!isShellMobile ? <Sidebar mode={sidebarMode} onToggleMode={toggleSidebarMode} /> : null}
 
@@ -379,9 +369,8 @@ export function AppShell(): JSX.Element {
               </IconButton>
             ) : null}
             <div className="topbar__title-group">
-              <p className="topbar__eyebrow">Clinician workspace</p>
-              <h1 className="topbar__title">{pageConfig.title}</h1>
-              <p className="topbar__subtitle">{pageConfig.subtitle}</p>
+              <p className="topbar__eyebrow">Aura clinician workspace</p>
+              <p className="topbar__route-label">{pageConfig.title}</p>
             </div>
           </div>
 
@@ -406,7 +395,7 @@ export function AppShell(): JSX.Element {
           </form>
 
           <div className="topbar__status">
-            <div className="topbar__meta-cluster">
+            <div className="topbar__utility-cluster" aria-label="Workspace status">
               <span
                 className="topbar__datetime"
                 title={formatWorkspaceDateTimeTitle(nowMs, workspacePreferences.resolvedTimezone)}
@@ -420,31 +409,31 @@ export function AppShell(): JSX.Element {
               <span className="topbar__updated" aria-live="polite">
                 Updated {formatLastUpdated(connection.lastSuccessAt)}
               </span>
-              <Link
-                to="/settings"
-                className="topbar__identity-entry"
-                aria-label={identityEntryLabel}
-                title={identityTitle}
-              >
-                <ClinicianAvatar identity={clinicianIdentity} decorative size="md" />
-                <div className="topbar__identity-copy">
-                  <div className="topbar__identity-heading">
-                    <strong className="topbar__identity-name">{clinicianIdentity.displayName}</strong>
-                    <span
-                      className={`topbar__availability-dot topbar__availability-dot--${workspacePreferences.availabilityTone}`}
-                      title={`Local availability: ${workspacePreferences.availabilityLabel}`}
-                      aria-hidden="true"
-                    />
-                  </div>
-                  {clinicianIdentity.secondaryLine ? (
-                    <span className="topbar__identity-role">{clinicianIdentity.secondaryLine}</span>
-                  ) : null}
-                </div>
-              </Link>
-              <Button className="topbar__signout" variant="ghost" size="sm" onClick={handleSignOut}>
-                Sign out
-              </Button>
             </div>
+            <Link
+              to="/settings"
+              className="topbar__identity-entry"
+              aria-label={identityEntryLabel}
+              title={identityTitle}
+            >
+              <ClinicianAvatar identity={clinicianIdentity} decorative size="md" />
+              <div className="topbar__identity-copy">
+                <div className="topbar__identity-heading">
+                  <strong className="topbar__identity-name">{clinicianIdentity.displayName}</strong>
+                  <span
+                    className={`topbar__availability-dot topbar__availability-dot--${workspacePreferences.availabilityTone}`}
+                    title={`Local availability: ${workspacePreferences.availabilityLabel}`}
+                    aria-hidden="true"
+                  />
+                </div>
+                {clinicianIdentity.secondaryLine ? (
+                  <span className="topbar__identity-role">{clinicianIdentity.secondaryLine}</span>
+                ) : null}
+              </div>
+            </Link>
+            <Button className="topbar__signout" variant="ghost" size="sm" onClick={handleSignOut}>
+              Sign out
+            </Button>
           </div>
         </header>
 

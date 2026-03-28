@@ -182,7 +182,7 @@ describe('AppShell identity reactivity', () => {
       }),
     );
 
-    await screen.findByRole('heading', { name: 'Settings', level: 1 });
+    await screen.findByRole('heading', { name: 'Workspace', level: 1 });
     await user.clear(screen.getByLabelText('Clinician display name'));
     await user.type(screen.getByLabelText('Clinician display name'), 'Dr Elena Hall');
     await user.clear(screen.getByLabelText('Clinician role or title'));

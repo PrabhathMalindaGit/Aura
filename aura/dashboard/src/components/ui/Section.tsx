@@ -8,6 +8,7 @@ interface SectionProps extends HTMLAttributes<HTMLElement> {
   meta?: ReactNode;
   actions?: ReactNode;
   surface?: 'base' | 'emphasized' | 'critical';
+  titleAs?: 'h1' | 'h2' | 'h3' | 'h4' | 'p';
 }
 
 export function Section({
@@ -18,17 +19,25 @@ export function Section({
   meta,
   actions,
   surface = 'base',
+  titleAs,
   children,
   ...props
 }: SectionProps): JSX.Element {
   const hasMetaContent = Boolean(actions || meta);
+  const isPageHeader = className?.split(' ').includes('dashboard-page-header') ?? false;
+  const TitleTag = titleAs ?? (isPageHeader ? 'h1' : 'h2');
 
   return (
-    <section className={cn('section', className)} data-surface={surface} {...props}>
+    <section
+      className={cn('section', isPageHeader && 'section--page-header', className)}
+      data-section-role={isPageHeader ? 'page-header' : 'section'}
+      data-surface={surface}
+      {...props}
+    >
       <header className={cn('section__header', hasMetaContent && 'section__header--with-meta')}>
         <div className="section__title-group stack stack--1">
           {eyebrow ? <p className="section__eyebrow">{eyebrow}</p> : null}
-          <h2 className="section__title">{title}</h2>
+          <TitleTag className="section__title">{title}</TitleTag>
           {subtitle ? <p className="section__subtitle">{subtitle}</p> : null}
         </div>
         {hasMetaContent ? (

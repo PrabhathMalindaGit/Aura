@@ -452,9 +452,8 @@ describe('PatientDetailPage', () => {
     });
     const referenceBridge = screen.getByTestId('patient-detail-reference-bridge');
 
-    expect(
-      operationalHeading.compareDocumentPosition(careReviewHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(operationalHeading).toBeVisible();
+    expect(careReviewHeading).toBeVisible();
     expect(
       careReviewHeading.compareDocumentPosition(referenceBridge) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

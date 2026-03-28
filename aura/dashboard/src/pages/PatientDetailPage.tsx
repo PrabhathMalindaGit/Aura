@@ -1907,49 +1907,29 @@ export function PatientDetailPage(): JSX.Element {
 
   return (
     <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page">
-      <Card
-        className={`patient-detail-hero-card${
-          entryContext ? ` patient-detail-hero-card--source patient-detail-hero-card--source-${entryContext.focus}` : ''
+      <section
+        className={`patient-detail-brief${
+          entryContext ? ` patient-detail-brief--source patient-detail-brief--source-${entryContext.focus}` : ''
         }`}
-        title={
-          <div className="patient-detail-title">
-            <div className="patient-detail-title__nav">
-              <Link
-                to={returnLinkTo}
-                className={`patient-detail-back-link${
-                  entryContext ? ' patient-detail-back-link--source' : ''
-                }`}
-                data-testid="patient-detail-return-link"
-              >
-                {returnLinkLabel}
-              </Link>
-              {entrySourceCue ? (
-                <span className="patient-detail-entry-cue" data-testid="patient-detail-entry-cue">
-                  {entrySourceCue}
-                </span>
-              ) : null}
-            </div>
-            <div className="patient-detail-title__context">
-              <p className="patient-detail-title__eyebrow">Patient review</p>
-              <div className="patient-detail-title__row">
-                <span className="patient-detail-title__text">Patient {patientDisplayName}</span>
-                {patientContext?.status ? (
-                  <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
-                    {statusLabel(patientContext.status)}
-                  </Badge>
-                ) : null}
-                {patientDisplayName !== patientId ? (
-                  <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
-                ) : null}
-              </div>
-              <p className="patient-detail-title__subtitle">
-                Confirm the issue, recent trend, and follow-through before acting.
-              </p>
-            </div>
+      >
+        <div className="patient-detail-brief__topbar">
+          <div className="patient-detail-title__nav">
+            <Link
+              to={returnLinkTo}
+              className={`patient-detail-back-link${
+                entryContext ? ' patient-detail-back-link--source' : ''
+              }`}
+              data-testid="patient-detail-return-link"
+            >
+              {returnLinkLabel}
+            </Link>
+            {entrySourceCue ? (
+              <span className="patient-detail-entry-cue" data-testid="patient-detail-entry-cue">
+                {entrySourceCue}
+              </span>
+            ) : null}
           </div>
-        }
-        action={
-          <div className="patient-detail-header-actions">
+          <div className="patient-detail-brief__utility">
             <div className="patient-detail-window-tabs">
               <Tabs
                 tabs={[
@@ -1995,134 +1975,121 @@ export function PatientDetailPage(): JSX.Element {
                   navigate(`/patients/${patientId}/plan`);
                 }}
               >
-                Exercise Plan
+                Exercise plan
               </Button>
             </div>
           </div>
-        }
-      >
-        <div className="patient-detail-hero-body">
-          <div className="patient-detail-hero-grid">
-            <div
-              className={`patient-detail-current-context${
-                entryContext ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}` : ''
-              }`}
-              data-testid="patient-detail-current-context"
-            >
-              <div className="patient-detail-current-context__copy">
-                <p className="patient-detail-current-context__eyebrow">Review focus</p>
-                <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
-                <p className="patient-detail-current-context__text">{currentContextBody}</p>
-                {entryReviewHint ? (
-                  <p
-                    className="patient-detail-current-context__source-note"
-                    data-testid="patient-detail-entry-hint"
-                  >
-                    {entryReviewHint}
-                  </p>
-                ) : null}
+        </div>
+
+        <div className="patient-detail-brief__body">
+          <div className="patient-detail-brief__identity">
+            <p className="patient-detail-brief__eyebrow">Clinician cockpit</p>
+            <div className="patient-detail-brief__name-row">
+              <h1 className="patient-detail-brief__name">{patientDisplayName}</h1>
+              {patientContext?.status ? (
+                <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
+                  {statusLabel(patientContext.status)}
+                </Badge>
+              ) : null}
+            </div>
+            <div className="patient-detail-brief__meta">
+              {patientDisplayName !== patientId ? (
+                <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
+              ) : null}
+              {currentRehabPhaseTitle ? <Badge variant="neutral">{currentRehabPhaseTitle}</Badge> : null}
+              {nextPatientAppointment ? (
+                <Badge variant={nextAppointmentBadgeVariant}>
+                  {appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}
+                </Badge>
+              ) : null}
+              <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
+                {connection.online ? 'Online' : 'Offline'}
+              </Badge>
+              <span className="muted-text patient-detail-meta__updated">
+                Updated {formatLastUpdated(connection.lastSuccessAt)}
+              </span>
+            </div>
+          </div>
+
+          <div
+            className={`patient-detail-current-context patient-detail-brief__focus${
+              entryContext
+                ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}`
+                : ''
+            }`}
+            data-testid="patient-detail-current-context"
+          >
+            <div className="patient-detail-current-context__copy">
+              <p className="patient-detail-current-context__eyebrow">Immediate context</p>
+              <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
+              <p className="patient-detail-current-context__text">{currentContextBody}</p>
+              {entryReviewHint ? (
+                <p className="patient-detail-current-context__source-note" data-testid="patient-detail-entry-hint">
+                  {entryReviewHint}
+                </p>
+              ) : null}
+            </div>
+            <div className="patient-detail-current-context__facts">
+              <div className="patient-detail-current-context__fact">
+                <span>Review state</span>
+                <strong>{openAlertCount > 0 ? `${openAlertCount} active alerts` : 'No open alerts'}</strong>
               </div>
-              <div className="patient-detail-current-context__facts">
-                <div className="patient-detail-current-context__fact">
-                  <span>Open alerts</span>
-                  <strong>{openAlertCount > 0 ? `${openAlertCount} active` : 'None open'}</strong>
-                </div>
-                <div className="patient-detail-current-context__fact">
-                  <span>Active follow-up</span>
-                  <strong>{activeFollowUpCount > 0 ? `${activeFollowUpCount} waiting` : 'Queue steady'}</strong>
-                </div>
-                <div className="patient-detail-current-context__fact">
-                  <span>Next appointment</span>
-                  <strong>
-                    {nextPatientAppointment
-                      ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
-                      : 'None scheduled'}
-                  </strong>
-                </div>
+              <div className="patient-detail-current-context__fact">
+                <span>Follow-through</span>
+                <strong>{activeFollowUpCount > 0 ? `${activeFollowUpCount} items waiting` : 'Queue steady'}</strong>
+              </div>
+              <div className="patient-detail-current-context__fact">
+                <span>Next appointment</span>
+                <strong>
+                  {nextPatientAppointment
+                    ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
+                    : 'None scheduled'}
+                </strong>
               </div>
             </div>
-
-            <section className="patient-detail-cockpit-signals" aria-label="Immediate patient review signals">
-              <div className="patient-detail-cockpit-signals__header">
-                <p className="patient-detail-cockpit-signals__eyebrow">What matters now</p>
-                <strong className="patient-detail-cockpit-signals__title">Immediate patient review signals</strong>
-                <p className="patient-detail-cockpit-signals__note">
-                  Scan these first, then move into review and follow-through.
-                </p>
-              </div>
-              <div className="patient-detail-cockpit-signals__grid">
-                {patientCockpitSignals.map((signal) => (
-                  <article
-                    key={signal.label}
-                    className={`patient-detail-cockpit-signal patient-detail-cockpit-signal--${signal.tone}`}
-                  >
-                    <span className="patient-detail-cockpit-signal__label">{signal.label}</span>
-                    <strong className="patient-detail-cockpit-signal__value">{signal.value}</strong>
-                    <p className="patient-detail-cockpit-signal__note">{signal.note}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
           </div>
 
-          <div className="patient-detail-meta">
-            <Badge className="patient-detail-meta__alerts" variant={openAlertCount > 0 ? 'warning' : 'success'} icon>
-              {openAlertCount > 0 ? `${openAlertCount} open alerts` : 'No open alerts'}
-            </Badge>
-            {patientActiveTasks.length > 0 ? (
-              <Badge variant={patientActiveTasks.some((task) => task.priority === 'urgent') ? 'danger' : 'warning'}>
-                {patientActiveTasks.length} active task{patientActiveTasks.length === 1 ? '' : 's'}
-              </Badge>
-            ) : null}
-            {patientCommunicationItems.length > 0 ? (
-              <Badge variant={patientCommunicationItems.some((item) => item.flaggedBySafety) ? 'danger' : 'warning'}>
-                {patientCommunicationItems.length === 1 ? '1 thread needs review' : `${patientCommunicationItems.length} threads need review`}
-              </Badge>
-            ) : null}
-            {nextPatientAppointment ? (
-              <Badge variant={nextAppointmentBadgeVariant}>
-                {appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}
-              </Badge>
-            ) : null}
-            {currentRehabPhaseTitle ? <Badge variant="neutral">{currentRehabPhaseTitle}</Badge> : null}
-            <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
-              {connection.online ? 'Online' : 'Offline'}
-            </Badge>
-            <span className="muted-text patient-detail-meta__updated">
-              Last updated {formatLastUpdated(connection.lastSuccessAt)}
-            </span>
+          <div className="patient-detail-brief__signals" aria-label="Immediate patient review signals">
+            {patientCockpitSignals.slice(0, 4).map((signal) => (
+              <article
+                key={signal.label}
+                className={`patient-detail-brief__signal patient-detail-brief__signal--${signal.tone}`}
+              >
+                <span className="patient-detail-brief__signal-label">{signal.label}</span>
+                <strong className="patient-detail-brief__signal-value">{signal.value}</strong>
+                <p className="patient-detail-brief__signal-note">{signal.note}</p>
+              </article>
+            ))}
           </div>
         </div>
-      </Card>
 
-      <section
-        className="patient-detail-mini-nav"
-        aria-label="Patient detail section navigation"
-        data-testid="patient-detail-mini-nav"
-      >
-        <div className="patient-detail-mini-nav__copy">
-          <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
-          <p className="patient-detail-mini-nav__text">
-            Move between the main review zones.
-          </p>
-        </div>
-        <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
-          {PATIENT_DETAIL_SECTIONS.map((section) => (
-            <Button
-              key={section.id}
-              variant={activeSectionId === section.id ? 'secondary' : 'ghost'}
-              size="sm"
-              className={`patient-detail-mini-nav__button${
-                activeSectionId === section.id ? ' patient-detail-mini-nav__button--active' : ''
-              }`}
-              onClick={() => {
-                handleSectionJump(section.id);
-              }}
-            >
-              {section.label}
-            </Button>
-          ))}
-        </div>
+        <section
+          className="patient-detail-mini-nav"
+          aria-label="Patient detail section navigation"
+          data-testid="patient-detail-mini-nav"
+        >
+          <div className="patient-detail-mini-nav__copy">
+            <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
+            <p className="patient-detail-mini-nav__text">Move between the main review zones.</p>
+          </div>
+          <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
+            {PATIENT_DETAIL_SECTIONS.map((section) => (
+              <Button
+                key={section.id}
+                variant={activeSectionId === section.id ? 'secondary' : 'ghost'}
+                size="sm"
+                className={`patient-detail-mini-nav__button${
+                  activeSectionId === section.id ? ' patient-detail-mini-nav__button--active' : ''
+                }`}
+                onClick={() => {
+                  handleSectionJump(section.id);
+                }}
+              >
+                {section.label}
+              </Button>
+            ))}
+          </div>
+        </section>
       </section>
 
       {reviewIssueMessages.length > 0 ? (
@@ -2183,19 +2150,19 @@ export function PatientDetailPage(): JSX.Element {
         <div className="patient-detail-cockpit-layout__main">
           <section
             id="patient-priorities-section"
-            className="patient-detail-section-block patient-detail-section-block--attention patient-detail-section-block--cockpit"
+            className="patient-detail-lane-section patient-detail-lane-section--workboard"
           >
             <div className="patient-detail-section-header">
               <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Immediate review</p>
-                <h2 className="patient-detail-section-title">Current priorities and next steps</h2>
+                <p className="patient-detail-section-eyebrow">Clinical workboard</p>
+                <h2 className="patient-detail-section-title">Priorities and next actions</h2>
               </div>
               <p className="patient-detail-section-note">
-                Start with the current issue and the next clinician move.
+                Start here. Confirm the lead issue, then take the next clinician action.
               </p>
             </div>
-            <div className="patient-detail-attention-grid">
-              <div className="patient-detail-attention-grid__primary">
+            <div className="patient-detail-workboard-grid">
+              <div className="patient-detail-workboard-grid__primary">
                 <PatientCurrentPriorities
                   items={patientPriorities}
                   isLoading={
@@ -2210,7 +2177,7 @@ export function PatientDetailPage(): JSX.Element {
                   onAction={handleOperationalAction}
                 />
               </div>
-              <div className="patient-detail-attention-grid__secondary">
+              <div className="patient-detail-workboard-grid__secondary">
                 <RecommendedActionsPanel
                   items={recommendedActions}
                   isLoading={
@@ -2228,84 +2195,19 @@ export function PatientDetailPage(): JSX.Element {
           </section>
 
           <section
-            id="patient-trends-section"
-            className="patient-detail-section-block patient-detail-section-block--primary patient-detail-section-block--cockpit"
-          >
-            <div className="patient-detail-section-header">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Clinical review</p>
-                <h2 className="patient-detail-section-title">Trends and alert context</h2>
-              </div>
-              <p className="patient-detail-section-note">
-                Confirm the recent trajectory and current alert burden.
-              </p>
-            </div>
-
-            <div className="patient-detail-clinical-review-grid">
-              <div className="patient-detail-clinical-review-grid__trends">
-                {showTrendsLoading ? (
-                  <Card title="Trend charts">
-                    <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
-                      <Skeleton height={260} />
-                      <Skeleton height={260} />
-                      <Skeleton height={260} />
-                    </div>
-                  </Card>
-                ) : hasTrendData ? (
-                  <TrendCharts
-                    points={normalizedTrends}
-                    onSelectDate={handleDaySelect}
-                    expandedMetric={expandedTrendMetric}
-                    onExpandMetric={setExpandedTrendMetric}
-                    onCollapseMetric={() => setExpandedTrendMetric(null)}
-                  />
-                ) : (
-                  <Card title="Trend charts">
-                    <EmptyState
-                      title="No check-ins yet for this patient"
-                      description="Trend charts appear once check-ins are available in the selected window."
-                      action={
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            void trendsQuery.refetch();
-                          }}
-                        >
-                          Retry
-                        </Button>
-                      }
-                    />
-                  </Card>
-                )}
-              </div>
-
-              <div className="patient-detail-clinical-review-grid__alerts">
-                <RecentAlertsPanel
-                  alerts={patientAlerts}
-                  seenAlertMap={seenAlertMap}
-                  mutationPending={updateAlertMutation.isPending}
-                  onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-                  onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-                  onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section
             id="patient-operations-section"
-            className="patient-detail-section-block patient-detail-section-block--operational patient-detail-section-block--workflow-support"
+            className="patient-detail-lane-section patient-detail-lane-section--follow-through"
           >
             <div className="patient-detail-section-header">
               <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Operational follow-through</p>
-                <h2 className="patient-detail-section-title">Communication, tasks, and appointments</h2>
+                <p className="patient-detail-section-eyebrow">Follow-through</p>
+                <h2 className="patient-detail-section-title">Communication, tasks, and schedule</h2>
               </div>
               <p className="patient-detail-section-note">
-                Clear the active work here before moving into slower review.
+                Keep the active patient work in one lane so the next move stays obvious.
               </p>
             </div>
-            <div className="patient-detail-operations-grid">
+            <div className="patient-detail-follow-through-grid">
               <div className="patient-detail-operations-grid__communication">
                 <PatientCommunicationPanel
                   items={patientCommunicationItems}
@@ -2361,114 +2263,19 @@ export function PatientDetailPage(): JSX.Element {
 
           <section
             id="patient-care-review-section"
-            className="patient-detail-section-block patient-detail-section-block--operations patient-detail-section-block--care-review"
+            className="patient-detail-lane-section patient-detail-lane-section--guidance"
             data-testid="patient-detail-care-review"
           >
             <div className="patient-detail-section-header">
               <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Supporting review</p>
-                <h2 className="patient-detail-section-title">Care plan, questionnaires, and insight review</h2>
+                <p className="patient-detail-section-eyebrow">Guidance review</p>
+                <h2 className="patient-detail-section-title">Questionnaires and clinical guidance</h2>
               </div>
               <p className="patient-detail-section-note">
-                Use this after the active work is clear.
+                Keep guidance review close to the main cockpit, without turning it into a separate product.
               </p>
             </div>
-            <div className="patient-detail-section-grid patient-detail-section-grid--workflow">
-              <Card
-                className="patient-detail-panel patient-detail-panel--operations-primary"
-                title="Rehab phase"
-                action={
-                  <div className="patient-detail-actions">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        void patientRehabQuery.refetch();
-                      }}
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={!selectedRehabKey || isSavingRehab}
-                      onClick={() => {
-                        void handleRehabSave();
-                      }}
-                    >
-                      {isSavingRehab ? 'Saving...' : 'Save'}
-                    </Button>
-                  </div>
-                }
-              >
-                {patientRehabQuery.isLoading && !patientRehab ? (
-                  <div className="patient-detail-skeleton-grid" aria-label="Rehab phases loading placeholder">
-                    <Skeleton height={44} />
-                    <Skeleton height={80} />
-                  </div>
-                ) : !patientRehab || patientRehab.phases.length === 0 ? (
-                  <EmptyState
-                    title="No rehab phases configured"
-                    description="Initialize rehab phases by refreshing this panel."
-                    action={
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          void patientRehabQuery.refetch();
-                        }}
-                      >
-                        Retry
-                      </Button>
-                    }
-                  />
-                ) : (
-                  <div className="stack stack--3">
-                    <p className="muted-text">
-                      Current phase:{' '}
-                      <strong>
-                        {patientRehab.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ??
-                          'Not set'}
-                      </strong>
-                    </p>
-                    <label className="form-field" htmlFor="rehab-current-select">
-                      <span>Current phase</span>
-                      <select
-                        id="rehab-current-select"
-                        value={selectedRehabKey}
-                        onChange={(event) => {
-                          setSelectedRehabKey(event.currentTarget.value);
-                        }}
-                      >
-                        {patientRehab.phases.map((phase) => (
-                          <option key={phase.key} value={phase.key}>
-                            {phase.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="stack stack--2">
-                      {patientRehab.phases
-                        .slice()
-                        .sort((left, right) => left.order - right.order)
-                        .map((phase) => (
-                          <div key={phase.key}>
-                            <strong>
-                              {rehabStatusIcon(phase.status)} {phase.title}
-                            </strong>
-                            <p className="muted-text">
-                              {phase.status === 'done'
-                                ? 'Done'
-                                : phase.status === 'current'
-                                  ? 'Current'
-                                  : 'Locked'}
-                              {phase.completedAt ? ` · Completed ${new Date(phase.completedAt).toLocaleDateString()}` : ''}
-                            </p>
-                            {phase.description ? <p className="muted-text">{phase.description}</p> : null}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </Card>
-
+            <div className="patient-detail-guidance-grid">
               <Card
                 className="patient-detail-panel patient-detail-panel--operations-primary"
                 title="Questionnaires (PROMs)"
@@ -2688,96 +2495,6 @@ export function PatientDetailPage(): JSX.Element {
                   </div>
                 )}
               </Card>
-
-              <Card className="patient-detail-panel patient-detail-panel--operations-secondary" title="Weekly report">
-                <div className="stack stack--2">
-                  <p className="muted-text">
-                    View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and
-                    next steps.
-                  </p>
-                  <div className="patient-detail-actions">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(thisWeekStart)}`);
-                      }}
-                    >
-                      View this week
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(lastWeekStart)}`);
-                      }}
-                    >
-                      View last week
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-
-              <Card
-                className="patient-detail-panel patient-detail-panel--operations-secondary"
-                title="Exercise sessions"
-                action={
-                  <div className="patient-detail-actions">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        void patientSessionsQuery.refetch();
-                      }}
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        navigate(`/patients/${patientId}/sessions`);
-                      }}
-                    >
-                      View all
-                    </Button>
-                  </div>
-                }
-              >
-                {patientSessionsQuery.isLoading && patientSessions.length === 0 ? (
-                  <div className="patient-detail-skeleton-grid" aria-label="Session list loading placeholder">
-                    <Skeleton height={54} />
-                    <Skeleton height={54} />
-                  </div>
-                ) : patientSessions.length === 0 ? (
-                  <EmptyState
-                    title="No sessions yet"
-                    description="Once the patient runs a session in mobile, it will appear here."
-                  />
-                ) : (
-                  <div className="patient-sessions-list">
-                    {patientSessions.map((session) => (
-                      <button
-                        key={session.id}
-                        type="button"
-                        className="unstyled-button patient-sessions-item"
-                        onClick={() => navigate(`/patients/${patientId}/sessions/${session.id}`)}
-                      >
-                        <div>
-                          <strong>{new Date(session.startedAt).toLocaleString()}</strong>
-                          <p className="muted-text">
-                            {session.planTitle ?? 'Exercise session'} · {formatDuration(session.durationSeconds)}
-                          </p>
-                        </div>
-                        <div className="patient-sessions-metrics">
-                          <span>
-                            {session.completedCount}/{session.exerciseCount} complete
-                          </span>
-                          <span>
-                            Avg pain: {typeof session.avgPainDuring === 'number' ? `${session.avgPainDuring}/5` : '—'}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </Card>
             </div>
           </section>
         </div>
@@ -2800,43 +2517,336 @@ export function PatientDetailPage(): JSX.Element {
             <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
           </section>
 
+          <section
+            id="patient-trends-section"
+            className="patient-detail-support-section patient-detail-support-section--snapshot"
+            aria-label="Trend snapshot"
+          >
+            <div className="patient-detail-section-header patient-detail-section-header--summary">
+              <div className="patient-detail-section-heading">
+                <p className="patient-detail-section-eyebrow">Trend snapshot</p>
+                <h2 className="patient-detail-section-title">Current review window</h2>
+              </div>
+              <p className="patient-detail-section-note">Need deeper context? Open trend history below.</p>
+            </div>
+            <div className="patient-detail-support-facts">
+              <div className="patient-detail-support-fact">
+                <span>Last check-in</span>
+                <strong>
+                  {trendSummary.lastCheckinDate
+                    ? formatDashboardRelativeTime(trendSummary.lastCheckinDate)
+                    : 'No recent check-in'}
+                </strong>
+              </div>
+              <div className="patient-detail-support-fact">
+                <span>Latest pain</span>
+                <strong>
+                  {trendSummary.latestPain === null ? '—' : `${trendSummary.latestPain}/10`}
+                </strong>
+              </div>
+              <div className="patient-detail-support-fact">
+                <span>7d adherence</span>
+                <strong>
+                  {trendSummary.adherence7d === null
+                    ? '—'
+                    : `${Math.round(trendSummary.adherence7d * 100)}%`}
+                </strong>
+              </div>
+              <div className="patient-detail-support-fact">
+                <span>Schedule state</span>
+                <strong>
+                  {nextPatientAppointment
+                    ? appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)
+                    : 'None scheduled'}
+                </strong>
+              </div>
+            </div>
+          </section>
+
+          <RecentAlertsPanel
+            alerts={patientAlerts}
+            seenAlertMap={seenAlertMap}
+            mutationPending={updateAlertMutation.isPending}
+            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+            onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+          />
+
           <PatientHandoffPanel
             patientId={patientId}
             onOpenNextAction={(action) => handleOperationalAction(action)}
           />
-
-          <section
-            id="patient-reference-section"
-            className="patient-detail-reference-bridge"
-            aria-label="Deeper clinical context"
-            data-testid="patient-detail-reference-bridge"
-          >
-            <div className="patient-detail-reference-bridge__copy">
-              <p className="patient-detail-reference-bridge__eyebrow">Deeper context</p>
-              <strong className="patient-detail-reference-bridge__title">
-                Open slower history only when it helps the current review.
-              </strong>
-              <p className="patient-detail-reference-bridge__text">
-                Symptom history and support tracking stay available below without taking over the active workspace.
-              </p>
-            </div>
-            <div className="patient-detail-reference-bridge__facts">
-              <div className="patient-detail-reference-bridge__fact">
-                <span>Symptom detail</span>
-                <strong>{hasSymptomReference ? 'Available this week' : 'No recent entries'}</strong>
-              </div>
-              <div className="patient-detail-reference-bridge__fact">
-                <span>Support signals</span>
-                <strong>{hasSupportSignals ? 'Tracked this week' : 'No support logs'}</strong>
-              </div>
-              <div className="patient-detail-reference-bridge__fact">
-                <span>Care review</span>
-                <strong>{hasCareReviewItems ? `${patientPromDue.length} due · ${patientPendingInsights.length} pending` : 'No open review items'}</strong>
-              </div>
-            </div>
-          </section>
         </aside>
       </div>
+
+      <section
+        id="patient-reference-section"
+        className="patient-detail-reference-zone"
+        aria-label="Lower patient reference"
+        data-testid="patient-detail-reference-bridge"
+      >
+        <div className="patient-detail-reference-zone__header">
+          <div className="patient-detail-reference-zone__copy">
+            <p className="patient-detail-reference-bridge__eyebrow">Lower reference zone</p>
+            <strong className="patient-detail-reference-bridge__title">
+              Slower history and care-plan context stay available without taking over the cockpit.
+            </strong>
+            <p className="patient-detail-reference-bridge__text">
+              Use trend history, rehab configuration, reports, and session history only when they help the current review.
+            </p>
+          </div>
+          <div className="patient-detail-reference-bridge__facts">
+            <div className="patient-detail-reference-bridge__fact">
+              <span>Symptom detail</span>
+              <strong>{hasSymptomReference ? 'Available this week' : 'No recent entries'}</strong>
+            </div>
+            <div className="patient-detail-reference-bridge__fact">
+              <span>Support signals</span>
+              <strong>{hasSupportSignals ? 'Tracked this week' : 'No support logs'}</strong>
+            </div>
+            <div className="patient-detail-reference-bridge__fact">
+              <span>Care review</span>
+              <strong>
+                {hasCareReviewItems
+                  ? `${patientPromDue.length} due · ${patientPendingInsights.length} pending`
+                  : 'No open review items'}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="patient-detail-reference-zone__layout">
+          <section className="patient-detail-reference-zone__panel patient-detail-reference-zone__panel--trends">
+            <div className="patient-detail-section-header">
+              <div className="patient-detail-section-heading">
+                <p className="patient-detail-section-eyebrow">Trend history</p>
+                <h2 className="patient-detail-section-title">Clinical trajectory</h2>
+              </div>
+              <p className="patient-detail-section-note">Open day detail only when the current review needs it.</p>
+            </div>
+            {showTrendsLoading ? (
+              <Card title="Trend charts">
+                <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
+                  <Skeleton height={260} />
+                  <Skeleton height={260} />
+                  <Skeleton height={260} />
+                </div>
+              </Card>
+            ) : hasTrendData ? (
+              <TrendCharts
+                points={normalizedTrends}
+                onSelectDate={handleDaySelect}
+                expandedMetric={expandedTrendMetric}
+                onExpandMetric={setExpandedTrendMetric}
+                onCollapseMetric={() => setExpandedTrendMetric(null)}
+              />
+            ) : (
+              <Card title="Trend charts">
+                <EmptyState
+                  title="No check-ins yet for this patient"
+                  description="Trend charts appear once check-ins are available in the selected window."
+                  action={
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        void trendsQuery.refetch();
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  }
+                />
+              </Card>
+            )}
+          </section>
+
+          <section className="patient-detail-reference-zone__panel patient-detail-reference-zone__panel--care">
+            <Card
+              className="patient-detail-panel patient-detail-panel--operations-primary"
+              title="Rehab phase"
+              action={
+                <div className="patient-detail-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      void patientRehabQuery.refetch();
+                    }}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={!selectedRehabKey || isSavingRehab}
+                    onClick={() => {
+                      void handleRehabSave();
+                    }}
+                  >
+                    {isSavingRehab ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              }
+            >
+              {patientRehabQuery.isLoading && !patientRehab ? (
+                <div className="patient-detail-skeleton-grid" aria-label="Rehab phases loading placeholder">
+                  <Skeleton height={44} />
+                  <Skeleton height={80} />
+                </div>
+              ) : !patientRehab || patientRehab.phases.length === 0 ? (
+                <EmptyState
+                  title="No rehab phases configured"
+                  description="Initialize rehab phases by refreshing this panel."
+                  action={
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        void patientRehabQuery.refetch();
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="stack stack--3">
+                  <p className="muted-text">
+                    Current phase:{' '}
+                    <strong>
+                      {patientRehab.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ?? 'Not set'}
+                    </strong>
+                  </p>
+                  <label className="form-field" htmlFor="rehab-current-select">
+                    <span>Current phase</span>
+                    <select
+                      id="rehab-current-select"
+                      value={selectedRehabKey}
+                      onChange={(event) => {
+                        setSelectedRehabKey(event.currentTarget.value);
+                      }}
+                    >
+                      {patientRehab.phases.map((phase) => (
+                        <option key={phase.key} value={phase.key}>
+                          {phase.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="stack stack--2">
+                    {patientRehab.phases
+                      .slice()
+                      .sort((left, right) => left.order - right.order)
+                      .map((phase) => (
+                        <div key={phase.key}>
+                          <strong>
+                            {rehabStatusIcon(phase.status)} {phase.title}
+                          </strong>
+                          <p className="muted-text">
+                            {phase.status === 'done'
+                              ? 'Done'
+                              : phase.status === 'current'
+                                ? 'Current'
+                                : 'Locked'}
+                            {phase.completedAt ? ` · Completed ${new Date(phase.completedAt).toLocaleDateString()}` : ''}
+                          </p>
+                          {phase.description ? <p className="muted-text">{phase.description}</p> : null}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Card className="patient-detail-panel patient-detail-panel--operations-secondary" title="Weekly report">
+              <div className="stack stack--2">
+                <p className="muted-text">
+                  View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and
+                  next steps.
+                </p>
+                <div className="patient-detail-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(thisWeekStart)}`);
+                    }}
+                  >
+                    View this week
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(lastWeekStart)}`);
+                    }}
+                  >
+                    View last week
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              className="patient-detail-panel patient-detail-panel--operations-secondary"
+              title="Exercise sessions"
+              action={
+                <div className="patient-detail-actions">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      void patientSessionsQuery.refetch();
+                    }}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      navigate(`/patients/${patientId}/sessions`);
+                    }}
+                  >
+                    View all
+                  </Button>
+                </div>
+              }
+            >
+              {patientSessionsQuery.isLoading && patientSessions.length === 0 ? (
+                <div className="patient-detail-skeleton-grid" aria-label="Session list loading placeholder">
+                  <Skeleton height={54} />
+                  <Skeleton height={54} />
+                </div>
+              ) : patientSessions.length === 0 ? (
+                <EmptyState
+                  title="No sessions yet"
+                  description="Once the patient runs a session in mobile, it will appear here."
+                />
+              ) : (
+                <div className="patient-sessions-list">
+                  {patientSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      type="button"
+                      className="unstyled-button patient-sessions-item"
+                      onClick={() => navigate(`/patients/${patientId}/sessions/${session.id}`)}
+                    >
+                      <div>
+                        <strong>{new Date(session.startedAt).toLocaleString()}</strong>
+                        <p className="muted-text">
+                          {session.planTitle ?? 'Exercise session'} · {formatDuration(session.durationSeconds)}
+                        </p>
+                      </div>
+                      <div className="patient-sessions-metrics">
+                        <span>
+                          {session.completedCount}/{session.exerciseCount} complete
+                        </span>
+                        <span>
+                          Avg pain: {typeof session.avgPainDuring === 'number' ? `${session.avgPainDuring}/5` : '—'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </section>
+        </div>
+      </section>
 
       <section
         className={`patient-detail-section-block patient-detail-section-block--signals patient-detail-section-block--reference ${

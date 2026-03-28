@@ -53,6 +53,28 @@ function formatPromBadgeLabel(item: WorklistRecord): string | null {
   return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due`;
 }
 
+function buildFollowThroughSummary(item: WorklistRecord, promBadgeLabel: string | null): string[] {
+  const parts: string[] = [];
+
+  if (item.activeTaskCount > 0) {
+    parts.push(`${item.activeTaskCount} ${item.activeTaskCount === 1 ? 'task' : 'tasks'}`);
+  }
+
+  if (item.missedCheckins.flag) {
+    parts.push(`Missed ${item.missedCheckins.count}`);
+  }
+
+  if (promBadgeLabel) {
+    parts.push(promBadgeLabel);
+  }
+
+  if (item.nextAppointmentAt) {
+    parts.push('Appointment scheduled');
+  }
+
+  return parts;
+}
+
 export function WorklistCardList({
   items,
   onOpenPatient,
@@ -68,6 +90,7 @@ export function WorklistCardList({
         const hasCommunicationAction =
           item.communicationNeedsResponse && item.patientId.trim().length > 0;
         const promBadgeLabel = formatPromBadgeLabel(item);
+        const followThroughSummary = buildFollowThroughSummary(item, promBadgeLabel);
         const reviewLabel = getWorklistReviewLabel(item);
         const reviewSupport = getWorklistReviewSupport(item);
         const cardToneClass =
@@ -110,12 +133,12 @@ export function WorklistCardList({
                 </div>
                 <div className="worklist-card__header-side">
                   <WorklistPriorityBadge className="worklist-card__priority" item={item} />
-                  <span
+                  <p
                     className="worklist-card__updated"
                     title={formatDashboardDateTime(item.updatedAt)}
                   >
                     Updated {formatDashboardRelativeTime(item.updatedAt)}
-                  </span>
+                  </p>
                 </div>
               </div>
 
@@ -125,23 +148,18 @@ export function WorklistCardList({
               </div>
 
               <div className="worklist-card__signals">
-                <div className="worklist-card__signal-group worklist-card__signal-group--primary">
+                <div className="worklist-card__signal-group">
                   <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
                     {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
                   </Badge>
                   {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
                   {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
                 </div>
-                <div className="worklist-card__signal-group worklist-card__signal-group--secondary">
-                  {item.activeTaskCount > 0 ? <Badge variant="neutral">{item.activeTaskCount} tasks</Badge> : null}
-                  {item.missedCheckins.flag ? (
-                    <Badge variant="warning">Missed {item.missedCheckins.count}</Badge>
-                  ) : null}
-                  {promBadgeLabel ? (
-                    <Badge variant={item.proms?.overdueCount ? 'warning' : 'default'}>{promBadgeLabel}</Badge>
-                  ) : null}
-                  {hasAppointment ? <Badge variant="default">Appointment</Badge> : null}
-                </div>
+                <p className="worklist-card__signal-summary">
+                  {followThroughSummary.length > 0
+                    ? followThroughSummary.join(' · ')
+                    : 'No linked follow-through right now.'}
+                </p>
               </div>
 
               <dl className="worklist-card__activity">

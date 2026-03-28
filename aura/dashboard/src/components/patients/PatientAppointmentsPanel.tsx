@@ -83,7 +83,7 @@ export function PatientAppointmentsPanel({
       ) : items.length === 0 ? (
         <EmptyState
           title="No appointment activity to review"
-          description="Upcoming and recent appointment requests appear here."
+          description="Upcoming and recent scheduling activity appears here."
           tone="neutral"
         />
       ) : (
@@ -102,7 +102,7 @@ export function PatientAppointmentsPanel({
                 {formatDashboardTimeRange(nextItem.startsAt, nextItem.endsAt)}
               </strong>
               <p className="patient-appointment-callout__note">
-                {nextItem.note?.trim() || 'Review the current scheduling note and workflow status.'}
+                {nextItem.note?.trim() || 'Review the current scheduling note and workflow state.'}
               </p>
             </article>
           ) : null}

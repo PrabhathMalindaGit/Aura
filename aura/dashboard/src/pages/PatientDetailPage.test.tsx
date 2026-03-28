@@ -445,10 +445,10 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     const operationalHeading = await screen.findByRole('heading', {
-      name: 'Communication, tasks, and appointments',
+      name: 'Communication, tasks, and schedule',
     });
     const careReviewHeading = screen.getByRole('heading', {
-      name: 'Care plan, questionnaires, and insight review',
+      name: 'Questionnaires and clinical guidance',
     });
     const referenceBridge = screen.getByTestId('patient-detail-reference-bridge');
 
@@ -746,7 +746,7 @@ describe('PatientDetailPage', () => {
 
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     await within(communicationPanel).findByLabelText('Local clinician identity');
-    expect(within(communicationPanel).getByText('Local clinician identity')).toBeInTheDocument();
+    expect(within(communicationPanel).getByLabelText('Local clinician identity')).toBeInTheDocument();
     expect(within(communicationPanel).getByText('Dr Elena Hall')).toBeInTheDocument();
     await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' });
     const communicationTimeline = within(communicationPanel).getByRole('list', {
@@ -765,7 +765,7 @@ describe('PatientDetailPage', () => {
       'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
     );
     expect(localReply).toBeInTheDocument();
-    expect(within(communicationTimeline).getByText('Local clinician reply')).toBeInTheDocument();
+    expect(within(communicationTimeline).getByText('Local to this browser')).toBeInTheDocument();
     expect(within(communicationTimeline).getByText('Dr Elena Hall')).toBeInTheDocument();
     expect(within(communicationTimeline).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
 

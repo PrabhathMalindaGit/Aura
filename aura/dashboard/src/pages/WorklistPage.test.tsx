@@ -217,7 +217,7 @@ describe('WorklistPage', () => {
     expect(await screen.findByText('High pain escalation')).toBeInTheDocument();
     expect(screen.getByText('Missed daily check-ins')).toBeInTheDocument();
     expect(within(screen.getByTestId('worklist-row-p1')).getByText('Needs response')).toBeInTheDocument();
-    expect(within(screen.getByTestId('worklist-row-p1')).getByText('2 PROMs due (1 overdue)')).toBeInTheDocument();
+    expect(within(screen.getByTestId('worklist-row-p1')).getByText(/2 PROMs due \(1 overdue\)/)).toBeInTheDocument();
 
     const jordanRow = screen.getByTestId('worklist-row-p1');
     await userEvent.click(within(jordanRow).getByRole('button', { name: 'Open patient' }));
@@ -403,7 +403,10 @@ describe('WorklistPage', () => {
       { timeout: 3000 },
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
+    const emptyState = screen.getByRole('heading', { name: 'No patients match this view' }).closest('section');
+    expect(emptyState).not.toBeNull();
+
+    await userEvent.click(within(emptyState as HTMLElement).getByRole('button', { name: 'Reset filters' }));
 
     expect(await screen.findByText('Jordan Lee')).toBeInTheDocument();
   });

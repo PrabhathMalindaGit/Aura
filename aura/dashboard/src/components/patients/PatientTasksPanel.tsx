@@ -39,6 +39,7 @@ export function PatientTasksPanel({
   onOpenAppointments,
 }: PatientTasksPanelProps): JSX.Element {
   const urgentCount = activeTasks.filter((task) => task.priority === 'urgent').length;
+  const completedCount = recentCompletedTasks.length;
 
   return (
     <Card
@@ -67,30 +68,17 @@ export function PatientTasksPanel({
       ) : activeTasks.length === 0 && recentCompletedTasks.length === 0 ? (
         <EmptyState
           title="No open tasks for this patient"
-          description="Patient-scoped follow-up tasks will appear here when action is needed."
+          description="Patient follow-through tasks will appear here when action is needed."
           tone="success"
         />
       ) : (
         <div className="patient-task-groups">
-          <div className="patient-task-groups__overview">
-            <div className="patient-task-groups__overview-fact">
-              <span>Open now</span>
-              <strong>{activeTasks.length}</strong>
-            </div>
-            <div className="patient-task-groups__overview-fact patient-task-groups__overview-fact--warning">
-              <span>Urgent</span>
-              <strong>{urgentCount}</strong>
-            </div>
-            <div className="patient-task-groups__overview-fact">
-              <span>Completed</span>
-              <strong>{recentCompletedTasks.length}</strong>
-            </div>
-          </div>
-
           <div className="patient-task-group">
             <div className="patient-task-group__header">
               <strong>Open now</strong>
-              <span className="muted-text">{activeTasks.length}</span>
+              <span className="muted-text">
+                {activeTasks.length} open{urgentCount > 0 ? ` · ${urgentCount} urgent` : ''}
+              </span>
             </div>
             {activeTasks.length === 0 ? (
               <p className="muted-text">No open or in-progress tasks.</p>
@@ -106,7 +94,6 @@ export function PatientTasksPanel({
                       <div className="patient-task-item__meta">
                         <Badge variant={priorityVariant(task.priority)}>{taskPriorityLabel(task.priority)}</Badge>
                         <Badge variant="neutral">{humanizeDashboardLabel(task.type)}</Badge>
-                        <Badge variant="default">{humanizeDashboardLabel(task.status)}</Badge>
                       </div>
                       {task.description ? <p className="patient-task-item__description">{task.description}</p> : null}
                       <p className="muted-text">
@@ -147,7 +134,7 @@ export function PatientTasksPanel({
             <div className="patient-task-group">
               <div className="patient-task-group__header">
                 <strong>Recently completed</strong>
-                <span className="muted-text">{recentCompletedTasks.length}</span>
+                <span className="muted-text">{completedCount}</span>
               </div>
               <div className="patient-task-list">
                 {recentCompletedTasks.map((task) => (

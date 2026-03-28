@@ -85,14 +85,12 @@ export function PatientCommunicationPanel({
   const clinicianIdentity = useClinicianIdentity();
   const timelineEvents = timeline.length > 0 ? timeline : buildFallbackTimeline(items);
   const showQuickReplyHelpers = replyTemplates.length > 0 || hasSignature;
-  const flaggedCount = items.filter((item) => item.flaggedBySafety).length;
-  const followUpRequestedCount = items.filter((item) => item.followUpRequested).length;
 
   return (
     <Card
       id="patient-communication-panel"
       className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-primary patient-detail-panel--workflow-communication"
-      title="Patient communication"
+      title="Communication follow-through"
       action={
         <div className="patient-detail-actions">
           <Button variant="ghost" size="sm" onClick={onRetry}>
@@ -120,30 +118,11 @@ export function PatientCommunicationPanel({
       ) : items.length === 0 ? (
         <EmptyState
           title="No recent communication needing follow-up"
-          description="Messages that need clinician attention will appear here."
+          description="Response-needed threads will appear here."
           tone="success"
         />
       ) : (
         <div className="patient-communication-list">
-          <div className="patient-communication-overview" aria-label="Communication review summary">
-            <div className="patient-communication-overview__fact">
-              <span>Threads in review</span>
-              <strong>{items.length}</strong>
-            </div>
-            <div className="patient-communication-overview__fact patient-communication-overview__fact--warning">
-              <span>Needs response</span>
-              <strong>{items.length}</strong>
-            </div>
-            <div className="patient-communication-overview__fact patient-communication-overview__fact--danger">
-              <span>Safety flagged</span>
-              <strong>{flaggedCount}</strong>
-            </div>
-            <div className="patient-communication-overview__fact">
-              <span>Follow-up requested</span>
-              <strong>{followUpRequestedCount}</strong>
-            </div>
-          </div>
-
           <div
             className="patient-communication-timeline"
             role="list"
@@ -202,9 +181,6 @@ export function PatientCommunicationPanel({
                       <div className="patient-communication-timeline__badges">
                         {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
                         {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                        <Badge variant={event.kind === 'clinician-reply' ? 'default' : 'warning'}>
-                          {event.kind === 'clinician-reply' ? 'Local clinician reply' : 'Patient message'}
-                        </Badge>
                         {event.localOnly ? <Badge variant="neutral">Local to this browser</Badge> : null}
                       </div>
                     </div>
@@ -289,11 +265,8 @@ export function PatientCommunicationPanel({
                   </p>
                 </>
               ) : null}
-              <p className="patient-communication-quick-reply__note">
-                Saved locally for this clinician in this browser during this review.
-              </p>
               <div className="patient-communication-quick-reply__identity" aria-label="Local clinician identity">
-                <span className="patient-communication-quick-reply__identity-label">Local clinician identity</span>
+                <span className="patient-communication-quick-reply__identity-label">Reply as</span>
                 <div className="patient-communication-quick-reply__identity-card">
                   <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
                   <div className="patient-communication-quick-reply__identity-copy">
@@ -313,7 +286,7 @@ export function PatientCommunicationPanel({
               </label>
               <div className="patient-communication-quick-reply__footer">
                 <p className="patient-communication-quick-reply__footer-copy">
-                  Local draft only. It does not mark the thread reviewed or sync to other clinicians.
+                  Local draft only. It does not sync or mark the thread reviewed.
                 </p>
                 <Button
                   variant="primary"

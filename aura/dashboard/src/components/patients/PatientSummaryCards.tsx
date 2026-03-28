@@ -56,9 +56,13 @@ export function PatientSummaryCards({ metrics, openAlertCount }: PatientSummaryC
   const painTone = metrics.latestPain !== null && metrics.latestPain >= 7 ? 'danger' : 'default';
   const leadValue =
     openAlertCount > 0 ? `${openAlertCount} ${openAlertCount === 1 ? 'alert' : 'alerts'}` : 'Stable';
-  const leadCaption = `Pain ${formatPainValue(metrics.latestPain)} · Last check-in ${
-    metrics.lastCheckinDate ? formatDateKey(metrics.lastCheckinDate) : 'not yet recorded'
-  }`;
+  const leadCaption = metrics.lastCheckinDate
+    ? `Last check-in ${formatDateKey(metrics.lastCheckinDate)}`
+    : 'No recent check-in recorded';
+  const painCaption =
+    metrics.latestMood !== null ? `Mood ${formatMoodValue(metrics.latestMood)}` : 'Mood not reported';
+  const adherenceCaption =
+    metrics.avgPain7d !== null ? `7d average pain ${formatNumber(metrics.avgPain7d)}` : '7d average pain unavailable';
 
   return (
     <section className="patient-summary-grid" aria-label="Patient summary metrics">
@@ -70,32 +74,27 @@ export function PatientSummaryCards({ metrics, openAlertCount }: PatientSummaryC
         caption={leadCaption}
         emphasis="lead"
       />
-      <SummaryCard metric="pain" label="Latest pain" value={formatPainValue(metrics.latestPain)} tone={painTone} />
+      <SummaryCard
+        metric="pain"
+        label="Latest pain"
+        value={formatPainValue(metrics.latestPain)}
+        tone={painTone}
+        caption={painCaption}
+      />
+      <SummaryCard
+        metric="last-checkin"
+        label="Recent check-in"
+        value={metrics.lastCheckinDate ? formatDateKey(metrics.lastCheckinDate) : 'No check-ins yet'}
+        tone={metrics.lastCheckinDate ? 'default' : 'warning'}
+        caption={metrics.latestMood !== null ? `Mood ${formatMoodValue(metrics.latestMood)}` : undefined}
+      />
       <SummaryCard
         metric="adherence"
         label="7d adherence"
         value={`${formatPercent(metrics.adherence7d)} completion`}
-        caption={`7d adherence: ${formatPercent(metrics.adherence7d)}`}
+        caption={adherenceCaption}
         tone="success"
         meterValue={(metrics.adherence7d ?? 0) * 100}
-      />
-      <SummaryCard
-        metric="last-checkin"
-        label="Last check-in"
-        value={metrics.lastCheckinDate ? formatDateKey(metrics.lastCheckinDate) : 'No check-ins yet'}
-        tone={metrics.lastCheckinDate ? 'default' : 'warning'}
-      />
-      <SummaryCard
-        metric="mood"
-        label="Latest mood"
-        value={formatMoodValue(metrics.latestMood)}
-        meterValue={metrics.latestMood !== null ? metrics.latestMood * 10 : 0}
-      />
-      <SummaryCard
-        metric="avg-pain"
-        label="Avg pain (7d)"
-        value={formatNumber(metrics.avgPain7d)}
-        meterValue={metrics.avgPain7d !== null ? metrics.avgPain7d * 10 : 0}
       />
     </section>
   );

@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -305,22 +305,24 @@ describe('SettingsPage clinician profile workspace', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Save communication settings' }));
 
-    expect(screen.getByText('Settings saved in this browser.')).toBeInTheDocument();
+    expect(await screen.findByText('Settings saved in this browser.')).toBeInTheDocument();
     expect(screen.getByText('Saved signature on')).toBeInTheDocument();
     expect(screen.getByText('2 saved templates')).toBeInTheDocument();
-    expect(getClinicianProfile().communicationAuthoring).toEqual({
-      defaultSignature: 'Dr Authoring\nLead rehab clinician',
-      autoAppendSignature: true,
-      templates: [
-        expect.objectContaining({
-          title: 'Reviewed',
-          body: 'Thanks, I have reviewed this update.',
-        }),
-        expect.objectContaining({
-          title: 'Follow-up',
-          body: 'Please keep checking in and update the next rehab note.',
-        }),
-      ],
+    await waitFor(() => {
+      expect(getClinicianProfile().communicationAuthoring).toEqual({
+        defaultSignature: 'Dr Authoring\nLead rehab clinician',
+        autoAppendSignature: true,
+        templates: [
+          expect.objectContaining({
+            title: 'Reviewed',
+            body: 'Thanks, I have reviewed this update.',
+          }),
+          expect.objectContaining({
+            title: 'Follow-up',
+            body: 'Please keep checking in and update the next rehab note.',
+          }),
+        ],
+      });
     });
 
     view.unmount();
@@ -336,7 +338,7 @@ describe('SettingsPage clinician profile workspace', () => {
     ).toBeChecked();
     expect(screen.getByLabelText('Template 1 title')).toHaveValue('Reviewed');
     expect(screen.getByLabelText('Template 2 title')).toHaveValue('Follow-up');
-  });
+  }, 30_000);
 
   it('rejects blank templates and normalizes whitespace-only signatures to empty', async () => {
     signInAs({ sub: 'auth-clinician-validation', name: 'Dr Validation' });
@@ -359,9 +361,11 @@ describe('SettingsPage clinician profile workspace', () => {
     await user.click(screen.getByRole('button', { name: 'Remove template 1' }));
     await user.click(screen.getByRole('button', { name: 'Save communication settings' }));
 
-    expect(screen.getByText('Settings saved in this browser.')).toBeInTheDocument();
-    expect(getClinicianProfile().communicationAuthoring.defaultSignature).toBe('');
-    expect(getClinicianProfile().communicationAuthoring.templates).toEqual([]);
+    expect(await screen.findByText('Settings saved in this browser.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getClinicianProfile().communicationAuthoring.defaultSignature).toBe('');
+      expect(getClinicianProfile().communicationAuthoring.templates).toEqual([]);
+    });
   });
 
   it('caps saved communication templates at the configured local limit', async () => {

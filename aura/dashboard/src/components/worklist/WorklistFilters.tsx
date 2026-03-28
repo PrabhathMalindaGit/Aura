@@ -36,15 +36,10 @@ export function WorklistFilters({
   onReset,
 }: WorklistFiltersProps): JSX.Element {
   return (
-    <section className="worklist-filters" aria-label="Worklist filters">
+    <section className="worklist-filters" aria-label="Queue controls">
       <div className="worklist-filters__toolbar">
         <div className="worklist-filters__cluster worklist-filters__cluster--search">
-          <div className="worklist-filters__cluster-heading">
-            <span className="worklist-filters__cluster-label">Find patient</span>
-            <p className="worklist-filters__cluster-support">
-              Search the live queue by patient name or ID.
-            </p>
-          </div>
+          <span className="worklist-filters__cluster-label">Search queue</span>
           <label className="worklist-filters__search form-field">
             <span className="worklist-filters__label">Search worklist</span>
             <input
@@ -59,12 +54,7 @@ export function WorklistFilters({
         </div>
 
         <div className="worklist-filters__cluster worklist-filters__cluster--selects">
-          <div className="worklist-filters__cluster-heading">
-            <span className="worklist-filters__cluster-label">Queue controls</span>
-            <p className="worklist-filters__cluster-support">
-              Adjust status and sort without leaving the active review surface.
-            </p>
-          </div>
+          <span className="worklist-filters__cluster-label">Review controls</span>
           <div className="worklist-filters__select-row">
             <label className="worklist-filters__control form-field">
               <span className="worklist-filters__label">Status</span>
@@ -105,19 +95,14 @@ export function WorklistFilters({
               onClick={onReset}
               disabled={disabled}
             >
-              Reset
+              Reset filters
             </Button>
           </div>
         </div>
       </div>
 
       <div className="worklist-filters__cluster worklist-filters__cluster--toggles">
-        <div className="worklist-filters__cluster-heading">
-          <span className="worklist-filters__cluster-label">Quick filters</span>
-          <p className="worklist-filters__cluster-support">
-            Narrow the queue to the signals that need attention now.
-          </p>
-        </div>
+        <span className="worklist-filters__cluster-label">Review filters</span>
         <div className="worklist-filters__toggles" role="group" aria-label="Worklist quick filters">
           {TOGGLE_FILTERS.map((filter) => (
             <Button

@@ -542,7 +542,10 @@ describe('AppointmentsPage', () => {
       ],
     });
 
-    const approveButtons = await screen.findAllByRole('button', { name: 'Approve' });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeDisabled();
+    });
+    const approveButtons = screen.getAllByRole('button', { name: 'Approve' });
     fireEvent.click(approveButtons[0]);
 
     const outcomePanel = await screen.findByTestId('appointments-request-outcome');
@@ -917,10 +920,13 @@ describe('AppointmentsPage', () => {
       ],
     });
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Approve' }))[0]);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeDisabled();
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Approve' })[0]);
     expect(await screen.findByTestId('appointments-request-outcome')).toBeInTheDocument();
 
-    fireEvent.click((await screen.findAllByRole('button', { name: 'Reject' }))[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reject' })[0]);
 
     expect(await screen.findByText('Could not complete action')).toBeInTheDocument();
     await waitFor(() => {

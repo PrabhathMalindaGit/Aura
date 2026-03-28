@@ -37580,3 +37580,238 @@ button.dashboard-summary-strip__item:hover {
     border-radius: 24px;
   }
 }
+
+/* Shell-owned route header cleanup */
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header::before,
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header::after {
+  display: none;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__header {
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0;
+  min-height: 0;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__header:not(.section__header--with-meta) {
+  display: none;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__title-group {
+  display: none;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__meta {
+  width: auto;
+  max-width: 100%;
+  margin-left: auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__meta-text,
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__actions .btn {
+  min-height: 2.35rem;
+  border-radius: 999px;
+}
+
+@media (max-width: 760px) {
+  .app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__header,
+  .app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__meta,
+  .app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__meta-text,
+  .app-shell[data-route-header-owner='shell'] .main-content .dashboard-page-header .section__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Shared label readability tuning */
+
+:is(
+    .section__eyebrow,
+    .topbar__eyebrow,
+    .sidebar__section-label,
+    .mobile-nav-sheet__section-label,
+    .dashboard-page-header .section__eyebrow,
+    .dashboard-home-summary-shell__eyebrow,
+    .dashboard-home-zone__eyebrow,
+    .dashboard-widget-heading__eyebrow,
+    .dashboard-home-hero__aside-eyebrow,
+    .settings-workspace-note__eyebrow,
+    .patients-roster-note__eyebrow,
+    .worklist-workspace-note__eyebrow,
+    .appointments-workspace-note__eyebrow,
+    .insights-workspace-note__eyebrow,
+    .alerts-workspace-card__eyebrow,
+    .patient-detail-title__eyebrow,
+    .patient-detail-section-eyebrow,
+    .patient-detail-current-context__eyebrow,
+    .patient-detail-mini-nav__eyebrow,
+    .patient-detail-reference-bridge__eyebrow,
+    .patient-handoff-panel__scope-eyebrow,
+    .patient-handoff-panel__form-eyebrow,
+    .day-detail-intro__eyebrow
+  ) {
+  font-size: var(--label-size-strong);
+  line-height: var(--label-leading);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--label-tracking-strong);
+  color: hsl(var(--foreground) / var(--label-strong-alpha));
+}
+
+:is(
+    .settings-summary-strip__label,
+    .appointments-summary-strip__label,
+    .insights-summary-strip__label,
+    .patients-summary-strip__label,
+    .worklist-summary-strip__label,
+    .patients-filters__cluster-label,
+    .alerts-filters__cluster-label,
+    .worklist-filters__cluster-label,
+    .appointments-composer__cluster-label,
+    .appointments-composer__label,
+    .insights-queue__eyebrow,
+    .insights-queue__patient-label,
+    .appointments-item__eyebrow,
+    .appointments-item__schedule-label,
+    .patient-summary-card__label,
+    .day-detail-notes__label
+  ) {
+  font-size: var(--label-size-compact);
+  line-height: var(--label-leading);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--label-tracking-compact);
+  color: hsl(var(--muted-foreground) / var(--label-muted-alpha));
+}
+
+:is(
+    .kpi-card__label,
+    .dashboard-communication-card__metric-label,
+    .latest-trend-badge__label,
+    .dashboard-home-hero__fact-label,
+    .patients-filters__label,
+    .alerts-filters__label,
+    .worklist-filters__label,
+    .alerts-page .alerts-summary-strip__metric-label,
+    .alerts-page .alerts-status-tabs__label,
+    .settings-quick-note__label,
+    .settings-display-context__label,
+    .patient-detail-page .patient-detail-cockpit-signal__label,
+    .patient-pain-level__label,
+    .appointments-schedule-slot__label
+  ) {
+  font-size: var(--label-size-compact);
+  line-height: var(--label-leading);
+  color: hsl(var(--muted-foreground) / var(--label-muted-alpha));
+}
+
+:is(.alerts-table th, .patients-table th, .worklist-table th) {
+  font-size: var(--label-size-compact);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.12em;
+  color: hsl(var(--muted-foreground) / var(--label-muted-alpha));
+}
+
+:is(
+    .worklist-summary-strip__hint,
+    .patients-summary-strip__hint,
+    .appointments-summary-strip__hint,
+    .insights-summary-strip__hint,
+    .settings-summary-strip__hint,
+    .patients-roster-note__text,
+    .worklist-workspace-note__text,
+    .appointments-workspace-note__text,
+    .insights-workspace-note__text,
+    .settings-workspace-note__text,
+    .patient-detail-section-note,
+    .appointments-workspace__section-note,
+    .appointments-composer__hint
+  ) {
+  color: hsl(var(--muted-foreground) / var(--micro-copy-alpha));
+  line-height: 1.45;
+}
+
+:is(
+    .dashboard-home-page--command-center .dashboard-home-attention-hero__eyebrow,
+    .dashboard-page-shell--appointments.appointments-page .appointments-summary-strip__eyebrow,
+    .dashboard-page-shell--appointments.appointments-page .appointments-summary-strip__comparison-label,
+    .dashboard-page-shell--appointments.appointments-page .appointments-schedule__diagnosis-eyebrow,
+    .dashboard-page-shell--appointments.appointments-page .appointments-card-title__eyebrow,
+    .dashboard-page-shell--roster.patients-page .patients-summary-strip__eyebrow,
+    .dashboard-page-shell--roster.patients-page .patients-summary-strip__comparison-label,
+    .dashboard-page-shell--roster.patients-page .patients-workspace-card__command-eyebrow,
+    .insights-summary-strip__eyebrow,
+    .insights-workspace-card__title-eyebrow,
+    .worklist-page .worklist-card-title__eyebrow,
+    .alerts-page .alerts-workspace-card__eyebrow
+  ) {
+  font-size: var(--label-size-strong);
+  line-height: var(--label-leading);
+  letter-spacing: var(--label-tracking-strong);
+  color: hsl(var(--foreground) / var(--label-strong-alpha));
+}
+
+:is(
+    .dashboard-home-page--command-center .dashboard-summary-strip__label,
+    .dashboard-home-page--command-center .dashboard-home-attention-signal__label,
+    .worklist-page .worklist-summary-strip__label,
+    .worklist-page .worklist-filters__label,
+    .alerts-page .alerts-summary-strip__metric-label,
+    .alerts-page .alerts-filters__label,
+    .dashboard-page-shell--appointments.appointments-page .appointments-item__action-label,
+    .dashboard-page-shell--roster.patients-page .patients-table th,
+    .dashboard-page-shell--roster.patients-page .patients-table__action-label,
+    .dashboard-page-shell--roster.patients-page .patients-card-list__action-label,
+    .patient-detail-page .patient-detail-cockpit-signal__label,
+    .patient-detail-page .patient-summary-card__label,
+    .settings-page .settings-summary-strip--console .settings-summary-strip__label,
+    .settings-page .settings-quick-note__label,
+    .settings-page .settings-display-context__label
+  ) {
+  font-size: var(--label-size-compact);
+  line-height: var(--label-leading);
+  letter-spacing: 0.11em;
+  color: hsl(var(--muted-foreground) / var(--label-muted-alpha));
+}
+
+:is(
+    .alerts-page .alerts-status-tabs__label,
+    .dashboard-page-shell--appointments.appointments-page .appointments-summary-strip__capacity-label,
+    .worklist-page .worklist-summary-strip__hint,
+    .alerts-page .alerts-summary-strip__metric-hint,
+    .settings-page .settings-summary-strip--console .settings-summary-strip__hint,
+    .patient-detail-page .patient-detail-cockpit-signal__note
+  ) {
+  font-size: var(--label-size-compact);
+  line-height: var(--label-leading);
+  color: hsl(var(--muted-foreground) / var(--label-muted-alpha));
+}
+
+:is(
+    .worklist-page .worklist-summary-strip__hint,
+    .alerts-page .alerts-summary-strip__metric-hint,
+    .settings-page .settings-summary-strip--console .settings-summary-strip__hint,
+    .patient-detail-page .patient-detail-cockpit-signal__note
+  ) {
+  color: hsl(var(--muted-foreground) / var(--micro-copy-alpha));
+}

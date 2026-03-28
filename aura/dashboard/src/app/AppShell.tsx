@@ -356,6 +356,7 @@ export function AppShell(): JSX.Element {
         !isShellMobile && sidebarMode === 'icon' && 'app-shell--sidebar-icon',
       )}
       data-shell-breakpoint={shellBreakpoint}
+      data-route-header-owner="shell"
     >
       {!isShellMobile ? <Sidebar mode={sidebarMode} onToggleMode={toggleSidebarMode} /> : null}
 

@@ -78,12 +78,12 @@ export function MobileNavSheet({ open, onClose }: MobileNavSheetProps): JSX.Elem
 
   return (
     <div className="mobile-nav-sheet mobile-nav-sheet--open" role="dialog" aria-modal="true" aria-label="Navigation menu">
-      <button type="button" className="mobile-nav-sheet__overlay glass-overlay" aria-label="Close navigation menu" onClick={onClose} />
+      <button type="button" className="mobile-nav-sheet__overlay" aria-label="Close navigation menu" onClick={onClose} />
 
-      <aside ref={panelRef} className="mobile-nav-sheet__panel glass-popover">
+      <aside ref={panelRef} className="mobile-nav-sheet__panel">
         <header className="mobile-nav-sheet__header">
           <div className="mobile-nav-sheet__header-copy">
-            <p className="mobile-nav-sheet__section-label">Clinician workspace</p>
+            <p className="mobile-nav-sheet__section-label">Clinical command center</p>
             <h2 className="mobile-nav-sheet__title">Aura Clinician</h2>
           </div>
           <IconButton ref={closeButtonRef} aria-label="Close navigation menu" onClick={onClose}>

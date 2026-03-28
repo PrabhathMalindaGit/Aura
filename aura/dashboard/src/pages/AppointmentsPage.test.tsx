@@ -304,7 +304,7 @@ describe('AppointmentsPage', () => {
 
     expect(await screen.findByText('1 open visible')).toBeInTheDocument();
     expect(screen.getByText('Request review')).toBeInTheDocument();
-    expect(screen.getByText('Schedule')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Schedule', level: 2 })).toBeInTheDocument();
     expect(screen.getByTestId('appointments-schedule-week')).toBeInTheDocument();
     expect(screen.getByText('1 closed visible')).toBeInTheDocument();
     expect(screen.queryByText('BOOKED')).not.toBeInTheDocument();

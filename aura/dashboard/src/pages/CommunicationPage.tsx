@@ -468,7 +468,7 @@ export function CommunicationPage(): JSX.Element {
       <Section
         className="dashboard-page-header dashboard-page-header--communication communication-page__header"
         eyebrow="Clinician follow-up"
-        title="Communication"
+        title="Inbox"
         subtitle="Review patient-linked communication, surface safety context early, and respond with browser-local continuity."
         actions={
           <Button

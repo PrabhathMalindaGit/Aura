@@ -1115,7 +1115,7 @@ export function AlertsPage(): JSX.Element {
       <Section
         className="dashboard-page-header dashboard-page-header--alerts alerts-page__header"
         eyebrow="Safety operations"
-        title="Alerts"
+        title="Safety"
         subtitle="Triage active safety issues, confirm ownership quickly, and close escalations with grounded clinical context."
       />
 

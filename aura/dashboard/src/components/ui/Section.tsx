@@ -7,6 +7,7 @@ interface SectionProps extends HTMLAttributes<HTMLElement> {
   subtitle?: ReactNode;
   meta?: ReactNode;
   actions?: ReactNode;
+  surface?: 'base' | 'emphasized' | 'critical';
 }
 
 export function Section({
@@ -16,13 +17,14 @@ export function Section({
   subtitle,
   meta,
   actions,
+  surface = 'base',
   children,
   ...props
 }: SectionProps): JSX.Element {
   const hasMetaContent = Boolean(actions || meta);
 
   return (
-    <section className={cn('section', className)} {...props}>
+    <section className={cn('section', className)} data-surface={surface} {...props}>
       <header className={cn('section__header', hasMetaContent && 'section__header--with-meta')}>
         <div className="section__title-group stack stack--1">
           {eyebrow ? <p className="section__eyebrow">{eyebrow}</p> : null}

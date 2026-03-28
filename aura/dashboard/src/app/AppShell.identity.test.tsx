@@ -203,7 +203,7 @@ describe('AppShell identity reactivity', () => {
     });
     expect(screen.getByLabelText('Workspace time in America/New_York')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('link', { name: 'Communication' }));
+    await user.click(screen.getByRole('link', { name: 'Inbox' }));
 
     expect(await screen.findByText('Local clinician identity')).toBeInTheDocument();
     expect(screen.getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);

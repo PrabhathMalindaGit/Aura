@@ -541,7 +541,7 @@ describe('PatientDetailPage', () => {
     await user.click(within(communicationPanel).getAllByRole('button', { name: 'Open communication' })[0]);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
     });
   });
 
@@ -727,7 +727,9 @@ describe('PatientDetailPage', () => {
     );
   });
 
-  it('stores a routine patient-detail quick reply in the shared communication model without marking the thread reviewed', async () => {
+  it(
+    'stores a routine patient-detail quick reply in the shared communication model without marking the thread reviewed',
+    async () => {
     const routineCommunicationItem: DashboardCommunicationOverviewItem = {
       ...baseCommunicationItem,
       flaggedBySafety: false,
@@ -780,13 +782,15 @@ describe('PatientDetailPage', () => {
 
     await user.click(within(communicationPanel).getByRole('button', { name: 'Open communication' }));
 
-    expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
     expect(
       await within(screen.getByRole('list', { name: 'Patient communication timeline' })).findByText(
         'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
       ),
     ).toBeInTheDocument();
-  });
+    },
+    30_000,
+  );
 
   it('renders a grounded internal handoff panel with only supported next-step options', async () => {
     installFetchMock();

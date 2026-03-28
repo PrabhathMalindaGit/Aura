@@ -44,48 +44,47 @@ const SHELL_PAGE_CONFIGS: Array<{
     matches: (pathname) => pathname.startsWith('/patients/'),
     config: {
       key: 'patient-detail',
-      title: 'Patient Detail',
-      subtitle: 'Longitudinal patient review with alerts, communication, tasks, and trends.',
+      title: 'Patient detail',
+      subtitle: 'Longitudinal patient review across risk, follow-through, and communication.',
     },
   },
   {
     matches: (pathname) => pathname.startsWith('/worklist'),
     config: {
       key: 'worklist',
-      title: 'Worklist',
-      subtitle:
-        'Active review queue across safety, adherence, communication, tasks, and appointments.',
+      title: 'Queue',
+      subtitle: 'Active clinician review across safety, response, appointments, and follow-through.',
     },
   },
   {
     matches: (pathname) => pathname.startsWith('/communication'),
     config: {
       key: 'communication',
-      title: 'Communication',
-      subtitle: 'Patient-linked communication review with response-needed and safety-aware follow-through.',
+      title: 'Inbox',
+      subtitle: 'Patient-linked conversation review with response-needed and safety-aware follow-through.',
     },
   },
   {
     matches: (pathname) => pathname.startsWith('/alerts'),
     config: {
       key: 'alerts',
-      title: 'Alerts',
-      subtitle: 'Triage safety alerts with assignment, acknowledgment, and follow-up context.',
+      title: 'Safety',
+      subtitle: 'Triage safety alerts with ownership, acknowledgment, and follow-up context.',
     },
   },
   {
     matches: (pathname) => pathname.startsWith('/insights'),
     config: {
       key: 'insights',
-      title: 'Insights',
-      subtitle: 'Review pending guidance before clinician approval.',
+      title: 'Guidance',
+      subtitle: 'Compatibility review surface for pending guidance before clinician approval.',
     },
   },
   {
     matches: (pathname) => pathname.startsWith('/appointments'),
     config: {
       key: 'appointments',
-      title: 'Appointments',
+      title: 'Schedule',
       subtitle: 'Scheduling and capacity coordination for patient follow-up.',
     },
   },
@@ -102,24 +101,30 @@ const SHELL_PAGE_CONFIGS: Array<{
     config: {
       key: 'settings',
       title: 'Settings',
-      subtitle: 'Local browser-only workspace preferences and session protection.',
+      subtitle: 'Workspace defaults, local preferences, and session protection.',
     },
   },
   {
     matches: (pathname) => pathname.startsWith('/dashboard'),
     config: {
       key: 'dashboard',
-      title: 'Dashboard',
+      title: 'Today',
       subtitle: "Command center for today's safety, follow-up, and coordination.",
     },
   },
 ];
 
 const QUICK_OPEN_ROUTES: Record<string, string> = {
+  today: '/dashboard',
   dashboard: '/dashboard',
+  queue: '/worklist',
   worklist: '/worklist',
+  inbox: '/communication',
+  communication: '/communication',
+  safety: '/alerts',
   alerts: '/alerts',
   patients: '/patients',
+  schedule: '/appointments',
   appointments: '/appointments',
   insights: '/insights',
   settings: '/settings',
@@ -361,7 +366,7 @@ export function AppShell(): JSX.Element {
       {!isShellMobile ? <Sidebar mode={sidebarMode} onToggleMode={toggleSidebarMode} /> : null}
 
       <div className="shell-main">
-        <header className={cn('topbar', 'glass-card')} data-page={pageConfig.key}>
+        <header className="topbar" data-page={pageConfig.key}>
           <div className="topbar__left">
             {isShellMobile ? (
               <IconButton
@@ -401,7 +406,7 @@ export function AppShell(): JSX.Element {
           </form>
 
           <div className="topbar__status">
-            <div className="topbar__utility">
+            <div className="topbar__meta-cluster">
               <span
                 className="topbar__datetime"
                 title={formatWorkspaceDateTimeTitle(nowMs, workspacePreferences.resolvedTimezone)}
@@ -409,17 +414,12 @@ export function AppShell(): JSX.Element {
               >
                 {formatWorkspaceDateTime(nowMs, workspacePreferences.resolvedTimezone)}
               </span>
-              <div className="topbar__status-cluster">
-                <Badge variant={connection.online ? 'success' : 'danger'} icon>
-                  {connection.online ? 'Connected' : 'Offline'}
-                </Badge>
-                <span className="topbar__updated" aria-live="polite">
-                  Updated {formatLastUpdated(connection.lastSuccessAt)}
-                </span>
-              </div>
-            </div>
-
-            <div className="topbar__identity">
+              <Badge className="topbar__status-badge" variant={connection.online ? 'success' : 'danger'} icon>
+                {connection.online ? 'Connected' : 'Offline'}
+              </Badge>
+              <span className="topbar__updated" aria-live="polite">
+                Updated {formatLastUpdated(connection.lastSuccessAt)}
+              </span>
               <Link
                 to="/settings"
                 className="topbar__identity-entry"

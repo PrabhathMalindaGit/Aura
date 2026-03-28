@@ -1164,7 +1164,7 @@ export function AppointmentsPage(): JSX.Element {
       <Section
         className="dashboard-page-header dashboard-page-header--appointments appointments-page-header"
         eyebrow="Care coordination"
-        title="Appointments"
+        title="Schedule"
         subtitle="Review scheduling demand, confirm whether open capacity is sufficient, and publish only the availability the queue still needs."
         actions={
           <Button

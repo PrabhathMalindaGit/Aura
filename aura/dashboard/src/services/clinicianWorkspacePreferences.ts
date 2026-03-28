@@ -54,11 +54,11 @@ export const LANDING_ROUTE_OPTIONS: Array<{
   id: ClinicianDefaultLandingRoute;
   label: string;
 }> = [
-  { id: '/dashboard', label: 'Home' },
-  { id: '/worklist', label: 'Worklist' },
-  { id: '/alerts', label: 'Alerts' },
+  { id: '/dashboard', label: 'Today' },
+  { id: '/worklist', label: 'Queue' },
+  { id: '/alerts', label: 'Safety' },
   { id: '/patients', label: 'Patients' },
-  { id: '/communication', label: 'Communication' },
+  { id: '/communication', label: 'Inbox' },
 ];
 
 const TIME_ZONE_FALLBACK = 'UTC';
@@ -185,7 +185,7 @@ export function getDefaultLandingRoute(
 }
 
 export function getDefaultLandingRouteLabel(route: ClinicianDefaultLandingRoute): string {
-  return LANDING_ROUTE_OPTIONS.find((option) => option.id === route)?.label ?? 'Home';
+  return LANDING_ROUTE_OPTIONS.find((option) => option.id === route)?.label ?? 'Today';
 }
 
 export function getDefaultPatientsPresetLabel(

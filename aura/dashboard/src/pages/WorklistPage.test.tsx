@@ -213,7 +213,7 @@ describe('WorklistPage', () => {
 
     renderWorklistPage();
 
-    expect(await screen.findByRole('heading', { name: 'Worklist' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Queue' })).toBeInTheDocument();
     expect(await screen.findByText('High pain escalation')).toBeInTheDocument();
     expect(screen.getByText('Missed daily check-ins')).toBeInTheDocument();
     expect(within(screen.getByTestId('worklist-row-p1')).getByText('Needs response')).toBeInTheDocument();

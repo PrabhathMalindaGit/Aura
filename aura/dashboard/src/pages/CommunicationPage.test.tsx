@@ -177,7 +177,7 @@ afterEach(() => {
     const user = userEvent.setup();
     renderCommunicationPage();
 
-    expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
     expect(screen.getByText('Communication queue')).toBeInTheDocument();
     const jordanThread = await screen.findByRole('button', { name: /Jordan Lee/ });
     expect(jordanThread).toBeInTheDocument();
@@ -536,7 +536,7 @@ afterEach(() => {
   it('does not show the handoff context strip when no local handoff data exists', async () => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
-    expect(await screen.findByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
     expect(screen.queryByTestId('communication-handoff-context')).not.toBeInTheDocument();
   });
 

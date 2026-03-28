@@ -53,7 +53,7 @@ export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
           {iconOnly ? null : (
             <span className="sidebar__brand-copy">
               <span className="sidebar__brand-text">Aura Clinician</span>
-              <span className="sidebar__brand-subtitle">Local clinician workspace</span>
+              <span className="sidebar__brand-subtitle">Clinical command center</span>
             </span>
           )}
         </div>
@@ -67,7 +67,7 @@ export function Sidebar({ mode, onToggleMode }: SidebarProps): JSX.Element {
         </IconButton>
       </header>
 
-      <nav className="sidebar__sections" aria-label="Dashboard navigation">
+      <nav className="sidebar__sections" aria-label="Primary workspace navigation">
         {sectionItems.map((section, index) => (
           <div key={section.key} className="sidebar__section">
             {iconOnly ? (

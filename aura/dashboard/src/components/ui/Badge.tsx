@@ -28,7 +28,12 @@ export function Badge({
   ...props
 }: BadgeProps): JSX.Element {
   return (
-    <span className={cn('badge', `badge--${variant}`, className)} data-variant={variant} {...props}>
+    <span
+      className={cn('badge', `badge--${variant}`, className)}
+      data-variant={variant}
+      data-icon={icon ? 'true' : undefined}
+      {...props}
+    >
       {icon ? <span className="badge__dot" aria-hidden="true" /> : null}
       <span className="badge__label">{children}</span>
     </span>

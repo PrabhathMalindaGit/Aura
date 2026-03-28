@@ -84,7 +84,7 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(within(savedSummary).getByText('Rehab clinician')).toBeInTheDocument();
     expect(within(savedSummary).getByText('Recovery follow-up')).toBeInTheDocument();
     expect(within(savedSummary).getByText('Available')).toBeInTheDocument();
-    expect(within(savedSummary).getByText(/Opens to Home/)).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Opens to Today/)).toBeInTheDocument();
     expect(
       screen.getAllByText(
         'Saved locally for this clinician in this browser. Changes do not sync across devices.',
@@ -141,9 +141,9 @@ describe('SettingsPage clinician profile workspace', () => {
     const savedSummary = screen.getByLabelText('Saved clinician profile summary');
     expect(within(savedSummary).getByText('In review')).toBeInTheDocument();
     expect(within(savedSummary).getByText('North Clinic')).toBeInTheDocument();
-    expect(within(savedSummary).getByText(/Opens to Communication/)).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Opens to Inbox/)).toBeInTheDocument();
     expect(within(savedSummary).getByText(/Patients: Active alerts/)).toBeInTheDocument();
-    expect(within(savedSummary).getByText(/Communication: Needs response/)).toBeInTheDocument();
+    expect(within(savedSummary).getByText(/Inbox: Needs response/)).toBeInTheDocument();
 
     const stored = window.localStorage.getItem(getClinicianProfileStorageKey('auth-clinician-2'));
     expect(stored).toContain('"authScopeId":"auth-clinician-2"');

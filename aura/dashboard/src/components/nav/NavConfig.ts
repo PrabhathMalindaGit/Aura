@@ -1,5 +1,12 @@
-export type NavSectionKey = 'clinical' | 'admin';
-export type NavIconKey = 'dashboard' | 'worklist' | 'alerts' | 'insights' | 'patients' | 'appointments' | 'settings';
+export type NavSectionKey = 'workspace' | 'preferences';
+export type NavIconKey =
+  | 'dashboard'
+  | 'worklist'
+  | 'communication'
+  | 'alerts'
+  | 'patients'
+  | 'appointments'
+  | 'settings';
 
 export interface DashboardNavItem {
   key: string;
@@ -15,17 +22,16 @@ export interface NavSectionConfig {
 }
 
 export const NAV_SECTIONS: NavSectionConfig[] = [
-  { key: 'clinical', label: 'Clinical' },
-  { key: 'admin', label: 'Admin' },
+  { key: 'workspace', label: 'Workspace' },
+  { key: 'preferences', label: 'Preferences' },
 ];
 
 export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', to: '/dashboard', icon: 'dashboard', section: 'clinical' },
-  { key: 'worklist', label: 'Worklist', to: '/worklist', icon: 'worklist', section: 'clinical' },
-  { key: 'communication', label: 'Communication', to: '/communication', icon: 'worklist', section: 'clinical' },
-  { key: 'alerts', label: 'Alerts', to: '/alerts', icon: 'alerts', section: 'clinical' },
-  { key: 'insights', label: 'Insights', to: '/insights', icon: 'insights', section: 'clinical' },
-  { key: 'appointments', label: 'Appointments', to: '/appointments', icon: 'appointments', section: 'clinical' },
-  { key: 'patients', label: 'Patients', to: '/patients', icon: 'patients', section: 'clinical' },
-  { key: 'settings', label: 'Settings', to: '/settings', icon: 'settings', section: 'admin' },
+  { key: 'dashboard', label: 'Today', to: '/dashboard', icon: 'dashboard', section: 'workspace' },
+  { key: 'worklist', label: 'Queue', to: '/worklist', icon: 'worklist', section: 'workspace' },
+  { key: 'patients', label: 'Patients', to: '/patients', icon: 'patients', section: 'workspace' },
+  { key: 'appointments', label: 'Schedule', to: '/appointments', icon: 'appointments', section: 'workspace' },
+  { key: 'communication', label: 'Inbox', to: '/communication', icon: 'communication', section: 'workspace' },
+  { key: 'alerts', label: 'Safety', to: '/alerts', icon: 'alerts', section: 'workspace' },
+  { key: 'settings', label: 'Settings', to: '/settings', icon: 'settings', section: 'preferences' },
 ];

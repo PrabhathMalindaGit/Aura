@@ -615,7 +615,7 @@ export function SettingsPage(): JSX.Element {
       ? `Patients: ${workspacePreferences.defaultPatientsPresetLabel}`
       : undefined,
     workspacePreferences.defaultCommunicationFilter !== 'all'
-      ? `Communication: ${workspacePreferences.defaultCommunicationFilterLabel}`
+      ? `Inbox: ${workspacePreferences.defaultCommunicationFilterLabel}`
       : undefined,
   ].filter(Boolean) as string[];
   const savedIdentitySupportLine = clinicianIdentity.secondaryLine || 'Local clinician profile';

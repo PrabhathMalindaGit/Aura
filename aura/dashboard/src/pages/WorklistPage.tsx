@@ -308,7 +308,7 @@ export function WorklistPage(): JSX.Element {
       <Section
         className="dashboard-page-header dashboard-page-header--queue worklist-page-header"
         eyebrow="Active review console"
-        title="Worklist"
+        title="Queue"
         subtitle="Active clinician review across safety, communication, adherence, tasks, and appointments."
         meta={
           <span className="worklist-page__meta" aria-live="polite">

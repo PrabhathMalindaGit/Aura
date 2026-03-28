@@ -156,7 +156,7 @@ describe('AppShell navigation', () => {
     installResponsiveViewport(1680);
     renderShell('/worklist');
 
-    const activeLink = screen.getByRole('link', { name: 'Worklist' });
+    const activeLink = screen.getByRole('link', { name: 'Queue' });
     expect(activeLink).toHaveClass('sidebar-item--active');
     expect(screen.getByText('Worklist workspace')).toBeInTheDocument();
   });
@@ -165,10 +165,10 @@ describe('AppShell navigation', () => {
     installResponsiveViewport(1680);
     renderShell('/alerts');
 
-    expect(screen.getByRole('heading', { name: 'Alerts' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Safety' })).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Triage safety alerts with assignment, acknowledgment, and follow-up context.',
+        'Triage safety alerts with ownership, acknowledgment, and follow-up context.',
       ),
     ).toBeInTheDocument();
   });
@@ -177,14 +177,14 @@ describe('AppShell navigation', () => {
     installResponsiveViewport(1680);
     renderShell('/communication');
 
-    expect(screen.getByRole('heading', { name: 'Communication' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Patient-linked communication review with response-needed and safety-aware follow-through.',
+        'Patient-linked conversation review with response-needed and safety-aware follow-through.',
       ),
     ).toBeInTheDocument();
 
-    const activeLink = screen.getByRole('link', { name: 'Communication' });
+    const activeLink = screen.getByRole('link', { name: 'Inbox' });
     expect(activeLink).toHaveClass('sidebar-item--active');
   });
 
@@ -231,7 +231,7 @@ describe('AppShell navigation', () => {
       expect(screen.getByText('Dashboard workspace')).toBeInTheDocument();
     });
 
-    const activeLink = screen.getByRole('link', { name: 'Dashboard' });
+    const activeLink = screen.getByRole('link', { name: 'Today' });
     expect(activeLink).toHaveClass('sidebar-item--active');
   });
 

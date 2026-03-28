@@ -75,10 +75,10 @@
 }
 
 .status-panel__details {
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--rule-soft) / 0.96);
+  border-radius: var(--radius-lg);
   padding: var(--space-2) var(--space-3);
-  background: hsl(var(--muted) / 0.45);
+  background: hsl(var(--surface-emphasized) / 0.58);
 }
 
 .status-panel__details summary {
@@ -110,15 +110,15 @@
 }
 
 .status-panel--error {
-  border-color: hsl(var(--danger) / 0.45);
+  border-color: hsl(var(--danger) / 0.24);
 }
 
 .status-panel--success {
-  border-color: hsl(var(--success) / 0.45);
+  border-color: hsl(var(--success) / 0.24);
 }
 
 .status-panel--info {
-  border-color: hsl(var(--info) / 0.45);
+  border-color: hsl(var(--info) / 0.24);
 }
 
 @media (max-width: 900px) {

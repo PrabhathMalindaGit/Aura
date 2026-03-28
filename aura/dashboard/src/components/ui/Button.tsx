@@ -31,6 +31,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       data-size={size}
       data-variant={variant}
+      data-full-width={fullWidth ? 'true' : undefined}
+      data-with-icon={leftIcon ? 'true' : undefined}
       className={cn(
         'btn',
         `btn--${variant}`,

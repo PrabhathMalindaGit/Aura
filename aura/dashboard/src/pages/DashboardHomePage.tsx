@@ -857,7 +857,7 @@ export function DashboardHomePage(): JSX.Element {
         <Section
           className="dashboard-page-header dashboard-page-header--home dashboard-home-page__header"
           eyebrow={`Clinical command center for ${clinicianFirstName}`}
-          title="Dashboard"
+          title="Today"
           subtitle={headerSubtitle}
           actions={
             <Button

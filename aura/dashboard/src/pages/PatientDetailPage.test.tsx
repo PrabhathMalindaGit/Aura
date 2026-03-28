@@ -795,7 +795,7 @@ describe('PatientDetailPage', () => {
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     expect(
       within(handoffPanel).getByText(
-        'Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.',
+        'Stored only in this browser for local handoff continuity. It does not sync across devices or staff accounts.',
       ),
     ).toBeInTheDocument();
 
@@ -956,7 +956,7 @@ describe('PatientDetailPage', () => {
     ).toBeInTheDocument();
     expect(
       within(handoffPanel).getByText(
-        'Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.',
+        'Stored only in this browser for local handoff continuity. It does not sync across devices or staff accounts.',
       ),
     ).toBeInTheDocument();
   });

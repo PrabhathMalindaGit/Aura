@@ -702,7 +702,7 @@ describe('AppointmentsPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Publish after queue review')).toBeInTheDocument();
     expect(
-      screen.getByText('Use this panel after request review to publish only the clinician time the queue still needs.'),
+      screen.getByText('Use this after request review to publish only the clinician time the queue still needs.'),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Published slots become immediately visible to the booking queue after creation.'),

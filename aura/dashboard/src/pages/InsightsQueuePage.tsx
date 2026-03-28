@@ -596,7 +596,7 @@ export function InsightsQueuePage(): JSX.Element {
     reviewOutcome?.kind === 'single' && normalizedOutcomePatientId.length > 0;
   const queueContextHint =
     activeView === 'pending' && pendingCount > 0
-      ? `${pendingReviewRemaining.workspaceText} Start with priority review, then batch only the low-priority suggestions that do not need individual handling.`
+      ? `${pendingReviewRemaining.workspaceText} Start with priority review, then batch the low-priority suggestions that do not need individual handling.`
       : activeView === 'pending'
         ? pendingReviewRemaining.workspaceText
         : viewConfig.contextHint;
@@ -999,7 +999,7 @@ export function InsightsQueuePage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--insights insights-page-header"
         eyebrow="Clinical review"
         title="Insights"
-        subtitle="Review pending guidance, move the right suggestions into clinician workflow, and confirm what has already been handled in this current queue view."
+        subtitle="Review pending guidance, move the right suggestions into workflow, and confirm what was already handled in this queue view."
         actions={
           <Button
             variant="secondary"
@@ -1049,22 +1049,6 @@ export function InsightsQueuePage(): JSX.Element {
                 ))}
               </div>
             </div>
-          </article>
-          <article className="insights-summary-strip__item insights-summary-strip__item--pending">
-            <p className="insights-summary-strip__label">Awaiting review</p>
-            <p className="insights-summary-strip__value">{pendingCount}</p>
-            <p className="insights-summary-strip__hint">
-              Pending guidance still needing clinician review.
-            </p>
-          </article>
-          <article className="insights-summary-strip__item insights-summary-strip__item--status">
-            <p className="insights-summary-strip__label">Active review</p>
-            <p
-              className={`insights-summary-strip__value insights-summary-strip__value--${queueState.tone}`}
-            >
-              {queueState.label}
-            </p>
-            <p className="insights-summary-strip__hint">{queueState.hint}</p>
           </article>
           <article className="insights-summary-strip__item insights-summary-strip__item--priority">
             <p className="insights-summary-strip__label">Priority review share</p>
@@ -1123,26 +1107,32 @@ export function InsightsQueuePage(): JSX.Element {
                 getTabTestId={(id) => `insights-tab-${id}`}
               />
             </div>
+            <div className="insights-review-console__meta" aria-live="polite">
+              <span className="insights-review-console__meta-pill insights-review-console__meta-pill--count">
+                {activeQuery.error ? '--' : activeItems.length} in view
+              </span>
+              <span className="insights-review-console__meta-pill">{viewConfig.titleMeta}</span>
+              {viewConfig.facts.map((fact) => (
+                <span key={fact} className="insights-review-console__meta-pill">
+                  {fact}
+                </span>
+              ))}
+            </div>
+          </div>
 
-            <div
-              className={`insights-queue-context insights-queue-context--${activeView}${
-                activeView === 'pending' && priorityReviewItems.length > 0
-                  ? ' insights-queue-context--priority'
-                  : ''
-              }`}
-            >
-              <div className="insights-queue-context__copy">
-                <p className="insights-queue-context__eyebrow">Decision path</p>
-                <h3 className="insights-queue-context__title">{viewConfig.titleMeta}</h3>
-                <p className="insights-queue-context__text">{queueContextHint}</p>
-              </div>
-              <div className="insights-queue-context__facts" aria-live="polite">
-                {viewConfig.facts.map((fact) => (
-                  <span key={fact} className="insights-queue-context__fact">
-                    {fact}
-                  </span>
-                ))}
-              </div>
+          <div
+            className={`insights-queue-context insights-queue-context--${activeView}${
+              activeView === 'pending' && priorityReviewItems.length > 0
+                ? ' insights-queue-context--priority'
+                : ''
+            }`}
+          >
+            <div className="insights-queue-context__copy">
+              <p className="insights-queue-context__eyebrow">Review path</p>
+              <h3 className="insights-queue-context__title">
+                {activeView === 'pending' ? 'Priority items lead this queue' : viewConfig.titleMeta}
+              </h3>
+              <p className="insights-queue-context__text">{queueContextHint}</p>
             </div>
           </div>
 
@@ -1269,9 +1259,6 @@ export function InsightsQueuePage(): JSX.Element {
                         <div className="insights-queue-section__copy">
                           <p className="insights-queue-section__eyebrow">Primary workflow</p>
                           <h3 className="insights-queue-section__title">Priority review</h3>
-                          <p className="insights-queue-section__text">
-                            Handle medium- and high-priority suggestions one at a time.
-                          </p>
                         </div>
                         <span className="insights-queue-section__fact" aria-live="polite">
                           {priorityReviewItems.length} requiring individual review
@@ -1294,10 +1281,6 @@ export function InsightsQueuePage(): JSX.Element {
                         <div className="insights-queue-section__copy">
                           <p className="insights-queue-section__eyebrow">Routine review</p>
                           <h3 className="insights-queue-section__title">Low-priority review</h3>
-                          <p className="insights-queue-section__text">
-                            Batch only the visible low-priority suggestions that do not need deeper
-                            individual handling.
-                          </p>
                         </div>
                         <div className="insights-queue-section__controls">
                           <span className="insights-queue-section__fact" aria-live="polite">

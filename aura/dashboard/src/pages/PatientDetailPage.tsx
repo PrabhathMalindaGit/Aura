@@ -1943,7 +1943,7 @@ export function PatientDetailPage(): JSX.Element {
                 ) : null}
               </div>
               <p className="patient-detail-title__subtitle">
-                Confirm the current issue, recent trends, and follow-up burden before acting.
+                Confirm the issue, recent trend, and follow-through before acting.
               </p>
             </div>
           </div>
@@ -2047,7 +2047,7 @@ export function PatientDetailPage(): JSX.Element {
                 <p className="patient-detail-cockpit-signals__eyebrow">What matters now</p>
                 <strong className="patient-detail-cockpit-signals__title">Immediate patient review signals</strong>
                 <p className="patient-detail-cockpit-signals__note">
-                  Scan these first, then move into priorities, trajectory, and active follow-through.
+                  Scan these first, then move into review and follow-through.
                 </p>
               </div>
               <div className="patient-detail-cockpit-signals__grid">
@@ -2103,7 +2103,7 @@ export function PatientDetailPage(): JSX.Element {
         <div className="patient-detail-mini-nav__copy">
           <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
           <p className="patient-detail-mini-nav__text">
-            Move between the major review areas without losing the current patient context.
+            Move between the main review zones.
           </p>
         </div>
         <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
@@ -2191,121 +2191,173 @@ export function PatientDetailPage(): JSX.Element {
                 <h2 className="patient-detail-section-title">Current priorities and next steps</h2>
               </div>
               <p className="patient-detail-section-note">
-                Start here to confirm the issue, the reason it matters now, and the next clinician move.
+                Start with the current issue and the next clinician move.
               </p>
             </div>
-            <div className="patient-detail-section-grid patient-detail-section-grid--attention">
-              <PatientCurrentPriorities
-                items={patientPriorities}
-                isLoading={
-                  patientPriorities.length === 0 &&
-                  (patientWorklistQuery.isLoading ||
-                    patientTasksQuery.isLoading ||
-                    patientCommunicationQuery.isLoading ||
-                    patientAppointmentsQuery.isLoading)
-                }
-                error={patientPrioritiesError}
-                onRetry={handleRefreshOverview}
-                onAction={handleOperationalAction}
-              />
-              <RecommendedActionsPanel
-                items={recommendedActions}
-                isLoading={
-                  recommendedActions.length === 0 &&
-                  (patientWorklistQuery.isLoading ||
-                    patientTasksQuery.isLoading ||
-                    patientAppointmentsQuery.isLoading)
-                }
-                error={recommendedActionsError}
-                onRetry={handleRefreshOverview}
-                onAction={handleOperationalAction}
-              />
+            <div className="patient-detail-attention-grid">
+              <div className="patient-detail-attention-grid__primary">
+                <PatientCurrentPriorities
+                  items={patientPriorities}
+                  isLoading={
+                    patientPriorities.length === 0 &&
+                    (patientWorklistQuery.isLoading ||
+                      patientTasksQuery.isLoading ||
+                      patientCommunicationQuery.isLoading ||
+                      patientAppointmentsQuery.isLoading)
+                  }
+                  error={patientPrioritiesError}
+                  onRetry={handleRefreshOverview}
+                  onAction={handleOperationalAction}
+                />
+              </div>
+              <div className="patient-detail-attention-grid__secondary">
+                <RecommendedActionsPanel
+                  items={recommendedActions}
+                  isLoading={
+                    recommendedActions.length === 0 &&
+                    (patientWorklistQuery.isLoading ||
+                      patientTasksQuery.isLoading ||
+                      patientAppointmentsQuery.isLoading)
+                  }
+                  error={recommendedActionsError}
+                  onRetry={handleRefreshOverview}
+                  onAction={handleOperationalAction}
+                />
+              </div>
             </div>
           </section>
 
-          <div className="patient-detail-clinical-zone">
-            <section
-              id="patient-summary-section"
-              className="patient-detail-summary-shell patient-detail-summary-shell--cockpit"
-              aria-label="Patient summary"
-            >
-              <div className="patient-detail-section-header patient-detail-section-header--summary">
-                <div className="patient-detail-section-heading">
-                  <p className="patient-detail-section-eyebrow">Operational summary</p>
-                  <h2 className="patient-detail-section-title">Current status summary</h2>
-                </div>
-                <p className="patient-detail-section-note">
-                  Compact review metrics for the selected {selectedDays}-day window.
-                </p>
+          <section
+            id="patient-trends-section"
+            className="patient-detail-section-block patient-detail-section-block--primary patient-detail-section-block--cockpit"
+          >
+            <div className="patient-detail-section-header">
+              <div className="patient-detail-section-heading">
+                <p className="patient-detail-section-eyebrow">Clinical review</p>
+                <h2 className="patient-detail-section-title">Trends and alert context</h2>
               </div>
-              <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
-            </section>
+              <p className="patient-detail-section-note">
+                Confirm the recent trajectory and current alert burden.
+              </p>
+            </div>
 
-            <section
-              id="patient-trends-section"
-              className="patient-detail-section-block patient-detail-section-block--primary patient-detail-section-block--cockpit"
-            >
-              <div className="patient-detail-section-header">
-                <div className="patient-detail-section-heading">
-                  <p className="patient-detail-section-eyebrow">Clinical review</p>
-                  <h2 className="patient-detail-section-title">Trends and alert context</h2>
-                </div>
-                <p className="patient-detail-section-note">
-                  Confirm the recent trajectory and the latest safety events before drilling into day-level detail.
-                </p>
-              </div>
-
-              <div className="patient-detail-clinical-review-grid">
-                <div className="patient-detail-clinical-review-grid__trends">
-                  {showTrendsLoading ? (
-                    <Card title="Trend charts">
-                      <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
-                        <Skeleton height={260} />
-                        <Skeleton height={260} />
-                        <Skeleton height={260} />
-                      </div>
-                    </Card>
-                  ) : hasTrendData ? (
-                    <TrendCharts
-                      points={normalizedTrends}
-                      onSelectDate={handleDaySelect}
-                      expandedMetric={expandedTrendMetric}
-                      onExpandMetric={setExpandedTrendMetric}
-                      onCollapseMetric={() => setExpandedTrendMetric(null)}
-                    />
-                  ) : (
-                    <Card title="Trend charts">
-                      <EmptyState
-                        title="No check-ins yet for this patient"
-                        description="Trend charts will appear once check-ins are available for the selected window."
-                        action={
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              void trendsQuery.refetch();
-                            }}
-                          >
-                            Retry
-                          </Button>
-                        }
-                      />
-                    </Card>
-                  )}
-                </div>
-
-                <div className="patient-detail-clinical-review-grid__alerts">
-                  <RecentAlertsPanel
-                    alerts={patientAlerts}
-                    seenAlertMap={seenAlertMap}
-                    mutationPending={updateAlertMutation.isPending}
-                    onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-                    onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-                    onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+            <div className="patient-detail-clinical-review-grid">
+              <div className="patient-detail-clinical-review-grid__trends">
+                {showTrendsLoading ? (
+                  <Card title="Trend charts">
+                    <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
+                      <Skeleton height={260} />
+                      <Skeleton height={260} />
+                      <Skeleton height={260} />
+                    </div>
+                  </Card>
+                ) : hasTrendData ? (
+                  <TrendCharts
+                    points={normalizedTrends}
+                    onSelectDate={handleDaySelect}
+                    expandedMetric={expandedTrendMetric}
+                    onExpandMetric={setExpandedTrendMetric}
+                    onCollapseMetric={() => setExpandedTrendMetric(null)}
                   />
-                </div>
+                ) : (
+                  <Card title="Trend charts">
+                    <EmptyState
+                      title="No check-ins yet for this patient"
+                      description="Trend charts appear once check-ins are available in the selected window."
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void trendsQuery.refetch();
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      }
+                    />
+                  </Card>
+                )}
               </div>
-            </section>
-          </div>
+
+              <div className="patient-detail-clinical-review-grid__alerts">
+                <RecentAlertsPanel
+                  alerts={patientAlerts}
+                  seenAlertMap={seenAlertMap}
+                  mutationPending={updateAlertMutation.isPending}
+                  onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+                  onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+                  onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="patient-operations-section"
+            className="patient-detail-section-block patient-detail-section-block--operational patient-detail-section-block--workflow-support"
+          >
+            <div className="patient-detail-section-header">
+              <div className="patient-detail-section-heading">
+                <p className="patient-detail-section-eyebrow">Operational follow-through</p>
+                <h2 className="patient-detail-section-title">Communication, tasks, and appointments</h2>
+              </div>
+              <p className="patient-detail-section-note">
+                Clear the active work here before moving into slower review.
+              </p>
+            </div>
+            <div className="patient-detail-operations-grid">
+              <div className="patient-detail-operations-grid__communication">
+                <PatientCommunicationPanel
+                  items={patientCommunicationItems}
+                  timeline={patientCommunicationTimeline}
+                  isLoading={patientCommunicationQuery.isLoading}
+                  error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
+                  onRetry={() => {
+                    void patientCommunicationQuery.refetch();
+                  }}
+                  onOpenCommunication={openCommunicationWorkspace}
+                  onOpenAlerts={openAlertsFromPatientCommunication}
+                  showQuickReply={canQuickReplyFromPatientDetail}
+                  quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
+                  quickReplyValue={patientQuickReply}
+                  onQuickReplyChange={setPatientQuickReply}
+                  onSendQuickReply={handlePatientQuickReply}
+                  replyTemplates={communicationAuthoring.templates}
+                  selectedTemplateId={selectedQuickReplyTemplateId}
+                  onSelectedTemplateChange={setSelectedQuickReplyTemplateId}
+                  onInsertTemplate={handleInsertPatientQuickReplyTemplate}
+                  hasSignature={communicationAuthoring.hasSignature}
+                  onInsertSignature={handleInsertPatientQuickReplySignature}
+                />
+              </div>
+              <div className="patient-detail-operations-grid__tasks">
+                <PatientTasksPanel
+                  activeTasks={patientActiveTasks}
+                  recentCompletedTasks={patientRecentCompletedTasks}
+                  isLoading={patientTasksQuery.isLoading}
+                  error={patientTasksQuery.error ? toUserMessage(patientTasksQuery.error) : null}
+                  completingTaskId={completeTaskMutation.isPending ? completeTaskMutation.variables : null}
+                  onRetry={() => {
+                    void patientTasksQuery.refetch();
+                  }}
+                  onCompleteTask={handleCompleteTask}
+                  onOpenAlerts={() => handleOperationalAction('alerts')}
+                  onOpenAppointments={() => navigate('/appointments')}
+                />
+              </div>
+              <div className="patient-detail-operations-grid__appointments">
+                <PatientAppointmentsPanel
+                  items={patientAppointments}
+                  isLoading={patientAppointmentsQuery.isLoading}
+                  error={patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null}
+                  onRetry={() => {
+                    void patientAppointmentsQuery.refetch();
+                  }}
+                  onOpenAppointments={() => navigate('/appointments')}
+                />
+              </div>
+            </div>
+          </section>
 
           <section
             id="patient-care-review-section"
@@ -2318,7 +2370,7 @@ export function PatientDetailPage(): JSX.Element {
                 <h2 className="patient-detail-section-title">Care plan, questionnaires, and insight review</h2>
               </div>
               <p className="patient-detail-section-note">
-                Use this after active follow-up is clear. Weekly reports and recent sessions stay available as supporting context.
+                Use this after the active work is clear.
               </p>
             </div>
             <div className="patient-detail-section-grid patient-detail-section-grid--workflow">
@@ -2730,104 +2782,61 @@ export function PatientDetailPage(): JSX.Element {
           </section>
         </div>
 
-        <div className="patient-detail-cockpit-layout__support">
+        <aside className="patient-detail-cockpit-layout__support" aria-label="Patient support context">
           <section
-            id="patient-operations-section"
-            className="patient-detail-section-block patient-detail-section-block--operational patient-detail-section-block--workflow-support"
+            id="patient-summary-section"
+            className="patient-detail-summary-shell patient-detail-summary-shell--cockpit"
+            aria-label="Patient summary"
           >
-            <div className="patient-detail-section-header">
+            <div className="patient-detail-section-header patient-detail-section-header--summary">
               <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Operational follow-through</p>
-                <h2 className="patient-detail-section-title">Communication, tasks, and appointments</h2>
+                <p className="patient-detail-section-eyebrow">Patient brief</p>
+                <h2 className="patient-detail-section-title">Current status summary</h2>
               </div>
               <p className="patient-detail-section-note">
-                Clear active follow-up, handoff, and scheduling coordination here before moving into slower review.
+                Selected {selectedDays}-day snapshot.
               </p>
             </div>
-            <div className="patient-detail-section-grid patient-detail-section-grid--operational">
-              <PatientCommunicationPanel
-                items={patientCommunicationItems}
-                timeline={patientCommunicationTimeline}
-                isLoading={patientCommunicationQuery.isLoading}
-                error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
-                onRetry={() => {
-                  void patientCommunicationQuery.refetch();
-                }}
-                onOpenCommunication={openCommunicationWorkspace}
-                onOpenAlerts={openAlertsFromPatientCommunication}
-                showQuickReply={canQuickReplyFromPatientDetail}
-                quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
-                quickReplyValue={patientQuickReply}
-                onQuickReplyChange={setPatientQuickReply}
-                onSendQuickReply={handlePatientQuickReply}
-                replyTemplates={communicationAuthoring.templates}
-                selectedTemplateId={selectedQuickReplyTemplateId}
-                onSelectedTemplateChange={setSelectedQuickReplyTemplateId}
-                onInsertTemplate={handleInsertPatientQuickReplyTemplate}
-                hasSignature={communicationAuthoring.hasSignature}
-                onInsertSignature={handleInsertPatientQuickReplySignature}
-              />
-              <PatientTasksPanel
-                activeTasks={patientActiveTasks}
-                recentCompletedTasks={patientRecentCompletedTasks}
-                isLoading={patientTasksQuery.isLoading}
-                error={patientTasksQuery.error ? toUserMessage(patientTasksQuery.error) : null}
-                completingTaskId={completeTaskMutation.isPending ? completeTaskMutation.variables : null}
-                onRetry={() => {
-                  void patientTasksQuery.refetch();
-                }}
-                onCompleteTask={handleCompleteTask}
-                onOpenAlerts={() => handleOperationalAction('alerts')}
-                onOpenAppointments={() => navigate('/appointments')}
-              />
-              <PatientAppointmentsPanel
-                items={patientAppointments}
-                isLoading={patientAppointmentsQuery.isLoading}
-                error={patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null}
-                onRetry={() => {
-                  void patientAppointmentsQuery.refetch();
-                }}
-                onOpenAppointments={() => navigate('/appointments')}
-              />
-              <PatientHandoffPanel
-                patientId={patientId}
-                onOpenNextAction={(action) => handleOperationalAction(action)}
-              />
+            <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+          </section>
+
+          <PatientHandoffPanel
+            patientId={patientId}
+            onOpenNextAction={(action) => handleOperationalAction(action)}
+          />
+
+          <section
+            id="patient-reference-section"
+            className="patient-detail-reference-bridge"
+            aria-label="Deeper clinical context"
+            data-testid="patient-detail-reference-bridge"
+          >
+            <div className="patient-detail-reference-bridge__copy">
+              <p className="patient-detail-reference-bridge__eyebrow">Deeper context</p>
+              <strong className="patient-detail-reference-bridge__title">
+                Open slower history only when it helps the current review.
+              </strong>
+              <p className="patient-detail-reference-bridge__text">
+                Symptom history and support tracking stay available below without taking over the active workspace.
+              </p>
+            </div>
+            <div className="patient-detail-reference-bridge__facts">
+              <div className="patient-detail-reference-bridge__fact">
+                <span>Symptom detail</span>
+                <strong>{hasSymptomReference ? 'Available this week' : 'No recent entries'}</strong>
+              </div>
+              <div className="patient-detail-reference-bridge__fact">
+                <span>Support signals</span>
+                <strong>{hasSupportSignals ? 'Tracked this week' : 'No support logs'}</strong>
+              </div>
+              <div className="patient-detail-reference-bridge__fact">
+                <span>Care review</span>
+                <strong>{hasCareReviewItems ? `${patientPromDue.length} due · ${patientPendingInsights.length} pending` : 'No open review items'}</strong>
+              </div>
             </div>
           </section>
-        </div>
+        </aside>
       </div>
-
-      <section
-        id="patient-reference-section"
-        className="patient-detail-reference-bridge"
-        aria-label="Deeper clinical context"
-        data-testid="patient-detail-reference-bridge"
-      >
-        <div className="patient-detail-reference-bridge__copy">
-          <p className="patient-detail-reference-bridge__eyebrow">Deeper context</p>
-          <strong className="patient-detail-reference-bridge__title">
-            Open the next sections only when slower daily history is needed.
-          </strong>
-          <p className="patient-detail-reference-bridge__text">
-            These panels stay available for symptom history and support tracking, but they remain compressed so immediate review and follow-up stay easier to scan.
-          </p>
-        </div>
-        <div className="patient-detail-reference-bridge__facts">
-          <div className="patient-detail-reference-bridge__fact">
-            <span>Symptom detail</span>
-            <strong>{hasSymptomReference ? 'Available this week' : 'No recent entries'}</strong>
-          </div>
-          <div className="patient-detail-reference-bridge__fact">
-            <span>Support signals</span>
-            <strong>{hasSupportSignals ? 'Tracked this week' : 'No support logs'}</strong>
-          </div>
-          <div className="patient-detail-reference-bridge__fact">
-            <span>Care review</span>
-            <strong>{hasCareReviewItems ? `${patientPromDue.length} due · ${patientPendingInsights.length} pending` : 'No open review items'}</strong>
-          </div>
-        </div>
-      </section>
 
       <section
         className={`patient-detail-section-block patient-detail-section-block--signals patient-detail-section-block--reference ${
@@ -2842,7 +2851,7 @@ export function PatientDetailPage(): JSX.Element {
           </div>
           <div className="patient-detail-section-header__aside">
             <p className="patient-detail-section-note">
-              Use sleep, body-map, and photo history only when day-level symptom context is needed.
+              Open sleep, body-map, and photo history only when day-level context is needed.
             </p>
             <div className="patient-detail-disclosure__controls">
               <span className="patient-detail-disclosure__state">

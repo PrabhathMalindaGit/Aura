@@ -104,9 +104,7 @@ describe('SettingsPage clinician profile workspace', () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Local attention cues in this browser only. They do not affect core alert visibility and do not send notifications to other devices.',
-      ),
+      screen.getByText('Local attention cues in this browser only.'),
     ).toBeInTheDocument();
   });
 

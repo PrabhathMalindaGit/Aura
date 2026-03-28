@@ -78,20 +78,11 @@ export function PatientCurrentPriorities({
       ) : items.length === 0 ? (
         <EmptyState
           title="No immediate priorities detected"
-          description="This patient does not have an active alert, response-needed message, overdue task, or urgent appointment issue right now."
+          description="No alert, response-needed message, overdue task, or urgent appointment issue is active right now."
           tone="success"
         />
       ) : (
         <div className="patient-priority-list">
-          <div className="patient-priority-list__intro">
-            <p className="patient-priority-list__eyebrow">Decision focus</p>
-            <strong className="patient-priority-list__headline">
-              {items.length} active {items.length === 1 ? 'priority' : 'priorities'} in this review pass
-            </strong>
-            <p className="patient-priority-list__hint">
-              Review these issue-first cues before moving into slower trajectory or reference context.
-            </p>
-          </div>
           {items.map((item) => (
             <article key={item.id} className={`patient-priority-item patient-priority-item--${item.tone}`}>
               <div className="patient-priority-item__copy">

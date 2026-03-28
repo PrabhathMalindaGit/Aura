@@ -1165,7 +1165,7 @@ export function AppointmentsPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--appointments appointments-page-header"
         eyebrow="Care coordination"
         title="Appointments"
-        subtitle="Review scheduling demand, confirm whether open capacity is sufficient, and publish new availability only when it is truly needed."
+        subtitle="Review scheduling demand, confirm whether open capacity is sufficient, and publish only the availability the queue still needs."
         actions={
           <Button
             variant="secondary"
@@ -1574,7 +1574,7 @@ export function AppointmentsPage(): JSX.Element {
                             <div className="appointments-item__action-copy">
                               <p className="appointments-item__action-label">Next action</p>
                               <p className="appointments-item__action-text">
-                                Review demand now, then approve only when this window still fits the visible schedule.
+                                Match this request against the visible schedule before approving.
                               </p>
                             </div>
                             <div className="appointments-item__actions appointments-item__actions--pending">
@@ -1618,7 +1618,7 @@ export function AppointmentsPage(): JSX.Element {
                             <div className="appointments-item__action-copy">
                               <p className="appointments-item__action-label">Reference state</p>
                               <p className="appointments-item__action-text">
-                                Keep this reviewed request visible for context while checking whether open capacity still needs adjustment.
+                                Keep this reviewed request visible while checking whether capacity still needs adjustment.
                               </p>
                             </div>
                             <div className="appointments-item__actions">
@@ -2011,100 +2011,98 @@ export function AppointmentsPage(): JSX.Element {
               ) : null}
             </section>
           </div>
-        </div>
-      </Card>
 
-      <Card
-        className="appointments-composer-card"
-        title={
-          <span className="appointments-card-title appointments-card-title--composer">
-            <span className="appointments-card-title__eyebrow">Next step</span>
-            <span className="appointments-card-title__headline">Publish availability</span>
-          </span>
-        }
-        action={<Badge variant={composerStatusVariant}>{composerMetaLabel}</Badge>}
-      >
-        <div className="appointments-composer">
-          <div className="appointments-composer__context">
-            <span
-              className={`appointments-composer__context-pill appointments-composer__context-pill--${coverageState.tone}`}
-            >
-              Publish after queue review
-            </span>
-            <p className="appointments-composer__context-note">{composerGuidance}</p>
-          </div>
-          <div className="appointments-composer__summary">
-            <p className="appointments-composer__intro">
-              Use this panel after request review to publish only the clinician time the queue still
-              needs.
-            </p>
-            <div className="appointments-composer__summary-facts" aria-live="polite">
-              <span className="appointments-composer__summary-pill">{requestCountLabel}</span>
-              <span className="appointments-composer__summary-pill">{openCapacityLabel}</span>
-              <span className="appointments-composer__summary-pill">Updated {refreshedAtLabel}</span>
-            </div>
-          </div>
-          <div className="appointments-composer__surface">
-            <div className="appointments-composer__cluster">
-              <p className="appointments-composer__cluster-label">Availability window</p>
-              <div className="appointments-composer__grid">
-                <label className="appointments-composer__field form-field">
-                  <span className="appointments-composer__label">Start (local datetime)</span>
-                  <input
-                    type="datetime-local"
-                    value={startsAtInput}
-                    onChange={(event) => setStartsAtInput(event.target.value)}
-                  />
-                </label>
-                <label className="appointments-composer__field form-field">
-                  <span className="appointments-composer__label">End (local datetime)</span>
-                  <input
-                    type="datetime-local"
-                    value={endsAtInput}
-                    onChange={(event) => setEndsAtInput(event.target.value)}
-                  />
-                </label>
+          <section className="appointments-workspace__publish" aria-label="Publish availability">
+            <header className="appointments-workspace__section-header appointments-workspace__section-header--publish">
+              <div className="appointments-workspace__section-heading">
+                <h3 className="appointments-workspace__section-title">Publish availability</h3>
+                <p className="appointments-workspace__section-note">
+                  Publish only the clinician time the queue still needs.
+                </p>
+              </div>
+              <Badge variant={composerStatusVariant}>{composerMetaLabel}</Badge>
+            </header>
+            <div className="appointments-composer">
+              <div className="appointments-composer__context">
+                <span
+                  className={`appointments-composer__context-pill appointments-composer__context-pill--${coverageState.tone}`}
+                >
+                  Publish after queue review
+                </span>
+                <p className="appointments-composer__context-note">{composerGuidance}</p>
+              </div>
+              <div className="appointments-composer__summary">
+                <p className="appointments-composer__intro">
+                  Use this after request review to publish only the clinician time the queue still needs.
+                </p>
+                <div className="appointments-composer__summary-facts" aria-live="polite">
+                  <span className="appointments-composer__summary-pill">{requestCountLabel}</span>
+                  <span className="appointments-composer__summary-pill">{openCapacityLabel}</span>
+                  <span className="appointments-composer__summary-pill">Updated {refreshedAtLabel}</span>
+                </div>
+              </div>
+              <div className="appointments-composer__surface">
+                <div className="appointments-composer__cluster">
+                  <p className="appointments-composer__cluster-label">Availability window</p>
+                  <div className="appointments-composer__grid">
+                    <label className="appointments-composer__field form-field">
+                      <span className="appointments-composer__label">Start (local datetime)</span>
+                      <input
+                        type="datetime-local"
+                        value={startsAtInput}
+                        onChange={(event) => setStartsAtInput(event.target.value)}
+                      />
+                    </label>
+                    <label className="appointments-composer__field form-field">
+                      <span className="appointments-composer__label">End (local datetime)</span>
+                      <input
+                        type="datetime-local"
+                        value={endsAtInput}
+                        onChange={(event) => setEndsAtInput(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
+                  <p className="appointments-composer__cluster-label">Visit details</p>
+                  <div className="appointments-composer__grid appointments-composer__grid--supporting">
+                    <label className="appointments-composer__field appointments-composer__field--wide form-field">
+                      <span className="appointments-composer__label">Meeting link (optional)</span>
+                      <input
+                        type="text"
+                        value={meetingLinkInput}
+                        placeholder="https://..."
+                        onChange={(event) => setMeetingLinkInput(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <p className="appointments-composer__cluster-note">
+                    Add a meeting link only when the slot should open directly into a tele-rehab visit.
+                  </p>
+                </div>
+              </div>
+              <div className="appointments-composer__actions">
+                <div className="appointments-composer__hint-group">
+                  <p className="appointments-composer__hint">
+                    Published slots become immediately visible to the booking queue after creation.
+                  </p>
+                  <p className="appointments-composer__hint appointments-composer__hint--quiet">
+                    Queue state: {coverageState.label} · Last refresh {refreshedAtLabel}
+                  </p>
+                </div>
+                <Button
+                  className="appointments-composer__publish"
+                  variant="primary"
+                  disabled={!canCreate}
+                  onClick={() => {
+                    void handleCreateSlot();
+                  }}
+                >
+                  {isCreating ? 'Publishing...' : 'Publish availability'}
+                </Button>
               </div>
             </div>
-            <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
-              <p className="appointments-composer__cluster-label">Visit details</p>
-              <div className="appointments-composer__grid appointments-composer__grid--supporting">
-                <label className="appointments-composer__field appointments-composer__field--wide form-field">
-                  <span className="appointments-composer__label">Meeting link (optional)</span>
-                  <input
-                    type="text"
-                    value={meetingLinkInput}
-                    placeholder="https://..."
-                    onChange={(event) => setMeetingLinkInput(event.target.value)}
-                  />
-                </label>
-              </div>
-              <p className="appointments-composer__cluster-note">
-                Add a meeting link only when the published slot should open directly into a tele-rehab
-                visit.
-              </p>
-            </div>
-          </div>
-          <div className="appointments-composer__actions">
-            <div className="appointments-composer__hint-group">
-              <p className="appointments-composer__hint">
-                Published slots become immediately visible to the booking queue after creation.
-              </p>
-              <p className="appointments-composer__hint appointments-composer__hint--quiet">
-                Queue state: {coverageState.label} · Last refresh {refreshedAtLabel}
-              </p>
-            </div>
-            <Button
-              className="appointments-composer__publish"
-              variant="primary"
-              disabled={!canCreate}
-              onClick={() => {
-                void handleCreateSlot();
-              }}
-            >
-              {isCreating ? 'Publishing...' : 'Publish availability'}
-            </Button>
-          </div>
+          </section>
         </div>
       </Card>
     </div>

@@ -38566,3 +38566,542 @@ button.dashboard-summary-strip__item:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Pass 12 targeted redesign reboot: patient detail, settings, insights, appointments */
+
+.patient-detail-page {
+  gap: clamp(0.95rem, 1.4vw, 1.2rem);
+}
+
+.patient-detail-page .patient-detail-cockpit-layout {
+  grid-template-columns: minmax(0, 1.34fr) minmax(20rem, 0.66fr);
+  gap: clamp(0.9rem, 1.35vw, 1.12rem);
+  align-items: start;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__main,
+.patient-detail-page .patient-detail-cockpit-layout__support {
+  display: grid;
+  gap: clamp(0.84rem, 1.2vw, 1rem);
+  min-width: 0;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support {
+  align-content: start;
+}
+
+.patient-detail-page .patient-detail-attention-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  gap: 0.82rem;
+}
+
+.patient-detail-page .patient-detail-operations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.82rem;
+}
+
+.patient-detail-page .patient-detail-operations-grid__communication {
+  grid-column: 1 / -1;
+}
+
+.patient-detail-page .patient-detail-clinical-review-grid {
+  grid-template-columns: minmax(0, 1.18fr) minmax(18rem, 0.82fr);
+  gap: 0.82rem;
+}
+
+.patient-detail-page .patient-detail-section-block--cockpit,
+.patient-detail-page .patient-detail-summary-shell--cockpit,
+.patient-detail-page .patient-detail-section-block--workflow-support,
+.patient-detail-page .patient-detail-section-block--care-review,
+.patient-detail-page .patient-detail-reference-bridge,
+.patient-detail-page .patient-detail-section-block--reference,
+.patient-detail-page .patient-handoff-panel {
+  padding: clamp(0.95rem, 1.35vw, 1.12rem);
+  border-color: hsl(var(--border) / 0.54);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.996), hsl(var(--muted) / 0.055)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.022), transparent 84%);
+  box-shadow: none;
+}
+
+.patient-detail-page .patient-detail-summary-shell--cockpit {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.045)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.032), transparent 84%);
+}
+
+.patient-detail-page .patient-detail-section-header {
+  padding-bottom: 0.56rem;
+}
+
+.patient-detail-page .patient-detail-section-note {
+  max-width: 34ch;
+}
+
+.patient-detail-page .patient-detail-mini-nav {
+  padding: 0.72rem 0.82rem;
+  box-shadow: none;
+}
+
+.patient-detail-page .patient-detail-mini-nav__text {
+  max-width: 26ch;
+}
+
+.patient-detail-page .patient-detail-hero-card,
+.patient-detail-page .patient-detail-current-context,
+.patient-detail-page .patient-detail-cockpit-signals {
+  box-shadow: none;
+}
+
+.patient-detail-page #patient-summary-section .patient-summary-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.patient-detail-page #patient-summary-section .patient-summary-card--lead {
+  grid-column: 1 / -1;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support .card__header,
+.patient-detail-page .patient-detail-cockpit-layout__support .card__body {
+  padding-inline: 0;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support .card__header {
+  padding-top: 0;
+  padding-bottom: 0.64rem;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout__support .card__body {
+  padding-bottom: 0;
+}
+
+.patient-detail-page .patient-priority-item,
+.patient-detail-page .patient-recommended-action,
+.patient-detail-page .recent-alert-list__item,
+.patient-detail-page .patient-task-item,
+.patient-detail-page .patient-task-groups__overview-fact,
+.patient-detail-page .patient-communication-overview__fact,
+.patient-detail-page .patient-communication-timeline__event,
+.patient-detail-page .patient-communication-inline-state,
+.patient-detail-page .patient-communication-quick-reply,
+.patient-detail-page .patient-appointment-callout,
+.patient-detail-page .patient-appointment-item,
+.patient-detail-page .patient-handoff-panel__current,
+.patient-detail-page .patient-handoff-panel__scope-note,
+.patient-detail-page .patient-handoff-panel__note-item,
+.patient-detail-page .patient-handoff-panel__helper,
+.patient-detail-page .patient-detail-panel--operations-secondary {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.994), hsl(var(--muted) / 0.04)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.016), transparent 88%);
+  box-shadow: none;
+}
+
+.patient-detail-page .patient-handoff-panel__body,
+.patient-detail-page .patient-detail-reference-bridge__copy {
+  gap: 0.72rem;
+}
+
+.patient-detail-page .patient-detail-reference-bridge__text {
+  max-width: 30ch;
+}
+
+.settings-page {
+  gap: 0.95rem;
+}
+
+.settings-overview-stack--console {
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+}
+
+.settings-page .settings-summary-strip--console {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.62rem;
+  padding: 0.68rem;
+  border-color: hsl(var(--border) / 0.54);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.045)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 86%);
+  box-shadow: none;
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__item {
+  min-height: 0;
+  padding: 0.82rem 0.84rem;
+  border-color: hsl(var(--border) / 0.42);
+  background: hsl(var(--card) / 0.9);
+  box-shadow: none;
+}
+
+.settings-page .settings-summary-strip--console .settings-summary-strip__item--workspace-state {
+  grid-column: auto;
+}
+
+.settings-quick-controls-band {
+  padding: 0.86rem 0.92rem;
+  gap: 0.78rem;
+  border-color: hsl(var(--border) / 0.52);
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.settings-quick-controls-band__header {
+  align-items: center;
+}
+
+.settings-quick-controls-band__grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.settings-quick-controls-band .setting-item--theme {
+  grid-column: span 2;
+}
+
+.settings-quick-note--scope {
+  grid-column: span 2;
+}
+
+.settings-page .settings-column-shell__intro--workspace,
+.settings-page .settings-column-shell__intro--protection,
+.settings-page .settings-column-shell__intro--modules,
+.settings-page .settings-column-shell__intro--admin {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.settings-control-environment {
+  grid-template-columns: minmax(0, 1.28fr) minmax(20rem, 0.72fr);
+  gap: 1rem;
+}
+
+.settings-page .settings-group-card {
+  border-color: hsl(var(--border) / 0.52);
+  box-shadow: none;
+}
+
+.settings-page .settings-group-card .card__header {
+  padding: 1.08rem 1.16rem 0.82rem;
+}
+
+.settings-page .settings-group-card .card__body {
+  padding: 0 1.16rem 1.12rem;
+  gap: 0.88rem;
+}
+
+.settings-page .settings-group-card__context {
+  gap: 0.44rem;
+  align-items: center;
+}
+
+.settings-page .settings-group-card__context-note {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.settings-display-context {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.settings-display-context__item {
+  padding: 0.78rem 0;
+  border: 0;
+  border-top: 1px solid hsl(var(--border) / 0.44);
+  border-radius: 0;
+  background: none;
+}
+
+.settings-display-context__item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settings-profile-summary--hero {
+  padding: 0.98rem 1rem;
+  border-color: hsl(var(--border) / 0.46);
+  box-shadow: none;
+}
+
+.settings-field-cluster {
+  padding: 0.9rem 0 0;
+  border: 0;
+  border-top: 1px solid hsl(var(--border) / 0.44);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.settings-profile-editor > .settings-field-cluster:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settings-field-cluster__grid {
+  gap: 0.72rem;
+}
+
+.settings-security-panel__fact,
+.settings-security-panel__note,
+.settings-notification-preferences__quiet-panel,
+.settings-admin-action,
+.settings-quick-note {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.992), hsl(var(--muted) / 0.05)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.02), transparent 86%);
+  box-shadow: none;
+}
+
+.settings-modules-stage__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.settings-admin-zone__actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.dashboard-page-shell--insights.insights-page {
+  gap: 0.95rem;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-summary-strip {
+  grid-template-columns: minmax(0, 1.46fr) repeat(3, minmax(8.5rem, 1fr));
+  gap: 0.6rem;
+  padding: 0.64rem;
+  border-color: hsl(var(--border) / 0.54);
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-summary-strip__lead {
+  padding: 0.78rem 0.84rem;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-summary-strip__item {
+  min-height: 0;
+  padding: 0.78rem 0.82rem;
+  border-color: hsl(var(--border) / 0.42);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-workspace-card {
+  border-radius: 30px;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-workspace-card .card__header {
+  padding: 0.92rem 1rem 0.72rem;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-workspace-card .card__body,
+.dashboard-page-shell--insights.insights-page .insights-review-console,
+.dashboard-page-shell--insights.insights-page .insights-review-console__content {
+  gap: 0.78rem;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-review-console__controls {
+  grid-template-columns: minmax(13.5rem, 0.82fr) minmax(0, 1.18fr);
+  gap: 0.72rem;
+  align-items: center;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-review-console__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.44rem;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-review-console__meta-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.34rem 0.72rem;
+  border: 1px solid hsl(var(--border) / 0.44);
+  border-radius: 999px;
+  background: hsl(var(--background) / 0.82);
+  color: hsl(var(--foreground) / 0.76);
+  font-size: 0.8rem;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-review-console__meta-pill--count {
+  background: hsl(var(--primary) / 0.08);
+  color: hsl(var(--foreground));
+}
+
+.dashboard-page-shell--insights.insights-page .insights-queue-context {
+  padding: 0.74rem 0.84rem;
+  border-color: hsl(var(--border) / 0.42);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-queue-section--priority,
+.dashboard-page-shell--insights.insights-page .insights-queue-section--low,
+.dashboard-page-shell--insights.insights-page .insights-batch-action-bar,
+.dashboard-page-shell--insights.insights-page .insights-review-outcome,
+.dashboard-page-shell--insights.insights-page .insights-empty-state {
+  box-shadow: none;
+}
+
+.dashboard-page-shell--insights.insights-page .insights-queue-section--low {
+  padding-top: 0.86rem;
+  border-top: 1px solid hsl(var(--border) / 0.36);
+}
+
+.dashboard-page-shell--insights.insights-page .insights-queue__item {
+  border-color: hsl(var(--border) / 0.46);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page {
+  gap: 0.95rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-summary-strip {
+  grid-template-columns: minmax(0, 1.52fr) repeat(4, minmax(8rem, 1fr));
+  gap: 0.6rem;
+  padding: 0.64rem;
+  border-color: hsl(var(--border) / 0.54);
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-summary-strip__lead {
+  padding: 0.8rem 0.86rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-summary-strip__item {
+  min-height: 0;
+  padding: 0.78rem 0.82rem;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace-card {
+  border-radius: 30px;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace-card .card__header {
+  padding: 0.94rem 1rem 0.74rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace-card .card__body {
+  padding: 0 1rem 1rem;
+  gap: 0.86rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace__context {
+  padding: 0.72rem 0.84rem;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace__panels {
+  grid-template-columns: minmax(18rem, 0.9fr) minmax(0, 1.1fr);
+  gap: 0.82rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace__section {
+  gap: 0.72rem;
+  padding: 0.84rem 0.88rem;
+  border-color: hsl(var(--border) / 0.56);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-workspace__publish {
+  display: grid;
+  gap: 0.72rem;
+  padding-top: 0.86rem;
+  border-top: 1px solid hsl(var(--border) / 0.4);
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-item__schedule,
+.dashboard-page-shell--appointments.appointments-page .appointments-item__reason,
+.dashboard-page-shell--appointments.appointments-page .appointments-item__action-bar,
+.dashboard-page-shell--appointments.appointments-page .appointments-schedule-context,
+.dashboard-page-shell--appointments.appointments-page .appointments-schedule__control-shell,
+.dashboard-page-shell--appointments.appointments-page .appointments-request-outcome,
+.dashboard-page-shell--appointments.appointments-page .appointments-publish-outcome,
+.dashboard-page-shell--appointments.appointments-page .appointments-empty-state,
+.dashboard-page-shell--appointments.appointments-page .appointments-composer__context,
+.dashboard-page-shell--appointments.appointments-page .appointments-composer__summary,
+.dashboard-page-shell--appointments.appointments-page .appointments-composer__surface {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.994), hsl(var(--muted) / 0.04)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.016), transparent 88%);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-composer {
+  gap: 0.72rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-composer__summary {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page .appointments-empty-state {
+  min-height: 0;
+  padding: 0.8rem 0.84rem;
+}
+
+@container dashboard-page (max-width: 1320px) {
+  .patient-detail-page .patient-detail-cockpit-layout,
+  .patient-detail-page .patient-detail-attention-grid,
+  .patient-detail-page .patient-detail-operations-grid,
+  .patient-detail-page .patient-detail-clinical-review-grid,
+  .settings-page .settings-summary-strip--console,
+  .dashboard-page-shell--appointments.appointments-page .appointments-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page #patient-summary-section .patient-summary-grid,
+  .dashboard-page-shell--insights.insights-page .insights-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container dashboard-page (max-width: 1180px) {
+  .settings-quick-controls-band__grid,
+  .settings-modules-stage__grid,
+  .settings-admin-zone__actions,
+  .dashboard-page-shell--insights.insights-page .insights-review-console__controls,
+  .dashboard-page-shell--appointments.appointments-page .appointments-workspace__panels {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-quick-controls-band .setting-item--theme,
+  .settings-quick-note--scope {
+    grid-column: auto;
+  }
+
+  .settings-control-environment {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container dashboard-page (max-width: 760px) {
+  .patient-detail-page #patient-summary-section .patient-summary-grid,
+  .settings-page .settings-summary-strip--console,
+  .dashboard-page-shell--insights.insights-page .insights-summary-strip,
+  .dashboard-page-shell--appointments.appointments-page .appointments-summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-page-shell--insights.insights-page .insights-review-console__meta {
+    justify-content: flex-start;
+  }
+}

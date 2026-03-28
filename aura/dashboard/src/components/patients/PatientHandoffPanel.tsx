@@ -157,7 +157,7 @@ export function PatientHandoffPanel({
         {!hasAnyHandoffContext ? (
           <EmptyState
             title="No internal handoff saved yet"
-            description="Capture a concise review summary, next step, or local note for this patient when handoff context would help the next review on this browser."
+            description="Capture a concise review summary, next step, or local note when the next review on this browser needs context."
             tone="neutral"
           />
         ) : null}
@@ -234,7 +234,7 @@ export function PatientHandoffPanel({
           <div className="patient-handoff-panel__scope-copy">
             <p className="patient-handoff-panel__scope-eyebrow">Browser-local workspace context</p>
             <p className="patient-handoff-panel__scope-text">
-              Stored only in this browser for local patient handoff continuity. It is not synced across devices or staff accounts.
+              Stored only in this browser for local handoff continuity. It does not sync across devices or staff accounts.
             </p>
           </div>
           <div className="patient-handoff-panel__scope-facts" aria-live="polite">

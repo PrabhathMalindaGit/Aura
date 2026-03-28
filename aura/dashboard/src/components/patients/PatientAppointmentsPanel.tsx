@@ -83,7 +83,7 @@ export function PatientAppointmentsPanel({
       ) : items.length === 0 ? (
         <EmptyState
           title="No appointment activity to review"
-          description="Upcoming and recent appointment requests for this patient will appear here."
+          description="Upcoming and recent appointment requests appear here."
           tone="neutral"
         />
       ) : (

@@ -78,20 +78,11 @@ export function RecommendedActionsPanel({
       ) : items.length === 0 ? (
         <EmptyState
           title="No action recommendations right now"
-          description="Current patient context does not suggest a specific follow-up step."
+          description="Current patient context does not suggest a stronger follow-up step."
           tone="success"
         />
       ) : (
         <div className="patient-recommended-actions">
-          <div className="patient-recommended-actions__intro">
-            <p className="patient-recommended-actions__eyebrow">Clinician next steps</p>
-            <strong className="patient-recommended-actions__headline">
-              {items.length} recommended {items.length === 1 ? 'action' : 'actions'} grounded in the current review
-            </strong>
-            <p className="patient-recommended-actions__hint">
-              Use these after confirming the urgent issue and the most recent patient signal.
-            </p>
-          </div>
           {items.map((item) => (
             <article key={item.id} className={`patient-recommended-action patient-recommended-action--${item.tone}`}>
               <div className="patient-recommended-action__copy">

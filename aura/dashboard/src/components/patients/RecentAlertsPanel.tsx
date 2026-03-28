@@ -77,15 +77,6 @@ export function RecentAlertsPanel({
         />
       ) : (
         <div className="recent-alert-list">
-          <div className="recent-alert-list__intro">
-            <p className="recent-alert-list__eyebrow">Safety feed</p>
-            <strong className="recent-alert-list__headline">
-              {visibleAlerts.length} recent {visibleAlerts.length === 1 ? 'alert' : 'alerts'} in patient context
-            </strong>
-            <p className="recent-alert-list__hint">
-              Open and unseen events stay visually ahead of acknowledged or resolved history.
-            </p>
-          </div>
           <ul aria-label="Recent alerts for patient">
             {visibleAlerts.map((alert) => {
               const unseen = isAlertUnseenForUi(alert, seenAlertMap);

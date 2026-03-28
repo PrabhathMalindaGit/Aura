@@ -673,7 +673,7 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--settings settings-page-header"
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Configure this local clinician workspace for profile identity, appearance, and session protection."
+        subtitle="Configure this browser-local clinician workspace for identity, defaults, and session protection."
         meta={
           <span className="settings-page__meta" aria-live="polite">
             <span className="settings-page__meta-pill settings-page__meta-pill--count">
@@ -733,8 +733,7 @@ export function SettingsPage(): JSX.Element {
               <p className="settings-column-shell__eyebrow">Quick controls</p>
               <h3 className="settings-column-shell__title">Workspace state and session protection</h3>
               <p className="settings-column-shell__text">
-                Put the controls a clinician reaches most often at the top: visual mode, session guard,
-                timeout behavior, and quiet-hours emphasis for this browser.
+                Keep theme, session guard, timeout behavior, and quiet hours within immediate reach.
               </p>
             </div>
             <div className="settings-quick-controls-band__facts" aria-label="Quick control status">
@@ -908,8 +907,7 @@ export function SettingsPage(): JSX.Element {
             <p className="settings-column-shell__eyebrow">Workspace identity and defaults</p>
             <h3 className="settings-column-shell__title">Clinician workspace controls</h3>
             <p className="settings-column-shell__text">
-              Keep the active clinician identity, schedule context, and daily defaults aligned for the
-              workstation that is currently in use.
+              Keep identity, local defaults, and daily context aligned for the workstation in use.
             </p>
           </div>
 
@@ -950,14 +948,9 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">This browser only</span>
               <p className="settings-group-card__context-note">
-                Saved locally for this clinician in this browser. Changes do not sync across
-                devices.
+                Saved locally for this clinician in this browser.
               </p>
             </div>
-            <p className="settings-group-card__intro">
-              Set how this clinician workspace appears for assignment ownership, handoff context,
-              and local identity surfaces on this device.
-            </p>
 
             <section className="settings-profile-summary settings-profile-summary--hero" aria-label="Saved clinician profile summary">
               <ClinicianAvatar
@@ -1410,7 +1403,7 @@ export function SettingsPage(): JSX.Element {
             <p className="settings-column-shell__eyebrow">Protection</p>
             <h3 className="settings-column-shell__title">Session safety controls</h3>
             <p className="settings-column-shell__text">
-              Keep unattended access risk low while preserving the local scope of this browser.
+              Keep unattended access risk low while preserving browser-local scope.
             </p>
           </div>
           <Card
@@ -1433,10 +1426,6 @@ export function SettingsPage(): JSX.Element {
                 Takes effect immediately in this browser.
               </p>
             </div>
-            <p className="settings-group-card__intro">
-              Session safeguards apply immediately to this browser and do not publish a shared
-              organization-wide policy.
-            </p>
             <div className="settings-security-panel">
               <div className="settings-security-panel__state">
                 <article className="settings-security-panel__fact">
@@ -1483,8 +1472,7 @@ export function SettingsPage(): JSX.Element {
           <section className="settings-column-shell__support" aria-label="Workspace guidance">
             <p className="settings-column-shell__support-label">Workspace guidance</p>
             <p className="settings-column-shell__support-text">
-              Use these reminders to keep the local scope of this browser clear for the clinician
-              using it.
+              Keep the scope of this browser clear for the clinician using it.
             </p>
             <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
               Settings on this page are browser-backed. They change how this clinician workspace
@@ -1499,8 +1487,7 @@ export function SettingsPage(): JSX.Element {
           <p className="settings-column-shell__eyebrow">Communication and notification defaults</p>
           <h3 className="settings-column-shell__title">Authoring and local attention modules</h3>
           <p className="settings-column-shell__text">
-            Keep reply drafting, quick templates, and in-app attention cues coordinated without changing
-            product-wide behavior outside this browser.
+            Keep reply drafting and in-app attention cues coordinated without changing anything outside this browser.
           </p>
         </div>
 
@@ -1518,14 +1505,9 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">This browser only</span>
               <p className="settings-group-card__context-note">
-                Signature and templates stay local to this clinician in this browser. They only
-                help fill drafts and never send anything automatically.
+                Signature and templates stay local to this clinician in this browser.
               </p>
             </div>
-            <p className="settings-group-card__intro">
-              Keep reply drafting consistent without turning Aura into a messaging console. Manage
-              your default signature and a small set of editable quick reply templates here.
-            </p>
 
             <div className="settings-communication-authoring__summary" aria-live="polite">
               <span className="settings-profile-summary__fact">
@@ -1589,8 +1571,7 @@ export function SettingsPage(): JSX.Element {
               >
                 {draftProfile.communicationAuthoring.templates.length === 0 ? (
                   <p className="settings-communication-authoring__empty muted-text">
-                    No saved templates yet. Add only the short reply starters you actually reuse in
-                    this browser.
+                    No saved templates yet. Add only the reply starters you actually reuse here.
                   </p>
                 ) : null}
 
@@ -1727,14 +1708,9 @@ export function SettingsPage(): JSX.Element {
             <div className="settings-group-card__context">
               <span className="settings-group-card__context-pill">This browser only</span>
               <p className="settings-group-card__context-note">
-                Local attention cues in this browser only. They do not affect core alert visibility
-                and do not send notifications to other devices.
+                Local attention cues in this browser only.
               </p>
             </div>
-            <p className="settings-group-card__intro">
-              Reduce extra in-app emphasis for current Communication, Home, and Alerts surfaces
-              without hiding the real queue state underneath.
-            </p>
 
             <div className="settings-notification-preferences__summary" aria-live="polite">
               <span className="settings-profile-summary__fact">{savedCommunicationCueLabel}</span>
@@ -1911,8 +1887,7 @@ export function SettingsPage(): JSX.Element {
           <p className="settings-column-shell__eyebrow">Restore and maintenance</p>
           <h3 className="settings-column-shell__title">Lower-priority control resets</h3>
           <p className="settings-column-shell__text">
-            Keep resets separate from day-to-day workspace controls so clinicians can reach them intentionally
-            without confusing them with normal preference updates.
+            Keep resets separate from day-to-day controls so clinicians reach them intentionally.
           </p>
         </div>
 
@@ -1922,7 +1897,7 @@ export function SettingsPage(): JSX.Element {
               <p className="settings-admin-action__eyebrow">Profile draft</p>
               <h4 className="settings-admin-action__title">Restore workspace profile defaults</h4>
               <p className="settings-admin-action__text">
-                Reset the editable profile form to Aura&apos;s local clinician defaults. The saved browser profile does not change until you save again.
+                Reset the editable profile form to Aura&apos;s local defaults. The saved browser profile does not change until you save again.
               </p>
             </div>
             <Button variant="ghost" onClick={handleRestoreProfileDefaults}>

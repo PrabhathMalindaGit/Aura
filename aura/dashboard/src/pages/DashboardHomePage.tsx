@@ -1,14 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CommunicationOverviewCard } from '../components/dashboard/CommunicationOverviewCard';
-import { DashboardSummaryCards, type DashboardSummaryMetric } from '../components/dashboard/DashboardSummaryCards';
-import { FollowUpTasksCard } from '../components/dashboard/FollowUpTasksCard';
-import { PriorityQueueModule } from '../components/dashboard/PriorityQueueModule';
-import { RecentSafetyEventsModule } from '../components/dashboard/RecentSafetyEventsModule';
-import { TodayAppointmentsCard } from '../components/dashboard/TodayAppointmentsCard';
+import { DashboardModuleState } from '../components/dashboard/DashboardModuleState';
+import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { getClinicianName } from '../services/clinicianIdentity';
@@ -24,47 +22,32 @@ import {
   useDashboardTodayAppointments,
   usePatients,
 } from '../services/clinicianApi';
-import type { DashboardFollowUpTaskItem, DashboardPriorityQueueItem } from '../types/models';
-import { humanizeDashboardLabel } from '../utils/dashboard';
+import type {
+  DashboardCommunicationOverviewItem,
+  DashboardFollowUpTaskItem,
+  DashboardPriorityQueueItem,
+  DashboardSafetyEvent,
+  DashboardTodayAppointmentItem,
+} from '../types/models';
+import {
+  formatDashboardDateTime,
+  formatDashboardRelativeTime,
+  formatDashboardTimeRange,
+  humanizeDashboardLabel,
+} from '../utils/dashboard';
 
-type DashboardAnalyticsTone = 'risk' | 'warning' | 'primary' | 'success' | 'neutral';
+type TodayBriefTone = 'risk' | 'warning' | 'primary' | 'neutral';
 
-type DashboardAnalyticsSegment = {
-  key: string;
-  label: string;
-  value: number;
-  tone: DashboardAnalyticsTone;
-};
-
-type DashboardAnalyticsStat = {
-  label: string;
-  value: number | string;
-};
-
-type DashboardAnalyticsCardProps = {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-  headline: ReactNode;
-  stats?: DashboardAnalyticsStat[];
-  segments?: DashboardAnalyticsSegment[];
-  rows?: DashboardAnalyticsSegment[];
-  emptyLabel: string;
-  footnote: string;
-  variant?: 'lead' | 'support' | 'compact';
-};
-
-type DashboardAttentionSignalTone = 'risk' | 'warning' | 'primary' | 'success' | 'neutral';
-
-type DashboardAttentionSignal = {
+type TodayBriefFact = {
   key: string;
   label: string;
   value: number;
   detail: string;
-  tone: DashboardAttentionSignalTone;
+  tone: TodayBriefTone;
+  onSelect: () => void;
 };
 
-type DashboardAttentionLead = {
+type TodayLeadAction = {
   title: string;
   copy: string;
   actionLabel: string;
@@ -112,185 +95,160 @@ function formatAnalyticsDateRange(from: Date, to: Date): string {
   return `${fromLabel} - ${toLabel}`;
 }
 
-function safetyEventBucketLabel(itemType: string, notificationStatus?: string, alertStatus?: string): string {
-  if (notificationStatus) {
-    return 'Notifications';
+function priorityBadgeVariant(
+  priority: DashboardPriorityQueueItem['priority'],
+): 'neutral' | 'warning' | 'risk-high' {
+  if (priority === 'urgent' || priority === 'high') {
+    return 'risk-high';
   }
 
-  if (alertStatus || itemType.toUpperCase().includes('ALERT')) {
-    return 'Alert updates';
+  if (priority === 'medium') {
+    return 'warning';
   }
 
-  return 'Workflow';
+  return 'neutral';
 }
 
-function dashboardAnalyticsToneClass(tone: DashboardAnalyticsTone): string {
-  return `dashboard-analytics__tone--${tone}`;
-}
-
-function DashboardAnalyticsComposition({
-  segments,
-  emptyLabel,
-}: {
-  segments: DashboardAnalyticsSegment[];
-  emptyLabel: string;
-}): JSX.Element {
-  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
-
-  if (total === 0) {
-    return <p className="dashboard-analytics-card__empty">{emptyLabel}</p>;
+function priorityActionLabel(item: DashboardPriorityQueueItem): string {
+  if (item.itemType === 'alert') {
+    return 'Open alerts';
   }
 
-  return (
-    <div className="dashboard-analytics-card__visual">
-      <div className="dashboard-analytics-card__composition-bar" aria-hidden="true">
-        {segments.map((segment) => (
-          <span
-            key={segment.key}
-            className={`dashboard-analytics-card__composition-segment ${dashboardAnalyticsToneClass(segment.tone)}`}
-            style={{ flexGrow: segment.value }}
-          />
-        ))}
-      </div>
-      <div className="dashboard-analytics-card__legend" role="list" aria-label="Current composition">
-        {segments.map((segment) => (
-          <span key={segment.key} className="dashboard-analytics-card__legend-item" role="listitem">
-            <span
-              className={`dashboard-analytics-card__legend-swatch ${dashboardAnalyticsToneClass(segment.tone)}`}
-              aria-hidden="true"
-            />
-            <span className="dashboard-analytics-card__legend-label">{segment.label}</span>
-            <strong className="dashboard-analytics-card__legend-value">{segment.value}</strong>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DashboardAnalyticsRows({
-  rows,
-  emptyLabel,
-}: {
-  rows: DashboardAnalyticsSegment[];
-  emptyLabel: string;
-}): JSX.Element {
-  const highestValue = rows.reduce((max, row) => Math.max(max, row.value), 0);
-
-  if (highestValue === 0) {
-    return <p className="dashboard-analytics-card__empty">{emptyLabel}</p>;
+  if (item.itemType === 'appointment_exception') {
+    return 'Open schedule';
   }
 
-  return (
-    <div className="dashboard-analytics-card__rows" role="list" aria-label="Current workload breakdown">
-      {rows.map((row) => {
-        const width = highestValue === 0 ? 0 : (row.value / highestValue) * 100;
-
-        return (
-          <div key={row.key} className="dashboard-analytics-card__row" role="listitem">
-            <div className="dashboard-analytics-card__row-header">
-              <span className="dashboard-analytics-card__row-label">{row.label}</span>
-              <strong className="dashboard-analytics-card__row-value">{row.value}</strong>
-            </div>
-            <div className="dashboard-analytics-card__row-track" aria-hidden="true">
-              <span
-                className={`dashboard-analytics-card__row-fill ${dashboardAnalyticsToneClass(row.tone)}`}
-                style={{ width: `${Math.max(width, row.value > 0 ? 10 : 0)}%` }}
-              />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+  return 'Open patient';
 }
 
-function DashboardAnalyticsCard({
-  eyebrow,
-  title,
-  subtitle,
-  headline,
-  stats = [],
-  segments,
-  rows,
-  emptyLabel,
-  footnote,
-  variant = 'support',
-}: DashboardAnalyticsCardProps): JSX.Element {
-  return (
-    <article className={`dashboard-analytics-card dashboard-analytics-card--${variant}`}>
-      <div className="dashboard-analytics-card__header">
-        <p className="dashboard-analytics-card__eyebrow">{eyebrow}</p>
-        <h3 className="dashboard-analytics-card__title">{title}</h3>
-        <p className="dashboard-analytics-card__subtitle">{subtitle}</p>
-      </div>
-
-      <div className="dashboard-analytics-card__headline">{headline}</div>
-
-      {stats.length > 0 ? (
-        <dl className="dashboard-analytics-card__stats">
-          {stats.map((stat) => (
-            <div key={stat.label} className="dashboard-analytics-card__stat">
-              <dt>{stat.label}</dt>
-              <dd>{stat.value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-
-      {segments ? (
-        <DashboardAnalyticsComposition segments={segments} emptyLabel={emptyLabel} />
-      ) : rows ? (
-        <DashboardAnalyticsRows rows={rows} emptyLabel={emptyLabel} />
-      ) : (
-        <p className="dashboard-analytics-card__empty">{emptyLabel}</p>
-      )}
-
-      <p className="dashboard-analytics-card__footnote">{footnote}</p>
-    </article>
-  );
+function priorityKindLabel(itemType: DashboardPriorityQueueItem['itemType']): string {
+  switch (itemType) {
+    case 'alert':
+      return 'Safety review';
+    case 'appointment_exception':
+      return 'Schedule pressure';
+    case 'communication':
+      return 'Inbox follow-through';
+    case 'missed_checkin':
+      return 'Missed check-in';
+    case 'task':
+    default:
+      return 'Follow-through';
+  }
 }
 
-function DashboardAttentionHero({
-  lead,
-  signals,
-  onOpenLead,
-}: {
-  lead: DashboardAttentionLead;
-  signals: DashboardAttentionSignal[];
-  onOpenLead: () => void;
-}): JSX.Element {
-  return (
-    <section className="dashboard-home-attention-hero" aria-label="Needs attention now">
-      <div className="dashboard-home-attention-hero__lead">
-        <p className="dashboard-home-attention-hero__eyebrow">Needs attention now</p>
-        <h2 className="dashboard-home-attention-hero__title">{lead.title}</h2>
-        <p className="dashboard-home-attention-hero__copy">{lead.copy}</p>
-        <div className="dashboard-home-attention-hero__actions">
-          <Button className="dashboard-home-attention-hero__cta" onClick={onOpenLead}>
-            {lead.actionLabel}
-          </Button>
-          <p className="dashboard-home-attention-hero__support">{lead.support}</p>
-        </div>
-      </div>
+function priorityFreshnessLabel(item: DashboardPriorityQueueItem): string {
+  if (item.dueAt) {
+    return `Due ${formatDashboardRelativeTime(item.dueAt)}`;
+  }
 
-      <div className="dashboard-home-attention-hero__signals" role="list" aria-label="Urgent review signals">
-        {signals.map((signal) => (
-          <article
-            key={signal.key}
-            className={`dashboard-home-attention-signal dashboard-home-attention-signal--${signal.tone}`}
-            role="listitem"
-          >
-            <div className="dashboard-home-attention-signal__top">
-              <span className="dashboard-home-attention-signal__label">{signal.label}</span>
-              <strong className="dashboard-home-attention-signal__value">{signal.value}</strong>
-            </div>
-            <p className="dashboard-home-attention-signal__detail">{signal.detail}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
+  return formatDashboardRelativeTime(item.createdAt);
+}
+
+function safetyBadge(item: DashboardSafetyEvent): JSX.Element | null {
+  if (item.notificationStatus === 'failed') {
+    return <Badge variant="danger">Delivery failed</Badge>;
+  }
+
+  if (item.notificationStatus === 'sent') {
+    return <Badge variant="success">Notification sent</Badge>;
+  }
+
+  if (item.alertStatus === 'open') {
+    return <Badge variant="danger">Open alert</Badge>;
+  }
+
+  if (item.alertStatus === 'acknowledged' || item.alertStatus === 'in_review') {
+    return <Badge variant="status-ack">Acknowledged</Badge>;
+  }
+
+  if (item.alertStatus === 'resolved' || item.alertStatus === 'closed') {
+    return <Badge variant="status-resolved">Resolved</Badge>;
+  }
+
+  return null;
+}
+
+function appointmentBadgeVariant(
+  status: DashboardTodayAppointmentItem['status'],
+): 'warning' | 'success' | 'neutral' | 'danger' {
+  if (status === 'missed') {
+    return 'danger';
+  }
+
+  if (status === 'completed') {
+    return 'success';
+  }
+
+  if (status === 'awaiting_confirmation' || status === 'reschedule_requested') {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
+function appointmentSummary(item: DashboardTodayAppointmentItem): string {
+  if (item.note?.trim()) {
+    return item.note.trim();
+  }
+
+  if (item.status === 'awaiting_confirmation') {
+    return 'Waiting for patient confirmation.';
+  }
+
+  if (item.status === 'reschedule_requested') {
+    return 'Reschedule review is waiting.';
+  }
+
+  if (item.status === 'missed') {
+    return 'Missed visit needs follow-through.';
+  }
+
+  return 'Visit is currently scheduled.';
+}
+
+function taskPriorityVariant(
+  priority: DashboardFollowUpTaskItem['priority'],
+): 'neutral' | 'warning' | 'risk-high' {
+  if (priority === 'urgent' || priority === 'high') {
+    return 'risk-high';
+  }
+
+  if (priority === 'medium') {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
+function taskActionLabel(item: DashboardFollowUpTaskItem): string {
+  if (item.linkedAlertId) {
+    return 'Open alerts';
+  }
+
+  if (item.linkedAppointmentId) {
+    return 'Open schedule';
+  }
+
+  return 'Open patient';
+}
+
+function threadDominantBadge(
+  item: DashboardCommunicationOverviewItem,
+): JSX.Element | null {
+  if (item.flaggedBySafety) {
+    return <Badge variant="danger">Safety flagged</Badge>;
+  }
+
+  if (item.needsResponse) {
+    return <Badge variant="warning">Needs response</Badge>;
+  }
+
+  if (item.followUpRequested) {
+    return <Badge variant="neutral">Follow-up requested</Badge>;
+  }
+
+  return null;
 }
 
 export function DashboardHomePage(): JSX.Element {
@@ -315,6 +273,7 @@ export function DashboardHomePage(): JSX.Element {
       label: formatAnalyticsDateRange(fromDate, toDate),
     };
   }, []);
+
   const upcomingAvailableSlotsQuery = useQuery({
     queryKey: ['dashboard-home', 'analytics', 'appointment-slots', 'available', schedulingRange.from, schedulingRange.to],
     queryFn: () =>
@@ -325,16 +284,7 @@ export function DashboardHomePage(): JSX.Element {
         limit: 200,
       }),
   });
-  const upcomingClosedSlotsQuery = useQuery({
-    queryKey: ['dashboard-home', 'analytics', 'appointment-slots', 'closed', schedulingRange.from, schedulingRange.to],
-    queryFn: () =>
-      listAppointmentSlots({
-        from: schedulingRange.from,
-        to: schedulingRange.to,
-        status: 'closed',
-        limit: 200,
-      }),
-  });
+
   const pendingAppointmentRequestsQuery = useQuery({
     queryKey: ['dashboard-home', 'analytics', 'appointment-requests', schedulingRange.from, schedulingRange.to],
     queryFn: () =>
@@ -345,19 +295,19 @@ export function DashboardHomePage(): JSX.Element {
         limit: 200,
       }),
   });
+
   const pendingInsightsQuery = useQuery({
     queryKey: ['dashboard-home', 'analytics', 'insights', 'pending'],
     queryFn: () => listInsightsQueue('pending', 200),
   });
 
-  const patientLabelMap = useMemo(() => {
-    return new Map(
-      (patientsQuery.data ?? []).map((patient) => [
-        patient.id,
-        patient.displayName?.trim() || patient.id,
-      ]),
-    );
-  }, [patientsQuery.data]);
+  const patientLabelMap = useMemo(
+    () =>
+      new Map(
+        (patientsQuery.data ?? []).map((patient) => [patient.id, patient.displayName?.trim() || patient.id]),
+      ),
+    [patientsQuery.data],
+  );
 
   const resolvePatientLabel = useCallback(
     (patientId: string): string => patientLabelMap.get(patientId) ?? patientId,
@@ -426,7 +376,6 @@ export function DashboardHomePage(): JSX.Element {
       followUpTasksQuery.refetch(),
       communicationQuery.refetch(),
       upcomingAvailableSlotsQuery.refetch(),
-      upcomingClosedSlotsQuery.refetch(),
       pendingAppointmentRequestsQuery.refetch(),
       pendingInsightsQuery.refetch(),
       patientsQuery.refetch(),
@@ -442,7 +391,6 @@ export function DashboardHomePage(): JSX.Element {
     safetyEventsQuery,
     summaryQuery,
     upcomingAvailableSlotsQuery,
-    upcomingClosedSlotsQuery,
   ]);
 
   const tasksDueTodayCount = useMemo(() => {
@@ -457,15 +405,10 @@ export function DashboardHomePage(): JSX.Element {
     }).length;
   }, [followUpTasksQuery.data]);
 
-  const safetyHeadlineCount = summaryQuery.data?.openAlertsCount;
-  const safetyAssignedCount = summaryQuery.data?.assignedToMeAlertsCount;
-  const recentSafetyEventCount = safetyEventsQuery.data?.length ?? 0;
   const communicationNeedsResponseCount =
     communicationQuery.data?.counts.needsResponseCount ??
     summaryQuery.data?.messagesNeedingResponseCount ??
     0;
-  const communicationSafetyFlaggedCount = communicationQuery.data?.counts.flaggedBySafetyCount ?? 0;
-  const communicationFollowUpRequestedCount = communicationQuery.data?.counts.followUpRequestedCount ?? 0;
   const pendingInsightsCount = summaryQuery.data?.pendingInsightsCount ?? pendingInsightsQuery.data?.length ?? 0;
   const highPriorityInsightsCount =
     pendingInsightsQuery.data?.filter((item) => item.priority >= 3).length ?? 0;
@@ -473,280 +416,77 @@ export function DashboardHomePage(): JSX.Element {
     pendingInsightsQuery.data?.filter((item) => item.category === 'safety').length ?? 0;
   const pendingAppointmentRequestsCount = pendingAppointmentRequestsQuery.data?.length ?? 0;
   const availableSlotsCount = upcomingAvailableSlotsQuery.data?.length ?? 0;
-  const closedSlotsCount = upcomingClosedSlotsQuery.data?.length ?? 0;
+  const recentSafetyEventCount = safetyEventsQuery.data?.length ?? 0;
+  const nextOpenSlot = useMemo(() => {
+    return [...(upcomingAvailableSlotsQuery.data ?? [])]
+      .sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime())[0] ?? null;
+  }, [upcomingAvailableSlotsQuery.data]);
 
-  const summaryMetrics = useMemo<DashboardSummaryMetric[]>(() => {
-    const openAlertsCount = summaryQuery.data?.openAlertsCount ?? 0;
-    const messagesNeedingResponseCount =
-      communicationQuery.data?.counts.needsResponseCount ??
-      summaryQuery.data?.messagesNeedingResponseCount ??
-      0;
-    const todayAppointmentsCount = summaryQuery.data?.todayAppointmentsCount ?? 0;
-    const pendingInsightsCount = summaryQuery.data?.pendingInsightsCount ?? 0;
-    const leadMetricKey =
-      openAlertsCount > 0
-        ? 'open-alerts'
-        : messagesNeedingResponseCount > 0
-          ? 'messages-needing-response'
-          : tasksDueTodayCount > 0
-            ? 'tasks-due-today'
-            : todayAppointmentsCount > 0
-              ? 'today-appointments'
-              : pendingInsightsCount > 0
-                ? 'pending-insights'
-                : undefined;
-
-    return [
-      {
-        key: 'open-alerts',
-        label: 'Open alerts',
-        value: openAlertsCount,
-        helper: openAlertsCount > 0 ? 'Safety leads' : 'Safety queue clear',
-        tone: 'risk',
-        emphasis: leadMetricKey === 'open-alerts' ? 'lead' : undefined,
-        onSelect: () => navigate('/alerts'),
-      },
-      {
-        key: 'messages-needing-response',
-        label: 'Need response',
-        value: messagesNeedingResponseCount,
-        helper:
-          messagesNeedingResponseCount > 0 ? 'Patient replies waiting' : 'Inbox steady',
-        tone: 'warning',
-        emphasis: leadMetricKey === 'messages-needing-response' ? 'lead' : undefined,
-        onSelect: () => navigate('/communication'),
-      },
-      {
-        key: 'tasks-due-today',
-        label: 'Due today',
-        value: tasksDueTodayCount,
-        helper: tasksDueTodayCount > 0 ? 'Action due today' : 'No due tasks',
-        tone: 'primary',
-        emphasis: leadMetricKey === 'tasks-due-today' ? 'lead' : undefined,
-        onSelect: () => navigate('/worklist'),
-      },
-      {
-        key: 'today-appointments',
-        label: 'Appointments today',
-        value: todayAppointmentsCount,
-        helper: todayAppointmentsCount > 0 ? 'Agenda in motion' : 'No visits today',
-        tone: 'success',
-        emphasis: leadMetricKey === 'today-appointments' ? 'lead' : undefined,
-        onSelect: () => navigate('/appointments'),
-      },
-      {
-        key: 'pending-insights',
-        label: 'Pending insights',
-        value: pendingInsightsCount,
-        helper: pendingInsightsCount > 0 ? 'Review queued' : 'No review waiting',
-        tone: 'neutral',
-        emphasis: leadMetricKey === 'pending-insights' ? 'lead' : undefined,
-        onSelect: () => navigate('/insights'),
-      },
-    ];
-  }, [
-    communicationQuery.data?.counts.needsResponseCount,
-    navigate,
-    summaryQuery.data?.openAlertsCount,
-    summaryQuery.data?.messagesNeedingResponseCount,
-    summaryQuery.data?.pendingInsightsCount,
-    summaryQuery.data?.todayAppointmentsCount,
-    tasksDueTodayCount,
-  ]);
-
-  const isRefreshing =
-    summaryQuery.isFetching ||
-    priorityQueueQuery.isFetching ||
-    safetyEventsQuery.isFetching ||
-    appointmentsQuery.isFetching ||
-    followUpTasksQuery.isFetching ||
-    communicationQuery.isFetching ||
-    upcomingAvailableSlotsQuery.isFetching ||
-    upcomingClosedSlotsQuery.isFetching ||
-    pendingAppointmentRequestsQuery.isFetching ||
-    pendingInsightsQuery.isFetching;
-
-  const safetyActivitySegments = useMemo<DashboardAnalyticsSegment[]>(() => {
-    const bucketCounts = new Map<string, number>();
-
-    for (const item of safetyEventsQuery.data ?? []) {
-      const bucket = safetyEventBucketLabel(item.type, item.notificationStatus, item.alertStatus);
-      bucketCounts.set(bucket, (bucketCounts.get(bucket) ?? 0) + 1);
-    }
-
-    const toneMap: Record<string, DashboardAnalyticsTone> = {
-      Notifications: 'primary',
-      'Alert updates': 'risk',
-      Workflow: 'neutral',
-    };
-
-    return Array.from(bucketCounts.entries()).map(([label, value]) => ({
-      key: label.toLowerCase().replace(/\s+/g, '-'),
-      label,
-      value,
-      tone: toneMap[label] ?? 'neutral',
-    }));
-  }, [safetyEventsQuery.data]);
-
-  const communicationRows = useMemo<DashboardAnalyticsSegment[]>(() => {
-    const counts = communicationQuery.data?.counts;
-
-    return [
-      {
-        key: 'needs-response',
-        label: 'Needs response',
-        value: counts?.needsResponseCount ?? 0,
-        tone: 'warning',
-      },
-      {
-        key: 'safety-flagged',
-        label: 'Safety flagged',
-        value: counts?.flaggedBySafetyCount ?? 0,
-        tone: 'risk',
-      },
-      {
-        key: 'follow-up-requested',
-        label: 'Follow-up requested',
-        value: counts?.followUpRequestedCount ?? 0,
-        tone: 'primary',
-      },
-    ];
-  }, [communicationQuery.data?.counts]);
-
-  const pendingInsightCategorySegments = useMemo<DashboardAnalyticsSegment[]>(() => {
-    const categoryCounts = new Map<string, number>();
-
-    for (const item of pendingInsightsQuery.data ?? []) {
-      categoryCounts.set(item.category, (categoryCounts.get(item.category) ?? 0) + 1);
-    }
-
-    const toneMap: Record<string, DashboardAnalyticsTone> = {
-      safety: 'risk',
-      adherence: 'primary',
-      symptoms: 'warning',
-      recovery: 'success',
-      habits: 'neutral',
-      questionnaires: 'neutral',
-    };
-
-    return Array.from(categoryCounts.entries())
-      .sort((left, right) => right[1] - left[1])
-      .map(([label, value]) => ({
-        key: label,
-        label: humanizeDashboardLabel(label),
-        value,
-        tone: toneMap[label] ?? 'neutral',
-      }));
-  }, [pendingInsightsQuery.data]);
-
-  const schedulingCapacitySegments = useMemo<DashboardAnalyticsSegment[]>(() => {
-    return [
-      {
-        key: 'available',
-        label: 'Open slots',
-        value: availableSlotsCount,
-        tone: 'success',
-      },
-      {
-        key: 'closed',
-        label: 'Closed slots',
-        value: closedSlotsCount,
-        tone: 'neutral',
-      },
-    ];
-  }, [availableSlotsCount, closedSlotsCount]);
-  const insightsMixFootnote = useMemo(() => {
-    if (pendingInsightsCount === 0) {
-      return 'No pending insight review is waiting.';
-    }
-
-    return 'Pending queue mix from the currently loaded review queue.';
-  }, [pendingInsightsCount]);
-  const schedulingFootnote = useMemo(() => {
-    if (
-      pendingAppointmentRequestsCount === 0 &&
-      availableSlotsCount === 0 &&
-      closedSlotsCount === 0
-    ) {
-      return 'No visible scheduling pressure in the next 7 days.';
-    }
-
-    if (pendingAppointmentRequestsCount > availableSlotsCount) {
-      return 'Pending requests exceed visible open capacity in the next 7 days.';
-    }
-
-    if (availableSlotsCount > 0) {
-      return 'Visible open capacity currently covers pending request demand in the next 7 days.';
-    }
-
-    return 'No visible open capacity is currently published in the next 7 days.';
-  }, [availableSlotsCount, closedSlotsCount, pendingAppointmentRequestsCount]);
-
-  const attentionLead = useMemo<DashboardAttentionLead>(() => {
+  const attentionLead = useMemo<TodayLeadAction>(() => {
     if ((summaryQuery.data?.openAlertsCount ?? 0) > 0) {
       return {
-        title: 'Safety review leads now',
+        title: 'Safety review leads the shift',
         copy: `${summaryQuery.data?.openAlertsCount ?? 0} open ${
           (summaryQuery.data?.openAlertsCount ?? 0) === 1 ? 'alert is' : 'alerts are'
-        } setting the first pass. Clear urgent safety work, then move through follow-up.`,
+        } setting the first pass. Clear urgent safety work, then move through follow-through.`,
         actionLabel: 'Open alerts',
         actionPath: '/alerts',
-        support: 'Urgent safety cues stay visually dominant throughout the page.',
+        support: 'Start with live triage, then move into the queue and patient follow-through.',
       };
     }
 
     if (communicationNeedsResponseCount > 0) {
       return {
-        title: 'Communication follow-up leads now',
+        title: 'Response pressure leads the shift',
         copy: `${communicationNeedsResponseCount} ${
-          communicationNeedsResponseCount === 1 ? 'patient message needs' : 'patient messages need'
-        } clinician response. Work the inbox review next, then return to the queue.`,
-        actionLabel: 'Open communication',
+          communicationNeedsResponseCount === 1 ? 'patient thread needs' : 'patient threads need'
+        } clinician response. Clear waiting replies before lower-priority review.`,
+        actionLabel: 'Open inbox',
         actionPath: '/communication',
-        support: 'Response-needed and safety-flagged communication stays operationally visible.',
+        support: 'Keep message follow-up close to the main action lane until the inbox settles.',
       };
     }
 
     if (tasksDueTodayCount > 0 || (summaryQuery.data?.missedCheckinsCount ?? 0) > 0) {
       return {
-        title: 'Follow-through leads now',
-        copy: 'Due tasks and missed check-ins need a deliberate first pass before the day settles.',
-        actionLabel: 'Open worklist',
+        title: 'Follow-through leads the shift',
+        copy: 'Due work and missed check-ins need a deliberate first pass before the day settles.',
+        actionLabel: 'Open queue',
         actionPath: '/worklist',
-        support: 'Action items remain above analytics and closer to the primary queue.',
-      };
-    }
-
-    if (pendingInsightsCount > 0) {
-      return {
-        title: 'Clinical review is waiting',
-        copy: `${pendingInsightsCount} ${
-          pendingInsightsCount === 1 ? 'pending insight is' : 'pending insights are'
-        } ready for clinician review once immediate operational work is clear.`,
-        actionLabel: 'Open insights',
-        actionPath: '/insights',
-        support: 'Insight review stays visible, but below immediate operational pressure.',
+        support: 'Work the main queue first, then return here for support context.',
       };
     }
 
     if ((summaryQuery.data?.todayAppointmentsCount ?? 0) > 0) {
       return {
-        title: 'Schedule review leads next',
+        title: 'The agenda is shaping today',
         copy: `${summaryQuery.data?.todayAppointmentsCount ?? 0} ${
-          (summaryQuery.data?.todayAppointmentsCount ?? 0) === 1 ? 'appointment is' : 'appointments are'
-        } shaping today. Confirm the agenda, then return to steady queue work.`,
-        actionLabel: 'Open appointments',
+          (summaryQuery.data?.todayAppointmentsCount ?? 0) === 1 ? 'visit is' : 'visits are'
+        } active today. Confirm the schedule, then return to the queue.`,
+        actionLabel: 'Open schedule',
         actionPath: '/appointments',
-        support: 'Appointments stay compact in the right rail so action remains left-led.',
+        support: 'Use Today as a brief, not a report. Confirm the next move and continue into the workspace that owns it.',
+      };
+    }
+
+    if (pendingInsightsCount > 0) {
+      return {
+        title: 'Immediate pressure is steady',
+        copy: `${pendingInsightsCount} ${
+          pendingInsightsCount === 1 ? 'review item is' : 'review items are'
+        } waiting once live operational work is clear.`,
+        actionLabel: 'Open queue',
+        actionPath: '/worklist',
+        support: 'The review backlog stays visible below, but the queue still owns the first move.',
       };
     }
 
     return {
-      title: 'Queue is steady',
-      copy: 'No urgent pressure is leading right now. Confirm the main queue first, then review support widgets and analytics.',
-      actionLabel: 'Open worklist',
+      title: 'The shift is steady',
+      copy: 'No urgent pressure is leading right now. Confirm the queue, then use the rail and context band to keep the day moving.',
+      actionLabel: 'Open queue',
       actionPath: '/worklist',
-      support: 'The layout still keeps action first, support second, and analytics lower.',
+      support: 'Action stays primary, support stays close, and background context stays quiet.',
     };
   }, [
     communicationNeedsResponseCount,
@@ -759,388 +499,596 @@ export function DashboardHomePage(): JSX.Element {
 
   const headerSubtitle = useMemo(() => {
     if ((summaryQuery.data?.openAlertsCount ?? 0) > 0) {
-      return 'Safety review is leading today. Work the urgent queue first, then move through follow-through.';
+      return 'Safety review is leading today. Clear urgent triage first, then move into follow-through.';
     }
 
     if (communicationNeedsResponseCount > 0) {
-      return 'Communication follow-up is leading today. Clear waiting replies before lower-priority review.';
+      return 'Response-needed communication is leading today. Clear waiting replies before background review.';
     }
 
     if (tasksDueTodayCount > 0 || (summaryQuery.data?.missedCheckinsCount ?? 0) > 0) {
-      return 'Follow-through is leading today. Clear due work and missed check-ins first.';
-    }
-
-    if (pendingInsightsCount > 0) {
-      return 'Immediate operations are quieter. Pending clinician review is ready below.';
+      return 'Due work and missed check-ins are shaping the day. Start in the queue.';
     }
 
     if ((summaryQuery.data?.todayAppointmentsCount ?? 0) > 0) {
-      return 'Appointments are shaping the day. Confirm the agenda, then work the remaining queue.';
+      return 'The agenda is active. Confirm the day, then return to the queue.';
     }
 
-    return 'Immediate work is steady. Use the command center below to confirm action, support, and analytics.';
+    return 'A fast shift brief for queue pressure, schedule load, inbox follow-through, and quiet background context.';
   }, [
     communicationNeedsResponseCount,
-    pendingInsightsCount,
     summaryQuery.data?.missedCheckinsCount,
     summaryQuery.data?.openAlertsCount,
     summaryQuery.data?.todayAppointmentsCount,
     tasksDueTodayCount,
   ]);
 
-  const attentionSignals = useMemo<DashboardAttentionSignal[]>(
+  const shiftFacts = useMemo<TodayBriefFact[]>(
     () => [
       {
         key: 'alerts',
-        label: 'Open alerts',
+        label: 'Needs attention now',
         value: summaryQuery.data?.openAlertsCount ?? 0,
         detail:
-          (summaryQuery.data?.openAlertsCount ?? 0) > 0
-            ? 'Safety triage is live'
-            : 'Safety queue clear',
+          (summaryQuery.data?.openAlertsCount ?? 0) > 0 ? 'Safety review is live' : 'Safety queue clear',
         tone: 'risk',
+        onSelect: () => navigate('/alerts'),
       },
       {
-        key: 'communication',
-        label: 'Need response',
+        key: 'responses',
+        label: 'Message pressure',
         value: communicationNeedsResponseCount,
         detail:
-          communicationNeedsResponseCount > 0
-            ? 'Patient follow-up waiting'
-            : 'Inbox under control',
+          communicationNeedsResponseCount > 0 ? 'Inbox follow-up is waiting' : 'Inbox is steady',
         tone: 'warning',
+        onSelect: () => navigate('/communication'),
       },
       {
-        key: 'missed-checkins',
-        label: 'Missed check-ins',
-        value: summaryQuery.data?.missedCheckinsCount ?? 0,
-        detail:
-          (summaryQuery.data?.missedCheckinsCount ?? 0) > 0
-            ? 'Outreach still needed'
-            : 'No missed check-ins',
-        tone: 'primary',
-      },
-      {
-        key: 'tasks-due',
-        label: 'Tasks due today',
+        key: 'tasks',
+        label: 'Due today',
         value: tasksDueTodayCount,
         detail: tasksDueTodayCount > 0 ? 'Clear before close' : 'No due tasks',
-        tone: 'warning',
+        tone: 'primary',
+        onSelect: () => navigate('/worklist'),
       },
       {
-        key: 'insights',
-        label: 'High-priority insights',
-        value: highPriorityInsightsCount,
+        key: 'schedule',
+        label: 'Schedule pressure',
+        value: pendingAppointmentRequestsCount,
         detail:
-          highPriorityInsightsCount > 0 ? 'Clinician review waiting' : 'No high-priority review',
-        tone: 'neutral',
+          availableSlotsCount > 0
+            ? `${availableSlotsCount} open slot${availableSlotsCount === 1 ? '' : 's'} visible`
+            : 'No open capacity visible',
+        tone: pendingAppointmentRequestsCount > availableSlotsCount ? 'warning' : 'neutral',
+        onSelect: () => navigate('/appointments'),
       },
     ],
     [
+      availableSlotsCount,
       communicationNeedsResponseCount,
-      highPriorityInsightsCount,
-      summaryQuery.data?.missedCheckinsCount,
+      navigate,
+      pendingAppointmentRequestsCount,
       summaryQuery.data?.openAlertsCount,
       tasksDueTodayCount,
     ],
   );
 
+  const isRefreshing =
+    summaryQuery.isFetching ||
+    priorityQueueQuery.isFetching ||
+    safetyEventsQuery.isFetching ||
+    appointmentsQuery.isFetching ||
+    followUpTasksQuery.isFetching ||
+    communicationQuery.isFetching ||
+    upcomingAvailableSlotsQuery.isFetching ||
+    pendingAppointmentRequestsQuery.isFetching ||
+    pendingInsightsQuery.isFetching ||
+    patientsQuery.isFetching;
+
   const reduceCommunicationOverviewAttention =
     notificationPreferences.effectiveCommunicationCueMode === 'reduced';
 
+  const safetyContextNote =
+    recentSafetyEventCount > 0
+      ? 'Recent movement from the live safety feed.'
+      : 'No recent safety activity in the current feed.';
+
+  const reviewBacklogNote =
+    pendingInsightsCount > 0
+      ? `${highPriorityInsightsCount} high-priority item${highPriorityInsightsCount === 1 ? '' : 's'} remain visible in the current review queue.`
+      : 'No pending insight mix is visible in the current queue.';
+
+  const schedulingFootnote = useMemo(() => {
+    if (pendingAppointmentRequestsCount === 0 && availableSlotsCount === 0) {
+      return 'No visible scheduling pressure in the next 7 days.';
+    }
+
+    if (pendingAppointmentRequestsCount > availableSlotsCount) {
+      return 'Pending requests exceed visible open capacity in the next 7 days.';
+    }
+
+    if (availableSlotsCount > 0) {
+      return 'Visible open capacity currently covers pending request demand in the next 7 days.';
+    }
+
+    return 'No visible open capacity is currently published in the next 7 days.';
+  }, [availableSlotsCount, pendingAppointmentRequestsCount]);
+
   return (
     <Stack
-      className="page-stack dashboard-page-shell dashboard-page-shell--home dashboard-home-page dashboard-home-page--command-center"
+      className="page-stack dashboard-page-shell dashboard-page-shell--home dashboard-home-page dashboard-home-page--today"
       gap="5"
     >
-      <section className="dashboard-home-command-header" aria-label="Dashboard overview">
-        <Section
-          className="dashboard-page-header dashboard-page-header--home dashboard-home-page__header"
-          eyebrow={`Clinical command center for ${clinicianFirstName}`}
-          title="Today"
-          subtitle={headerSubtitle}
-          actions={
-            <Button
-              className="dashboard-home-page__refresh"
-              variant="secondary"
-              size="sm"
-              onClick={refreshAll}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </Button>
-          }
-        />
-      </section>
+      <Section
+        className="dashboard-page-header dashboard-page-header--home dashboard-home-page__header"
+        eyebrow={`Shift brief for ${clinicianFirstName}`}
+        title="Today"
+        subtitle={headerSubtitle}
+        actions={
+          <Button
+            className="dashboard-home-page__refresh"
+            variant="secondary"
+            size="sm"
+            onClick={refreshAll}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        }
+      />
 
-      <section className="dashboard-home-summary-shell dashboard-home-summary-shell--command" aria-label="Dashboard KPI strip">
-        <div className="dashboard-home-summary-shell__header">
-          <div className="dashboard-home-summary-shell__intro">
-            <p className="dashboard-home-summary-shell__eyebrow">Today at a glance</p>
-            <h2 className="dashboard-home-summary-shell__title">Operational snapshot</h2>
-            <p className="dashboard-home-summary-shell__copy">
-              Five counts that define the next move across safety, communication, schedule, tasks, and clinician review.
-            </p>
+      <section className="today-brief" aria-label="Shift brief">
+        <div className="today-brief__lead">
+          <p className="today-brief__eyebrow">Shift brief</p>
+          <h2 className="today-brief__title">{attentionLead.title}</h2>
+          <p className="today-brief__copy">{attentionLead.copy}</p>
+          <div className="today-brief__actions">
+            <Button
+              className="today-brief__cta"
+              onClick={() => {
+                navigate(attentionLead.actionPath);
+              }}
+            >
+              {attentionLead.actionLabel}
+            </Button>
+            <p className="today-brief__support">{attentionLead.support}</p>
           </div>
         </div>
 
-        <DashboardSummaryCards
-          metrics={summaryMetrics}
-          loading={summaryQuery.isLoading}
-          hasError={Boolean(summaryQuery.error)}
-          onRetry={() => {
-            void summaryQuery.refetch();
-          }}
-          retrying={summaryQuery.isFetching}
-        />
+        <div className="today-brief__facts" role="list" aria-label="Shift priorities">
+          {shiftFacts.map((fact) => (
+            <button
+              key={fact.key}
+              type="button"
+              className={`today-brief__fact today-brief__fact--${fact.tone}`}
+              onClick={fact.onSelect}
+              role="listitem"
+            >
+              <span className="today-brief__fact-label">{fact.label}</span>
+              <strong className="today-brief__fact-value">{fact.value}</strong>
+              <span className="today-brief__fact-detail">{fact.detail}</span>
+            </button>
+          ))}
+        </div>
       </section>
 
-      <div className="dashboard-home-command-grid">
-        <section className="dashboard-home-command-grid__primary" aria-label="Primary operational workspace">
-          <DashboardAttentionHero
-            lead={attentionLead}
-            signals={attentionSignals}
-            onOpenLead={() => {
-              navigate(attentionLead.actionPath);
-            }}
-          />
-
-          <section className="dashboard-home-zone dashboard-home-zone--primary" aria-label="Priority queue and safety">
-            <div className="dashboard-home-zone__header">
-              <div className="dashboard-home-zone__intro">
-                <p className="dashboard-home-zone__eyebrow">Primary operational workspace</p>
-                <h2 className="dashboard-home-zone__title">Urgent work leads</h2>
-                <p className="dashboard-home-zone__copy">
-                  Start with the main action list, then use the safety feed to confirm recent movement.
-                </p>
-              </div>
+      <div className="today-layout">
+        <section className="today-main-surface" aria-label="Urgent review surface">
+          <header className="today-surface__header">
+            <div className="today-surface__intro">
+              <p className="today-surface__eyebrow">Start here</p>
+              <h2 className="today-surface__title">Urgent review surface</h2>
+              <p className="today-surface__copy">
+                Work the next clinically important item first, then use the supporting rail to keep the day moving.
+              </p>
             </div>
+            <div className="today-surface__facts">
+              <span className="today-surface__fact">
+                {summaryQuery.data?.openAlertsCount ?? 0} open alert{(summaryQuery.data?.openAlertsCount ?? 0) === 1 ? '' : 's'}
+              </span>
+              <span className="today-surface__fact">
+                {priorityQueueQuery.data?.length ?? 0} queue item{(priorityQueueQuery.data?.length ?? 0) === 1 ? '' : 's'}
+              </span>
+            </div>
+          </header>
 
-            <PriorityQueueModule
-              items={priorityQueueQuery.data ?? []}
-              visibleItemCount={5}
-              loading={priorityQueueQuery.isLoading}
-              hasError={Boolean(priorityQueueQuery.error)}
+          {priorityQueueQuery.isLoading && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
+            <div className="today-main-surface__state" aria-label="Urgent review loading placeholder">
+              <Skeleton height={96} />
+              <Skeleton height={96} />
+              <Skeleton height={96} />
+            </div>
+          ) : priorityQueueQuery.error && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
+            <DashboardModuleState
+              mode="error"
+              title="Unable to load the urgent review surface"
+              description="The live queue could not be loaded."
               onRetry={() => {
                 void priorityQueueQuery.refetch();
               }}
               retrying={priorityQueueQuery.isFetching}
-              resolvePatientLabel={resolvePatientLabel}
-              onOpenItem={openPriorityItem}
-              onOpenAlerts={() => navigate('/alerts')}
             />
+          ) : (priorityQueueQuery.data?.length ?? 0) === 0 ? (
+            <EmptyState
+              title="Nothing urgent right now"
+              description="High-priority alerts, missed check-ins, appointment exceptions, and follow-up items will appear here."
+              tone="success"
+            />
+          ) : (
+            <div className="today-priority-list" role="list" aria-label="Urgent review items">
+              {(priorityQueueQuery.data ?? []).slice(0, 5).map((item) => (
+                <article key={item.id} className="today-priority-item" role="listitem">
+                  <div className="today-priority-item__top">
+                    <div className="today-priority-item__identity">
+                      <p className="today-priority-item__patient">{resolvePatientLabel(item.patientId)}</p>
+                      <p className="today-priority-item__kind">{priorityKindLabel(item.itemType)}</p>
+                    </div>
+                    <div className="today-priority-item__state">
+                      <Badge variant={priorityBadgeVariant(item.priority)}>
+                        {humanizeDashboardLabel(item.priority)}
+                      </Badge>
+                      <span
+                        className="today-priority-item__time"
+                        title={item.dueAt ? formatDashboardDateTime(item.dueAt) : formatDashboardDateTime(item.createdAt)}
+                      >
+                        {priorityFreshnessLabel(item)}
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="today-priority-item__title">{item.title}</h3>
+                  <p className="today-priority-item__reason">
+                    {item.subtitle?.trim() ||
+                      (item.dueAt
+                        ? `Action is due ${formatDashboardRelativeTime(item.dueAt)}.`
+                        : `${humanizeDashboardLabel(item.source)} review is still waiting.`)}
+                  </p>
+                  <div className="today-priority-item__footer">
+                    <div className="today-priority-item__meta">
+                      <span>{humanizeDashboardLabel(item.source)}</span>
+                      <span>{humanizeDashboardLabel(item.status)}</span>
+                      <span>
+                        {item.dueAt
+                          ? `Due ${formatDashboardDateTime(item.dueAt)}`
+                          : `Opened ${formatDashboardDateTime(item.createdAt)}`}
+                      </span>
+                    </div>
+                    <Button size="sm" onClick={() => openPriorityItem(item)}>
+                      {priorityActionLabel(item)}
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
 
-            <RecentSafetyEventsModule
-              items={safetyEventsQuery.data ?? []}
-              visibleItemCount={4}
-              loading={safetyEventsQuery.isLoading}
-              hasError={Boolean(safetyEventsQuery.error)}
-              onRetry={() => {
-                void safetyEventsQuery.refetch();
-              }}
-              retrying={safetyEventsQuery.isFetching}
-              resolvePatientLabel={resolvePatientLabel}
-              onOpenAlerts={() => navigate('/alerts')}
-            />
+          <section className="today-safety-pulse" aria-label="Safety pulse">
+            <header className="today-safety-pulse__header">
+              <div>
+                <p className="today-safety-pulse__eyebrow">Safety pulse</p>
+                <h3 className="today-safety-pulse__title">Recent safety movement</h3>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigate('/alerts');
+                }}
+              >
+                Open alerts
+              </Button>
+            </header>
+
+            {safetyEventsQuery.isLoading && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
+              <div className="today-safety-pulse__state" aria-label="Safety pulse loading placeholder">
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+              </div>
+            ) : safetyEventsQuery.error && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
+              <DashboardModuleState
+                mode="error"
+                title="Unable to load recent safety activity"
+                description="The live safety feed could not be loaded."
+                onRetry={() => {
+                  void safetyEventsQuery.refetch();
+                }}
+                retrying={safetyEventsQuery.isFetching}
+              />
+            ) : (safetyEventsQuery.data?.length ?? 0) === 0 ? (
+              <EmptyState
+                title="No recent safety activity"
+                description="Alert creation and notification activity will appear here when the Safety Spine records a new event."
+                tone="success"
+              />
+            ) : (
+              <div className="today-safety-pulse__list" role="list">
+                {(safetyEventsQuery.data ?? []).slice(0, 3).map((item) => (
+                  <article key={item.id} className="today-safety-pulse__item" role="listitem">
+                    <div className="today-safety-pulse__item-top">
+                      <div>
+                        <p className="today-safety-pulse__patient">{resolvePatientLabel(item.patientId)}</p>
+                        <p className="today-safety-pulse__kind">{humanizeDashboardLabel(item.type)}</p>
+                      </div>
+                      <div className="today-safety-pulse__item-side">
+                        {safetyBadge(item)}
+                        <span
+                          className="today-safety-pulse__time"
+                          title={formatDashboardDateTime(item.createdAt)}
+                        >
+                          {formatDashboardRelativeTime(item.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="today-safety-pulse__summary">{item.summary}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         </section>
 
-        <aside className="dashboard-home-command-grid__secondary" aria-label="Operational support widgets">
-          <section className="dashboard-home-zone dashboard-home-zone--secondary" aria-label="Follow-through and support">
-            <div className="dashboard-home-zone__header">
-              <div className="dashboard-home-zone__intro">
-                <p className="dashboard-home-zone__eyebrow">Operational support</p>
-                <h2 className="dashboard-home-zone__title">Keep the day moving</h2>
-                <p className="dashboard-home-zone__copy">
-                  Compact schedule, task, and inbox widgets that support the main action lane.
-                </p>
+        <aside className="today-support-rail" aria-label="Supporting rail">
+          <section className="today-support-panel">
+            <header className="today-support-panel__header">
+              <div>
+                <p className="today-support-panel__eyebrow">Schedule snapshot</p>
+                <h2 className="today-support-panel__title">Due today</h2>
               </div>
-            </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  navigate('/appointments');
+                }}
+              >
+                Open schedule
+              </Button>
+            </header>
 
-            <div className="dashboard-home-support-rail">
-              <TodayAppointmentsCard
-                items={appointmentsQuery.data ?? []}
-                totalCount={summaryQuery.data?.todayAppointmentsCount}
-                visibleItemCount={4}
-                loading={appointmentsQuery.isLoading}
-                hasError={Boolean(appointmentsQuery.error)}
+            {appointmentsQuery.isLoading && (appointmentsQuery.data?.length ?? 0) === 0 ? (
+              <div className="today-support-panel__state">
+                <Skeleton height={78} />
+                <Skeleton height={78} />
+              </div>
+            ) : appointmentsQuery.error && (appointmentsQuery.data?.length ?? 0) === 0 ? (
+              <DashboardModuleState
+                mode="error"
+                title="Unable to load today’s schedule"
+                description="The schedule snapshot could not be loaded."
                 onRetry={() => {
                   void appointmentsQuery.refetch();
                 }}
                 retrying={appointmentsQuery.isFetching}
-                resolvePatientLabel={resolvePatientLabel}
-                onOpenPatient={openPatient}
-                onOpenAppointments={() => navigate('/appointments')}
               />
+            ) : (appointmentsQuery.data?.length ?? 0) === 0 ? (
+              <EmptyState
+                title="No appointments today"
+                description="Today’s confirmed, pending, and exception appointments will appear here."
+                tone="success"
+              />
+            ) : (
+              <div className="today-support-list" role="list">
+                {(appointmentsQuery.data ?? []).slice(0, 4).map((item) => (
+                  <article key={item.id} className="today-support-item" role="listitem">
+                    <div className="today-support-item__top">
+                      <p className="today-support-item__title">{resolvePatientLabel(item.patientId)}</p>
+                      <Badge variant={appointmentBadgeVariant(item.status)}>
+                        {humanizeDashboardLabel(item.status)}
+                      </Badge>
+                    </div>
+                    <p className="today-support-item__detail">{formatDashboardTimeRange(item.startsAt, item.endsAt)}</p>
+                    <p className="today-support-item__note">{appointmentSummary(item)}</p>
+                    <div className="today-support-item__footer">
+                      <span
+                        className="today-support-item__meta"
+                        title={formatDashboardDateTime(item.updatedAt)}
+                      >
+                        Updated {formatDashboardRelativeTime(item.updatedAt)}
+                      </span>
+                      <Button size="sm" variant="secondary" onClick={() => openPatient(item.patientId)}>
+                        Open patient
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
-              <FollowUpTasksCard
-                items={followUpTasksQuery.data ?? []}
-                totalCount={summaryQuery.data?.openFollowUpTasksCount}
-                visibleItemCount={4}
-                loading={followUpTasksQuery.isLoading}
-                hasError={Boolean(followUpTasksQuery.error)}
+          <section
+            className={`today-support-panel dashboard-home-communication-overview${
+              reduceCommunicationOverviewAttention ? ' dashboard-home-communication-overview--reduced' : ''
+            }`}
+            data-testid="dashboard-home-communication-overview"
+          >
+            <header className="today-support-panel__header">
+              <div>
+                <p className="today-support-panel__eyebrow">Inbox</p>
+                <h2 className="today-support-panel__title">Inbox needing response</h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  openCommunication();
+                }}
+              >
+                Open inbox
+              </Button>
+            </header>
+
+            {communicationQuery.isLoading && (communicationQuery.data?.items.length ?? 0) === 0 ? (
+              <div className="today-support-panel__state">
+                <Skeleton height={78} />
+                <Skeleton height={78} />
+              </div>
+            ) : communicationQuery.error && (communicationQuery.data?.items.length ?? 0) === 0 ? (
+              <DashboardModuleState
+                mode="error"
+                title="Unable to load inbox follow-through"
+                description="Patient message review could not be loaded."
+                onRetry={() => {
+                  void communicationQuery.refetch();
+                }}
+                retrying={communicationQuery.isFetching}
+              />
+            ) : (communicationQuery.data?.items.length ?? 0) === 0 ? (
+              <EmptyState
+                title="No communication waiting"
+                description="Patient communication needing clinician review will appear here."
+                tone="success"
+              />
+            ) : (
+              <div className="today-support-list" role="list">
+                {(communicationQuery.data?.items ?? []).slice(0, 4).map((item) => (
+                  <article key={item.id} className="today-support-item today-support-item--communication" role="listitem">
+                    <div className="today-support-item__top">
+                      <p className="today-support-item__title">{item.patientName}</p>
+                      {threadDominantBadge(item)}
+                    </div>
+                    <p className="today-support-item__note">
+                      {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
+                    </p>
+                    <div className="today-support-item__footer">
+                      <div className="today-support-item__meta-wrap">
+                        <span
+                          className="today-support-item__meta"
+                          title={formatDashboardDateTime(item.messageCreatedAt)}
+                        >
+                          {formatDashboardRelativeTime(item.messageCreatedAt)}
+                        </span>
+                        {item.followUpRequested ? (
+                          <span className="today-support-item__meta">Follow-up requested</span>
+                        ) : null}
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => openCommunication(item.patientId)}>
+                        Open thread
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="today-support-panel">
+            <header className="today-support-panel__header">
+              <div>
+                <p className="today-support-panel__eyebrow">Follow-through</p>
+                <h2 className="today-support-panel__title">Keep the day moving</h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  navigate('/worklist');
+                }}
+              >
+                Open queue
+              </Button>
+            </header>
+
+            {followUpTasksQuery.isLoading && (followUpTasksQuery.data?.length ?? 0) === 0 ? (
+              <div className="today-support-panel__state">
+                <Skeleton height={78} />
+                <Skeleton height={78} />
+              </div>
+            ) : followUpTasksQuery.error && (followUpTasksQuery.data?.length ?? 0) === 0 ? (
+              <DashboardModuleState
+                mode="error"
+                title="Unable to load follow-through"
+                description="Open clinician tasks could not be loaded."
                 onRetry={() => {
                   void followUpTasksQuery.refetch();
                 }}
                 retrying={followUpTasksQuery.isFetching}
-                resolvePatientLabel={resolvePatientLabel}
-                onOpenTaskItem={openTaskItem}
-                onOpenPatients={() => navigate('/worklist')}
               />
-
-              <div
-                className={`dashboard-home-communication-overview${
-                  reduceCommunicationOverviewAttention
-                    ? ' dashboard-home-communication-overview--reduced'
-                    : ''
-                }`}
-                data-testid="dashboard-home-communication-overview"
-              >
-                <CommunicationOverviewCard
-                  overview={communicationQuery.data}
-                  visibleItemCount={4}
-                  loading={communicationQuery.isLoading}
-                  hasError={Boolean(communicationQuery.error)}
-                  onRetry={() => {
-                    void communicationQuery.refetch();
-                  }}
-                  retrying={communicationQuery.isFetching}
-                  onOpenThread={openCommunication}
-                  onOpenCommunication={() => openCommunication()}
-                />
+            ) : (followUpTasksQuery.data?.length ?? 0) === 0 ? (
+              <EmptyState
+                title="No follow-up tasks"
+                description="Open safety review, appointment, communication, and adherence follow-up items will appear here."
+                tone="success"
+              />
+            ) : (
+              <div className="today-support-list" role="list">
+                {(followUpTasksQuery.data ?? []).slice(0, 4).map((item) => (
+                  <article key={item.id} className="today-support-item" role="listitem">
+                    <div className="today-support-item__top">
+                      <p className="today-support-item__title">{item.title}</p>
+                      <Badge variant={taskPriorityVariant(item.priority)}>
+                        {humanizeDashboardLabel(item.priority)}
+                      </Badge>
+                    </div>
+                    <p className="today-support-item__detail">{resolvePatientLabel(item.patientId)}</p>
+                    <p className="today-support-item__note">
+                      {item.dueAt
+                        ? `Due ${formatDashboardRelativeTime(item.dueAt)}.`
+                        : `Updated ${formatDashboardRelativeTime(item.updatedAt)}.`}
+                    </p>
+                    <div className="today-support-item__footer">
+                      <div className="today-support-item__meta-wrap">
+                        <span className="today-support-item__meta">{humanizeDashboardLabel(item.type)}</span>
+                        <span className="today-support-item__meta">{humanizeDashboardLabel(item.status)}</span>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => openTaskItem(item)}>
+                        {taskActionLabel(item)}
+                      </Button>
+                    </div>
+                  </article>
+                ))}
               </div>
-            </div>
+            )}
           </section>
         </aside>
       </div>
 
-      <section className="dashboard-analytics-band dashboard-analytics-band--secondary glass-card" aria-label="Operational analytics">
-        <div className="dashboard-analytics-band__header">
-          <div className="dashboard-home-zone__intro">
-            <p className="dashboard-home-zone__eyebrow">Operational analytics</p>
-            <h2 className="dashboard-home-zone__title">Background workload and capacity</h2>
-            <p className="dashboard-home-zone__copy">
-              Visual summaries sit lower so action remains primary and analytics stays supportive.
-            </p>
+      <section className="today-context" aria-label="Operational context">
+        <header className="today-context__header">
+          <div>
+            <p className="today-context__eyebrow">Operational context</p>
+            <h2 className="today-context__title">Quiet background context</h2>
           </div>
-        </div>
+          <p className="today-context__copy">
+            Enough background workload to support decisions without turning Today into a report page.
+          </p>
+        </header>
 
-        <div className="dashboard-analytics-band__stage">
-          <DashboardAnalyticsCard
-            eyebrow="Safety"
-            title="Safety workload"
-            subtitle="Queue pressure and recent feed mix."
-            variant="lead"
-            headline={
-              <div className="dashboard-analytics-card__headline-stack">
-                <strong>{typeof safetyHeadlineCount === 'number' ? safetyHeadlineCount : '—'}</strong>
-                <span>
-                  {typeof safetyHeadlineCount === 'number'
-                    ? `${safetyHeadlineCount} ${safetyHeadlineCount === 1 ? 'open alert' : 'open alerts'}`
-                    : 'Safety queue loading'}
-                </span>
-              </div>
-            }
-            stats={[
-              { label: 'Assigned to me', value: typeof safetyAssignedCount === 'number' ? safetyAssignedCount : '—' },
-              { label: 'Recent feed', value: recentSafetyEventCount },
-            ]}
-            segments={safetyActivitySegments}
-            emptyLabel="No recent safety activity in the current feed."
-            footnote={
-              recentSafetyEventCount > 0
-                ? 'Recent event mix from the current dashboard safety feed.'
-                : 'Safety pressure is currently driven only by the live queue count.'
-            }
-          />
-
-          <div className="dashboard-analytics-band__support-stack">
-            <DashboardAnalyticsCard
-              eyebrow="Communication"
-              title="Communication burden"
-              subtitle="Follow-up state across patient-linked threads."
-              variant="support"
-              headline={
-                <div className="dashboard-analytics-card__headline-stack">
-                  <strong>{communicationNeedsResponseCount}</strong>
-                  <span>
-                    {communicationNeedsResponseCount === 1
-                      ? 'thread needs response'
-                      : 'threads need response'}
-                  </span>
-                </div>
-              }
-              stats={[
-                { label: 'Safety flagged', value: communicationSafetyFlaggedCount },
-                { label: 'Follow-up requested', value: communicationFollowUpRequestedCount },
-              ]}
-              rows={communicationRows}
-              emptyLabel="No communication follow-up is waiting right now."
-              footnote={
-                communicationSafetyFlaggedCount > 0
-                  ? `${communicationSafetyFlaggedCount} ${
-                      communicationSafetyFlaggedCount === 1
-                        ? 'thread carries safety-sensitive language.'
-                        : 'threads carry safety-sensitive language.'
-                    }`
-                  : 'Routine message follow-through currently leads this queue.'
-              }
-            />
-
-            <div className="dashboard-analytics-band__bridge" aria-label="Supporting operational context">
-              <p className="dashboard-analytics-band__bridge-eyebrow">Supporting context</p>
-              <p className="dashboard-analytics-band__bridge-copy">
-                Backlog and scheduling stay visible below the live safety and communication pressure so the command lane remains the story.
-              </p>
+        <div className="today-context__grid">
+          <article className="today-context-card">
+            <p className="today-context-card__eyebrow">Safety workload</p>
+            <h3 className="today-context-card__title">Safety pressure</h3>
+            <div className="today-context-card__facts" aria-label="Safety workload facts">
+              <span>{summaryQuery.data?.openAlertsCount ?? 0} open alerts</span>
+              <span>{summaryQuery.data?.assignedToMeAlertsCount ?? 0} assigned to me</span>
+              <span>{recentSafetyEventCount} recent feed events</span>
             </div>
-          </div>
-        </div>
+            <p className="today-context-card__note">{safetyContextNote}</p>
+          </article>
 
-        <div className="dashboard-analytics-band__support-grid">
-          <DashboardAnalyticsCard
-            eyebrow="Insights"
-            title="Insights backlog"
-            subtitle="Pending review pressure and mix."
-            variant="compact"
-            headline={
-              <div className="dashboard-analytics-card__headline-stack">
-                <strong>{pendingInsightsCount}</strong>
-                <span>
-                  {pendingInsightsCount === 1 ? 'pending insight' : 'pending insights'}
-                </span>
-              </div>
-            }
-            stats={[
-              { label: 'High priority', value: highPriorityInsightsCount },
-              { label: 'Safety category', value: safetyCategoryInsightsCount },
-            ]}
-            segments={pendingInsightCategorySegments}
-            emptyLabel="No pending insight mix is visible in the current queue."
-            footnote={insightsMixFootnote}
-          />
+          <article className="today-context-card">
+            <p className="today-context-card__eyebrow">Review backlog</p>
+            <h3 className="today-context-card__title">Clinical review backlog</h3>
+            <div className="today-context-card__facts" aria-label="Review backlog facts">
+              <span>{pendingInsightsCount} pending insights</span>
+              <span>{highPriorityInsightsCount} high priority</span>
+              <span>{safetyCategoryInsightsCount} safety category</span>
+            </div>
+            <p className="today-context-card__note">{reviewBacklogNote}</p>
+          </article>
 
-          <DashboardAnalyticsCard
-            eyebrow="Scheduling"
-            title="Scheduling balance"
-            subtitle={`Visible demand and capacity for ${schedulingRange.label}.`}
-            variant="compact"
-            headline={
-              <div className="dashboard-analytics-card__headline-split">
-                <div className="dashboard-analytics-card__headline-stack">
-                  <strong>{pendingAppointmentRequestsCount}</strong>
-                  <span>pending requests</span>
-                </div>
-                <div className="dashboard-analytics-card__headline-stack">
-                  <strong>{availableSlotsCount}</strong>
-                  <span>open slots</span>
-                </div>
-              </div>
-            }
-            stats={[{ label: 'Closed slots', value: closedSlotsCount }]}
-            segments={schedulingCapacitySegments}
-            emptyLabel={`No visible slot data is loaded for ${schedulingRange.label}.`}
-            footnote={schedulingFootnote}
-          />
+          <article className="today-context-card">
+            <p className="today-context-card__eyebrow">Capacity outlook</p>
+            <h3 className="today-context-card__title">Scheduling balance</h3>
+            <div className="today-context-card__facts" aria-label="Scheduling balance facts">
+              <span>{pendingAppointmentRequestsCount} pending requests</span>
+              <span>{availableSlotsCount} open slots</span>
+              <span>
+                {nextOpenSlot
+                  ? `Next ${formatDashboardTimeRange(nextOpenSlot.startsAt, nextOpenSlot.endsAt)}`
+                  : 'No open slot yet'}
+              </span>
+            </div>
+            <p className="today-context-card__note">{schedulingFootnote}</p>
+          </article>
         </div>
       </section>
     </Stack>

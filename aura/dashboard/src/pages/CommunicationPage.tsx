@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
@@ -464,12 +463,12 @@ export function CommunicationPage(): JSX.Element {
               : 'No patient communication is waiting in this workspace.';
 
   return (
-    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page" gap="5">
+    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page communication-page--inbox" gap="5">
       <Section
         className="dashboard-page-header dashboard-page-header--communication communication-page__header"
         eyebrow="Clinician follow-up"
         title="Inbox"
-        subtitle="Review patient-linked communication, surface safety context early, and respond with browser-local continuity."
+        subtitle="Review patient-linked communication, keep safety context close, and reply with browser-local continuity."
         actions={
           <Button
             variant="secondary"
@@ -484,92 +483,63 @@ export function CommunicationPage(): JSX.Element {
         }
       />
 
-      <section className="communication-page__status-strip" aria-label="Communication inbox summary">
-        <div className="communication-page__status-strip-lead">
-          <div className="communication-page__status-strip-copy">
-            <p className="communication-page__status-strip-eyebrow">Inbox status</p>
-            <h2 className="communication-page__status-strip-title">Clinical communication review</h2>
-            <p className="communication-page__status-strip-narrative">{communicationGuidance}</p>
-          </div>
-          <div className="communication-page__status-strip-pills">
-            <span className="communication-page__status-strip-pill">{currentViewLabel} view</span>
-            <span className="communication-page__status-strip-pill">
-              {communicationSummary.inReview} in review
-            </span>
-          </div>
+      <section className="inbox-brief" aria-label="Communication inbox summary">
+        <div className="inbox-brief__lead">
+          <p className="inbox-brief__eyebrow">Inbox summary</p>
+          <h2 className="inbox-brief__title">Clinical communication review</h2>
+          <p className="inbox-brief__copy">{communicationGuidance}</p>
         </div>
 
-        <div className="communication-page__status-strip-composition" aria-label="Inbox composition">
-          <div className="communication-page__status-strip-bar" aria-hidden="true">
-            {inboxComposition.map((segment) => (
-              <span
-                key={segment.key}
-                className={`communication-page__status-strip-bar-segment communication-page__status-strip-bar-segment--${segment.key}`}
-                style={{ flexGrow: Math.max(segment.value, 1) }}
-              />
-            ))}
-          </div>
-          <div className="communication-page__status-strip-legend" role="list">
-            {inboxComposition.map((segment) => (
-              <span
-                key={segment.key}
-                className={`communication-page__status-strip-legend-item communication-page__status-strip-legend-item--${segment.key}`}
-                role="listitem"
-              >
-                <span className="communication-page__status-strip-legend-swatch" aria-hidden="true" />
-                <span className="communication-page__status-strip-legend-label">{segment.label}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="communication-page__status-strip-metrics">
-          <article className="communication-page__status-card communication-page__status-card--lead">
-            <p className="communication-page__status-card-label">In review</p>
-            <p className="communication-page__status-card-value">{communicationSummary.inReview}</p>
-            <p className="communication-page__status-card-hint">Patient-linked inbox threads currently surfaced</p>
+        <div className="inbox-brief__stats" role="list" aria-label="Inbox counts">
+          <article className="inbox-brief__stat" role="listitem">
+            <p className="inbox-brief__stat-label">In review</p>
+            <p className="inbox-brief__stat-value">{communicationSummary.inReview}</p>
+            <p className="inbox-brief__stat-detail">{currentViewLabel} view</p>
           </article>
           <article
-            className={`communication-page__status-card communication-page__status-card--response${
+            className={`inbox-brief__stat inbox-brief__stat--response${
               reduceCommunicationAttention ? '' : ' communication-page__status-card--response-hot'
             }`}
             data-testid="communication-needs-response-pill"
+            role="listitem"
           >
-            <p className="communication-page__status-card-label">Needs response</p>
-            <p className="communication-page__status-card-value">{communicationSummary.needsResponse}</p>
-            <p className="communication-page__status-card-hint">Threads still waiting on clinician follow-up</p>
+            <p className="inbox-brief__stat-label">Needs response</p>
+            <p className="inbox-brief__stat-value">{communicationSummary.needsResponse}</p>
+            <p className="inbox-brief__stat-detail">Clinician follow-up is still waiting</p>
           </article>
-          <article className="communication-page__status-card communication-page__status-card--safety">
-            <p className="communication-page__status-card-label">Safety flagged</p>
-            <p className="communication-page__status-card-value">{communicationSummary.safetyFlagged}</p>
-            <p className="communication-page__status-card-hint">Escalation-sensitive communication in view</p>
+          <article className="inbox-brief__stat inbox-brief__stat--safety" role="listitem">
+            <p className="inbox-brief__stat-label">Safety flagged</p>
+            <p className="inbox-brief__stat-value">{communicationSummary.safetyFlagged}</p>
+            <p className="inbox-brief__stat-detail">Escalation-sensitive threads in view</p>
           </article>
-          <article className="communication-page__status-card communication-page__status-card--follow-up">
-            <p className="communication-page__status-card-label">Follow-up requested</p>
-            <p className="communication-page__status-card-value">{communicationSummary.followUpRequested}</p>
-            <p className="communication-page__status-card-hint">Threads that still need explicit next-step handling</p>
-          </article>
-          <article className="communication-page__status-card communication-page__status-card--unread">
-            <p className="communication-page__status-card-label">Unread</p>
-            <p className="communication-page__status-card-value">{communicationSummary.unread}</p>
-            <p className="communication-page__status-card-hint">Messages not yet reviewed in this browser</p>
+          <article className="inbox-brief__stat inbox-brief__stat--composition" role="listitem">
+            <p className="inbox-brief__stat-label">Current mix</p>
+            <div className="inbox-brief__composition" role="list">
+              {inboxComposition.slice(0, 3).map((segment) => (
+                <span
+                  key={segment.key}
+                  className={`inbox-brief__composition-item inbox-brief__composition-item--${segment.key}`}
+                  role="listitem"
+                >
+                  {segment.label}: {segment.value}
+                </span>
+              ))}
+            </div>
           </article>
         </div>
       </section>
 
-      <div className="communication-page__layout">
-        <Card
-          className="communication-page__threads"
-          title={
-            <span className="communication-page__card-title">
-              Communication queue
-              <span className="communication-page__card-subtitle">
-                Patient-linked threads ready for clinician review.
-              </span>
-            </span>
-          }
-        >
-          <div className="communication-page__filters" role="group" aria-label="Communication filters">
+      <div className="inbox-shell">
+        <aside className="inbox-thread-panel" aria-label="Communication queue">
+          <header className="inbox-panel__header">
+            <div className="inbox-panel__copy">
+              <p className="inbox-panel__eyebrow">Thread list</p>
+              <h2 className="inbox-panel__title">Communication queue</h2>
+              <p className="inbox-panel__note">Patient-linked threads ready for clinician review.</p>
+            </div>
+          </header>
+
+          <div className="communication-page__filters inbox-thread-panel__filters" role="group" aria-label="Communication filters">
             {COMMUNICATION_THREAD_VIEW_OPTIONS.map((option) => {
               const isActive = option.id === currentView;
               const count = countThreadsByView(allThreads, option.id);
@@ -626,11 +596,21 @@ export function CommunicationPage(): JSX.Element {
               {visibleThreads.map((thread) => {
                 const isSelected = thread.id === activeThread?.id;
                 const threadTone = getCommunicationThreadTone(thread);
+                const dominantBadges = [
+                  isSelected ? 'Current review' : null,
+                  thread.safetyFlagged ? 'Safety flagged' : null,
+                  thread.needsResponse ? 'Needs response' : null,
+                  thread.unread ? 'Unread' : null,
+                  !thread.safetyFlagged && !thread.needsResponse && !thread.unread && thread.followUpRequested
+                    ? 'Follow-up requested'
+                    : null,
+                ].filter(Boolean) as string[];
+
                 return (
                   <article key={thread.id} className="communication-page__thread-list-item" role="listitem">
                     <button
                       type="button"
-                      className={`communication-page__thread-item${
+                      className={`communication-page__thread-item inbox-thread-item${
                         isSelected ? ' communication-page__thread-item--active' : ''
                       } communication-page__thread-item--${threadTone}`}
                       aria-pressed={isSelected}
@@ -657,16 +637,29 @@ export function CommunicationPage(): JSX.Element {
                       </div>
                       <p className="communication-page__thread-preview">{thread.latestEventPreview}</p>
                       <div className="communication-page__thread-meta">
-                        <span className="communication-page__thread-meta-note">
-                          {getThreadMetaSummary(thread)}
-                        </span>
+                        <span className="communication-page__thread-meta-note">{getThreadMetaSummary(thread)}</span>
                         <div className="communication-page__thread-badges">
-                          {isSelected ? <Badge variant="default">Current review</Badge> : null}
-                          {thread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
-                          {thread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                          {thread.unread ? <Badge variant="new">Unread</Badge> : null}
-                          {thread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                          {thread.handled ? <Badge variant="success">Handled</Badge> : null}
+                          {dominantBadges.map((label) => (
+                            <Badge
+                              key={label}
+                              variant={
+                                label === 'Safety flagged'
+                                  ? 'danger'
+                                  : label === 'Needs response'
+                                    ? 'warning'
+                                    : label === 'Unread'
+                                      ? 'new'
+                                      : label === 'Follow-up requested'
+                                        ? 'neutral'
+                                        : 'default'
+                              }
+                            >
+                              {label}
+                            </Badge>
+                          ))}
+                          {thread.handled && dominantBadges.length === 0 ? (
+                            <Badge variant="success">Handled</Badge>
+                          ) : null}
                         </div>
                       </div>
                     </button>
@@ -675,11 +668,11 @@ export function CommunicationPage(): JSX.Element {
               })}
             </div>
           )}
-        </Card>
+        </aside>
 
         <section
-          className={`communication-page__timeline${
-            activeThreadTone ? ` communication-page__timeline--${activeThreadTone}` : ''
+          className={`inbox-reading-pane${
+            activeThreadTone ? ` inbox-reading-pane--${activeThreadTone}` : ''
           }`}
           aria-label="Active communication review"
         >
@@ -690,77 +683,73 @@ export function CommunicationPage(): JSX.Element {
             </div>
           ) : activeThread ? (
             <div className="communication-page__timeline-body">
-              <header
-                className={`communication-page__thread-stage${
-                  activeThreadTone ? ` communication-page__thread-stage--${activeThreadTone}` : ''
-                }`}
-              >
-                <div className="communication-page__thread-stage-main">
-                  <div className="communication-page__thread-stage-anchor">
-                    <span className="communication-page__thread-stage-avatar" aria-hidden="true">
-                      {getPatientInitials(activeThread.patientName)}
-                    </span>
-                    <div className="communication-page__thread-stage-copy">
-                      <p className="communication-page__zone-eyebrow">Active clinical thread</p>
-                      <h2 className="communication-page__thread-stage-title">{activeThread.patientName}</h2>
-                      <p className="communication-page__thread-stage-subtitle">
-                        {activeThread.validPatientId ? `ID: ${activeThread.patientId} · ` : ''}
-                        {getThreadMetaSummary(activeThread)}
-                      </p>
-                    </div>
+              <header className="inbox-reading-pane__header">
+                <div className="inbox-reading-pane__anchor">
+                  <span className="inbox-reading-pane__avatar" aria-hidden="true">
+                    {getPatientInitials(activeThread.patientName)}
+                  </span>
+                  <div className="inbox-reading-pane__copy">
+                    <p className="inbox-panel__eyebrow">Active thread</p>
+                    <h2 className="inbox-reading-pane__title">{activeThread.patientName}</h2>
+                    <p className="inbox-reading-pane__subtitle">
+                      {activeThread.validPatientId ? `ID: ${activeThread.patientId} · ` : ''}
+                      {getThreadMetaSummary(activeThread)}
+                    </p>
                   </div>
-                  <div className="communication-page__thread-stage-pills">
-                    <span className="communication-page__thread-stage-pill">{currentViewLabel} view</span>
+                </div>
+                <div className="inbox-reading-pane__header-side">
+                  <div className="inbox-reading-pane__summary-pills">
+                    <span className="inbox-reading-pane__summary-pill">{currentViewLabel} view</span>
                     <span
-                      className="communication-page__thread-stage-pill"
+                      className="inbox-reading-pane__summary-pill"
                       title={formatDashboardDateTime(activeThread.latestEventAt)}
                     >
                       Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
                     </span>
                   </div>
-                </div>
-                {activeThread.validPatientId ? (
-                  <div className="communication-page__timeline-actions">
-                    {activeThread.safetyFlagged ? (
+                  {activeThread.validPatientId ? (
+                    <div className="communication-page__timeline-actions inbox-reading-pane__actions">
+                      {activeThread.safetyFlagged ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            navigate(
+                              `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
+                            )
+                          }
+                        >
+                          Open alerts
+                        </Button>
+                      ) : null}
                       <Button
-                        variant="secondary"
+                        variant={activeThread.safetyFlagged ? 'ghost' : 'secondary'}
                         size="sm"
-                        onClick={() =>
-                          navigate(
-                            `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
-                          )
-                        }
+                        onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
                       >
-                        Open alerts
+                        Open patient
                       </Button>
-                    ) : null}
-                    <Button
-                      variant={activeThread.safetyFlagged ? 'ghost' : 'secondary'}
-                      size="sm"
-                      onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
-                    >
-                      Open patient
-                    </Button>
-                  </div>
-                ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </header>
 
-              <section className="communication-page__context-stage">
+              <section className="inbox-reading-pane__context">
                 <div
-                  className={`communication-page__timeline-intro${
-                    activeThreadTone ? ` communication-page__timeline-intro--${activeThreadTone}` : ''
+                  className={`inbox-context-summary${
+                    activeThreadTone ? ` inbox-context-summary--${activeThreadTone}` : ''
                   }`}
                 >
-                  <div className="communication-page__timeline-intro-copy">
-                    <p className="communication-page__zone-eyebrow">Thread state</p>
-                    <p className="communication-page__timeline-note">
+                  <div className="inbox-context-summary__copy">
+                    <p className="inbox-panel__eyebrow">Thread state</p>
+                    <p className="inbox-context-summary__text">
                       This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.
                     </p>
-                    <p className="communication-page__timeline-note communication-page__timeline-note--muted">
+                    <p className="inbox-context-summary__note">
                       Earlier patient message history may not be available in this foundation workspace.
                     </p>
                   </div>
-                  <div className="communication-page__timeline-badges">
+                  <div className="communication-page__timeline-badges inbox-context-summary__badges">
                     {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
                     {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
                     {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
@@ -770,20 +759,18 @@ export function CommunicationPage(): JSX.Element {
 
                 {activePatientHandoff ? (
                   <section
-                    className="communication-page__handoff"
+                    className="inbox-handoff"
                     aria-label="Internal handoff context"
                     data-testid="communication-handoff-context"
                   >
-                    <div className="communication-page__handoff-copy">
-                      <div className="communication-page__handoff-head">
+                    <div className="inbox-handoff__copy">
+                      <div className="inbox-handoff__head">
                         <Badge variant="neutral">Internal handoff</Badge>
                       </div>
                       {activePatientHandoff.currentHandoff?.summary ? (
-                        <p className="communication-page__handoff-summary">
-                          {activePatientHandoff.currentHandoff.summary}
-                        </p>
+                        <p className="inbox-handoff__summary">{activePatientHandoff.currentHandoff.summary}</p>
                       ) : latestPatientHandoffNote ? (
-                        <p className="communication-page__handoff-summary">
+                        <p className="inbox-handoff__summary">
                           {truncateText(latestPatientHandoffNote.text, 180).text}
                         </p>
                       ) : null}
@@ -831,7 +818,7 @@ export function CommunicationPage(): JSX.Element {
                           </dd>
                         </div>
                       </dl>
-                      <p className="communication-page__timeline-note communication-page__timeline-note--muted">
+                      <p className="inbox-handoff__note">
                         Stored only in this browser for local patient handoff continuity.
                       </p>
                     </div>
@@ -839,7 +826,7 @@ export function CommunicationPage(): JSX.Element {
                     (activePatientHandoff.currentHandoff.nextAction === 'alerts' ||
                       activePatientHandoff.currentHandoff.nextAction === 'appointments' ||
                       activePatientHandoff.currentHandoff.nextAction === 'plan') ? (
-                      <div className="communication-page__handoff-actions">
+                      <div className="inbox-handoff__actions">
                         <Button
                           variant="secondary"
                           size="sm"
@@ -855,7 +842,7 @@ export function CommunicationPage(): JSX.Element {
                 ) : null}
               </section>
 
-              <section className="communication-page__stream-stage">
+              <section className="inbox-reading-pane__stream">
                 <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
                   {activeThread.timeline.map((event) => {
                     const eventTypeBadge = getEventTypeBadge(event);
@@ -914,19 +901,15 @@ export function CommunicationPage(): JSX.Element {
                 </div>
               </section>
 
-              <section className="communication-page__compose-stage">
-                <div className="communication-page__compose-stage-head">
+              <section className="inbox-composer">
+                <div className="inbox-composer__header">
                   <div>
-                    <p className="communication-page__zone-eyebrow">Compose console</p>
-                    <h3 className="communication-page__compose-stage-title">Clinician reply</h3>
+                    <p className="inbox-panel__eyebrow">Compose console</p>
+                    <h3 className="inbox-composer__title">Clinician reply</h3>
                   </div>
                 </div>
                 <div className="communication-page__composer">
-                  <div
-                    className="communication-authoring-tools"
-                    role="group"
-                    aria-label="Reply helpers"
-                  >
+                  <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
                     <label
                       className="form-field communication-authoring-tools__picker"
                       htmlFor="communication-reply-template-picker"
@@ -967,12 +950,6 @@ export function CommunicationPage(): JSX.Element {
                         Insert signature
                       </Button>
                     </div>
-                    <p
-                      className="communication-authoring-tools__note"
-                      aria-live="polite"
-                    >
-                      Templates and signature stay editable during this review pass.
-                    </p>
                   </div>
                   <p className="communication-page__composer-truth">
                     Replies are stored only in this browser for the current clinician during this foundation pass.
@@ -983,9 +960,7 @@ export function CommunicationPage(): JSX.Element {
                       <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
                       <div className="communication-page__composer-identity-copy">
                         <strong>{clinicianIdentity.displayName}</strong>
-                        {clinicianIdentity.secondaryLine ? (
-                          <span>{clinicianIdentity.secondaryLine}</span>
-                        ) : null}
+                        {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
                       </div>
                     </div>
                   </div>

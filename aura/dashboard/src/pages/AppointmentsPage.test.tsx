@@ -493,11 +493,7 @@ describe('AppointmentsPage', () => {
     expect(screen.getByText('Pending review')).toBeInTheDocument();
     expect(screen.getAllByText('Waiting 2d').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Request note').length).toBeGreaterThan(0);
-    expect(
-      await screen.findByText('Requests waiting', {
-        selector: '.appointments-summary-strip__value--state',
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText('Requests waiting').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Demand currently covered').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
 
@@ -616,18 +612,14 @@ describe('AppointmentsPage', () => {
       patients: [],
     });
 
-    expect(
-      await screen.findByText('Requests waiting without open capacity', {
-        selector: '.appointments-summary-strip__value--state',
-      }),
-    ).toBeInTheDocument();
+    expect((await screen.findAllByText('Requests waiting without open capacity')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Demand uncovered').length).toBeGreaterThan(0);
     expect(
       screen.getByText(
         'Requests are waiting and no open capacity is visible in the current schedule range. Review the queue, then publish availability if coverage is needed.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('Publish after review')).toBeInTheDocument();
+    expect(screen.getAllByText('Publish after review').length).toBeGreaterThan(0);
   });
 
   it('calls out when demand exceeds currently published capacity', async () => {
@@ -694,18 +686,16 @@ describe('AppointmentsPage', () => {
       patients: [],
     });
 
-    expect(
-      await screen.findByText('Capacity open', {
-        selector: '.appointments-summary-strip__value--state',
-      }),
-    ).toBeInTheDocument();
+    expect((await screen.findAllByText('Capacity open')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Queue quiet with open capacity').length).toBeGreaterThan(0);
     expect(
       screen.getByText('Queue is quiet and published capacity is ready if new demand arrives.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Publish after queue review')).toBeInTheDocument();
     expect(
-      screen.getByText('Use this after request review to publish only the clinician time the queue still needs.'),
+      screen.getByText(
+        'Capacity is already published. Add more availability only if additional clinician time needs to be opened.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Published slots become immediately visible to the booking queue after creation.'),

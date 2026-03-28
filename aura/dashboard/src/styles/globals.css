@@ -40418,3 +40418,722 @@ a {
     justify-content: flex-start;
   }
 }
+
+/* Phase 3: Today, Schedule, Inbox */
+
+.dashboard-home-page--today {
+  gap: 1.45rem;
+}
+
+.today-brief,
+.schedule-brief,
+.schedule-pane,
+.schedule-publish,
+.inbox-brief,
+.inbox-thread-panel,
+.inbox-reading-pane {
+  border: 1px solid hsl(var(--border) / 0.42);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.05)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.018), transparent 82%);
+  box-shadow: none;
+}
+
+.today-brief,
+.schedule-brief,
+.inbox-brief {
+  display: grid;
+  gap: 1rem;
+  padding: 1.35rem 1.4rem;
+}
+
+.today-brief {
+  grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 1fr);
+}
+
+.today-brief__lead,
+.schedule-brief__lead,
+.inbox-brief__lead {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.today-brief__eyebrow,
+.schedule-brief__eyebrow,
+.inbox-brief__eyebrow,
+.today-surface__eyebrow,
+.today-support-panel__eyebrow,
+.today-context__eyebrow,
+.today-context-card__eyebrow,
+.schedule-pane__eyebrow,
+.schedule-publish__eyebrow,
+.inbox-panel__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.today-brief__title,
+.schedule-brief__title,
+.inbox-brief__title,
+.today-surface__title,
+.today-support-panel__title,
+.today-context__title,
+.schedule-pane__title,
+.schedule-publish__title,
+.inbox-panel__title,
+.inbox-reading-pane__title,
+.inbox-composer__title {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: clamp(1.25rem, 1.8vw, 1.9rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.today-brief__copy,
+.today-brief__support,
+.today-surface__copy,
+.today-context__copy,
+.today-context-card__note,
+.today-support-item__note,
+.schedule-brief__copy,
+.schedule-brief__fact-detail,
+.schedule-pane__note,
+.schedule-board-surface__note,
+.schedule-publish__note,
+.inbox-brief__copy,
+.inbox-panel__note,
+.inbox-context-summary__text,
+.inbox-context-summary__note,
+.inbox-handoff__summary,
+.inbox-handoff__note {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.58;
+}
+
+.today-brief__actions,
+.schedule-brief__pills,
+.schedule-brief__facts,
+.inbox-brief__stats,
+.today-support-panel__header,
+.schedule-pane__header,
+.schedule-board-toolbar,
+.schedule-publish__header,
+.inbox-panel__header,
+.inbox-reading-pane__header,
+.inbox-composer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.today-brief__actions {
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.today-brief__facts,
+.schedule-brief__facts,
+.inbox-brief__stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+}
+
+.today-brief__fact,
+.schedule-brief__fact,
+.inbox-brief__stat,
+.today-surface__fact,
+.today-context-card,
+.schedule-pane__fact,
+.schedule-brief__pill,
+.today-context-card__facts span,
+.inbox-reading-pane__summary-pill,
+.schedule-publish__summary-pill,
+.inbox-brief__composition-item {
+  border: 1px solid hsl(var(--border) / 0.44);
+  background: hsl(var(--background) / 0.76);
+}
+
+.today-brief__fact,
+.schedule-brief__fact,
+.inbox-brief__stat,
+.today-context-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem;
+  border-radius: 24px;
+}
+
+.today-brief__fact-label,
+.schedule-brief__fact-label,
+.inbox-brief__stat-label,
+.today-context-card__facts span,
+.schedule-pane__fact,
+.schedule-brief__pill,
+.schedule-publish__summary-pill,
+.inbox-reading-pane__summary-pill,
+.inbox-brief__composition-item {
+  font-size: 0.74rem;
+  font-weight: var(--font-medium);
+  color: hsl(var(--muted-foreground));
+}
+
+.today-brief__fact-value,
+.schedule-brief__fact-value,
+.inbox-brief__stat-value,
+.today-context-card__title,
+.schedule-board-surface__title {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: clamp(1.15rem, 1.7vw, 1.7rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.today-brief__fact--risk,
+.schedule-brief__fact--requests,
+.inbox-brief__stat--response {
+  border-color: hsl(var(--danger) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--danger) / 0.035)),
+    linear-gradient(140deg, hsl(var(--danger) / 0.05), transparent 80%);
+}
+
+.today-brief__fact--warning,
+.schedule-brief__fact--next,
+.inbox-brief__stat--safety {
+  border-color: hsl(var(--warning) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--warning) / 0.03)),
+    linear-gradient(140deg, hsl(var(--warning) / 0.04), transparent 80%);
+}
+
+.today-brief__fact--primary,
+.schedule-brief__fact--capacity,
+.inbox-brief__stat--composition {
+  border-color: hsl(var(--primary) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--primary) / 0.03)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.04), transparent 82%);
+}
+
+.today-brief__cta {
+  min-width: 10rem;
+}
+
+.today-brief__support,
+.today-brief__copy,
+.schedule-brief__copy,
+.inbox-brief__copy {
+  max-width: 60ch;
+}
+
+.today-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(19rem, 0.88fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.today-main-surface,
+.today-support-panel,
+.today-context {
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+  border: 1px solid hsl(var(--border) / 0.4);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.05)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.018), transparent 82%);
+}
+
+.today-main-surface {
+  min-height: 100%;
+}
+
+.today-support-rail {
+  display: grid;
+  gap: 1rem;
+}
+
+.today-surface__facts,
+.today-context-card__facts,
+.today-support-item__meta,
+.schedule-brief__pills,
+.schedule-publish__summary,
+.inbox-brief__composition,
+.inbox-reading-pane__summary-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.today-surface__fact,
+.schedule-brief__pill,
+.schedule-pane__fact,
+.schedule-publish__summary-pill,
+.inbox-reading-pane__summary-pill,
+.inbox-brief__composition-item,
+.today-context-card__facts span {
+  min-height: 2rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.today-priority-list,
+.today-safety-pulse__list,
+.today-support-list,
+.schedule-request-list,
+.schedule-slot-list {
+  display: grid;
+  gap: 0.82rem;
+}
+
+.today-priority-item,
+.today-safety-pulse__item,
+.today-support-item,
+.schedule-board-surface,
+.schedule-detail-surface,
+.inbox-context-summary,
+.inbox-handoff,
+.inbox-composer,
+.communication-page__timeline-event {
+  border: 1px solid hsl(var(--border) / 0.38);
+  border-radius: 26px;
+  background: hsl(var(--background) / 0.72);
+}
+
+.today-priority-item,
+.today-safety-pulse__item,
+.today-support-item,
+.schedule-board-surface,
+.schedule-detail-surface,
+.inbox-context-summary,
+.inbox-handoff,
+.inbox-composer,
+.communication-page__timeline-event {
+  padding: 1rem 1.05rem;
+}
+
+.today-priority-item__top,
+.today-priority-item__footer,
+.today-safety-pulse__item-top,
+.today-safety-pulse__item-side,
+.today-support-item__top,
+.today-support-item__footer,
+.schedule-board-surface__summary,
+.inbox-reading-pane__anchor,
+.inbox-reading-pane__header-side,
+.inbox-thread-item .communication-page__thread-meta,
+.communication-page__timeline-event-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.today-priority-item__patient,
+.today-safety-pulse__patient,
+.today-support-item__title,
+.communication-page__thread-name {
+  margin: 0;
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  font-weight: var(--font-semibold);
+}
+
+.today-priority-item__kind,
+.today-priority-item__reason,
+.today-priority-item__meta,
+.today-priority-item__time,
+.today-safety-pulse__kind,
+.today-safety-pulse__summary,
+.today-safety-pulse__time,
+.today-support-item__detail,
+.today-support-item__meta-wrap,
+.schedule-board-surface__bar-label,
+.schedule-board-surface__bar-count,
+.inbox-reading-pane__subtitle,
+.inbox-thread-item .communication-page__thread-meta-note,
+.inbox-thread-item .communication-page__thread-time,
+.communication-page__timeline-event-time {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.today-priority-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.7rem;
+}
+
+.today-safety-pulse__header,
+.today-context__header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.today-context__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.82rem;
+}
+
+.today-context-card__facts {
+  margin-top: 0.1rem;
+}
+
+.schedule-planner,
+.inbox-shell {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.88fr) minmax(0, 1.3fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.schedule-pane,
+.schedule-publish,
+.inbox-thread-panel,
+.inbox-reading-pane {
+  display: grid;
+  gap: 1rem;
+  padding: 1.4rem;
+}
+
+.schedule-pane__heading,
+.schedule-publish__heading,
+.inbox-panel__copy,
+.inbox-reading-pane__copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.schedule-pane__header-side,
+.schedule-pane__header-side--planner,
+.schedule-publish__header,
+.inbox-reading-pane__header-side {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+}
+
+.schedule-board-toolbar {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.schedule-board-surface {
+  display: grid;
+  gap: 1rem;
+}
+
+.schedule-board-surface__summary {
+  align-items: start;
+}
+
+.schedule-board-surface__summary-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.schedule-board-surface__bars {
+  display: grid;
+  gap: 0.55rem;
+  min-width: min(24rem, 100%);
+}
+
+.schedule-board-surface__bar-row {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, auto) minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.schedule-board-surface__bar-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: hsl(var(--muted) / 0.84);
+  overflow: hidden;
+}
+
+.schedule-board-surface__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.schedule-board-surface__bar-fill--demand {
+  background: hsl(var(--danger) / 0.84);
+}
+
+.schedule-board-surface__bar-fill--capacity {
+  background: hsl(var(--primary) / 0.72);
+}
+
+.schedule-detail-surface {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.schedule-publish__summary {
+  padding-top: 0.15rem;
+}
+
+.appointments-page--schedule .appointments-item {
+  border-radius: 24px;
+  border-color: hsl(var(--border) / 0.4);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.045)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.018), transparent 86%);
+  box-shadow: none;
+}
+
+.appointments-page--schedule .appointments-item__action-bar {
+  border-top-color: hsl(var(--border) / 0.26);
+}
+
+.appointments-page--schedule .appointments-schedule-week,
+.appointments-page--schedule .appointments-schedule-day-agenda {
+  gap: 0.82rem;
+}
+
+.appointments-page--schedule .appointments-schedule-day,
+.appointments-page--schedule .appointments-schedule-day-agenda {
+  border-radius: 24px;
+  border-color: hsl(var(--border) / 0.38);
+  background: hsl(var(--background) / 0.7);
+}
+
+.appointments-page--schedule .appointments-schedule-slot {
+  border-radius: 20px;
+  border-color: hsl(var(--border) / 0.34);
+  background: hsl(var(--card) / 0.9);
+}
+
+.appointments-page--schedule .appointments-composer__surface {
+  border-radius: 24px;
+  border-color: hsl(var(--border) / 0.38);
+  background: hsl(var(--background) / 0.72);
+}
+
+.appointments-page--schedule .appointments-composer__context-note,
+.appointments-page--schedule .appointments-composer__hint,
+.appointments-page--schedule .appointments-composer__cluster-note {
+  max-width: 62ch;
+}
+
+.inbox-brief__stats {
+  align-items: stretch;
+}
+
+.inbox-brief__composition {
+  margin-top: 0.2rem;
+}
+
+.inbox-thread-panel,
+.inbox-reading-pane {
+  min-height: 100%;
+}
+
+.inbox-thread-panel__filters {
+  flex-wrap: wrap;
+}
+
+.inbox-thread-item {
+  border-radius: 24px;
+  border-color: hsl(var(--border) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.994), hsl(var(--muted) / 0.035)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.012), transparent 86%);
+  box-shadow: none;
+}
+
+.inbox-reading-pane__header,
+.inbox-reading-pane__context {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.inbox-reading-pane__anchor {
+  align-items: center;
+}
+
+.inbox-reading-pane__avatar,
+.communication-page__thread-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.4);
+  background: hsl(var(--background) / 0.84);
+  color: hsl(var(--foreground));
+  font-size: 0.82rem;
+  font-weight: var(--font-semibold);
+}
+
+.inbox-context-summary,
+.inbox-handoff,
+.inbox-composer,
+.communication-page__timeline-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.inbox-context-summary__badges,
+.inbox-handoff__head,
+.inbox-handoff__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.communication-page__timeline-list {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.communication-page__timeline-event {
+  box-shadow: none;
+}
+
+.communication-page__composer {
+  gap: 0.85rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.communication-page__composer-truth {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.dark .today-brief,
+.dark .today-main-surface,
+.dark .today-support-panel,
+.dark .today-context,
+.dark .schedule-brief,
+.dark .schedule-pane,
+.dark .schedule-publish,
+.dark .schedule-board-surface,
+.dark .schedule-detail-surface,
+.dark .inbox-brief,
+.dark .inbox-thread-panel,
+.dark .inbox-reading-pane,
+.dark .inbox-context-summary,
+.dark .inbox-handoff,
+.dark .inbox-composer,
+.dark .communication-page__timeline-event {
+  border-color: hsl(var(--border) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.8)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.08), transparent 82%);
+}
+
+.dark .today-brief__fact,
+.dark .schedule-brief__fact,
+.dark .inbox-brief__stat,
+.dark .today-surface__fact,
+.dark .today-context-card,
+.dark .schedule-pane__fact,
+.dark .schedule-brief__pill,
+.dark .schedule-publish__summary-pill,
+.dark .inbox-reading-pane__summary-pill,
+.dark .inbox-brief__composition-item,
+.dark .today-context-card__facts span {
+  border-color: hsl(var(--border) / 0.4);
+  background: hsl(var(--background) / 0.26);
+}
+
+.dark .appointments-page--schedule .appointments-item,
+.dark .appointments-page--schedule .appointments-schedule-day,
+.dark .appointments-page--schedule .appointments-schedule-day-agenda,
+.dark .appointments-page--schedule .appointments-schedule-slot,
+.dark .appointments-page--schedule .appointments-composer__surface,
+.dark .inbox-thread-item,
+.dark .communication-page__thread-avatar,
+.dark .inbox-reading-pane__avatar {
+  border-color: hsl(var(--border) / 0.38);
+  background: hsl(var(--background) / 0.2);
+}
+
+@media (max-width: 1220px) {
+  .today-layout,
+  .schedule-planner,
+  .inbox-shell,
+  .today-brief {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-pane__header-side,
+  .schedule-pane__header-side--planner,
+  .inbox-reading-pane__header-side {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .today-brief__facts,
+  .schedule-brief__facts,
+  .inbox-brief__stats,
+  .today-context__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .today-support-panel__header,
+  .schedule-pane__header,
+  .schedule-board-toolbar,
+  .schedule-publish__header,
+  .inbox-panel__header,
+  .inbox-reading-pane__header {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .today-brief,
+  .today-main-surface,
+  .today-support-panel,
+  .today-context,
+  .schedule-brief,
+  .schedule-pane,
+  .schedule-publish,
+  .inbox-brief,
+  .inbox-thread-panel,
+  .inbox-reading-pane {
+    padding: 1rem;
+    border-radius: 24px;
+  }
+
+  .schedule-board-surface__bar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .appointments-page--schedule .appointments-item__actions,
+  .appointments-page--schedule .appointments-item__actions--pending,
+  .communication-page__composer-footer {
+    justify-content: flex-start;
+  }
+
+  .appointments-page--schedule .appointments-composer__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

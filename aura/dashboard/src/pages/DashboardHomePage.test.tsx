@@ -384,25 +384,21 @@ describe('DashboardHomePage', () => {
     renderDashboardHome();
 
     expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
-    expect(screen.getByText('Operational snapshot')).toBeInTheDocument();
+    expect(screen.getByText('Shift brief')).toBeInTheDocument();
     expect(screen.getByText('Needs attention now')).toBeInTheDocument();
-    expect(screen.getByText('Urgent work leads')).toBeInTheDocument();
+    expect(screen.getByText('Urgent review surface')).toBeInTheDocument();
     expect(screen.getByText('Keep the day moving')).toBeInTheDocument();
-    expect(await screen.findByText('Main action list')).toBeInTheDocument();
-    expect(screen.getByText('Safety feed')).toBeInTheDocument();
-    expect(screen.getByText('Background workload and capacity')).toBeInTheDocument();
-    expect(screen.getByText('Safety workload')).toBeInTheDocument();
-    expect(screen.getByText('Communication burden')).toBeInTheDocument();
-    expect(screen.getByText('Insights backlog')).toBeInTheDocument();
+    expect(await screen.findByText('Assigned high-risk alert')).toBeInTheDocument();
+    expect(screen.getByText('Recent safety movement')).toBeInTheDocument();
+    expect(screen.getByText('Quiet background context')).toBeInTheDocument();
+    expect(screen.getByText('Safety pressure')).toBeInTheDocument();
+    expect(screen.getByText('Inbox needing response')).toBeInTheDocument();
     expect(screen.getByText('Scheduling balance')).toBeInTheDocument();
+    expect(screen.getByText('Clinical review backlog')).toBeInTheDocument();
     expect(screen.getByText('Pending requests exceed visible open capacity in the next 7 days.')).toBeInTheDocument();
-    expect(screen.getByText('Priority queue')).toBeInTheDocument();
-    expect(screen.getByText('Assigned high-risk alert')).toBeInTheDocument();
-    expect(screen.getByText('Recent safety events')).toBeInTheDocument();
     expect(screen.getByText('Telegram escalation sent successfully.')).toBeInTheDocument();
     expect(screen.getByText('Waiting for patient confirmation.')).toBeInTheDocument();
     expect(screen.getByText('Review safety escalation')).toBeInTheDocument();
-    expect(screen.getByText('Communication review')).toBeInTheDocument();
     expect(screen.getByText('Pain is much worse after yesterday’s session.')).toBeInTheDocument();
   });
 
@@ -439,12 +435,14 @@ describe('DashboardHomePage', () => {
     renderDashboardHome();
 
     expect(await screen.findByText('Nothing urgent right now')).toBeInTheDocument();
-    expect(screen.getByText('No recent safety activity')).toBeInTheDocument();
+    expect(await screen.findByText('No recent safety activity')).toBeInTheDocument();
     expect(screen.getByText('No appointments today')).toBeInTheDocument();
     expect(screen.getByText('No follow-up tasks')).toBeInTheDocument();
     expect(screen.getByText('No communication waiting')).toBeInTheDocument();
     expect(screen.getByText('No recent safety activity in the current feed.')).toBeInTheDocument();
-    expect(screen.getByText('No communication follow-up is waiting right now.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Patient communication needing clinician review will appear here.'),
+    ).toBeInTheDocument();
     expect(screen.getByText('No pending insight mix is visible in the current queue.')).toBeInTheDocument();
     expect(screen.getByText('No visible scheduling pressure in the next 7 days.')).toBeInTheDocument();
   });
@@ -457,11 +455,9 @@ describe('DashboardHomePage', () => {
 
     await screen.findByText('Pain is much worse after yesterday’s session.');
 
-    const communicationCard = screen.getByText('Communication review');
-    const cardElement = communicationCard.closest('section');
-    expect(cardElement).not.toBeNull();
+    const communicationCard = screen.getByTestId('dashboard-home-communication-overview');
 
-    await user.click(within(cardElement as HTMLElement).getByRole('button', { name: 'Open thread' }));
+    await user.click(within(communicationCard).getByRole('button', { name: 'Open thread' }));
 
     await waitFor(() => {
       expect(screen.getByText('Communication workspace')).toBeInTheDocument();
@@ -492,10 +488,8 @@ describe('DashboardHomePage', () => {
     await screen.findByText('Pain is much worse after yesterday’s session.');
 
     const communicationOverview = screen.getByTestId('dashboard-home-communication-overview');
-    const cardElement = communicationOverview.querySelector('.dashboard-communication-card--attention');
-    expect(cardElement).not.toBeNull();
     expect(communicationOverview).toHaveClass('dashboard-home-communication-overview--reduced');
-    expect(within(communicationOverview).getByText('Communication review')).toBeInTheDocument();
+    expect(within(communicationOverview).getByText('Inbox needing response')).toBeInTheDocument();
   });
 
 });

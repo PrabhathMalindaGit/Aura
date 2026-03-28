@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import {
@@ -773,7 +772,6 @@ export function AppointmentsPage(): JSX.Element {
     lastPublishOutcome !== null && pendingRequestsCount > 0 && requestStatus !== 'pending';
   const requestCountLabel = `${pendingRequestsCount} request${pendingRequestsCount === 1 ? '' : 's'} waiting`;
   const openCapacityLabel = `${availableSlotsCount} open slot${availableSlotsCount === 1 ? '' : 's'}`;
-  const capacityStatusLabel = coverageState.label;
   const workspaceActionLabel = capacityNeedsPublishing ? 'Publish after review' : 'Coverage ready';
   const requestsSummaryHint =
     pendingRequestsCount > 0
@@ -832,11 +830,6 @@ export function AppointmentsPage(): JSX.Element {
         ? 'Queue is quiet and published capacity is ready if new demand arrives.'
         : 'Queue is quiet. New booking requests will appear here when clinician review is needed.'
       : 'Requests matching this review state will appear here when scheduling activity changes.';
-  const scheduleTitle = 'Schedule';
-  const scheduleNote =
-    scheduleView === 'week'
-      ? 'Use the visible week to judge whether published capacity covers the request currently in review.'
-      : 'Use the visible day to judge whether published capacity covers the request currently in review.';
   const scheduleEmptyTitle =
     scheduleView === 'week' ? 'No visible capacity in this week' : 'No visible capacity in this day';
   const scheduleEmptyDescription =
@@ -902,22 +895,6 @@ export function AppointmentsPage(): JSX.Element {
       width: `${(availableSlotsCount / demandCapacityScale) * 100}%`,
     },
   ] as const;
-  const visibleCapacityPreview = scheduleRange.dayKeys.map((dayKey) => {
-    const daySlots = scheduleSlotsByDay.get(dayKey) ?? [];
-    const openCount = daySlots.filter((slot) => (slot.status ?? 'available') === 'available').length;
-    const closedCount = Math.max(daySlots.length - openCount, 0);
-
-    return {
-      dayKey,
-      label: formatDayHeader(dayKey),
-      openCount,
-      closedCount,
-      totalCount: daySlots.length,
-      openHeight: `${Math.max(openCount, 0) * 18 + 8}px`,
-      closedHeight: `${Math.max(closedCount, 0) * 12 + 8}px`,
-      isToday: dayKey === todayDateKey,
-    };
-  });
   const summaryLeadTitle =
     capacityNeedsPublishing
       ? 'Demand needs scheduling coverage'
@@ -1160,12 +1137,12 @@ export function AppointmentsPage(): JSX.Element {
   }
 
   return (
-    <div className="page-stack dashboard-page-shell dashboard-page-shell--appointments appointments-page">
+    <div className="page-stack dashboard-page-shell dashboard-page-shell--appointments appointments-page appointments-page--schedule">
       <Section
         className="dashboard-page-header dashboard-page-header--appointments appointments-page-header"
         eyebrow="Care coordination"
         title="Schedule"
-        subtitle="Review scheduling demand, confirm whether open capacity is sufficient, and publish only the availability the queue still needs."
+        subtitle="Review waiting demand, inspect visible capacity, and publish only the clinician time the queue still needs."
         actions={
           <Button
             variant="secondary"
@@ -1180,95 +1157,36 @@ export function AppointmentsPage(): JSX.Element {
         }
       />
 
-      <section className="appointments-summary-strip" aria-label="Appointments summary">
-        <article className={`appointments-summary-strip__lead appointments-summary-strip__lead--${coordinationState.tone}`}>
-          <div className="appointments-summary-strip__lead-copy">
-            <p className="appointments-summary-strip__eyebrow">Scheduling coordination</p>
-            <div className="appointments-summary-strip__headline">
-              <p className="appointments-summary-strip__lead-value">{pendingRequestsCount}</p>
-              <div className="appointments-summary-strip__headline-copy">
-                <p className="appointments-summary-strip__headline-title">{summaryLeadTitle}</p>
-                <p className="appointments-summary-strip__hint">{summaryLeadNarrative}</p>
-              </div>
-            </div>
-            <div className="appointments-summary-strip__lead-pills" aria-live="polite">
-              <span className="appointments-summary-strip__lead-pill">{coordinationState.label}</span>
-              <span className="appointments-summary-strip__lead-pill">{coverageState.label}</span>
-              <span className="appointments-summary-strip__lead-pill">Updated {refreshedAtLabel}</span>
-            </div>
+      <section className="schedule-brief" aria-label="Schedule summary">
+        <div className={`schedule-brief__lead schedule-brief__lead--${coordinationState.tone}`}>
+          <p className="schedule-brief__eyebrow">Schedule summary</p>
+          <h2 className="schedule-brief__title">{summaryLeadTitle}</h2>
+          <p className="schedule-brief__copy">{summaryLeadNarrative}</p>
+          <div className="schedule-brief__pills" aria-live="polite">
+            <span className="schedule-brief__pill">{coordinationState.label}</span>
+            <span className="schedule-brief__pill">{coverageState.label}</span>
+            <span className="schedule-brief__pill">{workspaceActionLabel}</span>
+            <span className="schedule-brief__pill">Updated {refreshedAtLabel}</span>
           </div>
-          <div className="appointments-summary-strip__comparison" aria-label="Demand versus capacity">
-            <div className="appointments-summary-strip__comparison-copy">
-              <p className="appointments-summary-strip__comparison-label">Demand vs capacity</p>
-              <p className="appointments-summary-strip__comparison-note">
-                Read waiting demand against the currently published open slots before publishing more time.
-              </p>
-            </div>
-            <div className="appointments-summary-strip__comparison-bars">
-              {demandCapacityBars.map((bar) => (
-                <div key={bar.key} className="appointments-summary-strip__comparison-row">
-                  <span className="appointments-summary-strip__comparison-row-label">
-                    {bar.label}
-                  </span>
-                  <div className="appointments-summary-strip__comparison-track" aria-hidden="true">
-                    <span
-                      className={`appointments-summary-strip__comparison-fill appointments-summary-strip__comparison-fill--${bar.key}`}
-                      style={{ width: bar.width }}
-                    />
-                  </div>
-                  <span className="appointments-summary-strip__comparison-count">{bar.count}</span>
-                </div>
-              ))}
-            </div>
-            <div className="appointments-summary-strip__capacity-preview" aria-label="Visible capacity by day">
-              {visibleCapacityPreview.map((day) => (
-                <div
-                  key={day.dayKey}
-                  className={`appointments-summary-strip__capacity-day${
-                    day.isToday ? ' appointments-summary-strip__capacity-day--today' : ''
-                  }`}
-                  title={`${day.label}: ${day.openCount} open, ${day.closedCount} closed`}
-                >
-                  <div className="appointments-summary-strip__capacity-bars" aria-hidden="true">
-                    <span
-                      className="appointments-summary-strip__capacity-bar appointments-summary-strip__capacity-bar--closed"
-                      style={{ height: day.closedHeight }}
-                    />
-                    <span
-                      className="appointments-summary-strip__capacity-bar appointments-summary-strip__capacity-bar--open"
-                      style={{ height: day.openHeight }}
-                    />
-                  </div>
-                  <span className="appointments-summary-strip__capacity-label">{day.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </article>
-        <article
-          className={`appointments-summary-strip__item appointments-summary-strip__item--state appointments-summary-strip__item--state-${coordinationState.tone}`}
-        >
-          <p className="appointments-summary-strip__label">Coordination state</p>
-          <p className="appointments-summary-strip__value appointments-summary-strip__value--state">
-            {coordinationState.label}
-          </p>
-          <p className="appointments-summary-strip__hint">{coverageState.summaryHint}</p>
-        </article>
-        <article className="appointments-summary-strip__item appointments-summary-strip__item--attention">
-          <p className="appointments-summary-strip__label">Requests waiting</p>
-          <p className="appointments-summary-strip__value">{pendingRequestsCount}</p>
-          <p className="appointments-summary-strip__hint">{requestsSummaryHint}</p>
-        </article>
-        <article className="appointments-summary-strip__item appointments-summary-strip__item--available">
-          <p className="appointments-summary-strip__label">Open capacity</p>
-          <p className="appointments-summary-strip__value">{availableSlotsCount}</p>
-          <p className="appointments-summary-strip__hint">{openCapacitySummaryHint}</p>
-        </article>
-        <article className="appointments-summary-strip__item appointments-summary-strip__item--timing">
-          <p className="appointments-summary-strip__label">Next open slot</p>
-          <p className="appointments-summary-strip__value">{nextOpenSlotSummary.value}</p>
-          <p className="appointments-summary-strip__hint">{nextOpenSlotSummary.hint}</p>
-        </article>
+        </div>
+
+        <div className="schedule-brief__facts" role="list" aria-label="Scheduling facts">
+          <article className="schedule-brief__fact schedule-brief__fact--requests" role="listitem">
+            <p className="schedule-brief__fact-label">Requests waiting</p>
+            <p className="schedule-brief__fact-value">{pendingRequestsCount}</p>
+            <p className="schedule-brief__fact-detail">{requestsSummaryHint}</p>
+          </article>
+          <article className="schedule-brief__fact schedule-brief__fact--capacity" role="listitem">
+            <p className="schedule-brief__fact-label">Open capacity</p>
+            <p className="schedule-brief__fact-value">{availableSlotsCount}</p>
+            <p className="schedule-brief__fact-detail">{openCapacitySummaryHint}</p>
+          </article>
+          <article className="schedule-brief__fact schedule-brief__fact--next" role="listitem">
+            <p className="schedule-brief__fact-label">Next relevant slot</p>
+            <p className="schedule-brief__fact-value">{nextOpenSlotSummary.value}</p>
+            <p className="schedule-brief__fact-detail">{nextOpenSlotSummary.hint}</p>
+          </article>
+        </div>
       </section>
 
       {errorMessage ? (
@@ -1277,183 +1195,572 @@ export function AppointmentsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <Card
-        className="appointments-workspace-card"
-        title={
-          <span className="appointments-card-title appointments-card-title--shell">
-            <span className="appointments-card-title__eyebrow">Scheduling coordination</span>
-            <span className="appointments-card-title__headline">Demand and capacity console</span>
-          </span>
-        }
-        action={
-          <div className="appointments-workspace__context-facts appointments-workspace__context-facts--summary" aria-live="polite">
-            <span className="appointments-workspace__context-pill appointments-workspace__context-pill--demand">
-              {requestCountLabel}
-            </span>
-            <span className="appointments-workspace__context-pill appointments-workspace__context-pill--capacity">
-              {openCapacityLabel}
-            </span>
-            <span
-              className={`appointments-workspace__context-pill appointments-workspace__context-pill--status appointments-workspace__context-pill--status-${coverageState.tone}`}
-            >
-              {capacityStatusLabel}
-            </span>
-          </div>
-        }
-      >
-        <div className="appointments-workspace">
-          <div className="appointments-workspace__context">
-            <div className="appointments-workspace__context-copy">
-              <p className="appointments-workspace__context-eyebrow">What needs attention now</p>
-              <p className="appointments-workspace__context-text">{coordinationState.note}</p>
-              <p className="appointments-workspace__coverage-text">{coverageState.note}</p>
+      {lastPublishOutcome && publishOutcomeCopy ? (
+        <section
+          className={`appointments-publish-outcome appointments-publish-outcome--${coverageState.tone}`}
+          aria-label="Latest publish outcome"
+          aria-live="polite"
+        >
+          <div className="appointments-publish-outcome__copy">
+            <p className="appointments-publish-outcome__eyebrow">Latest publish</p>
+            <div className="appointments-publish-outcome__heading-row">
+              <h3 className="appointments-publish-outcome__title">Availability published</h3>
+              <span
+                className={`appointments-publish-outcome__status appointments-publish-outcome__status--${coverageState.tone}`}
+              >
+                {coverageState.label}
+              </span>
             </div>
-            {capacityNeedsPublishing ? (
-              <div className="appointments-workspace__context-facts" aria-live="polite">
-                <span className="appointments-workspace__context-pill appointments-workspace__context-pill--action">
-                  {workspaceActionLabel}
-                </span>
-              </div>
-            ) : null}
+            <p className="appointments-publish-outcome__text">
+              {publishOutcomeSlotLabel
+                ? `${publishOutcomeSlotLabel} is now open in this workspace.`
+                : 'New open capacity is now available in this workspace.'}
+            </p>
+            <p className="appointments-publish-outcome__text appointments-publish-outcome__text--status">
+              {publishOutcomeCopy.coverageText}
+            </p>
+            <p className="appointments-publish-outcome__next-step">{publishOutcomeCopy.nextStepText}</p>
           </div>
-          {lastPublishOutcome && publishOutcomeCopy ? (
-            <section
-              className={`appointments-publish-outcome appointments-publish-outcome--${coverageState.tone}`}
-              aria-label="Latest publish outcome"
+          {showViewOpenCapacityAction || showReviewRequestsAction ? (
+            <div className="appointments-publish-outcome__actions">
+              {showViewOpenCapacityAction ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    handleSlotStatusChange('available');
+                  }}
+                >
+                  View open capacity
+                </Button>
+              ) : null}
+              {showReviewRequestsAction ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    handleRequestStatusChange('pending');
+                  }}
+                >
+                  Review requests
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <div className="schedule-planner">
+        <section
+          className={`schedule-pane schedule-pane--requests${
+            requestStatus === 'pending' ? ' schedule-pane--requests-active' : ''
+          }`}
+          aria-label="Appointment requests"
+        >
+          <header className="schedule-pane__header">
+            <div className="schedule-pane__heading">
+              <p className="schedule-pane__eyebrow">Request stack</p>
+              <h3 className="schedule-pane__title">Request review</h3>
+              <p className="schedule-pane__note">{requestsSectionNote}</p>
+            </div>
+            <div className="schedule-pane__header-side">
+              <Badge variant={requestStatus === 'pending' ? 'warning' : 'default'}>
+                {requestViewLabel}
+              </Badge>
+              <span className="schedule-pane__fact">{workspaceActionLabel}</span>
+            </div>
+          </header>
+
+          <div className="schedule-pane__toolbar appointments-filter-group appointments-filter-group--segmented">
+            {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
+              <Button
+                key={status}
+                variant={requestStatus === status ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => {
+                  handleRequestStatusChange(status);
+                }}
+              >
+                {status}
+              </Button>
+            ))}
+          </div>
+
+          {requestStatus === 'pending' && lastRequestReviewOutcome ? (
+            <div
+              className={`appointments-request-outcome appointments-request-outcome--${lastRequestReviewOutcome.status}`}
+              data-testid="appointments-request-outcome"
+              role="status"
               aria-live="polite"
             >
-              <div className="appointments-publish-outcome__copy">
-                <p className="appointments-publish-outcome__eyebrow">Latest publish</p>
-                <div className="appointments-publish-outcome__heading-row">
-                  <h3 className="appointments-publish-outcome__title">Availability published</h3>
-                  <span
-                    className={`appointments-publish-outcome__status appointments-publish-outcome__status--${coverageState.tone}`}
-                  >
-                    {coverageState.label}
-                  </span>
-                </div>
-                <p className="appointments-publish-outcome__text">
-                  {publishOutcomeSlotLabel
-                    ? `${publishOutcomeSlotLabel} is now open in this workspace.`
-                    : 'New open capacity is now available in this workspace.'}
+              <div className="appointments-request-outcome__copy">
+                <p className="appointments-request-outcome__eyebrow">Latest request review</p>
+                <strong className="appointments-request-outcome__title">{requestReviewOutcomeTitle}</strong>
+                <p className="appointments-request-outcome__text">
+                  Request for {lastRequestReviewOutcome.patientLabel} moved out of Pending review.
                 </p>
-                <p className="appointments-publish-outcome__text appointments-publish-outcome__text--status">
-                  {publishOutcomeCopy.coverageText}
-                </p>
-                <p className="appointments-publish-outcome__next-step">
-                  {publishOutcomeCopy.nextStepText}
-                </p>
+                <p className="appointments-request-outcome__next">{requestReviewOutcomeFollowThrough}</p>
               </div>
-              {showViewOpenCapacityAction || showReviewRequestsAction ? (
-                <div className="appointments-publish-outcome__actions">
-                  {showViewOpenCapacityAction ? (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        handleSlotStatusChange('available');
-                      }}
+            </div>
+          ) : null}
+
+          {requestsQuery.error ? (
+            <AlertBanner variant="error" title="Could not load requests">
+              {toUserMessage(requestsQuery.error)}
+            </AlertBanner>
+          ) : null}
+
+          {requestsQuery.isLoading && requests.length === 0 ? (
+            <div className="appointments-skeleton" aria-label="Appointment requests loading placeholder">
+              <Skeleton height={96} />
+              <Skeleton height={96} />
+              <Skeleton height={96} />
+            </div>
+          ) : requests.length === 0 ? (
+            <div
+              className="appointments-empty-state appointments-empty-state--requests appointments-empty-state--compact"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="appointments-empty-state__title-row">
+                <span className="appointments-empty-state__icon" aria-hidden="true">
+                  ✓
+                </span>
+                <h3 className="appointments-empty-state__title">{requestsEmptyTitle}</h3>
+              </div>
+              <p className="appointments-empty-state__description">{requestsEmptyDescription}</p>
+              <div className="appointments-empty-state__footer">
+                <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isRefreshingWorkspace}
+                  onClick={() => {
+                    void handleRefreshWorkspace();
+                  }}
+                >
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="schedule-request-list stack stack--2">
+              {requests.map((item) => {
+                const patientName = patientNameById.get(item.patientId) ?? item.patientId;
+                const patientMonogram = patientInitials(patientName);
+                const isPendingRequest = item.status === 'pending';
+                const isSelectedRequest = selectedRequest?.requestId === item.requestId;
+                const lifecycleLabel = isPendingRequest
+                  ? 'Pending review'
+                  : item.status === 'approved'
+                    ? 'Approved for workflow'
+                    : item.status === 'rejected'
+                      ? 'Rejected'
+                      : 'Canceled';
+                const lifecycleTiming = isPendingRequest
+                  ? formatWaitingDuration(item.createdAt)
+                  : item.reviewedAt
+                    ? `Reviewed ${formatDateTime(item.reviewedAt)}`
+                    : `Recorded ${formatDateTime(item.createdAt)}`;
+
+                return (
+                  <div
+                    key={item.requestId}
+                    className={`appointments-item appointments-item--request${
+                      isPendingRequest ? ' appointments-item--request-pending' : ''
+                    }${isSelectedRequest ? ' appointments-item--request-selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSelectedRequest}
+                    onClick={() => {
+                      setSelectedRequestId(item.requestId);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') {
+                        return;
+                      }
+                      event.preventDefault();
+                      setSelectedRequestId(item.requestId);
+                    }}
+                  >
+                    <div className="appointments-item__header">
+                      <div className="appointments-item__identity">
+                        <span className="appointments-item__avatar" aria-hidden="true">
+                          {patientMonogram}
+                        </span>
+                        <div className="appointments-item__title-group">
+                          <p className="appointments-item__eyebrow">Booking request</p>
+                          <p className="appointments-item__title">{patientName}</p>
+                          <p className="appointments-item__subtitle">Patient ID {item.patientId}</p>
+                          <p className="appointments-item__support">
+                            <span className="appointments-item__support-label">{lifecycleLabel}</span>
+                            <span className="appointments-item__support-divider" aria-hidden="true">
+                              ·
+                            </span>
+                            <span className="appointments-item__support-detail">{lifecycleTiming}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="appointments-item__state-column">
+                        <span
+                          className={`appointments-item__freshness appointments-item__freshness--${
+                            isPendingRequest ? 'pending' : 'handled'
+                          }`}
+                        >
+                          {lifecycleTiming}
+                        </span>
+                        <div className="appointments-item__badge-stack">
+                          <Badge variant={toStatusVariant(item.status)}>
+                            {formatRequestViewLabel(item.status)}
+                          </Badge>
+                          <Badge variant={toWorkflowVariant(item.workflowStatus)}>
+                            {appointmentWorkflowLabel(item.workflowStatus)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="appointments-item__schedule">
+                      <p className="appointments-item__schedule-label">Requested window</p>
+                      <p className="appointments-item__schedule-value">
+                        {formatTimeRange(item.startsAt, item.endsAt)}
+                      </p>
+                      <p className="appointments-item__schedule-support">
+                        {formatCalendarDay(item.startsAt)} · Video visit requested
+                      </p>
+                    </div>
+                    {item.note ? (
+                      <div className="appointments-item__reason">
+                        <p className="appointments-item__reason-label">Request note</p>
+                        <p className="appointments-item__reason-text">{item.note}</p>
+                      </div>
+                    ) : null}
+                    <div className="appointments-item__meta-row appointments-item__meta-row--primary">
+                      <span className="appointments-item__meta-chip">Created {formatDateTime(item.createdAt)}</span>
+                      {item.reviewedAt ? (
+                        <span className="appointments-item__meta-chip">
+                          Reviewed {formatDateTime(item.reviewedAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div
+                      className={`appointments-item__action-bar${
+                        isPendingRequest ? '' : ' appointments-item__action-bar--reference'
+                      }`}
                     >
-                      View open capacity
-                    </Button>
-                  ) : null}
-                  {showReviewRequestsAction ? (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        handleRequestStatusChange('pending');
-                      }}
-                    >
-                      Review requests
-                    </Button>
-                  ) : null}
+                      <div className="appointments-item__action-copy">
+                        <p className="appointments-item__action-label">
+                          {isPendingRequest ? 'Next action' : 'Reference state'}
+                        </p>
+                        <p className="appointments-item__action-text">
+                          {isPendingRequest
+                            ? 'Review against the visible planner, then confirm the next scheduling move.'
+                            : 'Keep this reviewed request visible while you inspect current capacity.'}
+                        </p>
+                      </div>
+                      <div
+                        className={`appointments-item__actions${
+                          isPendingRequest ? ' appointments-item__actions--pending' : ''
+                        }`}
+                      >
+                        {isPendingRequest ? (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            disabled={reviewingKey !== null}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleReview(item.requestId, 'approved');
+                            }}
+                          >
+                            {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
+                          </Button>
+                        ) : null}
+                        <Button
+                          className="appointments-item__open"
+                          size="sm"
+                          variant="secondary"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openPatientFromAppointments(item);
+                          }}
+                        >
+                          Open patient
+                        </Button>
+                        {isPendingRequest ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={reviewingKey !== null}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleReview(item.requestId, 'rejected');
+                            }}
+                          >
+                            {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <section className="schedule-pane schedule-pane--board" aria-label="Schedule planner">
+          <header className="schedule-pane__header">
+            <div className="schedule-pane__heading">
+              <p className="schedule-pane__eyebrow">Planner surface</p>
+              <h3 className="schedule-pane__title">Visible schedule</h3>
+              <p className="schedule-pane__note">{coverageState.note}</p>
+            </div>
+            <div className="schedule-pane__header-side schedule-pane__header-side--planner" aria-live="polite">
+              <span className="schedule-pane__fact">{visibleOpenSlotsCount} open visible</span>
+              <span className="schedule-pane__fact">{visibleClosedSlotsCount} closed visible</span>
+            </div>
+          </header>
+
+          {selectedRequest && requestScheduleContext ? (
+            <section
+              className={`appointments-schedule-context appointments-schedule-context--${requestScheduleContext.tone}`}
+              data-testid="appointments-schedule-context"
+              aria-live="polite"
+            >
+              <div className="appointments-schedule-context__copy">
+                <p className="appointments-schedule-context__eyebrow">Selected request</p>
+                <h4 className="appointments-schedule-context__title">
+                  {patientNameById.get(selectedRequest.patientId) ?? selectedRequest.patientId}
+                </h4>
+                <p className="appointments-schedule-context__text">{requestScheduleContext.label}</p>
+                <p className="appointments-schedule-context__note">{requestScheduleContext.note}</p>
+              </div>
+              <div className="appointments-schedule-context__facts">
+                <span className="appointments-item__meta-chip">{formatCalendarDay(selectedRequest.startsAt)}</span>
+                <span className="appointments-item__meta-chip">
+                  {formatTimeRange(selectedRequest.startsAt, selectedRequest.endsAt)}
+                </span>
+                <span className="appointments-item__meta-chip">
+                  {formatWaitingDuration(selectedRequest.createdAt)}
+                </span>
+              </div>
+              {selectedRequest.note ? (
+                <div className="appointments-item__reason">
+                  <p className="appointments-item__reason-label">Request note</p>
+                  <p className="appointments-item__reason-text">{selectedRequest.note}</p>
                 </div>
               ) : null}
             </section>
           ) : null}
-          <div className="appointments-workspace__panels">
-            <section
-              className={`appointments-workspace__section appointments-workspace__section--requests${
-                requestStatus === 'pending' ? ' appointments-workspace__section--requests-active' : ''
-              }${
-                !requestsQuery.isLoading && requests.length === 0
-                  ? ' appointments-workspace__section--requests-empty'
-                  : ''
-              }`}
-              aria-label="Appointment requests"
-            >
-              <header className="appointments-workspace__section-header">
-                <div className="appointments-workspace__section-heading">
-                  <h3 className="appointments-workspace__section-title">Request review</h3>
-                  <p className="appointments-workspace__section-note">{requestsSectionNote}</p>
-                </div>
-                <Badge variant={requestStatus === 'pending' ? 'warning' : 'default'}>
-                  {requestViewLabel}
-                </Badge>
-              </header>
-              <div className="appointments-filter-group appointments-filter-group--segmented">
-                {(['pending', 'approved', 'rejected', 'canceled'] as const).map((status) => (
-                  <Button
-                    key={status}
-                    variant={requestStatus === status ? 'primary' : 'secondary'}
-                    size="sm"
-                    onClick={() => {
-                      handleRequestStatusChange(status);
-                    }}
-                  >
-                    {status}
-                  </Button>
-                ))}
-              </div>
 
-              {requestStatus === 'pending' && lastRequestReviewOutcome ? (
+          <div className="schedule-board-toolbar">
+            <div className="appointments-filter-group appointments-filter-group--segmented">
+              <Button
+                variant={scheduleView === 'week' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => {
+                  handleScheduleViewChange('week');
+                }}
+              >
+                Week
+              </Button>
+              <Button
+                variant={scheduleView === 'day' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => {
+                  handleScheduleViewChange('day');
+                }}
+              >
+                Day
+              </Button>
+            </div>
+
+            <div className="appointments-schedule__nav">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  handleScheduleDateShift('previous');
+                }}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  handleScheduleToday();
+                }}
+              >
+                Today
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  handleScheduleDateShift('next');
+                }}
+              >
+                Next
+              </Button>
+              <p className="appointments-schedule__range-label" data-testid="appointments-schedule-range-label">
+                {scheduleRange.label}
+              </p>
+            </div>
+          </div>
+
+          {scheduleSlotsQuery.error ? (
+            <AlertBanner variant="error" title="Could not load schedule">
+              {toUserMessage(scheduleSlotsQuery.error)}
+            </AlertBanner>
+          ) : null}
+
+          {scheduleSlotsQuery.isLoading && scheduleSlots.length === 0 ? (
+            <div className="appointments-skeleton" aria-label="Appointment schedule loading placeholder">
+              <Skeleton height={128} />
+              <Skeleton height={128} />
+            </div>
+          ) : (
+            <>
+              {!hasScheduleErrorWithoutData && !hasScheduleSlotsInRange ? (
                 <div
-                  className={`appointments-request-outcome appointments-request-outcome--${lastRequestReviewOutcome.status}`}
-                  data-testid="appointments-request-outcome"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="appointments-request-outcome__copy">
-                    <p className="appointments-request-outcome__eyebrow">Latest request review</p>
-                    <strong className="appointments-request-outcome__title">
-                      {requestReviewOutcomeTitle}
-                    </strong>
-                    <p className="appointments-request-outcome__text">
-                      Request for {lastRequestReviewOutcome.patientLabel} moved out of Pending review.
-                    </p>
-                    <p className="appointments-request-outcome__next">
-                      {requestReviewOutcomeFollowThrough}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              {requestsQuery.error ? (
-                <AlertBanner variant="error" title="Could not load requests">
-                  {toUserMessage(requestsQuery.error)}
-                </AlertBanner>
-              ) : null}
-
-              {requestsQuery.isLoading && requests.length === 0 ? (
-                <div className="appointments-skeleton" aria-label="Appointment requests loading placeholder">
-                  <Skeleton height={96} />
-                  <Skeleton height={96} />
-                  <Skeleton height={96} />
-                </div>
-              ) : requests.length === 0 ? (
-                <div
-                  className="appointments-empty-state appointments-empty-state--requests appointments-empty-state--compact"
+                  className="appointments-empty-state appointments-empty-state--slots appointments-empty-state--compact"
                   role="status"
                   aria-live="polite"
                 >
                   <div className="appointments-empty-state__title-row">
                     <span className="appointments-empty-state__icon" aria-hidden="true">
-                      ✓
+                      ⏱
                     </span>
-                    <h3 className="appointments-empty-state__title">{requestsEmptyTitle}</h3>
+                    <h3 className="appointments-empty-state__title">{scheduleEmptyTitle}</h3>
                   </div>
-                  <p className="appointments-empty-state__description">{requestsEmptyDescription}</p>
+                  <p className="appointments-empty-state__description">{scheduleSurfaceEmptyDescription}</p>
+                </div>
+              ) : null}
+              {hasScheduleSlotsInRange ? (
+                <div className="schedule-board-surface">
+                  <div className="schedule-board-surface__summary">
+                    <div className="schedule-board-surface__summary-copy">
+                      <p className="schedule-pane__eyebrow">Schedule diagnosis</p>
+                      <p className="schedule-board-surface__title">{coverageState.label}</p>
+                      <p className="schedule-board-surface__note">{coverageState.summaryHint}</p>
+                    </div>
+                    <div className="schedule-board-surface__bars" aria-label="Demand versus capacity">
+                      {demandCapacityBars.map((bar) => (
+                        <div key={bar.key} className="schedule-board-surface__bar-row">
+                          <span className="schedule-board-surface__bar-label">{bar.label}</span>
+                          <div className="schedule-board-surface__bar-track" aria-hidden="true">
+                            <span
+                              className={`schedule-board-surface__bar-fill schedule-board-surface__bar-fill--${bar.key}`}
+                              style={{ width: bar.width }}
+                            />
+                          </div>
+                          <span className="schedule-board-surface__bar-count">{bar.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {scheduleView === 'week' ? (
+                    <div className="appointments-schedule-week" data-testid="appointments-schedule-week">
+                      {scheduleRange.dayKeys.map((dayKey) => {
+                        const daySlots = scheduleSlotsByDay.get(dayKey) ?? [];
+                        const isToday = dayKey === todayDateKey;
+                        const isRequestDay =
+                          selectedRequestDayKey !== null &&
+                          requestScheduleContext?.inRange === true &&
+                          selectedRequestDayKey === dayKey;
+
+                        return (
+                          <section
+                            key={dayKey}
+                            className={`appointments-schedule-day${
+                              isToday ? ' appointments-schedule-day--today' : ''
+                            }${isRequestDay ? ' appointments-schedule-day--request-context' : ''}`}
+                            aria-label={`Schedule for ${formatDayHeader(dayKey)}`}
+                          >
+                            <header className="appointments-schedule-day__header">
+                              <p className="appointments-schedule-day__title">{formatDayHeader(dayKey)}</p>
+                              <p className="appointments-schedule-day__meta">
+                                {daySlots.length === 0
+                                  ? 'No fetched slots'
+                                  : `${daySlots.length} slot${daySlots.length === 1 ? '' : 's'}`}
+                              </p>
+                            </header>
+                            {daySlots.length === 0 ? (
+                              <p className="appointments-schedule-day__empty">No visible capacity in this day.</p>
+                            ) : (
+                              <div className="appointments-schedule-day__slots">
+                                {daySlots.map((slot) => renderScheduleSlot(slot))}
+                              </div>
+                            )}
+                          </section>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="appointments-schedule-day-agenda" data-testid="appointments-schedule-day">
+                      <header className="appointments-schedule-day-agenda__header">
+                        <p className="appointments-schedule-day-agenda__title">{scheduleRange.label}</p>
+                        <p className="appointments-schedule-day-agenda__meta">
+                          {`${scheduleSlots.length} slot${scheduleSlots.length === 1 ? '' : 's'} visible`}
+                        </p>
+                      </header>
+                      <div className="appointments-schedule-day-agenda__slots">
+                        {scheduleSlots.map((slot) => renderScheduleSlot(slot))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {hasScheduleSlotsInRange ? (
+            <div className="schedule-detail-surface">
+              <header className="schedule-pane__header schedule-pane__header--detail">
+                <div className="schedule-pane__heading">
+                  <p className="schedule-pane__eyebrow">Capacity detail</p>
+                  <h4 className="schedule-pane__title">{slotsDetailTitle}</h4>
+                  <p className="schedule-pane__note">{slotsDetailNote}</p>
+                </div>
+                <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>{slotViewLabel}</Badge>
+              </header>
+
+              <div className="appointments-filter-group appointments-filter-group--segmented">
+                <Button
+                  variant={slotStatus === 'available' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => {
+                    handleSlotStatusChange('available');
+                  }}
+                >
+                  Open capacity
+                </Button>
+                <Button
+                  variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => {
+                    handleSlotStatusChange('closed');
+                  }}
+                >
+                  Closed capacity
+                </Button>
+              </div>
+
+              {slots.length === 0 ? (
+                <div
+                  className="appointments-empty-state appointments-empty-state--slots appointments-empty-state--compact"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="appointments-empty-state__title-row">
+                    <span className="appointments-empty-state__icon" aria-hidden="true">
+                      ⏱
+                    </span>
+                    <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
+                  </div>
+                  <p className="appointments-empty-state__description">{slotsEmptyDescription}</p>
                   <div className="appointments-empty-state__footer">
                     <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
                     <Button
@@ -1469,642 +1776,180 @@ export function AppointmentsPage(): JSX.Element {
                   </div>
                 </div>
               ) : (
-                <div className="stack stack--2">
-                  {requests.map((item) => {
-                    const patientName = patientNameById.get(item.patientId) ?? item.patientId;
-                    const patientMonogram = patientInitials(patientName);
-                    const isPendingRequest = item.status === 'pending';
-                    const isSelectedRequest = selectedRequest?.requestId === item.requestId;
-                    const lifecycleLabel = isPendingRequest
-                      ? 'Pending review'
-                      : item.status === 'approved'
-                        ? 'Approved for workflow'
-                        : item.status === 'rejected'
-                          ? 'Rejected'
-                          : 'Canceled';
-                    const lifecycleTiming = isPendingRequest
-                      ? formatWaitingDuration(item.createdAt)
-                      : item.reviewedAt
-                        ? `Reviewed ${formatDateTime(item.reviewedAt)}`
-                        : `Recorded ${formatDateTime(item.createdAt)}`;
+                <div className="schedule-slot-list stack stack--2">
+                  {slots.map((slot) => {
+                    const resolvedStatus = slot.status ?? 'available';
+                    const readinessLabel =
+                      resolvedStatus === 'available'
+                        ? 'Ready to absorb demand'
+                        : 'Not open for new bookings';
 
                     return (
                       <div
-                        key={item.requestId}
-                        className={`appointments-item appointments-item--request${
-                          isPendingRequest ? ' appointments-item--request-pending' : ''
-                        }${isSelectedRequest ? ' appointments-item--request-selected' : ''}`}
-                        role="button"
-                        tabIndex={0}
-                        aria-pressed={isSelectedRequest}
-                        onClick={() => {
-                          setSelectedRequestId(item.requestId);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter' && event.key !== ' ') {
-                            return;
-                          }
-                          event.preventDefault();
-                          setSelectedRequestId(item.requestId);
-                        }}
+                        key={slot.slotId}
+                        className={`appointments-item appointments-item--slot${
+                          resolvedStatus === 'available'
+                            ? ' appointments-item--slot-available'
+                            : ' appointments-item--slot-closed'
+                        }${
+                          slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
+                            ? ' appointments-item--slot-just-published'
+                            : ''
+                        }${
+                          selectedRequest !== null &&
+                          requestScheduleContext?.inRange === true &&
+                          rangesOverlap(
+                            slot.startsAt,
+                            slot.endsAt,
+                            selectedRequest.startsAt,
+                            selectedRequest.endsAt,
+                          )
+                            ? ' appointments-item--slot-request-context'
+                            : ''
+                        }`}
                       >
                         <div className="appointments-item__header">
-                          <div className="appointments-item__identity">
-                            <span className="appointments-item__avatar" aria-hidden="true">
-                              {patientMonogram}
-                            </span>
-                            <div className="appointments-item__title-group">
-                              <p className="appointments-item__eyebrow">Booking request</p>
-                              <p className="appointments-item__title">{patientName}</p>
-                              <p className="appointments-item__subtitle">Patient ID {item.patientId}</p>
-                              <p className="appointments-item__support">
-                                <span className="appointments-item__support-label">{lifecycleLabel}</span>
-                                <span className="appointments-item__support-divider" aria-hidden="true">
-                                  ·
-                                </span>
-                                <span className="appointments-item__support-detail">{lifecycleTiming}</span>
-                              </p>
-                            </div>
+                          <div className="appointments-item__title-group">
+                            <p className="appointments-item__eyebrow">
+                              {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
+                            </p>
+                            <p className="appointments-item__title">{formatTimeRange(slot.startsAt, slot.endsAt)}</p>
+                            <p className="appointments-item__subtitle">{formatCalendarDay(slot.startsAt)}</p>
+                            <p className="appointments-item__support">{readinessLabel}</p>
                           </div>
-                          <div className="appointments-item__state-column">
-                            <span
-                              className={`appointments-item__freshness appointments-item__freshness--${
-                                isPendingRequest ? 'pending' : 'handled'
-                              }`}
-                            >
-                              {lifecycleTiming}
-                            </span>
-                            <div className="appointments-item__badge-stack">
-                              <Badge variant={toStatusVariant(item.status)}>
-                                {formatRequestViewLabel(item.status)}
-                              </Badge>
-                              <Badge variant={toWorkflowVariant(item.workflowStatus)}>
-                                {appointmentWorkflowLabel(item.workflowStatus)}
-                              </Badge>
-                            </div>
-                          </div>
+                          <Badge variant={toStatusVariant(resolvedStatus)}>{resolvedStatus.toUpperCase()}</Badge>
                         </div>
-                        <div className="appointments-item__schedule">
-                          <p className="appointments-item__schedule-label">Requested window</p>
-                          <p className="appointments-item__schedule-value">
-                            {formatTimeRange(item.startsAt, item.endsAt)}
+                        <div className="appointments-item__schedule appointments-item__schedule--capacity">
+                          <p className="appointments-item__schedule-label">
+                            {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
                           </p>
+                          <p className="appointments-item__schedule-value">{readinessLabel}</p>
                           <p className="appointments-item__schedule-support">
-                            {formatCalendarDay(item.startsAt)} · Video visit requested
+                            {slotStatus === 'available'
+                              ? 'Ready if reviewed demand needs this time.'
+                              : 'Kept for schedule reference after changes or completed sessions.'}
                           </p>
                         </div>
-                        {item.note ? (
-                          <div className="appointments-item__reason">
-                            <p className="appointments-item__reason-label">Request note</p>
-                            <p className="appointments-item__reason-text">{item.note}</p>
-                          </div>
-                        ) : null}
                         <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                          <span className="appointments-item__meta-chip">
-                            Created {formatDateTime(item.createdAt)}
-                          </span>
-                          {item.reviewedAt ? (
+                          <span className="appointments-item__meta-chip">Video visit</span>
+                          {slot.clinicianName ? (
+                            <span className="appointments-item__meta-chip">Clinician {slot.clinicianName}</span>
+                          ) : null}
+                          {slot.createdAt ? (
                             <span className="appointments-item__meta-chip">
-                              Reviewed {formatDateTime(item.reviewedAt)}
+                              Created {formatDateTime(slot.createdAt)}
                             </span>
                           ) : null}
                         </div>
-                        {isPendingRequest ? (
-                          <div className="appointments-item__action-bar">
-                            <div className="appointments-item__action-copy">
-                              <p className="appointments-item__action-label">Next action</p>
-                              <p className="appointments-item__action-text">
-                                Match this request against the visible schedule before approving.
-                              </p>
-                            </div>
-                            <div className="appointments-item__actions appointments-item__actions--pending">
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                disabled={reviewingKey !== null}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleReview(item.requestId, 'approved');
-                                }}
-                              >
-                                {reviewingKey === `${item.requestId}:approved` ? 'Approving...' : 'Approve'}
-                              </Button>
-                              <Button
-                                className="appointments-item__open"
-                                size="sm"
-                                variant="secondary"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openPatientFromAppointments(item);
-                                }}
-                              >
-                                Open patient
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={reviewingKey !== null}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleReview(item.requestId, 'rejected');
-                                }}
-                              >
-                                {reviewingKey === `${item.requestId}:rejected` ? 'Rejecting...' : 'Reject'}
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="appointments-item__action-bar appointments-item__action-bar--reference">
-                            <div className="appointments-item__action-copy">
-                              <p className="appointments-item__action-label">Reference state</p>
-                              <p className="appointments-item__action-text">
-                                Keep this reviewed request visible while checking whether capacity still needs adjustment.
-                              </p>
-                            </div>
-                            <div className="appointments-item__actions">
-                              <Button
-                                className="appointments-item__open"
-                                size="sm"
-                                variant="secondary"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  openPatientFromAppointments(item);
-                                }}
-                              >
-                                Open patient
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                        {slot.meetingLink ? (
+                          <p className="appointments-item__meta appointments-item__meta--link">
+                            Meeting link:{' '}
+                            <a href={slot.meetingLink} target="_blank" rel="noreferrer">
+                              {slot.meetingLink}
+                            </a>
+                          </p>
+                        ) : null}
                       </div>
                     );
                   })}
                 </div>
               )}
-            </section>
+            </div>
+          ) : null}
+        </section>
+      </div>
 
-            <section
-              className={`appointments-workspace__section appointments-workspace__section--slots${
-                slotStatus === 'available' ? ' appointments-workspace__section--slots-available' : ''
-              }${
-                !scheduleSlotsQuery.isLoading && !hasScheduleSlotsInRange
-                  ? ' appointments-workspace__section--slots-empty'
-                  : ''
-              }`}
-              aria-label="Schedule"
+      <section className="schedule-publish" aria-label="Publish availability">
+        <header className="schedule-publish__header">
+          <div className="schedule-publish__heading">
+            <p className="schedule-publish__eyebrow">Publish continuation</p>
+            <h3 className="schedule-publish__title">Publish availability</h3>
+            <p className="schedule-publish__note">Publish only the clinician time the queue still needs.</p>
+          </div>
+          <Badge variant={composerStatusVariant}>{composerMetaLabel}</Badge>
+        </header>
+
+        <div className="appointments-composer">
+          <div className="appointments-composer__context">
+            <span
+              className={`appointments-composer__context-pill appointments-composer__context-pill--${coverageState.tone}`}
             >
-              <header className="appointments-workspace__section-header">
-                <div className="appointments-workspace__section-heading">
-                  <h3 className="appointments-workspace__section-title">{scheduleTitle}</h3>
-                  <p className="appointments-workspace__section-note">{scheduleNote}</p>
-                </div>
-                <Badge variant="default">
-                  {scheduleRange.caption}
-                </Badge>
-              </header>
-              {selectedRequest && requestScheduleContext ? (
-                <section
-                  className={`appointments-schedule-context appointments-schedule-context--${requestScheduleContext.tone}`}
-                  data-testid="appointments-schedule-context"
-                  aria-live="polite"
-                >
-                  <div className="appointments-schedule-context__copy">
-                    <p className="appointments-schedule-context__eyebrow">Selected request</p>
-                    <h4 className="appointments-schedule-context__title">
-                      {patientNameById.get(selectedRequest.patientId) ?? selectedRequest.patientId}
-                    </h4>
-                    <p className="appointments-schedule-context__text">
-                      {requestScheduleContext.label}
-                    </p>
-                    <p className="appointments-schedule-context__note">
-                      {requestScheduleContext.note}
-                    </p>
-                  </div>
-                  <div className="appointments-schedule-context__facts">
-                    <span className="appointments-item__meta-chip">
-                      {formatCalendarDay(selectedRequest.startsAt)}
-                    </span>
-                    <span className="appointments-item__meta-chip">
-                      {formatTimeRange(selectedRequest.startsAt, selectedRequest.endsAt)}
-                    </span>
-                    <span className="appointments-item__meta-chip">
-                      {formatWaitingDuration(selectedRequest.createdAt)}
-                    </span>
-                  </div>
-                  {selectedRequest.note ? (
-                    <div className="appointments-item__reason">
-                      <p className="appointments-item__reason-label">Request note</p>
-                      <p className="appointments-item__reason-text">{selectedRequest.note}</p>
-                    </div>
-                  ) : null}
-                </section>
-              ) : null}
-              <div className="appointments-schedule__control-shell">
-                <div className="appointments-schedule__diagnosis">
-                  <div className="appointments-schedule__diagnosis-copy">
-                    <p className="appointments-schedule__diagnosis-eyebrow">Schedule diagnosis</p>
-                    <p className="appointments-schedule__diagnosis-title">{coverageState.label}</p>
-                    <p className="appointments-schedule__diagnosis-note">{coverageState.summaryHint}</p>
-                  </div>
-                  <div className="appointments-schedule__facts" aria-live="polite">
-                    <span className="appointments-workspace__context-pill appointments-workspace__context-pill--capacity">
-                      {visibleOpenSlotsCount} open visible
-                    </span>
-                    <span className="appointments-workspace__context-pill appointments-workspace__context-pill--status appointments-workspace__context-pill--status-quiet">
-                      {visibleClosedSlotsCount} closed visible
-                    </span>
-                  </div>
-                </div>
-                <div className="appointments-schedule__toolbar">
-                  <div className="appointments-filter-group appointments-filter-group--segmented">
-                    <Button
-                      variant={scheduleView === 'week' ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => {
-                        handleScheduleViewChange('week');
-                      }}
-                    >
-                      Week
-                    </Button>
-                    <Button
-                      variant={scheduleView === 'day' ? 'primary' : 'secondary'}
-                      size="sm"
-                      onClick={() => {
-                        handleScheduleViewChange('day');
-                      }}
-                    >
-                      Day
-                    </Button>
-                  </div>
-                  <div className="appointments-schedule__nav">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        handleScheduleDateShift('previous');
-                      }}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        handleScheduleToday();
-                      }}
-                    >
-                      Today
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        handleScheduleDateShift('next');
-                      }}
-                    >
-                      Next
-                    </Button>
-                    <p
-                      className="appointments-schedule__range-label"
-                      data-testid="appointments-schedule-range-label"
-                    >
-                      {scheduleRange.label}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {scheduleSlotsQuery.error ? (
-                <AlertBanner variant="error" title="Could not load schedule">
-                  {toUserMessage(scheduleSlotsQuery.error)}
-                </AlertBanner>
-              ) : null}
-
-              {scheduleSlotsQuery.isLoading && scheduleSlots.length === 0 ? (
-                <div className="appointments-skeleton" aria-label="Appointment schedule loading placeholder">
-                  <Skeleton height={128} />
-                  <Skeleton height={128} />
-                </div>
-              ) : (
-                <>
-                  {!hasScheduleErrorWithoutData && !hasScheduleSlotsInRange ? (
-                    <div
-                      className="appointments-empty-state appointments-empty-state--slots appointments-empty-state--compact"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <div className="appointments-empty-state__title-row">
-                        <span className="appointments-empty-state__icon" aria-hidden="true">
-                          ⏱
-                        </span>
-                        <h3 className="appointments-empty-state__title">{scheduleEmptyTitle}</h3>
-                      </div>
-                      <p className="appointments-empty-state__description">{scheduleSurfaceEmptyDescription}</p>
-                    </div>
-                  ) : null}
-                  {hasScheduleSlotsInRange ? (
-                    scheduleView === 'week' ? (
-                      <div className="appointments-schedule-week" data-testid="appointments-schedule-week">
-                        {scheduleRange.dayKeys.map((dayKey) => {
-                          const daySlots = scheduleSlotsByDay.get(dayKey) ?? [];
-                          const isToday = dayKey === todayDateKey;
-                          const isRequestDay =
-                            selectedRequestDayKey !== null &&
-                            requestScheduleContext?.inRange === true &&
-                            selectedRequestDayKey === dayKey;
-
-                          return (
-                            <section
-                              key={dayKey}
-                              className={`appointments-schedule-day${
-                                isToday ? ' appointments-schedule-day--today' : ''
-                              }${isRequestDay ? ' appointments-schedule-day--request-context' : ''}`}
-                              aria-label={`Schedule for ${formatDayHeader(dayKey)}`}
-                            >
-                              <header className="appointments-schedule-day__header">
-                                <p className="appointments-schedule-day__title">{formatDayHeader(dayKey)}</p>
-                                <p className="appointments-schedule-day__meta">
-                                  {daySlots.length === 0
-                                    ? 'No fetched slots'
-                                    : `${daySlots.length} slot${daySlots.length === 1 ? '' : 's'}`}
-                                </p>
-                              </header>
-                              {daySlots.length === 0 ? (
-                                <p className="appointments-schedule-day__empty">
-                                  No visible capacity in this day.
-                                </p>
-                              ) : (
-                                <div className="appointments-schedule-day__slots">
-                                  {daySlots.map((slot) => renderScheduleSlot(slot))}
-                                </div>
-                              )}
-                            </section>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="appointments-schedule-day-agenda" data-testid="appointments-schedule-day">
-                        <header className="appointments-schedule-day-agenda__header">
-                          <p className="appointments-schedule-day-agenda__title">{scheduleRange.label}</p>
-                          <p className="appointments-schedule-day-agenda__meta">
-                            {`${scheduleSlots.length} slot${scheduleSlots.length === 1 ? '' : 's'} visible`}
-                          </p>
-                        </header>
-                        <div className="appointments-schedule-day-agenda__slots">
-                          {scheduleSlots.map((slot) => renderScheduleSlot(slot))}
-                        </div>
-                      </div>
-                    )
-                  ) : null}
-                </>
-              )}
-
-              {hasScheduleSlotsInRange ? (
-                <>
-                  <div className="appointments-workspace__divider" />
-
-                  <div className="appointments-schedule-detail">
-                    <header className="appointments-workspace__section-header appointments-schedule-detail__header">
-                      <div className="appointments-workspace__section-heading">
-                        <h4 className="appointments-workspace__section-title">{slotsDetailTitle}</h4>
-                        <p className="appointments-workspace__section-note">{slotsDetailNote}</p>
-                      </div>
-                      <Badge variant={slotStatus === 'available' ? 'success' : 'default'}>
-                        {slotViewLabel}
-                      </Badge>
-                    </header>
-                    <div className="appointments-filter-group appointments-filter-group--segmented">
-                      <Button
-                        variant={slotStatus === 'available' ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => {
-                          handleSlotStatusChange('available');
-                        }}
-                      >
-                        Open capacity
-                      </Button>
-                      <Button
-                        variant={slotStatus === 'closed' ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => {
-                          handleSlotStatusChange('closed');
-                        }}
-                      >
-                        Closed capacity
-                      </Button>
-                    </div>
-
-                    {slots.length === 0 ? (
-                      <div
-                        className="appointments-empty-state appointments-empty-state--slots appointments-empty-state--compact"
-                        role="status"
-                        aria-live="polite"
-                      >
-                        <div className="appointments-empty-state__title-row">
-                          <span className="appointments-empty-state__icon" aria-hidden="true">
-                            ⏱
-                          </span>
-                          <h3 className="appointments-empty-state__title">{slotsEmptyTitle}</h3>
-                        </div>
-                        <p className="appointments-empty-state__description">{slotsEmptyDescription}</p>
-                        <div className="appointments-empty-state__footer">
-                          <p className="appointments-empty-state__meta">Updated {refreshedAtLabel}</p>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={isRefreshingWorkspace}
-                            onClick={() => {
-                              void handleRefreshWorkspace();
-                            }}
-                          >
-                            Refresh
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="stack stack--2">
-                        {slots.map((slot) => {
-                          const resolvedStatus = slot.status ?? 'available';
-                          const readinessLabel =
-                            resolvedStatus === 'available'
-                              ? 'Ready to absorb demand'
-                              : 'Not open for new bookings';
-
-                          return (
-                            <div
-                              key={slot.slotId}
-                              className={`appointments-item appointments-item--slot${
-                                resolvedStatus === 'available'
-                                  ? ' appointments-item--slot-available'
-                                  : ' appointments-item--slot-closed'
-                              }${
-                                slotStatus === 'available' && lastPublishOutcome?.slotId === slot.slotId
-                                  ? ' appointments-item--slot-just-published'
-                                  : ''
-                              }${
-                                selectedRequest !== null &&
-                                requestScheduleContext?.inRange === true &&
-                                rangesOverlap(
-                                  slot.startsAt,
-                                  slot.endsAt,
-                                  selectedRequest.startsAt,
-                                  selectedRequest.endsAt,
-                                )
-                                  ? ' appointments-item--slot-request-context'
-                                  : ''
-                              }`}
-                            >
-                              <div className="appointments-item__header">
-                                <div className="appointments-item__title-group">
-                                  <p className="appointments-item__eyebrow">
-                                    {resolvedStatus === 'available' ? 'Open capacity' : 'Closed capacity'}
-                                  </p>
-                                  <p className="appointments-item__title">
-                                    {formatTimeRange(slot.startsAt, slot.endsAt)}
-                                  </p>
-                                  <p className="appointments-item__subtitle">{formatCalendarDay(slot.startsAt)}</p>
-                                  <p className="appointments-item__support">{readinessLabel}</p>
-                                </div>
-                                <Badge variant={toStatusVariant(resolvedStatus)}>
-                                  {resolvedStatus.toUpperCase()}
-                                </Badge>
-                              </div>
-                              <div className="appointments-item__schedule appointments-item__schedule--capacity">
-                                <p className="appointments-item__schedule-label">
-                                  {resolvedStatus === 'available' ? 'Published window' : 'Closed window'}
-                                </p>
-                                <p className="appointments-item__schedule-value">{readinessLabel}</p>
-                                <p className="appointments-item__schedule-support">
-                                  {slotStatus === 'available'
-                                    ? 'Ready if reviewed demand needs this time.'
-                                    : 'Kept for schedule reference after changes or completed sessions.'}
-                                </p>
-                              </div>
-                              <div className="appointments-item__meta-row appointments-item__meta-row--primary">
-                                <span className="appointments-item__meta-chip">Video visit</span>
-                                {slot.clinicianName ? (
-                                  <span className="appointments-item__meta-chip">
-                                    Clinician {slot.clinicianName}
-                                  </span>
-                                ) : null}
-                                {slot.createdAt ? (
-                                  <span className="appointments-item__meta-chip">
-                                    Created {formatDateTime(slot.createdAt)}
-                                  </span>
-                                ) : null}
-                              </div>
-                              {slot.meetingLink ? (
-                                <p className="appointments-item__meta appointments-item__meta--link">
-                                  Meeting link:{' '}
-                                  <a href={slot.meetingLink} target="_blank" rel="noreferrer">
-                                    {slot.meetingLink}
-                                  </a>
-                                </p>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : null}
-            </section>
+              Publish after queue review
+            </span>
+            <p className="appointments-composer__context-note">{composerGuidance}</p>
           </div>
 
-          <section className="appointments-workspace__publish" aria-label="Publish availability">
-            <header className="appointments-workspace__section-header appointments-workspace__section-header--publish">
-              <div className="appointments-workspace__section-heading">
-                <h3 className="appointments-workspace__section-title">Publish availability</h3>
-                <p className="appointments-workspace__section-note">
-                  Publish only the clinician time the queue still needs.
-                </p>
-              </div>
-              <Badge variant={composerStatusVariant}>{composerMetaLabel}</Badge>
-            </header>
-            <div className="appointments-composer">
-              <div className="appointments-composer__context">
-                <span
-                  className={`appointments-composer__context-pill appointments-composer__context-pill--${coverageState.tone}`}
-                >
-                  Publish after queue review
-                </span>
-                <p className="appointments-composer__context-note">{composerGuidance}</p>
-              </div>
-              <div className="appointments-composer__summary">
-                <p className="appointments-composer__intro">
-                  Use this after request review to publish only the clinician time the queue still needs.
-                </p>
-                <div className="appointments-composer__summary-facts" aria-live="polite">
-                  <span className="appointments-composer__summary-pill">{requestCountLabel}</span>
-                  <span className="appointments-composer__summary-pill">{openCapacityLabel}</span>
-                  <span className="appointments-composer__summary-pill">Updated {refreshedAtLabel}</span>
-                </div>
-              </div>
-              <div className="appointments-composer__surface">
-                <div className="appointments-composer__cluster">
-                  <p className="appointments-composer__cluster-label">Availability window</p>
-                  <div className="appointments-composer__grid">
-                    <label className="appointments-composer__field form-field">
-                      <span className="appointments-composer__label">Start (local datetime)</span>
-                      <input
-                        type="datetime-local"
-                        value={startsAtInput}
-                        onChange={(event) => setStartsAtInput(event.target.value)}
-                      />
-                    </label>
-                    <label className="appointments-composer__field form-field">
-                      <span className="appointments-composer__label">End (local datetime)</span>
-                      <input
-                        type="datetime-local"
-                        value={endsAtInput}
-                        onChange={(event) => setEndsAtInput(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                </div>
-                <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
-                  <p className="appointments-composer__cluster-label">Visit details</p>
-                  <div className="appointments-composer__grid appointments-composer__grid--supporting">
-                    <label className="appointments-composer__field appointments-composer__field--wide form-field">
-                      <span className="appointments-composer__label">Meeting link (optional)</span>
-                      <input
-                        type="text"
-                        value={meetingLinkInput}
-                        placeholder="https://..."
-                        onChange={(event) => setMeetingLinkInput(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <p className="appointments-composer__cluster-note">
-                    Add a meeting link only when the slot should open directly into a tele-rehab visit.
-                  </p>
-                </div>
-              </div>
-              <div className="appointments-composer__actions">
-                <div className="appointments-composer__hint-group">
-                  <p className="appointments-composer__hint">
-                    Published slots become immediately visible to the booking queue after creation.
-                  </p>
-                  <p className="appointments-composer__hint appointments-composer__hint--quiet">
-                    Queue state: {coverageState.label} · Last refresh {refreshedAtLabel}
-                  </p>
-                </div>
-                <Button
-                  className="appointments-composer__publish"
-                  variant="primary"
-                  disabled={!canCreate}
-                  onClick={() => {
-                    void handleCreateSlot();
-                  }}
-                >
-                  {isCreating ? 'Publishing...' : 'Publish availability'}
-                </Button>
+          <div className="schedule-publish__summary" aria-live="polite">
+            <span className="schedule-publish__summary-pill">{requestCountLabel}</span>
+            <span className="schedule-publish__summary-pill">{openCapacityLabel}</span>
+            <span className="schedule-publish__summary-pill">Publish after review</span>
+            <span className="schedule-publish__summary-pill">Updated {refreshedAtLabel}</span>
+          </div>
+
+          <div className="appointments-composer__surface">
+            <div className="appointments-composer__cluster">
+              <p className="appointments-composer__cluster-label">Availability window</p>
+              <div className="appointments-composer__grid">
+                <label className="appointments-composer__field form-field">
+                  <span className="appointments-composer__label">Start (local datetime)</span>
+                  <input
+                    type="datetime-local"
+                    value={startsAtInput}
+                    onChange={(event) => setStartsAtInput(event.target.value)}
+                  />
+                </label>
+                <label className="appointments-composer__field form-field">
+                  <span className="appointments-composer__label">End (local datetime)</span>
+                  <input
+                    type="datetime-local"
+                    value={endsAtInput}
+                    onChange={(event) => setEndsAtInput(event.target.value)}
+                  />
+                </label>
               </div>
             </div>
-          </section>
+
+            <div className="appointments-composer__cluster appointments-composer__cluster--supporting">
+              <p className="appointments-composer__cluster-label">Visit details</p>
+              <div className="appointments-composer__grid appointments-composer__grid--supporting">
+                <label className="appointments-composer__field appointments-composer__field--wide form-field">
+                  <span className="appointments-composer__label">Meeting link (optional)</span>
+                  <input
+                    type="text"
+                    value={meetingLinkInput}
+                    placeholder="https://..."
+                    onChange={(event) => setMeetingLinkInput(event.target.value)}
+                  />
+                </label>
+              </div>
+              <p className="appointments-composer__cluster-note">
+                Add a meeting link only when the slot should open directly into a tele-rehab visit.
+              </p>
+            </div>
+          </div>
+
+          <div className="appointments-composer__actions">
+            <div className="appointments-composer__hint-group">
+              <p className="appointments-composer__hint">
+                Published slots become immediately visible to the booking queue after creation.
+              </p>
+              <p className="appointments-composer__hint appointments-composer__hint--quiet">
+                Queue state: {coverageState.label} · Last refresh {refreshedAtLabel}
+              </p>
+            </div>
+            <Button
+              className="appointments-composer__publish"
+              variant="primary"
+              disabled={!canCreate}
+              onClick={() => {
+                void handleCreateSlot();
+              }}
+            >
+              {isCreating ? 'Publishing...' : 'Publish availability'}
+            </Button>
+          </div>
         </div>
-      </Card>
+      </section>
     </div>
   );
 }

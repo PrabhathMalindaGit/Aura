@@ -12,7 +12,7 @@ import { Button } from '../components/ui/Button';
 import { Inset } from '../components/ui/Inset';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { useClinicianWorkspacePreferences } from '../hooks/useClinicianWorkspacePreferences';
-import { useBreakpoint } from '../hooks/useBreakpoint';
+import { useShellBreakpoint } from '../hooks/useBreakpoint';
 import { useSidebarMode } from '../hooks/useSidebarMode';
 import { useConnectionStatus } from '../services/connection';
 import { subscribeAuthRequired } from '../services/apiClient';
@@ -204,11 +204,15 @@ export function AppShell(): JSX.Element {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const sessionManagerRef = useRef<SessionTimeoutManager | null>(null);
-  const { isMobile, isTablet, isDesktop } = useBreakpoint();
+  const {
+    isMobile: isShellMobile,
+    isTablet: isShellTablet,
+    isDesktop: isShellDesktop,
+  } = useShellBreakpoint();
   const { mode: sidebarMode, toggleMode: toggleSidebarMode } = useSidebarMode({
-    isMobile,
-    isTablet,
-    isDesktop,
+    isMobile: isShellMobile,
+    isTablet: isShellTablet,
+    isDesktop: isShellDesktop,
   });
   const connection = useConnectionStatus();
   const clinicianIdentity = useClinicianIdentity();
@@ -279,10 +283,10 @@ export function AppShell(): JSX.Element {
   }, [pathname]);
 
   useEffect(() => {
-    if (!isMobile) {
+    if (!isShellMobile) {
       setMobileNavOpen(false);
     }
-  }, [isMobile]);
+  }, [isShellMobile]);
 
   useEffect(() => {
     return subscribeAuthRequired((reason) => {
@@ -340,23 +344,25 @@ export function AppShell(): JSX.Element {
     },
     [navigate, searchValue],
   );
+  const shellBreakpoint = isShellDesktop ? 'desktop' : isShellTablet ? 'tablet' : 'mobile';
 
   return (
     <div
       className={cn(
         'app-shell',
         `app-shell--page-${pageConfig.key}`,
-        !isMobile && 'app-shell--with-sidebar',
-        !isMobile && sidebarMode === 'expanded' && 'app-shell--sidebar-expanded',
-        !isMobile && sidebarMode === 'icon' && 'app-shell--sidebar-icon',
+        !isShellMobile && 'app-shell--with-sidebar',
+        !isShellMobile && sidebarMode === 'expanded' && 'app-shell--sidebar-expanded',
+        !isShellMobile && sidebarMode === 'icon' && 'app-shell--sidebar-icon',
       )}
+      data-shell-breakpoint={shellBreakpoint}
     >
-      {!isMobile ? <Sidebar mode={sidebarMode} onToggleMode={toggleSidebarMode} /> : null}
+      {!isShellMobile ? <Sidebar mode={sidebarMode} onToggleMode={toggleSidebarMode} /> : null}
 
       <div className="shell-main">
         <header className={cn('topbar', 'glass-card')} data-page={pageConfig.key}>
           <div className="topbar__left">
-            {isMobile ? (
+            {isShellMobile ? (
               <IconButton
                 aria-label="Open navigation menu"
                 aria-expanded={mobileNavOpen}
@@ -452,7 +458,7 @@ export function AppShell(): JSX.Element {
         </main>
       </div>
 
-      {isMobile ? <MobileNavSheet open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} /> : null}
+      {isShellMobile ? <MobileNavSheet open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} /> : null}
 
       <SessionTimeoutModal
         open={Boolean(sessionWarning)}

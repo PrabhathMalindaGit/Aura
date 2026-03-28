@@ -46,12 +46,42 @@ function signInAs(input: { sub: string; name?: string }): void {
   window.localStorage.setItem('aura_access_token', buildToken(input));
 }
 
-function installMatchMediaPreset(): void {
+function matchesWidthQuery(query: string, width: number): boolean {
+  const minMatch = query.match(/\(min-width:\s*([0-9.]+)px\)/);
+  const maxMatch = query.match(/\(max-width:\s*([0-9.]+)px\)/);
+
+  const minWidth = minMatch ? Number.parseFloat(minMatch[1]) : null;
+  const maxWidth = maxMatch ? Number.parseFloat(maxMatch[1]) : null;
+
+  if (minWidth !== null && width < minWidth) {
+    return false;
+  }
+
+  if (maxWidth !== null && width > maxWidth) {
+    return false;
+  }
+
+  return true;
+}
+
+function installResponsiveViewport(width: number): void {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+
+  Object.defineProperty(window, 'outerWidth', {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(min-width: 1200px)',
+      matches: matchesWidthQuery(query, width),
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -124,7 +154,7 @@ describe('AppShell identity reactivity', () => {
     window.sessionStorage.clear();
     clearClinicianProfileForTests();
     signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
-    installMatchMediaPreset();
+    installResponsiveViewport(1680);
     installCommunicationFetchMock();
   });
 

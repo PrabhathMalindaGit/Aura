@@ -14,8 +14,6 @@ import {
 } from '../services/clinicianProfile';
 import { getPreferredDashboardLandingPath } from '../services/clinicianWorkspacePreferences';
 
-type BreakpointPreset = 'mobile' | 'desktop';
-
 function toBase64Url(value: string): string {
   return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
@@ -37,26 +35,42 @@ function signInAs(input: { sub: string; name?: string }): void {
   window.localStorage.setItem('aura_access_token', buildToken(input));
 }
 
-function installMatchMediaPreset(preset: BreakpointPreset): void {
-  const mobileMap = new Map<string, boolean>([
-    ['(max-width: 899px)', true],
-    ['(min-width: 900px) and (max-width: 1199px)', false],
-    ['(min-width: 1200px)', false],
-  ]);
+function matchesWidthQuery(query: string, width: number): boolean {
+  const minMatch = query.match(/\(min-width:\s*([0-9.]+)px\)/);
+  const maxMatch = query.match(/\(max-width:\s*([0-9.]+)px\)/);
 
-  const desktopMap = new Map<string, boolean>([
-    ['(max-width: 899px)', false],
-    ['(min-width: 900px) and (max-width: 1199px)', false],
-    ['(min-width: 1200px)', true],
-  ]);
+  const minWidth = minMatch ? Number.parseFloat(minMatch[1]) : null;
+  const maxWidth = maxMatch ? Number.parseFloat(maxMatch[1]) : null;
 
-  const activeMap = preset === 'mobile' ? mobileMap : desktopMap;
+  if (minWidth !== null && width < minWidth) {
+    return false;
+  }
+
+  if (maxWidth !== null && width > maxWidth) {
+    return false;
+  }
+
+  return true;
+}
+
+function installResponsiveViewport(width: number): void {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
+
+  Object.defineProperty(window, 'outerWidth', {
+    configurable: true,
+    writable: true,
+    value: width,
+  });
 
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: activeMap.get(query) ?? false,
+      matches: matchesWidthQuery(query, width),
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -103,7 +117,7 @@ describe('AppShell navigation', () => {
     window.localStorage.clear();
     clearClinicianProfileForTests();
     signInAs({ sub: 'auth-clinician-1', name: 'Dr Rivera' });
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
   });
 
   afterEach(() => {
@@ -111,7 +125,7 @@ describe('AppShell navigation', () => {
   });
 
   it('opens and closes mobile nav sheet with menu button and Escape', async () => {
-    installMatchMediaPreset('mobile');
+    installResponsiveViewport(480);
     const user = userEvent.setup();
 
     renderShell('/alerts');
@@ -131,7 +145,7 @@ describe('AppShell navigation', () => {
   });
 
   it('highlights the active sidebar item on desktop', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     renderShell('/patients');
 
     const activeLink = screen.getByRole('link', { name: 'Patients' });
@@ -139,7 +153,7 @@ describe('AppShell navigation', () => {
   });
 
   it('highlights the worklist nav item when the worklist route is active', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     renderShell('/worklist');
 
     const activeLink = screen.getByRole('link', { name: 'Worklist' });
@@ -148,7 +162,7 @@ describe('AppShell navigation', () => {
   });
 
   it('shows the alerts title and subtitle for the alerts workspace', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     renderShell('/alerts');
 
     expect(screen.getByRole('heading', { name: 'Alerts' })).toBeInTheDocument();
@@ -160,7 +174,7 @@ describe('AppShell navigation', () => {
   });
 
   it('shows the communication title and subtitle for the communication workspace', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     renderShell('/communication');
 
     expect(screen.getByRole('heading', { name: 'Communication' })).toBeInTheDocument();
@@ -175,7 +189,7 @@ describe('AppShell navigation', () => {
   });
 
   it('quick open routes patient-like searches into the patients workspace filter', async () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     const user = userEvent.setup();
     renderShell('/dashboard');
 
@@ -193,7 +207,7 @@ describe('AppShell navigation', () => {
   });
 
   it('quick open routes alert-like searches into the alerts workspace filter', async () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     const user = userEvent.setup();
     renderShell('/dashboard');
 
@@ -210,7 +224,7 @@ describe('AppShell navigation', () => {
   });
 
   it('redirects the shell index route to dashboard workspace', async () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     renderShell('/');
 
     await waitFor(() => {
@@ -222,7 +236,7 @@ describe('AppShell navigation', () => {
   });
 
   it('redirects the shell index route to the saved preferred landing when present', async () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     setClinicianProfile({
       ...getClinicianProfile(),
       workspacePreferences: {
@@ -239,7 +253,7 @@ describe('AppShell navigation', () => {
   });
 
   it('falls back to dashboard when the saved preferred landing is invalid', async () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     const profile = getClinicianProfile();
     window.localStorage.setItem(
       getClinicianProfileStorageKey('auth-clinician-1'),
@@ -265,7 +279,7 @@ describe('AppShell navigation', () => {
   });
 
   it('does not let the saved landing override an explicit deep link', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     setClinicianProfile({
       ...getClinicianProfile(),
       workspacePreferences: {
@@ -280,7 +294,7 @@ describe('AppShell navigation', () => {
   });
 
   it('renders the clinician identity entry with initials fallback and accessible settings label', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     renderShell('/dashboard');
 
     const identityEntry = screen.getByRole('link', {
@@ -293,7 +307,7 @@ describe('AppShell navigation', () => {
   });
 
   it('renders the saved clinician photo inside the topbar identity entry when available', () => {
-    installMatchMediaPreset('desktop');
+    installResponsiveViewport(1680);
     setClinicianProfile({
       ...getClinicianProfile(),
       displayName: 'Dr Elena Hall',
@@ -315,5 +329,14 @@ describe('AppShell navigation', () => {
     expect(avatarImage).not.toBeNull();
     expect(avatarImage).toHaveAttribute('alt', '');
     expect(avatarImage).toHaveAttribute('src', 'data:image/png;base64,abc123');
+  });
+
+  it('switches the shell into tablet mode on common laptop widths so content is not squeezed behind the expanded sidebar', () => {
+    installResponsiveViewport(1366);
+    renderShell('/dashboard');
+
+    const shell = document.querySelector('.app-shell');
+    expect(shell).toHaveAttribute('data-shell-breakpoint', 'tablet');
+    expect(shell).toHaveClass('app-shell--sidebar-icon');
   });
 });

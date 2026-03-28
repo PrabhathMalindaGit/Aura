@@ -1,5 +1,5 @@
 :root {
-  /* Breakpoints */
+  /* Content-width breakpoints */
   --bp-sm: 600px;
   --bp-md: 900px;
   --bp-lg: 1200px;
@@ -185,8 +185,15 @@
   --nav-item-height: 50px;
   --nav-radius: calc(var(--radius-lg) - 2px);
   --nav-active-bg: var(--gradient-primary);
-  --shell-frame-padding: clamp(14px, 1.9vw, 24px);
-  --shell-surface-gap: clamp(14px, 1.45vw, 22px);
+  --shell-frame-padding-min: 14px;
+  --shell-frame-padding-max: 24px;
+  --shell-frame-padding: clamp(var(--shell-frame-padding-min), 1.9vw, var(--shell-frame-padding-max));
+  --shell-surface-gap-min: 14px;
+  --shell-surface-gap-max: 22px;
+  --shell-surface-gap: clamp(var(--shell-surface-gap-min), 1.45vw, var(--shell-surface-gap-max));
+  /* Shell-aware viewport thresholds: content breakpoint + sidebar + shell chrome. */
+  --shell-viewport-bp-md: 1052px;
+  --shell-viewport-bp-lg: 1546px;
   --summary-shell-radius: calc(var(--radius-xl) - 3px);
   --summary-shell-padding: clamp(10px, 1vw, 12px);
   --summary-shell-gap: clamp(10px, 1vw, 12px);

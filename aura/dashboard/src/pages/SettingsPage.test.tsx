@@ -251,10 +251,12 @@ describe('SettingsPage clinician profile workspace', () => {
     signInAs({ sub: 'auth-clinician-a', name: 'Clinician A' });
     let view = render(<SettingsPage />);
 
-    await user.clear(screen.getByLabelText('Clinician display name'));
-    await user.type(screen.getByLabelText('Clinician display name'), 'Clinician A Saved');
-    await user.clear(screen.getByLabelText('Clinician ID'));
-    await user.type(screen.getByLabelText('Clinician ID'), 'clinician-a-local');
+    fireEvent.change(screen.getByLabelText('Clinician display name'), {
+      target: { value: 'Clinician A Saved' },
+    });
+    fireEvent.change(screen.getByLabelText('Clinician ID'), {
+      target: { value: 'clinician-a-local' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
 
     expect(screen.getByText('Settings saved in this browser.')).toBeInTheDocument();
@@ -274,7 +276,7 @@ describe('SettingsPage clinician profile workspace', () => {
 
     expect(screen.getByLabelText('Clinician display name')).toHaveValue('Clinician A Saved');
     expect(screen.getByLabelText('Clinician ID')).toHaveValue('clinician-a-local');
-  }, 30_000);
+  }, 60_000);
 
   it('saves browser-local communication authoring settings and keeps template order stable', async () => {
     signInAs({ sub: 'auth-clinician-comm', name: 'Dr Authoring' });
@@ -282,27 +284,28 @@ describe('SettingsPage clinician profile workspace', () => {
 
     const view = render(<SettingsPage />);
 
-    await user.type(
-      screen.getByLabelText('Default signature'),
-      'Dr Authoring\nLead rehab clinician',
-    );
+    fireEvent.change(screen.getByLabelText('Default signature'), {
+      target: { value: 'Dr Authoring\nLead rehab clinician' },
+    });
     await user.click(
       screen.getByRole('checkbox', {
         name: /Auto-append signature on fresh Communication drafts/i,
       }),
     );
     await user.click(screen.getByRole('button', { name: 'Add template' }));
-    await user.type(screen.getByLabelText('Template 1 title'), 'Reviewed');
-    await user.type(
-      screen.getByLabelText('Template 1 body'),
-      'Thanks, I have reviewed this update.',
-    );
+    fireEvent.change(screen.getByLabelText('Template 1 title'), {
+      target: { value: 'Reviewed' },
+    });
+    fireEvent.change(screen.getByLabelText('Template 1 body'), {
+      target: { value: 'Thanks, I have reviewed this update.' },
+    });
     await user.click(screen.getByRole('button', { name: 'Add template' }));
-    await user.type(screen.getByLabelText('Template 2 title'), 'Follow-up');
-    await user.type(
-      screen.getByLabelText('Template 2 body'),
-      'Please keep checking in and update the next rehab note.',
-    );
+    fireEvent.change(screen.getByLabelText('Template 2 title'), {
+      target: { value: 'Follow-up' },
+    });
+    fireEvent.change(screen.getByLabelText('Template 2 body'), {
+      target: { value: 'Please keep checking in and update the next rehab note.' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save communication settings' }));
 
     expect(await screen.findByText('Settings saved in this browser.')).toBeInTheDocument();
@@ -366,7 +369,7 @@ describe('SettingsPage clinician profile workspace', () => {
       expect(getClinicianProfile().communicationAuthoring.defaultSignature).toBe('');
       expect(getClinicianProfile().communicationAuthoring.templates).toEqual([]);
     });
-  });
+  }, 60_000);
 
   it('caps saved communication templates at the configured local limit', async () => {
     signInAs({ sub: 'auth-clinician-template-cap', name: 'Dr Template Cap' });

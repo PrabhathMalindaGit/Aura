@@ -1,15 +1,17 @@
-import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { PatientStatusBadge } from '../patients/PatientStatusBadge';
 import type { WorklistRecord } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
-import {
-  formatExercisesPct,
-  getWorklistReviewLabel,
-  getWorklistReviewSupport,
-} from '../../utils/worklist';
+import { formatExercisesPct, getWorklistReviewLabel, getWorklistReviewSupport } from '../../utils/worklist';
 import { WorklistPriorityBadge } from './WorklistPriorityBadge';
+import {
+  asPainText,
+  buildFollowThroughSummary,
+  formatPromBadgeLabel,
+  getInitials,
+  getQueueLeadSignal,
+} from './presentation';
 
 interface WorklistCardListProps {
   items: WorklistRecord[];
@@ -17,62 +19,6 @@ interface WorklistCardListProps {
   onOpenCommunication: (patientId: string) => void;
   onOpenAlerts: (patientId?: string) => void;
   onOpenAppointments: (patientId: string) => void;
-}
-
-function getInitials(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((segment) => segment[0]?.toUpperCase() ?? '')
-      .join('') || 'P'
-  );
-}
-
-function asPainText(value: number | undefined): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '—';
-  }
-
-  return value.toFixed(1);
-}
-
-function formatPromBadgeLabel(item: WorklistRecord): string | null {
-  const dueCount = item.proms?.dueCount ?? 0;
-  const overdueCount = item.proms?.overdueCount ?? 0;
-
-  if (dueCount <= 0) {
-    return null;
-  }
-
-  if (overdueCount > 0) {
-    return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due (${overdueCount} overdue)`;
-  }
-
-  return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due`;
-}
-
-function buildFollowThroughSummary(item: WorklistRecord, promBadgeLabel: string | null): string[] {
-  const parts: string[] = [];
-
-  if (item.activeTaskCount > 0) {
-    parts.push(`${item.activeTaskCount} ${item.activeTaskCount === 1 ? 'task' : 'tasks'}`);
-  }
-
-  if (item.missedCheckins.flag) {
-    parts.push(`Missed ${item.missedCheckins.count}`);
-  }
-
-  if (promBadgeLabel) {
-    parts.push(promBadgeLabel);
-  }
-
-  if (item.nextAppointmentAt) {
-    parts.push('Appointment scheduled');
-  }
-
-  return parts;
 }
 
 export function WorklistCardList({
@@ -91,6 +37,11 @@ export function WorklistCardList({
           item.communicationNeedsResponse && item.patientId.trim().length > 0;
         const promBadgeLabel = formatPromBadgeLabel(item);
         const followThroughSummary = buildFollowThroughSummary(item, promBadgeLabel);
+        const leadSignal = getQueueLeadSignal(item, promBadgeLabel);
+        const signalSummary =
+          followThroughSummary[0] === leadSignal.label
+            ? followThroughSummary.slice(1)
+            : followThroughSummary;
         const reviewLabel = getWorklistReviewLabel(item);
         const reviewSupport = getWorklistReviewSupport(item);
         const cardToneClass =
@@ -148,17 +99,20 @@ export function WorklistCardList({
               </div>
 
               <div className="worklist-card__signals">
-                <div className="worklist-card__signal-group">
-                  <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
-                    {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
-                  </Badge>
-                  {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                  {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
-                </div>
+                <p className={`worklist-card__signal-lead worklist-card__signal-lead--${leadSignal.tone}`}>
+                  {leadSignal.label}
+                </p>
                 <p className="worklist-card__signal-summary">
-                  {followThroughSummary.length > 0
-                    ? followThroughSummary.join(' · ')
-                    : 'No linked follow-through right now.'}
+                  {signalSummary.length > 0
+                    ? signalSummary.join(' · ')
+                    : followThroughSummary.length > 0
+                      ? 'Follow-through still pending.'
+                      : 'No linked follow-through right now.'}
+                </p>
+                <p className="worklist-card__signal-support">
+                  {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
+                  {' · '}
+                  {item.communicationNeedsResponse ? 'Response requested' : 'No response delay'}
                 </p>
               </div>
 

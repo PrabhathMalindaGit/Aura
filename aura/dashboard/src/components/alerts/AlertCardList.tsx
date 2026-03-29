@@ -11,7 +11,6 @@ import {
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
 import { AssignmentChip } from './AssignmentChip';
-import { NotificationStatusBadge } from './NotificationStatusBadge';
 import { OverrideChip } from './OverrideChip';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -62,18 +61,18 @@ function notificationSupportLabel(status: AlertItem['notificationStatus']): stri
   const normalized = resolveNotificationStatus(status);
 
   if (normalized === 'sent') {
-    return 'Delivery recorded';
+    return 'Delivered';
   }
 
   if (normalized === 'failed') {
-    return 'Retry may be needed';
+    return 'Delivery failed';
   }
 
   if (normalized === 'skipped') {
     return 'Delivery skipped';
   }
 
-  return 'Delivery state not yet reported';
+  return 'Delivery status unknown';
 }
 
 export function AlertCardList({
@@ -131,9 +130,18 @@ export function AlertCardList({
                       {patientAnchorLabel(alert.patientId)}
                     </span>
                     <div className="alerts-card-list__patient-copy">
-                      <strong className="alerts-card-list__patient patient-id-text">
-                        Patient {alert.patientId}
-                      </strong>
+                      <div className="alerts-card-list__patient-line">
+                        <strong className="alerts-card-list__patient patient-id-text">
+                          Patient {alert.patientId}
+                        </strong>
+                        {unseen ? (
+                          <Badge className="alerts-unseen-badge" variant="new" icon aria-label="Unseen alert">
+                            Unseen
+                          </Badge>
+                        ) : (
+                          <span className="alerts-seen alerts-seen--quiet">Seen</span>
+                        )}
+                      </div>
                       <span className="muted-text alerts-card-list__meta-line">{alertReference ?? alert._id}</span>
                     </div>
                   </div>
@@ -144,15 +152,11 @@ export function AlertCardList({
                   </span>
                 </div>
                 <div className="alerts-card-list__top-badges">
-                  {unseen ? (
-                    <Badge className="alerts-unseen-badge" variant="new" icon aria-label="Unseen alert">
-                      Unseen
-                    </Badge>
-                  ) : (
-                    <span className="alerts-seen alerts-seen--quiet">Seen</span>
-                  )}
                   <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
                     {formatRiskLabel(effectiveRisk)}
+                  </Badge>
+                  <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
+                    {alertStatusLabel(alert.status)}
                   </Badge>
                 </div>
               </div>
@@ -195,25 +199,21 @@ export function AlertCardList({
 
                 <div className="alerts-card-list__meta">
                   <div className="alerts-card-list__meta-primary">
-                    <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                      {alertStatusLabel(alert.status)}
-                    </Badge>
                     <AssignmentChip alert={alert} clinicianId={clinicianId} />
                     <OverrideChip alert={alert} />
                   </div>
                   <div className="alerts-card-list__meta-secondary">
-                    <span className="alerts-source-pill alerts-source-pill--row">
-                      {alertSourceLabel(alert.source.type)}
-                    </span>
+                    <span className="alerts-source-pill alerts-source-pill--row">{alertSourceLabel(alert.source.type)}</span>
                     {sourceReference ? <span className="alerts-card-list__source-id">{sourceReference}</span> : null}
                   </div>
-                </div>
-
-                <div className="alerts-card-list__notification">
-                  <NotificationStatusBadge className="alerts-notification-badge" status={alert.notificationStatus} />
-                  <span className="alerts-card-list__notification-meta">
-                    {notificationSupportLabel(alert.notificationStatus)}
-                  </span>
+                  <div className="alerts-card-list__meta-tertiary">
+                    <span className="alerts-card-list__notification-meta">
+                      {assignedToOther ? 'Owned elsewhere' : alert.assignedTo ? 'Current owner set' : 'Needs owner'}
+                    </span>
+                    <span className="alerts-card-list__notification-meta">
+                      {notificationSupportLabel(alert.notificationStatus)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

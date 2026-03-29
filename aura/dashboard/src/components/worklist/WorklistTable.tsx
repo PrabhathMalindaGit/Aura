@@ -1,15 +1,17 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { PatientStatusBadge } from '../patients/PatientStatusBadge';
 import type { WorklistRecord } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
-import {
-  formatExercisesPct,
-  getWorklistReviewLabel,
-  getWorklistReviewSupport,
-} from '../../utils/worklist';
+import { formatExercisesPct, getWorklistReviewLabel, getWorklistReviewSupport } from '../../utils/worklist';
 import { WorklistPriorityBadge } from './WorklistPriorityBadge';
+import {
+  asPainText,
+  buildFollowThroughSummary,
+  formatPromBadgeLabel,
+  getInitials,
+  getQueueLeadSignal,
+} from './presentation';
 
 interface WorklistTableProps {
   items: WorklistRecord[];
@@ -17,62 +19,6 @@ interface WorklistTableProps {
   onOpenCommunication: (patientId: string) => void;
   onOpenAlerts: (patientId?: string) => void;
   onOpenAppointments: (patientId: string) => void;
-}
-
-function getInitials(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((segment) => segment[0]?.toUpperCase() ?? '')
-      .join('') || 'P'
-  );
-}
-
-function asPainText(value: number | undefined): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '—';
-  }
-
-  return value.toFixed(1);
-}
-
-function formatPromBadgeLabel(item: WorklistRecord): string | null {
-  const dueCount = item.proms?.dueCount ?? 0;
-  const overdueCount = item.proms?.overdueCount ?? 0;
-
-  if (dueCount <= 0) {
-    return null;
-  }
-
-  if (overdueCount > 0) {
-    return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due (${overdueCount} overdue)`;
-  }
-
-  return `${dueCount} PROM${dueCount === 1 ? '' : 's'} due`;
-}
-
-function buildFollowThroughSummary(item: WorklistRecord, promBadgeLabel: string | null): string[] {
-  const parts: string[] = [];
-
-  if (item.activeTaskCount > 0) {
-    parts.push(`${item.activeTaskCount} ${item.activeTaskCount === 1 ? 'task' : 'tasks'}`);
-  }
-
-  if (item.missedCheckins.flag) {
-    parts.push(`Missed ${item.missedCheckins.count}`);
-  }
-
-  if (promBadgeLabel) {
-    parts.push(promBadgeLabel);
-  }
-
-  if (item.nextAppointmentAt) {
-    parts.push('Appointment scheduled');
-  }
-
-  return parts;
 }
 
 function moveFocusToRow(
@@ -107,10 +53,10 @@ export function WorklistTable({
               Patient
             </th>
             <th scope="col" className="worklist-table__head worklist-table__head--reason">
-              Review now
+              Why now
             </th>
             <th scope="col" className="worklist-table__head worklist-table__head--signals">
-              Follow-through
+              Urgency
             </th>
             <th scope="col" className="worklist-table__head worklist-table__head--activity">
               Freshness
@@ -128,6 +74,11 @@ export function WorklistTable({
               item.communicationNeedsResponse && item.patientId.trim().length > 0;
             const promBadgeLabel = formatPromBadgeLabel(item);
             const followThroughSummary = buildFollowThroughSummary(item, promBadgeLabel);
+            const leadSignal = getQueueLeadSignal(item, promBadgeLabel);
+            const signalSummary =
+              followThroughSummary[0] === leadSignal.label
+                ? followThroughSummary.slice(1)
+                : followThroughSummary;
             const reviewLabel = getWorklistReviewLabel(item);
             const reviewSupport = getWorklistReviewSupport(item);
             const rowToneClass =
@@ -189,36 +140,39 @@ export function WorklistTable({
 
                 <td className="worklist-table__cell worklist-table__cell--reason">
                   <div className="worklist-table__reason">
-                    <div className="worklist-table__reason-top">
+                    <div className="worklist-table__reason-kicker">
                       <WorklistPriorityBadge className="worklist-table__priority" item={item} />
+                      <p
+                        className="worklist-table__updated"
+                        title={formatDashboardDateTime(item.updatedAt)}
+                      >
+                        Updated {formatDashboardRelativeTime(item.updatedAt)}
+                      </p>
                     </div>
                     <strong className="worklist-table__reason-title">{reviewLabel}</strong>
                     <p className="worklist-table__reason-support">{reviewSupport}</p>
-                    <p
-                      className="worklist-table__updated"
-                      title={formatDashboardDateTime(item.updatedAt)}
-                    >
-                      Updated {formatDashboardRelativeTime(item.updatedAt)}
-                    </p>
                   </div>
                 </td>
 
                 <td className="worklist-table__cell worklist-table__cell--signals">
                   <div className="worklist-table__signals">
-                    <div className="worklist-table__signal-group">
-                      <Badge variant={item.latestRiskLevel === 'high' ? 'risk-high' : 'risk-low'}>
-                        {item.latestRiskLevel === 'high' ? 'High risk' : 'Low risk'}
-                      </Badge>
-                      {item.communicationNeedsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                      {item.openAlertsCount > 0 ? <Badge variant="danger">{item.openAlertsCount} alerts</Badge> : null}
-                    </div>
-                    {followThroughSummary.length > 0 ? (
+                    <p className={`worklist-table__signal-lead worklist-table__signal-lead--${leadSignal.tone}`}>
+                      {leadSignal.label}
+                    </p>
+                    {signalSummary.length > 0 ? (
                       <p className="worklist-table__signal-summary">
-                        {followThroughSummary.join(' · ')}
+                        {signalSummary.join(' · ')}
                       </p>
+                    ) : followThroughSummary.length > 0 ? (
+                      <p className="worklist-table__signal-summary">Follow-through still pending.</p>
                     ) : (
                       <p className="worklist-table__signal-summary">No linked follow-through right now.</p>
                     )}
+                    <p className="worklist-table__signal-support">
+                      {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
+                      {' · '}
+                      {item.communicationNeedsResponse ? 'Response requested' : 'No response delay'}
+                    </p>
                   </div>
                 </td>
 
@@ -228,6 +182,12 @@ export function WorklistTable({
                       <span className="worklist-table__activity-label">Last check-in</span>
                       <time title={formatDashboardDateTime(item.lastCheckinAt)}>
                         {formatDashboardRelativeTime(item.lastCheckinAt)}
+                      </time>
+                    </div>
+                    <div className="worklist-table__activity-line">
+                      <span className="worklist-table__activity-label">Updated</span>
+                      <time title={formatDashboardDateTime(item.updatedAt)}>
+                        {formatDashboardRelativeTime(item.updatedAt)}
                       </time>
                     </div>
                     {hasAppointment ? (

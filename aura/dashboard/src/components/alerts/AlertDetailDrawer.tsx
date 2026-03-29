@@ -285,86 +285,13 @@ export function AlertDetailDrawer({
   ) : null;
 
   const detailContent = effectiveAlert ? (
-    <div className="drawer-stack">
-      <section className="drawer-meta" aria-label="Alert header context">
-        <h3>Alert</h3>
-        <div className="drawer-meta__badges">
-          <span className="drawer-meta__patient">Patient {effectiveAlert.patientId}</span>
-          <Badge variant={statusBadgeVariant(effectiveAlert.status)} icon>
-            {alertStatusLabel(effectiveAlert.status)}
-          </Badge>
-          {effectiveRisk ? (
-            <Badge variant={riskBadgeVariant(effectiveRisk)}>
-              {formatRiskLabel(effectiveRisk)}
-            </Badge>
-          ) : null}
-          <Badge variant={seen ? 'success' : 'new'} icon>
-            {seen ? 'Seen' : 'Unseen'}
-          </Badge>
-          <AssignmentChip alert={effectiveAlert} clinicianId={clinicianId} />
-        </div>
-        <p id={DRAWER_DESCRIPTION_ID} className="muted-text">
-          {shortReferenceLabel(effectiveAlert._id) ?? effectiveAlert._id}. Source{' '}
-          {alertSourceLabel(effectiveAlert.source.type)}.
-        </p>
-        {patientNavigationId ? (
-          <div className="drawer-meta__actions">
-            <Button
-              className="alerts-drawer__open-patient"
-              variant="secondary"
-              size="sm"
-              onClick={() => onOpenPatient(patientNavigationId)}
-            >
-              Open patient
-            </Button>
-            <AssignmentActions
-              alert={effectiveAlert}
-              clinicianId={clinicianId}
-              busy={assignmentPending}
-              allowUnassign
-              size="sm"
-              onAssignToMe={onAssignToMe}
-              onTakeOver={onTakeOver}
-              onUnassign={onUnassign}
-            />
-          </div>
-        ) : (
-          <div className="drawer-meta__actions">
-            <AssignmentActions
-              alert={effectiveAlert}
-              clinicianId={clinicianId}
-              busy={assignmentPending}
-              allowUnassign
-              size="sm"
-              onAssignToMe={onAssignToMe}
-              onTakeOver={onTakeOver}
-              onUnassign={onUnassign}
-            />
-          </div>
-        )}
-      </section>
-
-      {assignmentBlocked ? (
-        <AlertBanner variant="warning" title="Action blocked by assignment">
-          Assigned to {effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}. Take over to enable
-          acknowledge and resolve.
-        </AlertBanner>
-      ) : null}
-
-      {alertContextQuery.error ? (
-        <AlertBanner variant="warning" title="Could not load extended context">
-          {toUserMessage(asAppError(alertContextQuery.error))}
-        </AlertBanner>
-      ) : null}
-
-      {uiNotice ? <AlertBanner variant="info" title="Action note">{uiNotice}</AlertBanner> : null}
-
-      <section className="drawer-section" aria-label="Alert summary">
-        <h3>Summary</h3>
-        <dl className="summary-grid">
-          <div>
-            <dt>Reason</dt>
-            <dd>
+    <div className="drawer-stack alerts-detail-stack">
+      <section className="alerts-detail-brief" aria-label="Alert patient context">
+        <div className="alerts-detail-brief__header">
+          <div className="alerts-detail-brief__copy">
+            <p className="alerts-detail-brief__eyebrow">Patient context</p>
+            <h3 className="alerts-detail-brief__title">Patient {effectiveAlert.patientId}</h3>
+            <p id={DRAWER_DESCRIPTION_ID} className="alerts-detail-brief__reason">
               {reasonSummary.text}
               {!showFullReason && reasonSummary.truncated ? (
                 <>
@@ -392,49 +319,91 @@ export function AlertDetailDrawer({
                   </button>
                 </>
               ) : null}
-            </dd>
+            </p>
           </div>
-          <div>
-            <dt>Risk</dt>
-            <dd>{formatRiskLabel(effectiveAlert.riskFinal ?? effectiveAlert.risk)}</dd>
+          <div className="alerts-detail-brief__state">
+            <Badge variant={statusBadgeVariant(effectiveAlert.status)} icon>
+              {alertStatusLabel(effectiveAlert.status)}
+            </Badge>
+            {effectiveRisk ? (
+              <Badge variant={riskBadgeVariant(effectiveRisk)}>
+                {formatRiskLabel(effectiveRisk)}
+              </Badge>
+            ) : null}
+            <Badge variant={seen ? 'success' : 'new'} icon>
+              {seen ? 'Seen' : 'Unseen'}
+            </Badge>
+            <AssignmentChip alert={effectiveAlert} clinicianId={clinicianId} />
           </div>
-          <div>
-            <dt>Auto risk</dt>
-            <dd>{formatRiskLabel(effectiveAlert.riskAuto ?? effectiveAlert.risk)}</dd>
-          </div>
-          <div>
-            <dt>Created</dt>
-            <dd title={formatExactTime(effectiveAlert.createdAt)}>{formatRelativeTime(effectiveAlert.createdAt)}</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>
-              {alertSourceLabel(effectiveAlert.source.type)}
-              {effectiveAlert.source.sourceId
-                ? ` (${shortReferenceLabel(effectiveAlert.source.sourceId, 'Source ref')})`
-                : ''}
-            </dd>
-          </div>
-          <div>
-            <dt>Alert ID</dt>
-            <dd>{effectiveAlert._id}</dd>
-          </div>
-        </dl>
-      </section>
+        </div>
 
-      <section className="drawer-section" aria-label="Assignment details">
-        <h3>Assignment</h3>
-        <p className="muted-text">
-          {effectiveAlert.assignedTo
-            ? `Assigned to ${effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}${
-                effectiveAlert.assignedAt ? ` at ${formatExactTime(effectiveAlert.assignedAt)}` : ''
-              }.`
-            : 'No clinician currently assigned.'}
-        </p>
-        <div className="drawer-inline-actions">
-          <span className="muted-text">Assignment changes save to the live alert record.</span>
+        <div className="alerts-detail-brief__meta">
+          <div className="alerts-detail-brief__meta-item">
+            <span className="alerts-detail-brief__meta-label">Owner</span>
+            <span className="alerts-detail-brief__meta-value">
+              {effectiveAlert.assignedTo
+                ? effectiveAlert.assignedToName ?? effectiveAlert.assignedTo
+                : 'Needs owner'}
+            </span>
+          </div>
+          <div className="alerts-detail-brief__meta-item">
+            <span className="alerts-detail-brief__meta-label">Created</span>
+            <span className="alerts-detail-brief__meta-value" title={formatExactTime(effectiveAlert.createdAt)}>
+              {formatRelativeTime(effectiveAlert.createdAt)}
+            </span>
+          </div>
+          <div className="alerts-detail-brief__meta-item">
+            <span className="alerts-detail-brief__meta-label">Source</span>
+            <span className="alerts-detail-brief__meta-value">
+              {alertSourceLabel(effectiveAlert.source.type)}
+            </span>
+          </div>
+          <div className="alerts-detail-brief__meta-item">
+            <span className="alerts-detail-brief__meta-label">Reference</span>
+            <span className="alerts-detail-brief__meta-value">
+              {shortReferenceLabel(effectiveAlert._id) ?? effectiveAlert._id}
+            </span>
+          </div>
+        </div>
+
+        <div className="alerts-detail-brief__actions">
+          {patientNavigationId ? (
+            <Button
+              className="alerts-drawer__open-patient"
+              variant="secondary"
+              size="sm"
+              onClick={() => onOpenPatient(patientNavigationId)}
+            >
+              Open patient
+            </Button>
+          ) : null}
+          <AssignmentActions
+            alert={effectiveAlert}
+            clinicianId={clinicianId}
+            busy={assignmentPending}
+            allowUnassign
+            size="sm"
+            onAssignToMe={onAssignToMe}
+            onTakeOver={onTakeOver}
+            onUnassign={onUnassign}
+          />
         </div>
       </section>
+
+      {assignmentBlocked ? (
+        <AlertBanner variant="warning" title="Action blocked by assignment">
+          Assigned to {effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}. Take over to enable
+          acknowledge and resolve.
+        </AlertBanner>
+      ) : null}
+
+      {alertContextQuery.error ? (
+        <AlertBanner variant="warning" title="Could not load extended context">
+          {toUserMessage(asAppError(alertContextQuery.error))}
+        </AlertBanner>
+      ) : null}
+
+      {uiNotice ? <AlertBanner variant="info" title="Action note">{uiNotice}</AlertBanner> : null}
 
       <TriggeringEventPanel
         event={alertContextQuery.data?.triggeringEvent}
@@ -485,7 +454,7 @@ export function AlertDetailDrawer({
                 <p className="alerts-detail-panel__eyebrow">Persistent detail</p>
                 <h2 id={DRAWER_TITLE_ID}>Alert</h2>
                 <p className="alerts-detail-panel__subtitle">
-                  Keep patient context, ownership, and next actions visible while triage continues.
+                  Keep patient context, ownership, and next actions beside the queue.
                 </p>
               </div>
               <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close alert drawer">

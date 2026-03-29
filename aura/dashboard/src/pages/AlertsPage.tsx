@@ -1124,7 +1124,7 @@ export function AlertsPage(): JSX.Element {
 
   return (
     <Stack
-      className="page-stack dashboard-page-shell dashboard-page-shell--alerts alerts-page alerts-page--safety-phase4"
+      className="page-stack dashboard-page-shell dashboard-page-shell--alerts alerts-page alerts-page--safety-phase4 alerts-page--safety-queue-phase"
       gap="5"
     >
       {/*
@@ -1140,10 +1140,9 @@ export function AlertsPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--alerts alerts-page__header"
         eyebrow="Safety operations"
         title="Safety"
-        subtitle="Triage active safety issues, confirm ownership quickly, and close escalations with grounded clinical context."
+        subtitle="Work the alert queue, keep patient context visible, and move triage forward without losing ownership."
         meta={
           <span className="alerts-page__meta" aria-live="polite">
-            <span className="alerts-page__meta-pill">{statusViewLabel}</span>
             <span className="alerts-page__meta-pill">{updatedAtLabel}</span>
           </span>
         }
@@ -1211,15 +1210,6 @@ export function AlertsPage(): JSX.Element {
               {unassignedAlertsCount} without an owner
             </p>
           </article>
-          <article className="safety-brief__fact safety-brief__fact--delivery" role="listitem">
-            <p className="safety-brief__fact-label">Delivery issues</p>
-            <p className="safety-brief__fact-value">
-              {overviewLoading ? '...' : alertKpis.notifFailedCount}
-            </p>
-            <p className="safety-brief__fact-detail">
-              {alertKpis.unseenCount} still need first review
-            </p>
-          </article>
         </div>
       </section>
 
@@ -1234,12 +1224,11 @@ export function AlertsPage(): JSX.Element {
                     : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
                 </p>
               ) : null}
-              <p className="safety-queue-surface__eyebrow">Triage workspace</p>
+              <p className="safety-queue-surface__eyebrow">{statusViewLabel}</p>
               <h3 className="safety-queue-surface__title">Alert list</h3>
               <p className="safety-queue-surface__text">{queueFollowThroughText}</p>
             </div>
             <div className="safety-queue-surface__meta" aria-live="polite">
-              <span className="safety-queue-surface__meta-pill">{statusViewLabel}</span>
               <span className="safety-queue-surface__meta-pill">{queueCountLabel}</span>
               {isMobileLayout ? (
                 <Button
@@ -1475,7 +1464,7 @@ export function AlertsPage(): JSX.Element {
           <aside className="safety-detail-rail" aria-label="Persistent alert detail">
             <section className="safety-detail-rail__support">
               <div className="safety-detail-rail__support-copy">
-                <p className="safety-detail-rail__eyebrow">Detail context</p>
+                <p className="safety-detail-rail__eyebrow">Patient context</p>
                 <h3 className="safety-detail-rail__title">{safetyDetailTitle}</h3>
                 <p className="safety-detail-rail__text">{safetyDetailSupport}</p>
               </div>
@@ -1488,10 +1477,6 @@ export function AlertsPage(): JSX.Element {
                 >
                   Export CSV
                 </Button>
-                <div className="safety-detail-rail__support-facts" aria-live="polite">
-                  <span className="safety-detail-rail__support-pill">{updatedAtLabel}</span>
-                  <span className="safety-detail-rail__support-pill">{statusViewLabel}</span>
-                </div>
               </div>
             </section>
 

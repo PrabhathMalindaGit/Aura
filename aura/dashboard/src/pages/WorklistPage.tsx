@@ -257,15 +257,17 @@ export function WorklistPage(): JSX.Element {
   }, [debouncedPersistedSearch, persistWorklistState]);
 
   return (
-    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--queue worklist-page" gap="5">
+    <Stack
+      className="page-stack dashboard-page-shell dashboard-page-shell--queue worklist-page worklist-page--queue-phase2b"
+      gap="5"
+    >
       <Section
         className="dashboard-page-header dashboard-page-header--queue worklist-page-header"
-        eyebrow="Active review console"
+        eyebrow="Active review"
         title="Queue"
-        subtitle="The main clinician review surface for safety, response, adherence, and follow-through."
+        subtitle="Work the next patient, keep urgency clear, and move follow-through without leaving the queue."
         meta={
           <span className="worklist-page__meta" aria-live="polite">
-            <span className="worklist-page__meta-pill worklist-page__meta-pill--count">{total} in view</span>
             <span className="worklist-page__meta-pill worklist-page__meta-pill--updated">Updated {updatedAtLabel}</span>
           </span>
         }
@@ -287,19 +289,15 @@ export function WorklistPage(): JSX.Element {
       ) : null}
 
       <section className="worklist-console" aria-label="Queue review engine">
-        <header className="worklist-console__header">
-          <div className="worklist-console__copy">
-            <p className="worklist-console__eyebrow">Review engine</p>
-            <h2 className="worklist-console__title">{queueViewLabel}</h2>
-            <p className="worklist-console__note">{worklistGuidanceLine}</p>
+        <div className="worklist-console__context">
+          <div className="worklist-console__context-copy">
+            <p className="worklist-console__context-label">{queueViewLabel}</p>
+            <p className="worklist-console__context-text">{worklistGuidanceLine}</p>
           </div>
-          <div className="worklist-console__header-side">
-            <div className="worklist-console__facts" aria-live="polite">
-              <span className="worklist-console__fact">{summary.highRisk} high risk</span>
-              <span className="worklist-console__fact">{summary.needsResponse} need response</span>
-              <span className="worklist-console__fact">{summary.openAlerts} with alerts</span>
-              <span className="worklist-console__fact">{summary.activeTasks} with tasks</span>
-            </div>
+          <div className="worklist-console__context-actions">
+            <span className="worklist-console__context-pill" aria-live="polite">
+              {total} in view
+            </span>
             <Button
               variant="ghost"
               size="sm"
@@ -309,7 +307,7 @@ export function WorklistPage(): JSX.Element {
               Clear view
             </Button>
           </div>
-        </header>
+        </div>
 
         <div className="worklist-console__toolbar">
           <WorklistFilters

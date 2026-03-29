@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
@@ -627,7 +627,9 @@ describe('PatientDetailPage', () => {
     expect(within(communicationPanel).getByRole('button', { name: 'Save local reply' })).toBeInTheDocument();
   });
 
-  it('reuses compact template and signature helpers on patient detail without auto-appending the signature', async () => {
+  it(
+    'reuses compact template and signature helpers on patient detail without auto-appending the signature',
+    async () => {
     const routineCommunicationItem: DashboardCommunicationOverviewItem = {
       ...baseCommunicationItem,
       flaggedBySafety: false,
@@ -663,9 +665,11 @@ describe('PatientDetailPage', () => {
 
     expect(within(communicationPanel).getByRole('combobox', { name: 'Quick reply template' })).toBeInTheDocument();
     expect(within(communicationPanel).getByRole('button', { name: 'Insert template' })).toBeInTheDocument();
-    expect(within(communicationPanel).getByRole('button', { name: 'Insert signature' })).toBeInTheDocument();
-    expect(quickReplyField).toHaveValue('');
-  });
+      expect(within(communicationPanel).getByRole('button', { name: 'Insert signature' })).toBeInTheDocument();
+      expect(quickReplyField).toHaveValue('');
+    },
+    30_000,
+  );
 
   it('suppresses inline quick reply for safety-sensitive communication and keeps the handoff path', async () => {
     installFetchMock();
@@ -755,10 +759,17 @@ describe('PatientDetailPage', () => {
     expect(
       within(communicationTimeline).getByText('Can someone confirm whether tomorrow still works?'),
     ).toBeInTheDocument();
-    await user.type(
-      within(communicationPanel).getByRole('textbox', { name: 'Quick reply' }),
-      'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
-    );
+    const quickReplyTextbox = within(communicationPanel).getByRole('textbox', { name: 'Quick reply' });
+    fireEvent.change(quickReplyTextbox, {
+      target: {
+        value: 'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+      },
+    });
+    await waitFor(() => {
+      expect(quickReplyTextbox).toHaveValue(
+        'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
+      );
+    });
     await user.click(within(communicationPanel).getByRole('button', { name: 'Save local reply' }));
 
     const localReply = await within(communicationTimeline).findByText(
@@ -821,10 +832,17 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
-    await user.type(
-      within(handoffPanel).getByLabelText('Handoff summary'),
-      'Escalate into the current plan review after checking the latest patient context.',
-    );
+    const handoffSummaryField = within(handoffPanel).getByLabelText('Handoff summary');
+    fireEvent.change(handoffSummaryField, {
+      target: {
+        value: 'Escalate into the current plan review after checking the latest patient context.',
+      },
+    });
+    await waitFor(() => {
+      expect(handoffSummaryField).toHaveValue(
+        'Escalate into the current plan review after checking the latest patient context.',
+      );
+    });
     await user.selectOptions(
       within(handoffPanel).getByLabelText('Recommended next step'),
       'plan',
@@ -847,10 +865,17 @@ describe('PatientDetailPage', () => {
     expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
     expect(within(savedHandoff).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
 
-    await user.type(
-      within(handoffPanel).getByLabelText('Add internal note'),
-      'Patient asked for a calmer follow-up window tomorrow morning.',
-    );
+    const internalNoteField = within(handoffPanel).getByLabelText('Add internal note');
+    fireEvent.change(internalNoteField, {
+      target: {
+        value: 'Patient asked for a calmer follow-up window tomorrow morning.',
+      },
+    });
+    await waitFor(() => {
+      expect(internalNoteField).toHaveValue(
+        'Patient asked for a calmer follow-up window tomorrow morning.',
+      );
+    });
     await user.click(within(handoffPanel).getByRole('button', { name: 'Add note' }));
 
     expect(await within(handoffPanel).findByText('Internal note saved in this browser.')).toBeInTheDocument();

@@ -11,7 +11,6 @@ import {
 } from '../../utils/notification';
 import { AssignmentActions } from './AssignmentActions';
 import { AssignmentChip } from './AssignmentChip';
-import { NotificationStatusBadge } from './NotificationStatusBadge';
 import { OverrideChip } from './OverrideChip';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -85,18 +84,18 @@ function notificationSupportLabel(status: AlertItem['notificationStatus']): stri
   const normalized = resolveNotificationStatus(status);
 
   if (normalized === 'sent') {
-    return 'Delivery recorded';
+    return 'Delivered';
   }
 
   if (normalized === 'failed') {
-    return 'Retry may be needed';
+    return 'Delivery failed';
   }
 
   if (normalized === 'skipped') {
     return 'Delivery skipped';
   }
 
-  return 'Delivery state not yet reported';
+  return 'Delivery status unknown';
 }
 
 function moveFocusToRow(
@@ -133,32 +132,17 @@ export function AlertsTable({
       <table className="alerts-table">
         <thead>
           <tr>
-            <th scope="col" className="alerts-table__head alerts-table__head--unseen">
-              New
-            </th>
             <th scope="col" className="alerts-table__head alerts-table__head--patient">
               Patient
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--reason">
-              Attention
+              Why now
             </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--risk">
-              Risk
-            </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--assignment">
-              Owner
+            <th scope="col" className="alerts-table__head alerts-table__head--state">
+              Triage state
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--created">
-              Created
-            </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--source">
-              Source
-            </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--status">
-              Status
-            </th>
-            <th scope="col" className="alerts-table__head alerts-table__head--notification">
-              Delivery
+              Freshness
             </th>
             <th scope="col" className="alerts-table__head alerts-table__head--actions">
               Actions
@@ -221,22 +205,22 @@ export function AlertsTable({
                 }}
                 aria-label={`Alert ${alert._id} for patient ${alert.patientId}`}
               >
-                <td className="alerts-table__cell alerts-table__cell--unseen">
-                  {unseen ? (
-                    <Badge className="alerts-unseen-badge" variant="new" icon aria-label="Unseen alert">
-                      Unseen
-                    </Badge>
-                  ) : (
-                    <span className="alerts-seen alerts-seen--quiet">Seen</span>
-                  )}
-                </td>
                 <td className="alerts-table__cell alerts-table__cell--patient">
                   <div className="alerts-patient-cell">
                     <span className="alerts-patient-cell__avatar" aria-hidden="true">
                       {patientAnchorLabel(alert.patientId)}
                     </span>
                     <div className="alerts-patient-cell__copy">
-                      <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
+                      <div className="alerts-patient-cell__line">
+                        <span className="patient-id-text alerts-patient-cell__id">{alert.patientId}</span>
+                        {unseen ? (
+                          <Badge className="alerts-unseen-badge" variant="new" icon aria-label="Unseen alert">
+                            Unseen
+                          </Badge>
+                        ) : (
+                          <span className="alerts-seen alerts-seen--quiet">Seen</span>
+                        )}
+                      </div>
                       <span className="alerts-patient-cell__meta">{alertReference ?? alert._id}</span>
                     </div>
                   </div>
@@ -245,7 +229,10 @@ export function AlertsTable({
                   <div className="alerts-reason-cell">
                     <p className="alerts-table__reason">{reasonText}</p>
                     <div className="alerts-reason-cell__meta-row">
-                      <span className="alerts-reason-cell__meta">{statusSupportLabel(alert.status)}</span>
+                      <span className="alerts-source-pill alerts-source-pill--row">
+                        {alertSourceLabel(alert.source.type)}
+                      </span>
+                      {sourceReference ? <span className="alerts-reason-cell__meta">{sourceReference}</span> : null}
                       {notificationStatus === 'failed' ? (
                         <span className="alerts-reason-cell__flag alerts-reason-cell__flag--delivery">
                           Delivery issue
@@ -259,52 +246,37 @@ export function AlertsTable({
                     </div>
                   </div>
                 </td>
-                <td className="alerts-table__cell alerts-table__cell--risk">
-                  <div className="alerts-risk-cell">
-                    <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
-                      {formatRiskLabel(effectiveRisk)}
-                    </Badge>
-                    <OverrideChip alert={alert} />
-                  </div>
-                </td>
-                <td className="alerts-table__cell alerts-table__cell--assignment">
-                  <div className="alerts-assignment-cell">
-                    <AssignmentChip alert={alert} clinicianId={clinicianId} />
-                    <span className="alerts-assignment-cell__meta">
-                      {assignmentSupportLabel(alert, clinicianId)}
-                    </span>
+                <td className="alerts-table__cell alerts-table__cell--state">
+                  <div className="alerts-state-cell">
+                    <div className="alerts-state-cell__primary">
+                      <Badge className="alerts-risk-badge" variant={riskBadgeVariant(effectiveRisk)}>
+                        {formatRiskLabel(effectiveRisk)}
+                      </Badge>
+                      <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
+                        {alertStatusLabel(alert.status)}
+                      </Badge>
+                    </div>
+                    <div className="alerts-state-cell__secondary">
+                      <AssignmentChip alert={alert} clinicianId={clinicianId} />
+                      <OverrideChip alert={alert} />
+                    </div>
+                    <p className="alerts-state-cell__meta">{assignmentSupportLabel(alert, clinicianId)}</p>
+                    <p className="alerts-state-cell__notification">
+                      {notificationSupportLabel(alert.notificationStatus)}
+                    </p>
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--created">
                   <div className="alerts-time-cell">
-                    <time className="alerts-table__created-time" dateTime={alert.createdAt} title={formatExactTime(alert.createdAt)}>
+                    <time
+                      className="alerts-table__created-time"
+                      dateTime={alert.createdAt}
+                      title={formatExactTime(alert.createdAt)}
+                    >
                       {formatRelativeTime(alert.createdAt)}
                     </time>
                     <span className="alerts-time-cell__meta">{formatExactTime(alert.createdAt)}</span>
-                  </div>
-                </td>
-                <td className="alerts-table__cell alerts-table__cell--source">
-                  <div className="alerts-source-cell">
-                    <span className="alerts-source-pill alerts-source-pill--row">
-                      {alertSourceLabel(alert.source.type)}
-                    </span>
-                    {sourceReference ? <span className="alerts-source-cell__id">{sourceReference}</span> : null}
-                  </div>
-                </td>
-                <td className="alerts-table__cell alerts-table__cell--status">
-                  <div className="alerts-status-cell">
-                    <Badge className="alerts-status-badge" variant={statusBadgeVariant(alert.status)} icon>
-                      {alertStatusLabel(alert.status)}
-                    </Badge>
-                    <span className="alerts-status-cell__meta">{statusSupportLabel(alert.status)}</span>
-                  </div>
-                </td>
-                <td className="alerts-table__cell alerts-table__cell--notification">
-                  <div className="alerts-notification-cell">
-                    <NotificationStatusBadge className="alerts-notification-badge" status={alert.notificationStatus} />
-                    <span className="alerts-notification-cell__meta">
-                      {notificationSupportLabel(alert.notificationStatus)}
-                    </span>
+                    <span className="alerts-time-cell__meta">{statusSupportLabel(alert.status)}</span>
                   </div>
                 </td>
                 <td className="alerts-table__cell alerts-table__cell--actions">

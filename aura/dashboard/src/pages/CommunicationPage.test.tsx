@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -265,10 +265,17 @@ afterEach(() => {
     const threadButton = await screen.findByRole('button', { name: /Avery Chen/ });
     expect(within(threadButton).getByText('Needs response')).toBeInTheDocument();
 
-    await user.type(
-      screen.getByRole('textbox', { name: 'Clinician reply' }),
-      'Please keep tomorrow for now. We will review the schedule this afternoon.',
-    );
+    const replyField = await screen.findByRole('textbox', { name: 'Clinician reply' });
+    fireEvent.change(replyField, {
+      target: {
+        value: 'Please keep tomorrow for now. We will review the schedule this afternoon.',
+      },
+    });
+    await waitFor(() => {
+      expect(replyField).toHaveValue(
+        'Please keep tomorrow for now. We will review the schedule this afternoon.',
+      );
+    });
     expect(screen.getByText('Local clinician identity')).toBeInTheDocument();
     expect(screen.getByText('Dr Elena Hall')).toBeInTheDocument();
     expect(screen.getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();

@@ -537,7 +537,14 @@ describe('InsightsQueuePage', () => {
       ],
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Approve for workflow' }));
+    const pendingTitle = await screen.findByText('Guidance without patient route', {
+      selector: '.insights-queue__title',
+    });
+    const pendingCard = pendingTitle.closest('.insights-queue__item');
+    expect(pendingCard).not.toBeNull();
+    fireEvent.click(
+      within(pendingCard as HTMLElement).getByRole('button', { name: 'Approve for workflow' }),
+    );
 
     const outcomePanel = await screen.findByTestId('insights-review-outcome');
     expect(within(outcomePanel).queryByRole('button', { name: 'Open patient' })).not.toBeInTheDocument();

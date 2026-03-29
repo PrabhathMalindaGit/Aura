@@ -7,35 +7,35 @@ interface PatientSummaryCardsProps {
   openAlertCount: number;
 }
 
-interface SummaryCardProps {
-  metric: 'review-burden' | 'pain' | 'mood' | 'adherence' | 'last-checkin' | 'avg-pain';
+interface SnapshotFactProps {
+  metric: 'review-burden' | 'pain' | 'checkin' | 'adherence';
   label: string;
   value: string;
-  tone?: 'default' | 'warning' | 'danger' | 'success';
   caption?: string;
-  emphasis?: 'lead' | 'default';
+  tone?: 'default' | 'warning' | 'danger' | 'success';
+  emphasis?: 'lead' | 'support';
   meterValue?: number;
 }
 
-function SummaryCard({
+function SnapshotFact({
   metric,
   label,
   value,
-  tone = 'default',
   caption,
-  emphasis = 'default',
+  tone = 'default',
+  emphasis = 'support',
   meterValue,
-}: SummaryCardProps): JSX.Element {
+}: SnapshotFactProps): JSX.Element {
   return (
     <article
       className={cn(
-        'patient-summary-card glass-card',
-        `patient-summary-card--${tone}`,
+        'patient-summary-card',
         `patient-summary-card--${metric}`,
+        `patient-summary-card--${tone}`,
         `patient-summary-card--${emphasis}`,
       )}
     >
-      <p className="patient-summary-card__label">{label}</p>
+      <span className="patient-summary-card__label">{label}</span>
       <strong className="patient-summary-card__value">{value}</strong>
       {caption ? <p className="patient-summary-card__caption">{caption}</p> : null}
       {meterValue !== undefined ? (
@@ -53,49 +53,52 @@ function SummaryCard({
 }
 
 export function PatientSummaryCards({ metrics, openAlertCount }: PatientSummaryCardsProps): JSX.Element {
-  const painTone = metrics.latestPain !== null && metrics.latestPain >= 7 ? 'danger' : 'default';
   const leadValue =
-    openAlertCount > 0 ? `${openAlertCount} ${openAlertCount === 1 ? 'alert' : 'alerts'}` : 'Stable';
+    openAlertCount > 0 ? `${openAlertCount} ${openAlertCount === 1 ? 'alert' : 'alerts'}` : 'Review steady';
   const leadCaption = metrics.lastCheckinDate
     ? `Last check-in ${formatDateKey(metrics.lastCheckinDate)}`
     : 'No recent check-in recorded';
   const painCaption =
     metrics.latestMood !== null ? `Mood ${formatMoodValue(metrics.latestMood)}` : 'Mood not reported';
+  const checkinValue = metrics.lastCheckinDate ? formatDateKey(metrics.lastCheckinDate) : 'No recent check-in';
   const adherenceCaption =
     metrics.avgPain7d !== null ? `7d average pain ${formatNumber(metrics.avgPain7d)}` : '7d average pain unavailable';
 
   return (
-    <section className="patient-summary-grid" aria-label="Patient summary metrics">
-      <SummaryCard
+    <section className="patient-summary-snapshot" aria-label="Patient summary metrics">
+      <SnapshotFact
         metric="review-burden"
-        label="Review burden"
+        label="Review pressure"
         value={leadValue}
         tone={openAlertCount > 0 ? 'danger' : 'default'}
         caption={leadCaption}
         emphasis="lead"
       />
-      <SummaryCard
-        metric="pain"
-        label="Latest pain"
-        value={formatPainValue(metrics.latestPain)}
-        tone={painTone}
-        caption={painCaption}
-      />
-      <SummaryCard
-        metric="last-checkin"
-        label="Recent check-in"
-        value={metrics.lastCheckinDate ? formatDateKey(metrics.lastCheckinDate) : 'No check-ins yet'}
-        tone={metrics.lastCheckinDate ? 'default' : 'warning'}
-        caption={metrics.latestMood !== null ? `Mood ${formatMoodValue(metrics.latestMood)}` : undefined}
-      />
-      <SummaryCard
-        metric="adherence"
-        label="7d adherence"
-        value={`${formatPercent(metrics.adherence7d)} completion`}
-        caption={adherenceCaption}
-        tone="success"
-        meterValue={(metrics.adherence7d ?? 0) * 100}
-      />
+
+      <div className="patient-summary-snapshot__support">
+        <SnapshotFact
+          metric="pain"
+          label="Latest pain"
+          value={formatPainValue(metrics.latestPain)}
+          tone={metrics.latestPain !== null && metrics.latestPain >= 7 ? 'danger' : 'default'}
+          caption={painCaption}
+        />
+        <SnapshotFact
+          metric="checkin"
+          label="Recent check-in"
+          value={checkinValue}
+          tone={metrics.lastCheckinDate ? 'default' : 'warning'}
+          caption={metrics.latestMood !== null ? `Mood ${formatMoodValue(metrics.latestMood)}` : 'No mood reported'}
+        />
+        <SnapshotFact
+          metric="adherence"
+          label="7d adherence"
+          value={`${formatPercent(metrics.adherence7d)} completion`}
+          tone="success"
+          caption={adherenceCaption}
+          meterValue={(metrics.adherence7d ?? 0) * 100}
+        />
+      </div>
     </section>
   );
 }

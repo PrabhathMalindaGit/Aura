@@ -12,12 +12,11 @@ import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import { DayDetailPanel } from '../components/patients/DayDetailPanel';
 import { PatientAppointmentsPanel } from '../components/patients/PatientAppointmentsPanel';
 import { PatientCommunicationPanel } from '../components/patients/PatientCommunicationPanel';
-import { PatientCurrentPriorities } from '../components/patients/PatientCurrentPriorities';
+import { PatientDecisionSurface } from '../components/patients/PatientDecisionSurface';
 import { PatientHandoffPanel } from '../components/patients/PatientHandoffPanel';
 import { PatientSummaryCards } from '../components/patients/PatientSummaryCards';
 import { PatientTasksPanel } from '../components/patients/PatientTasksPanel';
 import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
-import { RecommendedActionsPanel } from '../components/patients/RecommendedActionsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
@@ -58,7 +57,6 @@ import {
   insertSignatureIntoDraft,
   insertTemplateIntoDraft,
 } from '../services/communicationAuthoring';
-import { useConnectionStatus } from '../services/connection';
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
 import type {
   AlertItem,
@@ -215,18 +213,6 @@ function addDaysToWeekStart(weekStart: string, deltaDays: number): string {
 
   const next = new Date(parsed.getTime() + deltaDays * 24 * 60 * 60 * 1000);
   return toDateOnlyUTC(next);
-}
-
-function formatLastUpdated(lastSuccessAt: number | null): string {
-  if (!lastSuccessAt) {
-    return '--';
-  }
-
-  return new Date(lastSuccessAt).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
 }
 
 function formatCountLabel(count: number, singular: string, plural: string): string {
@@ -387,7 +373,6 @@ export function PatientDetailPage(): JSX.Element {
   const dayDetailFocusRef = useRef<HTMLElement | null>(null);
   const entryContextConsumedRef = useRef(false);
 
-  const connection = useConnectionStatus();
   const pendingEntryContext = useMemo(
     () => readPatientEntryContextFromState(location.state, patientId),
     [location.state, patientId],
@@ -1759,16 +1744,6 @@ export function PatientDetailPage(): JSX.Element {
     patientWorklistItem?.reviewReason?.trim() ||
     patientPriorities[0]?.reason ||
     'Use the priorities, trends, and operational panels below to confirm the next clinician step.';
-  const nextAppointmentBadgeVariant =
-    nextPatientAppointment === null
-      ? 'default'
-      : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'danger'
-        ? 'danger'
-        : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'warning'
-          ? 'warning'
-          : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'success'
-            ? 'success'
-            : 'default';
   const normalizedCurrentContextTitle = currentContextTitle.replace(/\s+/g, ' ').trim().toLowerCase();
   const normalizedCurrentContextBody = currentContextBody.replace(/\s+/g, ' ').trim().toLowerCase();
   const entryReviewHint = (() => {
@@ -1802,8 +1777,7 @@ export function PatientDetailPage(): JSX.Element {
   const entrySourceCue = entryContext ? formatPatientEntrySourceCue(entryContext.source) : null;
   const activeFollowUpCount = patientActiveTasks.length + patientCommunicationItems.length;
   const urgentTaskCount = patientActiveTasks.filter((task) => task.priority === 'urgent').length;
-  const safetyFlaggedThreadCount = patientCommunicationItems.filter((item) => item.flaggedBySafety).length;
-  const patientCockpitSignals: Array<{
+  const patientBriefFacts: Array<{
     label: string;
     value: string;
     note: string;
@@ -1816,62 +1790,38 @@ export function PatientDetailPage(): JSX.Element {
       tone: openAlertCount > 0 ? 'critical' : 'stable',
     },
     {
-      label: 'Tasks due',
-      value: String(patientActiveTasks.length),
+      label: 'Follow-through',
+      value: activeFollowUpCount > 0 ? String(activeFollowUpCount) : 'Steady',
       note:
         urgentTaskCount > 0
           ? `${urgentTaskCount} urgent ${urgentTaskCount === 1 ? 'task' : 'tasks'} in follow-through`
-          : patientActiveTasks.length > 0
+          : activeFollowUpCount > 0
             ? 'Routine follow-through remains open'
-            : 'No open task burden',
+            : 'No open follow-through waiting',
       tone:
         urgentTaskCount > 0
           ? 'warning'
-          : patientActiveTasks.length > 0
+          : activeFollowUpCount > 0
             ? 'active'
             : 'stable',
     },
     {
-      label: 'Messages',
-      value: String(patientCommunicationItems.length),
+      label: 'Next schedule point',
+      value: nextPatientAppointment ? appointmentWorkflowLabel(nextPatientAppointment.workflowStatus) : 'No slot set',
       note:
-        patientCommunicationBlockedBySafety
-          ? `${safetyFlaggedThreadCount} safety-sensitive ${
-              safetyFlaggedThreadCount === 1 ? 'thread' : 'threads'
-            }`
-          : patientCommunicationItems.length > 0
-            ? 'Communication review still active'
-            : 'No thread follow-up waiting',
-      tone:
-        patientCommunicationBlockedBySafety
-          ? 'critical'
-          : patientCommunicationItems.length > 0
-            ? 'active'
-            : 'stable',
-    },
-    {
-      label: 'Last check-in',
-      value: trendSummary.lastCheckinDate ? formatDashboardRelativeTime(trendSummary.lastCheckinDate) : 'No recent check-in',
-      note:
-        trendSummary.lastCheckinDate !== null
-          ? `Within the current ${selectedDays}-day review window`
-          : 'Review symptom history if context is missing',
-      tone: trendSummary.lastCheckinDate ? 'neutral' : 'warning',
-    },
-    {
-      label: 'Appointment state',
-      value: nextPatientAppointment ? appointmentWorkflowLabel(nextPatientAppointment.workflowStatus) : 'None scheduled',
-      note: nextPatientAppointment ? formatDashboardRelativeTime(nextPatientAppointment.startsAt) : 'Open scheduling only if follow-up is needed',
+        nextPatientAppointment
+          ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
+          : 'Open scheduling only if follow-up is needed',
       tone:
         nextPatientAppointment === null
           ? 'neutral'
           : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'danger'
-            ? 'critical'
-            : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'warning'
-              ? 'warning'
-              : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'success'
-                ? 'stable'
-                : 'neutral',
+          ? 'critical'
+          : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'warning'
+            ? 'warning'
+            : appointmentWorkflowTone(nextPatientAppointment.workflowStatus) === 'success'
+              ? 'stable'
+              : 'neutral',
     },
   ];
   const reviewIssueMessages = [
@@ -1948,118 +1898,122 @@ export function PatientDetailPage(): JSX.Element {
                 }}
               />
             </div>
-            <div className="patient-detail-actions">
-              <Button
-                className="patient-detail-actions__worklist"
-                variant="ghost"
-                onClick={() => {
-                  navigate('/worklist');
-                }}
-              >
-                Open worklist
-              </Button>
-              <Button
-                className="patient-detail-actions__refresh"
-                variant="secondary"
-                onClick={handleRefreshOverview}
-              >
-                Refresh
-              </Button>
-              <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
-                Export CSV
-              </Button>
-              <Button
-                className="patient-detail-actions__plan"
-                variant="secondary"
-                onClick={() => {
-                  navigate(`/patients/${patientId}/plan`);
-                }}
-              >
-                Exercise plan
-              </Button>
-            </div>
           </div>
         </div>
 
         <div className="patient-detail-brief__body">
-          <div className="patient-detail-brief__identity">
-            <p className="patient-detail-brief__eyebrow">Clinician cockpit</p>
-            <div className="patient-detail-brief__name-row">
-              <h1 className="patient-detail-brief__name">{patientDisplayName}</h1>
-              {patientContext?.status ? (
-                <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
-                  {statusLabel(patientContext.status)}
-                </Badge>
-              ) : null}
+          <div className="patient-detail-brief__primary">
+            <div className="patient-detail-brief__identity">
+              <p className="patient-detail-brief__eyebrow">Clinician cockpit</p>
+              <div className="patient-detail-brief__name-row">
+                <h1 className="patient-detail-brief__name">{patientDisplayName}</h1>
+                {patientContext?.status ? (
+                  <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
+                    {statusLabel(patientContext.status)}
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="patient-detail-brief__meta">
+                {patientDisplayName !== patientId ? (
+                  <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
+                ) : null}
+                {currentRehabPhaseTitle ? (
+                  <span className="patient-detail-brief__meta-item">{currentRehabPhaseTitle}</span>
+                ) : null}
+                <span className="patient-detail-brief__meta-item">
+                  {trendSummary.lastCheckinDate
+                    ? `Last check-in ${formatDashboardRelativeTime(trendSummary.lastCheckinDate)}`
+                    : 'No recent check-in'}
+                </span>
+              </div>
             </div>
-            <div className="patient-detail-brief__meta">
-              {patientDisplayName !== patientId ? (
-                <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
-              ) : null}
-              {currentRehabPhaseTitle ? <Badge variant="neutral">{currentRehabPhaseTitle}</Badge> : null}
-              {nextPatientAppointment ? (
-                <Badge variant={nextAppointmentBadgeVariant}>
-                  {appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}
-                </Badge>
-              ) : null}
-              <Badge className="patient-detail-meta__status" variant={connection.online ? 'success' : 'danger'} icon>
-                {connection.online ? 'Online' : 'Offline'}
-              </Badge>
-              <span className="muted-text patient-detail-meta__updated">
-                Updated {formatLastUpdated(connection.lastSuccessAt)}
-              </span>
+
+            <div
+              className={`patient-detail-current-context patient-detail-brief__focus${
+                entryContext
+                  ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}`
+                  : ''
+              }`}
+              data-testid="patient-detail-current-context"
+            >
+              <div className="patient-detail-current-context__copy">
+                <p className="patient-detail-current-context__eyebrow">Immediate context</p>
+                <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
+                <p className="patient-detail-current-context__text">{currentContextBody}</p>
+                {entryReviewHint ? (
+                  <p className="patient-detail-current-context__source-note" data-testid="patient-detail-entry-hint">
+                    {entryReviewHint}
+                  </p>
+                ) : null}
+              </div>
+              <div className="patient-detail-current-context__facts">
+                <div className="patient-detail-current-context__fact">
+                  <span>Review state</span>
+                  <strong>{openAlertCount > 0 ? `${openAlertCount} active alerts` : 'No open alerts'}</strong>
+                </div>
+                <div className="patient-detail-current-context__fact">
+                  <span>Follow-through</span>
+                  <strong>{activeFollowUpCount > 0 ? `${activeFollowUpCount} items waiting` : 'Queue steady'}</strong>
+                </div>
+                <div className="patient-detail-current-context__fact">
+                  <span>Next appointment</span>
+                  <strong>
+                    {nextPatientAppointment
+                      ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
+                      : 'None scheduled'}
+                  </strong>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div
-            className={`patient-detail-current-context patient-detail-brief__focus${
-              entryContext
-                ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}`
-                : ''
-            }`}
-            data-testid="patient-detail-current-context"
-          >
-            <div className="patient-detail-current-context__copy">
-              <p className="patient-detail-current-context__eyebrow">Immediate context</p>
-              <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
-              <p className="patient-detail-current-context__text">{currentContextBody}</p>
-              {entryReviewHint ? (
-                <p className="patient-detail-current-context__source-note" data-testid="patient-detail-entry-hint">
-                  {entryReviewHint}
-                </p>
-              ) : null}
-            </div>
-            <div className="patient-detail-current-context__facts">
-              <div className="patient-detail-current-context__fact">
-                <span>Review state</span>
-                <strong>{openAlertCount > 0 ? `${openAlertCount} active alerts` : 'No open alerts'}</strong>
+          <div className="patient-detail-brief__aside" aria-label="Patient detail quick actions and review facts">
+            <section className="patient-detail-brief__actions-panel" aria-label="Top actions">
+              <p className="patient-detail-brief__eyebrow">Top actions</p>
+              <div className="patient-detail-actions patient-detail-brief__actions">
+                <Button
+                  className="patient-detail-actions__worklist"
+                  variant="ghost"
+                  onClick={() => {
+                    navigate('/worklist');
+                  }}
+                >
+                  Open worklist
+                </Button>
+                <Button
+                  className="patient-detail-actions__refresh"
+                  variant="secondary"
+                  onClick={handleRefreshOverview}
+                >
+                  Refresh
+                </Button>
+                <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
+                  Export CSV
+                </Button>
+                <Button
+                  className="patient-detail-actions__plan"
+                  variant="secondary"
+                  onClick={() => {
+                    navigate(`/patients/${patientId}/plan`);
+                  }}
+                >
+                  Exercise plan
+                </Button>
               </div>
-              <div className="patient-detail-current-context__fact">
-                <span>Follow-through</span>
-                <strong>{activeFollowUpCount > 0 ? `${activeFollowUpCount} items waiting` : 'Queue steady'}</strong>
-              </div>
-              <div className="patient-detail-current-context__fact">
-                <span>Next appointment</span>
-                <strong>
-                  {nextPatientAppointment
-                    ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
-                    : 'None scheduled'}
-                </strong>
-              </div>
-            </div>
-          </div>
+            </section>
 
-          <div className="patient-detail-brief__signals" aria-label="Immediate patient review signals">
-            {patientCockpitSignals.slice(0, 4).map((signal) => (
-              <article
-                key={signal.label}
-                className={`patient-detail-brief__signal patient-detail-brief__signal--${signal.tone}`}
-              >
-                <span className="patient-detail-brief__signal-label">{signal.label}</span>
-                <strong className="patient-detail-brief__signal-value">{signal.value}</strong>
-                <p className="patient-detail-brief__signal-note">{signal.note}</p>
-              </article>
-            ))}
+            <div className="patient-detail-brief__facts" aria-label="Immediate patient review facts">
+              {patientBriefFacts.map((fact) => (
+                <article
+                  key={fact.label}
+                  className={`patient-detail-brief__fact patient-detail-brief__fact--${fact.tone}`}
+                >
+                  <span className="patient-detail-brief__fact-label">{fact.label}</span>
+                  <strong className="patient-detail-brief__fact-value">{fact.value}</strong>
+                  <p className="patient-detail-brief__fact-note">{fact.note}</p>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -2070,7 +2024,7 @@ export function PatientDetailPage(): JSX.Element {
         >
           <div className="patient-detail-mini-nav__copy">
             <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
-            <p className="patient-detail-mini-nav__text">Move between the main review zones.</p>
+            <p className="patient-detail-mini-nav__text">Main review zones</p>
           </div>
           <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
             {PATIENT_DETAIL_SECTIONS.map((section) => (
@@ -2154,44 +2108,27 @@ export function PatientDetailPage(): JSX.Element {
           >
             <div className="patient-detail-section-header">
               <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Clinical workboard</p>
+                <p className="patient-detail-section-eyebrow">Decision surface</p>
                 <h2 className="patient-detail-section-title">Priorities and next actions</h2>
               </div>
-              <p className="patient-detail-section-note">
-                Start here. Confirm the lead issue, then take the next clinician action.
-              </p>
+              <p className="patient-detail-section-note">Start here, then move directly into follow-through.</p>
             </div>
-            <div className="patient-detail-workboard-grid">
-              <div className="patient-detail-workboard-grid__primary">
-                <PatientCurrentPriorities
-                  items={patientPriorities}
-                  isLoading={
-                    patientPriorities.length === 0 &&
-                    (patientWorklistQuery.isLoading ||
-                      patientTasksQuery.isLoading ||
-                      patientCommunicationQuery.isLoading ||
-                      patientAppointmentsQuery.isLoading)
-                  }
-                  error={patientPrioritiesError}
-                  onRetry={handleRefreshOverview}
-                  onAction={handleOperationalAction}
-                />
-              </div>
-              <div className="patient-detail-workboard-grid__secondary">
-                <RecommendedActionsPanel
-                  items={recommendedActions}
-                  isLoading={
-                    recommendedActions.length === 0 &&
-                    (patientWorklistQuery.isLoading ||
-                      patientTasksQuery.isLoading ||
-                      patientAppointmentsQuery.isLoading)
-                  }
-                  error={recommendedActionsError}
-                  onRetry={handleRefreshOverview}
-                  onAction={handleOperationalAction}
-                />
-              </div>
-            </div>
+            <PatientDecisionSurface
+              priorities={patientPriorities}
+              recommendedActions={recommendedActions}
+              isLoading={
+                patientPriorities.length === 0 &&
+                recommendedActions.length === 0 &&
+                (patientWorklistQuery.isLoading ||
+                  patientTasksQuery.isLoading ||
+                  patientCommunicationQuery.isLoading ||
+                  patientAppointmentsQuery.isLoading)
+              }
+              priorityError={patientPrioritiesError}
+              recommendedActionsError={recommendedActionsError}
+              onRetry={handleRefreshOverview}
+              onAction={handleOperationalAction}
+            />
           </section>
 
           <section
@@ -2203,9 +2140,7 @@ export function PatientDetailPage(): JSX.Element {
                 <p className="patient-detail-section-eyebrow">Follow-through</p>
                 <h2 className="patient-detail-section-title">Communication, tasks, and schedule</h2>
               </div>
-              <p className="patient-detail-section-note">
-                Keep the active patient work in one lane so the next move stays obvious.
-              </p>
+              <p className="patient-detail-section-note">Keep the next patient move visible in one coordinated lane.</p>
             </div>
             <div className="patient-detail-follow-through-grid">
               <div className="patient-detail-operations-grid__communication">
@@ -2271,9 +2206,7 @@ export function PatientDetailPage(): JSX.Element {
                 <p className="patient-detail-section-eyebrow">Guidance review</p>
                 <h2 className="patient-detail-section-title">Questionnaires and clinical guidance</h2>
               </div>
-              <p className="patient-detail-section-note">
-                Keep guidance review close to the main cockpit, without turning it into a separate product.
-              </p>
+              <p className="patient-detail-section-note">Guidance stays close to the active review, but secondary to the live work lane.</p>
             </div>
             <div className="patient-detail-guidance-grid">
               <Card
@@ -2433,12 +2366,13 @@ export function PatientDetailPage(): JSX.Element {
                         <div className="stack stack--2">
                           {patientPendingInsights.map((insight) => (
                             <div key={insight.id} className="patient-insight-item">
-                              <div className="patient-insight-item__badges">
-                                <Badge variant="default">{insightCategoryLabel(insight.category)}</Badge>
+                              <div className="patient-insight-item__meta">
                                 <Badge variant={insightConfidenceVariant(insight.confidence)}>
                                   {insight.confidence}
                                 </Badge>
-                                <Badge variant="default">P{insight.priority}</Badge>
+                                <span className="muted-text">
+                                  {insightCategoryLabel(insight.category)} · Priority {insight.priority}
+                                </span>
                               </div>
                               <strong>{insight.title}</strong>
                               <p className="muted-text patient-insight-item__message">{insight.message}</p>
@@ -2478,12 +2412,13 @@ export function PatientDetailPage(): JSX.Element {
                         <div className="stack stack--2">
                           {patientApprovedInsights.map((insight) => (
                             <div key={insight.id} className="patient-insight-item">
-                              <div className="patient-insight-item__badges">
-                                <Badge variant="default">{insightCategoryLabel(insight.category)}</Badge>
+                              <div className="patient-insight-item__meta">
                                 <Badge variant={insightConfidenceVariant(insight.confidence)}>
                                   {insight.confidence}
                                 </Badge>
-                                <Badge variant="default">P{insight.priority}</Badge>
+                                <span className="muted-text">
+                                  {insightCategoryLabel(insight.category)} · Priority {insight.priority}
+                                </span>
                               </div>
                               <strong>{insight.title}</strong>
                               <p className="muted-text patient-insight-item__message">{insight.message}</p>
@@ -2502,65 +2437,17 @@ export function PatientDetailPage(): JSX.Element {
         <aside className="patient-detail-cockpit-layout__support" aria-label="Patient support context">
           <section
             id="patient-summary-section"
-            className="patient-detail-summary-shell patient-detail-summary-shell--cockpit"
-            aria-label="Patient summary"
+            className="patient-detail-support-section patient-detail-support-section--snapshot"
+            aria-label="Patient snapshot"
           >
             <div className="patient-detail-section-header patient-detail-section-header--summary">
               <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Patient brief</p>
-                <h2 className="patient-detail-section-title">Current status summary</h2>
+                <p className="patient-detail-section-eyebrow">Snapshot</p>
+                <h2 className="patient-detail-section-title">Current review snapshot</h2>
               </div>
-              <p className="patient-detail-section-note">
-                Selected {selectedDays}-day snapshot.
-              </p>
+              <p className="patient-detail-section-note">Support context for the current {selectedDays}-day review window.</p>
             </div>
             <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
-          </section>
-
-          <section
-            id="patient-trends-section"
-            className="patient-detail-support-section patient-detail-support-section--snapshot"
-            aria-label="Trend snapshot"
-          >
-            <div className="patient-detail-section-header patient-detail-section-header--summary">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Trend snapshot</p>
-                <h2 className="patient-detail-section-title">Current review window</h2>
-              </div>
-              <p className="patient-detail-section-note">Need deeper context? Open trend history below.</p>
-            </div>
-            <div className="patient-detail-support-facts">
-              <div className="patient-detail-support-fact">
-                <span>Last check-in</span>
-                <strong>
-                  {trendSummary.lastCheckinDate
-                    ? formatDashboardRelativeTime(trendSummary.lastCheckinDate)
-                    : 'No recent check-in'}
-                </strong>
-              </div>
-              <div className="patient-detail-support-fact">
-                <span>Latest pain</span>
-                <strong>
-                  {trendSummary.latestPain === null ? '—' : `${trendSummary.latestPain}/10`}
-                </strong>
-              </div>
-              <div className="patient-detail-support-fact">
-                <span>7d adherence</span>
-                <strong>
-                  {trendSummary.adherence7d === null
-                    ? '—'
-                    : `${Math.round(trendSummary.adherence7d * 100)}%`}
-                </strong>
-              </div>
-              <div className="patient-detail-support-fact">
-                <span>Schedule state</span>
-                <strong>
-                  {nextPatientAppointment
-                    ? appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)
-                    : 'None scheduled'}
-                </strong>
-              </div>
-            </div>
           </section>
 
           <RecentAlertsPanel
@@ -2587,13 +2474,9 @@ export function PatientDetailPage(): JSX.Element {
       >
         <div className="patient-detail-reference-zone__header">
           <div className="patient-detail-reference-zone__copy">
-            <p className="patient-detail-reference-bridge__eyebrow">Lower reference zone</p>
-            <strong className="patient-detail-reference-bridge__title">
-              Slower history and care-plan context stay available without taking over the cockpit.
-            </strong>
-            <p className="patient-detail-reference-bridge__text">
-              Use trend history, rehab configuration, reports, and session history only when they help the current review.
-            </p>
+            <p className="patient-detail-reference-bridge__eyebrow">Reference</p>
+            <strong className="patient-detail-reference-bridge__title">History and care reference</strong>
+            <p className="patient-detail-reference-bridge__text">Slower history, rehab context, and supporting records stay available without taking over the live review.</p>
           </div>
           <div className="patient-detail-reference-bridge__facts">
             <div className="patient-detail-reference-bridge__fact">
@@ -2616,13 +2499,16 @@ export function PatientDetailPage(): JSX.Element {
         </div>
 
         <div className="patient-detail-reference-zone__layout">
-          <section className="patient-detail-reference-zone__panel patient-detail-reference-zone__panel--trends">
+          <section
+            id="patient-trends-section"
+            className="patient-detail-reference-zone__panel patient-detail-reference-zone__panel--trends"
+          >
             <div className="patient-detail-section-header">
               <div className="patient-detail-section-heading">
                 <p className="patient-detail-section-eyebrow">Trend history</p>
                 <h2 className="patient-detail-section-title">Clinical trajectory</h2>
               </div>
-              <p className="patient-detail-section-note">Open day detail only when the current review needs it.</p>
+              <p className="patient-detail-section-note">Open day detail only when the active review needs deeper context.</p>
             </div>
             {showTrendsLoading ? (
               <Card title="Trend charts">

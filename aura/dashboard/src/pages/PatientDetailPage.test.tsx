@@ -1013,9 +1013,9 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     expect(await screen.findByText('No immediate priorities detected')).toBeInTheDocument();
-    expect(screen.getByText('No recent communication needing follow-up')).toBeInTheDocument();
-    expect(screen.getByText('No open tasks for this patient')).toBeInTheDocument();
-    expect(screen.getByText('No appointment activity to review')).toBeInTheDocument();
+    expect(await screen.findByText('No recent communication needing follow-up')).toBeInTheDocument();
+    expect(await screen.findByText('No open tasks for this patient')).toBeInTheDocument();
+    expect(await screen.findByText('No appointment activity to review')).toBeInTheDocument();
   }, 20_000);
 
   it('marks a patient task complete and refreshes the follow-up panel', async () => {

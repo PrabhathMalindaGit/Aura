@@ -316,6 +316,18 @@ function renderPatientDetailWithoutRouteParam(): void {
   );
 }
 
+async function openPatientWorkspaceTab(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+): Promise<void> {
+  const tab = await screen.findByRole('tab', { name });
+  await user.click(tab);
+
+  await waitFor(() => {
+    expect(tab).toHaveAttribute('aria-selected', 'true');
+  });
+}
+
 interface FetchMockOptions {
   trends14?: Array<Record<string, unknown>>;
   trends30?: Array<Record<string, unknown>>;
@@ -496,20 +508,26 @@ describe('PatientDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Back to patients' })).toBeInTheDocument();
   });
 
-  it('renders new operational review cockpit panels from available data', async () => {
+  it('renders the new cockpit overview first, then opens the communications workspace on demand', async () => {
     installFetchMock();
+    const user = userEvent.setup();
 
     renderPatientDetail();
 
     expect(await screen.findByTestId('patient-detail-current-context')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', { name: 'Current priorities' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recommended actions' })).toBeInTheDocument();
-    expect(screen.getByTestId('patient-communication-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('patient-tasks-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('patient-appointments-panel')).toBeInTheDocument();
     expect(
       await within(screen.getByTestId('patient-current-priorities')).findByText('Missed recent check-in'),
     ).toBeInTheDocument();
+    expect(screen.queryByTestId('patient-communication-panel')).not.toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+
+    expect(screen.getByTestId('patient-communication-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('patient-tasks-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('patient-appointments-panel')).toBeInTheDocument();
     expect(
       within(screen.getByTestId('patient-communication-panel')).getByText(
         'Pain is much worse after exercise today.',
@@ -519,24 +537,29 @@ describe('PatientDetailPage', () => {
     expect(within(screen.getByTestId('patient-appointments-panel')).getByText('Awaiting confirmation')).toBeInTheDocument();
   }, 20_000);
 
-  it('keeps care review visible and collapses slower reference panels by default', async () => {
+  it('uses tabs to demote slower care review and history content until requested', async () => {
     installFetchMock();
+    const user = userEvent.setup();
 
     renderPatientDetail();
 
-    const operationalHeading = await screen.findByRole('heading', {
-      name: 'Communication, tasks, and schedule',
-    });
-    const careReviewHeading = screen.getByRole('heading', {
-      name: 'Questionnaires and clinical guidance',
-    });
-    const referenceBridge = screen.getByTestId('patient-detail-reference-bridge');
-
-    expect(operationalHeading).toBeVisible();
-    expect(careReviewHeading).toBeVisible();
+    expect(await screen.findByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
     expect(
-      careReviewHeading.compareDocumentPosition(referenceBridge) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.queryByRole('heading', { name: 'Questionnaires, insights, and rehab guidance' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Trend history and slower recovery context' }),
+    ).not.toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Clinical Guidance & Questionnaires');
+    expect(
+      await screen.findByRole('heading', { name: 'Questionnaires, insights, and rehab guidance' }),
+    ).toBeVisible();
+
+    await openPatientWorkspaceTab(user, 'History & Signals');
+    expect(
+      await screen.findByRole('heading', { name: 'Trend history and slower recovery context' }),
+    ).toBeVisible();
 
     expect(screen.getByRole('button', { name: 'Show symptom detail' })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: 'Show support signals' })).toHaveAttribute('aria-expanded', 'false');
@@ -550,6 +573,7 @@ describe('PatientDetailPage', () => {
     const user = userEvent.setup();
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'History & Signals');
     await screen.findByRole('button', { name: 'Show symptom detail' });
     await user.click(screen.getByRole('button', { name: 'Show symptom detail' }));
     expect(await screen.findByRole('heading', { name: 'Sleep (recent)' })).toBeInTheDocument();
@@ -567,6 +591,7 @@ describe('PatientDetailPage', () => {
     renderPatientDetail();
 
     await screen.findByText('Ref alt-pati');
+    await openPatientWorkspaceTab(user, 'History & Signals');
     const detailButtons = await screen.findAllByRole('button', {
       name: /View details|Open day detail/i,
     });
@@ -584,6 +609,7 @@ describe('PatientDetailPage', () => {
     renderPatientDetail(`/patients/${patientId}?days=14`);
 
     await screen.findByText('Ref alt-pati');
+    await openPatientWorkspaceTab(user, 'History & Signals');
     const detailButtons = await screen.findAllByRole('button', {
       name: /View details|Open day detail/i,
     });
@@ -617,6 +643,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     await user.click(within(communicationPanel).getAllByRole('button', { name: 'Open communication' })[0]);
 
@@ -625,15 +652,9 @@ describe('PatientDetailPage', () => {
     });
   });
 
-  it('renders the mini-nav alongside source-aware continuity and jumps to major sections', async () => {
+  it('renders source-aware continuity alongside the new workspace tabs and supports keyboard tab switching', async () => {
     installFetchMock();
     const user = userEvent.setup();
-    const scrollIntoViewMock = vi.fn();
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
-      configurable: true,
-      writable: true,
-      value: scrollIntoViewMock,
-    });
 
     renderPatientDetail([
       {
@@ -648,18 +669,31 @@ describe('PatientDetailPage', () => {
       },
     ]);
 
-    const miniNav = await screen.findByTestId('patient-detail-mini-nav');
-    expect(miniNav).toBeInTheDocument();
     expect(await screen.findByTestId('patient-detail-entry-cue')).toHaveTextContent('Opened from Alerts');
     expect(screen.getByTestId('patient-detail-return-link')).toHaveTextContent('Return to Alerts');
+    expect(screen.queryByTestId('patient-detail-mini-nav')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
 
-    await user.click(within(miniNav).getByRole('button', { name: 'Operations' }));
+    const guidanceTab = screen.getByRole('tab', { name: 'Clinical Guidance & Questionnaires' });
+    guidanceTab.focus();
+    fireEvent.keyDown(guidanceTab, { key: 'ArrowRight' });
 
-    expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+    const historyTab = screen.getByRole('tab', { name: 'History & Signals' });
+    await waitFor(() => {
+      expect(historyTab).toHaveFocus();
+      expect(historyTab).toHaveAttribute('aria-selected', 'true');
+    });
+    expect(
+      await screen.findByRole('heading', { name: 'Trend history and slower recovery context' }),
+    ).toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    expect(screen.getByTestId('patient-communication-panel')).toBeInTheDocument();
   });
 
   it('keeps snapshot and recent alerts near the top on narrower widths without mounting duplicates', async () => {
     installFetchMock();
+    const user = userEvent.setup();
 
     renderPatientDetail();
 
@@ -667,21 +701,21 @@ describe('PatientDetailPage', () => {
     expect(patientDetailPage).not.toBeNull();
     triggerResizeObserver(patientDetailPage as Element, 1200);
 
-    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
+    const prioritySupport = await screen.findByLabelText('Priority patient support context');
     const summarySection = document.getElementById('patient-summary-section');
-    const prioritiesHeading = screen.getByRole('heading', { name: 'Priorities and next actions' });
-    const supportAside = screen.getByLabelText('Patient support context');
+    const workspaceHeading = screen.getByRole('heading', { name: 'Deep review modes' });
 
     expect(summarySection).not.toBeNull();
     expect(prioritySupport).toContainElement(summarySection);
-    expect(screen.getAllByText('Current review snapshot')).toHaveLength(1);
+    expect(screen.getAllByText('Clinical context in view')).toHaveLength(1);
     expect(screen.getAllByText('Recent alerts')).toHaveLength(1);
     expect(
-      (summarySection?.compareDocumentPosition(prioritiesHeading) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
+      (summarySection?.compareDocumentPosition(workspaceHeading) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(within(supportAside).queryByText('Current review snapshot')).not.toBeInTheDocument();
-    expect(within(supportAside).queryByText('Recent alerts')).not.toBeInTheDocument();
-    expect(within(supportAside).getByTestId('patient-handoff-panel')).toBeInTheDocument();
+    expect(within(prioritySupport).queryByTestId('patient-handoff-panel')).not.toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    expect(screen.getByTestId('patient-handoff-panel')).toBeInTheDocument();
   });
 
   it('keeps summary and recent alerts in the desktop support rail when the content width stays wide', async () => {
@@ -693,12 +727,12 @@ describe('PatientDetailPage', () => {
     expect(patientDetailPage).not.toBeNull();
     triggerResizeObserver(patientDetailPage as Element, 1440);
 
-    const supportAside = screen.getByLabelText('Patient support context');
-
     await waitFor(() => {
-      expect(screen.queryByTestId('patient-detail-priority-support')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Priority patient support context')).not.toBeInTheDocument();
     });
-    expect(within(supportAside).getByText('Current review snapshot')).toBeInTheDocument();
+
+    const supportAside = screen.getByLabelText('Patient support context');
+    expect(within(supportAside).getByText('Clinical context in view')).toBeInTheDocument();
     expect(within(supportAside).getByText('Recent alerts')).toBeInTheDocument();
   });
 
@@ -709,6 +743,7 @@ describe('PatientDetailPage', () => {
       nextAction: 'plan',
       followUpOwner: { kind: 'self' },
     });
+    const user = userEvent.setup();
 
     renderPatientDetail();
 
@@ -716,8 +751,7 @@ describe('PatientDetailPage', () => {
     expect(patientDetailPage).not.toBeNull();
     triggerResizeObserver(patientDetailPage as Element, 1200);
 
-    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
-    const supportAside = screen.getByLabelText('Patient support context');
+    const prioritySupport = await screen.findByLabelText('Priority patient support context');
 
     expect(within(prioritySupport).getByText('Current handoff')).toBeInTheDocument();
     expect(
@@ -725,7 +759,9 @@ describe('PatientDetailPage', () => {
     ).toBeInTheDocument();
     expect(within(prioritySupport).getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
     expect(within(prioritySupport).getByText('Dr Elena Hall')).toBeInTheDocument();
-    expect(within(supportAside).getByTestId('patient-handoff-panel')).toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    expect(screen.getByTestId('patient-handoff-panel')).toBeInTheDocument();
   });
 
   it('expands trend cards inline one at a time and keeps day drilldown available', async () => {
@@ -734,6 +770,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'History & Signals');
     expect(await screen.findByTestId('trend-chart-card-pain')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Expand pain trend' }));
 
@@ -769,8 +806,10 @@ describe('PatientDetailPage', () => {
       communicationItems: [routineCommunicationItem],
     });
 
+    const user = userEvent.setup();
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     expect(await within(communicationPanel).findByRole('textbox', { name: 'Quick reply' })).toBeInTheDocument();
     expect(screen.queryByText('Trends endpoint not ready')).not.toBeInTheDocument();
@@ -806,8 +845,10 @@ describe('PatientDetailPage', () => {
       communicationItems: [routineCommunicationItem],
     });
 
+    const user = userEvent.setup();
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     const quickReplyField = (await within(communicationPanel).findByRole('textbox', {
       name: 'Quick reply',
@@ -823,8 +864,10 @@ describe('PatientDetailPage', () => {
 
   it('suppresses inline quick reply for safety-sensitive communication and keeps the handoff path', async () => {
     installFetchMock();
+    const user = userEvent.setup();
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const safetyPanel = await screen.findByTestId('patient-communication-panel');
     expect(within(safetyPanel).queryByRole('textbox', { name: 'Quick reply' })).not.toBeInTheDocument();
     expect(within(safetyPanel).queryByRole('button', { name: 'Insert template' })).not.toBeInTheDocument();
@@ -865,6 +908,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     const quickReplyField = (await within(communicationPanel).findByRole('textbox', {
       name: 'Quick reply',
@@ -898,6 +942,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const communicationPanel = await screen.findByTestId('patient-communication-panel');
     await within(communicationPanel).findByLabelText('Local clinician identity');
     expect(within(communicationPanel).getByLabelText('Local clinician identity')).toBeInTheDocument();
@@ -955,8 +1000,10 @@ describe('PatientDetailPage', () => {
 
   it('renders a grounded internal handoff panel with only supported next-step options', async () => {
     installFetchMock();
+    const user = userEvent.setup();
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     expect(
       within(handoffPanel).getByText(
@@ -981,6 +1028,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     const handoffSummaryField = within(handoffPanel).getByLabelText('Handoff summary');
     fireEvent.change(handoffSummaryField, {
@@ -1047,6 +1095,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     await user.click(within(handoffPanel).getByRole('button', { name: 'Open plan' }));
 
@@ -1059,6 +1108,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     await user.type(
       within(handoffPanel).getByLabelText('Handoff summary'),
@@ -1105,6 +1155,8 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    const user = userEvent.setup();
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
     const notesSection = within(handoffPanel).getByRole('region', { name: 'Internal clinician notes' });
@@ -1128,6 +1180,8 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    const user = userEvent.setup();
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
     expect(
@@ -1160,9 +1214,12 @@ describe('PatientDetailPage', () => {
       ],
     });
 
+    const user = userEvent.setup();
     renderPatientDetail();
 
     expect(await screen.findByText('No immediate priorities detected')).toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     expect(await screen.findByText('No recent communication needing follow-up')).toBeInTheDocument();
     expect(await screen.findByText('No open tasks for this patient')).toBeInTheDocument();
     expect(await screen.findByText('No appointment activity to review')).toBeInTheDocument();
@@ -1174,6 +1231,7 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
     expect(
       await within(screen.getByTestId('patient-tasks-panel')).findByText('Check medication adherence'),
     ).toBeInTheDocument();

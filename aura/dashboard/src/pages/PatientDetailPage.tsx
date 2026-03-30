@@ -1,4 +1,13 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Badge } from '../components/ui/Badge';
@@ -125,22 +134,18 @@ import {
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 const CLINICIAN_BUCKET = 'anon';
 type PatientExportDataset = 'trends' | 'alerts';
-type PatientDetailSectionId =
-  | 'patient-priorities-section'
-  | 'patient-summary-section'
-  | 'patient-trends-section'
-  | 'patient-operations-section'
-  | 'patient-care-review-section'
-  | 'patient-reference-section';
 type TrendChartMetric = 'pain' | 'mood' | 'adherence';
+type PatientWorkspaceTabId =
+  | 'overview'
+  | 'communications'
+  | 'guidance'
+  | 'history';
 
-const PATIENT_DETAIL_SECTIONS: Array<{ id: PatientDetailSectionId; label: string }> = [
-  { id: 'patient-priorities-section', label: 'Priorities' },
-  { id: 'patient-summary-section', label: 'Summary' },
-  { id: 'patient-trends-section', label: 'Trends' },
-  { id: 'patient-operations-section', label: 'Operations' },
-  { id: 'patient-care-review-section', label: 'Care review' },
-  { id: 'patient-reference-section', label: 'Reference' },
+const PATIENT_WORKSPACE_TABS: Array<{ id: PatientWorkspaceTabId; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'communications', label: 'Communications & Notes' },
+  { id: 'guidance', label: 'Clinical Guidance & Questionnaires' },
+  { id: 'history', label: 'History & Signals' },
 ];
 
 function parseDays(value: string | null): 14 | 30 {
@@ -375,8 +380,9 @@ export function PatientDetailPage(): JSX.Element {
   const [patientExportMessage, setPatientExportMessage] = useState<string | null>(null);
   const [isSymptomSignalsOpen, setIsSymptomSignalsOpen] = useState(false);
   const [isSupportSignalsOpen, setIsSupportSignalsOpen] = useState(false);
-  const [activeSectionId, setActiveSectionId] =
-    useState<PatientDetailSectionId>('patient-priorities-section');
+  const [activeWorkspaceTab, setActiveWorkspaceTab] =
+    useState<PatientWorkspaceTabId>('overview');
+  const [pendingWorkspaceJumpId, setPendingWorkspaceJumpId] = useState<string | null>(null);
   const [expandedTrendMetric, setExpandedTrendMetric] = useState<TrendChartMetric | null>(null);
   const dayDetailFocusRef = useRef<HTMLElement | null>(null);
   const entryContextConsumedRef = useRef(false);
@@ -628,6 +634,8 @@ export function PatientDetailPage(): JSX.Element {
   useEffect(() => {
     setIsSymptomSignalsOpen(false);
     setIsSupportSignalsOpen(false);
+    setActiveWorkspaceTab('overview');
+    setPendingWorkspaceJumpId(null);
   }, [patientId]);
 
   useEffect(() => {
@@ -968,7 +976,6 @@ export function PatientDetailPage(): JSX.Element {
     recentNutritionDays.length > 0 ||
     recentWearablesSummary.trackedDays > 0 ||
     recentMedicationDays.length > 0;
-  const hasCareReviewItems = patientPromDue.length > 0 || patientPendingInsights.length > 0;
   const symptomReferenceFacts = useMemo(
     () => [
       {
@@ -1249,13 +1256,26 @@ export function PatientDetailPage(): JSX.Element {
     });
   }, []);
 
-  const handleSectionJump = useCallback(
-    (sectionId: PatientDetailSectionId): void => {
-      setActiveSectionId(sectionId);
-      scrollToPanel(sectionId);
+  const openWorkspaceTab = useCallback(
+    (tabId: PatientWorkspaceTabId, jumpTargetId?: string): void => {
+      setActiveWorkspaceTab(tabId);
+      setPendingWorkspaceJumpId(jumpTargetId ?? null);
     },
-    [scrollToPanel],
+    [],
   );
+
+  useEffect(() => {
+    if (!pendingWorkspaceJumpId || typeof window === 'undefined') {
+      return;
+    }
+
+    const handle = window.requestAnimationFrame(() => {
+      scrollToPanel(pendingWorkspaceJumpId);
+      setPendingWorkspaceJumpId(null);
+    });
+
+    return () => window.cancelAnimationFrame(handle);
+  }, [activeWorkspaceTab, pendingWorkspaceJumpId, scrollToPanel]);
 
   const openCommunicationWorkspace = useCallback((): void => {
     if (!patientId) {
@@ -1321,7 +1341,7 @@ export function PatientDetailPage(): JSX.Element {
   const handleOperationalAction = useCallback(
     (key: PatientActionKey): void => {
       if (key === 'alerts') {
-        scrollToPanel('patient-trends-section');
+        scrollToPanel('patient-detail-alerts-panel');
         return;
       }
 
@@ -1331,7 +1351,7 @@ export function PatientDetailPage(): JSX.Element {
       }
 
       if (key === 'tasks') {
-        scrollToPanel('patient-tasks-panel');
+        openWorkspaceTab('communications', 'patient-tasks-panel');
         return;
       }
 
@@ -1350,9 +1370,9 @@ export function PatientDetailPage(): JSX.Element {
         return;
       }
 
-      scrollToPanel('patient-trends-section');
+      openWorkspaceTab('history', 'patient-history-trends');
     },
-    [navigate, openCommunicationWorkspace, patientId, scrollToPanel],
+    [navigate, openCommunicationWorkspace, openWorkspaceTab, patientId, scrollToPanel],
   );
 
   useEffect(() => {
@@ -1364,44 +1384,6 @@ export function PatientDetailPage(): JSX.Element {
       setExpandedTrendMetric(null);
     }
   }, [expandedTrendMetric, hasTrendData]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      return;
-    }
-
-    const Observer = window.IntersectionObserver;
-    if (typeof Observer !== 'function') {
-      return;
-    }
-
-    const elements = PATIENT_DETAIL_SECTIONS.map(({ id }) => document.getElementById(id)).filter(
-      (element): element is HTMLElement => Boolean(element),
-    );
-    if (elements.length === 0) {
-      return;
-    }
-
-    const observer = new Observer(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => right.intersectionRatio - left.intersectionRatio);
-
-        const nextId = visible[0]?.target.id as PatientDetailSectionId | undefined;
-        if (nextId) {
-          setActiveSectionId(nextId);
-        }
-      },
-      {
-        rootMargin: '-18% 0px -58% 0px',
-        threshold: [0.1, 0.25, 0.4, 0.65],
-      },
-    );
-
-    elements.forEach((element) => observer.observe(element));
-    return () => observer.disconnect();
-  }, [selectedDays, patientCommunicationItems.length, patientPriorities.length]);
 
   useEffect(() => {
     setPatientQuickReply('');
@@ -2015,21 +1997,39 @@ export function PatientDetailPage(): JSX.Element {
   const isPatientDetailInline860 =
     patientDetailInlineWidth !== null && patientDetailInlineWidth <= 860;
   const isPrioritySupportResponsive = isPatientDetailInline1320;
+  const latestCommunicationItem = patientCommunicationItems[0] ?? null;
+  const nextOpenTask = patientActiveTasks[0] ?? null;
+  const nextPromDueItem = patientPromDue[0] ?? null;
+  const nextPendingInsight = patientPendingInsights[0] ?? null;
+  const latestExerciseSession = patientSessions[0] ?? null;
 
-  const renderPatientSummarySection = (className: string): JSX.Element => (
-    <section id="patient-summary-section" className={className} aria-label="Patient snapshot">
-      <div className="patient-detail-section-header patient-detail-section-header--summary">
-        <div className="patient-detail-section-heading">
-          <p className="patient-detail-section-eyebrow">Snapshot</p>
-          <h2 className="patient-detail-section-title">Current review snapshot</h2>
-        </div>
-        <p className="patient-detail-section-note">
-          Support context for the current {selectedDays}-day review window.
-        </p>
-      </div>
-      <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
-    </section>
-  );
+  const handleWorkspaceTabKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    currentIndex: number,
+  ): void => {
+    let nextIndex = currentIndex;
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (currentIndex + 1) % PATIENT_WORKSPACE_TABS.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (currentIndex - 1 + PATIENT_WORKSPACE_TABS.length) % PATIENT_WORKSPACE_TABS.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = PATIENT_WORKSPACE_TABS.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const nextTab = PATIENT_WORKSPACE_TABS[nextIndex];
+    setActiveWorkspaceTab(nextTab.id);
+
+    const tabButtons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]',
+    );
+    tabButtons?.[nextIndex]?.focus();
+  };
 
   const renderRecentAlertsPanel = (): JSX.Element => (
     <RecentAlertsPanel
@@ -2093,6 +2093,45 @@ export function PatientDetailPage(): JSX.Element {
     );
   };
 
+  const renderPriorityContextBody = (): JSX.Element => (
+    <>
+      <section
+        id="patient-summary-section"
+        className="patient-detail-context-section patient-detail-context-section--snapshot"
+        aria-label="Priority patient snapshot"
+      >
+        <div className="patient-detail-context-section__header">
+          <div className="patient-detail-context-section__copy">
+            <p className="patient-detail-context-section__eyebrow">Priority snapshot</p>
+            <h2 className="patient-detail-context-section__title">Clinical context in view</h2>
+          </div>
+          <p className="patient-detail-context-section__note">
+            High-priority context for the current {selectedDays}-day review window.
+          </p>
+        </div>
+        <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+      </section>
+
+      <section
+        className="patient-detail-focus-card"
+        aria-label="Current review focus"
+        data-testid="patient-detail-current-context"
+      >
+        <p className="patient-detail-focus-card__eyebrow">Current review focus</p>
+        <h2 className="patient-detail-focus-card__title">{currentContextTitle}</h2>
+        <p className="patient-detail-focus-card__text">{currentContextBody}</p>
+        {entryReviewHint ? (
+          <p className="patient-detail-focus-card__hint" data-testid="patient-detail-entry-hint">
+            {entryReviewHint}
+          </p>
+        ) : null}
+      </section>
+
+      <div id="patient-detail-alerts-panel">{renderRecentAlertsPanel()}</div>
+      {renderPriorityHandoffSummary()}
+    </>
+  );
+
   return (
     <div
       ref={patientDetailShellRef}
@@ -2103,12 +2142,12 @@ export function PatientDetailPage(): JSX.Element {
       }${isPatientDetailInline860 ? ' patient-detail-page--inline-860' : ''}`}
     >
       <section
-        className={`patient-detail-brief${
+        className={`patient-detail-cockpit-header${
           entryContext ? ` patient-detail-brief--source patient-detail-brief--source-${entryContext.focus}` : ''
         }`}
       >
-        <div className="patient-detail-brief__topbar">
-          <div className="patient-detail-title__nav">
+        <div className="patient-detail-cockpit-header__utility-row">
+          <div className="patient-detail-cockpit-header__return">
             <Link
               to={returnLinkTo}
               className={`patient-detail-back-link${
@@ -2124,7 +2163,7 @@ export function PatientDetailPage(): JSX.Element {
               </span>
             ) : null}
           </div>
-          <div className="patient-detail-brief__utility">
+          <div className="patient-detail-cockpit-header__window">
             <div className="patient-detail-window-tabs">
               <Tabs
                 tabs={[
@@ -2146,151 +2185,79 @@ export function PatientDetailPage(): JSX.Element {
           </div>
         </div>
 
-        <div className="patient-detail-brief__body">
-          <div className="patient-detail-brief__primary">
-            <div className="patient-detail-brief__identity">
-              <p className="patient-detail-brief__eyebrow">Clinician cockpit</p>
-              <div className="patient-detail-brief__name-row">
-                <h1 className="patient-detail-brief__name">{patientDisplayName}</h1>
-                {patientContext?.status ? (
-                  <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
-                    {statusLabel(patientContext.status)}
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="patient-detail-brief__meta">
-                {patientDisplayName !== patientId ? (
-                  <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
-                ) : null}
-                {currentRehabPhaseTitle ? (
-                  <span className="patient-detail-brief__meta-item">{currentRehabPhaseTitle}</span>
-                ) : null}
-                <span className="patient-detail-brief__meta-item">
-                  {trendSummary.lastCheckinDate
-                    ? `Last check-in ${formatDashboardRelativeTime(trendSummary.lastCheckinDate)}`
-                    : 'No recent check-in'}
-                </span>
-              </div>
+        <div className="patient-detail-cockpit-header__identity-row">
+          <div className="patient-detail-cockpit-header__identity">
+            <p className="patient-detail-cockpit-header__eyebrow">Clinician cockpit</p>
+            <div className="patient-detail-cockpit-header__name-row">
+              <h1 className="patient-detail-cockpit-header__name">{patientDisplayName}</h1>
+              {patientContext?.status ? (
+                <Badge className="patient-detail-title__status" variant={statusBadgeVariant(patientContext.status)} icon>
+                  {statusLabel(patientContext.status)}
+                </Badge>
+              ) : null}
             </div>
-
-            <div
-              className={`patient-detail-current-context patient-detail-brief__focus${
-                entryContext
-                  ? ` patient-detail-current-context--source patient-detail-current-context--source-${entryContext.focus}`
-                  : ''
-              }`}
-              data-testid="patient-detail-current-context"
-            >
-              <div className="patient-detail-current-context__copy">
-                <p className="patient-detail-current-context__eyebrow">Immediate context</p>
-                <strong className="patient-detail-current-context__title">{currentContextTitle}</strong>
-                <p className="patient-detail-current-context__text">{currentContextBody}</p>
-                {entryReviewHint ? (
-                  <p className="patient-detail-current-context__source-note" data-testid="patient-detail-entry-hint">
-                    {entryReviewHint}
-                  </p>
-                ) : null}
-              </div>
-              <div className="patient-detail-current-context__facts">
-                <div className="patient-detail-current-context__fact">
-                  <span>Review state</span>
-                  <strong>{openAlertCount > 0 ? `${openAlertCount} active alerts` : 'No open alerts'}</strong>
-                </div>
-                <div className="patient-detail-current-context__fact">
-                  <span>Follow-through</span>
-                  <strong>{activeFollowUpCount > 0 ? `${activeFollowUpCount} items waiting` : 'Queue steady'}</strong>
-                </div>
-                <div className="patient-detail-current-context__fact">
-                  <span>Next appointment</span>
-                  <strong>
-                    {nextPatientAppointment
-                      ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
-                      : 'None scheduled'}
-                  </strong>
-                </div>
-              </div>
+            <div className="patient-detail-cockpit-header__meta">
+              {patientDisplayName !== patientId ? (
+                <span className="patient-id-text patient-detail-title__id">ID: {patientId}</span>
+              ) : null}
+              {currentRehabPhaseTitle ? (
+                <span className="patient-detail-cockpit-header__meta-item">{currentRehabPhaseTitle}</span>
+              ) : null}
+              <span className="patient-detail-cockpit-header__meta-item">
+                {trendSummary.lastCheckinDate
+                  ? `Last check-in ${formatDashboardRelativeTime(trendSummary.lastCheckinDate)}`
+                  : 'No recent check-in'}
+              </span>
             </div>
           </div>
 
-          <div className="patient-detail-brief__aside" aria-label="Patient detail quick actions and review facts">
-            <div className="patient-detail-brief__support-band">
-              <section className="patient-detail-brief__actions-panel" aria-label="Top actions">
-                <p className="patient-detail-brief__eyebrow">Top actions</p>
-                <div className="patient-detail-actions patient-detail-brief__actions">
-                  <Button
-                    className="patient-detail-actions__worklist"
-                    variant="ghost"
-                    onClick={() => {
-                      navigate('/worklist');
-                    }}
-                  >
-                    Open worklist
-                  </Button>
-                  <Button
-                    className="patient-detail-actions__refresh"
-                    variant="secondary"
-                    onClick={handleRefreshOverview}
-                  >
-                    Refresh
-                  </Button>
-                  <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
-                    Export CSV
-                  </Button>
-                  <Button
-                    className="patient-detail-actions__plan"
-                    variant="secondary"
-                    onClick={() => {
-                      navigate(`/patients/${patientId}/plan`);
-                    }}
-                  >
-                    Exercise plan
-                  </Button>
-                </div>
-              </section>
-
-              <div className="patient-detail-brief__facts" aria-label="Immediate patient review facts">
-                {patientBriefFacts.map((fact) => (
-                  <article
-                    key={fact.label}
-                    className={`patient-detail-brief__fact patient-detail-brief__fact--${fact.tone}`}
-                  >
-                    <span className="patient-detail-brief__fact-label">{fact.label}</span>
-                    <strong className="patient-detail-brief__fact-value">{fact.value}</strong>
-                    <p className="patient-detail-brief__fact-note">{fact.note}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <section
-          className="patient-detail-mini-nav"
-          aria-label="Patient detail section navigation"
-          data-testid="patient-detail-mini-nav"
-        >
-          <div className="patient-detail-mini-nav__copy">
-            <p className="patient-detail-mini-nav__eyebrow">Jump to</p>
-            <p className="patient-detail-mini-nav__text">Main review zones</p>
-          </div>
-          <div className="patient-detail-mini-nav__actions" role="group" aria-label="Patient detail sections">
-            {PATIENT_DETAIL_SECTIONS.map((section) => (
+          <section className="patient-detail-cockpit-header__actions" aria-label="Top patient actions">
+            <p className="patient-detail-cockpit-header__eyebrow">Top actions</p>
+            <div className="patient-detail-actions">
               <Button
-                key={section.id}
-                variant={activeSectionId === section.id ? 'secondary' : 'ghost'}
-                size="sm"
-                className={`patient-detail-mini-nav__button${
-                  activeSectionId === section.id ? ' patient-detail-mini-nav__button--active' : ''
-                }`}
+                className="patient-detail-actions__worklist"
+                variant="ghost"
                 onClick={() => {
-                  handleSectionJump(section.id);
+                  navigate('/worklist');
                 }}
               >
-                {section.label}
+                Open worklist
               </Button>
-            ))}
-          </div>
-        </section>
+              <Button
+                className="patient-detail-actions__refresh"
+                variant="secondary"
+                onClick={handleRefreshOverview}
+              >
+                Refresh
+              </Button>
+              <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
+                Export CSV
+              </Button>
+              <Button
+                className="patient-detail-actions__plan"
+                variant="secondary"
+                onClick={() => {
+                  navigate(`/patients/${patientId}/plan`);
+                }}
+              >
+                Exercise plan
+              </Button>
+            </div>
+          </section>
+        </div>
+
+        <div className="patient-detail-cockpit-header__facts" aria-label="Immediate patient review facts">
+          {patientBriefFacts.map((fact) => (
+            <article
+              key={fact.label}
+              className={`patient-detail-cockpit-header__fact patient-detail-cockpit-header__fact--${fact.tone}`}
+            >
+              <span className="patient-detail-cockpit-header__fact-label">{fact.label}</span>
+              <strong className="patient-detail-cockpit-header__fact-value">{fact.value}</strong>
+              <p className="patient-detail-cockpit-header__fact-note">{fact.note}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       {patientDetailNotices.length > 0 ? (
@@ -2317,1069 +2284,1238 @@ export function PatientDetailPage(): JSX.Element {
 
       {isPrioritySupportResponsive ? (
         <section
-          className="patient-detail-priority-support"
+          id="patient-detail-priority-context"
+          className="patient-detail-priority-context patient-detail-priority-context--stacked"
           aria-label="Priority patient support context"
           data-testid="patient-detail-priority-support"
         >
-          {renderPatientSummarySection(
-            'patient-detail-support-section patient-detail-support-section--snapshot patient-detail-priority-support__snapshot',
-          )}
-          <div className="patient-detail-priority-support__stack">
-            {renderRecentAlertsPanel()}
-            {renderPriorityHandoffSummary()}
-          </div>
+          {renderPriorityContextBody()}
         </section>
       ) : null}
 
       <div className="patient-detail-cockpit-layout">
-        <div className="patient-detail-cockpit-layout__main">
-          <section
-            id="patient-priorities-section"
-            className="patient-detail-lane-section patient-detail-lane-section--workboard"
-          >
-            <div className="patient-detail-section-header">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Decision surface</p>
-                <h2 className="patient-detail-section-title">Priorities and next actions</h2>
-              </div>
-              <p className="patient-detail-section-note">Start here, then move directly into follow-through.</p>
+        <section className="patient-detail-workspace" aria-label="Patient detail workspace">
+          <div className="patient-detail-workspace__nav">
+            <div className="patient-detail-workspace__nav-copy">
+              <p className="patient-detail-workspace__eyebrow">Main workspace</p>
+              <h2 className="patient-detail-workspace__title">Deep review modes</h2>
             </div>
-            <PatientDecisionSurface
-              priorities={patientPriorities}
-              recommendedActions={recommendedActions}
-              isLoading={
-                patientPriorities.length === 0 &&
-                recommendedActions.length === 0 &&
-                (patientWorklistQuery.isLoading ||
-                  patientTasksQuery.isLoading ||
-                  patientCommunicationQuery.isLoading ||
-                  patientAppointmentsQuery.isLoading)
-              }
-              priorityError={patientPrioritiesError}
-              recommendedActionsError={recommendedActionsError}
-              onRetry={handleRefreshOverview}
-              onAction={handleOperationalAction}
-            />
-          </section>
+            <div
+              className="patient-detail-workspace__tabs"
+              role="tablist"
+              aria-label="Patient detail workspaces"
+            >
+              {PATIENT_WORKSPACE_TABS.map((tab, index) => {
+                const tabId = `patient-detail-workspace-tab-${tab.id}`;
+                const panelId = `patient-detail-workspace-panel-${tab.id}`;
+                const isActive = activeWorkspaceTab === tab.id;
 
-          <section
-            id="patient-operations-section"
-            className="patient-detail-lane-section patient-detail-lane-section--follow-through"
-          >
-            <div className="patient-detail-section-header">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Follow-through</p>
-                <h2 className="patient-detail-section-title">Communication, tasks, and schedule</h2>
-              </div>
-              <p className="patient-detail-section-note">Keep the next patient move visible in one coordinated lane.</p>
-            </div>
-            <div className="patient-detail-follow-through-grid">
-              <div className="patient-detail-operations-grid__communication">
-                <PatientCommunicationPanel
-                  items={patientCommunicationItems}
-                  timeline={patientCommunicationTimeline}
-                  isLoading={patientCommunicationQuery.isLoading}
-                  error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
-                  onRetry={() => {
-                    void patientCommunicationQuery.refetch();
-                  }}
-                  onOpenCommunication={openCommunicationWorkspace}
-                  onOpenAlerts={openAlertsFromPatientCommunication}
-                  showQuickReply={canQuickReplyFromPatientDetail}
-                  quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
-                  quickReplyValue={patientQuickReply}
-                  onQuickReplyChange={setPatientQuickReply}
-                  onSendQuickReply={handlePatientQuickReply}
-                  replyTemplates={communicationAuthoring.templates}
-                  selectedTemplateId={selectedQuickReplyTemplateId}
-                  onSelectedTemplateChange={setSelectedQuickReplyTemplateId}
-                  onInsertTemplate={handleInsertPatientQuickReplyTemplate}
-                  hasSignature={communicationAuthoring.hasSignature}
-                  onInsertSignature={handleInsertPatientQuickReplySignature}
-                />
-              </div>
-              <div className="patient-detail-operations-grid__tasks">
-                <PatientTasksPanel
-                  activeTasks={patientActiveTasks}
-                  recentCompletedTasks={patientRecentCompletedTasks}
-                  isLoading={patientTasksQuery.isLoading}
-                  error={patientTasksQuery.error ? toUserMessage(patientTasksQuery.error) : null}
-                  completingTaskId={completeTaskMutation.isPending ? completeTaskMutation.variables : null}
-                  onRetry={() => {
-                    void patientTasksQuery.refetch();
-                  }}
-                  onCompleteTask={handleCompleteTask}
-                  onOpenAlerts={() => handleOperationalAction('alerts')}
-                  onOpenAppointments={() => navigate('/appointments')}
-                />
-              </div>
-              <div className="patient-detail-operations-grid__appointments">
-                <PatientAppointmentsPanel
-                  items={patientAppointments}
-                  isLoading={patientAppointmentsQuery.isLoading}
-                  error={patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null}
-                  onRetry={() => {
-                    void patientAppointmentsQuery.refetch();
-                  }}
-                  onOpenAppointments={() => navigate('/appointments')}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section
-            id="patient-care-review-section"
-            className="patient-detail-lane-section patient-detail-lane-section--guidance"
-            data-testid="patient-detail-care-review"
-          >
-            <div className="patient-detail-section-header">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Guidance review</p>
-                <h2 className="patient-detail-section-title">Questionnaires and clinical guidance</h2>
-              </div>
-              <p className="patient-detail-section-note">Guidance stays close to the active review, but secondary to the live work lane.</p>
-            </div>
-            <div className="patient-detail-guidance-grid">
-              <Card
-                className="patient-detail-panel patient-detail-panel--operations-primary"
-                title="Questionnaires (PROMs)"
-                action={
-                  <Button
-                    variant="secondary"
+                return (
+                  <button
+                    key={tab.id}
+                    id={tabId}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-controls={panelId}
+                    tabIndex={isActive ? 0 : -1}
+                    className={`patient-detail-workspace__tab${
+                      isActive ? ' patient-detail-workspace__tab--active' : ''
+                    }`}
                     onClick={() => {
-                      void patientPromsQuery.refetch();
+                      setActiveWorkspaceTab(tab.id);
                     }}
+                    onKeyDown={(event) => handleWorkspaceTabKeyDown(event, index)}
                   >
-                    Refresh
-                  </Button>
-                }
-              >
-                {patientPromsQuery.isLoading && patientPromDue.length === 0 && patientPromCompleted.length === 0 ? (
-                  <div className="patient-detail-skeleton-grid" aria-label="PROM list loading placeholder">
-                    <Skeleton height={54} />
-                    <Skeleton height={54} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {activeWorkspaceTab === 'overview' ? (
+            <section
+              id="patient-detail-workspace-panel-overview"
+              className="patient-detail-workspace__panel"
+              role="tabpanel"
+              aria-labelledby="patient-detail-workspace-tab-overview"
+            >
+              <div className="patient-detail-workspace__panel-header">
+                <div>
+                  <p className="patient-detail-section-eyebrow">Overview</p>
+                  <h3 className="patient-detail-section-title">Priorities and next actions</h3>
+                </div>
+                <p className="patient-detail-section-note">
+                  Start with the live decision surface, then scan the most actionable follow-through and guidance context.
+                </p>
+              </div>
+
+              <section className="patient-detail-workspace__lead">
+                <PatientDecisionSurface
+                  priorities={patientPriorities}
+                  recommendedActions={recommendedActions}
+                  isLoading={
+                    patientPriorities.length === 0 &&
+                    recommendedActions.length === 0 &&
+                    (patientWorklistQuery.isLoading ||
+                      patientTasksQuery.isLoading ||
+                      patientCommunicationQuery.isLoading ||
+                      patientAppointmentsQuery.isLoading)
+                  }
+                  priorityError={patientPrioritiesError}
+                  recommendedActionsError={recommendedActionsError}
+                  onRetry={handleRefreshOverview}
+                  onAction={handleOperationalAction}
+                />
+              </section>
+
+              <div className="patient-detail-overview-grid">
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Follow-through digest"
+                >
+                  <div className="patient-detail-digest-list">
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Communication</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientCommunicationItems.length === 0
+                            ? 'No threads waiting'
+                            : `${patientCommunicationItems.length} thread${
+                                patientCommunicationItems.length === 1 ? '' : 's'
+                              } waiting`}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {latestCommunicationItem?.messagePreview?.trim() ||
+                          'No recent patient communication needs review.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Tasks</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientActiveTasks.length === 0
+                            ? 'No open tasks'
+                            : `${patientActiveTasks.length} open${
+                                urgentTaskCount > 0 ? ` · ${urgentTaskCount} urgent` : ''
+                              }`}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {nextOpenTask
+                          ? `${nextOpenTask.title} due ${formatDashboardRelativeTime(
+                              nextOpenTask.dueAt ?? nextOpenTask.updatedAt,
+                            )}.`
+                          : 'The follow-through queue is clear right now.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Schedule</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {nextPatientAppointment
+                            ? appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)
+                            : 'No appointment queued'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {nextPatientAppointment
+                          ? `${formatDashboardRelativeTime(nextPatientAppointment.startsAt)}${
+                              nextPatientAppointment.note?.trim()
+                                ? ` · ${nextPatientAppointment.note.trim()}`
+                                : ''
+                            }`
+                          : 'Keep scheduling in the secondary workspace unless follow-up is required.'}
+                      </p>
+                    </article>
                   </div>
-                ) : (
-                  <div className="stack stack--3">
-                    <div className="patient-prom-assign">
-                      <label className="form-field" htmlFor="prom-template-select">
-                        <span>Template</span>
-                        <select
-                          id="prom-template-select"
-                          value={promTemplateKey}
-                          onChange={(event) => {
-                            setPromTemplateKey(event.currentTarget.value);
-                          }}
-                        >
-                          <option value="AURA_RECOVERY_5">AURA_RECOVERY_5</option>
-                        </select>
-                      </label>
-                      <label className="form-field" htmlFor="prom-due-input">
-                        <span>Due at (optional)</span>
-                        <input
-                          id="prom-due-input"
-                          type="datetime-local"
-                          value={promDueAt}
-                          onChange={(event) => {
-                            setPromDueAt(event.currentTarget.value);
-                          }}
-                        />
-                      </label>
-                      <Button
-                        variant="secondary"
-                        disabled={isAssigningProm}
-                        onClick={() => {
-                          void handleAssignProm();
-                        }}
-                      >
-                        {isAssigningProm ? 'Assigning...' : 'Assign'}
-                      </Button>
-                    </div>
+                </Card>
 
-                    <div className="stack stack--2">
-                      <strong>Due</strong>
-                      {patientPromDue.length === 0 ? (
-                        <p className="muted-text">No questionnaires due.</p>
-                      ) : (
-                        <div className="patient-prom-list">
-                          {patientPromDue.map((prom) => (
-                            <button
-                              key={prom.id}
-                              type="button"
-                              className="unstyled-button patient-prom-item"
-                              onClick={() => navigate(`/proms/${prom.id}`)}
-                            >
-                              <div>
-                                <strong>{prom.title}</strong>
-                                <p className="muted-text">Due {new Date(prom.dueAt).toLocaleString()}</p>
-                              </div>
-                              <span className="patient-prom-meta">Open</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Guidance digest"
+                >
+                  <div className="patient-detail-digest-list">
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Questionnaires</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientPromDue.length === 0
+                            ? 'No PROMs due'
+                            : `${patientPromDue.length} due`}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {nextPromDueItem
+                          ? `${nextPromDueItem.title} due ${new Date(nextPromDueItem.dueAt).toLocaleString()}.`
+                          : patientPromCompleted.length > 0
+                            ? `${patientPromCompleted.length} questionnaire${
+                                patientPromCompleted.length === 1 ? '' : 's'
+                              } already completed.`
+                            : 'No questionnaire activity in view.'}
+                      </p>
+                    </article>
 
-                    <div className="stack stack--2">
-                      <strong>Completed</strong>
-                      {patientPromCompleted.length === 0 ? (
-                        <p className="muted-text">No completed questionnaires yet.</p>
-                      ) : (
-                        <div className="patient-prom-list">
-                          {patientPromCompleted.map((prom) => (
-                            <button
-                              key={prom.id}
-                              type="button"
-                              className="unstyled-button patient-prom-item"
-                              onClick={() => navigate(`/proms/${prom.id}`)}
-                            >
-                              <div>
-                                <strong>{prom.title}</strong>
-                                <p className="muted-text">
-                                  Completed {new Date(prom.completedAt).toLocaleString()}
-                                </p>
-                              </div>
-                              <span className="patient-prom-score">
-                                {prom.score ? `${prom.score.normalized} · ${prom.score.bandLabel}` : 'No score'}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Clinical guidance</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientPendingInsights.length === 0
+                            ? 'No pending suggestions'
+                            : `${patientPendingInsights.length} pending`}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {nextPendingInsight
+                          ? nextPendingInsight.title
+                          : patientApprovedInsights.length > 0
+                            ? `${patientApprovedInsights.length} suggestion${
+                                patientApprovedInsights.length === 1 ? '' : 's'
+                              } already approved.`
+                            : 'No approved or pending guidance suggestions in this window.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Rehab and sessions</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {currentRehabPhaseTitle ?? 'Phase not set'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {latestExerciseSession
+                          ? `${latestExerciseSession.planTitle ?? 'Exercise session'} · ${formatDuration(
+                              latestExerciseSession.durationSeconds,
+                            )}`
+                          : 'No recent exercise sessions recorded yet.'}
+                      </p>
+                    </article>
                   </div>
-                )}
-              </Card>
+                </Card>
+              </div>
+            </section>
+          ) : null}
 
-              <Card
-                className="patient-detail-panel patient-detail-panel--operations-primary"
-                title="Insight cards"
-                action={
-                  <div className="patient-detail-actions">
+          {activeWorkspaceTab === 'communications' ? (
+            <section
+              id="patient-detail-workspace-panel-communications"
+              className="patient-detail-workspace__panel"
+              role="tabpanel"
+              aria-labelledby="patient-detail-workspace-tab-communications"
+            >
+              <div className="patient-detail-workspace__panel-header">
+                <div>
+                  <p className="patient-detail-section-eyebrow">Communications & Notes</p>
+                  <h3 className="patient-detail-section-title">Communication, tasks, and internal notes</h3>
+                </div>
+                <p className="patient-detail-section-note">
+                  Keep conversation history, follow-through tasks, schedule context, and browser-local handoff in one workspace.
+                </p>
+              </div>
+
+              <div className="patient-detail-tab-grid patient-detail-tab-grid--communications">
+                <div className="patient-detail-tab-grid__primary">
+                  <PatientCommunicationPanel
+                    items={patientCommunicationItems}
+                    timeline={patientCommunicationTimeline}
+                    isLoading={patientCommunicationQuery.isLoading}
+                    error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
+                    onRetry={() => {
+                      void patientCommunicationQuery.refetch();
+                    }}
+                    onOpenCommunication={openCommunicationWorkspace}
+                    onOpenAlerts={openAlertsFromPatientCommunication}
+                    showQuickReply={canQuickReplyFromPatientDetail}
+                    quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
+                    quickReplyValue={patientQuickReply}
+                    onQuickReplyChange={setPatientQuickReply}
+                    onSendQuickReply={handlePatientQuickReply}
+                    replyTemplates={communicationAuthoring.templates}
+                    selectedTemplateId={selectedQuickReplyTemplateId}
+                    onSelectedTemplateChange={setSelectedQuickReplyTemplateId}
+                    onInsertTemplate={handleInsertPatientQuickReplyTemplate}
+                    hasSignature={communicationAuthoring.hasSignature}
+                    onInsertSignature={handleInsertPatientQuickReplySignature}
+                  />
+                </div>
+                <div className="patient-detail-tab-grid__secondary">
+                  <PatientTasksPanel
+                    activeTasks={patientActiveTasks}
+                    recentCompletedTasks={patientRecentCompletedTasks}
+                    isLoading={patientTasksQuery.isLoading}
+                    error={patientTasksQuery.error ? toUserMessage(patientTasksQuery.error) : null}
+                    completingTaskId={completeTaskMutation.isPending ? completeTaskMutation.variables : null}
+                    onRetry={() => {
+                      void patientTasksQuery.refetch();
+                    }}
+                    onCompleteTask={handleCompleteTask}
+                    onOpenAlerts={() => handleOperationalAction('alerts')}
+                    onOpenAppointments={() => navigate('/appointments')}
+                  />
+                </div>
+                <div className="patient-detail-tab-grid__secondary">
+                  <PatientAppointmentsPanel
+                    items={patientAppointments}
+                    isLoading={patientAppointmentsQuery.isLoading}
+                    error={patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null}
+                    onRetry={() => {
+                      void patientAppointmentsQuery.refetch();
+                    }}
+                    onOpenAppointments={() => navigate('/appointments')}
+                  />
+                </div>
+                <div className="patient-detail-tab-grid__full">
+                  <PatientHandoffPanel
+                    patientId={patientId}
+                    onOpenNextAction={(action) => handleOperationalAction(action)}
+                  />
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {activeWorkspaceTab === 'guidance' ? (
+            <section
+              id="patient-detail-workspace-panel-guidance"
+              className="patient-detail-workspace__panel"
+              role="tabpanel"
+              aria-labelledby="patient-detail-workspace-tab-guidance"
+              data-testid="patient-detail-care-review"
+            >
+              <div className="patient-detail-workspace__panel-header">
+                <div>
+                  <p className="patient-detail-section-eyebrow">Clinical Guidance & Questionnaires</p>
+                  <h3 className="patient-detail-section-title">Questionnaires, insights, and rehab guidance</h3>
+                </div>
+                <p className="patient-detail-section-note">
+                  Keep review queues and rehab guidance grouped together without taking over the live work lane.
+                </p>
+              </div>
+
+              <div className="patient-detail-tab-grid patient-detail-tab-grid--guidance">
+                <Card
+                  className="patient-detail-panel patient-detail-panel--operations-primary"
+                  title="Questionnaires (PROMs)"
+                  action={
                     <Button
                       variant="secondary"
                       onClick={() => {
-                        void patientInsightsQuery.refetch();
+                        void patientPromsQuery.refetch();
                       }}
                     >
                       Refresh
                     </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={isGeneratingInsights}
-                      onClick={() => {
-                        void handleGenerateInsights();
-                      }}
-                    >
-                      {isGeneratingInsights ? 'Generating…' : 'Generate suggestions'}
-                    </Button>
+                  }
+                >
+                  {patientPromsQuery.isLoading && patientPromDue.length === 0 && patientPromCompleted.length === 0 ? (
+                    <div className="patient-detail-skeleton-grid" aria-label="PROM list loading placeholder">
+                      <Skeleton height={54} />
+                      <Skeleton height={54} />
+                    </div>
+                  ) : (
+                    <div className="stack stack--3">
+                      <div className="patient-prom-assign">
+                        <label className="form-field" htmlFor="prom-template-select">
+                          <span>Template</span>
+                          <select
+                            id="prom-template-select"
+                            value={promTemplateKey}
+                            onChange={(event) => {
+                              setPromTemplateKey(event.currentTarget.value);
+                            }}
+                          >
+                            <option value="AURA_RECOVERY_5">AURA_RECOVERY_5</option>
+                          </select>
+                        </label>
+                        <label className="form-field" htmlFor="prom-due-input">
+                          <span>Due at (optional)</span>
+                          <input
+                            id="prom-due-input"
+                            type="datetime-local"
+                            value={promDueAt}
+                            onChange={(event) => {
+                              setPromDueAt(event.currentTarget.value);
+                            }}
+                          />
+                        </label>
+                        <Button
+                          variant="secondary"
+                          disabled={isAssigningProm}
+                          onClick={() => {
+                            void handleAssignProm();
+                          }}
+                        >
+                          {isAssigningProm ? 'Assigning...' : 'Assign'}
+                        </Button>
+                      </div>
+
+                      <div className="stack stack--2">
+                        <strong>Due</strong>
+                        {patientPromDue.length === 0 ? (
+                          <p className="muted-text">No questionnaires due.</p>
+                        ) : (
+                          <div className="patient-prom-list">
+                            {patientPromDue.map((prom) => (
+                              <button
+                                key={prom.id}
+                                type="button"
+                                className="unstyled-button patient-prom-item"
+                                onClick={() => navigate(`/proms/${prom.id}`)}
+                              >
+                                <div>
+                                  <strong>{prom.title}</strong>
+                                  <p className="muted-text">Due {new Date(prom.dueAt).toLocaleString()}</p>
+                                </div>
+                                <span className="patient-prom-meta">Open</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="stack stack--2">
+                        <strong>Completed</strong>
+                        {patientPromCompleted.length === 0 ? (
+                          <p className="muted-text">No completed questionnaires yet.</p>
+                        ) : (
+                          <div className="patient-prom-list">
+                            {patientPromCompleted.map((prom) => (
+                              <button
+                                key={prom.id}
+                                type="button"
+                                className="unstyled-button patient-prom-item"
+                                onClick={() => navigate(`/proms/${prom.id}`)}
+                              >
+                                <div>
+                                  <strong>{prom.title}</strong>
+                                  <p className="muted-text">
+                                    Completed {new Date(prom.completedAt).toLocaleString()}
+                                  </p>
+                                </div>
+                                <span className="patient-prom-score">
+                                  {prom.score ? `${prom.score.normalized} · ${prom.score.bandLabel}` : 'No score'}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--operations-primary"
+                  title="Insight cards"
+                  action={
+                    <div className="patient-detail-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          void patientInsightsQuery.refetch();
+                        }}
+                      >
+                        Refresh
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={isGeneratingInsights}
+                        onClick={() => {
+                          void handleGenerateInsights();
+                        }}
+                      >
+                        {isGeneratingInsights ? 'Generating…' : 'Generate suggestions'}
+                      </Button>
+                    </div>
+                  }
+                >
+                  {patientInsightsQuery.isLoading &&
+                  patientPendingInsights.length === 0 &&
+                  patientApprovedInsights.length === 0 ? (
+                    <div className="patient-detail-skeleton-grid" aria-label="Insight list loading placeholder">
+                      <Skeleton height={54} />
+                      <Skeleton height={68} />
+                    </div>
+                  ) : (
+                    <div className="stack stack--3">
+                      <p className="muted-text">
+                        Pending: <strong>{patientPendingInsights.length}</strong> · Approved:{' '}
+                        <strong>{patientApprovedInsights.length}</strong>
+                      </p>
+                      <div className="stack stack--2">
+                        <strong>Pending review</strong>
+                        {patientPendingInsights.length === 0 ? (
+                          <p className="muted-text">No pending suggestions.</p>
+                        ) : (
+                          <div className="stack stack--2">
+                            {patientPendingInsights.map((insight) => (
+                              <div key={insight.id} className="patient-insight-item">
+                                <div className="patient-insight-item__meta">
+                                  <Badge variant={insightConfidenceVariant(insight.confidence)}>
+                                    {insight.confidence}
+                                  </Badge>
+                                  <span className="muted-text">
+                                    {insightCategoryLabel(insight.category)} · Priority {insight.priority}
+                                  </span>
+                                </div>
+                                <strong>{insight.title}</strong>
+                                <p className="muted-text patient-insight-item__message">{insight.message}</p>
+                                <div className="patient-insight-item__actions">
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    disabled={insightReviewingId !== null}
+                                    onClick={() => {
+                                      void handleReviewPatientInsight(insight.id, 'approved');
+                                    }}
+                                  >
+                                    {insightReviewingId === `${insight.id}:approved` ? 'Approving…' : 'Approve'}
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    disabled={insightReviewingId !== null}
+                                    onClick={() => {
+                                      void handleReviewPatientInsight(insight.id, 'rejected');
+                                    }}
+                                  >
+                                    {insightReviewingId === `${insight.id}:rejected` ? 'Rejecting…' : 'Reject'}
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="stack stack--2">
+                        <strong>Approved</strong>
+                        {patientApprovedInsights.length === 0 ? (
+                          <p className="muted-text">No approved insights yet.</p>
+                        ) : (
+                          <div className="stack stack--2">
+                            {patientApprovedInsights.map((insight) => (
+                              <div key={insight.id} className="patient-insight-item">
+                                <div className="patient-insight-item__meta">
+                                  <Badge variant={insightConfidenceVariant(insight.confidence)}>
+                                    {insight.confidence}
+                                  </Badge>
+                                  <span className="muted-text">
+                                    {insightCategoryLabel(insight.category)} · Priority {insight.priority}
+                                  </span>
+                                </div>
+                                <strong>{insight.title}</strong>
+                                <p className="muted-text patient-insight-item__message">{insight.message}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--operations-primary"
+                  title="Rehab phase"
+                  action={
+                    <div className="patient-detail-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          void patientRehabQuery.refetch();
+                        }}
+                      >
+                        Refresh
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={!selectedRehabKey || isSavingRehab}
+                        onClick={() => {
+                          void handleRehabSave();
+                        }}
+                      >
+                        {isSavingRehab ? 'Saving...' : 'Save'}
+                      </Button>
+                    </div>
+                  }
+                >
+                  {patientRehabQuery.isLoading && !patientRehab ? (
+                    <div className="patient-detail-skeleton-grid" aria-label="Rehab phases loading placeholder">
+                      <Skeleton height={44} />
+                      <Skeleton height={80} />
+                    </div>
+                  ) : !patientRehab || patientRehab.phases.length === 0 ? (
+                    <EmptyState
+                      title="No rehab phases configured"
+                      description="Initialize rehab phases by refreshing this panel."
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientRehabQuery.refetch();
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className="stack stack--3">
+                      <p className="muted-text">
+                        Current phase:{' '}
+                        <strong>
+                          {patientRehab.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ?? 'Not set'}
+                        </strong>
+                      </p>
+                      <label className="form-field" htmlFor="rehab-current-select">
+                        <span>Current phase</span>
+                        <select
+                          id="rehab-current-select"
+                          value={selectedRehabKey}
+                          onChange={(event) => {
+                            setSelectedRehabKey(event.currentTarget.value);
+                          }}
+                        >
+                          {patientRehab.phases.map((phase) => (
+                            <option key={phase.key} value={phase.key}>
+                              {phase.title}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="stack stack--2">
+                        {patientRehab.phases
+                          .slice()
+                          .sort((left, right) => left.order - right.order)
+                          .map((phase) => (
+                            <div key={phase.key}>
+                              <strong>
+                                {rehabStatusIcon(phase.status)} {phase.title}
+                              </strong>
+                              <p className="muted-text">
+                                {phase.status === 'done'
+                                  ? 'Done'
+                                  : phase.status === 'current'
+                                    ? 'Current'
+                                    : 'Locked'}
+                                {phase.completedAt ? ` · Completed ${new Date(phase.completedAt).toLocaleDateString()}` : ''}
+                              </p>
+                              {phase.description ? <p className="muted-text">{phase.description}</p> : null}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            </section>
+          ) : null}
+
+          {activeWorkspaceTab === 'history' ? (
+            <section
+              id="patient-detail-workspace-panel-history"
+              className="patient-detail-workspace__panel"
+              role="tabpanel"
+              aria-labelledby="patient-detail-workspace-tab-history"
+            >
+              <div className="patient-detail-workspace__panel-header">
+                <div>
+                  <p className="patient-detail-section-eyebrow">History & Signals</p>
+                  <h3 className="patient-detail-section-title">Trend history and slower recovery context</h3>
+                </div>
+                <p className="patient-detail-section-note">
+                  Use the longitudinal record when the active review needs deeper context, not as the first stop.
+                </p>
+              </div>
+
+              <section id="patient-history-trends" className="patient-detail-history-panel">
+                <div className="patient-detail-section-header">
+                  <div className="patient-detail-section-heading">
+                    <p className="patient-detail-section-eyebrow">Trend history</p>
+                    <h2 className="patient-detail-section-title">Clinical trajectory</h2>
                   </div>
-                }
-              >
-                {patientInsightsQuery.isLoading &&
-                patientPendingInsights.length === 0 &&
-                patientApprovedInsights.length === 0 ? (
-                  <div className="patient-detail-skeleton-grid" aria-label="Insight list loading placeholder">
-                    <Skeleton height={54} />
-                    <Skeleton height={68} />
-                  </div>
+                  <p className="patient-detail-section-note">Open day detail only when the active review needs deeper context.</p>
+                </div>
+                {showTrendsLoading ? (
+                  <Card title="Trend charts">
+                    <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
+                      <Skeleton height={260} />
+                      <Skeleton height={260} />
+                      <Skeleton height={260} />
+                    </div>
+                  </Card>
+                ) : hasTrendData ? (
+                  <TrendCharts
+                    points={normalizedTrends}
+                    onSelectDate={handleDaySelect}
+                    expandedMetric={expandedTrendMetric}
+                    onExpandMetric={setExpandedTrendMetric}
+                    onCollapseMetric={() => setExpandedTrendMetric(null)}
+                  />
                 ) : (
-                  <div className="stack stack--3">
+                  <Card title="Trend charts">
+                    <EmptyState
+                      title="No check-ins yet for this patient"
+                      description="Trend charts appear once check-ins are available in the selected window."
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void trendsQuery.refetch();
+                          }}
+                        >
+                          Retry
+                        </Button>
+                      }
+                    />
+                  </Card>
+                )}
+              </section>
+
+              <div className="patient-detail-tab-grid patient-detail-tab-grid--history-support">
+                <Card className="patient-detail-panel patient-detail-panel--operations-secondary" title="Weekly report">
+                  <div className="stack stack--2">
                     <p className="muted-text">
-                      Pending: <strong>{patientPendingInsights.length}</strong> · Approved:{' '}
-                      <strong>{patientApprovedInsights.length}</strong>
+                      View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and
+                      next steps.
                     </p>
-                    <div className="stack stack--2">
-                      <strong>Pending review</strong>
-                      {patientPendingInsights.length === 0 ? (
-                        <p className="muted-text">No pending suggestions.</p>
+                    <div className="patient-detail-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(thisWeekStart)}`);
+                        }}
+                      >
+                        View this week
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(lastWeekStart)}`);
+                        }}
+                      >
+                        View last week
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--operations-secondary"
+                  title="Exercise sessions"
+                  action={
+                    <div className="patient-detail-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          void patientSessionsQuery.refetch();
+                        }}
+                      >
+                        Refresh
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          navigate(`/patients/${patientId}/sessions`);
+                        }}
+                      >
+                        View all
+                      </Button>
+                    </div>
+                  }
+                >
+                  {patientSessionsQuery.isLoading && patientSessions.length === 0 ? (
+                    <div className="patient-detail-skeleton-grid" aria-label="Session list loading placeholder">
+                      <Skeleton height={54} />
+                      <Skeleton height={54} />
+                    </div>
+                  ) : patientSessions.length === 0 ? (
+                    <EmptyState
+                      title="No sessions yet"
+                      description="Once the patient runs a session in mobile, it will appear here."
+                    />
+                  ) : (
+                    <div className="patient-sessions-list">
+                      {patientSessions.map((session) => (
+                        <button
+                          key={session.id}
+                          type="button"
+                          className="unstyled-button patient-sessions-item"
+                          onClick={() => navigate(`/patients/${patientId}/sessions/${session.id}`)}
+                        >
+                          <div>
+                            <strong>{new Date(session.startedAt).toLocaleString()}</strong>
+                            <p className="muted-text">
+                              {session.planTitle ?? 'Exercise session'} · {formatDuration(session.durationSeconds)}
+                            </p>
+                          </div>
+                          <div className="patient-sessions-metrics">
+                            <span>
+                              {session.completedCount}/{session.exerciseCount} complete
+                            </span>
+                            <span>
+                              Avg pain: {typeof session.avgPainDuring === 'number' ? `${session.avgPainDuring}/5` : '—'}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+
+              <section
+                className={`patient-detail-section-block patient-detail-section-block--signals patient-detail-section-block--reference ${
+                  isSymptomSignalsOpen ? 'patient-detail-section-block--expanded' : 'patient-detail-section-block--collapsed'
+                }`}
+                data-testid="patient-detail-reference-signals"
+              >
+                <div className="patient-detail-section-header patient-detail-section-header--reference">
+                  <div className="patient-detail-section-heading">
+                    <p className="patient-detail-section-eyebrow">Reference detail</p>
+                    <h2 className="patient-detail-section-title">Recent symptom signals</h2>
+                  </div>
+                  <div className="patient-detail-section-header__aside">
+                    <p className="patient-detail-section-note">
+                      Open sleep, body-map, and photo history only when day-level context is needed.
+                    </p>
+                    <div className="patient-detail-disclosure__controls">
+                      <span className="patient-detail-disclosure__state">
+                        {isSymptomSignalsOpen ? 'Reference open' : 'Reference collapsed'}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-expanded={isSymptomSignalsOpen}
+                        onClick={() => {
+                          setIsSymptomSignalsOpen((current) => !current);
+                        }}
+                      >
+                        {isSymptomSignalsOpen ? 'Hide symptom detail' : 'Show symptom detail'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="patient-detail-disclosure__summary" aria-label="Recent symptom signal summary">
+                  {symptomReferenceFacts.map((item) => (
+                    <div key={item.label} className="patient-detail-disclosure__fact">
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                {!isSymptomSignalsOpen ? (
+                  <p className="patient-detail-disclosure__hint">
+                    {hasSymptomReference
+                      ? 'Open this section when symptom history is needed to support the active clinical review.'
+                      : 'No recent symptom history is available in the current window.'}
+                  </p>
+                ) : (
+                  <div className="patient-detail-section-grid patient-detail-section-grid--signals">
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--signal"
+                      title="Sleep (recent)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientRecentCheckinsQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientRecentCheckinsQuery.isLoading && recentSleepRows.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Sleep loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={68} />
+                        </div>
+                      ) : recentSleepRows.length === 0 ? (
+                        <p className="muted-text">No recent sleep entries in the last 7 days.</p>
                       ) : (
                         <div className="stack stack--2">
-                          {patientPendingInsights.map((insight) => (
-                            <div key={insight.id} className="patient-insight-item">
-                              <div className="patient-insight-item__meta">
-                                <Badge variant={insightConfidenceVariant(insight.confidence)}>
-                                  {insight.confidence}
-                                </Badge>
-                                <span className="muted-text">
-                                  {insightCategoryLabel(insight.category)} · Priority {insight.priority}
-                                </span>
-                              </div>
-                              <strong>{insight.title}</strong>
-                              <p className="muted-text patient-insight-item__message">{insight.message}</p>
-                              <div className="patient-insight-item__actions">
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  disabled={insightReviewingId !== null}
-                                  onClick={() => {
-                                    void handleReviewPatientInsight(insight.id, 'approved');
-                                  }}
-                                >
-                                  {insightReviewingId === `${insight.id}:approved` ? 'Approving…' : 'Approve'}
-                                </Button>
+                          <p className="muted-text">
+                            Tracked check-ins: <strong>{recentSleepSummary.trackedCount}</strong>
+                          </p>
+                          <p className="muted-text">
+                            Avg hours: <strong>{recentSleepSummary.avgHours ?? '—'}</strong> · Avg quality:{' '}
+                            <strong>{recentSleepSummary.avgQuality ?? '—'}</strong>
+                          </p>
+                          <div className="stack stack--1">
+                            {recentSleepRows.slice(0, 7).map((row) => (
+                              <p key={row.date} className="muted-text">
+                                {row.date}: {row.hours !== null ? `${row.hours}h` : '—'} · quality{' '}
+                                {row.quality !== null ? row.quality : '—'}
+                                {row.disturbances !== null ? ` · disturbances ${row.disturbances}` : ''}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--signal"
+                      title="Body map (recent)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientRecentCheckinsQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientRecentCheckinsQuery.isLoading && recentBodyMapRows.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Body map loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={68} />
+                        </div>
+                      ) : recentBodyMapRows.length === 0 ? (
+                        <p className="muted-text">No body map pain localization in the last 7 days.</p>
+                      ) : (
+                        <div className="stack stack--2">
+                          <p className="muted-text">
+                            Top areas:{' '}
+                            <strong>
+                              {recentBodyMapSummary.length > 0
+                                ? recentBodyMapSummary
+                                    .map((item) => `${item.label} (${item.count})`)
+                                    .join(', ')
+                                : '—'}
+                            </strong>
+                          </p>
+                          <div className="stack stack--1">
+                            {recentBodyMapRows.slice(0, 5).map((row) => (
+                              <p key={`${row.date}-bodymap`} className="muted-text">
+                                {row.date}:{' '}
+                                {row.regions
+                                  .map((entry) => `${bodyMapRegionLabel(entry.region)} (${entry.intensity})`)
+                                  .join(', ')}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--signal"
+                      title="Symptom photos (recent)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientPhotosQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientPhotosQuery.isLoading && recentPhotos.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Symptom photos loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={88} />
+                        </div>
+                      ) : recentPhotos.length === 0 ? (
+                        <p className="muted-text">No symptom photos in the last 7 days.</p>
+                      ) : (
+                        <div className="stack stack--2">
+                          <p className="muted-text">
+                            Uploaded: <strong>{recentPhotoSummary.total}</strong> · swelling{' '}
+                            <strong>{recentPhotoSummary.swelling}</strong> · wound{' '}
+                            <strong>{recentPhotoSummary.wound}</strong> · rash{' '}
+                            <strong>{recentPhotoSummary.rash}</strong> · other{' '}
+                            <strong>{recentPhotoSummary.other}</strong>
+                          </p>
+                          <div className="stack stack--1">
+                            {recentPhotos.slice(0, 5).map((photo) => (
+                              <div key={photo.id} className="patient-detail-photo-row">
+                                <p className="muted-text patient-detail-photo-row__text">
+                                  {photo.date}: {photo.kind}
+                                  {photo.notePreview ? ` · ${photo.notePreview}` : ''}
+                                </p>
                                 <Button
                                   variant="secondary"
                                   size="sm"
-                                  disabled={insightReviewingId !== null}
+                                  disabled={openingPhotoId === photo.id}
                                   onClick={() => {
-                                    void handleReviewPatientInsight(insight.id, 'rejected');
+                                    void handleOpenPhoto(photo.id);
                                   }}
                                 >
-                                  {insightReviewingId === `${insight.id}:rejected` ? 'Rejecting…' : 'Reject'}
+                                  {openingPhotoId === photo.id ? 'Opening…' : 'View'}
                                 </Button>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
-                    </div>
-
-                    <div className="stack stack--2">
-                      <strong>Approved</strong>
-                      {patientApprovedInsights.length === 0 ? (
-                        <p className="muted-text">No approved insights yet.</p>
-                      ) : (
-                        <div className="stack stack--2">
-                          {patientApprovedInsights.map((insight) => (
-                            <div key={insight.id} className="patient-insight-item">
-                              <div className="patient-insight-item__meta">
-                                <Badge variant={insightConfidenceVariant(insight.confidence)}>
-                                  {insight.confidence}
-                                </Badge>
-                                <span className="muted-text">
-                                  {insightCategoryLabel(insight.category)} · Priority {insight.priority}
-                                </span>
-                              </div>
-                              <strong>{insight.title}</strong>
-                              <p className="muted-text patient-insight-item__message">{insight.message}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    </Card>
                   </div>
                 )}
-              </Card>
-            </div>
-          </section>
-        </div>
+              </section>
 
-        <aside className="patient-detail-cockpit-layout__support" aria-label="Patient support context">
-          {isPrioritySupportResponsive
-            ? null
-            : renderPatientSummarySection(
-                'patient-detail-support-section patient-detail-support-section--snapshot',
-              )}
-
-          {isPrioritySupportResponsive ? null : renderRecentAlertsPanel()}
-
-          <PatientHandoffPanel
-            patientId={patientId}
-            onOpenNextAction={(action) => handleOperationalAction(action)}
-          />
-        </aside>
-      </div>
-
-      <section
-        id="patient-reference-section"
-        className="patient-detail-reference-zone"
-        aria-label="Lower patient reference"
-        data-testid="patient-detail-reference-bridge"
-      >
-        <div className="patient-detail-reference-zone__header">
-          <div className="patient-detail-reference-zone__copy">
-            <p className="patient-detail-reference-bridge__eyebrow">Reference</p>
-            <strong className="patient-detail-reference-bridge__title">History and care reference</strong>
-            <p className="patient-detail-reference-bridge__text">Slower history, rehab context, and supporting records stay available without taking over the live review.</p>
-          </div>
-          <div className="patient-detail-reference-bridge__facts">
-            <div className="patient-detail-reference-bridge__fact">
-              <span>Symptom detail</span>
-              <strong>{hasSymptomReference ? 'Available this week' : 'No recent entries'}</strong>
-            </div>
-            <div className="patient-detail-reference-bridge__fact">
-              <span>Support signals</span>
-              <strong>{hasSupportSignals ? 'Tracked this week' : 'No support logs'}</strong>
-            </div>
-            <div className="patient-detail-reference-bridge__fact">
-              <span>Care review</span>
-              <strong>
-                {hasCareReviewItems
-                  ? `${patientPromDue.length} due · ${patientPendingInsights.length} pending`
-                  : 'No open review items'}
-              </strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="patient-detail-reference-zone__layout">
-          <section
-            id="patient-trends-section"
-            className="patient-detail-reference-zone__panel patient-detail-reference-zone__panel--trends"
-          >
-            <div className="patient-detail-section-header">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Trend history</p>
-                <h2 className="patient-detail-section-title">Clinical trajectory</h2>
-              </div>
-              <p className="patient-detail-section-note">Open day detail only when the active review needs deeper context.</p>
-            </div>
-            {showTrendsLoading ? (
-              <Card title="Trend charts">
-                <div className="patient-detail-skeleton-grid" aria-label="Trend charts loading placeholder">
-                  <Skeleton height={260} />
-                  <Skeleton height={260} />
-                  <Skeleton height={260} />
-                </div>
-              </Card>
-            ) : hasTrendData ? (
-              <TrendCharts
-                points={normalizedTrends}
-                onSelectDate={handleDaySelect}
-                expandedMetric={expandedTrendMetric}
-                onExpandMetric={setExpandedTrendMetric}
-                onCollapseMetric={() => setExpandedTrendMetric(null)}
-              />
-            ) : (
-              <Card title="Trend charts">
-                <EmptyState
-                  title="No check-ins yet for this patient"
-                  description="Trend charts appear once check-ins are available in the selected window."
-                  action={
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        void trendsQuery.refetch();
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  }
-                />
-              </Card>
-            )}
-          </section>
-
-          <section className="patient-detail-reference-zone__panel patient-detail-reference-zone__panel--care">
-            <Card
-              className="patient-detail-panel patient-detail-panel--operations-primary"
-              title="Rehab phase"
-              action={
-                <div className="patient-detail-actions">
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      void patientRehabQuery.refetch();
-                    }}
-                  >
-                    Refresh
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    disabled={!selectedRehabKey || isSavingRehab}
-                    onClick={() => {
-                      void handleRehabSave();
-                    }}
-                  >
-                    {isSavingRehab ? 'Saving...' : 'Save'}
-                  </Button>
-                </div>
-              }
-            >
-              {patientRehabQuery.isLoading && !patientRehab ? (
-                <div className="patient-detail-skeleton-grid" aria-label="Rehab phases loading placeholder">
-                  <Skeleton height={44} />
-                  <Skeleton height={80} />
-                </div>
-              ) : !patientRehab || patientRehab.phases.length === 0 ? (
-                <EmptyState
-                  title="No rehab phases configured"
-                  description="Initialize rehab phases by refreshing this panel."
-                  action={
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        void patientRehabQuery.refetch();
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  }
-                />
-              ) : (
-                <div className="stack stack--3">
-                  <p className="muted-text">
-                    Current phase:{' '}
-                    <strong>
-                      {patientRehab.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ?? 'Not set'}
-                    </strong>
-                  </p>
-                  <label className="form-field" htmlFor="rehab-current-select">
-                    <span>Current phase</span>
-                    <select
-                      id="rehab-current-select"
-                      value={selectedRehabKey}
-                      onChange={(event) => {
-                        setSelectedRehabKey(event.currentTarget.value);
-                      }}
-                    >
-                      {patientRehab.phases.map((phase) => (
-                        <option key={phase.key} value={phase.key}>
-                          {phase.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="stack stack--2">
-                    {patientRehab.phases
-                      .slice()
-                      .sort((left, right) => left.order - right.order)
-                      .map((phase) => (
-                        <div key={phase.key}>
-                          <strong>
-                            {rehabStatusIcon(phase.status)} {phase.title}
-                          </strong>
-                          <p className="muted-text">
-                            {phase.status === 'done'
-                              ? 'Done'
-                              : phase.status === 'current'
-                                ? 'Current'
-                                : 'Locked'}
-                            {phase.completedAt ? ` · Completed ${new Date(phase.completedAt).toLocaleDateString()}` : ''}
-                          </p>
-                          {phase.description ? <p className="muted-text">{phase.description}</p> : null}
-                        </div>
-                      ))}
+              <section
+                className={`patient-detail-section-block patient-detail-section-block--habits patient-detail-section-block--reference ${
+                  isSupportSignalsOpen ? 'patient-detail-section-block--expanded' : 'patient-detail-section-block--collapsed'
+                }`}
+                data-testid="patient-detail-reference-support"
+              >
+                <div className="patient-detail-section-header patient-detail-section-header--reference">
+                  <div className="patient-detail-section-heading">
+                    <p className="patient-detail-section-eyebrow">Support trends</p>
+                    <h2 className="patient-detail-section-title">Daily support signals</h2>
+                  </div>
+                  <div className="patient-detail-section-header__aside">
+                    <p className="patient-detail-section-note">
+                      Hydration, nutrition, wearables, and medication patterns provide slower recovery context.
+                    </p>
+                    <div className="patient-detail-disclosure__controls">
+                      <span className="patient-detail-disclosure__state">
+                        {isSupportSignalsOpen ? 'Reference open' : 'Reference collapsed'}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-expanded={isSupportSignalsOpen}
+                        onClick={() => {
+                          setIsSupportSignalsOpen((current) => !current);
+                        }}
+                      >
+                        {isSupportSignalsOpen ? 'Hide support signals' : 'Show support signals'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              )}
-            </Card>
-
-            <Card className="patient-detail-panel patient-detail-panel--operations-secondary" title="Weekly report">
-              <div className="stack stack--2">
-                <p className="muted-text">
-                  View a deterministic weekly summary with check-ins, exercise sessions, PROMs, safety highlights, and
-                  next steps.
-                </p>
-                <div className="patient-detail-actions">
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(thisWeekStart)}`);
-                    }}
-                  >
-                    View this week
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      navigate(`/patients/${patientId}/weekly-report?weekStart=${encodeURIComponent(lastWeekStart)}`);
-                    }}
-                  >
-                    View last week
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            <Card
-              className="patient-detail-panel patient-detail-panel--operations-secondary"
-              title="Exercise sessions"
-              action={
-                <div className="patient-detail-actions">
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      void patientSessionsQuery.refetch();
-                    }}
-                  >
-                    Refresh
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      navigate(`/patients/${patientId}/sessions`);
-                    }}
-                  >
-                    View all
-                  </Button>
-                </div>
-              }
-            >
-              {patientSessionsQuery.isLoading && patientSessions.length === 0 ? (
-                <div className="patient-detail-skeleton-grid" aria-label="Session list loading placeholder">
-                  <Skeleton height={54} />
-                  <Skeleton height={54} />
-                </div>
-              ) : patientSessions.length === 0 ? (
-                <EmptyState
-                  title="No sessions yet"
-                  description="Once the patient runs a session in mobile, it will appear here."
-                />
-              ) : (
-                <div className="patient-sessions-list">
-                  {patientSessions.map((session) => (
-                    <button
-                      key={session.id}
-                      type="button"
-                      className="unstyled-button patient-sessions-item"
-                      onClick={() => navigate(`/patients/${patientId}/sessions/${session.id}`)}
-                    >
-                      <div>
-                        <strong>{new Date(session.startedAt).toLocaleString()}</strong>
-                        <p className="muted-text">
-                          {session.planTitle ?? 'Exercise session'} · {formatDuration(session.durationSeconds)}
-                        </p>
-                      </div>
-                      <div className="patient-sessions-metrics">
-                        <span>
-                          {session.completedCount}/{session.exerciseCount} complete
-                        </span>
-                        <span>
-                          Avg pain: {typeof session.avgPainDuring === 'number' ? `${session.avgPainDuring}/5` : '—'}
-                        </span>
-                      </div>
-                    </button>
+                <div className="patient-detail-disclosure__summary" aria-label="Daily support signal summary">
+                  {supportSignalFacts.map((item) => (
+                    <div key={item.label} className="patient-detail-disclosure__fact">
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
                   ))}
                 </div>
-              )}
-            </Card>
-          </section>
-        </div>
-      </section>
-
-      <section
-        className={`patient-detail-section-block patient-detail-section-block--signals patient-detail-section-block--reference ${
-          isSymptomSignalsOpen ? 'patient-detail-section-block--expanded' : 'patient-detail-section-block--collapsed'
-        }`}
-        data-testid="patient-detail-reference-signals"
-      >
-        <div className="patient-detail-section-header patient-detail-section-header--reference">
-          <div className="patient-detail-section-heading">
-            <p className="patient-detail-section-eyebrow">Reference detail</p>
-            <h2 className="patient-detail-section-title">Recent symptom signals</h2>
-          </div>
-          <div className="patient-detail-section-header__aside">
-            <p className="patient-detail-section-note">
-              Open sleep, body-map, and photo history only when day-level context is needed.
-            </p>
-            <div className="patient-detail-disclosure__controls">
-              <span className="patient-detail-disclosure__state">
-                {isSymptomSignalsOpen ? 'Reference open' : 'Reference collapsed'}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-expanded={isSymptomSignalsOpen}
-                onClick={() => {
-                  setIsSymptomSignalsOpen((current) => !current);
-                }}
-              >
-                {isSymptomSignalsOpen ? 'Hide symptom detail' : 'Show symptom detail'}
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="patient-detail-disclosure__summary" aria-label="Recent symptom signal summary">
-          {symptomReferenceFacts.map((item) => (
-            <div key={item.label} className="patient-detail-disclosure__fact">
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </div>
-        {!isSymptomSignalsOpen ? (
-          <p className="patient-detail-disclosure__hint">
-            {hasSymptomReference
-              ? 'Open this section when symptom history is needed to support the active clinical review.'
-              : 'No recent symptom history is available in the current window.'}
-          </p>
-        ) : (
-          <div className="patient-detail-section-grid patient-detail-section-grid--signals">
-          <Card
-        className="patient-detail-panel patient-detail-panel--signal"
-        title="Sleep (recent)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void patientRecentCheckinsQuery.refetch();
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {patientRecentCheckinsQuery.isLoading && recentSleepRows.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Sleep loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={68} />
-          </div>
-        ) : recentSleepRows.length === 0 ? (
-          <p className="muted-text">No recent sleep entries in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Tracked check-ins: <strong>{recentSleepSummary.trackedCount}</strong>
-            </p>
-            <p className="muted-text">
-              Avg hours: <strong>{recentSleepSummary.avgHours ?? '—'}</strong> · Avg quality:{' '}
-              <strong>{recentSleepSummary.avgQuality ?? '—'}</strong>
-            </p>
-            <div className="stack stack--1">
-              {recentSleepRows.slice(0, 7).map((row) => (
-                <p key={row.date} className="muted-text">
-                  {row.date}: {row.hours !== null ? `${row.hours}h` : '—'} · quality{' '}
-                  {row.quality !== null ? row.quality : '—'}
-                  {row.disturbances !== null ? ` · disturbances ${row.disturbances}` : ''}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-          </Card>
-
-          <Card
-        className="patient-detail-panel patient-detail-panel--signal"
-        title="Body map (recent)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void patientRecentCheckinsQuery.refetch();
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {patientRecentCheckinsQuery.isLoading && recentBodyMapRows.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Body map loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={68} />
-          </div>
-        ) : recentBodyMapRows.length === 0 ? (
-          <p className="muted-text">No body map pain localization in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Top areas:{' '}
-              <strong>
-                {recentBodyMapSummary.length > 0
-                  ? recentBodyMapSummary
-                      .map((item) => `${item.label} (${item.count})`)
-                      .join(', ')
-                  : '—'}
-              </strong>
-            </p>
-            <div className="stack stack--1">
-              {recentBodyMapRows.slice(0, 5).map((row) => (
-                <p key={`${row.date}-bodymap`} className="muted-text">
-                  {row.date}:{' '}
-                  {row.regions
-                    .map((entry) => `${bodyMapRegionLabel(entry.region)} (${entry.intensity})`)
-                    .join(', ')}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-          </Card>
-
-          <Card
-        className="patient-detail-panel patient-detail-panel--signal"
-        title="Symptom photos (recent)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void patientPhotosQuery.refetch();
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {patientPhotosQuery.isLoading && recentPhotos.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Symptom photos loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={88} />
-          </div>
-        ) : recentPhotos.length === 0 ? (
-          <p className="muted-text">No symptom photos in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Uploaded: <strong>{recentPhotoSummary.total}</strong> · swelling{' '}
-              <strong>{recentPhotoSummary.swelling}</strong> · wound{' '}
-              <strong>{recentPhotoSummary.wound}</strong> · rash{' '}
-              <strong>{recentPhotoSummary.rash}</strong> · other{' '}
-              <strong>{recentPhotoSummary.other}</strong>
-            </p>
-            <div className="stack stack--1">
-              {recentPhotos.slice(0, 5).map((photo) => (
-                <div key={photo.id} className="patient-detail-photo-row">
-                  <p className="muted-text patient-detail-photo-row__text">
-                    {photo.date}: {photo.kind}
-                    {photo.notePreview ? ` · ${photo.notePreview}` : ''}
+                {!isSupportSignalsOpen ? (
+                  <p className="patient-detail-disclosure__hint">
+                    {hasSupportSignals
+                      ? 'Open this section when support-tracking history is needed to confirm adherence or recovery context.'
+                      : 'No support-tracking history is available in the current window.'}
                   </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={openingPhotoId === photo.id}
-                    onClick={() => {
-                      void handleOpenPhoto(photo.id);
-                    }}
-                  >
-                    {openingPhotoId === photo.id ? 'Opening…' : 'View'}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-          </Card>
-        </div>
-        )}
-      </section>
+                ) : (
+                  <div className="patient-detail-section-grid patient-detail-section-grid--habits">
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--habit"
+                      title="Hydration (last 7 days)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientHydrationQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientHydrationQuery.isLoading && recentHydrationDays.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Hydration loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={68} />
+                        </div>
+                      ) : recentHydrationDays.length === 0 ? (
+                        <p className="muted-text">No hydration entries in the last 7 days.</p>
+                      ) : (
+                        <div className="stack stack--2">
+                          <p className="muted-text">
+                            Avg daily intake: <strong>{recentHydrationSummary.avgDailyMl ?? '—'}</strong> ml
+                          </p>
+                          <p className="muted-text">
+                            Goal days (≥2000 ml): <strong>{recentHydrationSummary.daysMeetingTarget}</strong>/
+                            {recentHydrationDays.length}
+                          </p>
+                          <div className="stack stack--1">
+                            {recentHydrationDays.slice(0, 7).map((day) => (
+                              <p key={day.date} className="muted-text">
+                                {day.date}: {day.totalMl} ml {day.metTarget ? '✓' : ''}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
 
-      <section
-        className={`patient-detail-section-block patient-detail-section-block--habits patient-detail-section-block--reference ${
-          isSupportSignalsOpen ? 'patient-detail-section-block--expanded' : 'patient-detail-section-block--collapsed'
-        }`}
-        data-testid="patient-detail-reference-support"
-      >
-        <div className="patient-detail-section-header patient-detail-section-header--reference">
-          <div className="patient-detail-section-heading">
-            <p className="patient-detail-section-eyebrow">Support trends</p>
-            <h2 className="patient-detail-section-title">Daily support signals</h2>
-          </div>
-          <div className="patient-detail-section-header__aside">
-            <p className="patient-detail-section-note">
-              Hydration, nutrition, wearables, and medication patterns provide slower recovery context.
-            </p>
-            <div className="patient-detail-disclosure__controls">
-              <span className="patient-detail-disclosure__state">
-                {isSupportSignalsOpen ? 'Reference open' : 'Reference collapsed'}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                aria-expanded={isSupportSignalsOpen}
-                onClick={() => {
-                  setIsSupportSignalsOpen((current) => !current);
-                }}
-              >
-                {isSupportSignalsOpen ? 'Hide support signals' : 'Show support signals'}
-              </Button>
-            </div>
-          </div>
-        </div>
-        <div className="patient-detail-disclosure__summary" aria-label="Daily support signal summary">
-          {supportSignalFacts.map((item) => (
-            <div key={item.label} className="patient-detail-disclosure__fact">
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </div>
-        {!isSupportSignalsOpen ? (
-          <p className="patient-detail-disclosure__hint">
-            {hasSupportSignals
-              ? 'Open this section when support-tracking history is needed to confirm adherence or recovery context.'
-              : 'No support-tracking history is available in the current window.'}
-          </p>
-        ) : (
-          <div className="patient-detail-section-grid patient-detail-section-grid--habits">
-          <Card
-        className="patient-detail-panel patient-detail-panel--habit"
-        title="Hydration (last 7 days)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void patientHydrationQuery.refetch();
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {patientHydrationQuery.isLoading && recentHydrationDays.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Hydration loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={68} />
-          </div>
-        ) : recentHydrationDays.length === 0 ? (
-          <p className="muted-text">No hydration entries in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Avg daily intake: <strong>{recentHydrationSummary.avgDailyMl ?? '—'}</strong> ml
-            </p>
-            <p className="muted-text">
-              Goal days (≥2000 ml): <strong>{recentHydrationSummary.daysMeetingTarget}</strong>/
-              {recentHydrationDays.length}
-            </p>
-            <div className="stack stack--1">
-              {recentHydrationDays.slice(0, 7).map((day) => (
-                <p key={day.date} className="muted-text">
-                  {day.date}: {day.totalMl} ml {day.metTarget ? '✓' : ''}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-          </Card>
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--habit"
+                      title="Nutrition (last 7 days)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientNutritionQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientNutritionQuery.isLoading && recentNutritionDays.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Nutrition loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={88} />
+                        </div>
+                      ) : recentNutritionDays.length === 0 ? (
+                        <p className="muted-text">No nutrition logs in the last 7 days.</p>
+                      ) : (
+                        <div className="stack stack--2">
+                          <p className="muted-text">
+                            Tracked days: <strong>{recentNutritionSummary.trackedDays}</strong> · Avg fruit/veg:{' '}
+                            <strong>{recentNutritionSummary.avgFruitVeg ?? '—'}</strong>
+                          </p>
+                          <p className="muted-text">
+                            Protein OK/high days: <strong>{recentNutritionSummary.proteinOkHighDays}</strong>/
+                            {recentNutritionSummary.trackedDays}
+                          </p>
+                          <div className="stack stack--1">
+                            {recentNutritionDays.slice(0, 7).map((day) => (
+                              <p key={day.date} className="muted-text">
+                                {day.date}:{' '}
+                                {day.entry
+                                  ? `${day.entry.protein} protein · fruit/veg ${day.entry.fruitVegServings} · anti-inflammatory ${
+                                      day.entry.antiInflammatoryFocus ? 'yes' : 'no'
+                                    } · meals ${day.entry.mealRegularity}`
+                                  : 'No entry'}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
 
-          <Card
-        className="patient-detail-panel patient-detail-panel--habit"
-        title="Nutrition (last 7 days)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void patientNutritionQuery.refetch();
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {patientNutritionQuery.isLoading && recentNutritionDays.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Nutrition loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={88} />
-          </div>
-        ) : recentNutritionDays.length === 0 ? (
-          <p className="muted-text">No nutrition logs in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Tracked days: <strong>{recentNutritionSummary.trackedDays}</strong> · Avg fruit/veg:{' '}
-              <strong>{recentNutritionSummary.avgFruitVeg ?? '—'}</strong>
-            </p>
-            <p className="muted-text">
-              Protein OK/high days: <strong>{recentNutritionSummary.proteinOkHighDays}</strong>/
-              {recentNutritionSummary.trackedDays}
-            </p>
-            <div className="stack stack--1">
-              {recentNutritionDays.slice(0, 7).map((day) => (
-                <p key={day.date} className="muted-text">
-                  {day.date}:{' '}
-                  {day.entry
-                    ? `${day.entry.protein} protein · fruit/veg ${day.entry.fruitVegServings} · anti-inflammatory ${
-                        day.entry.antiInflammatoryFocus ? 'yes' : 'no'
-                      } · meals ${day.entry.mealRegularity}`
-                    : 'No entry'}
-                </p>
-              ))}
-            </div>
-          </div>
-        )}
-          </Card>
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--habit"
+                      title="Wearables (last 7 days)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void Promise.all([
+                              patientWearablesSummaryQuery.refetch(),
+                              patientWearablesDailyQuery.refetch(),
+                            ]);
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientWearablesSummaryQuery.isLoading &&
+                      patientWearablesDailyQuery.isLoading &&
+                      recentWearablesDays.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Wearables loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={88} />
+                        </div>
+                      ) : recentWearablesSummary.trackedDays === 0 ? (
+                        <p className="muted-text">No wearable data in the last 7 days.</p>
+                      ) : (
+                        <div className="stack stack--2">
+                          <p className="muted-text">
+                            Tracked days: <strong>{recentWearablesSummary.trackedDays}</strong> · Source:{' '}
+                            <strong>{recentWearablesSummary.source}</strong>
+                          </p>
+                          <p className="muted-text">
+                            Avg steps: <strong>{recentWearablesSummary.avgSteps ?? '—'}</strong> · Avg active minutes:{' '}
+                            <strong>{recentWearablesSummary.avgActiveMinutes ?? '—'}</strong> · Avg resting HR:{' '}
+                            <strong>{recentWearablesSummary.avgRestingHr ?? '—'}</strong>
+                          </p>
+                          {recentWearablesDays.length > 0 ? (
+                            <div className="stack stack--1">
+                              {recentWearablesDays.slice(0, 7).map((day) => (
+                                <p key={day.date} className="muted-text">
+                                  {day.date}: {day.steps ?? '—'} steps · {day.activeMinutes ?? '—'} min
+                                  {day.restingHr !== null ? ` · HR ${day.restingHr}` : ''}
+                                </p>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </Card>
 
-          <Card
-        className="patient-detail-panel patient-detail-panel--habit"
-        title="Wearables (last 7 days)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void Promise.all([
-                patientWearablesSummaryQuery.refetch(),
-                patientWearablesDailyQuery.refetch(),
-              ]);
-            }}
-          >
-            Refresh
-          </Button>
-        }
-      >
-        {patientWearablesSummaryQuery.isLoading &&
-        patientWearablesDailyQuery.isLoading &&
-        recentWearablesDays.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Wearables loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={88} />
-          </div>
-        ) : recentWearablesSummary.trackedDays === 0 ? (
-          <p className="muted-text">No wearable data in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Tracked days: <strong>{recentWearablesSummary.trackedDays}</strong> · Source:{' '}
-              <strong>{recentWearablesSummary.source}</strong>
-            </p>
-            <p className="muted-text">
-              Avg steps: <strong>{recentWearablesSummary.avgSteps ?? '—'}</strong> · Avg active minutes:{' '}
-              <strong>{recentWearablesSummary.avgActiveMinutes ?? '—'}</strong> · Avg resting HR:{' '}
-              <strong>{recentWearablesSummary.avgRestingHr ?? '—'}</strong>
-            </p>
-            {recentWearablesDays.length > 0 ? (
-              <div className="stack stack--1">
-                {recentWearablesDays.slice(0, 7).map((day) => (
-                  <p key={day.date} className="muted-text">
-                    {day.date}: {day.steps ?? '—'} steps · {day.activeMinutes ?? '—'} min
-                    {day.restingHr !== null ? ` · HR ${day.restingHr}` : ''}
-                  </p>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        )}
-          </Card>
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--habit"
+                      title="Medication adherence (last 7 days)"
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            void patientMedicationAdherenceQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                      }
+                    >
+                      {patientMedicationAdherenceQuery.isLoading && recentMedicationDays.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Medication adherence loading placeholder">
+                          <Skeleton height={44} />
+                          <Skeleton height={88} />
+                        </div>
+                      ) : recentMedicationDays.length === 0 ? (
+                        <p className="muted-text">No medication adherence data in the last 7 days.</p>
+                      ) : (
+                        <div className="stack stack--2">
+                          <p className="muted-text">
+                            Scheduled doses: <strong>{recentMedicationSummary.scheduled}</strong> · Taken:{' '}
+                            <strong>{recentMedicationSummary.taken}</strong> · Skipped:{' '}
+                            <strong>{recentMedicationSummary.skipped}</strong>
+                          </p>
+                          <p className="muted-text">
+                            Adherence:{' '}
+                            <strong>
+                              {recentMedicationSummary.adherencePct === null
+                                ? '—'
+                                : `${recentMedicationSummary.adherencePct}%`}
+                            </strong>
+                          </p>
+                          <div className="stack stack--1">
+                            {recentMedicationDays.slice(0, 7).map((day) => (
+                              <p key={day.date} className="muted-text">
+                                {day.date}: {day.taken}/{day.totalScheduled} taken{day.skipped > 0 ? ` · skipped ${day.skipped}` : ''}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                )}
+              </section>
+            </section>
+          ) : null}
+        </section>
 
-          <Card
-        className="patient-detail-panel patient-detail-panel--habit"
-        title="Medication adherence (last 7 days)"
-        action={
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void patientMedicationAdherenceQuery.refetch();
-            }}
+        {isPrioritySupportResponsive ? null : (
+          <aside
+            id="patient-detail-priority-context"
+            className="patient-detail-priority-context patient-detail-priority-context--rail"
+            aria-label="Patient support context"
+            data-testid="patient-detail-priority-support"
           >
-            Refresh
-          </Button>
-        }
-      >
-        {patientMedicationAdherenceQuery.isLoading && recentMedicationDays.length === 0 ? (
-          <div className="patient-detail-skeleton-grid" aria-label="Medication adherence loading placeholder">
-            <Skeleton height={44} />
-            <Skeleton height={88} />
-          </div>
-        ) : recentMedicationDays.length === 0 ? (
-          <p className="muted-text">No medication adherence data in the last 7 days.</p>
-        ) : (
-          <div className="stack stack--2">
-            <p className="muted-text">
-              Scheduled doses: <strong>{recentMedicationSummary.scheduled}</strong> · Taken:{' '}
-              <strong>{recentMedicationSummary.taken}</strong> · Skipped:{' '}
-              <strong>{recentMedicationSummary.skipped}</strong>
-            </p>
-            <p className="muted-text">
-              Adherence:{' '}
-              <strong>
-                {recentMedicationSummary.adherencePct === null
-                  ? '—'
-                  : `${recentMedicationSummary.adherencePct}%`}
-              </strong>
-            </p>
-            <div className="stack stack--1">
-              {recentMedicationDays.slice(0, 7).map((day) => (
-                <p key={day.date} className="muted-text">
-                  {day.date}: {day.taken}/{day.totalScheduled} taken{day.skipped > 0 ? ` · skipped ${day.skipped}` : ''}
-                </p>
-              ))}
-            </div>
-          </div>
+            {renderPriorityContextBody()}
+          </aside>
         )}
-          </Card>
-        </div>
-        )}
-      </section>
+      </div>
 
       <ExportCsvModal
         open={patientExportOpen}

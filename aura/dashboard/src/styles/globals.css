@@ -41390,6 +41390,455 @@ a {
   justify-content: flex-start;
 }
 
+.patient-detail-page .patient-detail-cockpit-header,
+.patient-detail-page .patient-detail-priority-context,
+.patient-detail-page .patient-detail-workspace {
+  border: 1px solid hsl(var(--border) / 0.34);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.996), hsl(var(--muted) / 0.04)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.015), transparent 88%);
+  box-shadow: none;
+}
+
+.patient-detail-page .patient-detail-cockpit-header {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.05rem;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__utility-row,
+.patient-detail-page .patient-detail-cockpit-header__return,
+.patient-detail-page .patient-detail-cockpit-header__meta,
+.patient-detail-page .patient-detail-workspace__tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__utility-row {
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.24);
+}
+
+.patient-detail-page .patient-detail-cockpit-header__identity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__identity,
+.patient-detail-page .patient-detail-cockpit-header__actions,
+.patient-detail-page .patient-detail-workspace,
+.patient-detail-page .patient-detail-workspace__panel,
+.patient-detail-page .patient-detail-priority-context,
+.patient-detail-page .patient-detail-context-section,
+.patient-detail-page .patient-detail-context-section__copy,
+.patient-detail-page .patient-detail-digest-list,
+.patient-detail-page .patient-detail-focus-card {
+  display: grid;
+  gap: 0.52rem;
+  min-width: 0;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__eyebrow,
+.patient-detail-page .patient-detail-workspace__eyebrow,
+.patient-detail-page .patient-detail-context-section__eyebrow,
+.patient-detail-page .patient-detail-focus-card__eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.72rem;
+  flex-wrap: wrap;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__name {
+  margin: 0;
+  font-size: clamp(1.65rem, 2.7vw, 2.2rem);
+  line-height: 0.98;
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-page .patient-detail-cockpit-header__meta {
+  gap: 0.28rem 0.56rem;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__meta-item {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__actions {
+  justify-items: end;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.62rem 0.72rem;
+  border: 1px solid hsl(var(--border) / 0.22);
+  border-radius: 16px;
+  background: hsl(var(--background) / 0.62);
+  position: relative;
+  overflow: hidden;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: hsl(var(--border) / 0.48);
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact--critical::before {
+  background: hsl(var(--danger));
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact--warning::before {
+  background: hsl(var(--warning));
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact--active::before {
+  background: hsl(var(--primary));
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact--stable::before {
+  background: hsl(var(--success));
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact-label,
+.patient-detail-page .patient-summary-row__label,
+.patient-detail-page .patient-detail-digest-item__label {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact-value,
+.patient-detail-page .patient-summary-row__value,
+.patient-detail-page .patient-detail-digest-item__value {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-page .patient-detail-cockpit-header__fact-note,
+.patient-detail-page .patient-summary-row__caption,
+.patient-detail-page .patient-detail-digest-item__text,
+.patient-detail-page .patient-detail-context-section__note,
+.patient-detail-page .patient-detail-focus-card__text,
+.patient-detail-page .patient-detail-focus-card__hint {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.78rem;
+  line-height: 1.48;
+}
+
+.patient-detail-page .patient-detail-cockpit-layout {
+  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.78fr);
+  gap: 0.82rem;
+  align-items: start;
+}
+
+.patient-detail-page .patient-detail-priority-context {
+  gap: 0.74rem;
+  padding: 0.94rem 1rem;
+}
+
+.patient-detail-page .patient-detail-priority-context--stacked {
+  margin-top: -0.1rem;
+}
+
+.patient-detail-page .patient-detail-context-section {
+  gap: 0.64rem;
+}
+
+.patient-detail-page .patient-detail-context-section__header,
+.patient-detail-page .patient-detail-workspace__nav,
+.patient-detail-page .patient-detail-workspace__panel-header {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.patient-detail-page .patient-detail-context-section__title,
+.patient-detail-page .patient-detail-workspace__title {
+  margin: 0;
+  font-size: clamp(1.05rem, 1.6vw, 1.22rem);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-page .patient-summary-snapshot__rows {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+}
+
+.patient-detail-page .patient-summary-row {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.58rem 0.68rem;
+  border: 1px solid hsl(var(--border) / 0.24);
+  border-radius: 14px;
+  background: hsl(var(--background) / 0.58);
+}
+
+.patient-detail-page .patient-summary-row--danger {
+  border-color: hsl(var(--danger) / 0.26);
+}
+
+.patient-detail-page .patient-summary-row--warning {
+  border-color: hsl(var(--warning) / 0.28);
+}
+
+.patient-detail-page .patient-summary-row--success {
+  border-color: hsl(var(--success) / 0.26);
+}
+
+.patient-detail-page .patient-detail-focus-card {
+  padding: 0.78rem 0.86rem;
+  border: 1px solid hsl(var(--border) / 0.24);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.03)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.015), transparent 90%);
+}
+
+.patient-detail-page .patient-detail-focus-card__title {
+  margin: 0;
+  font-size: 1.16rem;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+}
+
+.patient-detail-page .patient-detail-workspace {
+  padding: 1rem 1.05rem;
+  gap: 1rem;
+}
+
+.patient-detail-page .patient-detail-workspace__nav {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.8rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.24);
+}
+
+.patient-detail-page .patient-detail-workspace__tab {
+  min-height: 2.2rem;
+  padding: 0 0.88rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.32);
+  background: hsl(var(--background) / 0.64);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.84rem;
+  font-weight: var(--font-medium);
+  cursor: pointer;
+}
+
+.patient-detail-page .patient-detail-workspace__tab--active {
+  border-color: hsl(var(--primary) / 0.36);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.06)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 90%);
+  color: hsl(var(--foreground));
+}
+
+.patient-detail-page .patient-detail-workspace__panel {
+  gap: 0.88rem;
+}
+
+.patient-detail-page .patient-detail-workspace__panel-header {
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.72fr);
+  align-items: end;
+  gap: 0.8rem;
+}
+
+.patient-detail-page .patient-detail-workspace__lead {
+  min-width: 0;
+}
+
+.patient-detail-page .patient-detail-overview-grid,
+.patient-detail-page .patient-detail-tab-grid--guidance,
+.patient-detail-page .patient-detail-tab-grid--history-support {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.82rem;
+}
+
+.patient-detail-page .patient-detail-tab-grid--communications {
+  display: grid;
+  grid-template-columns: minmax(0, 1.24fr) minmax(0, 0.9fr);
+  gap: 0.82rem;
+  align-items: start;
+}
+
+.patient-detail-page .patient-detail-tab-grid__primary,
+.patient-detail-page .patient-detail-tab-grid__secondary,
+.patient-detail-page .patient-detail-tab-grid__full {
+  min-width: 0;
+}
+
+.patient-detail-page .patient-detail-tab-grid__full {
+  grid-column: 1 / -1;
+}
+
+.patient-detail-page .patient-detail-panel--overview {
+  border-color: hsl(var(--border) / 0.2);
+  background: hsl(var(--background) / 0.52);
+}
+
+.patient-detail-page .patient-detail-panel--overview .card__header,
+.patient-detail-page .patient-detail-panel--overview .card__body {
+  padding-inline: 0.86rem;
+}
+
+.patient-detail-page .patient-detail-panel--overview .card__header {
+  padding-top: 0.82rem;
+  padding-bottom: 0.5rem;
+}
+
+.patient-detail-page .patient-detail-panel--overview .card__body {
+  padding-top: 0.2rem;
+  padding-bottom: 0.82rem;
+}
+
+.patient-detail-page .patient-detail-digest-list {
+  gap: 0.54rem;
+}
+
+.patient-detail-page .patient-detail-digest-item {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.6rem 0.68rem;
+  border: 1px solid hsl(var(--border) / 0.2);
+  border-radius: 16px;
+  background: hsl(var(--background) / 0.6);
+}
+
+.patient-detail-page .patient-detail-digest-item__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.patient-detail-page .patient-detail-history-panel {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.patient-detail-page .patient-detail-priority-context .patient-detail-panel,
+.patient-detail-page .patient-detail-priority-context .patient-handoff-panel,
+.patient-detail-page .patient-detail-workspace .patient-detail-panel,
+.patient-detail-page .patient-detail-workspace .patient-handoff-panel {
+  border-color: hsl(var(--border) / 0.22);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.994), hsl(var(--muted) / 0.02)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.01), transparent 92%);
+  box-shadow: none;
+}
+
+.patient-detail-page .patient-detail-priority-context--rail {
+  align-self: start;
+}
+
+@media (min-width: 1321px) {
+  .patient-detail-page .patient-detail-priority-context--rail {
+    position: sticky;
+    top: calc(var(--shell-frame-padding) + 1rem);
+  }
+}
+
+@media (max-width: 1320px) {
+  .patient-detail-page .patient-detail-cockpit-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1180px) {
+  .patient-detail-page .patient-detail-cockpit-header__identity-row,
+  .patient-detail-page .patient-detail-workspace__nav,
+  .patient-detail-page .patient-detail-workspace__panel-header,
+  .patient-detail-page .patient-detail-overview-grid,
+  .patient-detail-page .patient-detail-tab-grid--communications,
+  .patient-detail-page .patient-detail-tab-grid--guidance,
+  .patient-detail-page .patient-detail-tab-grid--history-support {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-cockpit-header__actions {
+    justify-items: start;
+  }
+
+  .patient-detail-page .patient-detail-cockpit-header__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .patient-detail-page .patient-detail-cockpit-header__utility-row {
+    align-items: flex-start;
+  }
+
+  .patient-detail-page .patient-detail-cockpit-header__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-actions {
+    justify-content: flex-start;
+  }
+}
+
+.dark .patient-detail-cockpit-header,
+.dark .patient-detail-priority-context,
+.dark .patient-detail-workspace {
+  border-color: hsl(var(--border) / 0.44);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.88), hsl(var(--card) / 0.8)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 88%);
+}
+
+.dark .patient-detail-cockpit-header__fact,
+.dark .patient-detail-focus-card,
+.dark .patient-summary-row,
+.dark .patient-detail-digest-item,
+.dark .patient-detail-workspace__tab {
+  border-color: hsl(var(--border) / 0.38);
+  background: hsl(var(--background) / 0.22);
+}
+
+.dark .patient-detail-workspace__tab--active {
+  border-color: hsl(var(--primary) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.76)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.12), transparent 88%);
+}
+
 /* Phase 3: Today, Schedule, Inbox */
 
 .dashboard-home-page--today {

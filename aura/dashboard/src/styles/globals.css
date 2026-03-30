@@ -35441,6 +35441,355 @@ button.dashboard-summary-strip__item:hover {
   padding: 0.92rem;
 }
 
+.dashboard-page-shell--appointments.appointments-page--schedule {
+  gap: 1rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header {
+  padding: 1.05rem 1.2rem 0.1rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header .section__header {
+  align-items: end;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header .section__title {
+  font-size: clamp(1.95rem, 2.5vw, 2.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header .section__subtitle {
+  max-width: 48rem;
+  color: hsl(var(--muted-foreground) / 0.84);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.8rem 1rem;
+  align-items: center;
+  padding: 0.88rem 0.96rem;
+  border: 1px solid hsl(var(--border) / 0.68);
+  border-radius: calc(var(--radius-xl) + 0.1rem);
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.68)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.016), transparent 84%);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__group {
+  min-width: 0;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__group--nav {
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__fact,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__item {
+  min-height: 1.9rem;
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.64);
+  background: hsl(var(--background) / 0.72);
+  font-size: 0.73rem;
+  font-weight: 620;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule__nav {
+  justify-content: center;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule__range-label {
+  margin-left: 0.1rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-planner-surface {
+  display: grid;
+  gap: 0.82rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-context {
+  margin-top: 0;
+  padding: 0.82rem 0.9rem;
+  border-color: hsl(var(--border) / 0.7);
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.68)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.022), transparent 84%);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner {
+  padding: 1rem 1.04rem 1.08rem;
+  border-radius: calc(var(--radius-xl) + 0.32rem);
+  border: 1px solid hsl(var(--border) / 0.78);
+  background:
+    linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card) / 0.97) 64%, hsl(var(--primary) / 0.05) 100%);
+  box-shadow:
+    0 18px 34px hsl(192 52% 24% / 0.08),
+    inset 0 1px 0 hsl(0 0% 100% / 0.72);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner .appointments-schedule-week,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner .appointments-schedule-day-agenda {
+  margin-top: 0;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-day,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-day-agenda {
+  background: hsl(var(--background) / 0.74);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-slot {
+  gap: 0.3rem;
+  padding: 0.74rem 0.78rem;
+  border-color: hsl(var(--border) / 0.68);
+  background: linear-gradient(180deg, hsl(var(--background) / 0.76), hsl(var(--card) / 0.88));
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-slot__label {
+  font-size: 0.72rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-slot__note {
+  color: hsl(var(--muted-foreground) / 0.82);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-follow-through {
+  display: grid;
+  gap: 0.82rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-follow-through__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 0.88rem;
+  align-items: start;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane {
+  gap: 0.86rem;
+  padding: 1rem 1.04rem;
+  border-radius: calc(var(--radius-xl) + 0.08rem);
+  border-color: hsl(var(--border) / 0.68);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--muted) / 0.04)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.014), transparent 86%);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane__header {
+  align-items: flex-start;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane__header-side {
+  gap: 0.42rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane__fact {
+  background: hsl(var(--background) / 0.7);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-request-outcome,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-publish-outcome,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-detail-surface,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__surface {
+  border-color: hsl(var(--border) / 0.64);
+  background: hsl(var(--background) / 0.68);
+  box-shadow: none;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-request-outcome,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-publish-outcome {
+  padding: 0.9rem 0.96rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-detail-surface {
+  gap: 0.78rem;
+  padding: 0.92rem 0.96rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__schedule,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__reason,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__action-bar {
+  border-color: hsl(var(--border) / 0.62);
+  background: hsl(var(--background) / 0.68);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__schedule {
+  padding: 0.88rem 0.94rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__reason,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__action-bar {
+  padding: 0.84rem 0.94rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__schedule-label,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__action-label {
+  color: hsl(var(--muted-foreground) / 0.74);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__schedule-support,
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__action-text {
+  color: hsl(var(--muted-foreground) / 0.8);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer {
+  gap: 0.88rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__context {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.72rem;
+  align-items: start;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__surface {
+  padding: 0.96rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__actions {
+  padding-top: 0.18rem;
+  border-top: 1px solid hsl(var(--border) / 0.46);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid hsl(var(--border) / 0.62);
+  border-radius: calc(var(--radius-xl) - 0.14rem);
+  background: hsl(var(--muted) / 0.32);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__summary,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__summary-pill {
+  min-height: 2rem;
+  padding: 0.36rem 0.76rem;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border) / 0.68);
+  background: hsl(var(--background) / 0.76);
+  font-size: 0.74rem;
+  font-weight: 680;
+  color: hsl(var(--foreground) / 0.84);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip__note {
+  color: hsl(var(--muted-foreground) / 0.82);
+}
+
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header {
+  background: transparent;
+}
+
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-context,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-request-outcome,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-publish-outcome,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-detail-surface,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__surface {
+  box-shadow:
+    0 22px 38px hsl(224 48% 4% / 0.18),
+    inset 0 1px 0 hsl(0 0% 100% / 0.04);
+}
+
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.06), transparent 84%);
+}
+
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-day,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-day-agenda,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-slot,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-detail-surface,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__surface,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-request-outcome,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-publish-outcome,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-context,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__schedule,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__reason,
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .appointments-item__action-bar {
+  background: hsl(var(--background) / 0.22);
+}
+
+@media (max-width: 1180px) {
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-follow-through__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__group--nav,
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__status {
+    justify-content: flex-start;
+  }
+
+  .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule__nav {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header {
+    padding: 0.95rem 1rem 0;
+  }
+
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar,
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane,
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner,
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-footer-strip {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar__status {
+    gap: 0.4rem;
+  }
+}
+
 @media (min-width: 1024px) {
   .dashboard-page-shell--insights.insights-page .insights-review-console__controls {
     grid-template-columns: minmax(14.5rem, 0.8fr) minmax(0, 1.5fr);

@@ -288,6 +288,8 @@ describe('PatientsPage endpoint handling', () => {
     expect(screen.getByText('3 active alerts')).toBeInTheDocument();
     expect(screen.getByLabelText('Alert burden: 3 active alerts')).toBeInTheDocument();
     expect(screen.getByText('Elevated')).toBeInTheDocument();
+    expect(screen.getByText('Latest reported score')).toBeInTheDocument();
+    expect(screen.queryByText('Last 7-day average')).not.toBeInTheDocument();
     expect(screen.queryByText(/improving|worsening|stable/i)).not.toBeInTheDocument();
     expect(container.querySelectorAll('.patient-alert-burden__step--filled')).toHaveLength(3);
   });

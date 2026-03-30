@@ -12,7 +12,6 @@ import { Card } from '../ui/Card';
 import { buildPatientTriageSupportLine } from './patientRosterSignalUtils';
 import { PatientAlertBurdenSignal, PatientPainLevelSignal } from './PatientRosterSignals';
 import { PatientStatusBadge } from './PatientStatusBadge';
-import { PatientStatusMenu } from './PatientStatusMenu';
 
 interface PatientCardListProps {
   patients: PatientSummary[];
@@ -78,24 +77,26 @@ export function PatientCardList({
                       {reviewCueLabel}
                     </span>
                   </span>
-                  <span className="patients-card-list__support">{rosterSupportLine}</span>
                 </span>
               </span>
             }
           >
             <div className="patients-card-list__body">
-              <p className="patient-id-text patients-card-list__id">ID: {patient.id}</p>
-              <div className="patients-card-list__badges">
-                <PatientStatusBadge className="patients-status-badge" status={status} />
-                {missedCheckin ? (
-                  <Badge className="patients-card-list__missed-badge" variant="warning" icon>
-                    Missed check-in
-                  </Badge>
-                ) : null}
+              <div className="patients-card-list__summary">
+                <div className="patients-card-list__badges">
+                  <PatientStatusBadge className="patients-status-badge" status={status} />
+                  {missedCheckin ? (
+                    <Badge className="patients-card-list__missed-badge" variant="warning" icon>
+                      Missed check-in
+                    </Badge>
+                  ) : null}
+                </div>
+                <p className="patient-id-text patients-card-list__id">ID: {patient.id}</p>
+                <p className="patients-card-list__support">{rosterSupportLine}</p>
               </div>
 
               <div className="patients-card-list__metrics">
-                <div className="patients-card-list__metric">
+                <div className="patients-card-list__metric patients-card-list__metric--activity">
                   <span className="patients-card-list__meta-label">Recent activity</span>
                   <time className="patients-card-list__checkin-time" dateTime={patient.lastCheckinAt} title={formatDateTime(patient.lastCheckinAt)}>
                     {formatRelativeDate(patient.lastCheckinAt)}
@@ -113,26 +114,6 @@ export function PatientCardList({
               </div>
 
               <div className="patients-card-list__actions">
-                <div className="patients-card-list__actions-copy">
-                  <span className="patients-card-list__action-label">Next step</span>
-                  <span className="patients-card-list__action-note">
-                    {hasOpenAlertCount || missedCheckin
-                      ? 'Open review now'
-                      : status === 'discharged'
-                        ? 'Open summary'
-                        : 'Open patient context'}
-                  </span>
-                </div>
-                <div className="patients-card-list__actions-primary">
-                  <Button
-                    className="patients-card-list__view"
-                    variant="secondary"
-                    fullWidth
-                    onClick={() => onOpenPatient(patient.id)}
-                  >
-                    Open review
-                  </Button>
-                </div>
                 <div className="patients-card-list__actions-secondary">
                   <Button
                     className="patients-card-list__compare"
@@ -146,7 +127,23 @@ export function PatientCardList({
                   >
                     {isSelectedForCompare ? 'Remove from compare' : 'Add to compare'}
                   </Button>
-                  <PatientStatusMenu currentStatus={status} compact />
+                </div>
+                <div className="patients-card-list__actions-primary">
+                  <span className="patients-card-list__action-note">
+                    {hasOpenAlertCount || missedCheckin
+                      ? 'Open review now'
+                      : status === 'discharged'
+                        ? 'Open summary'
+                        : 'Open patient context'}
+                  </span>
+                  <Button
+                    className="patients-card-list__view"
+                    variant="secondary"
+                    fullWidth
+                    onClick={() => onOpenPatient(patient.id)}
+                  >
+                    Open review
+                  </Button>
                 </div>
               </div>
             </div>

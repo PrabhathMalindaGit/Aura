@@ -50,7 +50,7 @@ export function getPainLevelMeta(value: number | undefined): {
   if (value >= 7) {
     return {
       label: 'Elevated',
-      support: 'Last 7-day average',
+      support: 'Latest reported score',
       tone: 'elevated',
       valueText: asPainText(value),
     };
@@ -59,7 +59,7 @@ export function getPainLevelMeta(value: number | undefined): {
   if (value >= 4) {
     return {
       label: 'Moderate',
-      support: 'Last 7-day average',
+      support: 'Latest reported score',
       tone: 'moderate',
       valueText: asPainText(value),
     };
@@ -67,7 +67,7 @@ export function getPainLevelMeta(value: number | undefined): {
 
   return {
     label: 'Lower',
-    support: 'Last 7-day average',
+    support: 'Latest reported score',
     tone: 'lower',
     valueText: asPainText(value),
   };

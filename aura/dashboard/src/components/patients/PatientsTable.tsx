@@ -1,4 +1,4 @@
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { PatientSummary } from '../../types/models';
 import {
   getPatientDisplayName,
@@ -12,7 +12,6 @@ import { Button } from '../ui/Button';
 import { buildPatientTriageSupportLine } from './patientRosterSignalUtils';
 import { PatientAlertBurdenSignal, PatientPainLevelSignal } from './PatientRosterSignals';
 import { PatientStatusBadge } from './PatientStatusBadge';
-import { PatientStatusMenu } from './PatientStatusMenu';
 
 interface PatientsTableProps {
   patients: PatientSummary[];
@@ -56,17 +55,11 @@ export function PatientsTable({
             <th scope="col" className="patients-table__head patients-table__head--patient">
               Patient
             </th>
-            <th scope="col" className="patients-table__head patients-table__head--status">
-              Care state
-            </th>
             <th scope="col" className="patients-table__head patients-table__head--checkin">
               Recent activity
             </th>
-            <th scope="col" className="patients-table__head patients-table__head--alerts">
-              Alert burden
-            </th>
-            <th scope="col" className="patients-table__head patients-table__head--pain">
-              Pain level
+            <th scope="col" className="patients-table__head patients-table__head--signals">
+              Signals
             </th>
             <th scope="col" className="patients-table__head patients-table__head--actions">
               Next step
@@ -159,23 +152,12 @@ export function PatientsTable({
                           {reviewCueLabel}
                         </span>
                       </div>
-                      {showIdSubline ? <span className="patient-id-text patients-table__patient-id">ID: {patient.id}</span> : null}
+                      <div className="patients-table__patient-meta">
+                        <PatientStatusBadge className="patients-status-badge" status={status} />
+                        {showIdSubline ? <span className="patient-id-text patients-table__patient-id">ID: {patient.id}</span> : null}
+                      </div>
                       <span className="patients-table__patient-support">{rosterSupportLine}</span>
                     </div>
-                  </div>
-                </td>
-                <td className="patients-table__cell patients-table__cell--status">
-                  <div className="patients-table__metric">
-                    <PatientStatusBadge className="patients-status-badge" status={status} />
-                    <p className="patients-table__support">
-                      {status === 'active'
-                        ? 'Currently in active care'
-                        : status === 'on_hold'
-                          ? 'Temporarily paused'
-                          : status === 'discharged'
-                            ? 'Completed care cycle'
-                            : 'Not currently active'}
-                    </p>
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--checkin">
@@ -195,40 +177,34 @@ export function PatientsTable({
                     ) : null}
                   </div>
                 </td>
-                <td className="patients-table__cell patients-table__cell--alerts">
-                  <div className="patients-table__metric patients-table__metric--alerts">
-                    <PatientAlertBurdenSignal count={openAlertCount} />
-                  </div>
-                </td>
-                <td className="patients-table__cell patients-table__cell--pain">
-                  <div className="patients-table__metric patients-table__metric--pain">
-                    <PatientPainLevelSignal value={patient.lastPain} />
+                <td className="patients-table__cell patients-table__cell--signals">
+                  <div className="patients-table__signals">
+                    <div className="patients-table__signal">
+                      <span className="patients-table__signal-label">Alert burden</span>
+                      <PatientAlertBurdenSignal count={openAlertCount} />
+                    </div>
+                    <div className="patients-table__signal">
+                      <span className="patients-table__signal-label">Pain level</span>
+                      <PatientPainLevelSignal value={patient.lastPain} />
+                    </div>
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--actions">
                   <div
                     className="patients-table__actions"
-                    onClick={(event: MouseEvent<HTMLDivElement>) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    <div className="patients-table__actions-copy">
-                      <span className="patients-table__action-label">Next step</span>
-                      <span className="patients-table__action-note">{actionSupportLabel}</span>
-                    </div>
-                    <div className="patients-table__actions-primary">
-                      <Button
-                        className="patients-table__view"
-                        variant="secondary"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenPatient(patient.id);
-                        }}
-                      >
-                        Open review
-                      </Button>
-                    </div>
-                    <div className="patients-table__actions-secondary">
-                      <PatientStatusMenu currentStatus={status} compact />
-                    </div>
+                    <span className="patients-table__action-note">{actionSupportLabel}</span>
+                    <Button
+                      className="patients-table__view"
+                      variant="secondary"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenPatient(patient.id);
+                      }}
+                    >
+                      Open review
+                    </Button>
                   </div>
                 </td>
               </tr>

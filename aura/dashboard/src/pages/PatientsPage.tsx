@@ -191,8 +191,6 @@ export function PatientsPage(): JSX.Element {
   const staleErrorBannerVisible = Boolean(genericError && staleDataAvailable);
   const blockingOfflineVisible = !connection.online && !staleDataAvailable && !patientsQuery.error;
   const errorView = genericError ? toErrorView(genericError) : null;
-  const rosterViewLabel =
-    visiblePatients.length === rosterSummary.total ? 'Full roster view' : 'Filtered roster view';
   const reviewBurdenLabel =
     visibleSummary.needsReview === 0
       ? 'No closer review signaled in this view'
@@ -220,22 +218,6 @@ export function PatientsPage(): JSX.Element {
       PATIENT_TRIAGE_PRESETS.find((preset) => matchesPatientTriagePreset(filters, preset)) ?? null,
     [filters],
   );
-  const summaryLeadTitle =
-    visibleSummary.needsReview > 0
-      ? 'Review burden is concentrated in this roster'
-      : visibleSummary.recentlyActive > 0
-        ? 'Roster is active and stable'
-        : visiblePatients.length > 0
-          ? 'Roster is quiet and in view'
-          : 'Roster needs a broader view';
-  const summaryLeadNarrative =
-    visibleSummary.needsReview > 0
-      ? `${reviewBurdenLabel}. Open the highest-burden patients first, then use compare only when the roster truly needs side-by-side review.`
-      : visibleSummary.recentlyActive > 0
-        ? `${visibleSummary.recentlyActive} ${
-            visibleSummary.recentlyActive === 1 ? 'patient is' : 'patients are'
-          } recently active in this view, with quieter review burden across the rest of the roster.`
-        : 'No immediate review burden is dominating this roster view right now. Keep the cohort visible and open individual reviews as needed.';
   const comparePatients = useMemo(() => {
     const patientById = new Map(allPatients.map((patient) => [patient.id.trim(), patient] as const));
 
@@ -244,6 +226,7 @@ export function PatientsPage(): JSX.Element {
       .filter((patient): patient is PatientSummary => Boolean(patient));
   }, [allPatients, comparePatientIds]);
   const compareSelectionLimitReached = comparePatientIds.length >= MAX_COMPARE_PATIENTS;
+  const comparePreviewPatients = comparePatients.slice(0, 3);
   const trimmedSearch = filters.search.trim();
   const filteredEmptyDescription = useMemo(() => {
     if (activeTriagePreset?.id === 'active-alerts') {
@@ -415,6 +398,29 @@ export function PatientsPage(): JSX.Element {
     });
   }, [allPatients, patientsQuery.isLoading]);
 
+  const rosterFooterStatusLine =
+    rosterSummary.total === 0 ? 'No patients are currently in this roster.' : workspaceStatusLine;
+  const rosterFooterNote =
+    'Alert burden shows current open-alert count only. Pain level shows the latest reported score only.';
+  const presetButtons = PATIENT_TRIAGE_PRESETS.map((preset) => {
+    const isActive = activeTriagePreset?.id === preset.id;
+
+    return (
+      <Button
+        key={preset.id}
+        className={isActive ? 'patients-filters__preset patients-filters__preset--active' : 'patients-filters__preset'}
+        variant={isActive ? 'secondary' : 'ghost'}
+        size="sm"
+        aria-pressed={isActive}
+        onClick={() => {
+          applyNonSearchFilters(preset.filters);
+        }}
+      >
+        {preset.label}
+      </Button>
+    );
+  });
+
   return (
     <Stack
       className="page-stack dashboard-page-shell dashboard-page-shell--roster patients-page patients-page--roster-phase4"
@@ -424,7 +430,7 @@ export function PatientsPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--roster patients-page-header"
         eyebrow="Care roster"
         title="Roster"
-        subtitle="Scan the active roster, narrow fast, and open the right patient without extra dashboard furniture."
+        subtitle="Find, scan, and open the right patient from the current care roster."
         actions={
           <Button
             variant="secondary"
@@ -455,92 +461,11 @@ export function PatientsPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
-      <section className="roster-brief" aria-label="Roster summary">
-        <div className="roster-brief__lead">
-          <div className="roster-brief__copy">
-            <p className="roster-brief__eyebrow">Roster in view</p>
-            <h3 className="roster-brief__title">{summaryLeadTitle}</h3>
-            <p className="roster-brief__text">{summaryLeadNarrative}</p>
-          </div>
-          <div className="roster-brief__meta" aria-live="polite">
-            <span className="roster-brief__pill">{rosterViewLabel}</span>
-            <span className="roster-brief__pill">{reviewBurdenLabel}</span>
-            <span className="roster-brief__pill">Updated {updatedAtLabel}</span>
-          </div>
-        </div>
-        <div className="roster-brief__facts" role="list" aria-label="Roster priorities">
-          <article className="roster-brief__fact roster-brief__fact--total" role="listitem">
-            <p className="roster-brief__fact-label">Roster in view</p>
-            <p className="roster-brief__fact-value">{visiblePatients.length}</p>
-            <p className="roster-brief__fact-detail">of {rosterSummary.total} total patients</p>
-          </article>
-          <article className="roster-brief__fact roster-brief__fact--attention" role="listitem">
-            <p className="roster-brief__fact-label">Needs review</p>
-            <p className="roster-brief__fact-value">{visibleSummary.needsReview}</p>
-            <p className="roster-brief__fact-detail">{visibleSummary.openAlerts} with active alerts</p>
-          </article>
-          <article className="roster-brief__fact roster-brief__fact--active" role="listitem">
-            <p className="roster-brief__fact-label">Active care</p>
-            <p className="roster-brief__fact-value">{visibleSummary.active}</p>
-            <p className="roster-brief__fact-detail">
-              {visibleSummary.onHold} on hold · {visibleSummary.discharged} discharged
-            </p>
-          </article>
-          <article className="roster-brief__fact roster-brief__fact--fresh" role="listitem">
-            <p className="roster-brief__fact-label">Recently active</p>
-            <p className="roster-brief__fact-value">{visibleSummary.recentlyActive}</p>
-            <p className="roster-brief__fact-detail">Checked in during the last 7 days</p>
-          </article>
-        </div>
-      </section>
-
       <section className="roster-surface" aria-label="Roster workspace">
-        <header className="roster-surface__header">
-          <div className="roster-surface__intro">
-            <p className="roster-surface__eyebrow">Roster workspace</p>
-            <h3 className="roster-surface__title">Scan and open</h3>
-            <p className="roster-surface__text">
-              {workspaceStatusLine}. {workspaceSupportLine}.
-            </p>
-          </div>
-          <div className="roster-surface__meta" aria-live="polite">
-            <span className="roster-surface__meta-pill">{rosterViewLabel}</span>
-            <span className="roster-surface__meta-pill">{visibleSummary.needsReview} need review</span>
-            <span className="roster-surface__meta-pill">Updated {updatedAtLabel}</span>
-          </div>
-        </header>
-
-        <div className="roster-toolbar">
-          <div className="roster-toolbar__presets" role="group" aria-label="Quick triage views">
-            <span className="roster-toolbar__label">Review focus</span>
-            <div className="roster-toolbar__preset-items">
-              {PATIENT_TRIAGE_PRESETS.map((preset) => {
-                const isActive = activeTriagePreset?.id === preset.id;
-
-                return (
-                  <Button
-                    key={preset.id}
-                    className={
-                      isActive
-                        ? 'roster-toolbar__preset roster-toolbar__preset--active'
-                        : 'roster-toolbar__preset'
-                    }
-                    variant={isActive ? 'secondary' : 'ghost'}
-                    size="sm"
-                    aria-pressed={isActive}
-                    onClick={() => {
-                      applyNonSearchFilters(preset.filters);
-                    }}
-                  >
-                    {preset.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
+        <div className="roster-control-bar">
           <PatientsFiltersBar
             filters={filters}
+            presets={presetButtons}
             onSearchChange={(search) => {
               searchPersistenceEnabledRef.current = true;
               setFilters((current) => ({ ...current, search }));
@@ -557,47 +482,43 @@ export function PatientsPage(): JSX.Element {
             onReset={clearSavedPatientsState}
           />
 
-          <p className="roster-toolbar__note">
-            Alert burden shows current open-alert count only. Pain level shows the latest reported score only.
-          </p>
-        </div>
-
-        {comparePatients.length > 0 ? (
-          <div
-            className="patients-compare-tray patients-compare-tray--phase4"
-            role="group"
-            aria-label="Patients selected for compare"
-          >
-            <div className="patients-compare-tray__summary" aria-live="polite">
-              <span className="patients-compare-tray__count">{comparePatients.length} selected</span>
-              <div className="patients-compare-tray__chips">
-                {comparePatients.map((patient) => (
-                  <span key={patient.id} className="patients-compare-tray__chip">
-                    {getPatientDisplayName(patient)}
-                  </span>
-                ))}
+          {comparePatients.length > 0 ? (
+            <div
+              className="patients-compare-tray patients-compare-tray--inline"
+              role="group"
+              aria-label="Patients selected for compare"
+            >
+              <div className="patients-compare-tray__summary" aria-live="polite">
+                <span className="patients-compare-tray__count">{comparePatients.length} selected</span>
+                <div className="patients-compare-tray__chips">
+                  {comparePreviewPatients.map((patient) => (
+                    <span key={patient.id} className="patients-compare-tray__chip">
+                      {getPatientDisplayName(patient)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="patients-compare-tray__actions">
+                <Button variant="ghost" size="sm" onClick={clearComparePatients}>
+                  Clear
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={openCompareMode}
+                  disabled={comparePatients.length < 2}
+                  aria-label={`Compare ${comparePatients.length} selected patient${
+                    comparePatients.length === 1 ? '' : 's'
+                  }`}
+                >
+                  Compare selected ({comparePatients.length})
+                </Button>
               </div>
             </div>
-            <div className="patients-compare-tray__actions">
-              <Button variant="ghost" size="sm" onClick={clearComparePatients}>
-                Clear
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={openCompareMode}
-                disabled={comparePatients.length < 2}
-                aria-label={`Compare ${comparePatients.length} selected patient${
-                  comparePatients.length === 1 ? '' : 's'
-                }`}
-              >
-                Compare selected ({comparePatients.length})
-              </Button>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
-        <div className="roster-surface__results">
+        <div className="roster-results">
           {showInitialLoading ? (
             <div className="patients-skeleton" aria-label="Patients loading placeholder">
               <Skeleton height={64} />
@@ -705,6 +626,17 @@ export function PatientsPage(): JSX.Element {
             />
           )}
         </div>
+
+        <footer className="roster-footer" aria-live="polite">
+          <p className="roster-footer__status">{rosterFooterStatusLine}</p>
+          <div className="roster-footer__meta">
+            {rosterSummary.total > 0 ? (
+              <span className="roster-footer__meta-item">{workspaceSupportLine}</span>
+            ) : null}
+            <span className="roster-footer__meta-item">Updated {updatedAtLabel}</span>
+            <span className="roster-footer__meta-item">{rosterFooterNote}</span>
+          </div>
+        </footer>
       </section>
     </Stack>
   );

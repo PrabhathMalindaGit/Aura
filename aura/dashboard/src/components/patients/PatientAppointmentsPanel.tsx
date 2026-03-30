@@ -18,6 +18,7 @@ interface PatientAppointmentsPanelProps {
   items: AppointmentRequestItem[];
   isLoading?: boolean;
   error?: string | null;
+  freshnessLabel?: string | null;
   onRetry: () => void;
   onOpenAppointments: () => void;
 }
@@ -42,6 +43,7 @@ export function PatientAppointmentsPanel({
   items,
   isLoading = false,
   error,
+  freshnessLabel,
   onRetry,
   onOpenAppointments,
 }: PatientAppointmentsPanelProps): JSX.Element {
@@ -57,13 +59,16 @@ export function PatientAppointmentsPanel({
       className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-secondary patient-detail-panel--workflow-appointments"
       title="Appointments"
       action={
-        <div className="patient-detail-actions">
-          <Button variant="ghost" size="sm" onClick={onRetry}>
-            Refresh
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onOpenAppointments}>
-            Open appointments
-          </Button>
+        <div className="patient-detail-panel__header-tools">
+          {freshnessLabel ? <span className="patient-detail-panel__freshness">{freshnessLabel}</span> : null}
+          <div className="patient-detail-actions">
+            <Button variant="ghost" size="sm" onClick={onRetry}>
+              Refresh
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onOpenAppointments}>
+              Open appointments
+            </Button>
+          </div>
         </div>
       }
       data-testid="patient-appointments-panel"
@@ -85,6 +90,11 @@ export function PatientAppointmentsPanel({
           title="No appointment activity to review"
           description="Upcoming and recent scheduling activity appears here."
           tone="neutral"
+          action={
+            <Button variant="secondary" size="sm" onClick={onOpenAppointments}>
+              Open appointments
+            </Button>
+          }
         />
       ) : (
         <div className="patient-appointment-panel">

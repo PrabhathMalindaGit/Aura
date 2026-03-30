@@ -12,6 +12,7 @@ import { EmptyState } from '../ui/EmptyState';
 interface RecentAlertsPanelProps {
   alerts: AlertItem[];
   seenAlertMap: SeenAlertMap;
+  freshnessLabel?: string | null;
   mutationPending: boolean;
   onAcknowledge: (alert: AlertItem) => void;
   onResolve: (alert: AlertItem) => void;
@@ -51,6 +52,7 @@ function alertToneClass(alert: AlertItem, unseen: boolean): 'critical' | 'warnin
 export function RecentAlertsPanel({
   alerts,
   seenAlertMap,
+  freshnessLabel,
   mutationPending,
   onAcknowledge,
   onResolve,
@@ -63,10 +65,15 @@ export function RecentAlertsPanel({
       className="patient-detail-panel patient-detail-panel--attention patient-detail-panel--review-feed patient-detail-recent-alerts-card"
       title="Recent alerts"
       action={
-        alerts.length > 5 && onViewAll ? (
-          <Button variant="ghost" onClick={onViewAll}>
-            View all alerts
-          </Button>
+        freshnessLabel || (alerts.length > 5 && onViewAll) ? (
+          <div className="patient-detail-panel__header-tools">
+            {freshnessLabel ? <span className="patient-detail-panel__freshness">{freshnessLabel}</span> : null}
+            {alerts.length > 5 && onViewAll ? (
+              <Button variant="ghost" onClick={onViewAll}>
+                View all alerts
+              </Button>
+            ) : null}
+          </div>
         ) : null
       }
     >
@@ -124,7 +131,7 @@ export function RecentAlertsPanel({
                       </Button>
                       <Button
                         className="recent-alert-list__resolve"
-                        variant="secondary"
+                        variant="primary"
                         disabled={alert.status === 'resolved' || mutationPending}
                         onClick={() => onResolve(alert)}
                       >

@@ -12,6 +12,7 @@ interface PatientTasksPanelProps {
   recentCompletedTasks: ClinicianTaskItem[];
   isLoading?: boolean;
   error?: string | null;
+  freshnessLabel?: string | null;
   completingTaskId?: string | null;
   onRetry: () => void;
   onCompleteTask: (taskId: string) => void;
@@ -32,6 +33,7 @@ export function PatientTasksPanel({
   recentCompletedTasks,
   isLoading = false,
   error,
+  freshnessLabel,
   completingTaskId,
   onRetry,
   onCompleteTask,
@@ -47,9 +49,12 @@ export function PatientTasksPanel({
       className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-primary patient-detail-panel--workflow-tasks"
       title="Tasks and follow-up"
       action={
-        <Button variant="ghost" size="sm" onClick={onRetry}>
-          Refresh
-        </Button>
+        <div className="patient-detail-panel__header-tools">
+          {freshnessLabel ? <span className="patient-detail-panel__freshness">{freshnessLabel}</span> : null}
+          <Button variant="ghost" size="sm" onClick={onRetry}>
+            Refresh
+          </Button>
+        </div>
       }
       data-testid="patient-tasks-panel"
     >
@@ -106,7 +111,7 @@ export function PatientTasksPanel({
                     </div>
                     <div className="patient-task-item__actions">
                       <Button
-                        variant="secondary"
+                        variant="primary"
                         size="sm"
                         disabled={completingTaskId === task.id}
                         onClick={() => onCompleteTask(task.id)}

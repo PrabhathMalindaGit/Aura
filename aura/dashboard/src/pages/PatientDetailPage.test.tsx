@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getClinicianCommunicationScopeKey } from '../services/clinicianIdentity';
 import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
@@ -228,6 +228,12 @@ function installWindowMocks(): void {
       dispatchEvent: vi.fn(),
     })),
   });
+
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    writable: true,
+    value: vi.fn(),
+  });
 }
 
 function createResizeObserverEntry(target: Element, width: number): ResizeObserverEntry {
@@ -257,12 +263,20 @@ function triggerResizeObserver(target: Element, width: number): void {
 
 function PatientDetailHistoryHarness(): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <>
       <button type="button" onClick={() => navigate(-1)}>
         Go back
       </button>
+      <button type="button" onClick={() => navigate(1)}>
+        Go forward
+      </button>
+      <output aria-label="Current patient detail route">
+        {location.pathname}
+        {location.search}
+      </output>
       <PatientDetailPage />
     </>
   );
@@ -280,15 +294,17 @@ function renderPatientDetail(
 ): void {
   const queryClient = createQueryClient();
   const entries = Array.isArray(initialEntries) ? initialEntries : [initialEntries];
+  const patientDetailElement = options.withHistoryProbe ? <PatientDetailHistoryHarness /> : <PatientDetailPage />;
 
   render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
         <Routes>
-          <Route
-            path="/patients/:patientId"
-            element={options.withHistoryProbe ? <PatientDetailHistoryHarness /> : <PatientDetailPage />}
-          />
+          <Route path="/patients/:patientId" element={patientDetailElement} />
+          <Route path="/patients/:patientId/overview" element={patientDetailElement} />
+          <Route path="/patients/:patientId/communications" element={patientDetailElement} />
+          <Route path="/patients/:patientId/guidance" element={patientDetailElement} />
+          <Route path="/patients/:patientId/history" element={patientDetailElement} />
           <Route path="/patients" element={<div>Patients workspace</div>} />
           <Route path="/communication" element={<CommunicationPage />} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
@@ -296,6 +312,8 @@ function renderPatientDetail(
           <Route path="/insights" element={<div>Insights workspace</div>} />
           <Route path="/worklist" element={<div>Worklist workspace</div>} />
           <Route path="/patients/:patientId/plan" element={<div>Plan workspace</div>} />
+          <Route path="/patients/:patientId/sessions" element={<div>Sessions workspace</div>} />
+          <Route path="/patients/:patientId/weekly-report" element={<div>Weekly report workspace</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -689,6 +707,107 @@ describe('PatientDetailPage', () => {
 
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     expect(screen.getByTestId('patient-communication-panel')).toBeInTheDocument();
+  });
+
+  it('loads directly into a tab-specific patient detail route without losing the selected workspace', async () => {
+    installFetchMock();
+
+    renderPatientDetail(`/patients/${patientId}/history?days=30`);
+
+    expect(await screen.findByRole('tab', { name: 'History & Signals' })).toHaveAttribute('aria-selected', 'true');
+    expect(
+      await screen.findByRole('heading', { name: 'Trend history and slower recovery context' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('updates the URL path for tab changes while preserving the review window query', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(`/patients/${patientId}?days=30`, { withHistoryProbe: true });
+
+    expect(await screen.findByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+      `/patients/${patientId}?days=30`,
+    );
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/communications?days=30`,
+      );
+    });
+
+    await openPatientWorkspaceTab(user, 'Clinical Guidance & Questionnaires');
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/guidance?days=30`,
+      );
+    });
+  });
+
+  it('restores tab selection with browser back and forward navigation', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(`/patients/${patientId}?days=14`, { withHistoryProbe: true });
+
+    expect(await screen.findByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    await openPatientWorkspaceTab(user, 'History & Signals');
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/history?days=14`,
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/communications?days=14`,
+      );
+    });
+    expect(screen.getByRole('tab', { name: 'Communications & Notes' })).toHaveAttribute('aria-selected', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Go back' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}?days=14`,
+      );
+    });
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Go forward' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/communications?days=14`,
+      );
+    });
+    expect(screen.getByRole('tab', { name: 'Communications & Notes' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('uses route-aware tab jumps for recommended actions that stay inside patient detail', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(`/patients/${patientId}?days=14`, { withHistoryProbe: true });
+
+    expect(
+      await within(screen.getByTestId('patient-current-priorities')).findByText('Missed recent check-in'),
+    ).toBeInTheDocument();
+    const recommendedActions = await screen.findByTestId('patient-recommended-actions');
+    await user.click(within(recommendedActions).getByRole('button', { name: 'Open tasks' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/communications?days=14`,
+      );
+    });
+    expect(screen.getByRole('tab', { name: 'Communications & Notes' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByTestId('patient-tasks-panel')).toBeInTheDocument();
   });
 
   it('keeps snapshot and recent alerts near the top on narrower widths without mounting duplicates', async () => {

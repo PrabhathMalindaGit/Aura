@@ -17,6 +17,7 @@ interface PatientCommunicationPanelProps {
   timeline?: CommunicationTimelineEvent[];
   isLoading?: boolean;
   error?: string | null;
+  freshnessLabel?: string | null;
   onRetry: () => void;
   onOpenCommunication: () => void;
   onOpenAlerts: () => void;
@@ -67,6 +68,7 @@ export function PatientCommunicationPanel({
   timeline = [],
   isLoading = false,
   error,
+  freshnessLabel,
   onRetry,
   onOpenCommunication,
   onOpenAlerts,
@@ -85,6 +87,8 @@ export function PatientCommunicationPanel({
   const clinicianIdentity = useClinicianIdentity();
   const timelineEvents = timeline.length > 0 ? timeline : buildFallbackTimeline(items);
   const showQuickReplyHelpers = replyTemplates.length > 0 || hasSignature;
+  const safetyFlaggedCount = items.filter((item) => item.flaggedBySafety).length;
+  const followUpRequestedCount = items.filter((item) => item.followUpRequested).length;
 
   return (
     <Card
@@ -92,13 +96,16 @@ export function PatientCommunicationPanel({
       className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-primary patient-detail-panel--workflow-communication"
       title="Communication follow-through"
       action={
-        <div className="patient-detail-actions">
-          <Button variant="ghost" size="sm" onClick={onRetry}>
-            Refresh
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
-            Open communication
-          </Button>
+        <div className="patient-detail-panel__header-tools">
+          {freshnessLabel ? <span className="patient-detail-panel__freshness">{freshnessLabel}</span> : null}
+          <div className="patient-detail-actions">
+            <Button variant="ghost" size="sm" onClick={onRetry}>
+              Refresh
+            </Button>
+            <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
+              Open communication
+            </Button>
+          </div>
         </div>
       }
       data-testid="patient-communication-panel"
@@ -120,9 +127,28 @@ export function PatientCommunicationPanel({
           title="No recent communication needing follow-up"
           description="Response-needed threads will appear here."
           tone="success"
+          action={
+            <Button variant="secondary" size="sm" onClick={onOpenCommunication}>
+              Open communication
+            </Button>
+          }
         />
       ) : (
         <div className="patient-communication-list">
+          <div className="patient-communication-queue-strip" aria-label="Communication review summary">
+            <span className="patient-communication-queue-strip__item">
+              <strong>{items.length}</strong>
+              <span>Needs response</span>
+            </span>
+            <span className="patient-communication-queue-strip__item">
+              <strong>{safetyFlaggedCount}</strong>
+              <span>Safety flagged</span>
+            </span>
+            <span className="patient-communication-queue-strip__item">
+              <strong>{followUpRequestedCount}</strong>
+              <span>Follow-up requested</span>
+            </span>
+          </div>
           <div
             className="patient-communication-timeline"
             role="list"

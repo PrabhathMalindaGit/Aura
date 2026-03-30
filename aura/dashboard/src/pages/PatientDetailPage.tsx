@@ -148,6 +148,34 @@ const PATIENT_WORKSPACE_TABS: Array<{ id: PatientWorkspaceTabId; label: string }
   { id: 'history', label: 'History & Signals' },
 ];
 
+function isPatientWorkspaceTabId(value: string): value is PatientWorkspaceTabId {
+  return PATIENT_WORKSPACE_TABS.some((tab) => tab.id === value);
+}
+
+function getPatientWorkspaceTabFromPath(pathname: string): PatientWorkspaceTabId {
+  const segments = pathname.split('/').filter(Boolean);
+  const lastSegment = segments[segments.length - 1];
+
+  return isPatientWorkspaceTabId(lastSegment) ? lastSegment : 'overview';
+}
+
+function buildPatientWorkspacePath(patientId: string, tabId: PatientWorkspaceTabId): string {
+  return `/patients/${encodeURIComponent(patientId)}/${tabId}`;
+}
+
+function maxUpdatedAt(...values: Array<number | null | undefined>): number | null {
+  const valid = values.filter((value): value is number => typeof value === 'number' && value > 0);
+  return valid.length > 0 ? Math.max(...valid) : null;
+}
+
+function formatLoadedAgo(value: number | null): string {
+  if (!value) {
+    return 'Loaded recently';
+  }
+
+  return `Loaded ${formatDashboardRelativeTime(new Date(value).toISOString())}`;
+}
+
 function parseDays(value: string | null): 14 | 30 {
   return value === '30' ? 30 : 14;
 }
@@ -380,8 +408,7 @@ export function PatientDetailPage(): JSX.Element {
   const [patientExportMessage, setPatientExportMessage] = useState<string | null>(null);
   const [isSymptomSignalsOpen, setIsSymptomSignalsOpen] = useState(false);
   const [isSupportSignalsOpen, setIsSupportSignalsOpen] = useState(false);
-  const [activeWorkspaceTab, setActiveWorkspaceTab] =
-    useState<PatientWorkspaceTabId>('overview');
+  const [isApprovedInsightsOpen, setIsApprovedInsightsOpen] = useState(false);
   const [pendingWorkspaceJumpId, setPendingWorkspaceJumpId] = useState<string | null>(null);
   const [expandedTrendMetric, setExpandedTrendMetric] = useState<TrendChartMetric | null>(null);
   const dayDetailFocusRef = useRef<HTMLElement | null>(null);
@@ -390,6 +417,10 @@ export function PatientDetailPage(): JSX.Element {
   const pendingEntryContext = useMemo(
     () => readPatientEntryContextFromState(location.state, patientId),
     [location.state, patientId],
+  );
+  const activeWorkspaceTab = useMemo(
+    () => getPatientWorkspaceTabFromPath(location.pathname),
+    [location.pathname],
   );
 
   const patientsQuery = usePatients();
@@ -634,7 +665,7 @@ export function PatientDetailPage(): JSX.Element {
   useEffect(() => {
     setIsSymptomSignalsOpen(false);
     setIsSupportSignalsOpen(false);
-    setActiveWorkspaceTab('overview');
+    setIsApprovedInsightsOpen(false);
     setPendingWorkspaceJumpId(null);
   }, [patientId]);
 
@@ -1258,10 +1289,28 @@ export function PatientDetailPage(): JSX.Element {
 
   const openWorkspaceTab = useCallback(
     (tabId: PatientWorkspaceTabId, jumpTargetId?: string): void => {
-      setActiveWorkspaceTab(tabId);
-      setPendingWorkspaceJumpId(jumpTargetId ?? null);
+      if (jumpTargetId) {
+        setPendingWorkspaceJumpId(jumpTargetId);
+      }
+
+      if (!patientId) {
+        return;
+      }
+
+      const nextPathname = buildPatientWorkspacePath(patientId, tabId);
+      if (location.pathname === nextPathname) {
+        return;
+      }
+
+      navigate(
+        {
+          pathname: nextPathname,
+          search: location.search,
+        },
+        { replace: false },
+      );
     },
-    [],
+    [location.pathname, location.search, navigate, patientId],
   );
 
   useEffect(() => {
@@ -1997,11 +2046,136 @@ export function PatientDetailPage(): JSX.Element {
   const isPatientDetailInline860 =
     patientDetailInlineWidth !== null && patientDetailInlineWidth <= 860;
   const isPrioritySupportResponsive = isPatientDetailInline1320;
+  const latestOpenAlert = openPatientAlerts[0] ?? null;
   const latestCommunicationItem = patientCommunicationItems[0] ?? null;
   const nextOpenTask = patientActiveTasks[0] ?? null;
   const nextPromDueItem = patientPromDue[0] ?? null;
   const nextPendingInsight = patientPendingInsights[0] ?? null;
   const latestExerciseSession = patientSessions[0] ?? null;
+  const alertsFreshnessLabel = formatLoadedAgo(patientAlertsQuery.dataUpdatedAt);
+  const tasksFreshnessLabel = formatLoadedAgo(patientTasksQuery.dataUpdatedAt);
+  const appointmentsFreshnessLabel = formatLoadedAgo(patientAppointmentsQuery.dataUpdatedAt);
+  const trendsFreshnessLabel = formatLoadedAgo(trendsQuery.dataUpdatedAt);
+  const sessionsFreshnessLabel = formatLoadedAgo(patientSessionsQuery.dataUpdatedAt);
+  const railFreshnessLabel = formatLoadedAgo(
+    maxUpdatedAt(
+      trendsQuery.dataUpdatedAt,
+      patientAlertsQuery.dataUpdatedAt,
+      patientWorklistQuery.dataUpdatedAt,
+    ),
+  );
+  const overviewFreshnessLabel = formatLoadedAgo(
+    maxUpdatedAt(
+      trendsQuery.dataUpdatedAt,
+      patientWorklistQuery.dataUpdatedAt,
+      patientTasksQuery.dataUpdatedAt,
+      patientCommunicationQuery.dataUpdatedAt,
+      patientAppointmentsQuery.dataUpdatedAt,
+      patientAlertsQuery.dataUpdatedAt,
+    ),
+  );
+  const communicationsFreshnessLabel = formatLoadedAgo(
+    maxUpdatedAt(
+      patientCommunicationQuery.dataUpdatedAt,
+      patientTasksQuery.dataUpdatedAt,
+      patientAppointmentsQuery.dataUpdatedAt,
+    ),
+  );
+  const guidanceFreshnessLabel = formatLoadedAgo(
+    maxUpdatedAt(
+      patientPromsQuery.dataUpdatedAt,
+      patientInsightsQuery.dataUpdatedAt,
+      patientRehabQuery.dataUpdatedAt,
+    ),
+  );
+  const historyFreshnessLabel = formatLoadedAgo(
+    maxUpdatedAt(
+      trendsQuery.dataUpdatedAt,
+      patientSessionsQuery.dataUpdatedAt,
+      patientRecentCheckinsQuery.dataUpdatedAt,
+      patientHydrationQuery.dataUpdatedAt,
+      patientNutritionQuery.dataUpdatedAt,
+      patientWearablesSummaryQuery.dataUpdatedAt,
+      patientWearablesDailyQuery.dataUpdatedAt,
+      patientMedicationAdherenceQuery.dataUpdatedAt,
+      patientPhotosQuery.dataUpdatedAt,
+    ),
+  );
+  const overviewActivityItems: Array<{ label: string; value: string; note: string }> = [
+    {
+      label: 'Patient update',
+      value: trendSummary.lastCheckinDate
+        ? formatDashboardRelativeTime(trendSummary.lastCheckinDate)
+        : 'No recent check-in',
+      note: trendSummary.lastCheckinDate
+        ? 'Latest patient-reported update in this review window'
+        : 'No patient-reported check-in is available in this window',
+    },
+    {
+      label: 'Safety',
+      value:
+        openAlertCount > 0
+          ? `${openAlertCount} open alert${openAlertCount === 1 ? '' : 's'}`
+          : 'Queue clear',
+      note: latestOpenAlert
+        ? Array.isArray(latestOpenAlert.reason)
+          ? latestOpenAlert.reason.join(', ')
+          : latestOpenAlert.reason
+        : 'No active safety events are visible right now',
+    },
+    {
+      label: 'Follow-through',
+      value:
+        activeFollowUpCount > 0
+          ? `${activeFollowUpCount} item${activeFollowUpCount === 1 ? '' : 's'} waiting`
+          : 'Nothing waiting',
+      note: nextOpenTask
+        ? `${nextOpenTask.title} due ${formatDashboardRelativeTime(nextOpenTask.dueAt ?? nextOpenTask.updatedAt)}`
+        : latestCommunicationItem?.messagePreview?.trim() || 'No open task or message queue needs follow-through',
+    },
+    {
+      label: 'Guidance',
+      value:
+        patientPromDue.length > 0
+          ? `${patientPromDue.length} PROM${patientPromDue.length === 1 ? '' : 's'} due`
+          : patientPendingInsights.length > 0
+            ? `${patientPendingInsights.length} guidance item${
+                patientPendingInsights.length === 1 ? '' : 's'
+              } pending`
+            : 'No pending review',
+      note:
+        nextPendingInsight?.title ||
+        (nextPromDueItem
+          ? `${nextPromDueItem.title} due ${new Date(nextPromDueItem.dueAt).toLocaleString()}`
+          : 'No pending insight or questionnaire review is waiting'),
+    },
+  ];
+  const historyWindowItems: Array<{ label: string; value: string; note: string }> = [
+    {
+      label: 'Last check-in',
+      value: trendSummary.lastCheckinDate
+        ? formatDashboardRelativeTime(trendSummary.lastCheckinDate)
+        : 'None in window',
+      note: trendSummary.lastCheckinDate
+        ? 'Most recent patient-reported update'
+        : 'No check-in data for the selected window',
+    },
+    {
+      label: 'Latest pain',
+      value: trendSummary.latestPain === null ? '—' : `${trendSummary.latestPain}/10`,
+      note: trendSummary.latestMood !== null ? `Mood ${trendSummary.latestMood}` : 'No mood paired with the latest pain score',
+    },
+    {
+      label: '7d adherence',
+      value: `${Math.round((trendSummary.adherence7d ?? 0) * 100)}%`,
+      note: trendSummary.avgPain7d !== null ? `Avg pain ${trendSummary.avgPain7d}` : 'No 7d pain average available',
+    },
+    {
+      label: 'Recent session',
+      value: latestExerciseSession ? formatDashboardRelativeTime(latestExerciseSession.startedAt) : 'No recent session',
+      note: latestExerciseSession?.planTitle ?? 'Exercise sessions will appear here once completed',
+    },
+  ];
 
   const handleWorkspaceTabKeyDown = (
     event: ReactKeyboardEvent<HTMLButtonElement>,
@@ -2023,7 +2197,7 @@ export function PatientDetailPage(): JSX.Element {
 
     event.preventDefault();
     const nextTab = PATIENT_WORKSPACE_TABS[nextIndex];
-    setActiveWorkspaceTab(nextTab.id);
+    openWorkspaceTab(nextTab.id);
 
     const tabButtons = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
       '[role="tab"]',
@@ -2035,6 +2209,7 @@ export function PatientDetailPage(): JSX.Element {
     <RecentAlertsPanel
       alerts={patientAlerts}
       seenAlertMap={seenAlertMap}
+      freshnessLabel={alertsFreshnessLabel}
       mutationPending={updateAlertMutation.isPending}
       onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
       onResolve={(alert) => handleStatusUpdate('resolved', alert)}
@@ -2105,12 +2280,17 @@ export function PatientDetailPage(): JSX.Element {
             <p className="patient-detail-context-section__eyebrow">Priority snapshot</p>
             <h2 className="patient-detail-context-section__title">Clinical context in view</h2>
           </div>
-          <p className="patient-detail-context-section__note">
-            High-priority context for the current {selectedDays}-day review window.
-          </p>
+          <div className="patient-detail-context-section__support">
+            <p className="patient-detail-context-section__note">
+              High-priority context for the current {selectedDays}-day review window.
+            </p>
+            <p className="patient-detail-context-section__freshness">{railFreshnessLabel}</p>
+          </div>
         </div>
         <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
       </section>
+
+      <div id="patient-detail-alerts-panel">{renderRecentAlertsPanel()}</div>
 
       <section
         className="patient-detail-focus-card"
@@ -2127,7 +2307,6 @@ export function PatientDetailPage(): JSX.Element {
         ) : null}
       </section>
 
-      <div id="patient-detail-alerts-panel">{renderRecentAlertsPanel()}</div>
       {renderPriorityHandoffSummary()}
     </>
   );
@@ -2323,7 +2502,7 @@ export function PatientDetailPage(): JSX.Element {
                       isActive ? ' patient-detail-workspace__tab--active' : ''
                     }`}
                     onClick={() => {
-                      setActiveWorkspaceTab(tab.id);
+                      openWorkspaceTab(tab.id);
                     }}
                     onKeyDown={(event) => handleWorkspaceTabKeyDown(event, index)}
                   >
@@ -2346,10 +2525,25 @@ export function PatientDetailPage(): JSX.Element {
                   <p className="patient-detail-section-eyebrow">Overview</p>
                   <h3 className="patient-detail-section-title">Priorities and next actions</h3>
                 </div>
-                <p className="patient-detail-section-note">
-                  Start with the live decision surface, then scan the most actionable follow-through and guidance context.
-                </p>
+                <div className="patient-detail-workspace__panel-support">
+                  <p className="patient-detail-section-note">
+                    Start with the live decision surface, then scan the most actionable follow-through and guidance context.
+                  </p>
+                  {overviewFreshnessLabel ? (
+                    <p className="patient-detail-section-freshness">{overviewFreshnessLabel}</p>
+                  ) : null}
+                </div>
               </div>
+
+              <section className="patient-detail-review-window-strip" aria-label="Overview review window activity">
+                {overviewActivityItems.map((item) => (
+                  <article key={item.label} className="patient-detail-review-window-strip__item">
+                    <span className="patient-detail-review-window-strip__label">{item.label}</span>
+                    <strong className="patient-detail-review-window-strip__value">{item.value}</strong>
+                    <p className="patient-detail-review-window-strip__note">{item.note}</p>
+                  </article>
+                ))}
+              </section>
 
               <section className="patient-detail-workspace__lead">
                 <PatientDecisionSurface
@@ -2375,6 +2569,9 @@ export function PatientDetailPage(): JSX.Element {
                   className="patient-detail-panel patient-detail-panel--overview"
                   title="Follow-through digest"
                 >
+                  <p className="patient-detail-panel__support-meta">
+                    Keep this lane short: what still needs response, completion, or follow-up today.
+                  </p>
                   <div className="patient-detail-digest-list">
                     <article className="patient-detail-digest-item">
                       <div className="patient-detail-digest-item__meta">
@@ -2439,6 +2636,9 @@ export function PatientDetailPage(): JSX.Element {
                   className="patient-detail-panel patient-detail-panel--overview"
                   title="Guidance digest"
                 >
+                  <p className="patient-detail-panel__support-meta">
+                    Review only the guidance and questionnaires that could change the next clinical decision.
+                  </p>
                   <div className="patient-detail-digest-list">
                     <article className="patient-detail-digest-item">
                       <div className="patient-detail-digest-item__meta">
@@ -2513,9 +2713,14 @@ export function PatientDetailPage(): JSX.Element {
                   <p className="patient-detail-section-eyebrow">Communications & Notes</p>
                   <h3 className="patient-detail-section-title">Communication, tasks, and internal notes</h3>
                 </div>
-                <p className="patient-detail-section-note">
-                  Keep conversation history, follow-through tasks, schedule context, and browser-local handoff in one workspace.
-                </p>
+                <div className="patient-detail-workspace__panel-support">
+                  <p className="patient-detail-section-note">
+                    Keep conversation history, follow-through tasks, schedule context, and browser-local handoff in one workspace.
+                  </p>
+                  {communicationsFreshnessLabel ? (
+                    <p className="patient-detail-section-freshness">{communicationsFreshnessLabel}</p>
+                  ) : null}
+                </div>
               </div>
 
               <div className="patient-detail-tab-grid patient-detail-tab-grid--communications">
@@ -2525,6 +2730,7 @@ export function PatientDetailPage(): JSX.Element {
                     timeline={patientCommunicationTimeline}
                     isLoading={patientCommunicationQuery.isLoading}
                     error={patientCommunicationQuery.error ? toUserMessage(patientCommunicationQuery.error) : null}
+                    freshnessLabel={communicationsFreshnessLabel}
                     onRetry={() => {
                       void patientCommunicationQuery.refetch();
                     }}
@@ -2549,6 +2755,7 @@ export function PatientDetailPage(): JSX.Element {
                     recentCompletedTasks={patientRecentCompletedTasks}
                     isLoading={patientTasksQuery.isLoading}
                     error={patientTasksQuery.error ? toUserMessage(patientTasksQuery.error) : null}
+                    freshnessLabel={tasksFreshnessLabel}
                     completingTaskId={completeTaskMutation.isPending ? completeTaskMutation.variables : null}
                     onRetry={() => {
                       void patientTasksQuery.refetch();
@@ -2563,6 +2770,7 @@ export function PatientDetailPage(): JSX.Element {
                     items={patientAppointments}
                     isLoading={patientAppointmentsQuery.isLoading}
                     error={patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null}
+                    freshnessLabel={appointmentsFreshnessLabel}
                     onRetry={() => {
                       void patientAppointmentsQuery.refetch();
                     }}
@@ -2592,9 +2800,14 @@ export function PatientDetailPage(): JSX.Element {
                   <p className="patient-detail-section-eyebrow">Clinical Guidance & Questionnaires</p>
                   <h3 className="patient-detail-section-title">Questionnaires, insights, and rehab guidance</h3>
                 </div>
-                <p className="patient-detail-section-note">
-                  Keep review queues and rehab guidance grouped together without taking over the live work lane.
-                </p>
+                <div className="patient-detail-workspace__panel-support">
+                  <p className="patient-detail-section-note">
+                    Keep review queues and rehab guidance grouped together without taking over the live work lane.
+                  </p>
+                  {guidanceFreshnessLabel ? (
+                    <p className="patient-detail-section-freshness">{guidanceFreshnessLabel}</p>
+                  ) : null}
+                </div>
               </div>
 
               <div className="patient-detail-tab-grid patient-detail-tab-grid--guidance">
@@ -2603,7 +2816,7 @@ export function PatientDetailPage(): JSX.Element {
                   title="Questionnaires (PROMs)"
                   action={
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       onClick={() => {
                         void patientPromsQuery.refetch();
                       }}
@@ -2644,7 +2857,7 @@ export function PatientDetailPage(): JSX.Element {
                           />
                         </label>
                         <Button
-                          variant="secondary"
+                          variant="primary"
                           disabled={isAssigningProm}
                           onClick={() => {
                             void handleAssignProm();
@@ -2664,7 +2877,7 @@ export function PatientDetailPage(): JSX.Element {
                               <button
                                 key={prom.id}
                                 type="button"
-                                className="unstyled-button patient-prom-item"
+                                className="unstyled-button patient-prom-item patient-prom-item--due"
                                 onClick={() => navigate(`/proms/${prom.id}`)}
                               >
                                 <div>
@@ -2688,7 +2901,7 @@ export function PatientDetailPage(): JSX.Element {
                               <button
                                 key={prom.id}
                                 type="button"
-                                className="unstyled-button patient-prom-item"
+                                className="unstyled-button patient-prom-item patient-prom-item--completed"
                                 onClick={() => navigate(`/proms/${prom.id}`)}
                               >
                                 <div>
@@ -2715,7 +2928,7 @@ export function PatientDetailPage(): JSX.Element {
                   action={
                     <div className="patient-detail-actions">
                       <Button
-                        variant="secondary"
+                        variant="ghost"
                         onClick={() => {
                           void patientInsightsQuery.refetch();
                         }}
@@ -2754,7 +2967,7 @@ export function PatientDetailPage(): JSX.Element {
                         ) : (
                           <div className="stack stack--2">
                             {patientPendingInsights.map((insight) => (
-                              <div key={insight.id} className="patient-insight-item">
+                              <div key={insight.id} className="patient-insight-item patient-insight-item--pending">
                                 <div className="patient-insight-item__meta">
                                   <Badge variant={insightConfidenceVariant(insight.confidence)}>
                                     {insight.confidence}
@@ -2794,13 +3007,33 @@ export function PatientDetailPage(): JSX.Element {
                       </div>
 
                       <div className="stack stack--2">
-                        <strong>Approved</strong>
+                        <div className="patient-detail-list-section__header">
+                          <strong>Approved</strong>
+                          {patientApprovedInsights.length > 0 ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-expanded={isApprovedInsightsOpen}
+                              onClick={() => {
+                                setIsApprovedInsightsOpen((current) => !current);
+                              }}
+                            >
+                              {isApprovedInsightsOpen
+                                ? 'Hide approved'
+                                : `Show approved (${patientApprovedInsights.length})`}
+                            </Button>
+                          ) : null}
+                        </div>
                         {patientApprovedInsights.length === 0 ? (
                           <p className="muted-text">No approved insights yet.</p>
+                        ) : !isApprovedInsightsOpen ? (
+                          <p className="muted-text">
+                            Approved guidance is collapsed by default so pending review stays in view.
+                          </p>
                         ) : (
                           <div className="stack stack--2">
                             {patientApprovedInsights.map((insight) => (
-                              <div key={insight.id} className="patient-insight-item">
+                              <div key={insight.id} className="patient-insight-item patient-insight-item--approved">
                                 <div className="patient-insight-item__meta">
                                   <Badge variant={insightConfidenceVariant(insight.confidence)}>
                                     {insight.confidence}
@@ -2826,7 +3059,7 @@ export function PatientDetailPage(): JSX.Element {
                   action={
                     <div className="patient-detail-actions">
                       <Button
-                        variant="secondary"
+                        variant="ghost"
                         onClick={() => {
                           void patientRehabQuery.refetch();
                         }}
@@ -2834,7 +3067,7 @@ export function PatientDetailPage(): JSX.Element {
                         Refresh
                       </Button>
                       <Button
-                        variant="secondary"
+                        variant="primary"
                         disabled={!selectedRehabKey || isSavingRehab}
                         onClick={() => {
                           void handleRehabSave();
@@ -2929,10 +3162,25 @@ export function PatientDetailPage(): JSX.Element {
                   <p className="patient-detail-section-eyebrow">History & Signals</p>
                   <h3 className="patient-detail-section-title">Trend history and slower recovery context</h3>
                 </div>
-                <p className="patient-detail-section-note">
-                  Use the longitudinal record when the active review needs deeper context, not as the first stop.
-                </p>
+                <div className="patient-detail-workspace__panel-support">
+                  <p className="patient-detail-section-note">
+                    Use the longitudinal record when the active review needs deeper context, not as the first stop.
+                  </p>
+                  {historyFreshnessLabel ? (
+                    <p className="patient-detail-section-freshness">{historyFreshnessLabel}</p>
+                  ) : null}
+                </div>
               </div>
+
+              <section className="patient-detail-review-window-strip" aria-label="History review window summary">
+                {historyWindowItems.map((item) => (
+                  <article key={item.label} className="patient-detail-review-window-strip__item">
+                    <span className="patient-detail-review-window-strip__label">{item.label}</span>
+                    <strong className="patient-detail-review-window-strip__value">{item.value}</strong>
+                    <p className="patient-detail-review-window-strip__note">{item.note}</p>
+                  </article>
+                ))}
+              </section>
 
               <section id="patient-history-trends" className="patient-detail-history-panel">
                 <div className="patient-detail-section-header">
@@ -2940,7 +3188,14 @@ export function PatientDetailPage(): JSX.Element {
                     <p className="patient-detail-section-eyebrow">Trend history</p>
                     <h2 className="patient-detail-section-title">Clinical trajectory</h2>
                   </div>
-                  <p className="patient-detail-section-note">Open day detail only when the active review needs deeper context.</p>
+                  <div className="patient-detail-workspace__panel-support">
+                    <p className="patient-detail-section-note">
+                      Open day detail only when the active review needs deeper context.
+                    </p>
+                    {trendsFreshnessLabel ? (
+                      <p className="patient-detail-section-freshness">{trendsFreshnessLabel}</p>
+                    ) : null}
+                  </div>
                 </div>
                 {showTrendsLoading ? (
                   <Card title="Trend charts">
@@ -3010,23 +3265,28 @@ export function PatientDetailPage(): JSX.Element {
                   className="patient-detail-panel patient-detail-panel--operations-secondary"
                   title="Exercise sessions"
                   action={
-                    <div className="patient-detail-actions">
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          void patientSessionsQuery.refetch();
-                        }}
-                      >
-                        Refresh
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          navigate(`/patients/${patientId}/sessions`);
-                        }}
-                      >
-                        View all
-                      </Button>
+                    <div className="patient-detail-panel__header-tools">
+                      {sessionsFreshnessLabel ? (
+                        <span className="patient-detail-panel__freshness">{sessionsFreshnessLabel}</span>
+                      ) : null}
+                      <div className="patient-detail-actions">
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            void patientSessionsQuery.refetch();
+                          }}
+                        >
+                          Refresh
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            navigate(`/patients/${patientId}/sessions`);
+                          }}
+                        >
+                          View all
+                        </Button>
+                      </div>
                     </div>
                   }
                 >
@@ -3039,6 +3299,16 @@ export function PatientDetailPage(): JSX.Element {
                     <EmptyState
                       title="No sessions yet"
                       description="Once the patient runs a session in mobile, it will appear here."
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            navigate(`/patients/${patientId}/plan`);
+                          }}
+                        >
+                          Open plan
+                        </Button>
+                      }
                     />
                   ) : (
                     <div className="patient-sessions-list">

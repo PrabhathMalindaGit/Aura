@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -51,6 +51,8 @@ export function PatientHandoffPanel({
   const [handoffError, setHandoffError] = useState<string | null>(null);
   const [noteNotice, setNoteNotice] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);
+  const summaryFieldRef = useRef<HTMLTextAreaElement | null>(null);
+  const noteFieldRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentHandoff = handoffRecord?.currentHandoff;
   const notes = handoffRecord?.notes ?? [];
@@ -140,6 +142,28 @@ export function PatientHandoffPanel({
             title="No internal handoff saved yet"
             description="Capture a concise review summary, next step, or local note when the next review on this browser needs context."
             tone="neutral"
+            action={
+              <div className="patient-handoff-panel__empty-actions">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    summaryFieldRef.current?.focus();
+                  }}
+                >
+                  Create handoff now
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    noteFieldRef.current?.focus();
+                  }}
+                >
+                  Add note
+                </Button>
+              </div>
+            }
           />
         ) : null}
 
@@ -242,6 +266,7 @@ export function PatientHandoffPanel({
           <label className="form-field">
             <span>Handoff summary</span>
             <textarea
+              ref={summaryFieldRef}
               name="handoff-summary"
               rows={4}
               maxLength={PATIENT_HANDOFF_LIMITS.summary}
@@ -350,6 +375,7 @@ export function PatientHandoffPanel({
           <label className="form-field">
             <span>Add internal note</span>
             <textarea
+              ref={noteFieldRef}
               rows={3}
               maxLength={PATIENT_HANDOFF_LIMITS.note}
               value={noteDraft}

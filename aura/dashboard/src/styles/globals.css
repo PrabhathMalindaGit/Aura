@@ -40414,6 +40414,17 @@ a {
   border-radius: 999px;
 }
 
+.patient-detail-priority-support {
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(18rem, 0.98fr);
+  gap: clamp(0.62rem, 0.9vw, 0.74rem);
+  align-items: start;
+}
+
+.patient-detail-priority-support > * {
+  min-width: 0;
+}
+
 .patient-detail-cockpit-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.72fr) minmax(14.25rem, 0.43fr);
@@ -40673,6 +40684,7 @@ a {
 
 .patient-detail-lane-section--guidance .patient-detail-panel,
 .patient-detail-reference-zone .patient-detail-panel,
+.patient-detail-priority-support .patient-detail-panel,
 .patient-detail-cockpit-layout__support .patient-detail-panel,
 .patient-detail-cockpit-layout__support .patient-handoff-panel {
   border-color: hsl(var(--border) / 0.2);
@@ -40825,6 +40837,7 @@ a {
 .dark .patient-summary-card,
 .dark .patient-detail-brief__support-band,
 .dark .patient-detail-reference-bridge__fact,
+.dark .patient-detail-priority-support .patient-detail-panel,
 .dark .patient-detail-cockpit-layout__support .patient-detail-panel,
 .dark .patient-detail-cockpit-layout__support .patient-handoff-panel,
 .dark .patient-detail-lane-section--guidance .patient-detail-panel,
@@ -41198,7 +41211,11 @@ a {
   }
 }
 
-@container dashboard-page (max-width: 1320px) {
+@media (max-width: 1320px) {
+  .patient-detail-page .patient-detail-priority-support {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
+  }
+
   .patient-detail-page .patient-detail-brief__body,
   .patient-detail-page .patient-detail-mini-nav,
   .patient-detail-page .patient-detail-reference-zone__header,
@@ -41221,7 +41238,7 @@ a {
   }
 }
 
-@container dashboard-page (max-width: 1180px) {
+@media (max-width: 1180px) {
   .patient-detail-page .patient-detail-brief .patient-detail-current-context__facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -41246,7 +41263,11 @@ a {
   }
 }
 
-@container dashboard-page (max-width: 1040px) {
+@media (max-width: 1040px) {
+  .patient-detail-page .patient-detail-priority-support {
+    grid-template-columns: 1fr;
+  }
+
   .patient-detail-page .patient-priority-item,
   .patient-detail-page .patient-recommended-action {
     grid-template-columns: 1fr;
@@ -41276,7 +41297,7 @@ a {
   }
 }
 
-@container dashboard-page (max-width: 860px) {
+@media (max-width: 860px) {
   .patient-detail-page .patient-detail-brief .patient-detail-current-context__facts,
   .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary,
   .patient-detail-page .patient-summary-snapshot__support {

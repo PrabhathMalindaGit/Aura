@@ -20,6 +20,7 @@ import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
   assignPromToPatient,
   completeClinicianTask,
@@ -328,6 +329,7 @@ export function PatientDetailPage(): JSX.Element {
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDays = parseDays(searchParams.get('days'));
+  const isPrioritySupportResponsive = useMediaQuery('(max-width: 1320px)');
 
   const [entryContext, setEntryContext] = useState<PatientEntryContext | null>(null);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
@@ -1953,6 +1955,32 @@ export function PatientDetailPage(): JSX.Element {
     });
   }
 
+  const renderPatientSummarySection = (className: string): JSX.Element => (
+    <section id="patient-summary-section" className={className} aria-label="Patient snapshot">
+      <div className="patient-detail-section-header patient-detail-section-header--summary">
+        <div className="patient-detail-section-heading">
+          <p className="patient-detail-section-eyebrow">Snapshot</p>
+          <h2 className="patient-detail-section-title">Current review snapshot</h2>
+        </div>
+        <p className="patient-detail-section-note">
+          Support context for the current {selectedDays}-day review window.
+        </p>
+      </div>
+      <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
+    </section>
+  );
+
+  const renderRecentAlertsPanel = (): JSX.Element => (
+    <RecentAlertsPanel
+      alerts={patientAlerts}
+      seenAlertMap={seenAlertMap}
+      mutationPending={updateAlertMutation.isPending}
+      onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
+      onResolve={(alert) => handleStatusUpdate('resolved', alert)}
+      onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
+    />
+  );
+
   return (
     <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page">
       <section
@@ -2165,6 +2193,19 @@ export function PatientDetailPage(): JSX.Element {
               ) : null}
             </article>
           ))}
+        </section>
+      ) : null}
+
+      {isPrioritySupportResponsive ? (
+        <section
+          className="patient-detail-priority-support"
+          aria-label="Priority patient support context"
+          data-testid="patient-detail-priority-support"
+        >
+          {renderPatientSummarySection(
+            'patient-detail-support-section patient-detail-support-section--snapshot patient-detail-priority-support__snapshot',
+          )}
+          {renderRecentAlertsPanel()}
         </section>
       ) : null}
 
@@ -2503,29 +2544,13 @@ export function PatientDetailPage(): JSX.Element {
         </div>
 
         <aside className="patient-detail-cockpit-layout__support" aria-label="Patient support context">
-          <section
-            id="patient-summary-section"
-            className="patient-detail-support-section patient-detail-support-section--snapshot"
-            aria-label="Patient snapshot"
-          >
-            <div className="patient-detail-section-header patient-detail-section-header--summary">
-              <div className="patient-detail-section-heading">
-                <p className="patient-detail-section-eyebrow">Snapshot</p>
-                <h2 className="patient-detail-section-title">Current review snapshot</h2>
-              </div>
-              <p className="patient-detail-section-note">Support context for the current {selectedDays}-day review window.</p>
-            </div>
-            <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
-          </section>
+          {isPrioritySupportResponsive
+            ? null
+            : renderPatientSummarySection(
+                'patient-detail-support-section patient-detail-support-section--snapshot',
+              )}
 
-          <RecentAlertsPanel
-            alerts={patientAlerts}
-            seenAlertMap={seenAlertMap}
-            mutationPending={updateAlertMutation.isPending}
-            onAcknowledge={(alert) => handleStatusUpdate('acknowledged', alert)}
-            onResolve={(alert) => handleStatusUpdate('resolved', alert)}
-            onViewAll={() => navigate(`/alerts?patientId=${encodeURIComponent(patientId)}`)}
-          />
+          {isPrioritySupportResponsive ? null : renderRecentAlertsPanel()}
 
           <PatientHandoffPanel
             patientId={patientId}

@@ -198,6 +198,23 @@ function installWindowMocks(): void {
   });
 }
 
+function setMatchMediaMatches(getMatch: (query: string) => boolean): void {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: getMatch(query),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 function PatientDetailHistoryHarness(): JSX.Element {
   const navigate = useNavigate();
 
@@ -599,6 +616,29 @@ describe('PatientDetailPage', () => {
     await user.click(within(miniNav).getByRole('button', { name: 'Operations' }));
 
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps snapshot and recent alerts near the top on narrower widths without mounting duplicates', async () => {
+    installFetchMock();
+    setMatchMediaMatches((query) => query === '(max-width: 1320px)');
+
+    renderPatientDetail();
+
+    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
+    const summarySection = document.getElementById('patient-summary-section');
+    const prioritiesHeading = screen.getByRole('heading', { name: 'Priorities and next actions' });
+    const supportAside = screen.getByLabelText('Patient support context');
+
+    expect(summarySection).not.toBeNull();
+    expect(prioritySupport).toContainElement(summarySection);
+    expect(screen.getAllByText('Current review snapshot')).toHaveLength(1);
+    expect(screen.getAllByText('Recent alerts')).toHaveLength(1);
+    expect(
+      (summarySection?.compareDocumentPosition(prioritiesHeading) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(supportAside).queryByText('Current review snapshot')).not.toBeInTheDocument();
+    expect(within(supportAside).queryByText('Recent alerts')).not.toBeInTheDocument();
+    expect(within(supportAside).getByTestId('patient-handoff-panel')).toBeInTheDocument();
   });
 
   it('expands trend cards inline one at a time and keeps day drilldown available', async () => {

@@ -245,6 +245,20 @@ function renderPatientDetail(
   );
 }
 
+function renderPatientDetailWithoutRouteParam(): void {
+  const queryClient = createQueryClient();
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/patients']}>
+        <Routes>
+          <Route path="/patients" element={<PatientDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 interface FetchMockOptions {
   trends14?: Array<Record<string, unknown>>;
   trends30?: Array<Record<string, unknown>>;
@@ -416,6 +430,15 @@ afterEach(() => {
 });
 
 describe('PatientDetailPage', () => {
+  it('renders a cockpit-consistent fallback when route context is missing', async () => {
+    renderPatientDetailWithoutRouteParam();
+
+    expect(await screen.findByRole('heading', { name: 'Patient detail' })).toBeInTheDocument();
+    expect(screen.getByText('Missing route context')).toBeInTheDocument();
+    expect(screen.getByText('Patient not found')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to patients' })).toBeInTheDocument();
+  });
+
   it('renders new operational review cockpit panels from available data', async () => {
     installFetchMock();
 

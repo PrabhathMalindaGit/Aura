@@ -13,7 +13,6 @@ import {
   type TimeRangeFilter,
 } from '../components/alerts/FiltersBar';
 import { StatusTabs } from '../components/alerts/StatusTabs';
-import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Section } from '../components/ui/Section';
 import { RetryButton } from '../components/system/RetryButton';
@@ -1121,6 +1120,50 @@ export function AlertsPage(): JSX.Element {
     ],
     [alertKpis.createdLast24hCount, alertKpis.overdueCount],
   );
+  const workspaceNotices: Array<{
+    key: string;
+    variant: 'warning' | 'error';
+    title: string;
+    message: string;
+    action?: JSX.Element;
+  }> = [];
+
+  if (staleErrorBannerVisible) {
+    workspaceNotices.push({
+      key: 'stale-data',
+      variant: 'warning',
+      title: 'Service temporarily unavailable',
+      message: `Showing last known data from ${formatLastUpdated(connection.lastSuccessAt)}.`,
+      action: <RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />,
+    });
+  }
+
+  if (actionError) {
+    workspaceNotices.push({
+      key: 'action-error',
+      variant: 'error',
+      title: 'Action failed',
+      message: actionError,
+    });
+  }
+
+  if (assignments.assignmentError) {
+    workspaceNotices.push({
+      key: 'assignment-error',
+      variant: 'error',
+      title: 'Assignment update failed',
+      message: assignments.assignmentError,
+    });
+  }
+
+  if (overrides.overrideError) {
+    workspaceNotices.push({
+      key: 'override-error',
+      variant: 'error',
+      title: 'Risk override update failed',
+      message: overrides.overrideError,
+    });
+  }
 
   return (
     <Stack
@@ -1148,32 +1191,24 @@ export function AlertsPage(): JSX.Element {
         }
       />
 
-      {staleErrorBannerVisible ? (
-        <AlertBanner
-          variant="warning"
-          title="Service temporarily unavailable"
-          action={<RetryButton onRetry={retryAlerts} loading={alertsQuery.isFetching} />}
-        >
-          Showing last known data from {formatLastUpdated(connection.lastSuccessAt)}.
-        </AlertBanner>
-      ) : null}
-
-      {actionError ? (
-        <AlertBanner variant="error" title="Action failed">
-          {actionError}
-        </AlertBanner>
-      ) : null}
-
-      {assignments.assignmentError ? (
-        <AlertBanner variant="error" title="Assignment update failed">
-          {assignments.assignmentError}
-        </AlertBanner>
-      ) : null}
-
-      {overrides.overrideError ? (
-        <AlertBanner variant="error" title="Risk override update failed">
-          {overrides.overrideError}
-        </AlertBanner>
+      {workspaceNotices.length > 0 ? (
+        <section className="alerts-inline-notices" aria-label="Safety workspace notices">
+          {workspaceNotices.map((notice) => (
+            <article
+              key={notice.key}
+              className={`alerts-inline-notice alerts-inline-notice--${notice.variant}`}
+              role={notice.variant === 'error' ? 'alert' : 'status'}
+            >
+              <div className="alerts-inline-notice__content">
+                <strong className="alerts-inline-notice__title">{notice.title}</strong>
+                <p className="alerts-inline-notice__text">{notice.message}</p>
+              </div>
+              {notice.action ? (
+                <div className="alerts-inline-notice__actions">{notice.action}</div>
+              ) : null}
+            </article>
+          ))}
+        </section>
       ) : null}
 
       <section className="safety-brief" aria-label="Safety triage summary">
@@ -1536,7 +1571,7 @@ export function AlertsPage(): JSX.Element {
                 }}
               />
             ) : (
-              <section className="safety-detail-empty" role="dialog" aria-modal="false" aria-label="Alert detail">
+              <section className="safety-detail-empty" role="status" aria-live="polite" aria-label="Alert detail">
                 <p className="safety-detail-empty__eyebrow">Persistent detail</p>
                 <h3 className="safety-detail-empty__title">No alert selected</h3>
                 <p className="safety-detail-empty__text">

@@ -7,7 +7,7 @@ import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Tabs } from '../components/ui/Tabs';
-import { AlertBanner } from '../components/ui/AlertBanner';
+import { Section } from '../components/ui/Section';
 import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import { DayDetailPanel } from '../components/patients/DayDetailPanel';
 import { PatientAppointmentsPanel } from '../components/patients/PatientAppointmentsPanel';
@@ -1729,7 +1729,38 @@ export function PatientDetailPage(): JSX.Element {
 
   if (!patientId) {
     return (
-      <EmptyState title="Patient not found" description="No patient identifier was provided in the route." />
+      <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page patient-detail-page--missing">
+        <Section
+          className="dashboard-page-header dashboard-page-header--patient"
+          eyebrow="Clinician cockpit"
+          title="Patient detail"
+          subtitle="Open a patient record from roster, queue, schedule, or guidance review to continue clinician review."
+        />
+        <section className="patient-detail-missing" aria-label="Patient detail unavailable">
+          <div className="patient-detail-missing__copy">
+            <p className="patient-detail-missing__eyebrow">Missing route context</p>
+            <h2 className="patient-detail-missing__title">Patient not found</h2>
+            <p className="patient-detail-missing__text">
+              No patient identifier was provided in the route, so the cockpit could not open a chart.
+            </p>
+          </div>
+          <EmptyState
+            title="Choose a patient to continue"
+            description="Return to the roster and open a patient record from the live clinician workflow."
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigate('/patients');
+                }}
+              >
+                Back to patients
+              </Button>
+            }
+          />
+        </section>
+      </div>
     );
   }
 
@@ -1854,6 +1885,73 @@ export function PatientDetailPage(): JSX.Element {
   const workspaceNoticeMessages = [insightActionNotice, operationsNotice].filter(
     (message): message is string => Boolean(message),
   );
+  const patientDetailNotices: Array<{
+    key: string;
+    variant: 'error' | 'success';
+    title: string;
+    messages: string[];
+    action?: JSX.Element;
+  }> = [];
+
+  if (reviewIssueMessages.length > 0) {
+    patientDetailNotices.push({
+      key: 'core-review',
+      variant: 'error',
+      title: 'Some core review data is unavailable',
+      messages: reviewIssueMessages,
+      action: (
+        <Button variant="secondary" size="sm" onClick={handleRefreshReviewSignals}>
+          Refresh core review
+        </Button>
+      ),
+    });
+  }
+
+  if (careReviewIssueMessages.length > 0) {
+    patientDetailNotices.push({
+      key: 'care-review',
+      variant: 'error',
+      title: 'Some care review panels need refresh',
+      messages: careReviewIssueMessages,
+      action: (
+        <Button variant="secondary" size="sm" onClick={handleRefreshCareReview}>
+          Refresh care review
+        </Button>
+      ),
+    });
+  }
+
+  if (referenceIssueMessages.length > 0) {
+    patientDetailNotices.push({
+      key: 'reference-review',
+      variant: 'error',
+      title: 'Some deeper reference signals are unavailable',
+      messages: referenceIssueMessages,
+      action: (
+        <Button variant="secondary" size="sm" onClick={handleRefreshReferenceSignals}>
+          Refresh reference data
+        </Button>
+      ),
+    });
+  }
+
+  if (workspaceIssueMessages.length > 0) {
+    patientDetailNotices.push({
+      key: 'workspace-actions',
+      variant: 'error',
+      title: 'A patient detail action needs attention',
+      messages: workspaceIssueMessages,
+    });
+  }
+
+  if (workspaceNoticeMessages.length > 0) {
+    patientDetailNotices.push({
+      key: 'workspace-updated',
+      variant: 'success',
+      title: 'Patient detail updated',
+      messages: workspaceNoticeMessages,
+    });
+  }
 
   return (
     <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page">
@@ -2046,58 +2144,26 @@ export function PatientDetailPage(): JSX.Element {
         </section>
       </section>
 
-      {reviewIssueMessages.length > 0 ? (
-        <AlertBanner
-          variant="error"
-          title="Some core review data is unavailable"
-          action={
-            <Button variant="secondary" size="sm" onClick={handleRefreshReviewSignals}>
-              Refresh core review
-            </Button>
-          }
-        >
-          <NoticeMessageList messages={reviewIssueMessages} />
-        </AlertBanner>
-      ) : null}
-
-      {careReviewIssueMessages.length > 0 ? (
-        <AlertBanner
-          variant="error"
-          title="Some care review panels need refresh"
-          action={
-            <Button variant="secondary" size="sm" onClick={handleRefreshCareReview}>
-              Refresh care review
-            </Button>
-          }
-        >
-          <NoticeMessageList messages={careReviewIssueMessages} />
-        </AlertBanner>
-      ) : null}
-
-      {referenceIssueMessages.length > 0 ? (
-        <AlertBanner
-          variant="error"
-          title="Some deeper reference signals are unavailable"
-          action={
-            <Button variant="secondary" size="sm" onClick={handleRefreshReferenceSignals}>
-              Refresh reference data
-            </Button>
-          }
-        >
-          <NoticeMessageList messages={referenceIssueMessages} />
-        </AlertBanner>
-      ) : null}
-
-      {workspaceIssueMessages.length > 0 ? (
-        <AlertBanner variant="error" title="A patient detail action needs attention">
-          <NoticeMessageList messages={workspaceIssueMessages} />
-        </AlertBanner>
-      ) : null}
-
-      {workspaceNoticeMessages.length > 0 ? (
-        <AlertBanner variant="success" title="Patient detail updated">
-          <NoticeMessageList messages={workspaceNoticeMessages} />
-        </AlertBanner>
+      {patientDetailNotices.length > 0 ? (
+        <section className="patient-detail-notices" aria-label="Patient detail notices">
+          {patientDetailNotices.map((notice) => (
+            <article
+              key={notice.key}
+              className={`patient-detail-notice patient-detail-notice--${notice.variant}`}
+              role={notice.variant === 'error' ? 'alert' : 'status'}
+            >
+              <div className="patient-detail-notice__content">
+                <strong className="patient-detail-notice__title">{notice.title}</strong>
+                <p className="patient-detail-notice__text">
+                  <NoticeMessageList messages={notice.messages} />
+                </p>
+              </div>
+              {notice.action ? (
+                <div className="patient-detail-notice__actions">{notice.action}</div>
+              ) : null}
+            </article>
+          ))}
+        </section>
       ) : null}
 
       <div className="patient-detail-cockpit-layout">

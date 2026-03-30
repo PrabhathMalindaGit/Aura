@@ -399,6 +399,9 @@ describe('DashboardHomePage', () => {
     expect(screen.getByText('Waiting for patient confirmation.')).toBeInTheDocument();
     expect(screen.getByText('Review safety escalation')).toBeInTheDocument();
     expect(screen.getByText('Pain is much worse after yesterday’s session.')).toBeInTheDocument();
+
+    const shiftPriorities = screen.getByRole('group', { name: 'Shift priorities' });
+    expect(within(shiftPriorities).getAllByRole('button')).toHaveLength(4);
   });
 
   it('renders premium empty states when aggregate modules have no items', async () => {

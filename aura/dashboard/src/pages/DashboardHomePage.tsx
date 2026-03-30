@@ -632,7 +632,7 @@ export function DashboardHomePage(): JSX.Element {
 
       <section className="today-brief" aria-label="Shift brief">
         <div className="today-brief__lead">
-          <h2 className="today-brief__title">{attentionLead.title}</h2>
+          <p className="today-brief__title">{attentionLead.title}</p>
           <p className="today-brief__copy">{attentionLead.copy}</p>
           <div className="today-brief__actions">
             <Button
@@ -646,14 +646,13 @@ export function DashboardHomePage(): JSX.Element {
           </div>
         </div>
 
-        <div className="today-brief__facts" role="list" aria-label="Shift priorities">
+        <div className="today-brief__facts" role="group" aria-label="Shift priorities">
           {shiftFacts.map((fact) => (
             <button
               key={fact.key}
               type="button"
               className={`today-brief__fact today-brief__fact--${fact.tone}`}
               onClick={fact.onSelect}
-              role="listitem"
             >
               <span className="today-brief__fact-label">{fact.label}</span>
               <strong className="today-brief__fact-value">{fact.value}</strong>

@@ -181,6 +181,7 @@ describe('InsightsQueuePage', () => {
 
     expect(await screen.findByText('Taylor Moss', {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Pending (1)' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByText('Specialized queue')).not.toBeInTheDocument();
     expect(screen.getByText('Patient ID patient-42')).toBeInTheDocument();
     expect(screen.getByText('Reason for review')).toBeInTheDocument();
     expect(

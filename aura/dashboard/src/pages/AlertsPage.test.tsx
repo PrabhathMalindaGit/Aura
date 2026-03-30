@@ -298,6 +298,23 @@ describe('AlertsPage queue flow', () => {
     expect(await screen.findByRole('dialog', { name: 'Alert' })).toBeInTheDocument();
   });
 
+  it('keeps the inline empty detail rail informational instead of announcing a dialog', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+
+      if (url.includes('/clinician/alerts?status=open')) {
+        return createJsonResponse({ ok: true, alerts: [baseAlert] });
+      }
+
+      return createJsonResponse({ ok: true, alerts: [] });
+    });
+
+    renderAlertsPage();
+
+    expect(await screen.findByRole('status', { name: 'Alert detail' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Alert detail' })).not.toBeInTheDocument();
+  });
+
   it('shows acknowledged triage continuity and keeps the view switch explicit', async () => {
     const secondOpenAlert: AlertItem = {
       ...baseAlert,

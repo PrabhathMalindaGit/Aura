@@ -466,38 +466,24 @@ export function InsightsQueuePage(): JSX.Element {
     rejectedInsightsQuery.isFetching ||
     patientsQuery.isFetching;
   const isReviewSubmitting = isSubmittingId !== null || batchActionStatus !== null;
-  const priorityReviewShare = pendingCount > 0 ? Math.round((priorityReviewItems.length / pendingCount) * 100) : 0;
-  const reviewMixTotal = pendingCount + approvedCount + rejectedCount;
-  const reviewMixSegments = [
-    {
-      key: 'pending',
-      label: 'Pending',
-      count: pendingCount,
-      width: reviewMixTotal > 0 ? `${(pendingCount / reviewMixTotal) * 100}%` : '0%',
-    },
-    {
-      key: 'approved',
-      label: 'Approved',
-      count: approvedCount,
-      width: reviewMixTotal > 0 ? `${(approvedCount / reviewMixTotal) * 100}%` : '0%',
-    },
-    {
-      key: 'rejected',
-      label: 'Rejected',
-      count: rejectedCount,
-      width: reviewMixTotal > 0 ? `${(rejectedCount / reviewMixTotal) * 100}%` : '0%',
-    },
-  ];
-  const statusStripTitle =
-    pendingCount > 0 ? 'Pending clinician review' : queueState.label;
-  const statusStripNarrative =
-    pendingCount > 0
-      ? priorityReviewItems.length > 0
+  const statusBarTitle =
+    activeView === 'pending'
+      ? pendingCount > 0
+        ? 'Awaiting clinician review'
+        : queueState.label
+      : activeView === 'approved'
+        ? 'Approved suggestions in view'
+        : 'Rejected suggestions in view';
+  const statusBarHint =
+    activeView === 'pending'
+      ? pendingCount > 0 && priorityReviewItems.length > 0
         ? `${priorityReviewItems.length} suggestion${
             priorityReviewItems.length === 1 ? '' : 's'
           } need individual review before any routine batching.`
-        : 'Pending review is currently low-signal and ready for routine handling.'
-      : queueState.hint;
+        : queueState.hint
+      : activeView === 'approved'
+        ? 'Approved suggestions stay visible here as reviewed guidance for this current queue view.'
+        : 'Rejected suggestions stay visible here as reviewed guidance for this current queue view.';
   const reviewedSummaryHint =
     reviewedCount === null
       ? 'Approved and rejected counts are unavailable right now.'
@@ -999,7 +985,7 @@ export function InsightsQueuePage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--insights insights-page-header"
         eyebrow="Specialized review"
         title="Guidance review"
-        subtitle="Specialized queue for clinician review of suggested guidance outside the main review surface."
+        subtitle="Compatibility queue for clinician review of suggested guidance outside the main clinician work surfaces."
         actions={
           <Button
             variant="secondary"
@@ -1015,63 +1001,30 @@ export function InsightsQueuePage(): JSX.Element {
       />
 
       <div className="insights-overview-stack">
-        <section className="insights-summary-strip" aria-label="Insights queue summary">
+        <section className="insights-summary-strip" aria-label="Guidance review status">
           <article className={`insights-summary-strip__lead insights-summary-strip__lead--${queueState.tone}`}>
             <div className="insights-summary-strip__lead-copy">
-              <p className="insights-summary-strip__eyebrow">Guidance queue status</p>
+              <p className="insights-summary-strip__eyebrow">Compatibility status</p>
               <div className="insights-summary-strip__headline">
-                <p className="insights-summary-strip__lead-value">{pendingCount}</p>
+                <p className="insights-summary-strip__lead-value">{activeQuery.error ? '--' : activeItems.length}</p>
                 <div className="insights-summary-strip__headline-copy">
-                  <p className="insights-summary-strip__headline-title">{statusStripTitle}</p>
-                  <p className="insights-summary-strip__hint">{statusStripNarrative}</p>
+                  <p className="insights-summary-strip__headline-title">{statusBarTitle}</p>
+                  <p className="insights-summary-strip__hint">{statusBarHint}</p>
                 </div>
               </div>
             </div>
-            <div className="insights-summary-strip__mix" aria-label="Review mix">
-              <div className="insights-summary-strip__mix-bar" aria-hidden="true">
-                {reviewMixSegments.map((segment) => (
-                  <span
-                    key={segment.key}
-                    className={`insights-summary-strip__mix-segment insights-summary-strip__mix-segment--${segment.key}`}
-                    style={{ width: segment.width }}
-                  />
-                ))}
-              </div>
-              <div className="insights-summary-strip__mix-legend">
-                {reviewMixSegments.map((segment) => (
-                  <span key={segment.key} className="insights-summary-strip__mix-item">
-                    <span
-                      className={`insights-summary-strip__mix-dot insights-summary-strip__mix-dot--${segment.key}`}
-                      aria-hidden="true"
-                    />
-                    {segment.label} {segment.count}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </article>
-          <article className="insights-summary-strip__item insights-summary-strip__item--priority">
-            <p className="insights-summary-strip__label">Priority review share</p>
-            <p className="insights-summary-strip__value">
-              {pendingCount > 0 ? `${priorityReviewShare}%` : '--'}
-            </p>
-            <p className="insights-summary-strip__hint">
-              {pendingCount > 0
-                ? `${priorityReviewItems.length} suggestion${
-                    priorityReviewItems.length === 1 ? '' : 's'
-                  } need individual review first.`
-                : 'No pending suggestions are waiting right now.'}
-            </p>
           </article>
           <article className="insights-summary-strip__item insights-summary-strip__item--reviewed">
-            <p className="insights-summary-strip__label">Reviewed in current queue view</p>
-            <p className="insights-summary-strip__value">{reviewedCount ?? '--'}</p>
+            <p className="insights-summary-strip__label">Items in current queue view</p>
+            <p className="insights-summary-strip__value">
+              {activeView === 'pending' ? pendingCount : activeItems.length}
+            </p>
             <p className="insights-summary-strip__hint">{reviewedSummaryHint}</p>
           </article>
           <article className="insights-summary-strip__item insights-summary-strip__item--updated">
             <p className="insights-summary-strip__label">Last refresh</p>
             <p className="insights-summary-strip__value">{updatedAtLabel}</p>
-            <p className="insights-summary-strip__hint">Queue freshness for this review surface.</p>
+            <p className="insights-summary-strip__hint">Compatibility surface freshness.</p>
           </article>
         </section>
       </div>
@@ -1081,8 +1034,7 @@ export function InsightsQueuePage(): JSX.Element {
         title={
           <span className="insights-workspace-card__title insights-workspace-card__title-shell">
             <span className="insights-workspace-card__title-copy">
-              <span className="insights-workspace-card__title-eyebrow">Specialized queue</span>
-              <span className="insights-workspace-card__title-text">Guidance review console</span>
+              <span className="insights-workspace-card__title-text">Review queue</span>
             </span>
             <span className="insights-workspace-card__title-side">
               <span className="insights-workspace-card__title-count">
@@ -1112,7 +1064,7 @@ export function InsightsQueuePage(): JSX.Element {
                 {activeQuery.error ? '--' : activeItems.length} in view
               </span>
               <span className="insights-review-console__meta-pill">{viewConfig.titleMeta}</span>
-              {viewConfig.facts.map((fact) => (
+              {viewConfig.facts.slice(0, 2).map((fact) => (
                 <span key={fact} className="insights-review-console__meta-pill">
                   {fact}
                 </span>
@@ -1127,13 +1079,8 @@ export function InsightsQueuePage(): JSX.Element {
                 : ''
             }`}
           >
-            <div className="insights-queue-context__copy">
-              <p className="insights-queue-context__eyebrow">Review mode</p>
-              <h3 className="insights-queue-context__title">
-                {activeView === 'pending' ? 'Priority items lead this queue' : viewConfig.titleMeta}
-              </h3>
-              <p className="insights-queue-context__text">{queueContextHint}</p>
-            </div>
+            <p className="insights-queue-context__eyebrow">Review mode</p>
+            <p className="insights-queue-context__text">{queueContextHint}</p>
           </div>
 
           {reviewError ? (

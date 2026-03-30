@@ -166,15 +166,7 @@ export function ClinicianLoginPage(): JSX.Element {
             <div className="login-access-brief__copy">
               <p className="auth-entry-intro__eyebrow">Aura clinician workspace</p>
               <h1 className="login-access-brief__title">Clinician access</h1>
-              <p className="login-access-brief__text">
-                Secure entry to the review queue, patient cockpit, and clinical follow-through
-                workspace.
-              </p>
-            </div>
-            <div className="login-access-brief__facts" aria-label="Clinician access context">
-              <span className="login-access-brief__fact">Queue, inbox, and schedule</span>
-              <span className="login-access-brief__fact">Protected patient review</span>
-              <span className="login-access-brief__fact">Return to current workflow</span>
+              <p className="login-access-brief__text">Sign in to resume clinician work on this workstation.</p>
             </div>
           </header>
 
@@ -183,27 +175,21 @@ export function ClinicianLoginPage(): JSX.Element {
               className="login-card auth-surface-card login-card--editorial"
               title={
                 <span className="login-card__title-shell">
-                  <span className="login-card__eyebrow">Clinician sign in</span>
-                  <span className="login-card__title">Enter your credentials</span>
+                  <span className="login-card__title">Sign in to continue</span>
                 </span>
-              }
-              action={
-                showDemoCredentials ? (
-                  <span className="login-card__action-note">Local demo available</span>
-                ) : null
               }
             >
               <div className="page-stack login-card__stack">
                 <section className="login-context" aria-live="polite">
-                  <div className="login-context__header">
+                  <div className="login-context__summary">
                     <span className="login-context__state">{reasonLabel(state.reason)}</span>
-                    <span className="login-context__summary">
+                    <p className="login-context__summary-copy">
                       {state.reason === 'expired'
                         ? 'Re-enter to continue clinician review.'
                         : state.reason === 'signedOut'
                           ? 'Access has been closed for this session.'
                           : 'Protected access is required.'}
-                    </span>
+                    </p>
                   </div>
                   <p className="login-context__message">{reasonMessage(state.reason)}</p>
                 </section>
@@ -292,33 +278,29 @@ export function ClinicianLoginPage(): JSX.Element {
 
             <aside className="login-access-trust" aria-label="Access context">
               <div className="login-access-trust__panel">
-                <p className="login-access-trust__eyebrow">Before you enter</p>
-                <h2 className="login-access-trust__title">
-                  Clinician work resumes from the same protected workspace.
-                </h2>
+                <p className="login-access-trust__eyebrow">Access context</p>
+                <h2 className="login-access-trust__title">Protected clinician work resumes after sign-in.</h2>
                 <p className="login-access-trust__text">
-                  Sign in to continue patient review, response handling, safety triage, and schedule
-                  coordination.
+                  Sign in keeps patient review, inbox follow-through, safety triage, and schedule
+                  coordination behind the same clinician access step.
                 </p>
-              </div>
-
-              <div className="login-access-trust__facts">
-                <div className="login-access-trust__fact">
-                  <p className="login-access-trust__fact-label">Review</p>
-                  <p className="login-access-trust__fact-text">Queue, patients, and today&apos;s priorities.</p>
-                </div>
-                <div className="login-access-trust__fact">
-                  <p className="login-access-trust__fact-label">Follow-through</p>
-                  <p className="login-access-trust__fact-text">Inbox, safety, and scheduling stay behind sign-in.</p>
-                </div>
-                {showDemoCredentials ? (
-                  <div className="login-access-trust__fact login-access-trust__fact--demo">
-                    <p className="login-access-trust__fact-label">Local development</p>
-                    <p className="login-access-trust__fact-text">
-                      Demo credentials are available on this local device only.
-                    </p>
-                  </div>
-                ) : null}
+                <ul className="login-access-trust__list">
+                  <li className="login-access-trust__list-item">
+                    <span className="login-access-trust__list-label">Protected workflow</span>
+                    <span className="login-access-trust__list-text">
+                      Review, response handling, and schedule coordination stay behind clinician
+                      sign-in.
+                    </span>
+                  </li>
+                  {showDemoCredentials ? (
+                    <li className="login-access-trust__list-item login-access-trust__list-item--demo">
+                      <span className="login-access-trust__list-label">Local development</span>
+                      <span className="login-access-trust__list-text">
+                        Demo credentials are available on this local device only.
+                      </span>
+                    </li>
+                  ) : null}
+                </ul>
               </div>
             </aside>
           </div>

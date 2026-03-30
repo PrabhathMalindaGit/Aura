@@ -85,6 +85,9 @@ describe('ClinicianLoginPage', () => {
   it('shows session-expired recovery guidance', () => {
     renderPage({ reason: 'expired' });
 
+    expect(screen.getByRole('heading', { name: 'Clinician access' })).toBeInTheDocument();
+    expect(screen.getByText('Sign in to resume clinician work on this workstation.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Clinician access context')).not.toBeInTheDocument();
     expect(screen.getByText('Your clinician session expired. Sign in again to continue.')).toBeInTheDocument();
   });
 
@@ -112,7 +115,9 @@ describe('ClinicianLoginPage', () => {
     expect(shouldShowDemoCredentials('dashboard.example.com')).toBe(false);
 
     renderPage();
+    expect(screen.queryByText('Local demo available')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use local demo credentials' })).toBeInTheDocument();
+    expect(screen.getByText('Demo credentials are available on this local device only.')).toBeInTheDocument();
   });
 
   it('signs in and routes to alerts on valid credentials', async () => {

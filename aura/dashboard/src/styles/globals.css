@@ -43674,72 +43674,49 @@ a {
 
 .login-page .login-access-frame {
   display: grid;
-  gap: clamp(1rem, 1.55vw, 1.55rem);
-  padding: clamp(1.1rem, 1.9vw, 1.7rem);
-  border: 1px solid hsl(var(--border) / 0.58);
-  border-radius: 40px;
+  gap: clamp(0.9rem, 1.35vw, 1.2rem);
+  padding: clamp(1rem, 1.6vw, 1.35rem);
+  border: 1px solid hsl(var(--border) / 0.46);
+  border-radius: 34px;
   background:
-    linear-gradient(180deg, hsl(var(--card) / 0.985), hsl(var(--background) / 0.86)),
-    radial-gradient(circle at top right, hsl(var(--primary) / 0.07), transparent 32%);
-  box-shadow:
-    0 28px 56px hsl(206 34% 14% / 0.08),
-    inset 0 1px 0 hsl(var(--card) / 0.96);
+    linear-gradient(180deg, hsl(var(--card) / 0.975), hsl(var(--background) / 0.9)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.045), transparent 34%);
+  box-shadow: 0 18px 40px hsl(206 34% 14% / 0.05);
 }
 
 .login-page .login-access-brief {
   display: grid;
-  gap: 1rem;
+  gap: 0.35rem;
 }
 
 .login-page .login-access-brief__copy {
   display: grid;
-  gap: 0.45rem;
-  max-width: 44rem;
+  gap: 0.28rem;
+  max-width: 32rem;
 }
 
 .login-page .login-access-brief__title {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: clamp(2.65rem, 6vw, 4.9rem);
-  line-height: 0.92;
-  letter-spacing: -0.045em;
+  font-size: clamp(2.15rem, 5vw, 3.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.04em;
   color: hsl(var(--foreground));
-  max-width: 8ch;
+  max-width: 6.5ch;
 }
 
 .login-page .login-access-brief__text {
   margin: 0;
-  max-width: 40rem;
-  color: hsl(var(--foreground) / 0.7);
-  font-size: 1rem;
-  line-height: 1.62;
-}
-
-.login-page .login-access-brief__facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.login-page .login-access-brief__fact {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2rem;
-  padding: 0.25rem 0.85rem;
-  border: 1px solid hsl(var(--border) / 0.54);
-  border-radius: 999px;
-  background: hsl(var(--background) / 0.74);
-  color: hsl(var(--foreground) / 0.72);
-  font-size: 0.75rem;
-  font-weight: var(--font-semibold);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  max-width: 28rem;
+  color: hsl(var(--foreground) / 0.66);
+  font-size: 0.98rem;
+  line-height: 1.5;
 }
 
 .login-page .login-access-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(18rem, 0.88fr);
-  gap: clamp(0.9rem, 1.4vw, 1.3rem);
+  grid-template-columns: minmax(0, 1.34fr) minmax(16rem, 0.66fr);
+  gap: clamp(0.9rem, 1.2vw, 1.1rem);
   align-items: start;
 }
 
@@ -43747,114 +43724,93 @@ a {
   justify-self: stretch;
   width: 100%;
   max-width: none;
-  border-radius: 32px;
-  border-color: hsl(var(--border) / 0.58);
+  border-radius: 28px;
+  border-color: hsl(var(--border) / 0.52);
   background:
-    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.965)),
-    linear-gradient(145deg, hsl(var(--primary) / 0.035), transparent 82%);
-  box-shadow: none;
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--card) / 0.975)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 84%);
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.94);
 }
 
 .login-page .login-card--editorial .card__header {
-  padding: 1.1rem 1.2rem 0.8rem;
-  border-bottom: 1px solid hsl(var(--border) / 0.42);
+  padding: 0.92rem 1rem 0.62rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.36);
 }
 
 .login-page .login-card--editorial .card__body {
-  padding: 0 1.2rem 1.2rem;
-  gap: 0.95rem;
+  padding: 0 1rem 1rem;
+  gap: 0.82rem;
 }
 
 .login-page .login-card__title-shell {
-  display: grid;
-  gap: 0.16rem;
-}
-
-.login-page .login-card__eyebrow {
-  font-size: 0.73rem;
-  font-weight: var(--font-semibold);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: hsl(var(--foreground) / 0.56);
+  display: flex;
+  align-items: center;
 }
 
 .login-page .login-card__title {
-  font-size: clamp(1.14rem, 1.1vw + 0.92rem, 1.42rem);
+  font-size: clamp(1.2rem, 1vw + 0.96rem, 1.48rem);
   font-weight: var(--font-semibold);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: hsl(var(--foreground));
 }
 
-.login-page .login-card__action-note {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.9rem;
-  padding: 0.2rem 0.68rem;
-  border: 1px solid hsl(var(--primary) / 0.18);
-  border-radius: 999px;
-  background: hsl(var(--primary) / 0.07);
-  color: hsl(var(--foreground) / 0.68);
-  font-size: 0.76rem;
-  font-weight: var(--font-medium);
-}
-
 .login-page .login-card__stack {
-  gap: 0.95rem;
+  gap: 0.82rem;
 }
 
 .login-page .login-context {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid hsl(var(--border) / 0.46);
-  border-radius: 24px;
+  gap: 0.5rem;
+  padding: 0.8rem 0.88rem;
+  border: 1px solid hsl(var(--border) / 0.38);
+  border-radius: 20px;
   background:
-    linear-gradient(180deg, hsl(var(--background) / 0.8), hsl(var(--card) / 0.95)),
-    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 84%);
+    linear-gradient(180deg, hsl(var(--background) / 0.68), hsl(var(--card) / 0.94)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.03), transparent 84%);
   box-shadow: none;
 }
 
-.login-page .login-context__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.55rem;
+.login-page .login-context__summary {
+  display: grid;
+  gap: 0.42rem;
 }
 
 .login-page .login-context__state {
   display: inline-flex;
   align-items: center;
-  min-height: 1.9rem;
-  padding: 0.2rem 0.72rem;
-  border: 1px solid hsl(var(--primary) / 0.22);
+  width: fit-content;
+  min-height: 1.7rem;
+  padding: 0.14rem 0.62rem;
+  border: 1px solid hsl(var(--primary) / 0.16);
   border-radius: 999px;
-  background: hsl(var(--primary) / 0.08);
+  background: hsl(var(--primary) / 0.06);
   color: hsl(var(--foreground));
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: var(--font-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.login-page .login-context__summary {
-  color: hsl(var(--foreground) / 0.58);
+.login-page .login-context__summary-copy {
+  margin: 0;
+  color: hsl(var(--foreground) / 0.56);
   font-size: 0.84rem;
   font-weight: var(--font-medium);
+  line-height: 1.4;
 }
 
 .login-page .login-context__message {
   margin: 0;
-  color: hsl(var(--foreground) / 0.72);
-  line-height: 1.56;
+  color: hsl(var(--foreground) / 0.7);
+  line-height: 1.5;
 }
 
 .login-page .login-form {
-  gap: 0.9rem;
+  gap: 0.82rem;
 }
 
 .login-page .login-field {
-  gap: 0.42rem;
+  gap: 0.38rem;
 }
 
 .login-page .login-field > span,
@@ -43864,10 +43820,10 @@ a {
 }
 
 .login-page .login-field input {
-  min-height: 3.4rem;
+  min-height: 3.25rem;
   padding-inline: 1rem;
   border: 1px solid hsl(var(--border) / 0.58);
-  border-radius: 18px;
+  border-radius: 16px;
   background: hsl(var(--background) / 0.72);
   box-shadow: none;
 }
@@ -43877,7 +43833,7 @@ a {
 }
 
 .login-page .login-form__support {
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
 .login-page .login-form__link {
@@ -43891,7 +43847,8 @@ a {
 }
 
 .login-page .login-actions {
-  padding-top: 0.2rem;
+  align-items: flex-start;
+  padding-top: 0.1rem;
   gap: 0.7rem;
 }
 
@@ -43901,22 +43858,23 @@ a {
 
 .login-page .login-access-trust {
   display: grid;
-  gap: 0.8rem;
-  align-self: stretch;
+  gap: 0.72rem;
+  align-self: start;
 }
 
-.login-page .login-access-trust__panel,
-.login-page .login-access-trust__fact {
+.login-page .login-access-trust__panel {
   display: grid;
-  gap: 0.34rem;
-  padding: 1rem 1.05rem;
-  border: 1px solid hsl(var(--border) / 0.42);
+  gap: 0.6rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid hsl(var(--border) / 0.34);
   border-radius: 24px;
-  background: hsl(var(--background) / 0.68);
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.64), hsl(var(--card) / 0.9)),
+    linear-gradient(145deg, hsl(var(--muted) / 0.12), transparent 88%);
 }
 
 .login-page .login-access-trust__eyebrow,
-.login-page .login-access-trust__fact-label {
+.login-page .login-access-trust__list-label {
   margin: 0;
   font-size: 0.73rem;
   font-weight: var(--font-semibold);
@@ -43927,29 +43885,41 @@ a {
 
 .login-page .login-access-trust__title {
   margin: 0;
-  font-size: clamp(1.16rem, 1.15vw + 0.92rem, 1.45rem);
-  line-height: 1.12;
+  font-size: clamp(1.08rem, 0.9vw + 0.92rem, 1.32rem);
+  line-height: 1.18;
   letter-spacing: -0.025em;
   color: hsl(var(--foreground));
 }
 
 .login-page .login-access-trust__text,
-.login-page .login-access-trust__fact-text {
+.login-page .login-access-trust__list-text {
   margin: 0;
-  color: hsl(var(--foreground) / 0.68);
-  line-height: 1.56;
+  color: hsl(var(--foreground) / 0.64);
+  line-height: 1.5;
 }
 
-.login-page .login-access-trust__facts {
+.login-page .login-access-trust__list {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.58rem;
+  margin: 0.08rem 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.login-page .login-access-trust__fact--demo {
-  border-color: hsl(var(--primary) / 0.24);
-  background:
-    linear-gradient(180deg, hsl(var(--background) / 0.82), hsl(var(--primary) / 0.06)),
-    linear-gradient(145deg, hsl(var(--primary) / 0.04), transparent 86%);
+.login-page .login-access-trust__list-item {
+  display: grid;
+  gap: 0.2rem;
+  padding-top: 0.58rem;
+  border-top: 1px solid hsl(var(--border) / 0.26);
+}
+
+.login-page .login-access-trust__list-item:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.login-page .login-access-trust__list-item--demo {
+  border-top-color: hsl(var(--primary) / 0.18);
 }
 
 .dashboard-page-shell--insights.insights-page {
@@ -44069,7 +44039,6 @@ a {
 .dark .login-page .login-card.auth-surface-card.login-card--editorial,
 .dark .login-page .login-context,
 .dark .login-page .login-access-trust__panel,
-.dark .login-page .login-access-trust__fact,
 .dark .dashboard-page-shell--insights.insights-page .insights-summary-strip__item,
 .dark .dashboard-page-shell--insights.insights-page .insights-review-console__meta-pill,
 .dark .dashboard-page-shell--insights.insights-page .insights-queue-context,
@@ -44085,8 +44054,6 @@ a {
     linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 84%);
 }
 
-.dark .login-page .login-access-brief__fact,
-.dark .login-page .login-card__action-note,
 .dark .login-page .login-context__state {
   border-color: hsl(var(--border) / 0.34);
   background: hsl(var(--background) / 0.24);
@@ -44106,18 +44073,13 @@ a {
 @media (max-width: 760px) {
   .login-page .login-access-frame,
   .login-page .login-card.auth-surface-card.login-card--editorial,
-  .login-page .login-access-trust__panel,
-  .login-page .login-access-trust__fact {
+  .login-page .login-access-trust__panel {
     border-radius: 24px;
   }
 
   .login-page .login-card--editorial .card__header,
   .login-page .login-card--editorial .card__body {
     padding-inline: 1rem;
-  }
-
-  .login-page .login-access-brief__facts {
-    gap: 0.45rem;
   }
 
   .dashboard-page-shell--insights.insights-page .insights-summary-strip {

@@ -41709,6 +41709,42 @@ a {
   gap: 0.48rem;
 }
 
+.patient-detail-page .patient-detail-review-window-summary {
+  display: grid;
+  gap: 0.52rem;
+  padding: 0.74rem 0.82rem;
+  border: 1px solid hsl(var(--border) / 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.72), hsl(var(--muted) / 0.04)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 90%);
+}
+
+.patient-detail-page .patient-detail-review-window-summary__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem 0.8rem;
+  flex-wrap: wrap;
+}
+
+.patient-detail-page .patient-detail-review-window-summary__eyebrow {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.72rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.patient-detail-page .patient-detail-review-window-summary__note {
+  margin: 0;
+  max-width: 38rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 .patient-detail-page .patient-detail-review-window-strip__item {
   display: grid;
   gap: 0.18rem;
@@ -41717,6 +41753,13 @@ a {
   border: 1px solid hsl(var(--border) / 0.2);
   border-radius: 16px;
   background: hsl(var(--background) / 0.52);
+}
+
+.patient-detail-page .patient-detail-review-window-summary .patient-detail-review-window-strip__item {
+  padding: 0.58rem 0.64rem;
+  border-color: hsl(var(--border) / 0.16);
+  border-radius: 14px;
+  background: hsl(var(--background) / 0.58);
 }
 
 .patient-detail-page .patient-detail-review-window-strip__label {
@@ -41998,12 +42041,15 @@ a {
   .patient-detail-page .patient-detail-cockpit-header__identity-row,
   .patient-detail-page .patient-detail-workspace__nav,
   .patient-detail-page .patient-detail-workspace__panel-header,
-  .patient-detail-page .patient-detail-review-window-strip,
   .patient-detail-page .patient-detail-overview-grid,
   .patient-detail-page .patient-detail-tab-grid--communications,
   .patient-detail-page .patient-detail-tab-grid--guidance,
   .patient-detail-page .patient-detail-tab-grid--history-support {
     grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-review-window-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .patient-detail-page .patient-communication-queue-strip {
@@ -42029,6 +42075,7 @@ a {
     justify-items: start;
   }
 
+  .patient-detail-page .patient-detail-review-window-summary__header,
   .patient-detail-page .patient-detail-panel__header-tools,
   .patient-detail-page .patient-detail-list-section__header {
     justify-content: flex-start;

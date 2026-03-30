@@ -555,6 +555,24 @@ describe('PatientDetailPage', () => {
     expect(within(screen.getByTestId('patient-appointments-panel')).getByText('Awaiting confirmation')).toBeInTheDocument();
   }, 20_000);
 
+  it('keeps the overview activity strip secondary to the decision surface and factual', async () => {
+    installFetchMock();
+
+    renderPatientDetail();
+
+    const decisionSurface = await screen.findByTestId('patient-decision-surface');
+    const overviewActivityStrip = screen.getByLabelText('Overview review window activity');
+
+    expect(
+      (decisionSurface.compareDocumentPosition(overviewActivityStrip) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+    ).toBe(true);
+    expect(overviewActivityStrip).toHaveTextContent('Patient update');
+    expect(overviewActivityStrip).toHaveTextContent('Safety');
+    expect(overviewActivityStrip).toHaveTextContent('Follow-through');
+    expect(overviewActivityStrip).toHaveTextContent(/Next touchpoint|Recent session/);
+    expect(overviewActivityStrip).not.toHaveTextContent(/improving|declining|stabilizing|high risk/i);
+  });
+
   it('uses tabs to demote slower care review and history content until requested', async () => {
     installFetchMock();
     const user = userEvent.setup();
@@ -584,6 +602,27 @@ describe('PatientDetailPage', () => {
     expect(screen.queryByRole('heading', { name: 'Sleep (recent)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Hydration (last 7 days)' })).not.toBeInTheDocument();
   }, 20_000);
+
+  it('keeps the history review-window summary factual and above slower trend detail', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    await openPatientWorkspaceTab(user, 'History & Signals');
+
+    const historySummary = await screen.findByLabelText('History review window summary');
+    const trajectoryHeading = screen.getByRole('heading', { name: 'Clinical trajectory' });
+
+    expect((historySummary.compareDocumentPosition(trajectoryHeading) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(
+      true,
+    );
+    expect(historySummary).toHaveTextContent('Last check-in');
+    expect(historySummary).toHaveTextContent('Latest pain');
+    expect(historySummary).toHaveTextContent('7d adherence');
+    expect(historySummary).toHaveTextContent('Recent session');
+    expect(historySummary).not.toHaveTextContent(/improving|declining|stabilizing|high risk/i);
+  });
 
   it('reveals compressed reference panels when requested', async () => {
     installFetchMock();

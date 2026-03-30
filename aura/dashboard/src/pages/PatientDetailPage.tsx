@@ -2134,20 +2134,17 @@ export function PatientDetailPage(): JSX.Element {
         : latestCommunicationItem?.messagePreview?.trim() || 'No open task or message queue needs follow-through',
     },
     {
-      label: 'Guidance',
-      value:
-        patientPromDue.length > 0
-          ? `${patientPromDue.length} PROM${patientPromDue.length === 1 ? '' : 's'} due`
-          : patientPendingInsights.length > 0
-            ? `${patientPendingInsights.length} guidance item${
-                patientPendingInsights.length === 1 ? '' : 's'
-              } pending`
-            : 'No pending review',
-      note:
-        nextPendingInsight?.title ||
-        (nextPromDueItem
-          ? `${nextPromDueItem.title} due ${new Date(nextPromDueItem.dueAt).toLocaleString()}`
-          : 'No pending insight or questionnaire review is waiting'),
+      label: nextPatientAppointment ? 'Next touchpoint' : 'Recent session',
+      value: nextPatientAppointment
+        ? formatDashboardRelativeTime(nextPatientAppointment.startsAt)
+        : latestExerciseSession
+          ? formatDashboardRelativeTime(latestExerciseSession.startedAt)
+          : 'No recent session',
+      note: nextPatientAppointment
+        ? `${appointmentWorkflowLabel(nextPatientAppointment.workflowStatus)}${
+            nextPatientAppointment.note?.trim() ? ` · ${nextPatientAppointment.note.trim()}` : ''
+          }`
+        : latestExerciseSession?.planTitle ?? 'No upcoming appointment or recent session is visible',
     },
   ];
   const historyWindowItems: Array<{ label: string; value: string; note: string }> = [
@@ -2163,12 +2160,18 @@ export function PatientDetailPage(): JSX.Element {
     {
       label: 'Latest pain',
       value: trendSummary.latestPain === null ? '—' : `${trendSummary.latestPain}/10`,
-      note: trendSummary.latestMood !== null ? `Mood ${trendSummary.latestMood}` : 'No mood paired with the latest pain score',
+      note:
+        trendSummary.latestMood !== null
+          ? `Latest paired mood ${trendSummary.latestMood}`
+          : 'No mood was paired with the latest pain score',
     },
     {
       label: '7d adherence',
       value: `${Math.round((trendSummary.adherence7d ?? 0) * 100)}%`,
-      note: trendSummary.avgPain7d !== null ? `Avg pain ${trendSummary.avgPain7d}` : 'No 7d pain average available',
+      note:
+        trendSummary.avgPain7d !== null
+          ? `Recent check-in average pain ${trendSummary.avgPain7d}`
+          : 'Based on recent check-ins in the selected window',
     },
     {
       label: 'Recent session',
@@ -2535,16 +2538,6 @@ export function PatientDetailPage(): JSX.Element {
                 </div>
               </div>
 
-              <section className="patient-detail-review-window-strip" aria-label="Overview review window activity">
-                {overviewActivityItems.map((item) => (
-                  <article key={item.label} className="patient-detail-review-window-strip__item">
-                    <span className="patient-detail-review-window-strip__label">{item.label}</span>
-                    <strong className="patient-detail-review-window-strip__value">{item.value}</strong>
-                    <p className="patient-detail-review-window-strip__note">{item.note}</p>
-                  </article>
-                ))}
-              </section>
-
               <section className="patient-detail-workspace__lead">
                 <PatientDecisionSurface
                   priorities={patientPriorities}
@@ -2562,6 +2555,24 @@ export function PatientDetailPage(): JSX.Element {
                   onRetry={handleRefreshOverview}
                   onAction={handleOperationalAction}
                 />
+              </section>
+
+              <section className="patient-detail-review-window-summary">
+                <div className="patient-detail-review-window-summary__header">
+                  <p className="patient-detail-review-window-summary__eyebrow">Review window activity</p>
+                  <p className="patient-detail-review-window-summary__note">
+                    Latest patient update, safety queue, follow-through, and next touchpoint in the selected window.
+                  </p>
+                </div>
+                <section className="patient-detail-review-window-strip" aria-label="Overview review window activity">
+                  {overviewActivityItems.map((item) => (
+                    <article key={item.label} className="patient-detail-review-window-strip__item">
+                      <span className="patient-detail-review-window-strip__label">{item.label}</span>
+                      <strong className="patient-detail-review-window-strip__value">{item.value}</strong>
+                      <p className="patient-detail-review-window-strip__note">{item.note}</p>
+                    </article>
+                  ))}
+                </section>
               </section>
 
               <div className="patient-detail-overview-grid">
@@ -3172,14 +3183,23 @@ export function PatientDetailPage(): JSX.Element {
                 </div>
               </div>
 
-              <section className="patient-detail-review-window-strip" aria-label="History review window summary">
-                {historyWindowItems.map((item) => (
-                  <article key={item.label} className="patient-detail-review-window-strip__item">
-                    <span className="patient-detail-review-window-strip__label">{item.label}</span>
-                    <strong className="patient-detail-review-window-strip__value">{item.value}</strong>
-                    <p className="patient-detail-review-window-strip__note">{item.note}</p>
-                  </article>
-                ))}
+              <section className="patient-detail-review-window-summary">
+                <div className="patient-detail-review-window-summary__header">
+                  <p className="patient-detail-review-window-summary__eyebrow">What changed in this window</p>
+                  <p className="patient-detail-review-window-summary__note">
+                    A factual snapshot of the latest check-in, pain, adherence, and recent session before deeper trend
+                    detail.
+                  </p>
+                </div>
+                <section className="patient-detail-review-window-strip" aria-label="History review window summary">
+                  {historyWindowItems.map((item) => (
+                    <article key={item.label} className="patient-detail-review-window-strip__item">
+                      <span className="patient-detail-review-window-strip__label">{item.label}</span>
+                      <strong className="patient-detail-review-window-strip__value">{item.value}</strong>
+                      <p className="patient-detail-review-window-strip__note">{item.note}</p>
+                    </article>
+                  ))}
+                </section>
               </section>
 
               <section id="patient-history-trends" className="patient-detail-history-panel">

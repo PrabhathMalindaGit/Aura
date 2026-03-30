@@ -384,13 +384,12 @@ describe('DashboardHomePage', () => {
     renderDashboardHome();
 
     expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
-    expect(screen.getByText('Shift brief')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Shift brief' })).toBeInTheDocument();
     expect(screen.getByText('Needs attention now')).toBeInTheDocument();
-    expect(screen.getByText('Urgent review surface')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Open next' })).toBeInTheDocument();
     expect(screen.getByText('Keep the day moving')).toBeInTheDocument();
     expect(await screen.findByText('Assigned high-risk alert')).toBeInTheDocument();
-    expect(screen.getByText('Recent safety movement')).toBeInTheDocument();
-    expect(screen.getByText('Quiet background context')).toBeInTheDocument();
+    expect(screen.getByText('Operational context')).toBeInTheDocument();
     expect(screen.getByText('Safety pressure')).toBeInTheDocument();
     expect(screen.getByText('Inbox needing response')).toBeInTheDocument();
     expect(screen.getByText('Scheduling balance')).toBeInTheDocument();

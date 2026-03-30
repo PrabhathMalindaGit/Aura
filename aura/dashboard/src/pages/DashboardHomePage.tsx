@@ -52,7 +52,6 @@ type TodayLeadAction = {
   copy: string;
   actionLabel: string;
   actionPath: string;
-  support: string;
 };
 
 function addDays(date: Date, days: number): Date {
@@ -428,10 +427,9 @@ export function DashboardHomePage(): JSX.Element {
         title: 'Safety review leads the shift',
         copy: `${summaryQuery.data?.openAlertsCount ?? 0} open ${
           (summaryQuery.data?.openAlertsCount ?? 0) === 1 ? 'alert is' : 'alerts are'
-        } setting the first pass. Clear urgent safety work, then move through follow-through.`,
+        } setting the first pass today.`,
         actionLabel: 'Open alerts',
         actionPath: '/alerts',
-        support: 'Start with live triage, then move into the queue and patient follow-through.',
       };
     }
 
@@ -440,20 +438,18 @@ export function DashboardHomePage(): JSX.Element {
         title: 'Response pressure leads the shift',
         copy: `${communicationNeedsResponseCount} ${
           communicationNeedsResponseCount === 1 ? 'patient thread needs' : 'patient threads need'
-        } clinician response. Clear waiting replies before lower-priority review.`,
+        } clinician response right now.`,
         actionLabel: 'Open inbox',
         actionPath: '/communication',
-        support: 'Keep message follow-up close to the main action lane until the inbox settles.',
       };
     }
 
     if (tasksDueTodayCount > 0 || (summaryQuery.data?.missedCheckinsCount ?? 0) > 0) {
       return {
         title: 'Follow-through leads the shift',
-        copy: 'Due work and missed check-ins need a deliberate first pass before the day settles.',
+        copy: 'Due work and missed check-ins need the first deliberate pass.',
         actionLabel: 'Open queue',
         actionPath: '/worklist',
-        support: 'Work the main queue first, then return here for support context.',
       };
     }
 
@@ -462,10 +458,9 @@ export function DashboardHomePage(): JSX.Element {
         title: 'The agenda is shaping today',
         copy: `${summaryQuery.data?.todayAppointmentsCount ?? 0} ${
           (summaryQuery.data?.todayAppointmentsCount ?? 0) === 1 ? 'visit is' : 'visits are'
-        } active today. Confirm the schedule, then return to the queue.`,
+        } active today and worth confirming early.`,
         actionLabel: 'Open schedule',
         actionPath: '/appointments',
-        support: 'Use Today as a brief, not a report. Confirm the next move and continue into the workspace that owns it.',
       };
     }
 
@@ -477,16 +472,14 @@ export function DashboardHomePage(): JSX.Element {
         } waiting once live operational work is clear.`,
         actionLabel: 'Open queue',
         actionPath: '/worklist',
-        support: 'The review backlog stays visible below, but the queue still owns the first move.',
       };
     }
 
     return {
       title: 'The shift is steady',
-      copy: 'No urgent pressure is leading right now. Confirm the queue, then use the rail and context band to keep the day moving.',
+      copy: 'No urgent pressure is leading right now. Confirm the queue and keep the day moving.',
       actionLabel: 'Open queue',
       actionPath: '/worklist',
-      support: 'Action stays primary, support stays close, and background context stays quiet.',
     };
   }, [
     communicationNeedsResponseCount,
@@ -499,22 +492,22 @@ export function DashboardHomePage(): JSX.Element {
 
   const headerSubtitle = useMemo(() => {
     if ((summaryQuery.data?.openAlertsCount ?? 0) > 0) {
-      return 'Safety review is leading today. Clear urgent triage first, then move into follow-through.';
+      return 'Safety review is leading today.';
     }
 
     if (communicationNeedsResponseCount > 0) {
-      return 'Response-needed communication is leading today. Clear waiting replies before background review.';
+      return 'Inbox follow-through is leading today.';
     }
 
     if (tasksDueTodayCount > 0 || (summaryQuery.data?.missedCheckinsCount ?? 0) > 0) {
-      return 'Due work and missed check-ins are shaping the day. Start in the queue.';
+      return 'Due work and missed check-ins are shaping the day.';
     }
 
     if ((summaryQuery.data?.todayAppointmentsCount ?? 0) > 0) {
-      return 'The agenda is active. Confirm the day, then return to the queue.';
+      return 'The agenda is active today.';
     }
 
-    return 'A fast shift brief for queue pressure, schedule load, inbox follow-through, and quiet background context.';
+    return 'A fast shift brief for the queue, the rail, and quiet background context.';
   }, [
     communicationNeedsResponseCount,
     summaryQuery.data?.missedCheckinsCount,
@@ -639,7 +632,6 @@ export function DashboardHomePage(): JSX.Element {
 
       <section className="today-brief" aria-label="Shift brief">
         <div className="today-brief__lead">
-          <p className="today-brief__eyebrow">Shift brief</p>
           <h2 className="today-brief__title">{attentionLead.title}</h2>
           <p className="today-brief__copy">{attentionLead.copy}</p>
           <div className="today-brief__actions">
@@ -651,7 +643,6 @@ export function DashboardHomePage(): JSX.Element {
             >
               {attentionLead.actionLabel}
             </Button>
-            <p className="today-brief__support">{attentionLead.support}</p>
           </div>
         </div>
 
@@ -675,21 +666,16 @@ export function DashboardHomePage(): JSX.Element {
       <div className="today-layout">
         <section className="today-main-surface" aria-label="Urgent review surface">
           <header className="today-surface__header">
-            <div className="today-surface__intro">
-              <p className="today-surface__eyebrow">Start here</p>
-              <h2 className="today-surface__title">Urgent review surface</h2>
-              <p className="today-surface__copy">
-                Work the next clinically important item first, then use the supporting rail to keep the day moving.
-              </p>
-            </div>
-            <div className="today-surface__facts">
-              <span className="today-surface__fact">
-                {summaryQuery.data?.openAlertsCount ?? 0} open alert{(summaryQuery.data?.openAlertsCount ?? 0) === 1 ? '' : 's'}
-              </span>
-              <span className="today-surface__fact">
-                {priorityQueueQuery.data?.length ?? 0} queue item{(priorityQueueQuery.data?.length ?? 0) === 1 ? '' : 's'}
-              </span>
-            </div>
+            <h2 className="today-surface__title">Open next</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                navigate('/worklist');
+              }}
+            >
+              Open queue
+            </Button>
           </header>
 
           {priorityQueueQuery.isLoading && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
@@ -718,8 +704,8 @@ export function DashboardHomePage(): JSX.Element {
             <div className="today-priority-list" role="list" aria-label="Urgent review items">
               {(priorityQueueQuery.data ?? []).slice(0, 5).map((item) => (
                 <article key={item.id} className="today-priority-item" role="listitem">
-                  <div className="today-priority-item__top">
-                    <div className="today-priority-item__identity">
+                  <div className="today-priority-item__header">
+                    <div className="today-priority-item__lead">
                       <p className="today-priority-item__patient">{resolvePatientLabel(item.patientId)}</p>
                       <p className="today-priority-item__kind">{priorityKindLabel(item.itemType)}</p>
                     </div>
@@ -735,23 +721,21 @@ export function DashboardHomePage(): JSX.Element {
                       </span>
                     </div>
                   </div>
-                  <h3 className="today-priority-item__title">{item.title}</h3>
-                  <p className="today-priority-item__reason">
-                    {item.subtitle?.trim() ||
-                      (item.dueAt
-                        ? `Action is due ${formatDashboardRelativeTime(item.dueAt)}.`
-                        : `${humanizeDashboardLabel(item.source)} review is still waiting.`)}
-                  </p>
+                  <div className="today-priority-item__body">
+                    <h3 className="today-priority-item__title">{item.title}</h3>
+                    <p className="today-priority-item__reason">
+                      {item.subtitle?.trim() ||
+                        (item.dueAt
+                          ? `Action is due ${formatDashboardRelativeTime(item.dueAt)}.`
+                          : `${humanizeDashboardLabel(item.source)} review is still waiting.`)}
+                    </p>
+                  </div>
                   <div className="today-priority-item__footer">
-                    <div className="today-priority-item__meta">
-                      <span>{humanizeDashboardLabel(item.source)}</span>
-                      <span>{humanizeDashboardLabel(item.status)}</span>
-                      <span>
-                        {item.dueAt
-                          ? `Due ${formatDashboardDateTime(item.dueAt)}`
-                          : `Opened ${formatDashboardDateTime(item.createdAt)}`}
-                      </span>
-                    </div>
+                    <span className="today-priority-item__footnote">
+                      {item.dueAt
+                        ? `Due ${formatDashboardDateTime(item.dueAt)}`
+                        : `Opened ${formatDashboardDateTime(item.createdAt)}`}
+                    </span>
                     <Button size="sm" onClick={() => openPriorityItem(item)}>
                       {priorityActionLabel(item)}
                     </Button>
@@ -760,28 +744,246 @@ export function DashboardHomePage(): JSX.Element {
               ))}
             </div>
           )}
+        </section>
 
-          <section className="today-safety-pulse" aria-label="Safety pulse">
-            <header className="today-safety-pulse__header">
-              <div>
-                <p className="today-safety-pulse__eyebrow">Safety pulse</p>
-                <h3 className="today-safety-pulse__title">Recent safety movement</h3>
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  navigate('/alerts');
-                }}
-              >
-                Open alerts
-              </Button>
-            </header>
+        <aside className="today-support-rail" aria-label="Supporting rail">
+          <div className="today-support-rail__shell">
+            <h2 className="visually-hidden">Supporting context</h2>
 
+            <section className="today-support-section">
+              <header className="today-support-section__header">
+                <div className="today-support-section__heading">
+                  <p className="today-support-section__eyebrow">Schedule snapshot</p>
+                  <h3 className="today-support-section__title">Due today</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    navigate('/appointments');
+                  }}
+                >
+                  Open schedule
+                </Button>
+              </header>
+
+              {appointmentsQuery.isLoading && (appointmentsQuery.data?.length ?? 0) === 0 ? (
+                <div className="today-support-section__state">
+                  <Skeleton height={78} />
+                  <Skeleton height={78} />
+                </div>
+              ) : appointmentsQuery.error && (appointmentsQuery.data?.length ?? 0) === 0 ? (
+                <DashboardModuleState
+                  mode="error"
+                  title="Unable to load today’s schedule"
+                  description="The schedule snapshot could not be loaded."
+                  onRetry={() => {
+                    void appointmentsQuery.refetch();
+                  }}
+                  retrying={appointmentsQuery.isFetching}
+                />
+              ) : (appointmentsQuery.data?.length ?? 0) === 0 ? (
+                <EmptyState
+                  title="No appointments today"
+                  description="Today’s confirmed, pending, and exception appointments will appear here."
+                  tone="success"
+                />
+              ) : (
+                <div className="today-support-list" role="list">
+                  {(appointmentsQuery.data ?? []).slice(0, 4).map((item) => (
+                    <article key={item.id} className="today-support-item" role="listitem">
+                      <div className="today-support-item__top">
+                        <div className="today-support-item__lead">
+                          <p className="today-support-item__title">{resolvePatientLabel(item.patientId)}</p>
+                          <p className="today-support-item__detail">{formatDashboardTimeRange(item.startsAt, item.endsAt)}</p>
+                        </div>
+                        <Badge variant={appointmentBadgeVariant(item.status)}>
+                          {humanizeDashboardLabel(item.status)}
+                        </Badge>
+                      </div>
+                      <p className="today-support-item__note">{appointmentSummary(item)}</p>
+                      <div className="today-support-item__footer">
+                        <span
+                          className="today-support-item__meta"
+                          title={formatDashboardDateTime(item.updatedAt)}
+                        >
+                          Updated {formatDashboardRelativeTime(item.updatedAt)}
+                        </span>
+                        <Button size="sm" variant="secondary" onClick={() => openPatient(item.patientId)}>
+                          Open patient
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section
+              className={`today-support-section dashboard-home-communication-overview${
+                reduceCommunicationOverviewAttention ? ' dashboard-home-communication-overview--reduced' : ''
+              }`}
+              data-testid="dashboard-home-communication-overview"
+            >
+              <header className="today-support-section__header">
+                <div className="today-support-section__heading">
+                  <p className="today-support-section__eyebrow">Inbox</p>
+                  <h3 className="today-support-section__title">Inbox needing response</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    openCommunication();
+                  }}
+                >
+                  Open inbox
+                </Button>
+              </header>
+
+              {communicationQuery.isLoading && (communicationQuery.data?.items.length ?? 0) === 0 ? (
+                <div className="today-support-section__state">
+                  <Skeleton height={78} />
+                  <Skeleton height={78} />
+                </div>
+              ) : communicationQuery.error && (communicationQuery.data?.items.length ?? 0) === 0 ? (
+                <DashboardModuleState
+                  mode="error"
+                  title="Unable to load inbox follow-through"
+                  description="Patient message review could not be loaded."
+                  onRetry={() => {
+                    void communicationQuery.refetch();
+                  }}
+                  retrying={communicationQuery.isFetching}
+                />
+              ) : (communicationQuery.data?.items.length ?? 0) === 0 ? (
+                <EmptyState
+                  title="No communication waiting"
+                  description="Patient communication needing clinician review will appear here."
+                  tone="success"
+                />
+              ) : (
+                <div className="today-support-list" role="list">
+                  {(communicationQuery.data?.items ?? []).slice(0, 4).map((item) => (
+                    <article key={item.id} className="today-support-item today-support-item--communication" role="listitem">
+                      <div className="today-support-item__top">
+                        <p className="today-support-item__title">{item.patientName}</p>
+                        {threadDominantBadge(item)}
+                      </div>
+                      <p className="today-support-item__note">
+                        {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
+                      </p>
+                      <div className="today-support-item__footer">
+                        <div className="today-support-item__meta-wrap">
+                          <span
+                            className="today-support-item__meta"
+                            title={formatDashboardDateTime(item.messageCreatedAt)}
+                          >
+                            {formatDashboardRelativeTime(item.messageCreatedAt)}
+                          </span>
+                          {item.followUpRequested ? (
+                            <span className="today-support-item__meta">Follow-up requested</span>
+                          ) : null}
+                        </div>
+                        <Button size="sm" variant="secondary" onClick={() => openCommunication(item.patientId)}>
+                          Open thread
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="today-support-section">
+              <header className="today-support-section__header">
+                <div className="today-support-section__heading">
+                  <p className="today-support-section__eyebrow">Follow-through</p>
+                  <h3 className="today-support-section__title">Keep the day moving</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    navigate('/worklist');
+                  }}
+                >
+                  Open queue
+                </Button>
+              </header>
+
+              {followUpTasksQuery.isLoading && (followUpTasksQuery.data?.length ?? 0) === 0 ? (
+                <div className="today-support-section__state">
+                  <Skeleton height={78} />
+                  <Skeleton height={78} />
+                </div>
+              ) : followUpTasksQuery.error && (followUpTasksQuery.data?.length ?? 0) === 0 ? (
+                <DashboardModuleState
+                  mode="error"
+                  title="Unable to load follow-through"
+                  description="Open clinician tasks could not be loaded."
+                  onRetry={() => {
+                    void followUpTasksQuery.refetch();
+                  }}
+                  retrying={followUpTasksQuery.isFetching}
+                />
+              ) : (followUpTasksQuery.data?.length ?? 0) === 0 ? (
+                <EmptyState
+                  title="No follow-up tasks"
+                  description="Open safety review, appointment, communication, and adherence follow-up items will appear here."
+                  tone="success"
+                />
+              ) : (
+                <div className="today-support-list" role="list">
+                  {(followUpTasksQuery.data ?? []).slice(0, 4).map((item) => (
+                    <article key={item.id} className="today-support-item" role="listitem">
+                      <div className="today-support-item__top">
+                        <div className="today-support-item__lead">
+                          <p className="today-support-item__title">{item.title}</p>
+                          <p className="today-support-item__detail">{resolvePatientLabel(item.patientId)}</p>
+                        </div>
+                        <Badge variant={taskPriorityVariant(item.priority)}>
+                          {humanizeDashboardLabel(item.priority)}
+                        </Badge>
+                      </div>
+                      <p className="today-support-item__note">
+                        {item.dueAt
+                          ? `Due ${formatDashboardRelativeTime(item.dueAt)}.`
+                          : `Updated ${formatDashboardRelativeTime(item.updatedAt)}.`}
+                      </p>
+                      <div className="today-support-item__footer">
+                        <span className="today-support-item__meta">{humanizeDashboardLabel(item.type)}</span>
+                        <Button size="sm" variant="secondary" onClick={() => openTaskItem(item)}>
+                          {taskActionLabel(item)}
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </aside>
+      </div>
+
+      <section className="today-context" aria-label="Operational context">
+        <header className="today-context__header">
+          <h2 className="today-context__title">Operational context</h2>
+        </header>
+
+        <div className="today-context__grid">
+          <article className="today-context-card">
+            <p className="today-context-card__eyebrow">Safety workload</p>
+            <h3 className="today-context-card__title">Safety pressure</h3>
+            <div className="today-context-card__facts" aria-label="Safety workload facts">
+              <span>{summaryQuery.data?.openAlertsCount ?? 0} open alerts</span>
+              <span>{summaryQuery.data?.assignedToMeAlertsCount ?? 0} assigned to me</span>
+              <span>{recentSafetyEventCount} recent feed events</span>
+            </div>
             {safetyEventsQuery.isLoading && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
-              <div className="today-safety-pulse__state" aria-label="Safety pulse loading placeholder">
-                <Skeleton height={72} />
-                <Skeleton height={72} />
+              <div className="today-context-card__state" aria-label="Safety pressure loading placeholder">
+                <Skeleton height={62} />
+                <Skeleton height={62} />
               </div>
             ) : safetyEventsQuery.error && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
               <DashboardModuleState
@@ -794,274 +996,28 @@ export function DashboardHomePage(): JSX.Element {
                 retrying={safetyEventsQuery.isFetching}
               />
             ) : (safetyEventsQuery.data?.length ?? 0) === 0 ? (
-              <EmptyState
-                title="No recent safety activity"
-                description="Alert creation and notification activity will appear here when the Safety Spine records a new event."
-                tone="success"
-              />
+              <div className="today-context-feed__empty">
+                <p className="today-context-feed__empty-title">No recent safety activity</p>
+                <p className="today-context-card__note">{safetyContextNote}</p>
+              </div>
             ) : (
-              <div className="today-safety-pulse__list" role="list">
-                {(safetyEventsQuery.data ?? []).slice(0, 3).map((item) => (
-                  <article key={item.id} className="today-safety-pulse__item" role="listitem">
-                    <div className="today-safety-pulse__item-top">
+              <div className="today-context-feed" role="list" aria-label="Recent safety activity">
+                {(safetyEventsQuery.data ?? []).slice(0, 2).map((item) => (
+                  <article key={item.id} className="today-context-feed__item" role="listitem">
+                    <div className="today-context-feed__top">
                       <div>
-                        <p className="today-safety-pulse__patient">{resolvePatientLabel(item.patientId)}</p>
-                        <p className="today-safety-pulse__kind">{humanizeDashboardLabel(item.type)}</p>
-                      </div>
-                      <div className="today-safety-pulse__item-side">
-                        {safetyBadge(item)}
-                        <span
-                          className="today-safety-pulse__time"
-                          title={formatDashboardDateTime(item.createdAt)}
-                        >
+                        <p className="today-context-feed__patient">{resolvePatientLabel(item.patientId)}</p>
+                        <p className="today-context-feed__time" title={formatDashboardDateTime(item.createdAt)}>
                           {formatDashboardRelativeTime(item.createdAt)}
-                        </span>
+                        </p>
                       </div>
+                      {safetyBadge(item)}
                     </div>
-                    <p className="today-safety-pulse__summary">{item.summary}</p>
+                    <p className="today-context-feed__summary">{item.summary}</p>
                   </article>
                 ))}
               </div>
             )}
-          </section>
-        </section>
-
-        <aside className="today-support-rail" aria-label="Supporting rail">
-          <section className="today-support-panel">
-            <header className="today-support-panel__header">
-              <div>
-                <p className="today-support-panel__eyebrow">Schedule snapshot</p>
-                <h2 className="today-support-panel__title">Due today</h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  navigate('/appointments');
-                }}
-              >
-                Open schedule
-              </Button>
-            </header>
-
-            {appointmentsQuery.isLoading && (appointmentsQuery.data?.length ?? 0) === 0 ? (
-              <div className="today-support-panel__state">
-                <Skeleton height={78} />
-                <Skeleton height={78} />
-              </div>
-            ) : appointmentsQuery.error && (appointmentsQuery.data?.length ?? 0) === 0 ? (
-              <DashboardModuleState
-                mode="error"
-                title="Unable to load today’s schedule"
-                description="The schedule snapshot could not be loaded."
-                onRetry={() => {
-                  void appointmentsQuery.refetch();
-                }}
-                retrying={appointmentsQuery.isFetching}
-              />
-            ) : (appointmentsQuery.data?.length ?? 0) === 0 ? (
-              <EmptyState
-                title="No appointments today"
-                description="Today’s confirmed, pending, and exception appointments will appear here."
-                tone="success"
-              />
-            ) : (
-              <div className="today-support-list" role="list">
-                {(appointmentsQuery.data ?? []).slice(0, 4).map((item) => (
-                  <article key={item.id} className="today-support-item" role="listitem">
-                    <div className="today-support-item__top">
-                      <p className="today-support-item__title">{resolvePatientLabel(item.patientId)}</p>
-                      <Badge variant={appointmentBadgeVariant(item.status)}>
-                        {humanizeDashboardLabel(item.status)}
-                      </Badge>
-                    </div>
-                    <p className="today-support-item__detail">{formatDashboardTimeRange(item.startsAt, item.endsAt)}</p>
-                    <p className="today-support-item__note">{appointmentSummary(item)}</p>
-                    <div className="today-support-item__footer">
-                      <span
-                        className="today-support-item__meta"
-                        title={formatDashboardDateTime(item.updatedAt)}
-                      >
-                        Updated {formatDashboardRelativeTime(item.updatedAt)}
-                      </span>
-                      <Button size="sm" variant="secondary" onClick={() => openPatient(item.patientId)}>
-                        Open patient
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section
-            className={`today-support-panel dashboard-home-communication-overview${
-              reduceCommunicationOverviewAttention ? ' dashboard-home-communication-overview--reduced' : ''
-            }`}
-            data-testid="dashboard-home-communication-overview"
-          >
-            <header className="today-support-panel__header">
-              <div>
-                <p className="today-support-panel__eyebrow">Inbox</p>
-                <h2 className="today-support-panel__title">Inbox needing response</h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  openCommunication();
-                }}
-              >
-                Open inbox
-              </Button>
-            </header>
-
-            {communicationQuery.isLoading && (communicationQuery.data?.items.length ?? 0) === 0 ? (
-              <div className="today-support-panel__state">
-                <Skeleton height={78} />
-                <Skeleton height={78} />
-              </div>
-            ) : communicationQuery.error && (communicationQuery.data?.items.length ?? 0) === 0 ? (
-              <DashboardModuleState
-                mode="error"
-                title="Unable to load inbox follow-through"
-                description="Patient message review could not be loaded."
-                onRetry={() => {
-                  void communicationQuery.refetch();
-                }}
-                retrying={communicationQuery.isFetching}
-              />
-            ) : (communicationQuery.data?.items.length ?? 0) === 0 ? (
-              <EmptyState
-                title="No communication waiting"
-                description="Patient communication needing clinician review will appear here."
-                tone="success"
-              />
-            ) : (
-              <div className="today-support-list" role="list">
-                {(communicationQuery.data?.items ?? []).slice(0, 4).map((item) => (
-                  <article key={item.id} className="today-support-item today-support-item--communication" role="listitem">
-                    <div className="today-support-item__top">
-                      <p className="today-support-item__title">{item.patientName}</p>
-                      {threadDominantBadge(item)}
-                    </div>
-                    <p className="today-support-item__note">
-                      {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
-                    </p>
-                    <div className="today-support-item__footer">
-                      <div className="today-support-item__meta-wrap">
-                        <span
-                          className="today-support-item__meta"
-                          title={formatDashboardDateTime(item.messageCreatedAt)}
-                        >
-                          {formatDashboardRelativeTime(item.messageCreatedAt)}
-                        </span>
-                        {item.followUpRequested ? (
-                          <span className="today-support-item__meta">Follow-up requested</span>
-                        ) : null}
-                      </div>
-                      <Button size="sm" variant="secondary" onClick={() => openCommunication(item.patientId)}>
-                        Open thread
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="today-support-panel">
-            <header className="today-support-panel__header">
-              <div>
-                <p className="today-support-panel__eyebrow">Follow-through</p>
-                <h2 className="today-support-panel__title">Keep the day moving</h2>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  navigate('/worklist');
-                }}
-              >
-                Open queue
-              </Button>
-            </header>
-
-            {followUpTasksQuery.isLoading && (followUpTasksQuery.data?.length ?? 0) === 0 ? (
-              <div className="today-support-panel__state">
-                <Skeleton height={78} />
-                <Skeleton height={78} />
-              </div>
-            ) : followUpTasksQuery.error && (followUpTasksQuery.data?.length ?? 0) === 0 ? (
-              <DashboardModuleState
-                mode="error"
-                title="Unable to load follow-through"
-                description="Open clinician tasks could not be loaded."
-                onRetry={() => {
-                  void followUpTasksQuery.refetch();
-                }}
-                retrying={followUpTasksQuery.isFetching}
-              />
-            ) : (followUpTasksQuery.data?.length ?? 0) === 0 ? (
-              <EmptyState
-                title="No follow-up tasks"
-                description="Open safety review, appointment, communication, and adherence follow-up items will appear here."
-                tone="success"
-              />
-            ) : (
-              <div className="today-support-list" role="list">
-                {(followUpTasksQuery.data ?? []).slice(0, 4).map((item) => (
-                  <article key={item.id} className="today-support-item" role="listitem">
-                    <div className="today-support-item__top">
-                      <p className="today-support-item__title">{item.title}</p>
-                      <Badge variant={taskPriorityVariant(item.priority)}>
-                        {humanizeDashboardLabel(item.priority)}
-                      </Badge>
-                    </div>
-                    <p className="today-support-item__detail">{resolvePatientLabel(item.patientId)}</p>
-                    <p className="today-support-item__note">
-                      {item.dueAt
-                        ? `Due ${formatDashboardRelativeTime(item.dueAt)}.`
-                        : `Updated ${formatDashboardRelativeTime(item.updatedAt)}.`}
-                    </p>
-                    <div className="today-support-item__footer">
-                      <div className="today-support-item__meta-wrap">
-                        <span className="today-support-item__meta">{humanizeDashboardLabel(item.type)}</span>
-                        <span className="today-support-item__meta">{humanizeDashboardLabel(item.status)}</span>
-                      </div>
-                      <Button size="sm" variant="secondary" onClick={() => openTaskItem(item)}>
-                        {taskActionLabel(item)}
-                      </Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </aside>
-      </div>
-
-      <section className="today-context" aria-label="Operational context">
-        <header className="today-context__header">
-          <div>
-            <p className="today-context__eyebrow">Operational context</p>
-            <h2 className="today-context__title">Quiet background context</h2>
-          </div>
-          <p className="today-context__copy">
-            Enough background workload to support decisions without turning Today into a report page.
-          </p>
-        </header>
-
-        <div className="today-context__grid">
-          <article className="today-context-card">
-            <p className="today-context-card__eyebrow">Safety workload</p>
-            <h3 className="today-context-card__title">Safety pressure</h3>
-            <div className="today-context-card__facts" aria-label="Safety workload facts">
-              <span>{summaryQuery.data?.openAlertsCount ?? 0} open alerts</span>
-              <span>{summaryQuery.data?.assignedToMeAlertsCount ?? 0} assigned to me</span>
-              <span>{recentSafetyEventCount} recent feed events</span>
-            </div>
-            <p className="today-context-card__note">{safetyContextNote}</p>
           </article>
 
           <article className="today-context-card">

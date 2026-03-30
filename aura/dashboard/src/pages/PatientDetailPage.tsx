@@ -258,6 +258,10 @@ function formatCountLabel(count: number, singular: string, plural: string): stri
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+function formatAlertReasonText(reason: AlertItem['reason']): string {
+  return Array.isArray(reason) ? reason.join(', ') : reason;
+}
+
 function statusBadgeVariant(status: PatientSummary['status']): 'default' | 'success' | 'warning' | 'danger' {
   if (status === 'active') {
     return 'success';
@@ -422,6 +426,15 @@ export function PatientDetailPage(): JSX.Element {
     () => getPatientWorkspaceTabFromPath(location.pathname),
     [location.pathname],
   );
+  const isOverviewWorkspace = activeWorkspaceTab === 'overview';
+  const isCommunicationsWorkspace = activeWorkspaceTab === 'communications';
+  const isGuidanceWorkspace = activeWorkspaceTab === 'guidance';
+  const isHistoryWorkspace = activeWorkspaceTab === 'history';
+  // Keep the urgent shell hot while deferring heavier workspace data until its tab is active.
+  const shouldLoadOperationalBucket = isOverviewWorkspace || isCommunicationsWorkspace;
+  const shouldLoadGuidanceBucket = isOverviewWorkspace || isGuidanceWorkspace;
+  const shouldLoadSessionsBucket = isOverviewWorkspace || isHistoryWorkspace;
+  const shouldLoadHistoryReferenceBucket = isHistoryWorkspace;
 
   const patientsQuery = usePatients();
   const patientContext = useMemo(
@@ -443,7 +456,7 @@ export function PatientDetailPage(): JSX.Element {
       const rows = await tryGetPatientCheckinsRange(patientId ?? '', recentSleepFrom, recentSleepTo);
       return rows ?? [];
     },
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -453,7 +466,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientHydrationQuery = useQuery({
     queryKey: ['patient-hydration', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () => getPatientHydrationRange(patientId ?? '', recentSleepFrom, recentSleepTo),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -463,7 +476,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientNutritionQuery = useQuery({
     queryKey: ['patient-nutrition', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () => getPatientNutritionRange(patientId ?? '', recentSleepFrom, recentSleepTo),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -474,7 +487,7 @@ export function PatientDetailPage(): JSX.Element {
     queryKey: ['patient-wearables-summary', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () =>
       getPatientWearablesSummary(patientId ?? '', recentSleepFrom, recentSleepTo, 'mock'),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -485,7 +498,7 @@ export function PatientDetailPage(): JSX.Element {
     queryKey: ['patient-wearables-daily', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () =>
       getPatientWearablesDaily(patientId ?? '', recentSleepFrom, recentSleepTo, 'mock'),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -496,7 +509,7 @@ export function PatientDetailPage(): JSX.Element {
     queryKey: ['patient-medications-adherence', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () =>
       getPatientMedicationAdherence(patientId ?? '', recentSleepFrom, recentSleepTo),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -511,7 +524,7 @@ export function PatientDetailPage(): JSX.Element {
         from: recentSleepFrom,
         to: recentSleepTo,
       }),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -531,7 +544,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientSessionsQuery = useQuery({
     queryKey: ['patient-sessions', patientId],
     queryFn: () => getPatientExerciseSessions(patientId ?? '', 5),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadSessionsBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -541,7 +554,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientRehabQuery = useQuery({
     queryKey: ['patient-rehab', patientId],
     queryFn: () => getRehabPhases(patientId ?? ''),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadGuidanceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -551,7 +564,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientPromsQuery = useQuery({
     queryKey: ['patient-proms', patientId],
     queryFn: () => getPatientProms(patientId ?? '', 50),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadGuidanceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -567,7 +580,7 @@ export function PatientDetailPage(): JSX.Element {
       ]);
       return { pending, approved };
     },
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadGuidanceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -584,7 +597,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientCommunicationQuery = useQuery({
     queryKey: ['patient-communication-overview', patientId],
     queryFn: () => getDashboardCommunicationOverview(100),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadOperationalBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -600,7 +613,7 @@ export function PatientDetailPage(): JSX.Element {
         sortBy: 'createdAt',
         sortDirection: 'desc',
       }),
-    enabled: Boolean(patientId),
+    enabled: Boolean(patientId) && shouldLoadOperationalBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
@@ -1439,20 +1452,65 @@ export function PatientDetailPage(): JSX.Element {
   }, [patientId, canQuickReplyFromPatientDetail]);
 
   const handleRefreshOverview = useCallback((): void => {
-    void Promise.allSettled([
+    const refreshes: Array<Promise<unknown>> = [
+      patientsQuery.refetch(),
       trendsQuery.refetch(),
       patientAlertsQuery.refetch(),
       patientWorklistQuery.refetch(),
-      patientTasksQuery.refetch(),
-      patientCommunicationQuery.refetch(),
       patientAppointmentsQuery.refetch(),
-    ]);
+    ];
+
+    if (shouldLoadOperationalBucket) {
+      refreshes.push(patientTasksQuery.refetch(), patientCommunicationQuery.refetch());
+    }
+
+    if (shouldLoadGuidanceBucket) {
+      refreshes.push(
+        patientRehabQuery.refetch(),
+        patientPromsQuery.refetch(),
+        patientInsightsQuery.refetch(),
+      );
+    }
+
+    if (shouldLoadSessionsBucket) {
+      refreshes.push(patientSessionsQuery.refetch());
+    }
+
+    if (shouldLoadHistoryReferenceBucket) {
+      refreshes.push(
+        patientRecentCheckinsQuery.refetch(),
+        patientHydrationQuery.refetch(),
+        patientNutritionQuery.refetch(),
+        patientWearablesSummaryQuery.refetch(),
+        patientWearablesDailyQuery.refetch(),
+        patientMedicationAdherenceQuery.refetch(),
+        patientPhotosQuery.refetch(),
+      );
+    }
+
+    void Promise.allSettled(refreshes);
   }, [
     patientAlertsQuery,
     patientAppointmentsQuery,
     patientCommunicationQuery,
+    patientHydrationQuery,
+    patientInsightsQuery,
+    patientMedicationAdherenceQuery,
+    patientNutritionQuery,
+    patientPhotosQuery,
+    patientPromsQuery,
+    patientRecentCheckinsQuery,
+    patientRehabQuery,
+    patientSessionsQuery,
     patientTasksQuery,
+    patientWearablesDailyQuery,
+    patientWearablesSummaryQuery,
     patientWorklistQuery,
+    patientsQuery,
+    shouldLoadGuidanceBucket,
+    shouldLoadHistoryReferenceBucket,
+    shouldLoadOperationalBucket,
+    shouldLoadSessionsBucket,
     trendsQuery,
   ]);
 
@@ -1623,8 +1681,14 @@ export function PatientDetailPage(): JSX.Element {
     patientExportPreviewCount === 0;
 
   const handleRefreshReviewSignals = useCallback((): void => {
-    void Promise.allSettled([trendsQuery.refetch(), patientAlertsQuery.refetch()]);
-  }, [patientAlertsQuery, trendsQuery]);
+    void Promise.allSettled([
+      patientsQuery.refetch(),
+      trendsQuery.refetch(),
+      patientAlertsQuery.refetch(),
+      patientWorklistQuery.refetch(),
+      patientAppointmentsQuery.refetch(),
+    ]);
+  }, [patientAlertsQuery, patientAppointmentsQuery, patientWorklistQuery, patientsQuery, trendsQuery]);
 
   const handleRefreshCareReview = useCallback((): void => {
     void Promise.allSettled([
@@ -1851,14 +1915,26 @@ export function PatientDetailPage(): JSX.Element {
   const patientDisplayName = patientContext?.displayName?.trim() || patientId;
   const nextPatientAppointment =
     patientAppointments.find((item) => Date.parse(item.startsAt) >= Date.now()) ?? patientAppointments[0] ?? null;
+  const latestOpenAlert = openPatientAlerts[0] ?? null;
+  const latestOpenAlertReason = latestOpenAlert ? formatAlertReasonText(latestOpenAlert.reason) : null;
   const currentContextTitle =
     patientWorklistItem?.topIssue?.trim() ||
-    patientPriorities[0]?.title ||
-    'Stable review window';
+    (latestOpenAlert
+      ? 'Open safety alert needs review'
+      : (trendSummary.latestPain ?? 0) >= 7
+        ? 'Pain elevated in current window'
+        : (trendSummary.adherence7d ?? 1) < 0.5
+          ? 'Adherence below target in current window'
+          : 'Stable review window');
   const currentContextBody =
     patientWorklistItem?.reviewReason?.trim() ||
-    patientPriorities[0]?.reason ||
-    'Use the priorities, trends, and operational panels below to confirm the next clinician step.';
+    (latestOpenAlertReason
+      ? latestOpenAlertReason
+      : (trendSummary.latestPain ?? 0) >= 7
+        ? `Latest patient-reported pain is ${trendSummary.latestPain}/10 in the selected review window.`
+        : (trendSummary.adherence7d ?? 1) < 0.5
+          ? `7d exercise completion is ${Math.round((trendSummary.adherence7d ?? 0) * 100)}% in the selected review window.`
+          : 'Use the priorities, trends, and operational panels below to confirm the next clinician step.');
   const normalizedCurrentContextTitle = currentContextTitle.replace(/\s+/g, ' ').trim().toLowerCase();
   const normalizedCurrentContextBody = currentContextBody.replace(/\s+/g, ' ').trim().toLowerCase();
   const entryReviewHint = (() => {
@@ -1890,8 +1966,10 @@ export function PatientDetailPage(): JSX.Element {
       ? formatPatientEntryReturnLabel(entryContext.source)
       : 'Back to patients';
   const entrySourceCue = entryContext ? formatPatientEntrySourceCue(entryContext.source) : null;
-  const activeFollowUpCount = patientActiveTasks.length + patientCommunicationItems.length;
-  const urgentTaskCount = patientActiveTasks.filter((task) => task.priority === 'urgent').length;
+  const shellFollowUpCount =
+    (patientWorklistItem?.activeTaskCount ?? 0) + (patientWorklistItem?.communicationNeedsResponse ? 1 : 0);
+  const overviewFollowUpCount = patientActiveTasks.length + patientCommunicationItems.length;
+  const overviewUrgentTaskCount = patientActiveTasks.filter((task) => task.priority === 'urgent').length;
   const patientBriefFacts: Array<{
     label: string;
     value: string;
@@ -1906,19 +1984,18 @@ export function PatientDetailPage(): JSX.Element {
     },
     {
       label: 'Follow-through',
-      value: activeFollowUpCount > 0 ? String(activeFollowUpCount) : 'Steady',
+      value: shellFollowUpCount > 0 ? String(shellFollowUpCount) : 'Steady',
       note:
-        urgentTaskCount > 0
-          ? `${urgentTaskCount} urgent ${urgentTaskCount === 1 ? 'task' : 'tasks'} in follow-through`
-          : activeFollowUpCount > 0
-            ? 'Routine follow-through remains open'
-            : 'No open follow-through waiting',
-      tone:
-        urgentTaskCount > 0
-          ? 'warning'
-          : activeFollowUpCount > 0
-            ? 'active'
-            : 'stable',
+        patientWorklistItem?.communicationNeedsResponse && (patientWorklistItem?.activeTaskCount ?? 0) > 0
+          ? 'Patient response and task follow-through remain open'
+          : patientWorklistItem?.communicationNeedsResponse
+            ? 'Patient communication needs clinician response'
+            : (patientWorklistItem?.activeTaskCount ?? 0) > 0
+              ? `${patientWorklistItem?.activeTaskCount ?? 0} active follow-up task${
+                  (patientWorklistItem?.activeTaskCount ?? 0) === 1 ? '' : 's'
+                }`
+              : 'No open follow-through waiting',
+      tone: shellFollowUpCount > 0 ? 'active' : 'stable',
     },
     {
       label: 'Next schedule point',
@@ -1940,24 +2017,31 @@ export function PatientDetailPage(): JSX.Element {
     },
   ];
   const reviewIssueMessages = [
+    patientWorklistQuery.error ? toUserMessage(patientWorklistQuery.error) : null,
     trendsQuery.error ? toUserMessage(trendsQuery.error) : null,
     patientAlertsQuery.error ? toUserMessage(patientAlertsQuery.error) : null,
+    patientAppointmentsQuery.error ? toUserMessage(patientAppointmentsQuery.error) : null,
   ].filter((message): message is string => Boolean(message));
-  const careReviewIssueMessages = [
-    patientRehabQuery.error ? toUserMessage(patientRehabQuery.error) : null,
-    patientPromsQuery.error ? toUserMessage(patientPromsQuery.error) : null,
-    patientInsightsQuery.error ? toUserMessage(patientInsightsQuery.error) : null,
-    patientSessionsQuery.error ? toUserMessage(patientSessionsQuery.error) : null,
-  ].filter((message): message is string => Boolean(message));
-  const referenceIssueMessages = [
-    patientRecentCheckinsQuery.error ? toUserMessage(patientRecentCheckinsQuery.error) : null,
-    patientHydrationQuery.error ? toUserMessage(patientHydrationQuery.error) : null,
-    patientNutritionQuery.error ? toUserMessage(patientNutritionQuery.error) : null,
-    patientWearablesSummaryQuery.error ? toUserMessage(patientWearablesSummaryQuery.error) : null,
-    patientWearablesDailyQuery.error ? toUserMessage(patientWearablesDailyQuery.error) : null,
-    patientMedicationAdherenceQuery.error ? toUserMessage(patientMedicationAdherenceQuery.error) : null,
-    patientPhotosQuery.error ? toUserMessage(patientPhotosQuery.error) : null,
-  ].filter((message): message is string => Boolean(message));
+  const careReviewIssueMessages =
+    isOverviewWorkspace || isGuidanceWorkspace
+      ? [
+          patientRehabQuery.error ? toUserMessage(patientRehabQuery.error) : null,
+          patientPromsQuery.error ? toUserMessage(patientPromsQuery.error) : null,
+          patientInsightsQuery.error ? toUserMessage(patientInsightsQuery.error) : null,
+          patientSessionsQuery.error ? toUserMessage(patientSessionsQuery.error) : null,
+        ].filter((message): message is string => Boolean(message))
+      : [];
+  const referenceIssueMessages = isHistoryWorkspace
+    ? [
+        patientRecentCheckinsQuery.error ? toUserMessage(patientRecentCheckinsQuery.error) : null,
+        patientHydrationQuery.error ? toUserMessage(patientHydrationQuery.error) : null,
+        patientNutritionQuery.error ? toUserMessage(patientNutritionQuery.error) : null,
+        patientWearablesSummaryQuery.error ? toUserMessage(patientWearablesSummaryQuery.error) : null,
+        patientWearablesDailyQuery.error ? toUserMessage(patientWearablesDailyQuery.error) : null,
+        patientMedicationAdherenceQuery.error ? toUserMessage(patientMedicationAdherenceQuery.error) : null,
+        patientPhotosQuery.error ? toUserMessage(patientPhotosQuery.error) : null,
+      ].filter((message): message is string => Boolean(message))
+    : [];
   const workspaceIssueMessages = [
     actionError,
     photoOpenError,
@@ -2046,17 +2130,20 @@ export function PatientDetailPage(): JSX.Element {
   const isPatientDetailInline860 =
     patientDetailInlineWidth !== null && patientDetailInlineWidth <= 860;
   const isPrioritySupportResponsive = isPatientDetailInline1320;
-  const latestOpenAlert = openPatientAlerts[0] ?? null;
   const latestCommunicationItem = patientCommunicationItems[0] ?? null;
   const nextOpenTask = patientActiveTasks[0] ?? null;
   const nextPromDueItem = patientPromDue[0] ?? null;
   const nextPendingInsight = patientPendingInsights[0] ?? null;
   const latestExerciseSession = patientSessions[0] ?? null;
   const alertsFreshnessLabel = formatLoadedAgo(patientAlertsQuery.dataUpdatedAt);
-  const tasksFreshnessLabel = formatLoadedAgo(patientTasksQuery.dataUpdatedAt);
+  const tasksFreshnessLabel = shouldLoadOperationalBucket
+    ? formatLoadedAgo(patientTasksQuery.dataUpdatedAt)
+    : null;
   const appointmentsFreshnessLabel = formatLoadedAgo(patientAppointmentsQuery.dataUpdatedAt);
   const trendsFreshnessLabel = formatLoadedAgo(trendsQuery.dataUpdatedAt);
-  const sessionsFreshnessLabel = formatLoadedAgo(patientSessionsQuery.dataUpdatedAt);
+  const sessionsFreshnessLabel = shouldLoadSessionsBucket
+    ? formatLoadedAgo(patientSessionsQuery.dataUpdatedAt)
+    : null;
   const railFreshnessLabel = formatLoadedAgo(
     maxUpdatedAt(
       trendsQuery.dataUpdatedAt,
@@ -2064,43 +2151,55 @@ export function PatientDetailPage(): JSX.Element {
       patientWorklistQuery.dataUpdatedAt,
     ),
   );
-  const overviewFreshnessLabel = formatLoadedAgo(
-    maxUpdatedAt(
-      trendsQuery.dataUpdatedAt,
-      patientWorklistQuery.dataUpdatedAt,
-      patientTasksQuery.dataUpdatedAt,
-      patientCommunicationQuery.dataUpdatedAt,
-      patientAppointmentsQuery.dataUpdatedAt,
-      patientAlertsQuery.dataUpdatedAt,
-    ),
-  );
-  const communicationsFreshnessLabel = formatLoadedAgo(
-    maxUpdatedAt(
-      patientCommunicationQuery.dataUpdatedAt,
-      patientTasksQuery.dataUpdatedAt,
-      patientAppointmentsQuery.dataUpdatedAt,
-    ),
-  );
-  const guidanceFreshnessLabel = formatLoadedAgo(
-    maxUpdatedAt(
-      patientPromsQuery.dataUpdatedAt,
-      patientInsightsQuery.dataUpdatedAt,
-      patientRehabQuery.dataUpdatedAt,
-    ),
-  );
-  const historyFreshnessLabel = formatLoadedAgo(
-    maxUpdatedAt(
-      trendsQuery.dataUpdatedAt,
-      patientSessionsQuery.dataUpdatedAt,
-      patientRecentCheckinsQuery.dataUpdatedAt,
-      patientHydrationQuery.dataUpdatedAt,
-      patientNutritionQuery.dataUpdatedAt,
-      patientWearablesSummaryQuery.dataUpdatedAt,
-      patientWearablesDailyQuery.dataUpdatedAt,
-      patientMedicationAdherenceQuery.dataUpdatedAt,
-      patientPhotosQuery.dataUpdatedAt,
-    ),
-  );
+  const overviewFreshnessLabel = isOverviewWorkspace
+    ? formatLoadedAgo(
+        maxUpdatedAt(
+          trendsQuery.dataUpdatedAt,
+          patientWorklistQuery.dataUpdatedAt,
+          patientTasksQuery.dataUpdatedAt,
+          patientCommunicationQuery.dataUpdatedAt,
+          patientAppointmentsQuery.dataUpdatedAt,
+          patientAlertsQuery.dataUpdatedAt,
+          patientPromsQuery.dataUpdatedAt,
+          patientInsightsQuery.dataUpdatedAt,
+          patientRehabQuery.dataUpdatedAt,
+          patientSessionsQuery.dataUpdatedAt,
+        ),
+      )
+    : null;
+  const communicationsFreshnessLabel = shouldLoadOperationalBucket
+    ? formatLoadedAgo(
+        maxUpdatedAt(
+          patientCommunicationQuery.dataUpdatedAt,
+          patientTasksQuery.dataUpdatedAt,
+          patientAppointmentsQuery.dataUpdatedAt,
+        ),
+      )
+    : null;
+  const guidanceFreshnessLabel = shouldLoadGuidanceBucket
+    ? formatLoadedAgo(
+        maxUpdatedAt(
+          patientPromsQuery.dataUpdatedAt,
+          patientInsightsQuery.dataUpdatedAt,
+          patientRehabQuery.dataUpdatedAt,
+        ),
+      )
+    : null;
+  const historyFreshnessLabel = isHistoryWorkspace
+    ? formatLoadedAgo(
+        maxUpdatedAt(
+          trendsQuery.dataUpdatedAt,
+          patientSessionsQuery.dataUpdatedAt,
+          patientRecentCheckinsQuery.dataUpdatedAt,
+          patientHydrationQuery.dataUpdatedAt,
+          patientNutritionQuery.dataUpdatedAt,
+          patientWearablesSummaryQuery.dataUpdatedAt,
+          patientWearablesDailyQuery.dataUpdatedAt,
+          patientMedicationAdherenceQuery.dataUpdatedAt,
+          patientPhotosQuery.dataUpdatedAt,
+        ),
+      )
+    : null;
   const overviewActivityItems: Array<{ label: string; value: string; note: string }> = [
     {
       label: 'Patient update',
@@ -2117,17 +2216,13 @@ export function PatientDetailPage(): JSX.Element {
         openAlertCount > 0
           ? `${openAlertCount} open alert${openAlertCount === 1 ? '' : 's'}`
           : 'Queue clear',
-      note: latestOpenAlert
-        ? Array.isArray(latestOpenAlert.reason)
-          ? latestOpenAlert.reason.join(', ')
-          : latestOpenAlert.reason
-        : 'No active safety events are visible right now',
+      note: latestOpenAlertReason ?? 'No active safety events are visible right now',
     },
     {
       label: 'Follow-through',
       value:
-        activeFollowUpCount > 0
-          ? `${activeFollowUpCount} item${activeFollowUpCount === 1 ? '' : 's'} waiting`
+        overviewFollowUpCount > 0
+          ? `${overviewFollowUpCount} item${overviewFollowUpCount === 1 ? '' : 's'} waiting`
           : 'Nothing waiting',
       note: nextOpenTask
         ? `${nextOpenTask.title} due ${formatDashboardRelativeTime(nextOpenTask.dueAt ?? nextOpenTask.updatedAt)}`
@@ -2608,7 +2703,9 @@ export function PatientDetailPage(): JSX.Element {
                           {patientActiveTasks.length === 0
                             ? 'No open tasks'
                             : `${patientActiveTasks.length} open${
-                                urgentTaskCount > 0 ? ` · ${urgentTaskCount} urgent` : ''
+                                overviewUrgentTaskCount > 0
+                                  ? ` · ${overviewUrgentTaskCount} urgent`
+                                  : ''
                               }`}
                         </strong>
                       </div>

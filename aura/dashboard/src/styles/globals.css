@@ -42028,6 +42028,10 @@ a {
   .patient-detail-page .patient-detail-priority-context--rail {
     position: sticky;
     top: calc(var(--shell-frame-padding) + 1rem);
+    max-height: calc(100vh - var(--shell-frame-padding) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 }
 

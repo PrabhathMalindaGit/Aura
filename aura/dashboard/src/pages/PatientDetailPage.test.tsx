@@ -362,7 +362,9 @@ function installFetchMock(options: FetchMockOptions = {}) {
     _id: 'alt-other-1',
     patientId: 'patient-other',
   };
-  const openAlerts = options.openAlerts ?? [basePatientAlert, otherPatientAlert];
+  let openAlertsState = [...(options.openAlerts ?? [basePatientAlert, otherPatientAlert])];
+  let acknowledgedAlertsState: AlertItem[] = [];
+  let resolvedAlertsState: AlertItem[] = [];
 
   let taskState = [...(options.tasks ?? [basePatientTask, baseCompletedTask])];
   const communicationItems = options.communicationItems ?? [baseCommunicationItem];
@@ -392,8 +394,58 @@ function installFetchMock(options: FetchMockOptions = {}) {
     },
   ];
 
-  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-    const url = String(input);
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const url =
+      typeof input === 'string'
+        ? input
+        : input instanceof Request
+          ? input.url
+          : String(input);
+    const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+
+    if (method === 'PATCH' && url.includes('/clinician/alerts/')) {
+      const alertId = url.split('/clinician/alerts/')[1]?.split('?')[0] ?? '';
+      const payload =
+        typeof init?.body === 'string'
+          ? (JSON.parse(init.body) as { status?: 'acknowledged' | 'resolved' })
+          : {};
+      const nextStatus = payload.status === 'resolved' ? 'resolved' : 'acknowledged';
+      const currentAlert =
+        [...openAlertsState, ...acknowledgedAlertsState, ...resolvedAlertsState].find(
+          (alert) => alert._id === alertId,
+        ) ?? {
+          ...basePatientAlert,
+          _id: alertId || basePatientAlert._id,
+        };
+      const updatedAlert: AlertItem = {
+        ...currentAlert,
+        status: nextStatus,
+        updatedAt: `${TODAY_KEY}T12:30:00.000Z`,
+        acknowledgedAt:
+          nextStatus === 'acknowledged'
+            ? currentAlert.acknowledgedAt ?? `${TODAY_KEY}T12:30:00.000Z`
+            : currentAlert.acknowledgedAt,
+        resolvedAt:
+          nextStatus === 'resolved'
+            ? currentAlert.resolvedAt ?? `${TODAY_KEY}T12:35:00.000Z`
+            : currentAlert.resolvedAt,
+      };
+
+      openAlertsState = openAlertsState.filter((alert) => alert._id !== alertId);
+      acknowledgedAlertsState = acknowledgedAlertsState.filter((alert) => alert._id !== alertId);
+      resolvedAlertsState = resolvedAlertsState.filter((alert) => alert._id !== alertId);
+
+      if (nextStatus === 'acknowledged') {
+        acknowledgedAlertsState = [updatedAlert, ...acknowledgedAlertsState];
+      } else {
+        resolvedAlertsState = [updatedAlert, ...resolvedAlertsState];
+      }
+
+      return createJsonResponse({
+        ok: true,
+        alert: updatedAlert,
+      });
+    }
 
     if (url.includes(`/clinician/patients/${patientId}/trends`) && url.includes('days=14')) {
       return createJsonResponse({
@@ -412,16 +464,16 @@ function installFetchMock(options: FetchMockOptions = {}) {
     if (url.includes('/clinician/alerts?status=open')) {
       return createJsonResponse({
         ok: true,
-        alerts: openAlerts,
+        alerts: openAlertsState,
       });
     }
 
     if (url.includes('/clinician/alerts?status=acknowledged')) {
-      return createJsonResponse({ ok: true, alerts: [] });
+      return createJsonResponse({ ok: true, alerts: acknowledgedAlertsState });
     }
 
     if (url.includes('/clinician/alerts?status=resolved')) {
-      return createJsonResponse({ ok: true, alerts: [] });
+      return createJsonResponse({ ok: true, alerts: resolvedAlertsState });
     }
 
     if (url.endsWith('/clinician/patients')) {
@@ -571,6 +623,39 @@ describe('PatientDetailPage', () => {
     expect(overviewActivityStrip).toHaveTextContent('Follow-through');
     expect(overviewActivityStrip).toHaveTextContent(/Next touchpoint|Recent session/);
     expect(overviewActivityStrip).not.toHaveTextContent(/improving|declining|stabilizing|high risk/i);
+  });
+
+  it('keeps urgent context available before history-only reference queries wake up', async () => {
+    const fetchMock = installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
+    expect(within(prioritySupport).getByText('Clinical context in view')).toBeInTheDocument();
+    expect(within(prioritySupport).getByText('Recent alerts')).toBeInTheDocument();
+
+    const initialUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(initialUrls.some((url) => url.includes(`/clinician/patients/${patientId}/checkins`))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/hydration/range'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/nutrition/range'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/wearables/summary'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/wearables/daily'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/medications/adherence'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/photos?'))).toBe(false);
+
+    await openPatientWorkspaceTab(user, 'History & Signals');
+
+    await waitFor(() => {
+      const historyUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+      expect(historyUrls.some((url) => url.includes(`/clinician/patients/${patientId}/checkins`))).toBe(true);
+      expect(historyUrls.some((url) => url.includes('/hydration/range'))).toBe(true);
+      expect(historyUrls.some((url) => url.includes('/nutrition/range'))).toBe(true);
+      expect(historyUrls.some((url) => url.includes('/wearables/summary'))).toBe(true);
+      expect(historyUrls.some((url) => url.includes('/wearables/daily'))).toBe(true);
+      expect(historyUrls.some((url) => url.includes('/medications/adherence'))).toBe(true);
+      expect(historyUrls.some((url) => url.includes('/photos?'))).toBe(true);
+    });
   });
 
   it('uses tabs to demote slower care review and history content until requested', async () => {
@@ -760,6 +845,36 @@ describe('PatientDetailPage', () => {
     expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'false');
   });
 
+  it('does not fetch communications or guidance buckets on direct history routes until those tabs open', async () => {
+    const fetchMock = installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(`/patients/${patientId}/history?days=30`);
+
+    expect(await screen.findByRole('tab', { name: 'History & Signals' })).toHaveAttribute('aria-selected', 'true');
+    const initialUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(initialUrls.some((url) => url.includes('/clinician/dashboard/communication-overview'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/clinician/tasks'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/rehab-phases'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/proms'))).toBe(false);
+    expect(initialUrls.some((url) => url.includes('/insights'))).toBe(false);
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    await waitFor(() => {
+      const communicationUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+      expect(communicationUrls.some((url) => url.includes('/clinician/dashboard/communication-overview'))).toBe(true);
+      expect(communicationUrls.some((url) => url.includes('/clinician/tasks'))).toBe(true);
+    });
+
+    await openPatientWorkspaceTab(user, 'Clinical Guidance & Questionnaires');
+    await waitFor(() => {
+      const guidanceUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+      expect(guidanceUrls.some((url) => url.includes('/rehab-phases'))).toBe(true);
+      expect(guidanceUrls.some((url) => url.includes('/proms'))).toBe(true);
+      expect(guidanceUrls.some((url) => url.includes('/insights'))).toBe(true);
+    });
+  });
+
   it('updates the URL path for tab changes while preserving the review window query', async () => {
     installFetchMock();
     const user = userEvent.setup();
@@ -826,6 +941,46 @@ describe('PatientDetailPage', () => {
       );
     });
     expect(screen.getByRole('tab', { name: 'Communications & Notes' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('keeps the active history tab on refresh and refetches only shell plus the active history bucket', async () => {
+    const fetchMock = installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(`/patients/${patientId}/history?days=14`, { withHistoryProbe: true });
+
+    expect(await screen.findByRole('heading', { name: 'Trend history and slower recovery context' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+        `/patients/${patientId}/history?days=14`,
+      );
+    });
+
+    fetchMock.mockClear();
+
+    const headerRefreshButton = document.querySelector('.patient-detail-actions__refresh') as HTMLButtonElement | null;
+    expect(headerRefreshButton).not.toBeNull();
+    await user.click(headerRefreshButton!);
+
+    await waitFor(() => {
+      const refreshUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+      expect(refreshUrls.some((url) => url.includes('/clinician/patients'))).toBe(true);
+      expect(refreshUrls.some((url) => url.includes('/clinician/worklist'))).toBe(true);
+      expect(refreshUrls.some((url) => url.includes('/clinician/alerts?status=open'))).toBe(true);
+      expect(refreshUrls.some((url) => url.includes(`/clinician/patients/${patientId}/trends`) && url.includes('days=14'))).toBe(true);
+      expect(refreshUrls.some((url) => url.includes(`/clinician/patients/${patientId}/checkins`))).toBe(true);
+    });
+
+    const refreshUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(refreshUrls.some((url) => url.includes('/clinician/dashboard/communication-overview'))).toBe(false);
+    expect(refreshUrls.some((url) => url.includes('/clinician/tasks'))).toBe(false);
+    expect(refreshUrls.some((url) => url.includes('/rehab-phases'))).toBe(false);
+    expect(refreshUrls.some((url) => url.includes('/proms'))).toBe(false);
+    expect(refreshUrls.some((url) => url.includes('/insights'))).toBe(false);
+    expect(screen.getByLabelText('Current patient detail route')).toHaveTextContent(
+      `/patients/${patientId}/history?days=14`,
+    );
+    expect(screen.getByRole('tab', { name: 'History & Signals' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('uses route-aware tab jumps for recommended actions that stay inside patient detail', async () => {
@@ -920,6 +1075,43 @@ describe('PatientDetailPage', () => {
 
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     expect(screen.getByTestId('patient-handoff-panel')).toBeInTheDocument();
+  });
+
+  it('guards resolving open recent alerts behind confirmation before firing the mutation', async () => {
+    const fetchMock = installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
+    const resolveButton = await within(prioritySupport).findByRole('button', { name: 'Resolve' });
+
+    await user.click(resolveButton);
+
+    const resolveDialog = await screen.findByRole('alertdialog', { name: 'Resolve alert now?' });
+    expect(within(resolveDialog).queryByRole('textbox')).not.toBeInTheDocument();
+    expect(resolveDialog).not.toHaveTextContent(/audit|signoff/i);
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes(`/clinician/alerts/${basePatientAlert._id}`))).toBe(
+      false,
+    );
+
+    await user.click(within(resolveDialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog', { name: 'Resolve alert now?' })).not.toBeInTheDocument();
+    });
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes(`/clinician/alerts/${basePatientAlert._id}`))).toBe(
+      false,
+    );
+
+    await user.click(await within(prioritySupport).findByRole('button', { name: 'Resolve' }));
+    const confirmDialog = await screen.findByRole('alertdialog', { name: 'Resolve alert now?' });
+    await user.click(within(confirmDialog).getByRole('button', { name: 'Resolve' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => String(call[0]).includes(`/clinician/alerts/${basePatientAlert._id}`)),
+      ).toBe(true);
+    });
   });
 
   it('expands trend cards inline one at a time and keeps day drilldown available', async () => {

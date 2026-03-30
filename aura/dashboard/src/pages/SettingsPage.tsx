@@ -582,13 +582,6 @@ export function SettingsPage(): JSX.Element {
     ? `${sessionSettings.idleMinutes}m idle · ${sessionSettings.absoluteHours}h max`
     : 'Auto-logout off';
 
-  const identitySummaryLabel =
-    savedProfile.displayName.trim() || savedProfile.clinicianId.trim() || 'Not configured';
-  const preferencesSummaryLabel = 'Theme preference stored locally';
-  const securityStateLabel = sessionSettings.enabled ? 'Session guard on' : 'Session guard off';
-  const identityStateLabel =
-    [savedProfile.roleTitle.trim(), savedProfile.specialty.trim()].filter(Boolean).join(' · ') ||
-    'Saved locally in this browser';
   const draftIdentityPreview = {
     displayName:
       draftProfile.displayName.trim() ||
@@ -653,9 +646,6 @@ export function SettingsPage(): JSX.Element {
     ? 'Quiet hours on'
     : 'Quiet hours off';
   const sessionProtectionBadgeLabel = sessionSettings.enabled ? 'Auto-logout on' : 'Auto-logout off';
-  const attentionCueStateLabel = savedProfile.notificationPreferences.quietHours.enabled
-    ? 'Quiet window active'
-    : 'Quiet window off';
   const workspaceStateSummaryLabel =
     profileWorkspaceDirty || communicationAuthoringDirty || notificationPreferencesDirty
       ? 'Draft changes pending'
@@ -663,9 +653,6 @@ export function SettingsPage(): JSX.Element {
   const timeoutWarningLabel = sessionSettings.enabled
     ? 'Warns 1m before idle lock and 5m before max session.'
     : 'Protection warnings resume when session guard is on.';
-  const localWorkspaceGuidanceLabel =
-    'Browser-backed controls only. They do not change shared product settings or other devices.';
-  const notificationCueSummaryLabel = `${savedCommunicationCueLabel} · ${savedSafetyCueLabel}`;
 
   return (
     <div className="page-stack dashboard-page-shell dashboard-page-shell--settings settings-page settings-page--workspace-phase4">
@@ -673,285 +660,196 @@ export function SettingsPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--settings settings-page-header"
         eyebrow="Workspace"
         title="Workspace"
-        subtitle="Local clinician controls for identity, defaults, authoring, and session protection."
-        meta={
-          <span className="settings-page__meta" aria-live="polite">
-            <span className="settings-page__meta-pill settings-page__meta-pill--count">
-              {themeSummaryLabel} mode
-            </span>
-            <span className="settings-page__meta-pill settings-page__meta-pill--local">
-              This browser only
-            </span>
-            <span
-              className={`settings-page__meta-pill settings-page__meta-pill--status ${
-                sessionSettings.enabled
-                  ? 'settings-page__meta-pill--status-safe'
-                  : 'settings-page__meta-pill--status-attention'
-              }`}
-            >
-              {securityStateLabel}
-            </span>
-            <span className="settings-page__meta-pill settings-page__meta-pill--updated">
-              {identitySummaryLabel}
-            </span>
-          </span>
-        }
+        subtitle="Local clinician controls for this workstation."
       />
 
-      <div className="settings-overview-stack settings-overview-stack--console">
-        <section className="workspace-brief" aria-label="Workspace state summary">
-          <div className="workspace-brief__lead">
-            <div className="workspace-brief__copy">
-              <p className="workspace-brief__eyebrow">Workspace state</p>
-              <h3 className="workspace-brief__title">{workspaceStateSummaryLabel}</h3>
-              <p className="workspace-brief__text">
-                Keep the local clinician profile, quick protections, and reply tools aligned for the workstation in use.
+      <section className="settings-control-bar" aria-label="Workspace control bar">
+        <div className="settings-control-bar__status" aria-live="polite">
+          <span className="settings-control-bar__pill settings-control-bar__pill--state">
+            {workspaceStateSummaryLabel}
+          </span>
+          <span className="settings-control-bar__pill">{`${themeSummaryLabel} mode`}</span>
+          <span className="settings-control-bar__pill">{sessionProtectionBadgeLabel}</span>
+          <span className="settings-control-bar__pill">{notificationSummaryBadgeLabel}</span>
+          <span className="settings-control-bar__pill settings-control-bar__pill--local">
+            This browser only
+          </span>
+        </div>
+
+        <div className="settings-control-bar__controls">
+          <fieldset
+            className="setting-item setting-item--field setting-item--theme settings-control-bar__control settings-control-bar__control--theme"
+            aria-label="Theme mode"
+          >
+            <legend>
+              <strong>Theme mode</strong>
+              <small>System follows your OS preference by default.</small>
+            </legend>
+            <div className="theme-mode-group" role="radiogroup" aria-label="Theme mode">
+              <label className="theme-mode-option" htmlFor="theme-mode-system">
+                <input
+                  id="theme-mode-system"
+                  type="radio"
+                  name="theme-mode"
+                  value="system"
+                  checked={themeMode === 'system'}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      const nextMode = setThemeMode('system');
+                      setThemeModeState(nextMode);
+                      setThemeNotice('Theme set to system preference.');
+                    }
+                  }}
+                />
+                <span>System</span>
+              </label>
+
+              <label className="theme-mode-option" htmlFor="theme-mode-light">
+                <input
+                  id="theme-mode-light"
+                  type="radio"
+                  name="theme-mode"
+                  value="light"
+                  checked={themeMode === 'light'}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      const nextMode = setThemeMode('light');
+                      setThemeModeState(nextMode);
+                      setThemeNotice('Theme set to light.');
+                    }
+                  }}
+                />
+                <span>Light</span>
+              </label>
+
+              <label className="theme-mode-option" htmlFor="theme-mode-dark">
+                <input
+                  id="theme-mode-dark"
+                  type="radio"
+                  name="theme-mode"
+                  value="dark"
+                  checked={themeMode === 'dark'}
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      const nextMode = setThemeMode('dark');
+                      setThemeModeState(nextMode);
+                      setThemeNotice('Theme set to dark.');
+                    }
+                  }}
+                />
+                <span>Dark</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <label
+            className="setting-item setting-item--toggle settings-control-bar__control"
+            htmlFor="idle-timeout-enabled-toggle"
+          >
+            <span>
+              <strong>Enable idle auto-logout</strong>
+              <small>Lock unattended sessions for patient safety.</small>
+            </span>
+            <input
+              id="idle-timeout-enabled-toggle"
+              type="checkbox"
+              checked={sessionSettings.enabled}
+              onChange={(event) => {
+                applySessionSettings({ enabled: event.target.checked });
+              }}
+            />
+          </label>
+
+          <label
+            className="setting-item setting-item--field form-field settings-control-bar__control"
+            htmlFor="idle-timeout-minutes"
+          >
+            <span>
+              <strong>Idle timeout</strong>
+              <small>Show warning 60 seconds before lock.</small>
+            </span>
+            <select
+              id="idle-timeout-minutes"
+              value={String(sessionSettings.idleMinutes)}
+              onChange={(event) => {
+                applySessionSettings({ idleMinutes: Number(event.target.value) });
+              }}
+              aria-label="Idle timeout minutes"
+            >
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+          </label>
+
+          <label
+            className="setting-item setting-item--field form-field settings-control-bar__control"
+            htmlFor="absolute-timeout-hours"
+          >
+            <span>
+              <strong>Absolute session timeout</strong>
+              <small>Show warning 5 minutes before maximum session duration.</small>
+            </span>
+            <select
+              id="absolute-timeout-hours"
+              value={String(sessionSettings.absoluteHours)}
+              onChange={(event) => {
+                applySessionSettings({ absoluteHours: Number(event.target.value) });
+              }}
+              aria-label="Absolute timeout hours"
+            >
+              <option value="2">2 hours</option>
+              <option value="4">4 hours</option>
+              <option value="8">8 hours</option>
+            </select>
+          </label>
+
+          <label
+            className="setting-item setting-item--toggle settings-control-bar__control"
+            htmlFor="notification-quiet-hours-enabled"
+          >
+            <span>
+              <strong>Quiet hours</strong>
+              <small>Reduce secondary in-app emphasis only in this browser.</small>
+            </span>
+            <input
+              id="notification-quiet-hours-enabled"
+              type="checkbox"
+              checked={draftProfile.notificationPreferences.quietHours.enabled}
+              onChange={(event) =>
+                updateDraftNotificationQuietHours('enabled', event.target.checked)
+              }
+            />
+          </label>
+        </div>
+
+        {(themeNotice || sessionNotice) ? (
+          <div className="settings-control-bar__notices" aria-live="polite">
+            {themeNotice ? (
+              <p className="settings-inline-notice muted-text" role="status">
+                {themeNotice}
               </p>
-            </div>
-            <div className="workspace-brief__meta" aria-live="polite">
-              <span className="workspace-brief__pill">{identitySummaryLabel}</span>
-              <span className="workspace-brief__pill">{securityStateLabel}</span>
-              <span className="workspace-brief__pill">This browser only</span>
-            </div>
-          </div>
-          <div className="workspace-brief__facts" role="list" aria-label="Workspace summary facts">
-            <article className="workspace-brief__fact workspace-brief__fact--identity" role="listitem">
-              <p className="workspace-brief__fact-label">Clinician profile</p>
-              <p className="workspace-brief__fact-value">{identitySummaryLabel}</p>
-              <p className="workspace-brief__fact-detail">{identityStateLabel}</p>
-            </article>
-            <article className="workspace-brief__fact workspace-brief__fact--security" role="listitem">
-              <p className="workspace-brief__fact-label">Session guard</p>
-              <p className="workspace-brief__fact-value">{sessionSummaryLabel}</p>
-              <p className="workspace-brief__fact-detail">{securityStateLabel}</p>
-            </article>
-            <article className="workspace-brief__fact workspace-brief__fact--appearance" role="listitem">
-              <p className="workspace-brief__fact-label">Appearance</p>
-              <p className="workspace-brief__fact-value">{themeSummaryLabel}</p>
-              <p className="workspace-brief__fact-detail">{preferencesSummaryLabel}</p>
-            </article>
-            <article className="workspace-brief__fact workspace-brief__fact--notifications" role="listitem">
-              <p className="workspace-brief__fact-label">Attention cues</p>
-              <p className="workspace-brief__fact-value">{attentionCueStateLabel}</p>
-              <p className="workspace-brief__fact-detail">{savedQuietHoursLabel} · {notificationCueSummaryLabel}</p>
-            </article>
-          </div>
-        </section>
-
-        <section className="settings-quick-controls-band" aria-label="Quick controls">
-          <div className="settings-quick-controls-band__header">
-            <div className="settings-quick-controls-band__copy">
-              <p className="settings-column-shell__eyebrow">Quick controls</p>
-              <h3 className="settings-column-shell__title">Immediate workspace controls</h3>
-              <p className="settings-column-shell__text">
-                Keep theme, session guard, timeout behavior, and quiet hours within immediate reach.
+            ) : null}
+            {sessionNotice ? (
+              <p className="settings-inline-notice muted-text" role="status">
+                {sessionNotice}
               </p>
-            </div>
-            <div className="settings-quick-controls-band__facts" aria-label="Quick control status">
-              <span className="settings-profile-summary__fact">{sessionProtectionBadgeLabel}</span>
-              <span className="settings-profile-summary__fact">{notificationSummaryBadgeLabel}</span>
-              <span className="settings-profile-summary__fact">Local workspace</span>
-            </div>
+            ) : null}
           </div>
+        ) : null}
+      </section>
 
-          <div className="settings-quick-controls-band__grid">
-            <fieldset className="setting-item setting-item--field setting-item--theme settings-quick-control" aria-label="Theme mode">
-              <legend>
-                <strong>Theme mode</strong>
-                <small>System follows your OS preference by default.</small>
-              </legend>
-              <div className="theme-mode-group" role="radiogroup" aria-label="Theme mode">
-                <label className="theme-mode-option" htmlFor="theme-mode-system">
-                  <input
-                    id="theme-mode-system"
-                    type="radio"
-                    name="theme-mode"
-                    value="system"
-                    checked={themeMode === 'system'}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        const nextMode = setThemeMode('system');
-                        setThemeModeState(nextMode);
-                        setThemeNotice('Theme set to system preference.');
-                      }
-                    }}
-                  />
-                  <span>System</span>
-                </label>
-
-                <label className="theme-mode-option" htmlFor="theme-mode-light">
-                  <input
-                    id="theme-mode-light"
-                    type="radio"
-                    name="theme-mode"
-                    value="light"
-                    checked={themeMode === 'light'}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        const nextMode = setThemeMode('light');
-                        setThemeModeState(nextMode);
-                        setThemeNotice('Theme set to light.');
-                      }
-                    }}
-                  />
-                  <span>Light</span>
-                </label>
-
-                <label className="theme-mode-option" htmlFor="theme-mode-dark">
-                  <input
-                    id="theme-mode-dark"
-                    type="radio"
-                    name="theme-mode"
-                    value="dark"
-                    checked={themeMode === 'dark'}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        const nextMode = setThemeMode('dark');
-                        setThemeModeState(nextMode);
-                        setThemeNotice('Theme set to dark.');
-                      }
-                    }}
-                  />
-                  <span>Dark</span>
-                </label>
-              </div>
-            </fieldset>
-
-            <label className="setting-item setting-item--toggle settings-quick-control" htmlFor="idle-timeout-enabled-toggle">
-              <span>
-                <strong>Enable idle auto-logout</strong>
-                <small>Lock unattended sessions for patient safety.</small>
-              </span>
-              <input
-                id="idle-timeout-enabled-toggle"
-                type="checkbox"
-                checked={sessionSettings.enabled}
-                onChange={(event) => {
-                  applySessionSettings({ enabled: event.target.checked });
-                }}
-              />
-            </label>
-
-            <label className="setting-item setting-item--field form-field settings-quick-control" htmlFor="idle-timeout-minutes">
-              <span>
-                <strong>Idle timeout</strong>
-                <small>Show warning 60 seconds before lock.</small>
-              </span>
-              <select
-                id="idle-timeout-minutes"
-                value={String(sessionSettings.idleMinutes)}
-                onChange={(event) => {
-                  applySessionSettings({ idleMinutes: Number(event.target.value) });
-                }}
-                aria-label="Idle timeout minutes"
-              >
-                <option value="5">5 minutes</option>
-                <option value="10">10 minutes</option>
-                <option value="15">15 minutes</option>
-                <option value="30">30 minutes</option>
-              </select>
-            </label>
-
-            <label className="setting-item setting-item--field form-field settings-quick-control" htmlFor="absolute-timeout-hours">
-              <span>
-                <strong>Absolute session timeout</strong>
-                <small>Show warning 5 minutes before maximum session duration.</small>
-              </span>
-              <select
-                id="absolute-timeout-hours"
-                value={String(sessionSettings.absoluteHours)}
-                onChange={(event) => {
-                  applySessionSettings({ absoluteHours: Number(event.target.value) });
-                }}
-                aria-label="Absolute timeout hours"
-              >
-                <option value="2">2 hours</option>
-                <option value="4">4 hours</option>
-                <option value="8">8 hours</option>
-              </select>
-            </label>
-
-            <label className="setting-item setting-item--toggle settings-quick-control" htmlFor="notification-quiet-hours-enabled">
-              <span>
-                <strong>Quiet hours</strong>
-                <small>Reduce secondary in-app emphasis only during a local daily window in this browser.</small>
-              </span>
-              <input
-                id="notification-quiet-hours-enabled"
-                type="checkbox"
-                checked={draftProfile.notificationPreferences.quietHours.enabled}
-                onChange={(event) => updateDraftNotificationQuietHours('enabled', event.target.checked)}
-              />
-            </label>
-
-            <article className="settings-quick-note settings-quick-note--timing">
-              <p className="settings-quick-note__label">Timeout warnings</p>
-              <p className="settings-quick-note__value">{timeoutWarningLabel}</p>
-            </article>
-
-            <article className="settings-quick-note settings-quick-note--scope">
-              <p className="settings-quick-note__label">Browser-local workspace</p>
-              <p className="settings-quick-note__value">{localWorkspaceGuidanceLabel}</p>
-            </article>
-          </div>
-
-          {(themeNotice || sessionNotice) ? (
-            <div className="settings-quick-controls-band__notices" aria-live="polite">
-              {themeNotice ? (
-                <p className="settings-inline-notice muted-text" role="status">
-                  {themeNotice}
-                </p>
-              ) : null}
-              {sessionNotice ? (
-                <p className="settings-inline-notice muted-text" role="status">
-                  {sessionNotice}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </section>
-      </div>
-
-      <section className="settings-control-environment" aria-label="Settings control workspace">
-        <section className="settings-control-environment__main" aria-label="Workspace defaults settings">
-          <div className="settings-column-shell__intro settings-column-shell__intro--workspace">
-            <p className="settings-column-shell__eyebrow">Profile</p>
-            <h3 className="settings-column-shell__title">Clinician identity and defaults</h3>
-            <p className="settings-column-shell__text">
-              Keep identity, local defaults, and daily context aligned for the workstation in use.
-            </p>
-          </div>
-
-          <section className="settings-display-context" aria-label="Workspace display alignment">
-            <article className="settings-display-context__item" aria-label="Offline warning banner setting status">
-              <div>
-                <p className="settings-display-context__label">Shared shell state</p>
-                <strong>Offline warning banner</strong>
-                <p className="settings-display-context__text">
-                  Warning display follows the live connection state in Aura&apos;s shared shell for this browser.
-                </p>
-              </div>
-              <span className="setting-item__status-note">Shared shell default</span>
-            </article>
-
-            <article className="settings-display-context__item" aria-label="Compact table density setting status">
-              <div>
-                <p className="settings-display-context__label">Workspace density</p>
-                <strong>Compact table mode</strong>
-                <p className="settings-display-context__text">
-                  Table density currently follows Aura Clinician&apos;s shared workspace default in this browser.
-                </p>
-              </div>
-              <span className="setting-item__status-note">Shared workspace default</span>
-            </article>
-          </section>
-
+      <section className="settings-workspace-layout" aria-label="Workspace control center">
+        <section className="settings-workspace-main" aria-label="Primary workspace settings">
           <Card
-            className="settings-group-card settings-group-card--identity"
+            className="settings-group-card settings-group-card--identity settings-group-card--primary"
             title={
               <span className="settings-group-card__title">
-                Clinician profile
-                <span className="settings-group-card__title-meta">Browser-local identity workspace</span>
+                Clinician profile and workspace defaults
+                <span className="settings-group-card__title-meta">
+                  Browser-local identity and opening defaults
+                </span>
               </span>
             }
             action={<Badge variant="default">{workspacePreferences.availabilityLabel}</Badge>}
@@ -963,99 +861,112 @@ export function SettingsPage(): JSX.Element {
               </p>
             </div>
 
-            <section className="settings-profile-summary settings-profile-summary--hero" aria-label="Saved clinician profile summary">
-              <ClinicianAvatar
-                identity={clinicianIdentity}
-                className="settings-profile-summary__avatar"
-                decorative
-                size="lg"
-              />
-              <div className="settings-profile-summary__copy">
-                <p className="settings-profile-summary__name">{clinicianIdentity.displayName}</p>
-                <p className="settings-profile-summary__meta">{savedIdentitySupportLine}</p>
-                <div className="settings-profile-summary__facts" aria-label="Saved clinician profile facts">
-                  {savedIdentityFacts.map((fact) => (
-                    <span key={fact} className="settings-profile-summary__fact">
-                      {fact}
-                    </span>
-                  ))}
-                </div>
-                <div className="settings-profile-summary__facts" aria-label="Saved workspace preference facts">
-                  {savedWorkspaceFacts.map((fact) => (
-                    <span key={fact} className="settings-profile-summary__fact">
-                      {fact}
-                    </span>
-                  ))}
-                </div>
-                {savedWorkspaceDefaults.length > 0 ? (
-                  <p className="settings-profile-summary__body settings-profile-summary__body--secondary">
-                    {savedWorkspaceDefaults.join(' · ')}
+            <div className="settings-profile-reference-grid">
+              <section
+                className="settings-profile-summary settings-profile-summary--reference"
+                aria-label="Saved clinician profile summary"
+              >
+                <ClinicianAvatar
+                  identity={clinicianIdentity}
+                  className="settings-profile-summary__avatar"
+                  decorative
+                  size="lg"
+                />
+                <div className="settings-profile-summary__copy">
+                  <p className="settings-profile-summary__name">{clinicianIdentity.displayName}</p>
+                  <p className="settings-profile-summary__meta">{savedIdentitySupportLine}</p>
+                  <div
+                    className="settings-profile-summary__facts"
+                    aria-label="Saved clinician profile facts"
+                  >
+                    {savedIdentityFacts.map((fact) => (
+                      <span key={fact} className="settings-profile-summary__fact">
+                        {fact}
+                      </span>
+                    ))}
+                  </div>
+                  <div
+                    className="settings-profile-summary__facts"
+                    aria-label="Saved workspace preference facts"
+                  >
+                    {savedWorkspaceFacts.map((fact) => (
+                      <span key={fact} className="settings-profile-summary__fact">
+                        {fact}
+                      </span>
+                    ))}
+                  </div>
+                  {savedWorkspaceDefaults.length > 0 ? (
+                    <p className="settings-profile-summary__body settings-profile-summary__body--secondary">
+                      {savedWorkspaceDefaults.join(' · ')}
+                    </p>
+                  ) : null}
+                  {clinicianIdentity.bio ? (
+                    <p className="settings-profile-summary__body">{clinicianIdentity.bio}</p>
+                  ) : null}
+                  {clinicianIdentity.contactNote ? (
+                    <p className="settings-profile-summary__body settings-profile-summary__body--secondary">
+                      {clinicianIdentity.contactNote}
+                    </p>
+                  ) : null}
+                  <p className="settings-profile-summary__note">
+                    Saved locally for this clinician in this browser. Changes do not sync across
+                    devices.
                   </p>
-                ) : null}
-                {clinicianIdentity.bio ? (
-                  <p className="settings-profile-summary__body">{clinicianIdentity.bio}</p>
-                ) : null}
-                {clinicianIdentity.contactNote ? (
-                  <p className="settings-profile-summary__body settings-profile-summary__body--secondary">
-                    {clinicianIdentity.contactNote}
-                  </p>
-                ) : null}
-                <p className="settings-profile-summary__note">
-                  Saved locally for this clinician in this browser. Changes do not sync across
-                  devices.
-                </p>
-              </div>
-            </section>
+                </div>
+              </section>
 
-            <section className="settings-profile-photo" aria-label="Profile photo">
-              <ClinicianAvatar
-                identity={draftIdentityPreview}
-                className="settings-profile-photo__preview"
-                decorative
-                size="lg"
-              />
-              <div className="settings-profile-photo__copy">
-                <p className="settings-profile-photo__title">Profile photo</p>
-                <p className="settings-profile-photo__text">
-                  Profile photo stays in this browser after you save it. Use JPG, PNG, or WebP up
-                  to 500 KB.
-                </p>
-                <div className="inline-actions settings-actions settings-actions--profile-photo">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => profilePhotoInputRef.current?.click()}
-                  >
-                    {draftProfile.photo ? 'Replace photo' : 'Choose photo'}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRemovePhoto}
-                    disabled={!draftProfile.photo}
-                  >
-                    Remove photo
-                  </Button>
+              <section className="settings-profile-photo" aria-label="Profile photo">
+                <ClinicianAvatar
+                  identity={draftIdentityPreview}
+                  className="settings-profile-photo__preview"
+                  decorative
+                  size="lg"
+                />
+                <div className="settings-profile-photo__copy">
+                  <p className="settings-profile-photo__title">Profile photo</p>
+                  <p className="settings-profile-photo__text">
+                    Profile photo stays in this browser after you save it. Use JPG, PNG, or WebP up
+                    to 500 KB.
+                  </p>
+                  <div className="inline-actions settings-actions settings-actions--profile-photo">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => profilePhotoInputRef.current?.click()}
+                    >
+                      {draftProfile.photo ? 'Replace photo' : 'Choose photo'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemovePhoto}
+                      disabled={!draftProfile.photo}
+                    >
+                      Remove photo
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <input
-                ref={profilePhotoInputRef}
-                className="visually-hidden"
-                type="file"
-                accept={CLINICIAN_PROFILE_PHOTO_MIME_TYPES.join(',')}
-                onChange={(event) => {
-                  void handlePhotoSelection(event);
-                }}
-              />
-            </section>
+                <input
+                  ref={profilePhotoInputRef}
+                  className="visually-hidden"
+                  type="file"
+                  accept={CLINICIAN_PROFILE_PHOTO_MIME_TYPES.join(',')}
+                  onChange={(event) => {
+                    void handlePhotoSelection(event);
+                  }}
+                />
+              </section>
+            </div>
 
             <div className="settings-profile-editor settings-profile-editor--workspace">
-              <section className="workspace-form-zone workspace-form-zone--profile" aria-label="Profile settings">
+              <section
+                className="workspace-form-zone workspace-form-zone--profile"
+                aria-label="Profile settings"
+              >
                 <div className="workspace-form-zone__header">
-                  <p className="workspace-form-zone__eyebrow">Profile</p>
                   <h4 className="workspace-form-zone__title">Clinician identity and handoff</h4>
                   <p className="workspace-form-zone__text">
-                    Keep the saved clinician identity and local handoff context clear for the person using this workstation.
+                    Edit the local clinician identity and handoff context used on this workstation.
                   </p>
                 </div>
 
@@ -1188,12 +1099,15 @@ export function SettingsPage(): JSX.Element {
                 </section>
               </section>
 
-              <section className="workspace-form-zone workspace-form-zone--defaults" aria-label="Workspace defaults settings">
+              <section
+                className="workspace-form-zone workspace-form-zone--defaults"
+                aria-label="Workspace defaults settings"
+              >
                 <div className="workspace-form-zone__header">
-                  <p className="workspace-form-zone__eyebrow">Workspace defaults</p>
                   <h4 className="workspace-form-zone__title">Daily context and opening defaults</h4>
                   <p className="workspace-form-zone__text">
-                    Set the local care state, working context, and clean-entry defaults this browser should remember.
+                    Set local availability, working context, and fallback opening defaults for this
+                    browser.
                   </p>
                 </div>
 
@@ -1427,108 +1341,15 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
           </Card>
-        </section>
 
-        <aside className="settings-control-environment__side" aria-label="Session protection settings">
-          <div className="settings-column-shell__intro settings-column-shell__intro--protection">
-            <p className="settings-column-shell__eyebrow">Protection & authoring</p>
-            <h3 className="settings-column-shell__title">Session safety and local reply controls</h3>
-            <p className="settings-column-shell__text">
-              Keep unattended access risk low while preserving browser-local scope.
-            </p>
-          </div>
           <Card
-            className="settings-group-card settings-group-card--security"
-            title={
-              <span className="settings-group-card__title">
-                Session & security
-                <span className="settings-group-card__title-meta">Browser protection</span>
-              </span>
-            }
-            action={
-              <Badge variant={sessionSettings.enabled ? 'success' : 'warning'}>
-                {sessionProtectionBadgeLabel}
-              </Badge>
-            }
-          >
-            <div className="settings-group-card__context">
-              <span className="settings-group-card__context-pill">Local protection</span>
-              <p className="settings-group-card__context-note">
-                Takes effect immediately in this browser.
-              </p>
-            </div>
-            <div className="settings-security-panel">
-              <div className="settings-security-panel__state">
-                <article className="settings-security-panel__fact">
-                  <span>Protection state</span>
-                  <strong>{sessionProtectionBadgeLabel}</strong>
-                  <p>{sessionSettings.enabled ? 'Session guard is active for this browser.' : 'Protection is currently off for this browser.'}</p>
-                </article>
-                <article className="settings-security-panel__fact">
-                  <span>Idle timeout</span>
-                  <strong>{sessionSettings.idleMinutes} minutes</strong>
-                  <p>Used for unattended-session lock timing.</p>
-                </article>
-                <article className="settings-security-panel__fact">
-                  <span>Absolute timeout</span>
-                  <strong>{sessionSettings.absoluteHours} hours</strong>
-                  <p>Maximum session duration before forced sign-out.</p>
-                </article>
-                <article className="settings-security-panel__fact">
-                  <span>Quiet-hours state</span>
-                  <strong>{draftProfile.notificationPreferences.quietHours.enabled ? 'Quiet hours enabled' : 'Quiet hours off'}</strong>
-                  <p>Secondary in-app emphasis only, never core alert visibility.</p>
-                </article>
-              </div>
-
-              <div className="settings-security-panel__notes">
-                <article className="settings-security-panel__note">
-                  <p className="settings-security-panel__note-label">Warning ladder</p>
-                  <p>{timeoutWarningLabel}</p>
-                </article>
-                <article className="settings-security-panel__note">
-                  <p className="settings-security-panel__note-label">Local protection scope</p>
-                  <p>Auto-logout timing updates the current browser session manager right away.</p>
-                </article>
-              </div>
-            </div>
-
-            {sessionNotice ? (
-              <p className="settings-inline-notice muted-text" role="status" aria-live="polite">
-                {sessionNotice}
-              </p>
-            ) : null}
-          </Card>
-
-          <section className="settings-column-shell__support" aria-label="Workspace guidance">
-            <p className="settings-column-shell__support-label">Workspace guidance</p>
-            <p className="settings-column-shell__support-text">
-              Keep the scope of this browser clear for the clinician using it.
-            </p>
-            <AlertBanner className="settings-guidance-banner" variant="info" title="Local workspace guidance">
-              Settings on this page are browser-backed. They change how this clinician workspace
-              behaves on this device, but they do not publish shared product-wide preferences.
-            </AlertBanner>
-          </section>
-        </aside>
-      </section>
-
-      <section className="settings-modules-stage" aria-label="Communication and notification settings">
-        <div className="settings-column-shell__intro settings-column-shell__intro--modules">
-          <p className="settings-column-shell__eyebrow">Protection & authoring</p>
-          <h3 className="settings-column-shell__title">Authoring and local attention modules</h3>
-          <p className="settings-column-shell__text">
-            Keep reply drafting and in-app attention cues coordinated without changing anything outside this browser.
-          </p>
-        </div>
-
-        <div className="settings-modules-stage__grid">
-          <Card
-            className="settings-group-card settings-group-card--communication-authoring"
+            className="settings-group-card settings-group-card--communication-authoring settings-group-card--primary"
             title={
               <span className="settings-group-card__title">
                 Communication authoring
-                <span className="settings-group-card__title-meta">Local reply helpers</span>
+                <span className="settings-group-card__title-meta">
+                  Browser-local reply helpers
+                </span>
               </span>
             }
             action={<Badge variant="default">{communicationSummaryBadgeLabel}</Badge>}
@@ -1725,9 +1546,11 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
           </Card>
+        </section>
 
+        <aside className="settings-workspace-support" aria-label="Workspace support rail">
           <Card
-            className="settings-group-card settings-group-card--notification-preferences"
+            className="settings-group-card settings-group-card--notification-preferences settings-group-card--support"
             title={
               <span className="settings-group-card__title">
                 Notification preferences
@@ -1910,45 +1733,120 @@ export function SettingsPage(): JSX.Element {
               </p>
             ) : null}
           </Card>
-        </div>
-      </section>
 
-      <section className="settings-admin-zone" aria-label="Restore and maintenance actions">
-        <div className="settings-column-shell__intro settings-column-shell__intro--admin">
-          <p className="settings-column-shell__eyebrow">Advanced & maintenance</p>
-          <h3 className="settings-column-shell__title">Lower-priority control resets</h3>
-          <p className="settings-column-shell__text">
-            Keep resets separate from day-to-day controls so clinicians reach them intentionally.
-          </p>
-        </div>
-
-        <div className="settings-admin-zone__actions">
-          <article className="settings-admin-action">
-            <div className="settings-admin-action__copy">
-              <p className="settings-admin-action__eyebrow">Profile draft</p>
-              <h4 className="settings-admin-action__title">Restore workspace profile defaults</h4>
-              <p className="settings-admin-action__text">
-                Reset the editable profile form to Aura&apos;s local defaults. The saved browser profile does not change until you save again.
+          <section className="settings-support-panel" aria-label="Workspace scope and reference">
+            <div className="settings-support-panel__intro">
+              <p className="settings-support-panel__eyebrow">Reference context</p>
+              <h3 className="settings-support-panel__title">Scope and workspace references</h3>
+              <p className="settings-support-panel__text">
+                Keep shared-shell defaults and immediate browser protection scope visible without
+                interrupting configuration work.
               </p>
             </div>
-            <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
-              Restore defaults
-            </Button>
-          </article>
 
-          <article className="settings-admin-action settings-admin-action--protection">
-            <div className="settings-admin-action__copy">
-              <p className="settings-admin-action__eyebrow">Session protection</p>
-              <h4 className="settings-admin-action__title">Restore session defaults</h4>
-              <p className="settings-admin-action__text">
-                Return this browser&apos;s idle and absolute session timing to the default protection policy.
+            <section className="settings-display-context" aria-label="Workspace display alignment">
+              <article
+                className="settings-display-context__item"
+                aria-label="Offline warning banner setting status"
+              >
+                <div>
+                  <p className="settings-display-context__label">Shared shell state</p>
+                  <strong>Offline warning banner</strong>
+                  <p className="settings-display-context__text">
+                    Warning display follows the live connection state in Aura&apos;s shared shell for
+                    this browser.
+                  </p>
+                </div>
+                <span className="setting-item__status-note">Shared shell default</span>
+              </article>
+
+              <article
+                className="settings-display-context__item"
+                aria-label="Compact table density setting status"
+              >
+                <div>
+                  <p className="settings-display-context__label">Workspace density</p>
+                  <strong>Compact table mode</strong>
+                  <p className="settings-display-context__text">
+                    Table density currently follows Aura Clinician&apos;s shared workspace default in
+                    this browser.
+                  </p>
+                </div>
+                <span className="setting-item__status-note">Shared workspace default</span>
+              </article>
+            </section>
+
+            <div className="settings-support-notes" aria-label="Local protection notes">
+              <article className="settings-support-note">
+                <p className="settings-support-note__label">Current session timing</p>
+                <p className="settings-support-note__value">{sessionSummaryLabel}</p>
+                <p className="settings-support-note__text">
+                  Auto-logout timing updates the current browser session manager right away.
+                </p>
+              </article>
+
+              <article className="settings-support-note">
+                <p className="settings-support-note__label">Warning ladder</p>
+                <p className="settings-support-note__value">{timeoutWarningLabel}</p>
+                <p className="settings-support-note__text">
+                  Quiet hours reduce secondary emphasis only and never remove core alert visibility.
+                </p>
+              </article>
+            </div>
+
+            <AlertBanner
+              className="settings-guidance-banner"
+              variant="info"
+              title="Local workspace guidance"
+            >
+              Settings on this page are browser-backed. They change how this clinician workspace
+              behaves on this device, but they do not publish shared product-wide preferences.
+            </AlertBanner>
+          </section>
+
+          <section className="settings-maintenance-zone" aria-label="Restore and maintenance actions">
+            <div className="settings-maintenance-zone__intro">
+              <p className="settings-support-panel__eyebrow">Maintenance</p>
+              <h3 className="settings-support-panel__title">Lower-priority resets</h3>
+              <p className="settings-support-panel__text">
+                Keep resets available without letting them compete with day-to-day workspace
+                changes.
               </p>
             </div>
-            <Button variant="secondary" onClick={handleRestoreSessionDefaults}>
-              Restore session defaults
-            </Button>
-          </article>
-        </div>
+
+            <div className="settings-admin-zone__actions settings-admin-zone__actions--support">
+              <article className="settings-admin-action">
+                <div className="settings-admin-action__copy">
+                  <p className="settings-admin-action__eyebrow">Profile draft</p>
+                  <h4 className="settings-admin-action__title">
+                    Restore workspace profile defaults
+                  </h4>
+                  <p className="settings-admin-action__text">
+                    Reset the editable profile form to Aura&apos;s local defaults. The saved browser
+                    profile does not change until you save again.
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
+                  Restore defaults
+                </Button>
+              </article>
+
+              <article className="settings-admin-action settings-admin-action--protection">
+                <div className="settings-admin-action__copy">
+                  <p className="settings-admin-action__eyebrow">Session protection</p>
+                  <h4 className="settings-admin-action__title">Restore session defaults</h4>
+                  <p className="settings-admin-action__text">
+                    Return this browser&apos;s idle and absolute session timing to the default
+                    protection policy.
+                  </p>
+                </div>
+                <Button variant="secondary" onClick={handleRestoreSessionDefaults}>
+                  Restore session defaults
+                </Button>
+              </article>
+            </div>
+          </section>
+        </aside>
       </section>
     </div>
   );

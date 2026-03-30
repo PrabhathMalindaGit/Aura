@@ -66,8 +66,13 @@ describe('SettingsPage clinician profile workspace', () => {
     expect(screen.getByRole('button', { name: 'Save communication settings' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save notification settings' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Restore defaults' })).toBeInTheDocument();
+    expect(screen.getByText('Workspace state saved')).toBeInTheDocument();
+    expect(screen.queryByText('Immediate workspace controls')).not.toBeInTheDocument();
+    expect(screen.queryByText('Session & security')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lower-priority control resets')).not.toBeInTheDocument();
     expect(screen.getByText('Communication authoring')).toBeInTheDocument();
     expect(screen.getByText('Notification preferences')).toBeInTheDocument();
+    expect(screen.getByText('Scope and workspace references')).toBeInTheDocument();
     expect(screen.getByLabelText('Default signature')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add template' })).toBeInTheDocument();
     expect(screen.getByLabelText('Communication attention cues')).toBeInTheDocument();

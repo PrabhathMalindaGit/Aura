@@ -53,18 +53,49 @@ function countThreadsByView(
 
 function getThreadMetaSummary(thread: CommunicationThread): string {
   if (thread.latestEventKind === 'clinician-reply') {
-    return 'Latest local clinician reply';
+    return 'Local clinician reply is the latest activity';
   }
 
   if (thread.needsResponse) {
-    return 'Latest patient message waiting on clinician follow-up';
+    return 'Waiting on clinician follow-up';
   }
 
   if (thread.unread) {
-    return 'Latest patient message not yet reviewed in this browser';
+    return 'Not yet reviewed in this browser';
   }
 
-  return 'Latest patient message';
+  if (thread.followUpRequested) {
+    return 'Follow-up requested in recent patient messaging';
+  }
+
+  return 'Recent patient message in review';
+}
+
+function formatCountLabel(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getThreadPriorityBadge(thread: CommunicationThread): {
+  label: string;
+  variant: 'danger' | 'warning' | 'new' | 'neutral';
+} | null {
+  if (thread.safetyFlagged) {
+    return { label: 'Safety flagged', variant: 'danger' };
+  }
+
+  if (thread.needsResponse) {
+    return { label: 'Needs response', variant: 'warning' };
+  }
+
+  if (thread.unread) {
+    return { label: 'Unread', variant: 'new' };
+  }
+
+  if (thread.followUpRequested) {
+    return { label: 'Follow-up requested', variant: 'neutral' };
+  }
+
+  return null;
 }
 
 function getPatientInitials(name: string): string {
@@ -144,11 +175,6 @@ export function CommunicationPage(): JSX.Element {
   const filteredThreads = useMemo(
     () => filterCommunicationThreads(allThreads, currentView),
     [allThreads, currentView],
-  );
-  const currentViewLabel = useMemo(
-    () =>
-      COMMUNICATION_THREAD_VIEW_OPTIONS.find((option) => option.id === currentView)?.label ?? 'All',
-    [currentView],
   );
   const requestedThread = useMemo(
     () => findCommunicationThreadByPatientId(allThreads, requestedPatientId),
@@ -398,7 +424,7 @@ export function CommunicationPage(): JSX.Element {
   const activeThreadTone = activeThread ? getCommunicationThreadTone(activeThread) : null;
   const communicationSummary = useMemo(
     () => ({
-      inReview: allThreads.length,
+      total: allThreads.length,
       needsResponse: allThreads.filter((thread) => thread.needsResponse).length,
       safetyFlagged: allThreads.filter((thread) => thread.safetyFlagged).length,
       followUpRequested: allThreads.filter((thread) => thread.followUpRequested).length,
@@ -406,60 +432,41 @@ export function CommunicationPage(): JSX.Element {
     }),
     [allThreads],
   );
-  const inboxComposition = useMemo(() => {
-    const buckets = {
-      safety: 0,
-      response: 0,
-      followUp: 0,
-      unread: 0,
-      reviewed: 0,
-    };
-
-    for (const thread of allThreads) {
-      const tone = getCommunicationThreadTone(thread);
-
-      if (tone === 'safety') {
-        buckets.safety += 1;
-        continue;
-      }
-
-      if (tone === 'response') {
-        buckets.response += 1;
-        continue;
-      }
-
-      if (tone === 'follow-up') {
-        buckets.followUp += 1;
-        continue;
-      }
-
-      if (tone === 'unread') {
-        buckets.unread += 1;
-        continue;
-      }
-
-      buckets.reviewed += 1;
-    }
-
-    return [
-      { key: 'safety', label: 'Safety flagged', value: buckets.safety },
-      { key: 'response', label: 'Needs response', value: buckets.response },
-      { key: 'follow-up', label: 'Follow-up requested', value: buckets.followUp },
-      { key: 'unread', label: 'Unread', value: buckets.unread },
-      { key: 'reviewed', label: 'In review', value: buckets.reviewed },
-    ];
-  }, [allThreads]);
   const communicationGuidance =
     communicationSummary.safetyFlagged > 0
-      ? 'Safety-sensitive threads still require clinician review.'
+      ? `${formatCountLabel(
+          communicationSummary.safetyFlagged,
+          'safety-flagged thread',
+          'safety-flagged threads',
+        )} and ${formatCountLabel(
+          communicationSummary.needsResponse,
+          'thread need',
+          'threads need',
+        )} response review now.`
       : communicationSummary.needsResponse > 0
-        ? 'Response-needed follow-up still leads the inbox.'
+        ? `${formatCountLabel(
+            communicationSummary.needsResponse,
+            'thread needs',
+            'threads need',
+          )} clinician follow-up now.`
         : communicationSummary.followUpRequested > 0
-          ? 'Follow-up requested threads still need a clinician pass.'
+          ? `${formatCountLabel(
+              communicationSummary.followUpRequested,
+              'thread has',
+              'threads have',
+            )} follow-up requested.`
           : communicationSummary.unread > 0
-            ? 'Unread threads still need first review in this browser.'
+            ? `${formatCountLabel(
+                communicationSummary.unread,
+                'thread is',
+                'threads are',
+              )} still unread in this browser.`
             : hasThreads
-              ? 'Current inbox review is clear in this browser.'
+              ? `${formatCountLabel(
+                  communicationSummary.total,
+                  'thread is',
+                  'threads are',
+                )} currently in review.`
               : 'No patient communication is waiting in this workspace.';
 
   return (
@@ -468,78 +475,32 @@ export function CommunicationPage(): JSX.Element {
         className="dashboard-page-header dashboard-page-header--communication communication-page__header"
         eyebrow="Clinician follow-up"
         title="Inbox"
-        subtitle="Review patient-linked communication, keep safety context close, and reply with browser-local continuity."
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void communicationQuery.refetch();
-            }}
-            disabled={communicationQuery.isFetching}
-          >
-            {communicationQuery.isFetching ? 'Refreshing...' : 'Refresh'}
-          </Button>
-        }
+        subtitle="Review patient communication that needs clinician follow-up and save browser-local replies."
       />
 
-      <section className="inbox-brief" aria-label="Communication inbox summary">
-        <div className="inbox-brief__lead">
-          <p className="inbox-brief__eyebrow">Inbox summary</p>
-          <h2 className="inbox-brief__title">Clinical communication review</h2>
-          <p className="inbox-brief__copy">{communicationGuidance}</p>
+      <section className="inbox-triage-bar" aria-label="Inbox controls">
+        <div className="inbox-triage-bar__summary">
+          <div className="inbox-triage-bar__cues" role="list" aria-label="Inbox communication pressure">
+            <span
+              className={`inbox-triage-bar__cue inbox-triage-bar__cue--response${
+                reduceCommunicationAttention ? '' : ' communication-page__status-card--response-hot'
+              }`}
+              data-testid="communication-needs-response-pill"
+              role="listitem"
+            >
+              Needs response {communicationSummary.needsResponse}
+            </span>
+            {communicationSummary.safetyFlagged > 0 ? (
+              <span className="inbox-triage-bar__cue inbox-triage-bar__cue--safety" role="listitem">
+                Safety flagged {communicationSummary.safetyFlagged}
+              </span>
+            ) : null}
+          </div>
+          <p className="inbox-triage-bar__note">{communicationGuidance}</p>
         </div>
 
-        <div className="inbox-brief__stats" role="list" aria-label="Inbox counts">
-          <article className="inbox-brief__stat" role="listitem">
-            <p className="inbox-brief__stat-label">In review</p>
-            <p className="inbox-brief__stat-value">{communicationSummary.inReview}</p>
-            <p className="inbox-brief__stat-detail">{currentViewLabel} view</p>
-          </article>
-          <article
-            className={`inbox-brief__stat inbox-brief__stat--response${
-              reduceCommunicationAttention ? '' : ' communication-page__status-card--response-hot'
-            }`}
-            data-testid="communication-needs-response-pill"
-            role="listitem"
-          >
-            <p className="inbox-brief__stat-label">Needs response</p>
-            <p className="inbox-brief__stat-value">{communicationSummary.needsResponse}</p>
-            <p className="inbox-brief__stat-detail">Clinician follow-up is still waiting</p>
-          </article>
-          <article className="inbox-brief__stat inbox-brief__stat--safety" role="listitem">
-            <p className="inbox-brief__stat-label">Safety flagged</p>
-            <p className="inbox-brief__stat-value">{communicationSummary.safetyFlagged}</p>
-            <p className="inbox-brief__stat-detail">Escalation-sensitive threads in view</p>
-          </article>
-          <article className="inbox-brief__stat inbox-brief__stat--composition" role="listitem">
-            <p className="inbox-brief__stat-label">Current mix</p>
-            <div className="inbox-brief__composition" role="list">
-              {inboxComposition.slice(0, 3).map((segment) => (
-                <span
-                  key={segment.key}
-                  className={`inbox-brief__composition-item inbox-brief__composition-item--${segment.key}`}
-                  role="listitem"
-                >
-                  {segment.label}: {segment.value}
-                </span>
-              ))}
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <div className="inbox-shell">
-        <aside className="inbox-thread-panel" aria-label="Communication queue">
-          <header className="inbox-panel__header">
-            <div className="inbox-panel__copy">
-              <p className="inbox-panel__eyebrow">Thread list</p>
-              <h2 className="inbox-panel__title">Communication queue</h2>
-              <p className="inbox-panel__note">Patient-linked threads ready for clinician review.</p>
-            </div>
-          </header>
-
-          <div className="communication-page__filters inbox-thread-panel__filters" role="group" aria-label="Communication filters">
+        <div className="inbox-triage-bar__actions">
+          <div className="communication-page__filters inbox-triage-bar__filters" role="group" aria-label="Communication filters">
             {COMMUNICATION_THREAD_VIEW_OPTIONS.map((option) => {
               const isActive = option.id === currentView;
               const count = countThreadsByView(allThreads, option.id);
@@ -559,15 +520,36 @@ export function CommunicationPage(): JSX.Element {
               );
             })}
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void communicationQuery.refetch();
+            }}
+            disabled={communicationQuery.isFetching}
+          >
+            {communicationQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
+      </section>
+
+      <section className="inbox-workspace" aria-label="Inbox response workspace">
+        <aside className="inbox-thread-rail" aria-label="Communication queue">
+          <header className="inbox-thread-rail__header">
+            <div className="inbox-panel__copy">
+              <h2 className="inbox-panel__title">Communication queue</h2>
+              <p className="inbox-panel__note">Select the next patient thread that needs follow-through.</p>
+            </div>
+          </header>
 
           {communicationQuery.isLoading && !hasThreads ? (
-            <div className="communication-page__thread-skeletons" aria-label="Communication queue loading placeholder">
+            <div className="communication-page__thread-skeletons inbox-thread-rail__state" aria-label="Communication queue loading placeholder">
               <Skeleton height={92} />
               <Skeleton height={92} />
               <Skeleton height={92} />
             </div>
           ) : communicationQuery.error && !hasThreads ? (
-            <div className="communication-page__inline-state" role="status">
+            <div className="communication-page__inline-state inbox-thread-rail__state" role="status">
               <p>{toUserMessage(communicationQuery.error)}</p>
               <Button
                 variant="secondary"
@@ -580,31 +562,27 @@ export function CommunicationPage(): JSX.Element {
               </Button>
             </div>
           ) : !hasThreads ? (
-            <EmptyState
-              title="No communication waiting"
-              description="Patient communication needing clinician review will appear here."
-              tone="success"
-            />
+            <div className="inbox-thread-rail__state">
+              <EmptyState
+                title="No communication waiting"
+                description="Patient communication needing clinician review will appear here."
+                tone="success"
+              />
+            </div>
           ) : !hasVisibleThreads ? (
-            <EmptyState
-              title="No threads match this view"
-              description="Choose another filter to return to the current communication queue."
-              tone="warning"
-            />
+            <div className="inbox-thread-rail__state">
+              <EmptyState
+                title="No threads match this view"
+                description="Choose another filter to return to the current communication queue."
+                tone="warning"
+              />
+            </div>
           ) : (
-            <div className="communication-page__thread-list" role="list" aria-label="Communication threads">
+            <div className="communication-page__thread-list inbox-thread-rail__list" role="list" aria-label="Communication threads">
               {visibleThreads.map((thread) => {
                 const isSelected = thread.id === activeThread?.id;
                 const threadTone = getCommunicationThreadTone(thread);
-                const dominantBadges = [
-                  isSelected ? 'Current review' : null,
-                  thread.safetyFlagged ? 'Safety flagged' : null,
-                  thread.needsResponse ? 'Needs response' : null,
-                  thread.unread ? 'Unread' : null,
-                  !thread.safetyFlagged && !thread.needsResponse && !thread.unread && thread.followUpRequested
-                    ? 'Follow-up requested'
-                    : null,
-                ].filter(Boolean) as string[];
+                const primaryBadge = getThreadPriorityBadge(thread);
 
                 return (
                   <article key={thread.id} className="communication-page__thread-list-item" role="listitem">
@@ -616,13 +594,16 @@ export function CommunicationPage(): JSX.Element {
                       aria-pressed={isSelected}
                       onClick={() => handleSelectThread(thread)}
                     >
-                      <div className="communication-page__thread-identity">
+                      <div className="communication-page__thread-identity inbox-thread-item__identity">
                         <span className="communication-page__thread-avatar" aria-hidden="true">
                           {getPatientInitials(thread.patientName)}
                         </span>
                         <div className="communication-page__thread-identity-copy">
-                          <div className="communication-page__thread-item-top">
-                            <strong className="communication-page__thread-name">{thread.patientName}</strong>
+                          <div className="communication-page__thread-item-top inbox-thread-item__headline">
+                            <div className="inbox-thread-item__headline-copy">
+                              <strong className="communication-page__thread-name">{thread.patientName}</strong>
+                              {primaryBadge ? <Badge variant={primaryBadge.variant}>{primaryBadge.label}</Badge> : null}
+                            </div>
                             <span
                               className="communication-page__thread-time"
                               title={formatDashboardDateTime(thread.latestEventAt)}
@@ -630,38 +611,15 @@ export function CommunicationPage(): JSX.Element {
                               {formatDashboardRelativeTime(thread.latestEventAt)}
                             </span>
                           </div>
-                          {thread.validPatientId ? (
-                            <span className="communication-page__thread-id">ID: {thread.patientId}</span>
-                          ) : null}
+                          <div className="inbox-thread-item__meta-line">
+                            <span className="communication-page__thread-meta-note">{getThreadMetaSummary(thread)}</span>
+                            {thread.validPatientId ? (
+                              <span className="communication-page__thread-id">ID: {thread.patientId}</span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                       <p className="communication-page__thread-preview">{thread.latestEventPreview}</p>
-                      <div className="communication-page__thread-meta">
-                        <span className="communication-page__thread-meta-note">{getThreadMetaSummary(thread)}</span>
-                        <div className="communication-page__thread-badges">
-                          {dominantBadges.map((label) => (
-                            <Badge
-                              key={label}
-                              variant={
-                                label === 'Safety flagged'
-                                  ? 'danger'
-                                  : label === 'Needs response'
-                                    ? 'warning'
-                                    : label === 'Unread'
-                                      ? 'new'
-                                      : label === 'Follow-up requested'
-                                        ? 'neutral'
-                                        : 'default'
-                              }
-                            >
-                              {label}
-                            </Badge>
-                          ))}
-                          {thread.handled && dominantBadges.length === 0 ? (
-                            <Badge variant="success">Handled</Badge>
-                          ) : null}
-                        </div>
-                      </div>
                     </button>
                   </article>
                 );
@@ -671,44 +629,48 @@ export function CommunicationPage(): JSX.Element {
         </aside>
 
         <section
-          className={`inbox-reading-pane${
-            activeThreadTone ? ` inbox-reading-pane--${activeThreadTone}` : ''
+          className={`inbox-response-stage${
+            activeThreadTone ? ` inbox-response-stage--${activeThreadTone}` : ''
           }`}
           aria-label="Active communication review"
         >
           {communicationQuery.isLoading && !hasThreads ? (
-            <div className="communication-page__timeline-skeletons" aria-label="Communication timeline loading placeholder">
+            <div className="communication-page__timeline-skeletons inbox-response-stage__state" aria-label="Communication timeline loading placeholder">
               <Skeleton height={88} />
               <Skeleton height={88} />
             </div>
           ) : activeThread ? (
-            <div className="communication-page__timeline-body">
-              <header className="inbox-reading-pane__header">
-                <div className="inbox-reading-pane__anchor">
-                  <span className="inbox-reading-pane__avatar" aria-hidden="true">
+            <div className="communication-page__timeline-body inbox-response-stage__body">
+              <header className="inbox-response-stage__header">
+                <div className="inbox-response-stage__anchor">
+                  <span className="inbox-response-stage__avatar" aria-hidden="true">
                     {getPatientInitials(activeThread.patientName)}
                   </span>
-                  <div className="inbox-reading-pane__copy">
-                    <p className="inbox-panel__eyebrow">Active thread</p>
+                  <div className="inbox-response-stage__copy">
                     <h2 className="inbox-reading-pane__title">{activeThread.patientName}</h2>
-                    <p className="inbox-reading-pane__subtitle">
-                      {activeThread.validPatientId ? `ID: ${activeThread.patientId} · ` : ''}
-                      {getThreadMetaSummary(activeThread)}
-                    </p>
+                    <p className="inbox-response-stage__subtitle">{getThreadMetaSummary(activeThread)}</p>
+                    <div className="inbox-response-stage__meta">
+                      {activeThread.validPatientId ? (
+                        <span className="communication-page__thread-id">ID: {activeThread.patientId}</span>
+                      ) : null}
+                      <span
+                        className="inbox-response-stage__updated"
+                        title={formatDashboardDateTime(activeThread.latestEventAt)}
+                      >
+                        Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="inbox-reading-pane__header-side">
-                  <div className="inbox-reading-pane__summary-pills">
-                    <span className="inbox-reading-pane__summary-pill">{currentViewLabel} view</span>
-                    <span
-                      className="inbox-reading-pane__summary-pill"
-                      title={formatDashboardDateTime(activeThread.latestEventAt)}
-                    >
-                      Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
-                    </span>
+                <div className="inbox-response-stage__header-side">
+                  <div className="communication-page__timeline-badges inbox-response-stage__badges">
+                    {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
+                    {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                    {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
+                    {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
                   </div>
                   {activeThread.validPatientId ? (
-                    <div className="communication-page__timeline-actions inbox-reading-pane__actions">
+                    <div className="communication-page__timeline-actions inbox-response-stage__actions">
                       {activeThread.safetyFlagged ? (
                         <Button
                           variant="secondary"
@@ -734,27 +696,160 @@ export function CommunicationPage(): JSX.Element {
                 </div>
               </header>
 
-              <section className="inbox-reading-pane__context">
-                <div
-                  className={`inbox-context-summary${
-                    activeThreadTone ? ` inbox-context-summary--${activeThreadTone}` : ''
-                  }`}
-                >
-                  <div className="inbox-context-summary__copy">
-                    <p className="inbox-panel__eyebrow">Thread state</p>
-                    <p className="inbox-context-summary__text">
-                      This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.
-                    </p>
-                    <p className="inbox-context-summary__note">
-                      Earlier patient message history may not be available in this foundation workspace.
+              <section className="inbox-response-stage__stream">
+                <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
+                  {activeThread.timeline.map((event) => {
+                    const eventTypeBadge = getEventTypeBadge(event);
+
+                    return (
+                      <article
+                        key={event.id}
+                        className={`communication-page__timeline-event communication-page__timeline-event--${
+                          event.kind === 'clinician-reply' ? 'clinician' : 'patient'
+                        }`}
+                        role="listitem"
+                      >
+                        <div className="communication-page__timeline-event-head">
+                          <div className="communication-page__timeline-event-copy">
+                            {event.kind === 'clinician-reply' ? (
+                              <div className="communication-page__timeline-event-author">
+                                <ClinicianAvatar
+                                  identity={{
+                                    displayName: event.senderLabel,
+                                    initials: getClinicianInitials(event.senderLabel),
+                                    photo: null,
+                                  }}
+                                  decorative
+                                  size="sm"
+                                />
+                                <div className="communication-page__timeline-event-author-copy">
+                                  <strong>{event.senderLabel}</strong>
+                                  {event.senderSecondaryLabel ? (
+                                    <span className="communication-page__timeline-event-secondary">
+                                      {event.senderSecondaryLabel}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : (
+                              <strong>{event.senderLabel}</strong>
+                            )}
+                            <span
+                              className="communication-page__timeline-event-time"
+                              title={formatDashboardDateTime(event.occurredAt)}
+                            >
+                              {formatDashboardRelativeTime(event.occurredAt)}
+                            </span>
+                          </div>
+                          <div className="communication-page__timeline-event-badges">
+                            <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
+                            {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
+                            {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                            {event.localOnly ? <Badge variant="default">Local</Badge> : null}
+                          </div>
+                        </div>
+                        <p className="communication-page__timeline-event-preview">{event.preview}</p>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="inbox-composer">
+                <h3 className="inbox-composer__title">Clinician reply</h3>
+                <div className="communication-page__composer">
+                  <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
+                    <label
+                      className="form-field communication-authoring-tools__picker"
+                      htmlFor="communication-reply-template-picker"
+                    >
+                      <span>Quick reply template</span>
+                      <select
+                        id="communication-reply-template-picker"
+                        value={selectedTemplateId}
+                        onChange={(event) => setSelectedTemplateId(event.target.value)}
+                        aria-label="Quick reply template"
+                        disabled={communicationAuthoring.templates.length === 0}
+                      >
+                        {communicationAuthoring.templates.length === 0 ? (
+                          <option value="">No saved templates in Settings</option>
+                        ) : null}
+                        {communicationAuthoring.templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="communication-authoring-tools__actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleInsertTemplate}
+                        disabled={!selectedTemplate}
+                      >
+                        Insert template
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleInsertSignature}
+                        disabled={!communicationAuthoring.hasSignature}
+                      >
+                        Insert signature
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="inbox-composer__truth-strip">
+                    <div className="communication-page__composer-identity" aria-label="Local clinician identity">
+                      <span className="communication-page__composer-identity-label">Local clinician identity</span>
+                      <div className="communication-page__composer-identity-card">
+                        <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                        <div className="communication-page__composer-identity-copy">
+                          <strong>{clinicianIdentity.displayName}</strong>
+                          {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="communication-page__composer-truth">
+                      Replies are stored only in this browser for the current clinician during this foundation pass.
                     </p>
                   </div>
-                  <div className="communication-page__timeline-badges inbox-context-summary__badges">
-                    {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
-                    {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                    {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
-                    {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+
+                  <label className="form-field communication-page__composer-field">
+                    <span>Clinician reply</span>
+                    <textarea
+                      value={draftReply}
+                      onChange={(event) => {
+                        setDraftReply(event.target.value);
+                      }}
+                      rows={4}
+                      placeholder="Add a calm clinician follow-up note for this patient thread."
+                      disabled={!activeThread.validPatientId}
+                    />
+                  </label>
+                  <div className="communication-page__composer-footer">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSendReply}
+                      disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
+                    >
+                      Save local reply
+                    </Button>
                   </div>
+                </div>
+              </section>
+
+              <section className="inbox-support" aria-label="Communication support context">
+                <div className="inbox-support__note">
+                  <p className="inbox-support__text">
+                    This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.
+                  </p>
+                  <p className="inbox-support__subtext">
+                    Earlier patient message history may not be available in this foundation workspace.
+                  </p>
                 </div>
 
                 {activePatientHandoff ? (
@@ -841,175 +936,34 @@ export function CommunicationPage(): JSX.Element {
                   </section>
                 ) : null}
               </section>
-
-              <section className="inbox-reading-pane__stream">
-                <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
-                  {activeThread.timeline.map((event) => {
-                    const eventTypeBadge = getEventTypeBadge(event);
-
-                    return (
-                      <article
-                        key={event.id}
-                        className={`communication-page__timeline-event communication-page__timeline-event--${
-                          event.kind === 'clinician-reply' ? 'clinician' : 'patient'
-                        }`}
-                        role="listitem"
-                      >
-                        <div className="communication-page__timeline-event-head">
-                          <div className="communication-page__timeline-event-copy">
-                            {event.kind === 'clinician-reply' ? (
-                              <div className="communication-page__timeline-event-author">
-                                <ClinicianAvatar
-                                  identity={{
-                                    displayName: event.senderLabel,
-                                    initials: getClinicianInitials(event.senderLabel),
-                                    photo: null,
-                                  }}
-                                  decorative
-                                  size="sm"
-                                />
-                                <div className="communication-page__timeline-event-author-copy">
-                                  <strong>{event.senderLabel}</strong>
-                                  {event.senderSecondaryLabel ? (
-                                    <span className="communication-page__timeline-event-secondary">
-                                      {event.senderSecondaryLabel}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ) : (
-                              <strong>{event.senderLabel}</strong>
-                            )}
-                            <span
-                              className="communication-page__timeline-event-time"
-                              title={formatDashboardDateTime(event.occurredAt)}
-                            >
-                              {formatDashboardRelativeTime(event.occurredAt)}
-                            </span>
-                          </div>
-                          <div className="communication-page__timeline-event-badges">
-                            <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
-                            {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
-                            {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                            {event.localOnly ? <Badge variant="default">Local</Badge> : null}
-                          </div>
-                        </div>
-                        <p className="communication-page__timeline-event-preview">{event.preview}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="inbox-composer">
-                <div className="inbox-composer__header">
-                  <div>
-                    <p className="inbox-panel__eyebrow">Compose console</p>
-                    <h3 className="inbox-composer__title">Clinician reply</h3>
-                  </div>
-                </div>
-                <div className="communication-page__composer">
-                  <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
-                    <label
-                      className="form-field communication-authoring-tools__picker"
-                      htmlFor="communication-reply-template-picker"
-                    >
-                      <span>Quick reply template</span>
-                      <select
-                        id="communication-reply-template-picker"
-                        value={selectedTemplateId}
-                        onChange={(event) => setSelectedTemplateId(event.target.value)}
-                        aria-label="Quick reply template"
-                        disabled={communicationAuthoring.templates.length === 0}
-                      >
-                        {communicationAuthoring.templates.length === 0 ? (
-                          <option value="">No saved templates in Settings</option>
-                        ) : null}
-                        {communicationAuthoring.templates.map((template) => (
-                          <option key={template.id} value={template.id}>
-                            {template.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="communication-authoring-tools__actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleInsertTemplate}
-                        disabled={!selectedTemplate}
-                      >
-                        Insert template
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleInsertSignature}
-                        disabled={!communicationAuthoring.hasSignature}
-                      >
-                        Insert signature
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="communication-page__composer-truth">
-                    Replies are stored only in this browser for the current clinician during this foundation pass.
-                  </p>
-                  <div className="communication-page__composer-identity" aria-label="Local clinician identity">
-                    <span className="communication-page__composer-identity-label">Local clinician identity</span>
-                    <div className="communication-page__composer-identity-card">
-                      <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
-                      <div className="communication-page__composer-identity-copy">
-                        <strong>{clinicianIdentity.displayName}</strong>
-                        {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
-                      </div>
-                    </div>
-                  </div>
-                  <label className="form-field communication-page__composer-field">
-                    <span>Clinician reply</span>
-                    <textarea
-                      value={draftReply}
-                      onChange={(event) => {
-                        setDraftReply(event.target.value);
-                      }}
-                      rows={4}
-                      placeholder="Add a calm clinician follow-up note for this patient thread."
-                      disabled={!activeThread.validPatientId}
-                    />
-                  </label>
-                  <div className="communication-page__composer-footer">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleSendReply}
-                      disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
-                    >
-                      Save local reply
-                    </Button>
-                  </div>
-                </div>
-              </section>
             </div>
           ) : activeThreadMissingFromView ? (
-            <EmptyState
-              title="Selected thread is outside this view"
-              description="Choose a thread from the filtered list to continue communication review."
-              tone="warning"
-            />
+            <div className="inbox-response-stage__state">
+              <EmptyState
+                title="Selected thread is outside this view"
+                description="Choose a thread from the filtered list to continue communication review."
+                tone="warning"
+              />
+            </div>
           ) : hasThreads ? (
-            <EmptyState
-              title="Select a patient thread"
-              description="Open a communication thread from the list to review the current patient timeline."
-              tone="neutral"
-            />
+            <div className="inbox-response-stage__state">
+              <EmptyState
+                title="Select a patient thread"
+                description="Open a communication thread from the list to review the current patient timeline."
+                tone="neutral"
+              />
+            </div>
           ) : (
-            <EmptyState
-              title="No communication timeline available"
-              description="Patient communication will appear here when the dashboard has message review context to show."
-              tone="neutral"
-            />
+            <div className="inbox-response-stage__state">
+              <EmptyState
+                title="No communication timeline available"
+                description="Patient communication will appear here when the dashboard has message review context to show."
+                tone="neutral"
+              />
+            </div>
           )}
         </section>
-      </div>
+      </section>
     </Stack>
   );
 }

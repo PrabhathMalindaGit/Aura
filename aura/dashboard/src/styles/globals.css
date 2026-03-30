@@ -41797,6 +41797,440 @@ a {
   }
 }
 
+.communication-page--inbox .inbox-triage-bar,
+.communication-page--inbox .inbox-workspace {
+  border: 1px solid hsl(var(--border) / 0.38);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(var(--muted) / 0.05)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.018), transparent 82%);
+  box-shadow: none;
+}
+
+.communication-page--inbox .inbox-triage-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.2rem;
+}
+
+.communication-page--inbox .inbox-triage-bar__summary,
+.communication-page--inbox .inbox-thread-rail,
+.communication-page--inbox .inbox-response-stage,
+.communication-page--inbox .inbox-response-stage__body,
+.communication-page--inbox .inbox-support {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.communication-page--inbox .inbox-triage-bar__note,
+.communication-page--inbox .inbox-support__text,
+.communication-page--inbox .inbox-support__subtext,
+.communication-page--inbox .inbox-response-stage__subtitle {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.55;
+}
+
+.communication-page--inbox .inbox-triage-bar__cues,
+.communication-page--inbox .inbox-triage-bar__actions,
+.communication-page--inbox .inbox-thread-item__headline-copy,
+.communication-page--inbox .inbox-response-stage__meta,
+.communication-page--inbox .inbox-composer__truth-strip,
+.communication-page--inbox .inbox-response-stage__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.communication-page--inbox .inbox-triage-bar__actions {
+  justify-content: flex-end;
+}
+
+.communication-page--inbox .inbox-triage-bar__cue,
+.communication-page--inbox .inbox-response-stage__updated {
+  min-height: 2rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 999px;
+  background: hsl(var(--background) / 0.78);
+  color: hsl(var(--foreground));
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.communication-page--inbox .inbox-triage-bar__cue--response {
+  border-color: hsl(var(--warning) / 0.28);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--warning) / 0.04)),
+    linear-gradient(145deg, hsl(var(--warning) / 0.05), transparent 82%);
+}
+
+.communication-page--inbox .inbox-triage-bar__cue--response.communication-page__status-card--response-hot {
+  border-color: hsl(var(--warning) / 0.42);
+  box-shadow: 0 0 0 1px hsl(var(--warning) / 0.14), 0 12px 26px hsl(var(--warning) / 0.12);
+}
+
+.communication-page--inbox .inbox-triage-bar__cue--safety {
+  border-color: hsl(var(--danger) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.995), hsl(var(--danger) / 0.035)),
+    linear-gradient(145deg, hsl(var(--danger) / 0.05), transparent 82%);
+}
+
+.communication-page--inbox .inbox-triage-bar__filters {
+  justify-content: flex-end;
+}
+
+.communication-page--inbox .inbox-workspace {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.82fr) minmax(0, 1.68fr);
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+}
+
+.communication-page--inbox .inbox-thread-rail,
+.communication-page--inbox .inbox-response-stage {
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.communication-page--inbox .inbox-thread-rail {
+  align-content: start;
+  grid-auto-rows: max-content;
+  border-right: 1px solid hsl(var(--border) / 0.24);
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.32), transparent 60%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.015), transparent 84%);
+}
+
+.communication-page--inbox .inbox-thread-rail__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.communication-page--inbox .inbox-thread-rail__state,
+.communication-page--inbox .inbox-response-stage__state {
+  display: grid;
+  align-content: start;
+  min-height: 100%;
+}
+
+.communication-page--inbox .inbox-thread-rail__list {
+  align-content: start;
+  gap: 0.78rem;
+}
+
+.communication-page--inbox .inbox-thread-item {
+  gap: 0.7rem;
+  padding: 1rem 1rem 1rem 1.05rem;
+  border-radius: 22px;
+  border-color: hsl(var(--border) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.994), hsl(var(--muted) / 0.04)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.012), transparent 86%);
+  box-shadow:
+    inset 3px 0 0 hsl(var(--communication-thread-accent)),
+    inset 0 1px 0 hsl(var(--card) / 0.98);
+}
+
+.communication-page--inbox .inbox-thread-item:hover {
+  box-shadow:
+    inset 3px 0 0 hsl(var(--communication-thread-accent)),
+    0 12px 24px hsl(var(--communication-thread-accent) / 0.08);
+}
+
+.communication-page--inbox .inbox-thread-item__identity,
+.communication-page--inbox .inbox-response-stage__anchor {
+  align-items: center;
+}
+
+.communication-page--inbox .inbox-thread-item__headline {
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.communication-page--inbox .inbox-thread-item__headline-copy {
+  min-width: 0;
+}
+
+.communication-page--inbox .inbox-thread-item__meta-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.communication-page--inbox .communication-page__thread-name {
+  font-family: var(--font-heading);
+  font-size: 1.02rem;
+}
+
+.communication-page--inbox .communication-page__thread-time {
+  letter-spacing: 0.06em;
+}
+
+.communication-page--inbox .communication-page__thread-id,
+.communication-page--inbox .communication-page__thread-meta-note,
+.communication-page--inbox .inbox-response-stage__updated {
+  color: hsl(var(--muted-foreground));
+}
+
+.communication-page--inbox .communication-page__thread-id {
+  letter-spacing: 0.06em;
+}
+
+.communication-page--inbox .communication-page__thread-preview {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.56;
+}
+
+.communication-page--inbox .inbox-response-stage {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.998), hsl(198 34% 97% / 0.84)),
+    radial-gradient(circle at top right, hsl(var(--primary) / 0.12), transparent 28%);
+}
+
+.communication-page--inbox .inbox-response-stage__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.communication-page--inbox .inbox-response-stage__anchor {
+  display: flex;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.communication-page--inbox .inbox-response-stage__copy {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+}
+
+.communication-page--inbox .inbox-response-stage__subtitle {
+  font-size: 0.95rem;
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.communication-page--inbox .inbox-response-stage__meta {
+  color: hsl(var(--muted-foreground));
+}
+
+.communication-page--inbox .inbox-response-stage__header-side {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: end;
+}
+
+.communication-page--inbox .inbox-response-stage__badges {
+  justify-content: flex-end;
+}
+
+.communication-page--inbox .inbox-response-stage__actions {
+  justify-content: flex-end;
+}
+
+.communication-page--inbox .inbox-response-stage__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 20px;
+  border: 1px solid hsl(var(--border) / 0.4);
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.18), transparent 62%),
+    linear-gradient(145deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.08));
+  color: hsl(var(--primary));
+  font-size: 0.88rem;
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.08em;
+  flex: 0 0 auto;
+}
+
+.communication-page--inbox .inbox-reading-pane__title {
+  font-size: clamp(1.45rem, 1.9vw, 2.1rem);
+  letter-spacing: -0.04em;
+}
+
+.communication-page--inbox .inbox-response-stage__stream {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.communication-page--inbox .communication-page__timeline-list {
+  gap: 0.78rem;
+}
+
+.communication-page--inbox .communication-page__timeline-event {
+  border-radius: 22px;
+  box-shadow: none;
+}
+
+.communication-page--inbox .inbox-composer {
+  gap: 0.85rem;
+  padding-top: 0.85rem;
+  border: 0;
+  border-top: 1px solid hsl(var(--border) / 0.24);
+  border-radius: 0;
+  background: none;
+}
+
+.communication-page--inbox .inbox-composer__title {
+  font-size: 1.18rem;
+}
+
+.communication-page--inbox .communication-authoring-tools {
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  box-shadow: none;
+}
+
+.communication-page--inbox .inbox-composer__truth-strip {
+  align-items: stretch;
+  justify-content: space-between;
+}
+
+.communication-page--inbox .communication-page__composer-identity {
+  flex: 0 1 19rem;
+}
+
+.communication-page--inbox .communication-page__composer-truth {
+  flex: 1 1 16rem;
+  margin: 0;
+  max-width: none;
+  padding: 0.8rem 0.95rem;
+  border-radius: 18px;
+}
+
+.communication-page--inbox .communication-page__composer-field textarea {
+  min-height: 9.5rem;
+}
+
+.communication-page--inbox .communication-page__composer-footer {
+  justify-content: flex-end;
+}
+
+.communication-page--inbox .communication-page__composer-footer .btn {
+  min-width: 11rem;
+}
+
+.communication-page--inbox .inbox-support {
+  padding-top: 0.85rem;
+  border-top: 1px solid hsl(var(--border) / 0.24);
+}
+
+.communication-page--inbox .inbox-support__note {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid hsl(var(--border) / 0.28);
+  border-radius: 20px;
+  background: hsl(var(--background) / 0.58);
+}
+
+.communication-page--inbox .inbox-support__text {
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.communication-page--inbox .inbox-support__subtext {
+  font-size: 0.82rem;
+}
+
+.communication-page--inbox .inbox-handoff {
+  border-radius: 22px;
+  box-shadow: none;
+}
+
+.dark .communication-page--inbox .inbox-triage-bar,
+.dark .communication-page--inbox .inbox-workspace,
+.dark .communication-page--inbox .inbox-support__note {
+  border-color: hsl(var(--border) / 0.42);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.09), transparent 82%);
+}
+
+.dark .communication-page--inbox .inbox-thread-rail {
+  border-right-color: hsl(var(--border) / 0.32);
+}
+
+.dark .communication-page--inbox .inbox-triage-bar__cue,
+.dark .communication-page--inbox .inbox-response-stage__updated {
+  background: hsl(var(--background) / 0.24);
+}
+
+@media (max-width: 1220px) {
+  .communication-page--inbox .inbox-triage-bar,
+  .communication-page--inbox .inbox-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-page--inbox .inbox-thread-rail {
+    border-right: 0;
+    border-bottom: 1px solid hsl(var(--border) / 0.24);
+  }
+
+  .communication-page--inbox .inbox-response-stage__header-side {
+    justify-items: start;
+  }
+
+  .communication-page--inbox .inbox-response-stage__badges,
+  .communication-page--inbox .inbox-response-stage__actions,
+  .communication-page--inbox .inbox-triage-bar__filters,
+  .communication-page--inbox .inbox-triage-bar__actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .communication-page--inbox .inbox-triage-bar,
+  .communication-page--inbox .inbox-thread-rail,
+  .communication-page--inbox .inbox-response-stage {
+    padding: 1rem;
+  }
+
+  .communication-page--inbox .inbox-response-stage__header,
+  .communication-page--inbox .inbox-thread-item__headline {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .communication-page--inbox .inbox-triage-bar,
+  .communication-page--inbox .inbox-workspace {
+    border-radius: 24px;
+  }
+
+  .communication-page--inbox .inbox-composer__truth-strip,
+  .communication-page--inbox .inbox-response-stage__meta,
+  .communication-page--inbox .inbox-thread-item__meta-line {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .communication-page--inbox .communication-page__composer-footer {
+    justify-content: flex-start;
+  }
+
+  .communication-page--inbox .communication-page__composer-footer .btn {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 /* Phase 4: Safety, Roster, Workspace */
 
 .alerts-page--safety-phase4 .safety-brief,

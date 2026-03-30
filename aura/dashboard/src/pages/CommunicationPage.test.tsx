@@ -179,6 +179,10 @@ afterEach(() => {
 
     expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
     expect(screen.getByText('Communication queue')).toBeInTheDocument();
+    expect(screen.queryByText('Inbox summary')).not.toBeInTheDocument();
+    expect(screen.queryByText('Clinical communication review')).not.toBeInTheDocument();
+    expect(screen.queryByText('Compose console')).not.toBeInTheDocument();
+    expect(screen.queryByText('Current mix')).not.toBeInTheDocument();
     const jordanThread = await screen.findByRole('button', { name: /Jordan Lee/ });
     expect(jordanThread).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Avery Chen/ })).toBeInTheDocument();
@@ -219,7 +223,7 @@ afterEach(() => {
     renderCommunicationPage();
 
     const averyThread = await screen.findByRole('button', { name: /Avery Chen/ });
-    expect(within(averyThread).getByText('Unread')).toBeInTheDocument();
+    expect(within(averyThread).getByText('Needs response')).toBeInTheDocument();
 
     await user.click(
       within(screen.getByRole('group', { name: 'Communication filters' })).getByRole('button', {
@@ -229,13 +233,15 @@ afterEach(() => {
 
     expect(screen.queryByRole('button', { name: /Jordan Lee/ })).not.toBeInTheDocument();
     const unreadThread = screen.getByRole('button', { name: /Avery Chen/ });
-    expect(within(unreadThread).getByText('Unread')).toBeInTheDocument();
     expect(screen.getByText('Selected thread is outside this view')).toBeInTheDocument();
 
     await user.click(unreadThread);
 
     await waitFor(() => {
-      expect(within(screen.getByRole('button', { name: /Avery Chen/ })).queryByText('Unread')).not.toBeInTheDocument();
+      expect(screen.queryByText('Selected thread is outside this view')).not.toBeInTheDocument();
+      expect(
+        within(screen.getByRole('region', { name: 'Active communication review' })).queryByText('Unread'),
+      ).not.toBeInTheDocument();
     });
   });
 

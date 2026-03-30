@@ -444,6 +444,28 @@ export function getPatientHandoffNextActionLabel(action: PatientHandoffNextActio
   );
 }
 
+export function getPatientHandoffActionButtonLabel(
+  action: Exclude<PatientHandoffNextAction, ''>,
+): string {
+  if (action === 'plan') {
+    return 'Open plan';
+  }
+
+  if (action === 'appointments') {
+    return 'Open appointments';
+  }
+
+  if (action === 'communication') {
+    return 'Open communication';
+  }
+
+  if (action === 'alerts') {
+    return 'Review alerts';
+  }
+
+  return 'Review tasks';
+}
+
 export function getPatientHandoffFollowUpOwnerLabel(
   owner: PatientHandoffFollowUpOwner | null | undefined,
 ): string {

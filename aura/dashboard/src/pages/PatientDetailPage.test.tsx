@@ -120,6 +120,13 @@ const baseWorklistItem: WorklistRecord = {
   updatedAt: `${TODAY_KEY}T11:00:00.000Z`,
 };
 
+type ResizeObserverCallbackMock = (
+  entries: ResizeObserverEntry[],
+  observer: ResizeObserver,
+) => void;
+
+const resizeObserverCallbacks = new Map<Element, Set<ResizeObserverCallbackMock>>();
+
 function toBase64Url(value: string): string {
   return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
@@ -163,18 +170,43 @@ function createQueryClient(): QueryClient {
 
 function installWindowMocks(): void {
   class ResizeObserverMock {
-    observe(): void {
-      // noop for chart container tests
+    private readonly callback: ResizeObserverCallbackMock;
+    private readonly observedElements = new Set<Element>();
+
+    constructor(callback: ResizeObserverCallbackMock) {
+      this.callback = callback;
     }
 
-    unobserve(): void {
-      // noop for chart container tests
+    observe(target: Element): void {
+      this.observedElements.add(target);
+      const callbacks = resizeObserverCallbacks.get(target) ?? new Set<ResizeObserverCallbackMock>();
+      callbacks.add(this.callback);
+      resizeObserverCallbacks.set(target, callbacks);
+    }
+
+    unobserve(target: Element): void {
+      this.observedElements.delete(target);
+      const callbacks = resizeObserverCallbacks.get(target);
+
+      if (!callbacks) {
+        return;
+      }
+
+      callbacks.delete(this.callback);
+
+      if (callbacks.size === 0) {
+        resizeObserverCallbacks.delete(target);
+      }
     }
 
     disconnect(): void {
-      // noop for chart container tests
+      this.observedElements.forEach((target) => {
+        this.unobserve(target);
+      });
     }
   }
+
+  resizeObserverCallbacks.clear();
 
   Object.defineProperty(window, 'ResizeObserver', {
     configurable: true,
@@ -198,20 +230,28 @@ function installWindowMocks(): void {
   });
 }
 
-function setMatchMediaMatches(getMatch: (query: string) => boolean): void {
-  Object.defineProperty(window, 'matchMedia', {
-    configurable: true,
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: getMatch(query),
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+function createResizeObserverEntry(target: Element, width: number): ResizeObserverEntry {
+  return {
+    target,
+    contentRect: {
+      width,
+      height: 0,
+      x: 0,
+      y: 0,
+      top: 0,
+      right: width,
+      bottom: 0,
+      left: 0,
+      toJSON: () => ({}),
+    } as DOMRectReadOnly,
+  } as ResizeObserverEntry;
+}
+
+function triggerResizeObserver(target: Element, width: number): void {
+  const callbacks = resizeObserverCallbacks.get(target);
+
+  callbacks?.forEach((callback) => {
+    callback([createResizeObserverEntry(target, width)], {} as ResizeObserver);
   });
 }
 
@@ -620,9 +660,12 @@ describe('PatientDetailPage', () => {
 
   it('keeps snapshot and recent alerts near the top on narrower widths without mounting duplicates', async () => {
     installFetchMock();
-    setMatchMediaMatches((query) => query === '(max-width: 1320px)');
 
     renderPatientDetail();
+
+    const patientDetailPage = document.querySelector('.patient-detail-page');
+    expect(patientDetailPage).not.toBeNull();
+    triggerResizeObserver(patientDetailPage as Element, 1200);
 
     const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
     const summarySection = document.getElementById('patient-summary-section');
@@ -638,6 +681,50 @@ describe('PatientDetailPage', () => {
     ).toBeTruthy();
     expect(within(supportAside).queryByText('Current review snapshot')).not.toBeInTheDocument();
     expect(within(supportAside).queryByText('Recent alerts')).not.toBeInTheDocument();
+    expect(within(supportAside).getByTestId('patient-handoff-panel')).toBeInTheDocument();
+  });
+
+  it('keeps summary and recent alerts in the desktop support rail when the content width stays wide', async () => {
+    installFetchMock();
+
+    renderPatientDetail();
+
+    const patientDetailPage = document.querySelector('.patient-detail-page');
+    expect(patientDetailPage).not.toBeNull();
+    triggerResizeObserver(patientDetailPage as Element, 1440);
+
+    const supportAside = screen.getByLabelText('Patient support context');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('patient-detail-priority-support')).not.toBeInTheDocument();
+    });
+    expect(within(supportAside).getByText('Current review snapshot')).toBeInTheDocument();
+    expect(within(supportAside).getByText('Recent alerts')).toBeInTheDocument();
+  });
+
+  it('shows a compact top-priority handoff summary on narrower widths while keeping the full editor lower', async () => {
+    installFetchMock();
+    savePatientCurrentHandoff(patientId, {
+      summary: 'Escalate into plan review before the next patient contact.',
+      nextAction: 'plan',
+      followUpOwner: { kind: 'self' },
+    });
+
+    renderPatientDetail();
+
+    const patientDetailPage = document.querySelector('.patient-detail-page');
+    expect(patientDetailPage).not.toBeNull();
+    triggerResizeObserver(patientDetailPage as Element, 1200);
+
+    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
+    const supportAside = screen.getByLabelText('Patient support context');
+
+    expect(within(prioritySupport).getByText('Current handoff')).toBeInTheDocument();
+    expect(
+      within(prioritySupport).getByText('Escalate into plan review before the next patient contact.'),
+    ).toBeInTheDocument();
+    expect(within(prioritySupport).getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
+    expect(within(prioritySupport).getByText('Dr Elena Hall')).toBeInTheDocument();
     expect(within(supportAside).getByTestId('patient-handoff-panel')).toBeInTheDocument();
   });
 

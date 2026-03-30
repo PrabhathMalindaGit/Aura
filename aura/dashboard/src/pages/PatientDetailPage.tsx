@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Badge } from '../components/ui/Badge';
@@ -20,7 +20,7 @@ import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
-import { useMediaQuery } from '../hooks/useMediaQuery';
+import { usePatientHandoff } from '../hooks/usePatientHandoff';
 import {
   assignPromToPatient,
   completeClinicianTask,
@@ -94,6 +94,11 @@ import {
   normalizeTrendPointsForExport,
 } from '../services/exportService';
 import {
+  getPatientHandoffActionButtonLabel,
+  getPatientHandoffFollowUpOwnerLabel,
+  getPatientHandoffNextActionLabel,
+} from '../services/patientHandoffWorkspace';
+import {
   derivePatientCurrentPriorities,
   derivePatientRecommendedActions,
   type PatientActionKey,
@@ -108,7 +113,7 @@ import {
   trendPointHasAnyData,
 } from '../utils/trends';
 import { bodyMapRegionLabel } from '../utils/bodyMap';
-import { formatDashboardRelativeTime } from '../utils/dashboard';
+import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
 import type { PatientEntryContext } from '../utils/patientEntryContext';
 import {
   formatPatientEntryReturnLabel,
@@ -329,7 +334,8 @@ export function PatientDetailPage(): JSX.Element {
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedDays = parseDays(searchParams.get('days'));
-  const isPrioritySupportResponsive = useMediaQuery('(max-width: 1320px)');
+  const patientDetailShellRef = useRef<HTMLDivElement | null>(null);
+  const [patientDetailInlineWidth, setPatientDetailInlineWidth] = useState<number | null>(null);
 
   const [entryContext, setEntryContext] = useState<PatientEntryContext | null>(null);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
@@ -385,6 +391,7 @@ export function PatientDetailPage(): JSX.Element {
     () => patientsQuery.data?.find((patient) => patient.id === patientId),
     [patientId, patientsQuery.data],
   );
+  const handoffRecord = usePatientHandoff(patientId);
 
   const trendsQuery = usePatientTrends(patientId, selectedDays);
   const recentSleepTo = useMemo(() => toDateOnlyUTC(new Date()), []);
@@ -1148,6 +1155,7 @@ export function PatientDetailPage(): JSX.Element {
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
     [patientAlerts],
   );
+  const currentHandoff = handoffRecord?.currentHandoff;
 
   const selectedDayPoint = useMemo(
     () => normalizedTrends.find((point) => point.date === selectedDateKey) ?? null,
@@ -1729,6 +1737,49 @@ export function PatientDetailPage(): JSX.Element {
     );
   }, [location.pathname, location.search, navigate, pendingEntryContext]);
 
+  useLayoutEffect(() => {
+    const element = patientDetailShellRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const updateInlineWidth = (nextWidth: number): void => {
+      const normalizedWidth = Number.isFinite(nextWidth) ? Math.round(nextWidth) : 0;
+
+      if (normalizedWidth <= 0) {
+        return;
+      }
+
+      setPatientDetailInlineWidth((currentWidth) =>
+        currentWidth === normalizedWidth ? currentWidth : normalizedWidth,
+      );
+    };
+
+    const measure = (): void => {
+      updateInlineWidth(element.getBoundingClientRect().width);
+    };
+
+    measure();
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (typeof window.ResizeObserver !== 'function') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+
+    const observer = new window.ResizeObserver((entries) => {
+      const entry = entries.find((candidate) => candidate.target === element) ?? entries[0];
+      updateInlineWidth(entry?.contentRect.width ?? element.getBoundingClientRect().width);
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   if (!patientId) {
     return (
       <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page patient-detail-page--missing">
@@ -1955,6 +2006,16 @@ export function PatientDetailPage(): JSX.Element {
     });
   }
 
+  const isPatientDetailInline1320 =
+    patientDetailInlineWidth !== null && patientDetailInlineWidth <= 1320;
+  const isPatientDetailInline1180 =
+    patientDetailInlineWidth !== null && patientDetailInlineWidth <= 1180;
+  const isPatientDetailInline1040 =
+    patientDetailInlineWidth !== null && patientDetailInlineWidth <= 1040;
+  const isPatientDetailInline860 =
+    patientDetailInlineWidth !== null && patientDetailInlineWidth <= 860;
+  const isPrioritySupportResponsive = isPatientDetailInline1320;
+
   const renderPatientSummarySection = (className: string): JSX.Element => (
     <section id="patient-summary-section" className={className} aria-label="Patient snapshot">
       <div className="patient-detail-section-header patient-detail-section-header--summary">
@@ -1981,8 +2042,66 @@ export function PatientDetailPage(): JSX.Element {
     />
   );
 
+  const renderPriorityHandoffSummary = (): JSX.Element | null => {
+    if (!currentHandoff) {
+      return null;
+    }
+
+    const nextAction = currentHandoff.nextAction as Exclude<typeof currentHandoff.nextAction, ''>;
+
+    return (
+      <Card
+        className="patient-detail-panel patient-detail-panel--operations-secondary patient-detail-priority-support__handoff"
+        title="Current handoff"
+        action={
+          currentHandoff.nextAction ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                handleOperationalAction(nextAction);
+              }}
+            >
+              {getPatientHandoffActionButtonLabel(nextAction)}
+            </Button>
+          ) : null
+        }
+      >
+        <div className="patient-detail-priority-support__handoff-body">
+          <p
+            className="patient-detail-priority-support__handoff-meta"
+            title={formatDashboardDateTime(currentHandoff.updatedAt)}
+          >
+            Updated {formatDashboardRelativeTime(currentHandoff.updatedAt)}
+          </p>
+          <p className="patient-detail-priority-support__handoff-summary">
+            {currentHandoff.summary ||
+              'No summary saved. Use the lower handoff panel to capture structured context.'}
+          </p>
+          <dl className="patient-detail-priority-support__handoff-facts">
+            <div>
+              <dt>Next step</dt>
+              <dd>{getPatientHandoffNextActionLabel(currentHandoff.nextAction)}</dd>
+            </div>
+            <div>
+              <dt>Follow-up owner</dt>
+              <dd>{getPatientHandoffFollowUpOwnerLabel(currentHandoff.followUpOwner)}</dd>
+            </div>
+          </dl>
+        </div>
+      </Card>
+    );
+  };
+
   return (
-    <div className="page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page">
+    <div
+      ref={patientDetailShellRef}
+      className={`page-stack dashboard-page-shell dashboard-page-shell--patient patient-detail-page${
+        isPatientDetailInline1320 ? ' patient-detail-page--inline-1320' : ''
+      }${isPatientDetailInline1180 ? ' patient-detail-page--inline-1180' : ''}${
+        isPatientDetailInline1040 ? ' patient-detail-page--inline-1040' : ''
+      }${isPatientDetailInline860 ? ' patient-detail-page--inline-860' : ''}`}
+    >
       <section
         className={`patient-detail-brief${
           entryContext ? ` patient-detail-brief--source patient-detail-brief--source-${entryContext.focus}` : ''
@@ -2205,7 +2324,10 @@ export function PatientDetailPage(): JSX.Element {
           {renderPatientSummarySection(
             'patient-detail-support-section patient-detail-support-section--snapshot patient-detail-priority-support__snapshot',
           )}
-          {renderRecentAlertsPanel()}
+          <div className="patient-detail-priority-support__stack">
+            {renderRecentAlertsPanel()}
+            {renderPriorityHandoffSummary()}
+          </div>
         </section>
       ) : null}
 

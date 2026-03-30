@@ -10,6 +10,7 @@ import {
   PATIENT_HANDOFF_LIMITS,
   PATIENT_HANDOFF_NEXT_ACTION_OPTIONS,
   addPatientHandoffNote,
+  getPatientHandoffActionButtonLabel,
   getLatestPatientHandoffNote,
   getPatientHandoffFollowUpOwnerLabel,
   getPatientHandoffNextActionLabel,
@@ -33,26 +34,6 @@ type FollowUpOwnerDraftKind = 'unassigned' | 'self' | 'custom';
 
 function getAuthorSecondaryLine(author: PatientHandoffAuthorSnapshot): string {
   return buildClinicianSecondaryLine(author.authorRoleTitle, author.authorSpecialty);
-}
-
-function getActionButtonLabel(action: Exclude<PatientHandoffNextAction, ''>): string {
-  if (action === 'plan') {
-    return 'Open plan';
-  }
-
-  if (action === 'appointments') {
-    return 'Open appointments';
-  }
-
-  if (action === 'communication') {
-    return 'Open communication';
-  }
-
-  if (action === 'alerts') {
-    return 'Review alerts';
-  }
-
-  return 'Review tasks';
 }
 
 export function PatientHandoffPanel({
@@ -223,7 +204,9 @@ export function PatientHandoffPanel({
                   size="sm"
                   onClick={() => onOpenNextAction(currentHandoff.nextAction as Exclude<PatientHandoffNextAction, ''>)}
                 >
-                  {getActionButtonLabel(currentHandoff.nextAction as Exclude<PatientHandoffNextAction, ''>)}
+                  {getPatientHandoffActionButtonLabel(
+                    currentHandoff.nextAction as Exclude<PatientHandoffNextAction, ''>,
+                  )}
                 </Button>
               ) : null}
             </div>

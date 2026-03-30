@@ -40425,6 +40425,78 @@ a {
   min-width: 0;
 }
 
+.patient-detail-priority-support__stack {
+  display: grid;
+  gap: clamp(0.62rem, 0.9vw, 0.74rem);
+  min-width: 0;
+  align-content: start;
+}
+
+.patient-detail-priority-support__stack > * {
+  min-width: 0;
+}
+
+.patient-detail-priority-support__handoff .card__header,
+.patient-detail-priority-support__handoff .card__body {
+  padding-inline: 0.72rem;
+}
+
+.patient-detail-priority-support__handoff .card__header {
+  padding-top: 0.68rem;
+  padding-bottom: 0.42rem;
+}
+
+.patient-detail-priority-support__handoff .card__body {
+  padding-top: 0.22rem;
+  padding-bottom: 0.72rem;
+}
+
+.patient-detail-priority-support__handoff-body {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.patient-detail-priority-support__handoff-meta {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.patient-detail-priority-support__handoff-summary {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.48;
+}
+
+.patient-detail-priority-support__handoff-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.38rem;
+  margin: 0;
+}
+
+.patient-detail-priority-support__handoff-facts div {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.46rem 0.56rem;
+  border: 1px solid hsl(var(--border) / 0.2);
+  border-radius: 12px;
+  background: hsl(var(--background) / 0.58);
+}
+
+.patient-detail-priority-support__handoff-facts dt {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.66rem;
+  line-height: 1.3;
+}
+
+.patient-detail-priority-support__handoff-facts dd {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .patient-detail-cockpit-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.72fr) minmax(14.25rem, 0.43fr);
@@ -40854,6 +40926,11 @@ a {
   background: hsl(var(--background) / 0.18);
 }
 
+.dark .patient-detail-priority-support__handoff-facts div {
+  border-color: hsl(var(--border) / 0.38);
+  background: hsl(var(--background) / 0.18);
+}
+
 @media (min-width: 980px) {
   .patient-detail-follow-through-grid {
     grid-template-columns: minmax(0, 1.28fr) minmax(18rem, 0.92fr);
@@ -41211,110 +41288,106 @@ a {
   }
 }
 
-@media (max-width: 1320px) {
-  .patient-detail-page .patient-detail-priority-support {
-    grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
-  }
-
-  .patient-detail-page .patient-detail-brief__body,
-  .patient-detail-page .patient-detail-mini-nav,
-  .patient-detail-page .patient-detail-reference-zone__header,
-  .patient-detail-page .patient-detail-cockpit-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-detail-page .patient-detail-cockpit-layout__main,
-  .patient-detail-page .patient-detail-cockpit-layout__support {
-    gap: clamp(0.72rem, 1vw, 0.84rem);
-  }
-
-  .patient-detail-page .patient-detail-mini-nav__actions {
-    display: flex;
-    flex-wrap: wrap;
-  }
-
-  .patient-detail-page .patient-detail-mini-nav__button.btn {
-    min-width: 8.5rem;
-  }
+.patient-detail-page--inline-1320 .patient-detail-priority-support {
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
 }
 
-@media (max-width: 1180px) {
-  .patient-detail-page .patient-detail-brief .patient-detail-current-context__facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .patient-detail-page .patient-detail-brief__facts,
-  .patient-detail-page .patient-decision-surface__columns,
-  .patient-detail-page .patient-detail-guidance-grid,
-  .patient-detail-page .patient-detail-reference-zone__layout,
-  .patient-detail-page .patient-detail-follow-through-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-detail-page .patient-detail-follow-through-grid {
-    grid-template-areas: none;
-  }
-
-  .patient-detail-page .patient-detail-follow-through-grid .patient-detail-operations-grid__communication,
-  .patient-detail-page .patient-detail-follow-through-grid .patient-detail-operations-grid__tasks,
-  .patient-detail-page .patient-detail-follow-through-grid .patient-detail-operations-grid__appointments {
-    grid-area: auto;
-    grid-column: auto;
-  }
+.patient-detail-page--inline-1320 .patient-detail-brief__body,
+.patient-detail-page--inline-1320 .patient-detail-mini-nav,
+.patient-detail-page--inline-1320 .patient-detail-reference-zone__header,
+.patient-detail-page--inline-1320 .patient-detail-cockpit-layout {
+  grid-template-columns: 1fr;
 }
 
-@media (max-width: 1040px) {
-  .patient-detail-page .patient-detail-priority-support {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-detail-page .patient-priority-item,
-  .patient-detail-page .patient-recommended-action {
-    grid-template-columns: 1fr;
-  }
-
-  .patient-detail-page .patient-priority-item__action.btn,
-  .patient-detail-page .patient-recommended-action__action.btn {
-    width: auto;
-    min-width: 8rem;
-    justify-self: start;
-  }
-
-  .patient-detail-page .patient-appointment-item {
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-    justify-items: start;
-  }
-
-  .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .patient-detail-page .patient-detail-section-grid--signals,
-  .patient-detail-page .patient-detail-section-grid--habits {
-    grid-template-columns: 1fr;
-  }
+.patient-detail-page--inline-1320 .patient-detail-cockpit-layout__main,
+.patient-detail-page--inline-1320 .patient-detail-cockpit-layout__support {
+  gap: clamp(0.72rem, 1vw, 0.84rem);
 }
 
-@media (max-width: 860px) {
-  .patient-detail-page .patient-detail-brief .patient-detail-current-context__facts,
-  .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary,
-  .patient-detail-page .patient-summary-snapshot__support {
-    grid-template-columns: 1fr;
-  }
+.patient-detail-page--inline-1320 .patient-detail-mini-nav__actions {
+  display: flex;
+  flex-wrap: wrap;
+}
 
-  .patient-detail-page .patient-detail-mini-nav__actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.patient-detail-page--inline-1320 .patient-detail-mini-nav__button.btn {
+  min-width: 8.5rem;
+}
 
-  .patient-detail-page .patient-task-item__actions,
-  .patient-detail-page .recent-alert-list__actions,
-  .patient-detail-page .patient-detail-actions,
-  .patient-detail-page .patient-communication-quick-reply__footer {
-    justify-content: flex-start;
-  }
+.patient-detail-page--inline-1180 .patient-detail-brief .patient-detail-current-context__facts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page--inline-1180 .patient-detail-brief__facts,
+.patient-detail-page--inline-1180 .patient-decision-surface__columns,
+.patient-detail-page--inline-1180 .patient-detail-guidance-grid,
+.patient-detail-page--inline-1180 .patient-detail-reference-zone__layout,
+.patient-detail-page--inline-1180 .patient-detail-follow-through-grid {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page--inline-1180 .patient-detail-follow-through-grid {
+  grid-template-areas: none;
+}
+
+.patient-detail-page--inline-1180 .patient-detail-follow-through-grid .patient-detail-operations-grid__communication,
+.patient-detail-page--inline-1180 .patient-detail-follow-through-grid .patient-detail-operations-grid__tasks,
+.patient-detail-page--inline-1180 .patient-detail-follow-through-grid .patient-detail-operations-grid__appointments {
+  grid-area: auto;
+  grid-column: auto;
+}
+
+.patient-detail-page--inline-1040 .patient-detail-priority-support {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page--inline-1040 .patient-detail-priority-support__handoff-facts {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page--inline-1040 .patient-priority-item,
+.patient-detail-page--inline-1040 .patient-recommended-action {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page--inline-1040 .patient-priority-item__action.btn,
+.patient-detail-page--inline-1040 .patient-recommended-action__action.btn {
+  width: auto;
+  min-width: 8rem;
+  justify-self: start;
+}
+
+.patient-detail-page--inline-1040 .patient-appointment-item {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  justify-items: start;
+}
+
+.patient-detail-page--inline-1040 .patient-detail-section-block--reference .patient-detail-disclosure__summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page--inline-1040 .patient-detail-section-grid--signals,
+.patient-detail-page--inline-1040 .patient-detail-section-grid--habits {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page--inline-860 .patient-detail-brief .patient-detail-current-context__facts,
+.patient-detail-page--inline-860 .patient-detail-section-block--reference .patient-detail-disclosure__summary,
+.patient-detail-page--inline-860 .patient-summary-snapshot__support {
+  grid-template-columns: 1fr;
+}
+
+.patient-detail-page--inline-860 .patient-detail-mini-nav__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.patient-detail-page--inline-860 .patient-task-item__actions,
+.patient-detail-page--inline-860 .recent-alert-list__actions,
+.patient-detail-page--inline-860 .patient-detail-actions,
+.patient-detail-page--inline-860 .patient-communication-quick-reply__footer {
+  justify-content: flex-start;
 }
 
 /* Phase 3: Today, Schedule, Inbox */

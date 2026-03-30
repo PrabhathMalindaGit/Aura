@@ -103,13 +103,15 @@ export function PatientCardList({
                   </time>
                   <span className="patients-card-list__metric-support">{formatDateTime(patient.lastCheckinAt)}</span>
                 </div>
-                <div className="patients-card-list__metric">
-                  <span className="patients-card-list__meta-label">Alert burden</span>
-                  <PatientAlertBurdenSignal count={openAlertCount} />
-                </div>
-                <div className="patients-card-list__metric">
-                  <span className="patients-card-list__meta-label">Pain level</span>
-                  <PatientPainLevelSignal value={patient.lastPain} />
+                <div className="patients-card-list__signal-stack" aria-label="Patient signals">
+                  <div className="patients-card-list__signal">
+                    <span className="patients-card-list__meta-label">Alert burden</span>
+                    <PatientAlertBurdenSignal count={openAlertCount} />
+                  </div>
+                  <div className="patients-card-list__signal">
+                    <span className="patients-card-list__meta-label">Pain level</span>
+                    <PatientPainLevelSignal value={patient.lastPain} />
+                  </div>
                 </div>
               </div>
 
@@ -129,13 +131,15 @@ export function PatientCardList({
                   </Button>
                 </div>
                 <div className="patients-card-list__actions-primary">
-                  <span className="patients-card-list__action-note">
-                    {hasOpenAlertCount || missedCheckin
-                      ? 'Open review now'
-                      : status === 'discharged'
-                        ? 'Open summary'
-                        : 'Open patient context'}
-                  </span>
+                  <div className="patients-card-list__actions-copy">
+                    <span className="patients-card-list__action-note">
+                      {hasOpenAlertCount || missedCheckin
+                        ? 'Open review now'
+                        : status === 'discharged'
+                          ? 'Open summary'
+                          : 'Open patient context'}
+                    </span>
+                  </div>
                   <Button
                     className="patients-card-list__view"
                     variant="secondary"

@@ -2066,51 +2066,53 @@ export function PatientDetailPage(): JSX.Element {
           </div>
 
           <div className="patient-detail-brief__aside" aria-label="Patient detail quick actions and review facts">
-            <section className="patient-detail-brief__actions-panel" aria-label="Top actions">
-              <p className="patient-detail-brief__eyebrow">Top actions</p>
-              <div className="patient-detail-actions patient-detail-brief__actions">
-                <Button
-                  className="patient-detail-actions__worklist"
-                  variant="ghost"
-                  onClick={() => {
-                    navigate('/worklist');
-                  }}
-                >
-                  Open worklist
-                </Button>
-                <Button
-                  className="patient-detail-actions__refresh"
-                  variant="secondary"
-                  onClick={handleRefreshOverview}
-                >
-                  Refresh
-                </Button>
-                <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
-                  Export CSV
-                </Button>
-                <Button
-                  className="patient-detail-actions__plan"
-                  variant="secondary"
-                  onClick={() => {
-                    navigate(`/patients/${patientId}/plan`);
-                  }}
-                >
-                  Exercise plan
-                </Button>
-              </div>
-            </section>
+            <div className="patient-detail-brief__support-band">
+              <section className="patient-detail-brief__actions-panel" aria-label="Top actions">
+                <p className="patient-detail-brief__eyebrow">Top actions</p>
+                <div className="patient-detail-actions patient-detail-brief__actions">
+                  <Button
+                    className="patient-detail-actions__worklist"
+                    variant="ghost"
+                    onClick={() => {
+                      navigate('/worklist');
+                    }}
+                  >
+                    Open worklist
+                  </Button>
+                  <Button
+                    className="patient-detail-actions__refresh"
+                    variant="secondary"
+                    onClick={handleRefreshOverview}
+                  >
+                    Refresh
+                  </Button>
+                  <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
+                    Export CSV
+                  </Button>
+                  <Button
+                    className="patient-detail-actions__plan"
+                    variant="secondary"
+                    onClick={() => {
+                      navigate(`/patients/${patientId}/plan`);
+                    }}
+                  >
+                    Exercise plan
+                  </Button>
+                </div>
+              </section>
 
-            <div className="patient-detail-brief__facts" aria-label="Immediate patient review facts">
-              {patientBriefFacts.map((fact) => (
-                <article
-                  key={fact.label}
-                  className={`patient-detail-brief__fact patient-detail-brief__fact--${fact.tone}`}
-                >
-                  <span className="patient-detail-brief__fact-label">{fact.label}</span>
-                  <strong className="patient-detail-brief__fact-value">{fact.value}</strong>
-                  <p className="patient-detail-brief__fact-note">{fact.note}</p>
-                </article>
-              ))}
+              <div className="patient-detail-brief__facts" aria-label="Immediate patient review facts">
+                {patientBriefFacts.map((fact) => (
+                  <article
+                    key={fact.label}
+                    className={`patient-detail-brief__fact patient-detail-brief__fact--${fact.tone}`}
+                  >
+                    <span className="patient-detail-brief__fact-label">{fact.label}</span>
+                    <strong className="patient-detail-brief__fact-value">{fact.value}</strong>
+                    <p className="patient-detail-brief__fact-note">{fact.note}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </div>

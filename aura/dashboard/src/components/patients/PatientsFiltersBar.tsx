@@ -236,7 +236,7 @@ export function PatientsFiltersBar({
   return (
     <section className="patients-filters" aria-label="Patient filters">
       <div className="patients-filters__clusters">
-        <div className="patients-filters__row">
+        <div className="patients-filters__row patients-filters__row--primary">
           <div className="patients-filters__cluster patients-filters__cluster--search-source">
             <label className="patients-filters__search form-field">
               <span className="patients-filters__label">Search roster</span>
@@ -258,6 +258,14 @@ export function PatientsFiltersBar({
             </div>
           ) : null}
 
+          <div className="patients-filters__actions">
+            <Button className="patients-filters__reset" variant="ghost" onClick={onReset} disabled={disabled}>
+              Reset filters
+            </Button>
+          </div>
+        </div>
+
+        <div className="patients-filters__row patients-filters__row--secondary">
           <div className="patients-filters__cluster patients-filters__cluster--view">
             <div className="patients-filters__cluster-body patients-filters__cluster-body--view">
               <label className="patients-filters__control form-field">
@@ -332,12 +340,6 @@ export function PatientsFiltersBar({
                 <span>Missed check-ins only</span>
               </label>
             </div>
-          </div>
-
-          <div className="patients-filters__actions">
-            <Button className="patients-filters__reset" variant="ghost" onClick={onReset} disabled={disabled}>
-              Reset filters
-            </Button>
           </div>
         </div>
       </div>

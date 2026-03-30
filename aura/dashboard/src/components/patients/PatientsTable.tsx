@@ -194,7 +194,9 @@ export function PatientsTable({
                     className="patients-table__actions"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <span className="patients-table__action-note">{actionSupportLabel}</span>
+                    <div className="patients-table__actions-copy">
+                      <span className="patients-table__action-note">{actionSupportLabel}</span>
+                    </div>
                     <Button
                       className="patients-table__view"
                       variant="secondary"

@@ -41198,6 +41198,104 @@ a {
   }
 }
 
+@container dashboard-page (max-width: 1320px) {
+  .patient-detail-page .patient-detail-brief__body,
+  .patient-detail-page .patient-detail-mini-nav,
+  .patient-detail-page .patient-detail-reference-zone__header,
+  .patient-detail-page .patient-detail-cockpit-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-cockpit-layout__main,
+  .patient-detail-page .patient-detail-cockpit-layout__support {
+    gap: clamp(0.72rem, 1vw, 0.84rem);
+  }
+
+  .patient-detail-page .patient-detail-mini-nav__actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .patient-detail-page .patient-detail-mini-nav__button.btn {
+    min-width: 8.5rem;
+  }
+}
+
+@container dashboard-page (max-width: 1180px) {
+  .patient-detail-page .patient-detail-brief .patient-detail-current-context__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patient-detail-page .patient-detail-brief__facts,
+  .patient-detail-page .patient-decision-surface__columns,
+  .patient-detail-page .patient-detail-guidance-grid,
+  .patient-detail-page .patient-detail-reference-zone__layout,
+  .patient-detail-page .patient-detail-follow-through-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-follow-through-grid {
+    grid-template-areas: none;
+  }
+
+  .patient-detail-page .patient-detail-follow-through-grid .patient-detail-operations-grid__communication,
+  .patient-detail-page .patient-detail-follow-through-grid .patient-detail-operations-grid__tasks,
+  .patient-detail-page .patient-detail-follow-through-grid .patient-detail-operations-grid__appointments {
+    grid-area: auto;
+    grid-column: auto;
+  }
+}
+
+@container dashboard-page (max-width: 1040px) {
+  .patient-detail-page .patient-priority-item,
+  .patient-detail-page .patient-recommended-action {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-priority-item__action.btn,
+  .patient-detail-page .patient-recommended-action__action.btn {
+    width: auto;
+    min-width: 8rem;
+    justify-self: start;
+  }
+
+  .patient-detail-page .patient-appointment-item {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    justify-items: start;
+  }
+
+  .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patient-detail-page .patient-detail-section-grid--signals,
+  .patient-detail-page .patient-detail-section-grid--habits {
+    grid-template-columns: 1fr;
+  }
+}
+
+@container dashboard-page (max-width: 860px) {
+  .patient-detail-page .patient-detail-brief .patient-detail-current-context__facts,
+  .patient-detail-page .patient-detail-section-block--reference .patient-detail-disclosure__summary,
+  .patient-detail-page .patient-summary-snapshot__support {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-detail-page .patient-detail-mini-nav__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .patient-detail-page .patient-task-item__actions,
+  .patient-detail-page .recent-alert-list__actions,
+  .patient-detail-page .patient-detail-actions,
+  .patient-detail-page .patient-communication-quick-reply__footer {
+    justify-content: flex-start;
+  }
+}
+
 /* Phase 3: Today, Schedule, Inbox */
 
 .dashboard-home-page--today {

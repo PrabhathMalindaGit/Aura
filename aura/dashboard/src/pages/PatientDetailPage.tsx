@@ -29,7 +29,6 @@ import { RecentAlertsPanel } from '../components/patients/RecentAlertsPanel';
 import { TrendCharts } from '../components/patients/TrendCharts';
 import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
-import { usePatientHandoff } from '../hooks/usePatientHandoff';
 import {
   assignPromToPatient,
   completeClinicianTask,
@@ -53,6 +52,7 @@ import {
   setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
   useClinicianWorklist,
+  usePatientCoordination,
   usePatients,
   usePatientTrends,
   useUpdateAlertStatus,
@@ -103,17 +103,17 @@ import {
   normalizeTrendPointsForExport,
 } from '../services/exportService';
 import {
-  getPatientHandoffActionButtonLabel,
-  getPatientHandoffFollowUpOwnerLabel,
-  getPatientHandoffNextActionLabel,
-} from '../services/patientHandoffWorkspace';
-import {
   derivePatientCurrentPriorities,
   derivePatientRecommendedActions,
   type PatientActionKey,
   appointmentWorkflowLabel,
   appointmentWorkflowTone,
 } from '../utils/patientDetail';
+import {
+  getClinicianCoordinationActionButtonLabel,
+  getClinicianCoordinationFollowUpOwnerLabel,
+  getClinicianCoordinationNextStepLabel,
+} from '../utils/clinicianCoordination';
 import {
   alertsForDate,
   deriveTrendSummary,
@@ -441,7 +441,7 @@ export function PatientDetailPage(): JSX.Element {
     () => patientsQuery.data?.find((patient) => patient.id === patientId),
     [patientId, patientsQuery.data],
   );
-  const handoffRecord = usePatientHandoff(patientId);
+  const patientCoordinationQuery = usePatientCoordination(patientId);
 
   const trendsQuery = usePatientTrends(patientId, selectedDays);
   const recentSleepTo = useMemo(() => toDateOnlyUTC(new Date()), []);
@@ -1206,7 +1206,7 @@ export function PatientDetailPage(): JSX.Element {
         .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
     [patientAlerts],
   );
-  const currentHandoff = handoffRecord?.currentHandoff;
+  const currentHandoff = patientCoordinationQuery.data?.currentHandoff ?? null;
 
   const selectedDayPoint = useMemo(
     () => normalizedTrends.find((point) => point.date === selectedDateKey) ?? null,
@@ -2320,14 +2320,15 @@ export function PatientDetailPage(): JSX.Element {
       return null;
     }
 
-    const nextAction = currentHandoff.nextAction as Exclude<typeof currentHandoff.nextAction, ''>;
+    const nextAction =
+      currentHandoff.nextStep === 'monitoring' ? null : currentHandoff.nextStep;
 
     return (
       <Card
         className="patient-detail-panel patient-detail-panel--operations-secondary patient-detail-priority-support__handoff"
         title="Current handoff"
         action={
-          currentHandoff.nextAction ? (
+          nextAction ? (
             <Button
               variant="secondary"
               size="sm"
@@ -2335,7 +2336,7 @@ export function PatientDetailPage(): JSX.Element {
                 handleOperationalAction(nextAction);
               }}
             >
-              {getPatientHandoffActionButtonLabel(nextAction)}
+              {getClinicianCoordinationActionButtonLabel(nextAction)}
             </Button>
           ) : null
         }
@@ -2354,11 +2355,11 @@ export function PatientDetailPage(): JSX.Element {
           <dl className="patient-detail-priority-support__handoff-facts">
             <div>
               <dt>Next step</dt>
-              <dd>{getPatientHandoffNextActionLabel(currentHandoff.nextAction)}</dd>
+              <dd>{getClinicianCoordinationNextStepLabel(currentHandoff.nextStep)}</dd>
             </div>
             <div>
               <dt>Follow-up owner</dt>
-              <dd>{getPatientHandoffFollowUpOwnerLabel(currentHandoff.followUpOwner)}</dd>
+              <dd>{getClinicianCoordinationFollowUpOwnerLabel(currentHandoff.followUpOwner)}</dd>
             </div>
           </dl>
         </div>
@@ -2823,7 +2824,7 @@ export function PatientDetailPage(): JSX.Element {
                 </div>
                 <div className="patient-detail-workspace__panel-support">
                   <p className="patient-detail-section-note">
-                    Keep conversation history, follow-through tasks, schedule context, and browser-local handoff in one workspace.
+                    Keep conversation history, follow-through tasks, schedule context, and shared clinician coordination in one workspace.
                   </p>
                   {communicationsFreshnessLabel ? (
                     <p className="patient-detail-section-freshness">{communicationsFreshnessLabel}</p>

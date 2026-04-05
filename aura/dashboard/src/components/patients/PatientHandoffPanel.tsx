@@ -4,47 +4,51 @@ import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { ClinicianAvatar } from '../ui/ClinicianAvatar';
 import { EmptyState } from '../ui/EmptyState';
+import { Skeleton } from '../ui/Skeleton';
 import { useClinicianIdentity } from '../../hooks/useClinicianIdentity';
 import { usePatientHandoff } from '../../hooks/usePatientHandoff';
 import {
-  PATIENT_HANDOFF_LIMITS,
-  PATIENT_HANDOFF_NEXT_ACTION_OPTIONS,
-  addPatientHandoffNote,
-  getPatientHandoffActionButtonLabel,
-  getLatestPatientHandoffNote,
-  getPatientHandoffFollowUpOwnerLabel,
-  getPatientHandoffNextActionLabel,
-  savePatientCurrentHandoff,
-  type PatientHandoffAuthorSnapshot,
-  type PatientHandoffFollowUpOwner,
-  type PatientHandoffNextAction,
-} from '../../services/patientHandoffWorkspace';
+  useAppendPatientCoordinationNote,
+  usePatientCoordination,
+  useSavePatientCurrentHandoff,
+} from '../../services/clinicianApi';
+import { getClinicianInitials } from '../../services/clinicianIdentity';
 import {
-  buildClinicianSecondaryLine,
-  getClinicianInitials,
-} from '../../services/clinicianIdentity';
+  PATIENT_HANDOFF_LIMITS,
+  getLatestPatientHandoffNote,
+} from '../../services/patientHandoffWorkspace';
+import type { ClinicianCoordinationNextStep } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
+import { asAppError, toUserMessage } from '../../utils/errors';
+import {
+  buildClinicianCoordinationFollowUpOwner,
+  CLINICIAN_COORDINATION_NEXT_STEP_OPTIONS,
+  getClinicianCoordinationActionButtonLabel,
+  getClinicianCoordinationFollowUpOwnerLabel,
+  getClinicianCoordinationNextStepLabel,
+  type ClinicianCoordinationDraftFollowUpOwnerKind,
+  type ClinicianCoordinationDraftNextStep,
+  toClinicianCoordinationNextStep,
+} from '../../utils/clinicianCoordination';
 
 interface PatientHandoffPanelProps {
   patientId: string;
-  onOpenNextAction: (action: Exclude<PatientHandoffNextAction, ''>) => void;
-}
-
-type FollowUpOwnerDraftKind = 'unassigned' | 'self' | 'custom';
-
-function getAuthorSecondaryLine(author: PatientHandoffAuthorSnapshot): string {
-  return buildClinicianSecondaryLine(author.authorRoleTitle, author.authorSpecialty);
+  onOpenNextAction: (action: Exclude<ClinicianCoordinationNextStep, 'monitoring'>) => void;
 }
 
 export function PatientHandoffPanel({
   patientId,
   onOpenNextAction,
 }: PatientHandoffPanelProps): JSX.Element {
-  const handoffRecord = usePatientHandoff(patientId);
   const clinicianIdentity = useClinicianIdentity();
+  const coordinationQuery = usePatientCoordination(patientId);
+  const saveCurrentHandoffMutation = useSavePatientCurrentHandoff(patientId);
+  const appendNoteMutation = useAppendPatientCoordinationNote(patientId);
+  const legacyLocalHandoff = usePatientHandoff(patientId);
   const [summary, setSummary] = useState('');
-  const [nextAction, setNextAction] = useState<PatientHandoffNextAction>('');
-  const [ownerKind, setOwnerKind] = useState<FollowUpOwnerDraftKind>('unassigned');
+  const [nextStep, setNextStep] = useState<ClinicianCoordinationDraftNextStep>('monitoring');
+  const [ownerKind, setOwnerKind] =
+    useState<ClinicianCoordinationDraftFollowUpOwnerKind>('unassigned');
   const [customOwnerLabel, setCustomOwnerLabel] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
@@ -54,41 +58,44 @@ export function PatientHandoffPanel({
   const summaryFieldRef = useRef<HTMLTextAreaElement | null>(null);
   const noteFieldRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const currentHandoff = handoffRecord?.currentHandoff;
-  const notes = handoffRecord?.notes ?? [];
-  const latestNote = useMemo(() => getLatestPatientHandoffNote(handoffRecord), [handoffRecord]);
+  const coordinationRecord = coordinationQuery.data ?? null;
+  const currentHandoff = coordinationRecord?.currentHandoff ?? null;
+  const notes = coordinationRecord?.noteHistory ?? [];
+  const legacyLatestNote = useMemo(
+    () => getLatestPatientHandoffNote(legacyLocalHandoff),
+    [legacyLocalHandoff],
+  );
+  const hasLegacyLocalContext = Boolean(
+    legacyLocalHandoff?.currentHandoff || (legacyLocalHandoff?.notes.length ?? 0) > 0,
+  );
+  const handoffSyncKey = useMemo(
+    () =>
+      JSON.stringify(
+        currentHandoff
+          ? {
+              summary: currentHandoff.summary,
+              nextStep: currentHandoff.nextStep,
+              followUpOwner: currentHandoff.followUpOwner,
+              updatedAt: currentHandoff.updatedAt,
+            }
+          : null,
+      ),
+    [currentHandoff],
+  );
+  const hasAnySharedCoordination = Boolean(currentHandoff || notes.length > 0);
+  const isInitialLoading = coordinationQuery.isLoading && coordinationQuery.data === undefined;
+  const isInitialError = coordinationQuery.isError && coordinationRecord === null;
+  const isEditorDisabled =
+    isInitialLoading || isInitialError || saveCurrentHandoffMutation.isPending || appendNoteMutation.isPending;
 
   useEffect(() => {
     setSummary(currentHandoff?.summary ?? '');
-    setNextAction(currentHandoff?.nextAction ?? '');
+    setNextStep(currentHandoff?.nextStep ?? 'monitoring');
     setOwnerKind(currentHandoff?.followUpOwner.kind ?? 'unassigned');
     setCustomOwnerLabel(
       currentHandoff?.followUpOwner.kind === 'custom' ? currentHandoff.followUpOwner.label : '',
     );
-  }, [currentHandoff]);
-
-  const hasAnyHandoffContext = Boolean(currentHandoff || latestNote);
-
-  function buildDraftOwner(): PatientHandoffFollowUpOwner {
-    if (ownerKind === 'self') {
-      return {
-        kind: 'self',
-        clinicianId: clinicianIdentity.clinicianId,
-        authorDisplayName: clinicianIdentity.displayName,
-        authorRoleTitle: clinicianIdentity.roleTitle || undefined,
-        authorSpecialty: clinicianIdentity.specialty || undefined,
-      };
-    }
-
-    if (ownerKind === 'custom') {
-      return {
-        kind: 'custom',
-        label: customOwnerLabel,
-      };
-    }
-
-    return { kind: 'unassigned' };
-  }
+  }, [handoffSyncKey, patientId]);
 
   function handleSaveHandoff(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -100,18 +107,40 @@ export function PatientHandoffPanel({
       return;
     }
 
-    const savedRecord = savePatientCurrentHandoff(patientId, {
-      summary,
-      nextAction,
-      followUpOwner: buildDraftOwner(),
-    });
-
-    if (savedRecord?.currentHandoff) {
-      setHandoffNotice('Internal handoff saved in this browser.');
+    if (
+      ownerKind === 'clinician' &&
+      (!clinicianIdentity.clinicianId.trim() || !clinicianIdentity.displayName.trim())
+    ) {
+      setHandoffError('Clinician identity is unavailable for a shared follow-up owner.');
       return;
     }
 
-    setHandoffNotice('Structured handoff cleared for this patient in this browser.');
+    saveCurrentHandoffMutation.mutate(
+      {
+        summary,
+        nextStep: toClinicianCoordinationNextStep(nextStep),
+        followUpOwner: buildClinicianCoordinationFollowUpOwner({
+          kind: ownerKind,
+          clinicianId: clinicianIdentity.clinicianId,
+          displayName: clinicianIdentity.displayName,
+          label: customOwnerLabel,
+        }),
+      },
+      {
+        onSuccess: (nextRecord) => {
+          setHandoffError(null);
+          setHandoffNotice(
+            nextRecord?.currentHandoff
+              ? 'Shared handoff saved for the care team.'
+              : 'Current shared handoff cleared. Shared note history stays available.',
+          );
+        },
+        onError: (error) => {
+          setHandoffNotice(null);
+          setHandoffError(toUserMessage(asAppError(error)));
+        },
+      },
+    );
   }
 
   function handleAddNote(event: FormEvent<HTMLFormElement>): void {
@@ -120,27 +149,63 @@ export function PatientHandoffPanel({
     setNoteError(null);
 
     if (noteDraft.trim().length === 0) {
-      setNoteError('Add a short internal note before saving.');
+      setNoteError('Add a short shared coordination note before saving.');
       return;
     }
 
-    addPatientHandoffNote(patientId, noteDraft);
-    setNoteDraft('');
-    setNoteNotice('Internal note saved in this browser.');
+    appendNoteMutation.mutate(
+      {
+        text: noteDraft,
+      },
+      {
+        onSuccess: () => {
+          setNoteDraft('');
+          setNoteError(null);
+          setNoteNotice('Shared coordination note added.');
+        },
+        onError: (error) => {
+          setNoteNotice(null);
+          setNoteError(toUserMessage(asAppError(error)));
+        },
+      },
+    );
   }
 
   return (
     <Card
       id="patient-handoff-panel"
       className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-secondary patient-handoff-panel"
-      title="Internal notes and handoff"
+      title="Shared coordination and notes"
       data-testid="patient-handoff-panel"
     >
       <div className="patient-handoff-panel__body">
-        {!hasAnyHandoffContext ? (
+        {isInitialLoading ? (
+          <section className="patient-handoff-panel__loading" aria-label="Shared coordination loading">
+            <Skeleton height={18} />
+            <Skeleton height={48} />
+            <Skeleton height={18} />
+          </section>
+        ) : null}
+
+        {isInitialError ? (
+          <section className="communication-page__inline-state" aria-label="Shared coordination load failure">
+            <p>{toUserMessage(asAppError(coordinationQuery.error))}</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                void coordinationQuery.refetch();
+              }}
+            >
+              Retry
+            </Button>
+          </section>
+        ) : null}
+
+        {!isInitialLoading && !isInitialError && !hasAnySharedCoordination ? (
           <EmptyState
-            title="No internal handoff saved yet"
-            description="Capture a concise review summary, next step, or local note when the next review on this browser needs context."
+            title="No shared coordination yet"
+            description="Save a concise team-visible handoff or shared note when the next clinician needs context."
             tone="neutral"
             action={
               <div className="patient-handoff-panel__empty-actions">
@@ -151,7 +216,7 @@ export function PatientHandoffPanel({
                     summaryFieldRef.current?.focus();
                   }}
                 >
-                  Create handoff now
+                  Create shared handoff
                 </Button>
                 <Button
                   variant="secondary"
@@ -160,7 +225,7 @@ export function PatientHandoffPanel({
                     noteFieldRef.current?.focus();
                   }}
                 >
-                  Add note
+                  Add shared note
                 </Button>
               </div>
             }
@@ -170,12 +235,12 @@ export function PatientHandoffPanel({
         {currentHandoff ? (
           <section
             className="patient-handoff-panel__current"
-            aria-label="Saved internal handoff"
+            aria-label="Saved shared handoff"
             data-testid="patient-handoff-current"
           >
             <div className="patient-handoff-panel__current-copy">
               <div className="patient-handoff-panel__current-meta">
-                <Badge variant="neutral">Internal handoff</Badge>
+                <Badge variant="neutral">Shared handoff</Badge>
                 <span
                   className="muted-text"
                   title={formatDashboardDateTime(currentHandoff.updatedAt)}
@@ -187,17 +252,17 @@ export function PatientHandoffPanel({
                 <p className="patient-handoff-panel__current-summary">{currentHandoff.summary}</p>
               ) : (
                 <p className="muted-text patient-handoff-panel__current-summary">
-                  No summary saved. Use the current handoff fields below when the next reviewer needs more direction.
+                  No summary saved. Use the shared current handoff fields below when the care team needs more direction.
                 </p>
               )}
               <dl className="patient-handoff-panel__current-facts">
                 <div>
                   <dt>Next step</dt>
-                  <dd>{getPatientHandoffNextActionLabel(currentHandoff.nextAction)}</dd>
+                  <dd>{getClinicianCoordinationNextStepLabel(currentHandoff.nextStep)}</dd>
                 </div>
                 <div>
                   <dt>Follow-up owner</dt>
-                  <dd>{getPatientHandoffFollowUpOwnerLabel(currentHandoff.followUpOwner)}</dd>
+                  <dd>{getClinicianCoordinationFollowUpOwnerLabel(currentHandoff.followUpOwner)}</dd>
                 </div>
               </dl>
             </div>
@@ -205,9 +270,9 @@ export function PatientHandoffPanel({
               <div className="patient-handoff-panel__attribution">
                 <ClinicianAvatar
                   identity={{
-                    displayName: currentHandoff.updatedBy.authorDisplayName,
+                    displayName: currentHandoff.updatedBy.displayName,
                     initials: getClinicianInitials(
-                      currentHandoff.updatedBy.authorDisplayName,
+                      currentHandoff.updatedBy.displayName,
                       currentHandoff.updatedBy.clinicianId,
                     ),
                     photo: null,
@@ -216,51 +281,79 @@ export function PatientHandoffPanel({
                   size="sm"
                 />
                 <div className="patient-handoff-panel__attribution-copy">
-                  <strong>{currentHandoff.updatedBy.authorDisplayName}</strong>
-                  {getAuthorSecondaryLine(currentHandoff.updatedBy) ? (
-                    <span>{getAuthorSecondaryLine(currentHandoff.updatedBy)}</span>
-                  ) : null}
+                  <strong>{currentHandoff.updatedBy.displayName}</strong>
+                  <span>Saved in Aura for the care team.</span>
                 </div>
               </div>
-              {currentHandoff.nextAction ? (
+              {currentHandoff.nextStep !== 'monitoring' ? (
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => onOpenNextAction(currentHandoff.nextAction as Exclude<PatientHandoffNextAction, ''>)}
+                  onClick={() => onOpenNextAction(currentHandoff.nextStep)}
                 >
-                  {getPatientHandoffActionButtonLabel(
-                    currentHandoff.nextAction as Exclude<PatientHandoffNextAction, ''>,
-                  )}
+                  {getClinicianCoordinationActionButtonLabel(currentHandoff.nextStep)}
                 </Button>
               ) : null}
             </div>
           </section>
         ) : null}
 
-        <section className="patient-handoff-panel__scope-note" aria-label="Local handoff storage note">
+        <section className="patient-handoff-panel__scope-note" aria-label="Shared coordination scope">
           <div className="patient-handoff-panel__scope-copy">
-            <p className="patient-handoff-panel__scope-eyebrow">Browser-local workspace context</p>
+            <p className="patient-handoff-panel__scope-eyebrow">Shared clinician coordination</p>
             <p className="patient-handoff-panel__scope-text">
-              Stored only in this browser for local handoff continuity. It does not sync across devices or staff accounts.
+              Saved in Aura for team-visible coordination across clinician sessions and devices.
             </p>
           </div>
           <div className="patient-handoff-panel__scope-facts" aria-live="polite">
             <span className="patient-handoff-panel__scope-fact">
-              {currentHandoff ? 'Structured handoff saved' : 'No current structured handoff'}
+              {currentHandoff ? 'Shared handoff saved' : 'No current shared handoff'}
             </span>
             <span className="patient-handoff-panel__scope-fact">
-              {notes.length} {notes.length === 1 ? 'internal note' : 'internal notes'}
+              {notes.length} {notes.length === 1 ? 'shared note' : 'shared notes'}
             </span>
           </div>
         </section>
 
+        {hasLegacyLocalContext ? (
+          <section
+            className="patient-handoff-panel__scope-note"
+            aria-label="Legacy browser-local handoff preview"
+            data-testid="patient-handoff-legacy-preview"
+          >
+            <div className="patient-handoff-panel__scope-copy">
+              <p className="patient-handoff-panel__scope-eyebrow">Legacy browser-local handoff</p>
+              <p className="patient-handoff-panel__scope-text">
+                Found on this device only. Review it before manually copying anything into shared coordination.
+              </p>
+              {legacyLocalHandoff?.currentHandoff?.summary ? (
+                <p className="patient-handoff-panel__current-summary">
+                  {legacyLocalHandoff.currentHandoff.summary}
+                </p>
+              ) : null}
+              {!legacyLocalHandoff?.currentHandoff?.summary && legacyLatestNote ? (
+                <p className="patient-handoff-panel__current-summary">{legacyLatestNote.text}</p>
+              ) : null}
+            </div>
+            <div className="patient-handoff-panel__scope-facts">
+              <span className="patient-handoff-panel__scope-fact">
+                {legacyLocalHandoff?.currentHandoff ? 'Structured local handoff found' : 'No local structured handoff'}
+              </span>
+              <span className="patient-handoff-panel__scope-fact">
+                {(legacyLocalHandoff?.notes.length ?? 0)}{' '}
+                {(legacyLocalHandoff?.notes.length ?? 0) === 1 ? 'local note' : 'local notes'}
+              </span>
+            </div>
+          </section>
+        ) : null}
+
         <form className="patient-handoff-panel__form" onSubmit={handleSaveHandoff}>
           <div className="patient-handoff-panel__form-heading">
             <div>
-              <p className="patient-handoff-panel__form-eyebrow">Structured handoff</p>
+              <p className="patient-handoff-panel__form-eyebrow">Shared current handoff</p>
               <h3 className="patient-handoff-panel__form-title">Current review context</h3>
             </div>
-            <span className="muted-text">Keep this short and operational.</span>
+            <span className="muted-text">Visible to the care team.</span>
           </div>
 
           <label className="form-field">
@@ -271,12 +364,13 @@ export function PatientHandoffPanel({
               rows={4}
               maxLength={PATIENT_HANDOFF_LIMITS.summary}
               value={summary}
+              disabled={isEditorDisabled}
               onChange={(event) => {
                 setSummary(event.target.value);
                 setHandoffNotice(null);
                 setHandoffError(null);
               }}
-              placeholder="Add concise internal review context for the next clinician working in this browser."
+              placeholder="Add concise shared review context for the next clinician."
             />
           </label>
 
@@ -284,15 +378,16 @@ export function PatientHandoffPanel({
             <label className="form-field">
               <span>Recommended next step</span>
               <select
-                value={nextAction}
+                value={nextStep}
+                disabled={isEditorDisabled}
                 onChange={(event) => {
-                  setNextAction(event.target.value as PatientHandoffNextAction);
+                  setNextStep(event.target.value as ClinicianCoordinationDraftNextStep);
                   setHandoffNotice(null);
                   setHandoffError(null);
                 }}
               >
-                {PATIENT_HANDOFF_NEXT_ACTION_OPTIONS.map((option) => (
-                  <option key={option.id || 'monitoring'} value={option.id}>
+                {CLINICIAN_COORDINATION_NEXT_STEP_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
                 ))}
@@ -303,20 +398,21 @@ export function PatientHandoffPanel({
               <span>Follow-up owner</span>
               <select
                 value={ownerKind}
+                disabled={isEditorDisabled}
                 onChange={(event) => {
-                  setOwnerKind(event.target.value as FollowUpOwnerDraftKind);
+                  setOwnerKind(event.target.value as ClinicianCoordinationDraftFollowUpOwnerKind);
                   setHandoffNotice(null);
                   setHandoffError(null);
                 }}
               >
                 <option value="unassigned">Unassigned</option>
-                <option value="self">Use clinician identity</option>
+                <option value="clinician">Use clinician identity</option>
                 <option value="custom">Custom label</option>
               </select>
             </label>
           </div>
 
-          {ownerKind === 'self' ? (
+          {ownerKind === 'clinician' ? (
             <div className="patient-handoff-panel__helper" role="note">
               <strong>{clinicianIdentity.displayName}</strong>
               {clinicianIdentity.secondaryLine ? (
@@ -332,6 +428,7 @@ export function PatientHandoffPanel({
                 type="text"
                 value={customOwnerLabel}
                 maxLength={PATIENT_HANDOFF_LIMITS.ownerLabel}
+                disabled={isEditorDisabled}
                 onChange={(event) => {
                   setCustomOwnerLabel(event.target.value);
                   setHandoffNotice(null);
@@ -355,10 +452,10 @@ export function PatientHandoffPanel({
 
           <div className="patient-handoff-panel__form-footer">
             <p className="muted-text">
-              Leaving summary empty, next step on continue monitoring, and owner unassigned clears only the current structured handoff.
+              Leaving summary empty, next step on Continue monitoring, and owner unassigned clears only the current shared handoff.
             </p>
-            <Button type="submit" variant="primary" size="sm">
-              Save handoff
+            <Button type="submit" variant="primary" size="sm" disabled={isEditorDisabled}>
+              {saveCurrentHandoffMutation.isPending ? 'Saving...' : 'Save shared handoff'}
             </Button>
           </div>
         </form>
@@ -366,25 +463,26 @@ export function PatientHandoffPanel({
         <form className="patient-handoff-panel__notes" onSubmit={handleAddNote}>
           <div className="patient-handoff-panel__form-heading">
             <div>
-              <p className="patient-handoff-panel__form-eyebrow">Internal notes</p>
+              <p className="patient-handoff-panel__form-eyebrow">Shared coordination notes</p>
               <h3 className="patient-handoff-panel__form-title">Compact review notes</h3>
             </div>
             <span className="muted-text">Plain text only.</span>
           </div>
 
           <label className="form-field">
-            <span>Add internal note</span>
+            <span>Add shared note</span>
             <textarea
               ref={noteFieldRef}
               rows={3}
               maxLength={PATIENT_HANDOFF_LIMITS.note}
               value={noteDraft}
+              disabled={isEditorDisabled}
               onChange={(event) => {
                 setNoteDraft(event.target.value);
                 setNoteNotice(null);
                 setNoteError(null);
               }}
-              placeholder="Add a short internal review note for this patient."
+              placeholder="Add a short shared coordination note for this patient."
             />
           </label>
 
@@ -401,20 +499,25 @@ export function PatientHandoffPanel({
 
           <div className="patient-handoff-panel__form-footer">
             <p className="muted-text">
-              Notes stay local to this browser and keep the saved author label from when they were added.
+              Notes are shared with the care team and keep original authorship snapshots.
             </p>
-            <Button type="submit" variant="secondary" size="sm" disabled={noteDraft.trim().length === 0}>
-              Add note
+            <Button
+              type="submit"
+              variant="secondary"
+              size="sm"
+              disabled={isEditorDisabled || noteDraft.trim().length === 0}
+            >
+              {appendNoteMutation.isPending ? 'Adding...' : 'Add shared note'}
             </Button>
           </div>
         </form>
 
         {notes.length > 0 ? (
-          <section className="patient-handoff-panel__notes-list" aria-label="Internal clinician notes">
+          <section className="patient-handoff-panel__notes-list" aria-label="Shared coordination note history">
             <div className="patient-handoff-panel__form-heading">
               <div>
-                <p className="patient-handoff-panel__form-eyebrow">Recent notes</p>
-                <h3 className="patient-handoff-panel__form-title">Browser-local note history</h3>
+                <p className="patient-handoff-panel__form-eyebrow">Recent coordination notes</p>
+                <h3 className="patient-handoff-panel__form-title">Shared note history</h3>
               </div>
               <span className="muted-text">
                 Showing the {notes.length} most recent {notes.length === 1 ? 'note' : 'notes'}.
@@ -426,9 +529,9 @@ export function PatientHandoffPanel({
                   <div className="patient-handoff-panel__attribution">
                     <ClinicianAvatar
                       identity={{
-                        displayName: note.createdBy.authorDisplayName,
+                        displayName: note.createdBy.displayName,
                         initials: getClinicianInitials(
-                          note.createdBy.authorDisplayName,
+                          note.createdBy.displayName,
                           note.createdBy.clinicianId,
                         ),
                         photo: null,
@@ -437,10 +540,8 @@ export function PatientHandoffPanel({
                       size="sm"
                     />
                     <div className="patient-handoff-panel__attribution-copy">
-                      <strong>{note.createdBy.authorDisplayName}</strong>
-                      {getAuthorSecondaryLine(note.createdBy) ? (
-                        <span>{getAuthorSecondaryLine(note.createdBy)}</span>
-                      ) : null}
+                      <strong>{note.createdBy.displayName}</strong>
+                      <span>Shared coordination note</span>
                     </div>
                   </div>
                   <time

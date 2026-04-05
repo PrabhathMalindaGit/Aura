@@ -9,13 +9,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getClinicianCommunicationScopeKey } from '../services/clinicianIdentity';
 import { clearClinicianProfileForTests, getClinicianProfile, setClinicianProfile } from '../services/clinicianProfile';
 import {
-  addPatientHandoffNote,
   clearPatientHandoffWorkspaceForTests,
   savePatientCurrentHandoff,
 } from '../services/patientHandoffWorkspace';
 import type {
   AlertItem,
   AppointmentRequestItem,
+  ClinicianCoordinationRecord,
   ClinicianTaskItem,
   DashboardCommunicationOverviewItem,
   WorklistRecord,
@@ -119,6 +119,42 @@ const baseWorklistItem: WorklistRecord = {
   priorityScore: 92,
   updatedAt: `${TODAY_KEY}T11:00:00.000Z`,
 };
+
+function createSharedCoordinationRecord(
+  overrides: Partial<ClinicianCoordinationRecord> = {},
+): ClinicianCoordinationRecord {
+  return {
+    patientId,
+    currentHandoff: {
+      summary: 'Shared coordination summary for the next clinician.',
+      nextStep: 'plan',
+      followUpOwner: {
+        kind: 'clinician',
+        clinicianId: 'coordination-clinician-1',
+        displayName: 'Dr Elena Hall',
+      },
+      updatedBy: {
+        clinicianId: 'coordination-clinician-1',
+        displayName: 'Dr Elena Hall',
+      },
+      updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+    },
+    noteHistory: [
+      {
+        id: 'coord-note-1',
+        text: 'Shared coordination note for the next review pass.',
+        createdBy: {
+          clinicianId: 'coordination-clinician-1',
+          displayName: 'Dr Elena Hall',
+        },
+        createdAt: `${TODAY_KEY}T10:50:00.000Z`,
+      },
+    ],
+    createdAt: `${TODAY_KEY}T10:40:00.000Z`,
+    updatedAt: `${TODAY_KEY}T10:50:00.000Z`,
+    ...overrides,
+  };
+}
 
 type ResizeObserverCallbackMock = (
   entries: ResizeObserverEntry[],
@@ -354,6 +390,10 @@ interface FetchMockOptions {
   tasks?: ClinicianTaskItem[];
   appointments?: AppointmentRequestItem[];
   worklistItems?: WorklistRecord[];
+  coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
+  coordinationGetStatus?: number;
+  coordinationPutStatus?: number;
+  coordinationNoteStatus?: number;
 }
 
 function installFetchMock(options: FetchMockOptions = {}) {
@@ -370,6 +410,9 @@ function installFetchMock(options: FetchMockOptions = {}) {
   const communicationItems = options.communicationItems ?? [baseCommunicationItem];
   const appointmentItems = options.appointments ?? [baseAppointmentRequest];
   const worklistItems = options.worklistItems ?? [baseWorklistItem];
+  const coordinationState = new Map(
+    Object.entries(options.coordinationByPatient ?? {}),
+  );
   const trends14 = options.trends14 ?? [
     {
       date: TODAY_KEY,
@@ -393,6 +436,30 @@ function installFetchMock(options: FetchMockOptions = {}) {
       },
     },
   ];
+
+  function getPatientIdFromUrl(url: string): string | null {
+    const match = url.match(/\/clinician\/patients\/([^/?]+)/);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  }
+
+  function buildCoordinationAuthorSnapshot() {
+    return {
+      clinicianId: 'coordination-clinician-1',
+      displayName: 'Dr Elena Hall',
+    };
+  }
+
+  function isBlankSharedHandoff(input: {
+    summary: string;
+    nextStep: string;
+    followUpOwner: { kind: string };
+  }): boolean {
+    return (
+      input.summary.length === 0 &&
+      input.nextStep === 'monitoring' &&
+      input.followUpOwner.kind === 'unassigned'
+    );
+  }
 
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url =
@@ -486,6 +553,128 @@ function installFetchMock(options: FetchMockOptions = {}) {
             status: 'active',
           },
         ],
+      });
+    }
+
+    if (url.includes('/coordination/current-handoff')) {
+      if (options.coordinationPutStatus && options.coordinationPutStatus >= 400) {
+        return createJsonResponse({ ok: false, error: 'COORDINATION_SAVE_FAILED' }, options.coordinationPutStatus);
+      }
+
+      const coordinationPatientId = getPatientIdFromUrl(url);
+      const payload =
+        typeof init?.body === 'string'
+          ? (JSON.parse(init.body) as {
+              summary?: string;
+              nextStep?: string;
+              followUpOwner?: { kind: string; clinicianId?: string; displayName?: string; label?: string };
+            })
+          : {};
+      const currentRecord = coordinationPatientId
+        ? coordinationState.get(coordinationPatientId) ?? null
+        : null;
+      const summary = payload.summary?.trim() ?? '';
+      const nextStep = payload.nextStep ?? 'monitoring';
+      const followUpOwner = payload.followUpOwner ?? { kind: 'unassigned' };
+
+      let nextRecord: ClinicianCoordinationRecord | null = currentRecord;
+
+      if (coordinationPatientId) {
+        if (isBlankSharedHandoff({ summary, nextStep, followUpOwner })) {
+          if (!currentRecord || currentRecord.noteHistory.length === 0) {
+            nextRecord = null;
+          } else {
+            nextRecord = {
+              ...currentRecord,
+              currentHandoff: null,
+              updatedAt: `${TODAY_KEY}T12:20:00.000Z`,
+            };
+          }
+        } else {
+          nextRecord = {
+            patientId: coordinationPatientId,
+            currentHandoff: {
+              summary,
+              nextStep: nextStep as NonNullable<ClinicianCoordinationRecord['currentHandoff']>['nextStep'],
+              followUpOwner:
+                followUpOwner.kind === 'custom'
+                  ? { kind: 'custom', label: followUpOwner.label ?? '' }
+                  : followUpOwner.kind === 'clinician'
+                    ? {
+                        kind: 'clinician',
+                        clinicianId: followUpOwner.clinicianId ?? 'coordination-clinician-1',
+                        displayName: followUpOwner.displayName ?? 'Dr Elena Hall',
+                      }
+                    : { kind: 'unassigned' },
+              updatedBy: buildCoordinationAuthorSnapshot(),
+              updatedAt: `${TODAY_KEY}T12:20:00.000Z`,
+            },
+            noteHistory: currentRecord?.noteHistory ?? [],
+            createdAt: currentRecord?.createdAt ?? `${TODAY_KEY}T12:00:00.000Z`,
+            updatedAt: `${TODAY_KEY}T12:20:00.000Z`,
+          };
+        }
+
+        coordinationState.set(coordinationPatientId, nextRecord);
+      }
+
+      return createJsonResponse({
+        ok: true,
+        coordination: nextRecord,
+      });
+    }
+
+    if (url.includes('/coordination/notes')) {
+      if (options.coordinationNoteStatus && options.coordinationNoteStatus >= 400) {
+        return createJsonResponse({ ok: false, error: 'COORDINATION_NOTE_FAILED' }, options.coordinationNoteStatus);
+      }
+
+      const coordinationPatientId = getPatientIdFromUrl(url);
+      const payload =
+        typeof init?.body === 'string'
+          ? (JSON.parse(init.body) as { text?: string })
+          : {};
+      const currentRecord = coordinationPatientId
+        ? coordinationState.get(coordinationPatientId) ?? null
+        : null;
+
+      const nextRecord: ClinicianCoordinationRecord | null = coordinationPatientId
+        ? {
+            patientId: coordinationPatientId,
+            currentHandoff: currentRecord?.currentHandoff ?? null,
+            noteHistory: [
+              {
+                id: `coord-note-${(currentRecord?.noteHistory.length ?? 0) + 1}`,
+                text: payload.text?.trim() ?? '',
+                createdBy: buildCoordinationAuthorSnapshot(),
+                createdAt: `${TODAY_KEY}T12:25:00.000Z`,
+              },
+              ...(currentRecord?.noteHistory ?? []),
+            ],
+            createdAt: currentRecord?.createdAt ?? `${TODAY_KEY}T12:00:00.000Z`,
+            updatedAt: `${TODAY_KEY}T12:25:00.000Z`,
+          }
+        : null;
+
+      if (coordinationPatientId) {
+        coordinationState.set(coordinationPatientId, nextRecord);
+      }
+
+      return createJsonResponse({
+        ok: true,
+        coordination: nextRecord,
+      }, 201);
+    }
+
+    if (url.includes('/coordination')) {
+      if (options.coordinationGetStatus && options.coordinationGetStatus >= 400) {
+        return createJsonResponse({ ok: false, error: 'COORDINATION_LOAD_FAILED' }, options.coordinationGetStatus);
+      }
+
+      const coordinationPatientId = getPatientIdFromUrl(url);
+      return createJsonResponse({
+        ok: true,
+        coordination: coordinationPatientId ? coordinationState.get(coordinationPatientId) ?? null : null,
       });
     }
 
@@ -1049,12 +1238,26 @@ describe('PatientDetailPage', () => {
     expect(within(supportAside).getByText('Recent alerts')).toBeInTheDocument();
   });
 
-  it('shows a compact top-priority handoff summary on narrower widths while keeping the full editor lower', async () => {
-    installFetchMock();
-    savePatientCurrentHandoff(patientId, {
-      summary: 'Escalate into plan review before the next patient contact.',
-      nextAction: 'plan',
-      followUpOwner: { kind: 'self' },
+  it('shows a compact top-priority handoff summary from shared coordination on narrower widths while keeping the full editor lower', async () => {
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: {
+            summary: 'Escalate into plan review before the next patient contact.',
+            nextStep: 'plan',
+            followUpOwner: {
+              kind: 'clinician',
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+          },
+        }),
+      },
     });
     const user = userEvent.setup();
 
@@ -1066,12 +1269,10 @@ describe('PatientDetailPage', () => {
 
     const prioritySupport = await screen.findByLabelText('Priority patient support context');
 
-    expect(within(prioritySupport).getByText('Current handoff')).toBeInTheDocument();
     expect(
-      within(prioritySupport).getByText('Escalate into plan review before the next patient contact.'),
+      await within(prioritySupport).findByText('Escalate into plan review before the next patient contact.'),
     ).toBeInTheDocument();
-    expect(within(prioritySupport).getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
-    expect(within(prioritySupport).getByText('Dr Elena Hall')).toBeInTheDocument();
+    expect(await within(prioritySupport).findByRole('button', { name: 'Open plan' })).toBeInTheDocument();
 
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     expect(screen.getByTestId('patient-handoff-panel')).toBeInTheDocument();
@@ -1348,16 +1549,17 @@ describe('PatientDetailPage', () => {
     30_000,
   );
 
-  it('renders a grounded internal handoff panel with only supported next-step options', async () => {
+  it('renders a shared coordination panel with only supported next-step options', async () => {
     installFetchMock();
     const user = userEvent.setup();
     renderPatientDetail();
 
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    expect(within(handoffPanel).getByText('No shared coordination yet')).toBeInTheDocument();
     expect(
       within(handoffPanel).getByText(
-        'Stored only in this browser for local handoff continuity. It does not sync across devices or staff accounts.',
+        'Saved in Aura for team-visible coordination across clinician sessions and devices.',
       ),
     ).toBeInTheDocument();
 
@@ -1372,7 +1574,7 @@ describe('PatientDetailPage', () => {
     expect(within(nextStepSelect).queryByRole('option', { name: 'Review trends' })).not.toBeInTheDocument();
   });
 
-  it('saves structured handoff and internal notes from patient detail', async () => {
+  it('saves shared handoff and shared notes from patient detail', async () => {
     installFetchMock();
     const user = userEvent.setup();
 
@@ -1397,12 +1599,12 @@ describe('PatientDetailPage', () => {
     );
     await user.selectOptions(
       within(handoffPanel).getByLabelText('Follow-up owner'),
-      'self',
+      'clinician',
     );
-    await user.click(within(handoffPanel).getByRole('button', { name: 'Save handoff' }));
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
 
     expect(
-      await within(handoffPanel).findByText('Internal handoff saved in this browser.'),
+      await within(handoffPanel).findByText('Shared handoff saved for the care team.'),
     ).toBeInTheDocument();
     const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
     expect(
@@ -1411,23 +1613,23 @@ describe('PatientDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
-    expect(within(savedHandoff).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
+    expect(within(savedHandoff).getByText('Saved in Aura for the care team.')).toBeInTheDocument();
 
-    const internalNoteField = within(handoffPanel).getByLabelText('Add internal note');
-    fireEvent.change(internalNoteField, {
+    const sharedNoteField = within(handoffPanel).getByLabelText('Add shared note');
+    fireEvent.change(sharedNoteField, {
       target: {
         value: 'Patient asked for a calmer follow-up window tomorrow morning.',
       },
     });
     await waitFor(() => {
-      expect(internalNoteField).toHaveValue(
+      expect(sharedNoteField).toHaveValue(
         'Patient asked for a calmer follow-up window tomorrow morning.',
       );
     });
-    await user.click(within(handoffPanel).getByRole('button', { name: 'Add note' }));
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Add shared note' }));
 
-    expect(await within(handoffPanel).findByText('Internal note saved in this browser.')).toBeInTheDocument();
-    const notesSection = within(handoffPanel).getByRole('region', { name: 'Internal clinician notes' });
+    expect(await within(handoffPanel).findByText('Shared coordination note added.')).toBeInTheDocument();
+    const notesSection = within(handoffPanel).getByRole('region', { name: 'Shared coordination note history' });
     const notesList = within(notesSection).getByRole('list');
     expect(
       within(notesList).getByText('Patient asked for a calmer follow-up window tomorrow morning.'),
@@ -1435,11 +1637,21 @@ describe('PatientDetailPage', () => {
   });
 
   it('opens the saved next step only for a real supported patient-detail target', async () => {
-    installFetchMock();
-    savePatientCurrentHandoff(patientId, {
-      summary: 'Move from review into the exercise plan next.',
-      nextAction: 'plan',
-      followUpOwner: { kind: 'unassigned' },
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: {
+            summary: 'Move from review into the exercise plan next.',
+            nextStep: 'plan',
+            followUpOwner: { kind: 'unassigned' },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+          },
+        }),
+      },
     });
     const user = userEvent.setup();
 
@@ -1452,7 +1664,7 @@ describe('PatientDetailPage', () => {
     expect(await screen.findByText('Plan workspace')).toBeInTheDocument();
   });
 
-  it('clears only the structured handoff when saved blank and preserves note history', async () => {
+  it('clears only the shared handoff when saved blank and preserves shared note history', async () => {
     installFetchMock();
     const user = userEvent.setup();
 
@@ -1465,20 +1677,22 @@ describe('PatientDetailPage', () => {
       'Keep the alert review in view during the next pass.',
     );
     await user.selectOptions(within(handoffPanel).getByLabelText('Recommended next step'), 'alerts');
-    await user.click(within(handoffPanel).getByRole('button', { name: 'Save handoff' }));
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
     await user.type(
-      within(handoffPanel).getByLabelText('Add internal note'),
+      within(handoffPanel).getByLabelText('Add shared note'),
       'Note history should survive the blank handoff clear.',
     );
-    await user.click(within(handoffPanel).getByRole('button', { name: 'Add note' }));
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Add shared note' }));
 
     await user.clear(within(handoffPanel).getByLabelText('Handoff summary'));
-    await user.selectOptions(within(handoffPanel).getByLabelText('Recommended next step'), '');
+    await user.selectOptions(within(handoffPanel).getByLabelText('Recommended next step'), 'monitoring');
     await user.selectOptions(within(handoffPanel).getByLabelText('Follow-up owner'), 'unassigned');
-    await user.click(within(handoffPanel).getByRole('button', { name: 'Save handoff' }));
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
 
     expect(
-      await within(handoffPanel).findByText('Structured handoff cleared for this patient in this browser.'),
+      await within(handoffPanel).findByText(
+        'Current shared handoff cleared. Shared note history stays available.',
+      ),
     ).toBeInTheDocument();
     expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
     expect(
@@ -1486,14 +1700,57 @@ describe('PatientDetailPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps saved handoff attribution stable after later clinician profile edits', async () => {
-    installFetchMock();
-    savePatientCurrentHandoff(patientId, {
-      summary: 'Saved by the original clinician identity.',
-      nextAction: 'alerts',
-      followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
+  it('preserves form inputs when saving shared coordination fails', async () => {
+    installFetchMock({
+      coordinationPutStatus: 400,
     });
-    addPatientHandoffNote(patientId, 'Original clinician note.');
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    const summaryField = within(handoffPanel).getByLabelText('Handoff summary');
+
+    await user.type(summaryField, 'Keep this shared draft visible after a failed save.');
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
+
+    expect(await within(handoffPanel).findByRole('alert')).toBeInTheDocument();
+    expect(summaryField).toHaveValue('Keep this shared draft visible after a failed save.');
+  });
+
+  it('keeps shared handoff attribution stable after later clinician profile edits', async () => {
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: {
+            summary: 'Saved by the original clinician identity.',
+            nextStep: 'alerts',
+            followUpOwner: {
+              kind: 'clinician',
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+          },
+          noteHistory: [
+            {
+              id: 'coord-note-1',
+              text: 'Original clinician note.',
+              createdBy: {
+                clinicianId: 'coordination-clinician-1',
+                displayName: 'Dr Elena Hall',
+              },
+              createdAt: `${TODAY_KEY}T10:50:00.000Z`,
+            },
+          ],
+        }),
+      },
+    });
 
     setClinicianProfile({
       ...getClinicianProfile(),
@@ -1509,18 +1766,16 @@ describe('PatientDetailPage', () => {
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
     const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
-    const notesSection = within(handoffPanel).getByRole('region', { name: 'Internal clinician notes' });
+    const notesSection = within(handoffPanel).getByRole('region', { name: 'Shared coordination note history' });
     const notesList = within(notesSection).getByRole('list');
     expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
-    expect(within(savedHandoff).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
     expect(within(notesList).getByText('Original clinician note.')).toBeInTheDocument();
-    expect(within(notesList).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
   });
 
-  it('keeps browser-local handoff visible across normal sign-out and later sign-in', async () => {
+  it('shows legacy browser-local handoff as a warning without promoting it into shared truth', async () => {
     installFetchMock();
     savePatientCurrentHandoff(patientId, {
-      summary: 'Browser-local continuity should remain visible on this device.',
+      summary: 'Browser-local continuity should remain visible only as a warning.',
       nextAction: 'appointments',
       followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
     });
@@ -1530,18 +1785,22 @@ describe('PatientDetailPage', () => {
 
     renderPatientDetail();
 
+    const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
+    expect(within(prioritySupport).queryByText('Current handoff')).not.toBeInTheDocument();
+
     const user = userEvent.setup();
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
-    const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
+    const legacyPreview = within(handoffPanel).getByTestId('patient-handoff-legacy-preview');
     expect(
-      within(savedHandoff).getByText('Browser-local continuity should remain visible on this device.'),
+      within(legacyPreview).getByText('Browser-local continuity should remain visible only as a warning.'),
     ).toBeInTheDocument();
     expect(
-      within(handoffPanel).getByText(
-        'Stored only in this browser for local handoff continuity. It does not sync across devices or staff accounts.',
+      within(legacyPreview).getByText(
+        'Found on this device only. Review it before manually copying anything into shared coordination.',
       ),
     ).toBeInTheDocument();
+    expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
   });
 
   it('renders calm empty states for communication, tasks, and appointments when no follow-up exists', async () => {

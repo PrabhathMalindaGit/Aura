@@ -532,6 +532,73 @@ export interface DashboardCommunicationOverviewResponse {
   overview: DashboardCommunicationOverview;
 }
 
+export type ClinicianCoordinationNextStep =
+  | 'monitoring'
+  | 'alerts'
+  | 'communication'
+  | 'tasks'
+  | 'appointments'
+  | 'plan';
+
+export interface ClinicianCoordinationAuthorSnapshot {
+  clinicianId: string;
+  displayName: string;
+}
+
+export type ClinicianCoordinationFollowUpOwner =
+  | { kind: 'unassigned' }
+  | {
+      kind: 'clinician';
+      clinicianId: string;
+      displayName: string;
+    }
+  | {
+      kind: 'custom';
+      label: string;
+    };
+
+export interface ClinicianCoordinationCurrentHandoff {
+  summary: string;
+  nextStep: ClinicianCoordinationNextStep;
+  followUpOwner: ClinicianCoordinationFollowUpOwner;
+  updatedBy: ClinicianCoordinationAuthorSnapshot;
+  updatedAt: string;
+}
+
+export interface ClinicianCoordinationNoteItem {
+  id: string;
+  text: string;
+  createdBy: ClinicianCoordinationAuthorSnapshot;
+  createdAt: string;
+}
+
+export interface ClinicianCoordinationRecord {
+  patientId: string;
+  currentHandoff: ClinicianCoordinationCurrentHandoff | null;
+  noteHistory: ClinicianCoordinationNoteItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PatientCoordinationResponse {
+  ok: true;
+  coordination: ClinicianCoordinationRecord | null;
+}
+
+export interface PutPatientCurrentHandoffPayload {
+  summary?: string;
+  nextStep?: ClinicianCoordinationNextStep;
+  followUpOwner?: ClinicianCoordinationFollowUpOwner;
+  updatedBy?: string;
+  updatedByName?: string;
+}
+
+export interface AppendPatientCoordinationNotePayload {
+  text: string;
+  createdBy?: string;
+  createdByName?: string;
+}
+
 export type ClinicianTaskType =
   | 'follow_up'
   | 'appointment'

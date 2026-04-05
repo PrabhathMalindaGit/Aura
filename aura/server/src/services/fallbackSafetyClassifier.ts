@@ -27,10 +27,10 @@ function normalizeForMatching(text: string | undefined): string {
 
   let normalized = text.toLowerCase();
   for (const mark of APOSTROPHE_VARIANTS) {
-    normalized = normalized.replaceAll(mark, "'");
+    normalized = normalized.split(mark).join("'");
   }
 
-  normalized = normalized.replaceAll("'", "");
+  normalized = normalized.split("'").join("");
   normalized = normalized.replace(/[^a-z0-9\s]/g, " ");
   normalized = normalized.replace(/\s+/g, " ").trim();
   return normalized;

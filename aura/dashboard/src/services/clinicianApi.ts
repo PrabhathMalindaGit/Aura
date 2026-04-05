@@ -22,9 +22,12 @@ import {
   type AlertContextResult,
   type AlertItem,
   type AlertStatus,
+  type AppendPatientCoordinationNotePayload,
   type DashboardCommunicationOverview,
   type DashboardCommunicationOverviewResponse,
   type ClinicianTaskItem,
+  type ClinicianCoordinationRecord,
+  type PatientCoordinationResponse,
   type ClinicianTaskMutationResponse,
   type ClinicianTasksResponse,
   type ClinicianTaskStatus,
@@ -80,6 +83,7 @@ import {
   type ListPatientsResponse,
   type PatchAlertResponse,
   type PatientSummary,
+  type PutPatientCurrentHandoffPayload,
   type TimelineEvent,
   type TrendPointRaw,
   type TrendsResponse,
@@ -130,6 +134,7 @@ export const clinicianQueryKeys = {
   patientTrends: (patientId: string, days: 14 | 30): QueryKey => ['patient-trends', patientId, days],
   alertContext: (alertId: string): QueryKey => ['alert-context', alertId],
   patients: (): QueryKey => ['patients'],
+  patientCoordination: (patientId: string): QueryKey => ['patient-coordination', patientId],
 } as const;
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
@@ -1031,6 +1036,49 @@ export async function getDashboardCommunicationOverview(
   return response.overview;
 }
 
+export async function getPatientCoordination(
+  patientId: string,
+): Promise<ClinicianCoordinationRecord | null> {
+  const response = await fetchJson<PatientCoordinationResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/coordination`,
+    {
+      method: 'GET',
+    },
+  );
+
+  return response.coordination;
+}
+
+export async function putPatientCurrentHandoff(
+  patientId: string,
+  payload: PutPatientCurrentHandoffPayload,
+): Promise<ClinicianCoordinationRecord | null> {
+  const response = await fetchJson<PatientCoordinationResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/coordination/current-handoff`,
+    {
+      method: 'PUT',
+      json: payload,
+    },
+  );
+
+  return response.coordination;
+}
+
+export async function postPatientCoordinationNote(
+  patientId: string,
+  payload: AppendPatientCoordinationNotePayload,
+): Promise<ClinicianCoordinationRecord | null> {
+  const response = await fetchJson<PatientCoordinationResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/coordination/notes`,
+    {
+      method: 'POST',
+      json: payload,
+    },
+  );
+
+  return response.coordination;
+}
+
 export async function getExercisePlan(patientId: string): Promise<ExercisePlan | null> {
   const response = await fetchJson<ExercisePlanResponse>(
     `/clinician/patients/${encodeURIComponent(patientId)}/exercise-plan`,
@@ -1408,6 +1456,53 @@ export function useDashboardCommunicationOverview(
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
+  });
+}
+
+export function usePatientCoordination(
+  patientId: string | null | undefined,
+): UseQueryResult<ClinicianCoordinationRecord | null, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.patientCoordination(patientId ?? 'unknown'),
+    queryFn: () => getPatientCoordination(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useSavePatientCurrentHandoff(
+  patientId: string,
+): UseMutationResult<ClinicianCoordinationRecord | null, unknown, PutPatientCurrentHandoffPayload> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => putPatientCurrentHandoff(patientId, payload),
+    retry: retryIfAllowed,
+    onSuccess: (coordination) => {
+      queryClient.setQueryData(
+        clinicianQueryKeys.patientCoordination(patientId),
+        coordination,
+      );
+    },
+  });
+}
+
+export function useAppendPatientCoordinationNote(
+  patientId: string,
+): UseMutationResult<ClinicianCoordinationRecord | null, unknown, AppendPatientCoordinationNotePayload> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => postPatientCoordinationNote(patientId, payload),
+    retry: retryIfAllowed,
+    onSuccess: (coordination) => {
+      queryClient.setQueryData(
+        clinicianQueryKeys.patientCoordination(patientId),
+        coordination,
+      );
+    },
   });
 }
 

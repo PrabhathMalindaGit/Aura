@@ -15,6 +15,7 @@ import {
   clearPatientHandoffWorkspaceForTests,
   savePatientCurrentHandoff,
 } from '../services/patientHandoffWorkspace';
+import type { ClinicianCoordinationRecord } from '../types/models';
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -138,12 +139,69 @@ const communicationOverview = {
   ],
 };
 
-function installCommunicationFetchMock(): void {
+function createSharedCoordinationRecord(
+  patientId: string,
+  overrides: Partial<ClinicianCoordinationRecord> = {},
+): ClinicianCoordinationRecord {
+  return {
+    patientId,
+    currentHandoff: {
+      summary: 'Shared coordination summary for the next clinician.',
+      nextStep: 'plan',
+      followUpOwner: {
+        kind: 'clinician',
+        clinicianId: 'coordination-clinician-1',
+        displayName: 'Dr Elena Hall',
+      },
+      updatedBy: {
+        clinicianId: 'coordination-clinician-1',
+        displayName: 'Dr Elena Hall',
+      },
+      updatedAt: '2026-03-09T11:45:00.000Z',
+    },
+    noteHistory: [
+      {
+        id: 'coord-note-1',
+        text: 'Shared coordination note for inbox review.',
+        createdBy: {
+          clinicianId: 'coordination-clinician-1',
+          displayName: 'Dr Elena Hall',
+        },
+        createdAt: '2026-03-09T11:50:00.000Z',
+      },
+    ],
+    createdAt: '2026-03-09T11:40:00.000Z',
+    updatedAt: '2026-03-09T11:50:00.000Z',
+    ...overrides,
+  };
+}
+
+function installCommunicationFetchMock(options: {
+  coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
+  coordinationGetStatus?: number;
+} = {}): void {
+  vi.restoreAllMocks();
+  const coordinationState = new Map(
+    Object.entries(options.coordinationByPatient ?? {}),
+  );
+
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = new URL(String(input));
 
     if (url.pathname === '/clinician/dashboard/communication-overview') {
       return createJsonResponse({ ok: true, overview: communicationOverview });
+    }
+
+    if (url.pathname.match(/^\/clinician\/patients\/[^/]+\/coordination$/)) {
+      if (options.coordinationGetStatus && options.coordinationGetStatus >= 400) {
+        return createJsonResponse({ ok: false, error: 'COORDINATION_LOAD_FAILED' }, options.coordinationGetStatus);
+      }
+
+      const patientId = decodeURIComponent(url.pathname.split('/')[3] ?? '');
+      return createJsonResponse({
+        ok: true,
+        coordination: coordinationState.get(patientId) ?? null,
+      });
     }
 
     return createJsonResponse({ ok: false, error: 'NOT_FOUND' }, 404);
@@ -502,74 +560,165 @@ afterEach(() => {
     });
   });
 
-  it('renders a read-only handoff context strip when browser-local handoff data exists', async () => {
-    savePatientCurrentHandoff('patient-1', {
-      summary: 'Keep this thread aligned with the current plan review before the next reply.',
-      nextAction: 'plan',
-      followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
+  it('renders a read-only shared coordination block when a shared record exists', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1', {
+          currentHandoff: {
+            summary: 'Keep this thread aligned with the current plan review before the next reply.',
+            nextStep: 'plan',
+            followUpOwner: {
+              kind: 'clinician',
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: '2026-03-09T11:45:00.000Z',
+          },
+        }),
+      },
     });
     const user = userEvent.setup();
 
     renderCommunicationPage('/communication?patientId=patient-1');
 
-    const handoffContext = await screen.findByTestId('communication-handoff-context');
-    expect(handoffContext).toHaveAccessibleName('Internal handoff context');
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(coordinationContext).toHaveAccessibleName('Shared clinician coordination');
     expect(
-      within(handoffContext).getByText(
+      await within(coordinationContext).findByText(
         'Keep this thread aligned with the current plan review before the next reply.',
       ),
     ).toBeInTheDocument();
-    expect(within(handoffContext).getByRole('button', { name: 'Open plan' })).toBeInTheDocument();
-    expect(within(handoffContext).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
+    expect(await within(coordinationContext).findByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect((await within(coordinationContext).findAllByText('Dr Elena Hall')).length).toBeGreaterThan(0);
     expect(
-      within(handoffContext).getByText('Stored only in this browser for local patient handoff continuity.'),
+      within(coordinationContext).getByText('Shared with the care team in Aura. Local reply drafts remain separate.'),
     ).toBeInTheDocument();
 
-    await user.click(within(handoffContext).getByRole('button', { name: 'Open plan' }));
+    await user.click(within(coordinationContext).getByRole('button', { name: 'Open patient' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Plan workspace')).toBeInTheDocument();
+      expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
     });
   });
 
-  it('shows the latest internal note preview when there is no current structured handoff', async () => {
-    addPatientHandoffNote('patient-2', 'Latest browser-local note for the next review pass.');
+  it('shows the latest shared note preview when there is no current shared handoff', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-2': createSharedCoordinationRecord('patient-2', {
+          currentHandoff: null,
+          noteHistory: [
+            {
+              id: 'coord-note-2',
+              text: 'Latest shared coordination note for the next review pass.',
+              createdBy: {
+                clinicianId: 'coordination-clinician-1',
+                displayName: 'Dr Elena Hall',
+              },
+              createdAt: '2026-03-09T11:58:00.000Z',
+            },
+          ],
+        }),
+      },
+    });
 
     renderCommunicationPage('/communication?patientId=patient-2');
 
-    const handoffContext = await screen.findByTestId('communication-handoff-context');
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
     expect(
-      within(handoffContext).getByText('Latest browser-local note for the next review pass.'),
+      await within(coordinationContext).findByText('Latest shared coordination note for the next review pass.'),
     ).toBeInTheDocument();
-    expect(within(handoffContext).getByText('Latest note by')).toBeInTheDocument();
-    expect(within(handoffContext).queryByText('Next step')).not.toBeInTheDocument();
-    expect(within(handoffContext).queryByText('Follow-up owner')).not.toBeInTheDocument();
+    expect(within(coordinationContext).getByText('Latest note by')).toBeInTheDocument();
+    expect(within(coordinationContext).queryByText('Next step')).not.toBeInTheDocument();
+    expect(within(coordinationContext).queryByText('Follow-up owner')).not.toBeInTheDocument();
   });
 
-  it('does not show the handoff context strip when no local handoff data exists', async () => {
+  it('shows a neutral shared coordination empty state when no shared record exists', async () => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
-    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
-    expect(screen.queryByTestId('communication-handoff-context')).not.toBeInTheDocument();
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(await within(coordinationContext).findByText('No shared coordination yet.')).toBeInTheDocument();
+    expect(await within(coordinationContext).findByRole('button', { name: 'Open patient' })).toBeInTheDocument();
   });
 
-  it('keeps the message timeline truthful when handoff context exists', async () => {
+  it('retries cleanly when the shared coordination fetch fails and keeps local replies separate', async () => {
+    installCommunicationFetchMock({
+      coordinationGetStatus: 400,
+    });
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(
+      await within(coordinationContext).findByText('Local reply drafts are unaffected and stay in this browser.'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(coordinationContext).getByRole('button', { name: 'Retry' }));
+    expect(within(coordinationContext).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('does not let browser-local handoff storage drive inbox shared context', async () => {
     savePatientCurrentHandoff('patient-1', {
-      summary: 'Handoff context belongs in the strip, not the communication timeline.',
+      summary: 'Legacy local handoff should not appear as shared inbox context.',
       nextAction: 'alerts',
       followUpOwner: { kind: 'custom', label: 'Weekend coverage desk' },
     });
-    addPatientHandoffNote('patient-1', 'This note should not appear as a timeline message.');
+    addPatientHandoffNote('patient-1', 'Legacy local note should stay out of shared inbox context.');
 
     renderCommunicationPage('/communication?patientId=patient-1');
 
-    const handoffContext = await screen.findByTestId('communication-handoff-context');
-    expect(handoffContext).toBeInTheDocument();
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(await within(coordinationContext).findByText('No shared coordination yet.')).toBeInTheDocument();
+    expect(
+      within(coordinationContext).queryByText('Legacy local handoff should not appear as shared inbox context.'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(coordinationContext).queryByText('Legacy local note should stay out of shared inbox context.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the message timeline truthful when shared coordination exists', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1', {
+          currentHandoff: {
+            summary: 'Shared coordination belongs in the support block, not the communication timeline.',
+            nextStep: 'alerts',
+            followUpOwner: { kind: 'custom', label: 'Weekend coverage desk' },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: '2026-03-09T11:45:00.000Z',
+          },
+          noteHistory: [
+            {
+              id: 'coord-note-3',
+              text: 'This shared note should not appear as a timeline message.',
+              createdBy: {
+                clinicianId: 'coordination-clinician-1',
+                displayName: 'Dr Elena Hall',
+              },
+              createdAt: '2026-03-09T11:50:00.000Z',
+            },
+          ],
+        }),
+      },
+    });
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(coordinationContext).toBeInTheDocument();
 
     const timeline = screen.getByRole('list', { name: 'Patient communication timeline' });
     expect(within(timeline).getByText('Pain is much worse after exercise today.')).toBeInTheDocument();
-    expect(within(timeline).queryByText('Handoff context belongs in the strip, not the communication timeline.')).not.toBeInTheDocument();
-    expect(within(timeline).queryByText('This note should not appear as a timeline message.')).not.toBeInTheDocument();
-    expect(within(timeline).queryByText('Dr Elena Hall')).not.toBeInTheDocument();
+    expect(
+      within(timeline).queryByText('Shared coordination belongs in the support block, not the communication timeline.'),
+    ).not.toBeInTheDocument();
+    expect(within(timeline).queryByText('This shared note should not appear as a timeline message.')).not.toBeInTheDocument();
   });
 });

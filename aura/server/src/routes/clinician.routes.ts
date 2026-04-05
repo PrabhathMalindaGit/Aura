@@ -6,6 +6,12 @@ import CareEvent from "../models/CareEvent";
 import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
+import {
+  COORDINATION_NOTE_MAX_LENGTH,
+  COORDINATION_NEXT_STEP_VALUES,
+  COORDINATION_OWNER_LABEL_MAX_LENGTH,
+  COORDINATION_SUMMARY_MAX_LENGTH,
+} from "../models/ClinicianCoordination";
 import { validateBody } from "../middleware/validate";
 import type { RequestWithUser } from "../types/auth";
 import { env } from "../env";
@@ -15,6 +21,13 @@ import {
   NOTIFICATION_RETRY_AFTER_SECONDS,
   requestAlertNotificationRetry,
 } from "../services/alertNotificationService";
+import {
+  appendClinicianCoordinationNote,
+  getClinicianCoordinationByPatient,
+  saveClinicianCurrentHandoff,
+  type CoordinationAuthorSnapshot,
+  type CoordinationFollowUpOwner,
+} from "../services/clinicianCoordinationService";
 import { isObjectId } from "../utils/ids";
 import { logger } from "../utils/logger";
 
@@ -85,6 +98,35 @@ const patchPatientSchema = z
       message: "At least one field must be provided",
     }
   );
+
+const coordinationFollowUpOwnerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("unassigned"),
+  }),
+  z.object({
+    kind: z.literal("clinician"),
+    clinicianId: z.string().trim().min(1).max(120),
+    displayName: z.string().trim().min(1).max(120),
+  }),
+  z.object({
+    kind: z.literal("custom"),
+    label: z.string().trim().min(1).max(COORDINATION_OWNER_LABEL_MAX_LENGTH),
+  }),
+]);
+
+const coordinationCurrentHandoffSchema = z.object({
+  summary: z.string().trim().max(COORDINATION_SUMMARY_MAX_LENGTH).optional(),
+  nextStep: z.enum(COORDINATION_NEXT_STEP_VALUES).optional(),
+  followUpOwner: coordinationFollowUpOwnerSchema.optional(),
+  updatedBy: z.string().trim().min(1).max(120).optional(),
+  updatedByName: z.string().trim().min(1).max(120).optional(),
+});
+
+const coordinationAppendNoteSchema = z.object({
+  text: z.string().trim().min(1).max(COORDINATION_NOTE_MAX_LENGTH),
+  createdBy: z.string().trim().min(1).max(120).optional(),
+  createdByName: z.string().trim().min(1).max(120).optional(),
+});
 
 const DEFAULT_PATIENTS_LIMIT = 200;
 const MAX_PATIENTS_LIMIT = 500;
@@ -174,12 +216,116 @@ function resolveClinicianActor(
   };
 }
 
+function mapCoordinationAuthor(
+  actor: CoordinationAuthorSnapshot
+): CoordinationAuthorSnapshot {
+  return {
+    clinicianId: actor.clinicianId,
+    displayName: actor.displayName,
+  };
+}
+
+function mapCoordinationFollowUpOwner(
+  owner: CoordinationFollowUpOwner
+): CoordinationFollowUpOwner {
+  if (owner.kind === "clinician") {
+    return {
+      kind: "clinician",
+      clinicianId: owner.clinicianId,
+      displayName: owner.displayName,
+    };
+  }
+
+  if (owner.kind === "custom") {
+    return {
+      kind: "custom",
+      label: owner.label,
+    };
+  }
+
+  return { kind: "unassigned" };
+}
+
+function toCoordinationFollowUpOwnerInput(
+  value:
+    | z.infer<typeof coordinationFollowUpOwnerSchema>
+    | undefined
+): CoordinationFollowUpOwner | undefined {
+  if (!value || value.kind === "unassigned") {
+    return value ? { kind: "unassigned" } : undefined;
+  }
+
+  if (value.kind === "custom") {
+    return {
+      kind: "custom",
+      label: value.label,
+    };
+  }
+
+  return {
+    kind: "clinician",
+    clinicianId: value.clinicianId,
+    displayName: value.displayName,
+  };
+}
+
+function mapCoordinationRecord(
+  coordination: Awaited<ReturnType<typeof getClinicianCoordinationByPatient>>
+) {
+  if (!coordination) {
+    return null;
+  }
+
+  return {
+    patientId: coordination.patientId,
+    currentHandoff: coordination.currentHandoff
+      ? {
+          summary: coordination.currentHandoff.summary,
+          nextStep: coordination.currentHandoff.nextStep,
+          followUpOwner: mapCoordinationFollowUpOwner(
+            coordination.currentHandoff.followUpOwner
+          ),
+          updatedBy: mapCoordinationAuthor(coordination.currentHandoff.updatedBy),
+          updatedAt: coordination.currentHandoff.updatedAt,
+        }
+      : null,
+    noteHistory: coordination.noteHistory.map((note) => ({
+      id: note.id,
+      text: note.text,
+      createdBy: mapCoordinationAuthor(note.createdBy),
+      createdAt: note.createdAt,
+    })),
+    createdAt: coordination.createdAt,
+    updatedAt: coordination.updatedAt,
+  };
+}
+
 function toIsoDateString(value?: Date): string | undefined {
   if (!value) {
     return undefined;
   }
 
   return value.toISOString();
+}
+
+function parsePatientIdParam(
+  patientIdParam: unknown
+): { patientId?: string; details?: Array<{ path: string; message: string }> } {
+  const patientId =
+    typeof patientIdParam === "string" ? patientIdParam.trim() : "";
+
+  if (!patientId || patientId.length > 64) {
+    return {
+      details: [
+        {
+          path: "patientId",
+          message: "patientId is required and must be at most 64 characters",
+        },
+      ],
+    };
+  }
+
+  return { patientId };
 }
 
 function toDate(value: unknown): Date | undefined {
@@ -1410,6 +1556,157 @@ router.get("/clinician/patients/:patientId/trends", async (req, res) => {
     });
   }
 });
+
+router.get("/clinician/patients/:patientId/coordination", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const coordination = await getClinicianCoordinationByPatient(
+      parsedPatientId.patientId
+    );
+
+    return res.json({
+      ok: true,
+      coordination: mapCoordinationRecord(coordination),
+    });
+  } catch (error) {
+    logger.error("Get clinician coordination route failed", {
+      route: "GET /clinician/patients/:patientId/coordination",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.put(
+  "/clinician/patients/:patientId/coordination/current-handoff",
+  validateBody(coordinationCurrentHandoffSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const { summary, nextStep, followUpOwner, updatedBy, updatedByName } =
+        req.body as z.infer<typeof coordinationCurrentHandoffSchema>;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        updatedBy,
+        updatedByName
+      );
+
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const coordination = await saveClinicianCurrentHandoff({
+        patientId: parsedPatientId.patientId,
+        summary,
+        nextStep,
+        followUpOwner: toCoordinationFollowUpOwnerInput(followUpOwner),
+        updatedBy: {
+          clinicianId: actor.id,
+          displayName: actor.name ?? actor.id,
+        },
+      });
+
+      return res.json({
+        ok: true,
+        coordination: mapCoordinationRecord(coordination),
+      });
+    } catch (error) {
+      logger.error("Put clinician coordination handoff route failed", {
+        route: "PUT /clinician/patients/:patientId/coordination/current-handoff",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.post(
+  "/clinician/patients/:patientId/coordination/notes",
+  validateBody(coordinationAppendNoteSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const { text, createdBy, createdByName } =
+        req.body as z.infer<typeof coordinationAppendNoteSchema>;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        createdBy,
+        createdByName
+      );
+
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const coordination = await appendClinicianCoordinationNote({
+        patientId: parsedPatientId.patientId,
+        text,
+        createdBy: {
+          clinicianId: actor.id,
+          displayName: actor.name ?? actor.id,
+        },
+      });
+
+      return res.status(201).json({
+        ok: true,
+        coordination: mapCoordinationRecord(coordination),
+      });
+    } catch (error) {
+      logger.error("Post clinician coordination note route failed", {
+        route: "POST /clinician/patients/:patientId/coordination/notes",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
 
 router.patch(
   "/clinician/alerts/:id/seen",

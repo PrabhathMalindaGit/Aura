@@ -15,6 +15,7 @@ import {
 import { getClinicianInitials } from '../../services/clinicianIdentity';
 import {
   PATIENT_HANDOFF_LIMITS,
+  discardLegacyPatientHandoffRecord,
   getLatestPatientHandoffNote,
 } from '../../services/patientHandoffWorkspace';
 import type { ClinicianCoordinationNextStep } from '../../types/models';
@@ -65,6 +66,7 @@ export function PatientHandoffPanel({
     () => getLatestPatientHandoffNote(legacyLocalHandoff),
     [legacyLocalHandoff],
   );
+  const legacyLocalExcerpt = legacyLocalHandoff?.currentHandoff?.summary ?? legacyLatestNote?.text ?? null;
   const hasLegacyLocalContext = Boolean(
     legacyLocalHandoff?.currentHandoff || (legacyLocalHandoff?.notes.length ?? 0) > 0,
   );
@@ -318,31 +320,39 @@ export function PatientHandoffPanel({
         {hasLegacyLocalContext ? (
           <section
             className="patient-handoff-panel__scope-note"
-            aria-label="Legacy browser-local handoff preview"
-            data-testid="patient-handoff-legacy-preview"
+            aria-label="Legacy browser-local coordination warning"
+            data-testid="patient-handoff-legacy-warning"
           >
             <div className="patient-handoff-panel__scope-copy">
-              <p className="patient-handoff-panel__scope-eyebrow">Legacy browser-local handoff</p>
+              <p className="patient-handoff-panel__scope-eyebrow">Legacy browser-local coordination</p>
               <p className="patient-handoff-panel__scope-text">
-                Found on this device only. Review it before manually copying anything into shared coordination.
+                Found only in this browser profile from an older local workflow. It is not shared in Aura and may be stale or belong to a different clinician.
               </p>
-              {legacyLocalHandoff?.currentHandoff?.summary ? (
-                <p className="patient-handoff-panel__current-summary">
-                  {legacyLocalHandoff.currentHandoff.summary}
-                </p>
-              ) : null}
-              {!legacyLocalHandoff?.currentHandoff?.summary && legacyLatestNote ? (
-                <p className="patient-handoff-panel__current-summary">{legacyLatestNote.text}</p>
+              <p className="muted-text">
+                If any detail is still valid, verify it and re-enter it manually into shared coordination below.
+              </p>
+              {legacyLocalExcerpt ? (
+                <p className="patient-handoff-panel__current-summary">{legacyLocalExcerpt}</p>
               ) : null}
             </div>
             <div className="patient-handoff-panel__scope-facts">
               <span className="patient-handoff-panel__scope-fact">
-                {legacyLocalHandoff?.currentHandoff ? 'Structured local handoff found' : 'No local structured handoff'}
+                {legacyLocalHandoff?.currentHandoff ? 'Structured local handoff found' : 'Local note-only artifact'}
               </span>
               <span className="patient-handoff-panel__scope-fact">
                 {(legacyLocalHandoff?.notes.length ?? 0)}{' '}
                 {(legacyLocalHandoff?.notes.length ?? 0) === 1 ? 'local note' : 'local notes'}
               </span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  discardLegacyPatientHandoffRecord(patientId);
+                }}
+              >
+                Discard local copy
+              </Button>
             </div>
           </section>
         ) : null}

@@ -57,14 +57,12 @@ describe('clearDashboardSessionData', () => {
     expect(window.sessionStorage.getItem(`${CLINICIAN_PROFILE_STORAGE_PREFIX}:clinician-auth-1`)).toBe(
       'profile-session',
     );
-    expect(window.localStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBe(
-      'handoff-local',
-    );
-    expect(window.sessionStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBe(
-      'handoff-session',
-    );
+    expect(window.localStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBeNull();
+    expect(window.sessionStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBeNull();
 
     expect(cleared.local).toContain('clinicianToken');
     expect(cleared.session).toContain('clinicianToken');
+    expect(cleared.local).toContain(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY);
+    expect(cleared.session).toContain(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY);
   });
 });

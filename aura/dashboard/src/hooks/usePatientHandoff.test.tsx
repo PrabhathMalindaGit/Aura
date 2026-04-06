@@ -13,6 +13,8 @@ import {
 import {
   addPatientHandoffNote,
   clearPatientHandoffWorkspaceForTests,
+  discardLegacyPatientHandoffRecord,
+  getPatientHandoffWorkspaceStorageKey,
   savePatientCurrentHandoff,
 } from '../services/patientHandoffWorkspace';
 
@@ -66,6 +68,9 @@ function HandoffMutations({ patientId }: { patientId: string }): JSX.Element {
       <button type="button" onClick={() => addPatientHandoffNote(patientId, 'Reactive note')}>
         Add note
       </button>
+      <button type="button" onClick={() => discardLegacyPatientHandoffRecord(patientId)}>
+        Discard handoff
+      </button>
     </div>
   );
 }
@@ -111,6 +116,37 @@ describe('usePatientHandoff', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('1 notes')).toHaveLength(2);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Discard handoff' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('No handoff')).toHaveLength(2);
+      expect(screen.getAllByText('0 notes')).toHaveLength(2);
+    });
+  });
+
+  it('updates subscribers when the legacy handoff store changes from a storage event', async () => {
+    savePatientCurrentHandoff('patient-42', {
+      summary: 'Cross-tab legacy handoff',
+      nextAction: 'alerts',
+      followUpOwner: { kind: 'unassigned' },
+    });
+
+    render(<HandoffSubscriber patientId="patient-42" label="Subscriber A" />);
+
+    expect(screen.getByText('Cross-tab legacy handoff')).toBeInTheDocument();
+
+    window.localStorage.removeItem(getPatientHandoffWorkspaceStorageKey());
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: getPatientHandoffWorkspaceStorageKey(),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('No handoff')).toBeInTheDocument();
+      expect(screen.getByText('0 notes')).toBeInTheDocument();
     });
   });
 });

@@ -11,6 +11,7 @@ import {
   ASSIGNMENTS_STORAGE_KEY,
   CLINICIAN_ID_STORAGE_KEY,
   CLINICIAN_NAME_STORAGE_KEY,
+  PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY,
   RISK_OVERRIDES_STORAGE_KEY,
   SEEN_ALERTS_STORAGE_PREFIX,
 } from '../utils/storageKeys';
@@ -93,6 +94,8 @@ describe('AppShell session timeout behavior', () => {
     window.localStorage.setItem(RISK_OVERRIDES_STORAGE_KEY, '{}');
     window.localStorage.setItem(CLINICIAN_ID_STORAGE_KEY, 'clinician-1');
     window.localStorage.setItem(CLINICIAN_NAME_STORAGE_KEY, 'Clinician 1');
+    window.localStorage.setItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY, '{"patient-42":{"notes":[]}}');
+    window.sessionStorage.setItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY, '{"patient-42":{"notes":[]}}');
     window.localStorage.setItem('aura_auth_token', 'token-value');
     window.localStorage.setItem('preserve_me', 'yes');
 
@@ -105,6 +108,8 @@ describe('AppShell session timeout behavior', () => {
     expect(window.localStorage.getItem(RISK_OVERRIDES_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem(CLINICIAN_ID_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem(CLINICIAN_NAME_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBeNull();
+    expect(window.sessionStorage.getItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY)).toBeNull();
     expect(window.localStorage.getItem('aura_auth_token')).toBeNull();
     expect(window.localStorage.getItem('preserve_me')).toBe('yes');
     expect(window.localStorage.getItem(getSessionSettingsStorageKey())).not.toBeNull();

@@ -10,10 +10,12 @@ import {
   PATIENT_HANDOFF_LIMITS,
   addPatientHandoffNote,
   clearPatientHandoffWorkspaceForTests,
+  discardLegacyPatientHandoffRecord,
   getPatientHandoffRecord,
   getPatientHandoffWorkspace,
   getPatientHandoffWorkspaceStorageKey,
   savePatientCurrentHandoff,
+  subscribePatientHandoff,
 } from './patientHandoffWorkspace';
 import { clearDashboardSessionData } from '../utils/storageKeys';
 
@@ -197,7 +199,59 @@ describe('patientHandoffWorkspace', () => {
     });
   });
 
-  it('remains visible across normal sign-out and later sign-in on the same browser', () => {
+  it('discards one patient legacy record and keeps other patients intact', () => {
+    signInAs({ sub: 'auth-clinician-a', name: 'Clinician A' });
+
+    savePatientCurrentHandoff('patient-42', {
+      summary: 'Discard this local artifact only.',
+      nextAction: 'appointments',
+      followUpOwner: { kind: 'unassigned' },
+    });
+    addPatientHandoffNote('patient-42', 'Patient 42 local note.');
+    savePatientCurrentHandoff('patient-43', {
+      summary: 'Keep this second local artifact.',
+      nextAction: 'alerts',
+      followUpOwner: { kind: 'unassigned' },
+    });
+
+    const listener = vi.fn();
+    const unsubscribe = subscribePatientHandoff(listener);
+
+    discardLegacyPatientHandoffRecord('patient-42');
+
+    expect(getPatientHandoffRecord('patient-42')).toBeNull();
+    expect(getPatientHandoffRecord('patient-43')?.currentHandoff?.summary).toBe(
+      'Keep this second local artifact.',
+    );
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    const stored = JSON.parse(
+      window.localStorage.getItem(getPatientHandoffWorkspaceStorageKey()) ?? '{}',
+    ) as Record<string, unknown>;
+    expect(stored['patient-42']).toBeUndefined();
+    expect(stored['patient-43']).toBeDefined();
+
+    unsubscribe();
+  });
+
+  it('removes the legacy handoff storage key when the last patient record is discarded', () => {
+    signInAs({ sub: 'auth-clinician-a', name: 'Clinician A' });
+
+    savePatientCurrentHandoff('patient-42', {
+      summary: 'Discard the final legacy artifact.',
+      nextAction: 'appointments',
+      followUpOwner: { kind: 'unassigned' },
+    });
+
+    expect(window.localStorage.getItem(getPatientHandoffWorkspaceStorageKey())).not.toBeNull();
+
+    discardLegacyPatientHandoffRecord('patient-42');
+
+    expect(window.localStorage.getItem(getPatientHandoffWorkspaceStorageKey())).toBeNull();
+    expect(getPatientHandoffWorkspace()).toEqual({});
+  });
+
+  it('is cleared on sign-out and later sign-in on the same browser', () => {
     signInAs({ sub: 'auth-clinician-a', name: 'Clinician A' });
     setClinicianProfile({
       ...getClinicianProfile(),
@@ -217,8 +271,8 @@ describe('patientHandoffWorkspace', () => {
     signInAs({ sub: 'auth-clinician-b', name: 'Clinician B' });
 
     const record = getPatientHandoffRecord('patient-42');
-    expect(record?.currentHandoff?.summary).toBe('Carry this forward on the same browser.');
-    expect(record?.currentHandoff?.updatedBy.authorDisplayName).toBe('Clinician A Saved');
+    expect(record).toBeNull();
+    expect(window.localStorage.getItem(getPatientHandoffWorkspaceStorageKey())).toBeNull();
   });
 
   it('keeps note history bounded per patient and prunes the overall patient map by recency', () => {

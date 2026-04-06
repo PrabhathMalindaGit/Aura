@@ -20,7 +20,6 @@ import type {
   DashboardCommunicationOverviewItem,
   WorklistRecord,
 } from '../types/models';
-import { clearDashboardSessionData } from '../utils/storageKeys';
 import { createPatientEntryState } from '../utils/patientEntryContext';
 import { CommunicationPage } from './CommunicationPage';
 import { PatientDetailPage } from './PatientDetailPage';
@@ -1780,27 +1779,103 @@ describe('PatientDetailPage', () => {
       followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
     });
 
-    clearDashboardSessionData();
-    signInAs({ sub: 'auth-clinician-2', name: 'Dr Patel' });
-
     renderPatientDetail();
 
     const prioritySupport = await screen.findByTestId('patient-detail-priority-support');
     expect(within(prioritySupport).queryByText('Current handoff')).not.toBeInTheDocument();
+    expect(
+      within(prioritySupport).queryByText('Browser-local continuity should remain visible only as a warning.'),
+    ).not.toBeInTheDocument();
 
     const user = userEvent.setup();
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     const handoffPanel = await screen.findByTestId('patient-handoff-panel');
-    const legacyPreview = within(handoffPanel).getByTestId('patient-handoff-legacy-preview');
+    const legacyWarning = within(handoffPanel).getByTestId('patient-handoff-legacy-warning');
+    const summaryField = within(handoffPanel).getByLabelText('Handoff summary');
     expect(
-      within(legacyPreview).getByText('Browser-local continuity should remain visible only as a warning.'),
+      within(legacyWarning).getByText('Browser-local continuity should remain visible only as a warning.'),
     ).toBeInTheDocument();
     expect(
-      within(legacyPreview).getByText(
-        'Found on this device only. Review it before manually copying anything into shared coordination.',
+      within(legacyWarning).getByText(
+        'Found only in this browser profile from an older local workflow. It is not shared in Aura and may be stale or belong to a different clinician.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(legacyWarning).getByText(
+        'If any detail is still valid, verify it and re-enter it manually into shared coordination below.',
       ),
     ).toBeInTheDocument();
     expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
+    expect(summaryField).toHaveValue('');
+
+    await user.click(within(legacyWarning).getByRole('button', { name: 'Discard local copy' }));
+
+    await waitFor(() => {
+      expect(within(handoffPanel).queryByTestId('patient-handoff-legacy-warning')).not.toBeInTheDocument();
+    });
+    expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
+    expect(summaryField).toHaveValue('');
+  });
+
+  it('keeps shared coordination authoritative when a legacy local artifact also exists', async () => {
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: {
+            summary: 'Shared coordination summary stays authoritative.',
+            nextStep: 'plan',
+            followUpOwner: {
+              kind: 'clinician',
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+          },
+        }),
+      },
+    });
+    savePatientCurrentHandoff(patientId, {
+      summary: 'Legacy local note should stay quarantined.',
+      nextAction: 'appointments',
+      followUpOwner: { kind: 'self', clinicianId: '', authorDisplayName: '' },
+    });
+
+    renderPatientDetail();
+
+    const user = userEvent.setup();
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    const sharedCurrent = within(handoffPanel).getByTestId('patient-handoff-current');
+    const legacyWarning = within(handoffPanel).getByTestId('patient-handoff-legacy-warning');
+
+    expect(
+      within(sharedCurrent).getByText('Shared coordination summary stays authoritative.'),
+    ).toBeInTheDocument();
+    expect(
+      within(legacyWarning).getByText('Legacy local note should stay quarantined.'),
+    ).toBeInTheDocument();
+    expect(within(handoffPanel).getByLabelText('Handoff summary')).toHaveValue(
+      'Shared coordination summary stays authoritative.',
+    );
+
+    await user.click(within(legacyWarning).getByRole('button', { name: 'Discard local copy' }));
+
+    await waitFor(() => {
+      expect(within(handoffPanel).queryByTestId('patient-handoff-legacy-warning')).not.toBeInTheDocument();
+    });
+    expect(
+      within(handoffPanel).getByTestId('patient-handoff-current'),
+    ).toBeInTheDocument();
+    expect(
+      within(sharedCurrent).getByText('Shared coordination summary stays authoritative.'),
+    ).toBeInTheDocument();
+    expect(within(handoffPanel).getByLabelText('Handoff summary')).toHaveValue(
+      'Shared coordination summary stays authoritative.',
+    );
   });
 
   it('renders calm empty states for communication, tasks, and appointments when no follow-up exists', async () => {

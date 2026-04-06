@@ -379,7 +379,11 @@ function writeWorkspaceMap(nextMap: PatientHandoffWorkspaceMap, patientId?: stri
 
   if (isBrowser()) {
     try {
-      window.localStorage.setItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY, JSON.stringify(pruned));
+      if (Object.keys(pruned).length === 0) {
+        window.localStorage.removeItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(PATIENT_HANDOFF_WORKSPACE_STORAGE_KEY, JSON.stringify(pruned));
+      }
     } catch {
       // Ignore storage failures so patient review remains usable.
     }
@@ -429,6 +433,22 @@ export function getPatientHandoffRecord(patientId: string): PatientHandoffRecord
   }
 
   return getWorkspaceSnapshot()[normalizedPatientId] ?? null;
+}
+
+export function discardLegacyPatientHandoffRecord(patientId: string): void {
+  const normalizedPatientId = normalizePatientId(patientId);
+  if (!normalizedPatientId) {
+    return;
+  }
+
+  const currentMap = getWorkspaceSnapshot();
+  if (!currentMap[normalizedPatientId]) {
+    return;
+  }
+
+  const nextMap: PatientHandoffWorkspaceMap = { ...currentMap };
+  delete nextMap[normalizedPatientId];
+  writeWorkspaceMap(nextMap, normalizedPatientId);
 }
 
 export function getLatestPatientHandoffNote(

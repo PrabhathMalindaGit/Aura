@@ -20,6 +20,7 @@ import type {
   DashboardCommunicationOverviewItem,
   WorklistRecord,
 } from '../types/models';
+import { formatDashboardDateTime } from '../utils/dashboard';
 import { createPatientEntryState } from '../utils/patientEntryContext';
 import { CommunicationPage } from './CommunicationPage';
 import { PatientDetailPage } from './PatientDetailPage';
@@ -1267,11 +1268,14 @@ describe('PatientDetailPage', () => {
     triggerResizeObserver(patientDetailPage as Element, 1200);
 
     const prioritySupport = await screen.findByLabelText('Priority patient support context');
+    const exactTimestamp = formatDashboardDateTime(`${TODAY_KEY}T10:45:00.000Z`);
 
     expect(
       await within(prioritySupport).findByText('Escalate into plan review before the next patient contact.'),
     ).toBeInTheDocument();
     expect(await within(prioritySupport).findByRole('button', { name: 'Open plan' })).toBeInTheDocument();
+    expect(within(prioritySupport).getByText('Saved by Dr Elena Hall')).toBeInTheDocument();
+    expect(within(prioritySupport).getByText(exactTimestamp)).toBeInTheDocument();
 
     await openPatientWorkspaceTab(user, 'Communications & Notes');
     expect(screen.getByTestId('patient-handoff-panel')).toBeInTheDocument();
@@ -1561,6 +1565,10 @@ describe('PatientDetailPage', () => {
         'Saved in Aura for team-visible coordination across clinician sessions and devices.',
       ),
     ).toBeInTheDocument();
+    const noteHistory = within(handoffPanel).getByRole('region', { name: 'Shared coordination note history' });
+    expect(within(noteHistory).getAllByText('No shared notes yet').length).toBeGreaterThan(0);
+    const latestActivity = within(handoffPanel).getByRole('region', { name: 'Latest shared coordination activity' });
+    expect(within(latestActivity).getAllByText('No shared activity yet').length).toBeGreaterThan(0);
 
     const nextStepSelect = within(handoffPanel).getByLabelText('Recommended next step');
     expect(within(nextStepSelect).getByRole('option', { name: 'Continue monitoring' })).toBeInTheDocument();
@@ -1612,7 +1620,7 @@ describe('PatientDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
-    expect(within(savedHandoff).getByText('Saved in Aura for the care team.')).toBeInTheDocument();
+    expect(within(savedHandoff).getByText('Updated the current shared handoff.')).toBeInTheDocument();
 
     const sharedNoteField = within(handoffPanel).getByLabelText('Add shared note');
     fireEvent.change(sharedNoteField, {
@@ -1694,9 +1702,10 @@ describe('PatientDetailPage', () => {
       ),
     ).toBeInTheDocument();
     expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
-    expect(
-      within(handoffPanel).getByText('Note history should survive the blank handoff clear.'),
-    ).toBeInTheDocument();
+    const notesSection = within(handoffPanel).getByRole('region', {
+      name: 'Shared coordination note history',
+    });
+    expect(within(notesSection).getByText('Note history should survive the blank handoff clear.')).toBeInTheDocument();
   });
 
   it('preserves form inputs when saving shared coordination fails', async () => {
@@ -1768,7 +1777,56 @@ describe('PatientDetailPage', () => {
     const notesSection = within(handoffPanel).getByRole('region', { name: 'Shared coordination note history' });
     const notesList = within(notesSection).getByRole('list');
     expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
+    expect(within(savedHandoff).getByText(formatDashboardDateTime(`${TODAY_KEY}T10:45:00.000Z`))).toBeInTheDocument();
     expect(within(notesList).getByText('Original clinician note.')).toBeInTheDocument();
+  });
+
+  it('keeps current handoff, latest activity, and note history distinct for note-only shared coordination', async () => {
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: null,
+          noteHistory: [
+            {
+              id: 'coord-note-note-only',
+              text: 'Latest note-only coordination context.',
+              createdBy: {
+                clinicianId: 'coordination-clinician-2',
+                displayName: 'Dr Morgan Shaw',
+              },
+              createdAt: `${TODAY_KEY}T11:05:00.000Z`,
+            },
+          ],
+        }),
+      },
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const patientDetailPage = document.querySelector('.patient-detail-page');
+    expect(patientDetailPage).not.toBeNull();
+    triggerResizeObserver(patientDetailPage as Element, 1200);
+
+    const prioritySupport = await screen.findByLabelText('Priority patient support context');
+    expect(within(prioritySupport).queryByText('Current handoff')).not.toBeInTheDocument();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    expect(within(handoffPanel).queryByTestId('patient-handoff-current')).not.toBeInTheDocument();
+
+    const latestActivity = within(handoffPanel).getByRole('region', {
+      name: 'Latest shared coordination activity',
+    });
+    expect(within(latestActivity).getByText('Latest note-only coordination context.')).toBeInTheDocument();
+    expect(within(latestActivity).getAllByText('Shared coordination note added').length).toBeGreaterThan(0);
+
+    const notesSection = within(handoffPanel).getByRole('region', {
+      name: 'Shared coordination note history',
+    });
+    expect(within(notesSection).getByText('Latest note-only coordination context.')).toBeInTheDocument();
+    expect(within(notesSection).queryByText('Next step')).not.toBeInTheDocument();
+    expect(within(notesSection).queryByText('Follow-up owner')).not.toBeInTheDocument();
   });
 
   it('shows legacy browser-local handoff as a warning without promoting it into shared truth', async () => {

@@ -34,9 +34,9 @@ import {
   type CommunicationThreadView,
 } from '../services/communicationWorkspace';
 import {
+  getClinicianCoordinationLatestActivity,
   getClinicianCoordinationFollowUpOwnerLabel,
   getClinicianCoordinationNextStepLabel,
-  getLatestClinicianCoordinationNote,
 } from '../utils/clinicianCoordination';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
 import { toUserMessage } from '../utils/errors';
@@ -270,8 +270,8 @@ export function CommunicationPage(): JSX.Element {
   const activePatientCoordination = activePatientCoordinationQuery.data ?? null;
   const activePatientCurrentHandoff = activePatientCoordination?.currentHandoff ?? null;
   const activePatientCoordinationNotes = activePatientCoordination?.noteHistory ?? [];
-  const latestPatientCoordinationNote = useMemo(
-    () => getLatestClinicianCoordinationNote(activePatientCoordination),
+  const latestSharedCoordinationActivity = useMemo(
+    () => getClinicianCoordinationLatestActivity(activePatientCoordination),
     [activePatientCoordination],
   );
   const recentSharedCoordinationNotes = useMemo(
@@ -909,7 +909,7 @@ export function CommunicationPage(): JSX.Element {
                             )
                           }
                         >
-                          Edit shared handoff in Patient Detail
+                          Open structured coordination in Patient Detail
                         </Button>
                       </div>
                     </div>
@@ -958,25 +958,23 @@ export function CommunicationPage(): JSX.Element {
                         >
                           <div className="inbox-handoff__head">
                             <Badge variant="neutral">
-                              {activePatientCurrentHandoff ? 'Current shared handoff' : 'No current shared handoff'}
+                              {activePatientCurrentHandoff
+                                ? 'Current shared handoff'
+                                : 'No current shared handoff'}
                             </Badge>
                           </div>
                           {activePatientCurrentHandoff?.summary ? (
                             <p className="inbox-handoff__summary">
                               {activePatientCurrentHandoff.summary}
                             </p>
-                          ) : latestPatientCoordinationNote ? (
-                            <p className="inbox-handoff__summary">
-                              {truncateText(latestPatientCoordinationNote.text, 180).text}
-                            </p>
                           ) : (
-                            <p className="inbox-handoff__summary">No current shared handoff yet.</p>
+                            <p className="inbox-handoff__summary">No current shared handoff saved.</p>
                           )}
                           <p className="inbox-handoff__note">
                             {activePatientCurrentHandoff
                               ? 'Read-only here. Use Patient Detail for structured handoff editing.'
-                              : latestPatientCoordinationNote
-                                ? 'No current shared handoff is saved. Shared notes below still stay visible to the care team.'
+                              : latestSharedCoordinationActivity
+                                ? 'No current shared handoff is saved. The latest shared activity still stays visible below.'
                                 : 'Add the first shared note below if the care team needs patient-scoped context now.'}
                           </p>
                           <dl className="communication-page__handoff-facts">
@@ -1000,40 +998,90 @@ export function CommunicationPage(): JSX.Element {
                                 </div>
                               </>
                             ) : null}
-                            <div>
-                              <dt>
-                                {activePatientCurrentHandoff ? 'Updated by' : 'Latest shared note by'}
-                              </dt>
-                              <dd>
-                                {activePatientCurrentHandoff
-                                  ? activePatientCurrentHandoff.updatedBy.displayName
-                                  : latestPatientCoordinationNote?.createdBy.displayName ?? '—'}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>{activePatientCurrentHandoff ? 'Updated' : 'Latest shared note'}</dt>
-                              <dd>
-                                {activePatientCurrentHandoff?.updatedAt ||
-                                latestPatientCoordinationNote?.createdAt ? (
-                                  <span
-                                    title={formatDashboardDateTime(
-                                      activePatientCurrentHandoff?.updatedAt ??
-                                        latestPatientCoordinationNote?.createdAt ??
-                                        '',
-                                    )}
-                                  >
-                                    {formatDashboardRelativeTime(
-                                      activePatientCurrentHandoff?.updatedAt ??
-                                        latestPatientCoordinationNote?.createdAt ??
-                                        new Date(0).toISOString(),
-                                    )}
-                                  </span>
-                                ) : (
-                                  '—'
-                                )}
-                              </dd>
-                            </div>
+                            {activePatientCurrentHandoff ? (
+                              <>
+                                <div>
+                                  <dt>Updated by</dt>
+                                  <dd>{activePatientCurrentHandoff.updatedBy.displayName}</dd>
+                                </div>
+                                <div>
+                                  <dt>Updated</dt>
+                                  <dd>
+                                    <span title={formatDashboardDateTime(activePatientCurrentHandoff.updatedAt)}>
+                                      {formatDashboardDateTime(activePatientCurrentHandoff.updatedAt)}
+                                    </span>
+                                  </dd>
+                                </div>
+                              </>
+                            ) : null}
                           </dl>
+                        </section>
+
+                        <section
+                          className="inbox-handoff__activity"
+                          aria-label="Latest shared coordination activity"
+                        >
+                          <div className="inbox-handoff__form-heading">
+                            <div>
+                              <p className="inbox-handoff__eyebrow">Latest shared activity</p>
+                              <h4 className="inbox-handoff__form-title">Most recent team-visible update</h4>
+                            </div>
+                            <span className="inbox-handoff__form-side">
+                              {latestSharedCoordinationActivity
+                                ? latestSharedCoordinationActivity.label
+                                : 'No shared activity yet'}
+                            </span>
+                          </div>
+                          {latestSharedCoordinationActivity ? (
+                            <article className="inbox-handoff__note-item inbox-handoff__note-item--activity">
+                              <div className="inbox-handoff__note-meta">
+                                <div className="inbox-handoff__note-author">
+                                  <ClinicianAvatar
+                                    identity={{
+                                      displayName: latestSharedCoordinationActivity.author.displayName,
+                                      initials: getClinicianInitials(
+                                        latestSharedCoordinationActivity.author.displayName,
+                                        latestSharedCoordinationActivity.author.clinicianId,
+                                      ),
+                                      photo: null,
+                                    }}
+                                    decorative
+                                    size="sm"
+                                  />
+                                  <div className="inbox-handoff__note-author-copy">
+                                    <strong>{latestSharedCoordinationActivity.author.displayName}</strong>
+                                    <span>{latestSharedCoordinationActivity.label}</span>
+                                  </div>
+                                </div>
+                                <div className="inbox-handoff__activity-meta">
+                                  <time
+                                    className="inbox-handoff__note-time"
+                                    dateTime={latestSharedCoordinationActivity.timestamp}
+                                    title={formatDashboardDateTime(latestSharedCoordinationActivity.timestamp)}
+                                  >
+                                    {formatDashboardDateTime(latestSharedCoordinationActivity.timestamp)}
+                                  </time>
+                                  <span className="inbox-handoff__note-time">
+                                    {latestSharedCoordinationActivity.kind === 'handoff' ? 'Updated' : 'Added'}{' '}
+                                    {formatDashboardRelativeTime(latestSharedCoordinationActivity.timestamp)}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="inbox-handoff__note-text">
+                                {truncateText(
+                                  latestSharedCoordinationActivity.text || 'No summary saved.',
+                                  180,
+                                ).text}
+                              </p>
+                            </article>
+                          ) : (
+                            <div className="inbox-handoff__empty-state">
+                              <p className="inbox-handoff__summary">No shared activity yet.</p>
+                              <p className="inbox-handoff__note">
+                                Shared activity appears here after the care team saves a handoff or appends a note.
+                              </p>
+                            </div>
+                          )}
                         </section>
 
                         <form

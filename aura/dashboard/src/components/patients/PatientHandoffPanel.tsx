@@ -24,6 +24,7 @@ import { asAppError, toUserMessage } from '../../utils/errors';
 import {
   buildClinicianCoordinationFollowUpOwner,
   CLINICIAN_COORDINATION_NEXT_STEP_OPTIONS,
+  getClinicianCoordinationLatestActivity,
   getClinicianCoordinationActionButtonLabel,
   getClinicianCoordinationFollowUpOwnerLabel,
   getClinicianCoordinationNextStepLabel,
@@ -62,6 +63,10 @@ export function PatientHandoffPanel({
   const coordinationRecord = coordinationQuery.data ?? null;
   const currentHandoff = coordinationRecord?.currentHandoff ?? null;
   const notes = coordinationRecord?.noteHistory ?? [];
+  const latestSharedActivity = useMemo(
+    () => getClinicianCoordinationLatestActivity(coordinationRecord),
+    [coordinationRecord],
+  );
   const legacyLatestNote = useMemo(
     () => getLatestPatientHandoffNote(legacyLocalHandoff),
     [legacyLocalHandoff],
@@ -242,13 +247,8 @@ export function PatientHandoffPanel({
           >
             <div className="patient-handoff-panel__current-copy">
               <div className="patient-handoff-panel__current-meta">
-                <Badge variant="neutral">Shared handoff</Badge>
-                <span
-                  className="muted-text"
-                  title={formatDashboardDateTime(currentHandoff.updatedAt)}
-                >
-                  Updated {formatDashboardRelativeTime(currentHandoff.updatedAt)}
-                </span>
+                <Badge variant="neutral">Current shared handoff</Badge>
+                <span className="muted-text">Structured team-visible context</span>
               </div>
               {currentHandoff.summary ? (
                 <p className="patient-handoff-panel__current-summary">{currentHandoff.summary}</p>
@@ -284,7 +284,15 @@ export function PatientHandoffPanel({
                 />
                 <div className="patient-handoff-panel__attribution-copy">
                   <strong>{currentHandoff.updatedBy.displayName}</strong>
-                  <span>Saved in Aura for the care team.</span>
+                  <span>Updated the current shared handoff.</span>
+                  <time
+                    className="patient-handoff-panel__meta-timestamp"
+                    dateTime={currentHandoff.updatedAt}
+                    title={formatDashboardDateTime(currentHandoff.updatedAt)}
+                  >
+                    {formatDashboardDateTime(currentHandoff.updatedAt)}
+                  </time>
+                  <span>Updated {formatDashboardRelativeTime(currentHandoff.updatedAt)}</span>
                 </div>
               </div>
               {currentHandoff.nextStep !== 'monitoring' ? (
@@ -299,6 +307,68 @@ export function PatientHandoffPanel({
             </div>
           </section>
         ) : null}
+
+        <section
+          className="patient-handoff-panel__activity"
+          aria-label="Latest shared coordination activity"
+        >
+          <div className="patient-handoff-panel__form-heading">
+            <div>
+              <p className="patient-handoff-panel__form-eyebrow">Latest shared activity</p>
+              <h3 className="patient-handoff-panel__form-title">Most recent team-visible update</h3>
+            </div>
+            <span className="muted-text">
+              {latestSharedActivity ? latestSharedActivity.label : 'No shared activity yet'}
+            </span>
+          </div>
+          {latestSharedActivity ? (
+            <article className="patient-handoff-panel__note-item patient-handoff-panel__note-item--activity">
+              <div className="patient-handoff-panel__note-header">
+                <div className="patient-handoff-panel__attribution">
+                  <ClinicianAvatar
+                    identity={{
+                      displayName: latestSharedActivity.author.displayName,
+                      initials: getClinicianInitials(
+                        latestSharedActivity.author.displayName,
+                        latestSharedActivity.author.clinicianId,
+                      ),
+                      photo: null,
+                    }}
+                    decorative
+                    size="sm"
+                  />
+                  <div className="patient-handoff-panel__attribution-copy">
+                    <strong>{latestSharedActivity.author.displayName}</strong>
+                    <span>{latestSharedActivity.label}</span>
+                  </div>
+                </div>
+                <div className="patient-handoff-panel__activity-meta">
+                  <time
+                    className="patient-handoff-panel__note-time"
+                    dateTime={latestSharedActivity.timestamp}
+                    title={formatDashboardDateTime(latestSharedActivity.timestamp)}
+                  >
+                    {formatDashboardDateTime(latestSharedActivity.timestamp)}
+                  </time>
+                  <span className="patient-handoff-panel__note-time">
+                    {latestSharedActivity.kind === 'handoff' ? 'Updated' : 'Added'}{' '}
+                    {formatDashboardRelativeTime(latestSharedActivity.timestamp)}
+                  </span>
+                </div>
+              </div>
+              <p className="patient-handoff-panel__note-text">
+                {latestSharedActivity.text || 'No summary saved. Shared coordination still records the latest update.'}
+              </p>
+            </article>
+          ) : (
+            <div className="patient-handoff-panel__empty-history">
+              <p className="patient-handoff-panel__empty-history-title">No shared activity yet</p>
+              <p className="muted-text">
+                Save a current handoff or append a shared note when the care team needs patient-scoped context.
+              </p>
+            </div>
+          )}
+        </section>
 
         <section className="patient-handoff-panel__scope-note" aria-label="Shared coordination scope">
           <div className="patient-handoff-panel__scope-copy">
@@ -522,51 +592,67 @@ export function PatientHandoffPanel({
           </div>
         </form>
 
-        {notes.length > 0 ? (
-          <section className="patient-handoff-panel__notes-list" aria-label="Shared coordination note history">
-            <div className="patient-handoff-panel__form-heading">
-              <div>
-                <p className="patient-handoff-panel__form-eyebrow">Recent coordination notes</p>
-                <h3 className="patient-handoff-panel__form-title">Shared note history</h3>
-              </div>
-              <span className="muted-text">
-                Showing the {notes.length} most recent {notes.length === 1 ? 'note' : 'notes'}.
-              </span>
+        <section className="patient-handoff-panel__notes-list" aria-label="Shared coordination note history">
+          <div className="patient-handoff-panel__form-heading">
+            <div>
+              <p className="patient-handoff-panel__form-eyebrow">Shared note history</p>
+              <h3 className="patient-handoff-panel__form-title">Append-only coordination notes</h3>
             </div>
+            <span className="muted-text">
+              {notes.length > 0
+                ? `Showing the ${notes.length} most recent ${notes.length === 1 ? 'note' : 'notes'}.`
+                : 'No shared notes yet'}
+            </span>
+          </div>
+          {notes.length > 0 ? (
             <div className="patient-handoff-panel__note-list" role="list">
               {notes.map((note) => (
                 <article key={note.id} className="patient-handoff-panel__note-item" role="listitem">
-                  <div className="patient-handoff-panel__attribution">
-                    <ClinicianAvatar
-                      identity={{
-                        displayName: note.createdBy.displayName,
-                        initials: getClinicianInitials(
-                          note.createdBy.displayName,
-                          note.createdBy.clinicianId,
-                        ),
-                        photo: null,
-                      }}
-                      decorative
-                      size="sm"
-                    />
-                    <div className="patient-handoff-panel__attribution-copy">
-                      <strong>{note.createdBy.displayName}</strong>
-                      <span>Shared coordination note</span>
+                  <div className="patient-handoff-panel__note-header">
+                    <div className="patient-handoff-panel__attribution">
+                      <ClinicianAvatar
+                        identity={{
+                          displayName: note.createdBy.displayName,
+                          initials: getClinicianInitials(
+                            note.createdBy.displayName,
+                            note.createdBy.clinicianId,
+                          ),
+                          photo: null,
+                        }}
+                        decorative
+                        size="sm"
+                      />
+                      <div className="patient-handoff-panel__attribution-copy">
+                        <strong>{note.createdBy.displayName}</strong>
+                        <span>Shared coordination note</span>
+                      </div>
+                    </div>
+                    <div className="patient-handoff-panel__activity-meta">
+                      <time
+                        className="patient-handoff-panel__note-time"
+                        dateTime={note.createdAt}
+                        title={formatDashboardDateTime(note.createdAt)}
+                      >
+                        {formatDashboardDateTime(note.createdAt)}
+                      </time>
+                      <span className="patient-handoff-panel__note-time">
+                        Added {formatDashboardRelativeTime(note.createdAt)}
+                      </span>
                     </div>
                   </div>
-                  <time
-                    className="patient-handoff-panel__note-time"
-                    dateTime={note.createdAt}
-                    title={formatDashboardDateTime(note.createdAt)}
-                  >
-                    {formatDashboardRelativeTime(note.createdAt)}
-                  </time>
                   <p className="patient-handoff-panel__note-text">{note.text}</p>
                 </article>
               ))}
             </div>
-          </section>
-        ) : null}
+          ) : (
+            <div className="patient-handoff-panel__empty-history">
+              <p className="patient-handoff-panel__empty-history-title">No shared notes yet</p>
+              <p className="muted-text">
+                Shared notes appear here after the care team appends context for later review.
+              </p>
+            </div>
+          )}
+        </section>
       </div>
     </Card>
   );

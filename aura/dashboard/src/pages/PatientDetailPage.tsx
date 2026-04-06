@@ -2342,10 +2342,19 @@ export function PatientDetailPage(): JSX.Element {
         }
       >
         <div className="patient-detail-priority-support__handoff-body">
-          <p
-            className="patient-detail-priority-support__handoff-meta"
-            title={formatDashboardDateTime(currentHandoff.updatedAt)}
-          >
+          <div className="patient-detail-priority-support__handoff-meta-row">
+            <p className="patient-detail-priority-support__handoff-meta">
+              Saved by {currentHandoff.updatedBy.displayName}
+            </p>
+            <time
+              className="patient-detail-priority-support__handoff-time"
+              dateTime={currentHandoff.updatedAt}
+              title={formatDashboardDateTime(currentHandoff.updatedAt)}
+            >
+              {formatDashboardDateTime(currentHandoff.updatedAt)}
+            </time>
+          </div>
+          <p className="patient-detail-priority-support__handoff-submeta">
             Updated {formatDashboardRelativeTime(currentHandoff.updatedAt)}
           </p>
           <p className="patient-detail-priority-support__handoff-summary">

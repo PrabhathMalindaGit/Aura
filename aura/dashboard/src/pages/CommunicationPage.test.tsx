@@ -686,11 +686,14 @@ afterEach(() => {
     ).toBeInTheDocument();
     expect(
       await within(coordinationContext).findByRole('button', {
-        name: 'Edit shared handoff in Patient Detail',
+        name: 'Open structured coordination in Patient Detail',
       }),
     ).toBeInTheDocument();
     expect(
       await within(coordinationContext).findByLabelText('Add shared coordination note'),
+    ).toBeInTheDocument();
+    expect(
+      within(coordinationContext).getByRole('region', { name: 'Latest shared coordination activity' }),
     ).toBeInTheDocument();
     expect((await within(coordinationContext).findAllByText('Dr Elena Hall')).length).toBeGreaterThan(0);
     expect(
@@ -701,7 +704,7 @@ afterEach(() => {
 
     await user.click(
       within(coordinationContext).getByRole('button', {
-        name: 'Edit shared handoff in Patient Detail',
+        name: 'Open structured coordination in Patient Detail',
       }),
     );
 
@@ -778,16 +781,23 @@ afterEach(() => {
     const snapshot = await within(coordinationContext).findByRole('region', {
       name: 'Current shared coordination snapshot',
     });
+    const latestActivity = await within(coordinationContext).findByRole('region', {
+      name: 'Latest shared coordination activity',
+    });
     const recentNotes = await within(coordinationContext).findByRole('region', {
       name: 'Recent shared coordination notes',
     });
+    expect(await within(snapshot).findByText('No current shared handoff saved.')).toBeInTheDocument();
     expect(
-      await within(snapshot).findByText('Latest shared coordination note for the next review pass.'),
+      within(snapshot).queryByText('Latest shared coordination note for the next review pass.'),
+    ).not.toBeInTheDocument();
+    expect(
+      await within(latestActivity).findByText('Latest shared coordination note for the next review pass.'),
     ).toBeInTheDocument();
+    expect(within(latestActivity).getAllByText('Shared coordination note added').length).toBeGreaterThan(0);
     expect(
       within(recentNotes).getByText('Latest shared coordination note for the next review pass.'),
     ).toBeInTheDocument();
-    expect(within(coordinationContext).getByText('Latest shared note by')).toBeInTheDocument();
     expect(within(coordinationContext).queryByText('Next step')).not.toBeInTheDocument();
     expect(within(coordinationContext).queryByText('Follow-up owner')).not.toBeInTheDocument();
     expect(within(coordinationContext).getByLabelText('Add shared coordination note')).toBeInTheDocument();
@@ -797,15 +807,18 @@ afterEach(() => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    expect(await within(coordinationContext).findByText('No current shared handoff yet.')).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('No current shared handoff saved.')).toBeInTheDocument();
     expect(
       await within(coordinationContext).findByLabelText('Add shared coordination note'),
     ).toBeInTheDocument();
     expect(
       await within(coordinationContext).findByRole('button', {
-        name: 'Edit shared handoff in Patient Detail',
+        name: 'Open structured coordination in Patient Detail',
       }),
     ).toBeInTheDocument();
+    expect(
+      within(coordinationContext).getByRole('region', { name: 'Latest shared coordination activity' }),
+    ).toHaveTextContent('No shared activity yet');
   });
 
   it('preserves the personal draft when adding a shared note fails', async () => {
@@ -921,7 +934,7 @@ afterEach(() => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    expect(await within(coordinationContext).findByText('No current shared handoff yet.')).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('No current shared handoff saved.')).toBeInTheDocument();
     expect(
       within(coordinationContext).queryByText('Legacy local handoff should not appear as shared inbox context.'),
     ).not.toBeInTheDocument();
@@ -964,10 +977,12 @@ afterEach(() => {
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
     expect(coordinationContext).toBeInTheDocument();
     expect(
-      await within(coordinationContext).findByText(
-        'This shared note should not appear as a timeline message.',
-      ),
-    ).toBeInTheDocument();
+      (
+        await within(coordinationContext).findAllByText(
+          'This shared note should not appear as a timeline message.',
+        )
+      ).length,
+    ).toBeGreaterThan(0);
 
     const timeline = screen.getByRole('list', { name: 'Patient communication timeline' });
     expect(within(timeline).getByText('Pain is much worse after exercise today.')).toBeInTheDocument();

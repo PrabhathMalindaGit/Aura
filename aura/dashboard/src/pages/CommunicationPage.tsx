@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -13,6 +13,7 @@ import { useNotificationPreferences } from '../hooks/useNotificationPreferences'
 import { getSavedCommunicationFilter } from '../services/clinicianWorkspacePreferences';
 import {
   useDashboardCommunicationOverview,
+  useAppendPatientCoordinationNote,
   usePatientCoordination,
 } from '../services/clinicianApi';
 import {
@@ -157,6 +158,9 @@ export function CommunicationPage(): JSX.Element {
   const [localState, setLocalState] = useState(() => readCommunicationWorkspaceLocalState(communicationScopeKey));
   const [draftReply, setDraftReply] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [sharedNoteDraft, setSharedNoteDraft] = useState('');
+  const [sharedNoteNotice, setSharedNoteNotice] = useState<string | null>(null);
+  const [sharedNoteError, setSharedNoteError] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadView, setSelectedThreadView] = useState<CommunicationThreadView | null>(null);
   const hasInitializedSelectionRef = useRef(false);
@@ -259,11 +263,20 @@ export function CommunicationPage(): JSX.Element {
     [filteredThreads, selectedThread, selectedThreadId, shouldKeepSelectedThreadVisible],
   );
   const activePatientId = activeThread?.validPatientId ? activeThread.patientId : null;
+  const appendSharedCoordinationNoteMutation = useAppendPatientCoordinationNote(
+    activePatientId ?? '',
+  );
   const activePatientCoordinationQuery = usePatientCoordination(activePatientId);
   const activePatientCoordination = activePatientCoordinationQuery.data ?? null;
+  const activePatientCurrentHandoff = activePatientCoordination?.currentHandoff ?? null;
+  const activePatientCoordinationNotes = activePatientCoordination?.noteHistory ?? [];
   const latestPatientCoordinationNote = useMemo(
     () => getLatestClinicianCoordinationNote(activePatientCoordination),
     [activePatientCoordination],
+  );
+  const recentSharedCoordinationNotes = useMemo(
+    () => activePatientCoordinationNotes.slice(0, 3),
+    [activePatientCoordinationNotes],
   );
   const activeThreadId = activeThread?.id ?? null;
   const activeThreadCanSeedSignature = Boolean(activeThread?.validPatientId);
@@ -309,6 +322,12 @@ export function CommunicationPage(): JSX.Element {
 
     setDraftReply(shouldSeedSignature ? nextAuthoring.defaultSignature : '');
   }, [activeThreadCanSeedSignature, activeThreadId]);
+
+  useEffect(() => {
+    setSharedNoteDraft('');
+    setSharedNoteNotice(null);
+    setSharedNoteError(null);
+  }, [activePatientId]);
 
   const selectedTemplate = useMemo(
     () =>
@@ -394,6 +413,36 @@ export function CommunicationPage(): JSX.Element {
 
     setDraftReply((current) =>
       insertSignatureIntoDraft(current, communicationAuthoring.defaultSignature),
+    );
+  }
+
+  function handleAddSharedNote(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    setSharedNoteNotice(null);
+    setSharedNoteError(null);
+
+    if (!activePatientId) {
+      return;
+    }
+
+    if (sharedNoteDraft.trim().length === 0) {
+      setSharedNoteError('Add a short shared coordination note before saving.');
+      return;
+    }
+
+    appendSharedCoordinationNoteMutation.mutate(
+      { text: sharedNoteDraft },
+      {
+        onSuccess: () => {
+          setSharedNoteDraft('');
+          setSharedNoteError(null);
+          setSharedNoteNotice('Shared coordination note added for the care team.');
+        },
+        onError: (error) => {
+          setSharedNoteNotice(null);
+          setSharedNoteError(toUserMessage(error));
+        },
+      },
     );
   }
 
@@ -737,7 +786,7 @@ export function CommunicationPage(): JSX.Element {
               </section>
 
               <section className="inbox-composer">
-                <h3 className="inbox-composer__title">Clinician reply</h3>
+                <h3 className="inbox-composer__title">Personal reply draft</h3>
                 <div className="communication-page__composer">
                   <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
                     <label
@@ -794,12 +843,12 @@ export function CommunicationPage(): JSX.Element {
                       </div>
                     </div>
                     <p className="communication-page__composer-truth">
-                      Replies are stored only in this browser for the current clinician during this foundation pass.
+                      Local to this browser for this clinician. Not sent from Aura and not shared with the care team.
                     </p>
                   </div>
 
                   <label className="form-field communication-page__composer-field">
-                    <span>Clinician reply</span>
+                    <span>Personal reply draft</span>
                     <textarea
                       value={draftReply}
                       onChange={(event) => {
@@ -826,10 +875,10 @@ export function CommunicationPage(): JSX.Element {
               <section className="inbox-support" aria-label="Communication support context">
                 <div className="inbox-support__note">
                   <p className="inbox-support__text">
-                    This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.
+                    This timeline is limited to patient communication plus local clinician replies saved in this browser.
                   </p>
                   <p className="inbox-support__subtext">
-                    Shared coordination appears below and is saved in Aura for the care team.
+                    Shared coordination below is team-visible Aura context and never appears as a message bubble or sent history in this timeline.
                   </p>
                 </div>
 
@@ -839,19 +888,46 @@ export function CommunicationPage(): JSX.Element {
                     aria-label="Shared clinician coordination"
                     data-testid="communication-shared-coordination"
                   >
-                    {activePatientCoordinationQuery.isLoading &&
-                    activePatientCoordinationQuery.data === undefined ? (
+                    <div className="inbox-handoff__header">
                       <div className="inbox-handoff__copy">
                         <div className="inbox-handoff__head">
                           <Badge variant="neutral">Shared coordination</Badge>
+                          <span className="inbox-handoff__eyebrow">Team-visible in Aura</span>
                         </div>
+                        <h3 className="inbox-handoff__title">Shared care-team coordination</h3>
+                        <p className="inbox-handoff__note">
+                          Shared in Aura for the care team across clinician sessions and devices. It stays separate from personal reply drafts and the patient message timeline.
+                        </p>
+                      </div>
+                      <div className="inbox-handoff__actions">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            navigate(
+                              `/patients/${encodeURIComponent(activeThread.patientId)}/communications`,
+                            )
+                          }
+                        >
+                          Edit shared handoff in Patient Detail
+                        </Button>
+                      </div>
+                    </div>
+
+                    {activePatientCoordinationQuery.isLoading &&
+                    activePatientCoordinationQuery.data === undefined ? (
+                      <div
+                        className="inbox-handoff__loading"
+                        aria-label="Shared coordination loading"
+                      >
                         <Skeleton height={18} />
-                        <Skeleton height={18} />
+                        <Skeleton height={72} />
+                        <Skeleton height={120} />
                       </div>
                     ) : activePatientCoordinationQuery.isError &&
                       activePatientCoordination === null ? (
                       <>
-                        <div className="inbox-handoff__copy">
+                        <div className="inbox-handoff__state inbox-handoff__state--error">
                           <div className="inbox-handoff__head">
                             <Badge variant="warning">Shared coordination unavailable</Badge>
                           </div>
@@ -859,7 +935,7 @@ export function CommunicationPage(): JSX.Element {
                             {toUserMessage(activePatientCoordinationQuery.error)}
                           </p>
                           <p className="inbox-handoff__note">
-                            Local reply drafts are unaffected and stay in this browser.
+                            Personal reply drafts stay local to this browser while shared coordination reloads.
                           </p>
                         </div>
                         <div className="inbox-handoff__actions">
@@ -872,38 +948,45 @@ export function CommunicationPage(): JSX.Element {
                           >
                             Retry
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
-                          >
-                            Open patient
-                          </Button>
                         </div>
                       </>
-                    ) : activePatientCoordination ? (
+                    ) : (
                       <>
-                        <div className="inbox-handoff__copy">
+                        <section
+                          className="inbox-handoff__snapshot"
+                          aria-label="Current shared coordination snapshot"
+                        >
                           <div className="inbox-handoff__head">
-                            <Badge variant="neutral">Shared coordination</Badge>
+                            <Badge variant="neutral">
+                              {activePatientCurrentHandoff ? 'Current shared handoff' : 'No current shared handoff'}
+                            </Badge>
                           </div>
-                          {activePatientCoordination.currentHandoff?.summary ? (
+                          {activePatientCurrentHandoff?.summary ? (
                             <p className="inbox-handoff__summary">
-                              {activePatientCoordination.currentHandoff.summary}
+                              {activePatientCurrentHandoff.summary}
                             </p>
                           ) : latestPatientCoordinationNote ? (
                             <p className="inbox-handoff__summary">
                               {truncateText(latestPatientCoordinationNote.text, 180).text}
                             </p>
-                          ) : null}
+                          ) : (
+                            <p className="inbox-handoff__summary">No current shared handoff yet.</p>
+                          )}
+                          <p className="inbox-handoff__note">
+                            {activePatientCurrentHandoff
+                              ? 'Read-only here. Use Patient Detail for structured handoff editing.'
+                              : latestPatientCoordinationNote
+                                ? 'No current shared handoff is saved. Shared notes below still stay visible to the care team.'
+                                : 'Add the first shared note below if the care team needs patient-scoped context now.'}
+                          </p>
                           <dl className="communication-page__handoff-facts">
-                            {activePatientCoordination.currentHandoff ? (
+                            {activePatientCurrentHandoff ? (
                               <>
                                 <div>
                                   <dt>Next step</dt>
                                   <dd>
                                     {getClinicianCoordinationNextStepLabel(
-                                      activePatientCoordination.currentHandoff.nextStep,
+                                      activePatientCurrentHandoff.nextStep,
                                     )}
                                   </dd>
                                 </div>
@@ -911,7 +994,7 @@ export function CommunicationPage(): JSX.Element {
                                   <dt>Follow-up owner</dt>
                                   <dd>
                                     {getClinicianCoordinationFollowUpOwnerLabel(
-                                      activePatientCoordination.currentHandoff.followUpOwner,
+                                      activePatientCurrentHandoff.followUpOwner,
                                     )}
                                   </dd>
                                 </div>
@@ -919,67 +1002,156 @@ export function CommunicationPage(): JSX.Element {
                             ) : null}
                             <div>
                               <dt>
-                                {activePatientCoordination.currentHandoff ? 'Updated by' : 'Latest note by'}
+                                {activePatientCurrentHandoff ? 'Updated by' : 'Latest shared note by'}
                               </dt>
                               <dd>
-                                {activePatientCoordination.currentHandoff
-                                  ? activePatientCoordination.currentHandoff.updatedBy.displayName
+                                {activePatientCurrentHandoff
+                                  ? activePatientCurrentHandoff.updatedBy.displayName
                                   : latestPatientCoordinationNote?.createdBy.displayName ?? '—'}
                               </dd>
                             </div>
                             <div>
-                              <dt>{activePatientCoordination.currentHandoff ? 'Updated' : 'Latest note'}</dt>
+                              <dt>{activePatientCurrentHandoff ? 'Updated' : 'Latest shared note'}</dt>
                               <dd>
-                                <span
-                                  title={formatDashboardDateTime(
-                                    activePatientCoordination.currentHandoff?.updatedAt ??
-                                      latestPatientCoordinationNote?.createdAt ??
-                                      '',
-                                  )}
-                                >
-                                  {formatDashboardRelativeTime(
-                                    activePatientCoordination.currentHandoff?.updatedAt ??
-                                      latestPatientCoordinationNote?.createdAt ??
-                                      new Date(0).toISOString(),
-                                  )}
-                                </span>
+                                {activePatientCurrentHandoff?.updatedAt ||
+                                latestPatientCoordinationNote?.createdAt ? (
+                                  <span
+                                    title={formatDashboardDateTime(
+                                      activePatientCurrentHandoff?.updatedAt ??
+                                        latestPatientCoordinationNote?.createdAt ??
+                                        '',
+                                    )}
+                                  >
+                                    {formatDashboardRelativeTime(
+                                      activePatientCurrentHandoff?.updatedAt ??
+                                        latestPatientCoordinationNote?.createdAt ??
+                                        new Date(0).toISOString(),
+                                    )}
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
                               </dd>
                             </div>
                           </dl>
-                          <p className="inbox-handoff__note">
-                            Shared with the care team in Aura. Local reply drafts remain separate.
-                          </p>
-                        </div>
-                        <div className="inbox-handoff__actions">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
-                          >
-                            Open patient
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="inbox-handoff__copy">
-                          <div className="inbox-handoff__head">
-                            <Badge variant="neutral">Shared coordination</Badge>
+                        </section>
+
+                        <form
+                          className="inbox-handoff__note-form"
+                          onSubmit={handleAddSharedNote}
+                        >
+                          <div className="inbox-handoff__form-heading">
+                            <div>
+                              <p className="inbox-handoff__eyebrow">Shared note</p>
+                              <h4 className="inbox-handoff__form-title">
+                                Add care-team coordination context
+                              </h4>
+                            </div>
+                            <span className="inbox-handoff__form-side">
+                              Shared in Aura
+                            </span>
                           </div>
-                          <p className="inbox-handoff__summary">No shared coordination yet.</p>
-                          <p className="inbox-handoff__note">
-                            Save shared coordination in Patient Detail when the care team needs context.
-                          </p>
-                        </div>
-                        <div className="inbox-handoff__actions">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
+                          <label className="form-field">
+                            <span>Add shared coordination note</span>
+                            <textarea
+                              rows={3}
+                              value={sharedNoteDraft}
+                              disabled={appendSharedCoordinationNoteMutation.isPending}
+                              onChange={(event) => {
+                                setSharedNoteDraft(event.target.value);
+                                setSharedNoteNotice(null);
+                                setSharedNoteError(null);
+                              }}
+                              placeholder="Add a short shared coordination note for the care team."
+                            />
+                          </label>
+                          {sharedNoteError ? (
+                            <p className="inbox-handoff__feedback inbox-handoff__feedback--error" role="alert">
+                              {sharedNoteError}
+                            </p>
+                          ) : null}
+                          {sharedNoteNotice ? (
+                            <p className="inbox-handoff__feedback inbox-handoff__feedback--success" role="status">
+                              {sharedNoteNotice}
+                            </p>
+                          ) : null}
+                          <div className="inbox-handoff__form-footer">
+                            <p className="inbox-handoff__form-note">
+                              Adds to shared coordination history in Aura. It does not send a patient message or change your personal reply draft.
+                            </p>
+                            <Button
+                              type="submit"
+                              variant="primary"
+                              size="sm"
+                              disabled={
+                                appendSharedCoordinationNoteMutation.isPending ||
+                                sharedNoteDraft.trim().length === 0
+                              }
+                            >
+                              {appendSharedCoordinationNoteMutation.isPending
+                                ? 'Adding...'
+                                : 'Add shared note'}
+                            </Button>
+                          </div>
+                        </form>
+
+                        {recentSharedCoordinationNotes.length > 0 ? (
+                          <section
+                            className="inbox-handoff__notes"
+                            aria-label="Recent shared coordination notes"
                           >
-                            Open patient
-                          </Button>
-                        </div>
+                            <div className="inbox-handoff__form-heading">
+                              <div>
+                                <p className="inbox-handoff__eyebrow">Recent shared notes</p>
+                                <h4 className="inbox-handoff__form-title">
+                                  Shared note history
+                                </h4>
+                              </div>
+                              <span className="inbox-handoff__form-side">
+                                Showing {recentSharedCoordinationNotes.length}{' '}
+                                {recentSharedCoordinationNotes.length === 1 ? 'note' : 'notes'}
+                              </span>
+                            </div>
+                            <div className="inbox-handoff__note-list" role="list">
+                              {recentSharedCoordinationNotes.map((note) => (
+                                <article
+                                  key={note.id}
+                                  className="inbox-handoff__note-item"
+                                  role="listitem"
+                                >
+                                  <div className="inbox-handoff__note-meta">
+                                    <div className="inbox-handoff__note-author">
+                                      <ClinicianAvatar
+                                        identity={{
+                                          displayName: note.createdBy.displayName,
+                                          initials: getClinicianInitials(
+                                            note.createdBy.displayName,
+                                            note.createdBy.clinicianId,
+                                          ),
+                                          photo: null,
+                                        }}
+                                        decorative
+                                        size="sm"
+                                      />
+                                      <div className="inbox-handoff__note-author-copy">
+                                        <strong>{note.createdBy.displayName}</strong>
+                                        <span>Shared coordination note</span>
+                                      </div>
+                                    </div>
+                                    <time
+                                      className="inbox-handoff__note-time"
+                                      dateTime={note.createdAt}
+                                      title={formatDashboardDateTime(note.createdAt)}
+                                    >
+                                      {formatDashboardRelativeTime(note.createdAt)}
+                                    </time>
+                                  </div>
+                                  <p className="inbox-handoff__note-text">{note.text}</p>
+                                </article>
+                              ))}
+                            </div>
+                          </section>
+                        ) : null}
                       </>
                     )}
                   </section>

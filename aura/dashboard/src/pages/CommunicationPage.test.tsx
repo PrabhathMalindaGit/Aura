@@ -60,6 +60,10 @@ function renderCommunicationPage(initialEntry: string = '/communication'): void 
         <Routes>
           <Route path="/communication" element={<CommunicationPage />} />
           <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+          <Route
+            path="/patients/:patientId/communications"
+            element={<div>Patient detail communications workspace</div>}
+          />
           <Route path="/patients/:patientId/plan" element={<div>Plan workspace</div>} />
           <Route path="/appointments" element={<div>Appointments workspace</div>} />
           <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
@@ -80,6 +84,10 @@ function renderCommunicationPageWithSettings(initialEntry: string = '/communicat
           <Routes>
             <Route path="/communication" element={<CommunicationPage />} />
             <Route path="/patients/:patientId" element={<div>Patient detail workspace</div>} />
+            <Route
+              path="/patients/:patientId/communications"
+              element={<div>Patient detail communications workspace</div>}
+            />
             <Route path="/patients/:patientId/plan" element={<div>Plan workspace</div>} />
             <Route path="/appointments" element={<div>Appointments workspace</div>} />
             <Route path="/alerts" element={<AlertsWorkspaceRoute />} />
@@ -179,17 +187,54 @@ function createSharedCoordinationRecord(
 function installCommunicationFetchMock(options: {
   coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
   coordinationGetStatus?: number;
+  coordinationNoteStatus?: number;
 } = {}): void {
   vi.restoreAllMocks();
   const coordinationState = new Map(
     Object.entries(options.coordinationByPatient ?? {}),
   );
 
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input));
 
     if (url.pathname === '/clinician/dashboard/communication-overview') {
       return createJsonResponse({ ok: true, overview: communicationOverview });
+    }
+
+    if (url.pathname.match(/^\/clinician\/patients\/[^/]+\/coordination\/notes$/)) {
+      if (options.coordinationNoteStatus && options.coordinationNoteStatus >= 400) {
+        return createJsonResponse({ ok: false, error: 'COORDINATION_NOTE_FAILED' }, options.coordinationNoteStatus);
+      }
+
+      const patientId = decodeURIComponent(url.pathname.split('/')[3] ?? '');
+      const requestBody = init?.body ? (JSON.parse(String(init.body)) as { text?: string }) : {};
+      const currentRecord = coordinationState.get(patientId) ?? null;
+      const nextCreatedAt = new Date(
+        Date.parse(currentRecord?.updatedAt ?? '2026-03-09T12:00:00.000Z') + 60_000,
+      ).toISOString();
+      const nextNote = {
+        id: `coord-note-${(currentRecord?.noteHistory.length ?? 0) + 1}`,
+        text: requestBody.text ?? '',
+        createdBy: {
+          clinicianId: 'elena-hall-local',
+          displayName: 'Dr Elena Hall',
+        },
+        createdAt: nextCreatedAt,
+      };
+      const nextRecord: ClinicianCoordinationRecord = {
+        patientId,
+        currentHandoff: currentRecord?.currentHandoff ?? null,
+        noteHistory: [nextNote, ...(currentRecord?.noteHistory ?? [])],
+        createdAt: currentRecord?.createdAt ?? nextCreatedAt,
+        updatedAt: nextCreatedAt,
+      };
+
+      coordinationState.set(patientId, nextRecord);
+
+      return createJsonResponse({
+        ok: true,
+        coordination: nextRecord,
+      }, 201);
     }
 
     if (url.pathname.match(/^\/clinician\/patients\/[^/]+\/coordination$/)) {
@@ -254,7 +299,7 @@ afterEach(() => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'This timeline shows communication currently surfaced in the dashboard plus clinician replies stored locally in this browser.',
+        'This timeline is limited to patient communication plus local clinician replies saved in this browser.',
       ),
     ).toBeInTheDocument();
   });
@@ -329,7 +374,7 @@ afterEach(() => {
     const threadButton = await screen.findByRole('button', { name: /Avery Chen/ });
     expect(within(threadButton).getByText('Needs response')).toBeInTheDocument();
 
-    const replyField = await screen.findByRole('textbox', { name: 'Clinician reply' });
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
     fireEvent.change(replyField, {
       target: {
         value: 'Please keep tomorrow for now. We will review the schedule this afternoon.',
@@ -352,7 +397,11 @@ afterEach(() => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Lead rehab clinician · Post-op recovery').length).toBeGreaterThan(0);
-    expect(screen.getByText('Replies are stored only in this browser for the current clinician during this foundation pass.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Local to this browser for this clinician. Not sent from Aura and not shared with the care team.',
+      ),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(within(screen.getByRole('button', { name: /Avery Chen/ })).queryByText('Needs response')).not.toBeInTheDocument();
@@ -379,7 +428,7 @@ afterEach(() => {
     renderCommunicationPage('/communication?patientId=patient-2&view=needs-response');
 
     const replyField = (await screen.findByRole('textbox', {
-      name: 'Clinician reply',
+      name: 'Personal reply draft',
     })) as HTMLTextAreaElement;
     expect(screen.getByRole('combobox', { name: 'Quick reply template' })).toBeInTheDocument();
 
@@ -419,7 +468,7 @@ afterEach(() => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
     const replyField = (await screen.findByRole('textbox', {
-      name: 'Clinician reply',
+      name: 'Personal reply draft',
     })) as HTMLTextAreaElement;
     await waitFor(() => {
       expect(replyField).toHaveValue(signature);
@@ -457,7 +506,7 @@ afterEach(() => {
       },
     )) as HTMLSelectElement;
     const insertSignatureButton = screen.getByRole('button', { name: 'Insert signature' });
-    const replyField = screen.getByRole('textbox', { name: 'Clinician reply' });
+    const replyField = screen.getByRole('textbox', { name: 'Personal reply draft' });
 
     expect(templatePicker).toBeDisabled();
     expect(insertSignatureButton).toBeDisabled();
@@ -560,7 +609,50 @@ afterEach(() => {
     });
   });
 
-  it('renders a read-only shared coordination block when a shared record exists', async () => {
+  it('shows shared coordination loading without blocking the personal draft composer', async () => {
+    vi.restoreAllMocks();
+    let resolveCoordination: ((value: Response) => void) | null = null;
+    const coordinationResponse = new Promise<Response>((resolve) => {
+      resolveCoordination = resolve;
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = new URL(String(input));
+
+      if (url.pathname === '/clinician/dashboard/communication-overview') {
+        return createJsonResponse({ ok: true, overview: communicationOverview });
+      }
+
+      if (url.pathname === '/clinician/patients/patient-1/coordination') {
+        return coordinationResponse;
+      }
+
+      return createJsonResponse({ ok: false, error: 'NOT_FOUND' }, 404);
+    });
+
+    const user = userEvent.setup();
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(replyField, 'Local draft stays usable while shared coordination loads.');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(within(coordinationContext).getByText('Shared care-team coordination')).toBeInTheDocument();
+    expect(within(coordinationContext).queryByLabelText('Add shared coordination note')).not.toBeInTheDocument();
+    expect(replyField).toHaveValue('Local draft stays usable while shared coordination loads.');
+
+    resolveCoordination?.(
+      createJsonResponse({
+        ok: true,
+        coordination: createSharedCoordinationRecord('patient-1'),
+      }),
+    );
+
+    expect(
+      await within(coordinationContext).findByLabelText('Add shared coordination note'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders shared coordination with a read-only handoff snapshot and a Patient Detail CTA', async () => {
     installCommunicationFetchMock({
       coordinationByPatient: {
         'patient-1': createSharedCoordinationRecord('patient-1', {
@@ -592,17 +684,72 @@ afterEach(() => {
         'Keep this thread aligned with the current plan review before the next reply.',
       ),
     ).toBeInTheDocument();
-    expect(await within(coordinationContext).findByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect(
+      await within(coordinationContext).findByRole('button', {
+        name: 'Edit shared handoff in Patient Detail',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await within(coordinationContext).findByLabelText('Add shared coordination note'),
+    ).toBeInTheDocument();
     expect((await within(coordinationContext).findAllByText('Dr Elena Hall')).length).toBeGreaterThan(0);
     expect(
-      within(coordinationContext).getByText('Shared with the care team in Aura. Local reply drafts remain separate.'),
+      within(coordinationContext).getByText(
+        'Shared in Aura for the care team across clinician sessions and devices. It stays separate from personal reply drafts and the patient message timeline.',
+      ),
     ).toBeInTheDocument();
 
-    await user.click(within(coordinationContext).getByRole('button', { name: 'Open patient' }));
+    await user.click(
+      within(coordinationContext).getByRole('button', {
+        name: 'Edit shared handoff in Patient Detail',
+      }),
+    );
 
     await waitFor(() => {
-      expect(screen.getByText('Patient detail workspace')).toBeInTheDocument();
+      expect(screen.getByText('Patient detail communications workspace')).toBeInTheDocument();
     });
+  });
+
+  it('appends a shared coordination note from Communication without changing the personal draft', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1'),
+      },
+    });
+    const user = userEvent.setup();
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(replyField, 'Keep this local draft separate.');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    const noteField = (await within(coordinationContext).findByLabelText(
+      'Add shared coordination note',
+    )) as HTMLTextAreaElement;
+
+    await user.type(noteField, 'Team-visible note from communication workspace.');
+    await user.click(within(coordinationContext).getByRole('button', { name: 'Add shared note' }));
+
+    expect(
+      await within(coordinationContext).findByText(
+        'Shared coordination note added for the care team.',
+      ),
+    ).toBeInTheDocument();
+    expect(noteField).toHaveValue('');
+    expect(replyField).toHaveValue('Keep this local draft separate.');
+
+    const sharedNotes = within(coordinationContext).getByRole('region', {
+      name: 'Recent shared coordination notes',
+    });
+    expect(
+      within(sharedNotes).getByText('Team-visible note from communication workspace.'),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('list', { name: 'Patient communication timeline' })).queryByText(
+        'Team-visible note from communication workspace.',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it('shows the latest shared note preview when there is no current shared handoff', async () => {
@@ -628,36 +775,139 @@ afterEach(() => {
     renderCommunicationPage('/communication?patientId=patient-2');
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    const snapshot = await within(coordinationContext).findByRole('region', {
+      name: 'Current shared coordination snapshot',
+    });
+    const recentNotes = await within(coordinationContext).findByRole('region', {
+      name: 'Recent shared coordination notes',
+    });
     expect(
-      await within(coordinationContext).findByText('Latest shared coordination note for the next review pass.'),
+      await within(snapshot).findByText('Latest shared coordination note for the next review pass.'),
     ).toBeInTheDocument();
-    expect(within(coordinationContext).getByText('Latest note by')).toBeInTheDocument();
+    expect(
+      within(recentNotes).getByText('Latest shared coordination note for the next review pass.'),
+    ).toBeInTheDocument();
+    expect(within(coordinationContext).getByText('Latest shared note by')).toBeInTheDocument();
     expect(within(coordinationContext).queryByText('Next step')).not.toBeInTheDocument();
     expect(within(coordinationContext).queryByText('Follow-up owner')).not.toBeInTheDocument();
+    expect(within(coordinationContext).getByLabelText('Add shared coordination note')).toBeInTheDocument();
   });
 
   it('shows a neutral shared coordination empty state when no shared record exists', async () => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    expect(await within(coordinationContext).findByText('No shared coordination yet.')).toBeInTheDocument();
-    expect(await within(coordinationContext).findByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('No current shared handoff yet.')).toBeInTheDocument();
+    expect(
+      await within(coordinationContext).findByLabelText('Add shared coordination note'),
+    ).toBeInTheDocument();
+    expect(
+      await within(coordinationContext).findByRole('button', {
+        name: 'Edit shared handoff in Patient Detail',
+      }),
+    ).toBeInTheDocument();
   });
 
-  it('retries cleanly when the shared coordination fetch fails and keeps local replies separate', async () => {
+  it('preserves the personal draft when adding a shared note fails', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1'),
+      },
+      coordinationNoteStatus: 400,
+    });
+    const user = userEvent.setup();
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(replyField, 'Local draft should survive shared-note failure.');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    const noteField = (await within(coordinationContext).findByLabelText(
+      'Add shared coordination note',
+    )) as HTMLTextAreaElement;
+    await user.type(noteField, 'Shared note that should stay in place on failure.');
+    await user.click(within(coordinationContext).getByRole('button', { name: 'Add shared note' }));
+
+    expect(await within(coordinationContext).findByRole('alert')).toBeInTheDocument();
+    expect(noteField).toHaveValue('Shared note that should stay in place on failure.');
+    expect(replyField).toHaveValue('Local draft should survive shared-note failure.');
+  });
+
+  it('retries cleanly when the shared coordination fetch fails and keeps the personal draft untouched', async () => {
     installCommunicationFetchMock({
       coordinationGetStatus: 400,
     });
+    const user = userEvent.setup();
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(replyField, 'Local draft should remain during coordination reload issues.');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    expect(
+      await within(coordinationContext).findByText(
+        'Personal reply drafts stay local to this browser while shared coordination reloads.',
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(within(coordinationContext).getByRole('button', { name: 'Retry' }));
+    expect(within(coordinationContext).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(replyField).toHaveValue('Local draft should remain during coordination reload issues.');
+  });
+
+  it('switches patients without carrying over the wrong shared coordination', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1', {
+          currentHandoff: {
+            summary: 'Patient one shared handoff.',
+            nextStep: 'plan',
+            followUpOwner: { kind: 'custom', label: 'Patient one owner' },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: '2026-03-09T11:45:00.000Z',
+          },
+        }),
+        'patient-2': createSharedCoordinationRecord('patient-2', {
+          currentHandoff: {
+            summary: 'Patient two shared handoff.',
+            nextStep: 'communication',
+            followUpOwner: { kind: 'custom', label: 'Patient two owner' },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-2',
+              displayName: 'Dr Morgan Shaw',
+            },
+            updatedAt: '2026-03-09T11:55:00.000Z',
+          },
+          noteHistory: [
+            {
+              id: 'coord-note-2',
+              text: 'Patient two shared note.',
+              createdBy: {
+                clinicianId: 'coordination-clinician-2',
+                displayName: 'Dr Morgan Shaw',
+              },
+              createdAt: '2026-03-09T11:58:00.000Z',
+            },
+          ],
+        }),
+      },
+    });
+    const user = userEvent.setup();
 
     renderCommunicationPage('/communication?patientId=patient-1');
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    expect(
-      await within(coordinationContext).findByText('Local reply drafts are unaffected and stay in this browser.'),
-    ).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('Patient one shared handoff.')).toBeInTheDocument();
 
-    await userEvent.click(within(coordinationContext).getByRole('button', { name: 'Retry' }));
-    expect(within(coordinationContext).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /Avery Chen/ }));
+
+    expect(await within(coordinationContext).findByText('Patient two shared handoff.')).toBeInTheDocument();
+    expect(within(coordinationContext).queryByText('Patient one shared handoff.')).not.toBeInTheDocument();
   });
 
   it('does not let browser-local handoff storage drive inbox shared context', async () => {
@@ -671,7 +921,7 @@ afterEach(() => {
     renderCommunicationPage('/communication?patientId=patient-1');
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    expect(await within(coordinationContext).findByText('No shared coordination yet.')).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('No current shared handoff yet.')).toBeInTheDocument();
     expect(
       within(coordinationContext).queryByText('Legacy local handoff should not appear as shared inbox context.'),
     ).not.toBeInTheDocument();
@@ -713,6 +963,11 @@ afterEach(() => {
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
     expect(coordinationContext).toBeInTheDocument();
+    expect(
+      await within(coordinationContext).findByText(
+        'This shared note should not appear as a timeline message.',
+      ),
+    ).toBeInTheDocument();
 
     const timeline = screen.getByRole('list', { name: 'Patient communication timeline' });
     expect(within(timeline).getByText('Pain is much worse after exercise today.')).toBeInTheDocument();

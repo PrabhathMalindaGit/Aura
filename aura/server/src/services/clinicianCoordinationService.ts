@@ -2,6 +2,8 @@ import ClinicianCoordination, {
   COORDINATION_NOTE_HISTORY_LIMIT,
   COORDINATION_NEXT_STEP_VALUES,
 } from "../models/ClinicianCoordination";
+import { getTaskById, type TaskRecord } from "./taskService";
+import { isObjectId } from "../utils/ids";
 
 export type CoordinationNextStep =
   (typeof COORDINATION_NEXT_STEP_VALUES)[number];
@@ -10,6 +12,19 @@ export type CoordinationAuthorSnapshot = {
   clinicianId: string;
   displayName: string;
 };
+
+export type CoordinationLinkedTaskSummary = Pick<
+  TaskRecord,
+  | "id"
+  | "title"
+  | "type"
+  | "priority"
+  | "status"
+  | "dueAt"
+  | "assignedTo"
+  | "source"
+  | "updatedAt"
+>;
 
 export type CoordinationFollowUpOwner =
   | { kind: "unassigned" }
@@ -29,6 +44,8 @@ export type ClinicianCoordinationRecord = {
     summary: string;
     nextStep: CoordinationNextStep;
     followUpOwner: CoordinationFollowUpOwner;
+    linkedTaskId?: string;
+    linkedTask?: CoordinationLinkedTaskSummary | null;
     updatedBy: CoordinationAuthorSnapshot;
     updatedAt: string;
   } | null;
@@ -47,6 +64,7 @@ export type SaveCurrentHandoffInput = {
   summary?: string;
   nextStep?: CoordinationNextStep;
   followUpOwner?: CoordinationFollowUpOwner;
+  linkedTaskId?: string | null;
   updatedBy: CoordinationAuthorSnapshot;
 };
 
@@ -55,6 +73,17 @@ export type AppendCoordinationNoteInput = {
   text: string;
   createdBy: CoordinationAuthorSnapshot;
 };
+
+export class ClinicianCoordinationValidationError extends Error {
+  readonly code = "VALIDATION_ERROR";
+  readonly path: string;
+
+  constructor(path: string, message: string) {
+    super(message);
+    this.name = "ClinicianCoordinationValidationError";
+    this.path = path;
+  }
+}
 
 function toNonEmptyString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -110,9 +139,72 @@ function mapFollowUpOwner(value: unknown): CoordinationFollowUpOwner {
   return { kind: "unassigned" };
 }
 
-function mapCoordinationRecord(
+function mapLinkedTaskSummary(task: TaskRecord): CoordinationLinkedTaskSummary {
+  return {
+    id: task.id,
+    title: task.title,
+    type: task.type,
+    priority: task.priority,
+    status: task.status,
+    dueAt: task.dueAt,
+    assignedTo: task.assignedTo,
+    source: task.source,
+    updatedAt: task.updatedAt,
+  };
+}
+
+async function resolveLinkedTaskSummary(params: {
+  patientId: string;
+  linkedTaskId?: string;
+}): Promise<CoordinationLinkedTaskSummary | null> {
+  if (!params.linkedTaskId || !isObjectId(params.linkedTaskId)) {
+    return null;
+  }
+
+  const task = await getTaskById(params.linkedTaskId);
+  if (!task || task.patientId !== params.patientId) {
+    return null;
+  }
+
+  return mapLinkedTaskSummary(task);
+}
+
+async function assertLinkedTaskBelongsToPatient(params: {
+  patientId: string;
+  linkedTaskId?: string;
+}): Promise<string | undefined> {
+  if (!params.linkedTaskId) {
+    return undefined;
+  }
+
+  if (!isObjectId(params.linkedTaskId)) {
+    throw new ClinicianCoordinationValidationError(
+      "linkedTaskId",
+      "linkedTaskId must reference an existing task."
+    );
+  }
+
+  const task = await getTaskById(params.linkedTaskId);
+  if (!task) {
+    throw new ClinicianCoordinationValidationError(
+      "linkedTaskId",
+      "linkedTaskId must reference an existing task."
+    );
+  }
+
+  if (task.patientId !== params.patientId) {
+    throw new ClinicianCoordinationValidationError(
+      "linkedTaskId",
+      "linkedTaskId must reference a task for this patient."
+    );
+  }
+
+  return task.id;
+}
+
+async function mapCoordinationRecord(
   record: Record<string, unknown>
-): ClinicianCoordinationRecord {
+): Promise<ClinicianCoordinationRecord> {
   const currentHandoffRecord =
     record.currentHandoff &&
     typeof record.currentHandoff === "object" &&
@@ -122,9 +214,19 @@ function mapCoordinationRecord(
   const noteHistoryRows = Array.isArray(record.noteHistory)
     ? record.noteHistory
     : [];
+  const patientId = toNonEmptyString(record.patientId) ?? "";
+  const linkedTaskId = currentHandoffRecord
+    ? toNonEmptyString(currentHandoffRecord.linkedTaskId)
+    : undefined;
+  const linkedTask = currentHandoffRecord
+    ? await resolveLinkedTaskSummary({
+        patientId,
+        linkedTaskId,
+      })
+    : null;
 
   return {
-    patientId: toNonEmptyString(record.patientId) ?? "",
+    patientId,
     currentHandoff: currentHandoffRecord
       ? {
           summary: typeof currentHandoffRecord.summary === "string"
@@ -136,6 +238,8 @@ function mapCoordinationRecord(
             ? (currentHandoffRecord.nextStep as CoordinationNextStep)
             : "monitoring",
           followUpOwner: mapFollowUpOwner(currentHandoffRecord.followUpOwner),
+          linkedTaskId,
+          linkedTask: linkedTaskId ? linkedTask : undefined,
           updatedBy: mapAuthorSnapshot(currentHandoffRecord.updatedBy),
           updatedAt:
             toIsoDate(currentHandoffRecord.updatedAt) ??
@@ -194,11 +298,13 @@ function isBlankCurrentHandoff(input: {
   summary: string;
   nextStep: CoordinationNextStep;
   followUpOwner: CoordinationFollowUpOwner;
+  linkedTaskId?: string;
 }): boolean {
   return (
     input.summary.length === 0 &&
     input.nextStep === "monitoring" &&
-    input.followUpOwner.kind === "unassigned"
+    input.followUpOwner.kind === "unassigned" &&
+    !input.linkedTaskId
   );
 }
 
@@ -210,7 +316,7 @@ export async function getClinicianCoordinationByPatient(
     return null;
   }
 
-  return mapCoordinationRecord(row as Record<string, unknown>);
+  return await mapCoordinationRecord(row as Record<string, unknown>);
 }
 
 export async function saveClinicianCurrentHandoff(
@@ -219,10 +325,15 @@ export async function saveClinicianCurrentHandoff(
   const summary = (input.summary ?? "").trim();
   const nextStep = input.nextStep ?? "monitoring";
   const followUpOwner = normalizeFollowUpOwner(input.followUpOwner);
+  const linkedTaskId = await assertLinkedTaskBelongsToPatient({
+    patientId: input.patientId,
+    linkedTaskId: toNonEmptyString(input.linkedTaskId),
+  });
   const shouldClear = isBlankCurrentHandoff({
     summary,
     nextStep,
     followUpOwner,
+    linkedTaskId,
   });
 
   let coordination = await ClinicianCoordination.findOne({
@@ -249,7 +360,7 @@ export async function saveClinicianCurrentHandoff(
     }
 
     await coordination.save();
-    return mapCoordinationRecord(
+    return await mapCoordinationRecord(
       coordination.toObject() as Record<string, unknown>
     );
   }
@@ -258,12 +369,13 @@ export async function saveClinicianCurrentHandoff(
     summary,
     nextStep,
     followUpOwner,
+    linkedTaskId,
     updatedBy: input.updatedBy,
     updatedAt: new Date(),
   };
 
   await coordination.save();
-  return mapCoordinationRecord(coordination.toObject() as Record<string, unknown>);
+  return await mapCoordinationRecord(coordination.toObject() as Record<string, unknown>);
 }
 
 export async function appendClinicianCoordinationNote(
@@ -302,5 +414,5 @@ export async function appendClinicianCoordinationNote(
   );
 
   await coordination.save();
-  return mapCoordinationRecord(coordination.toObject() as Record<string, unknown>);
+  return await mapCoordinationRecord(coordination.toObject() as Record<string, unknown>);
 }

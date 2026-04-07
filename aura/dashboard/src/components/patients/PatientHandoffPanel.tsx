@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -8,6 +9,7 @@ import { Skeleton } from '../ui/Skeleton';
 import { useClinicianIdentity } from '../../hooks/useClinicianIdentity';
 import { usePatientHandoff } from '../../hooks/usePatientHandoff';
 import {
+  listClinicianTasks,
   useAppendPatientCoordinationNote,
   usePatientCoordination,
   useSavePatientCurrentHandoff,
@@ -18,12 +20,20 @@ import {
   discardLegacyPatientHandoffRecord,
   getLatestPatientHandoffNote,
 } from '../../services/patientHandoffWorkspace';
-import type { ClinicianCoordinationNextStep } from '../../types/models';
+import type {
+  ClinicianCoordinationNextStep,
+  ClinicianTaskItem,
+} from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
-import { asAppError, toUserMessage } from '../../utils/errors';
+import { asAppError, isRetryable, toUserMessage } from '../../utils/errors';
 import {
   buildClinicianCoordinationFollowUpOwner,
   CLINICIAN_COORDINATION_NEXT_STEP_OPTIONS,
+  getClinicianCoordinationLinkedTaskAssigneeLabel,
+  getClinicianCoordinationLinkedTaskEmptyLabel,
+  getClinicianCoordinationLinkedTaskSourceLabel,
+  getClinicianCoordinationLinkedTaskStatusLabel,
+  getClinicianCoordinationLinkedTaskUnavailableLabel,
   getClinicianCoordinationLatestActivity,
   getClinicianCoordinationActionButtonLabel,
   getClinicianCoordinationFollowUpOwnerLabel,
@@ -35,11 +45,13 @@ import {
 
 interface PatientHandoffPanelProps {
   patientId: string;
+  taskSnapshot?: ClinicianTaskItem[];
   onOpenNextAction: (action: Exclude<ClinicianCoordinationNextStep, 'monitoring'>) => void;
 }
 
 export function PatientHandoffPanel({
   patientId,
+  taskSnapshot = [],
   onOpenNextAction,
 }: PatientHandoffPanelProps): JSX.Element {
   const clinicianIdentity = useClinicianIdentity();
@@ -52,6 +64,7 @@ export function PatientHandoffPanel({
   const [ownerKind, setOwnerKind] =
     useState<ClinicianCoordinationDraftFollowUpOwnerKind>('unassigned');
   const [customOwnerLabel, setCustomOwnerLabel] = useState('');
+  const [linkedTaskId, setLinkedTaskId] = useState('');
   const [noteDraft, setNoteDraft] = useState('');
   const [handoffNotice, setHandoffNotice] = useState<string | null>(null);
   const [handoffError, setHandoffError] = useState<string | null>(null);
@@ -71,6 +84,21 @@ export function PatientHandoffPanel({
     () => getLatestPatientHandoffNote(legacyLocalHandoff),
     [legacyLocalHandoff],
   );
+  const taskLinkOptionsQuery = useQuery({
+    queryKey: ['patient-handoff-task-links', patientId],
+    queryFn: () =>
+      listClinicianTasks({
+        patientId,
+        status: ['open', 'in_progress'],
+        sortBy: 'createdAt',
+        sortDirection: 'desc',
+      }),
+    enabled: Boolean(patientId),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
   const legacyLocalExcerpt = legacyLocalHandoff?.currentHandoff?.summary ?? legacyLatestNote?.text ?? null;
   const hasLegacyLocalContext = Boolean(
     legacyLocalHandoff?.currentHandoff || (legacyLocalHandoff?.notes.length ?? 0) > 0,
@@ -94,15 +122,52 @@ export function PatientHandoffPanel({
   const isInitialError = coordinationQuery.isError && coordinationRecord === null;
   const isEditorDisabled =
     isInitialLoading || isInitialError || saveCurrentHandoffMutation.isPending || appendNoteMutation.isPending;
+  const selectableTaskOptions = useMemo(
+    () => taskLinkOptionsQuery.data ?? [],
+    [taskLinkOptionsQuery.data],
+  );
+  const currentLinkedTask = useMemo(() => {
+    const currentLinkedTaskId = currentHandoff?.linkedTaskId?.trim();
+    if (!currentLinkedTaskId) {
+      return null;
+    }
+
+    return (
+      taskSnapshot.find((task) => task.id === currentLinkedTaskId) ??
+      currentHandoff.linkedTask ??
+      null
+    );
+  }, [currentHandoff, taskSnapshot]);
+  const linkedTaskExistsButUnavailable = Boolean(
+    currentHandoff?.linkedTaskId && !currentLinkedTask,
+  );
+  const selectedLinkedTaskOption = useMemo(() => {
+    if (!linkedTaskId.trim()) {
+      return null;
+    }
+
+    return (
+      selectableTaskOptions.find((task) => task.id === linkedTaskId) ??
+      (currentLinkedTask ? { ...currentLinkedTask } : null)
+    );
+  }, [currentLinkedTask, linkedTaskId, selectableTaskOptions]);
+  const taskLinkControlDisabled =
+    isEditorDisabled || taskLinkOptionsQuery.isLoading || taskLinkOptionsQuery.isError;
 
   useEffect(() => {
     setSummary(currentHandoff?.summary ?? '');
     setNextStep(currentHandoff?.nextStep ?? 'monitoring');
     setOwnerKind(currentHandoff?.followUpOwner.kind ?? 'unassigned');
+    setLinkedTaskId(currentHandoff?.linkedTaskId ?? '');
     setCustomOwnerLabel(
       currentHandoff?.followUpOwner.kind === 'custom' ? currentHandoff.followUpOwner.label : '',
     );
   }, [handoffSyncKey, patientId]);
+
+  function formatLinkedTaskOptionLabel(task: Pick<ClinicianTaskItem, 'title' | 'status' | 'dueAt'>): string {
+    const dueLabel = task.dueAt ? ` · Due ${formatDashboardDateTime(task.dueAt)}` : '';
+    return `${task.title} · ${getClinicianCoordinationLinkedTaskStatusLabel(task.status)}${dueLabel}`;
+  }
 
   function handleSaveHandoff(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -132,6 +197,7 @@ export function PatientHandoffPanel({
           displayName: clinicianIdentity.displayName,
           label: customOwnerLabel,
         }),
+        linkedTaskId: linkedTaskId.trim() || null,
       },
       {
         onSuccess: (nextRecord) => {
@@ -305,6 +371,109 @@ export function PatientHandoffPanel({
                 </Button>
               ) : null}
             </div>
+          </section>
+        ) : null}
+
+        {currentHandoff ? (
+          <section
+            className="patient-handoff-panel__activity"
+            aria-label="Linked follow-through task"
+          >
+            <div className="patient-handoff-panel__form-heading">
+              <div>
+                <p className="patient-handoff-panel__form-eyebrow">Linked follow-through task</p>
+                <h3 className="patient-handoff-panel__form-title">Existing workflow object reference</h3>
+              </div>
+              <span className="muted-text">
+                {currentHandoff.linkedTaskId
+                  ? currentLinkedTask
+                    ? 'Linked task on file'
+                    : getClinicianCoordinationLinkedTaskUnavailableLabel()
+                  : getClinicianCoordinationLinkedTaskEmptyLabel()}
+              </span>
+            </div>
+            {currentHandoff.linkedTaskId ? (
+              currentLinkedTask ? (
+                <article className="patient-handoff-panel__note-item patient-handoff-panel__note-item--activity">
+                  <div className="patient-handoff-panel__note-header">
+                    <div className="patient-handoff-panel__attribution-copy">
+                      <strong>{currentLinkedTask.title}</strong>
+                      <span>
+                        Existing follow-through task reference only. Saving this handoff does not
+                        create or change the task.
+                      </span>
+                    </div>
+                    <div className="patient-handoff-panel__activity-meta">
+                      <span className="patient-handoff-panel__note-time">
+                        {getClinicianCoordinationLinkedTaskStatusLabel(currentLinkedTask.status)}
+                      </span>
+                      <span
+                        className="patient-handoff-panel__note-time"
+                        title={formatDashboardDateTime(
+                          currentLinkedTask.dueAt ?? currentLinkedTask.updatedAt,
+                        )}
+                      >
+                        {currentLinkedTask.dueAt
+                          ? `Due ${formatDashboardRelativeTime(currentLinkedTask.dueAt)}`
+                          : `Updated ${formatDashboardRelativeTime(currentLinkedTask.updatedAt)}`}
+                      </span>
+                    </div>
+                  </div>
+                  <dl className="patient-handoff-panel__current-facts">
+                    <div>
+                      <dt>Status</dt>
+                      <dd>{getClinicianCoordinationLinkedTaskStatusLabel(currentLinkedTask.status)}</dd>
+                    </div>
+                    <div>
+                      <dt>Priority</dt>
+                      <dd>{getClinicianCoordinationLinkedTaskStatusLabel(currentLinkedTask.priority)}</dd>
+                    </div>
+                    <div>
+                      <dt>Assignee</dt>
+                      <dd>
+                        {getClinicianCoordinationLinkedTaskAssigneeLabel(
+                          currentLinkedTask.assignedTo,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Due</dt>
+                      <dd>
+                        {currentLinkedTask.dueAt
+                          ? formatDashboardDateTime(currentLinkedTask.dueAt)
+                          : 'Not set'}
+                      </dd>
+                    </div>
+                    {getClinicianCoordinationLinkedTaskSourceLabel(currentLinkedTask) ? (
+                      <div>
+                        <dt>Source</dt>
+                        <dd>{getClinicianCoordinationLinkedTaskSourceLabel(currentLinkedTask)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </article>
+              ) : (
+                <div className="patient-handoff-panel__empty-history">
+                  <p className="patient-handoff-panel__empty-history-title">
+                    {getClinicianCoordinationLinkedTaskUnavailableLabel()}
+                  </p>
+                  <p className="muted-text">
+                    This handoff still points to a task id, but Aura cannot resolve that task
+                    right now. Clear or replace the link explicitly.
+                  </p>
+                </div>
+              )
+            ) : (
+              <div className="patient-handoff-panel__empty-history">
+                <p className="patient-handoff-panel__empty-history-title">
+                  {getClinicianCoordinationLinkedTaskEmptyLabel()}
+                </p>
+                <p className="muted-text">
+                  Optional. Link one existing patient task when this handoff should reference a
+                  real follow-through item.
+                </p>
+              </div>
+            )}
           </section>
         ) : null}
 
@@ -491,6 +660,68 @@ export function PatientHandoffPanel({
               </select>
             </label>
           </div>
+
+          <label className="form-field">
+            <span>Linked follow-through task</span>
+            <select
+              value={linkedTaskId}
+              disabled={taskLinkControlDisabled}
+              onChange={(event) => {
+                setLinkedTaskId(event.target.value);
+                setHandoffNotice(null);
+                setHandoffError(null);
+              }}
+            >
+              <option value="">{getClinicianCoordinationLinkedTaskEmptyLabel()}</option>
+              {linkedTaskExistsButUnavailable ? (
+                <option value={linkedTaskId}>
+                  {getClinicianCoordinationLinkedTaskUnavailableLabel()}
+                </option>
+              ) : null}
+              {selectedLinkedTaskOption &&
+              !selectableTaskOptions.some((task) => task.id === selectedLinkedTaskOption.id) ? (
+                <option value={selectedLinkedTaskOption.id}>
+                  {linkedTaskExistsButUnavailable
+                    ? getClinicianCoordinationLinkedTaskUnavailableLabel()
+                    : `${selectedLinkedTaskOption.title} · ${getClinicianCoordinationLinkedTaskStatusLabel(
+                        selectedLinkedTaskOption.status,
+                      )}`}
+                </option>
+              ) : null}
+              {selectableTaskOptions.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {formatLinkedTaskOptionLabel(task)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {taskLinkOptionsQuery.isError ? (
+            <div className="patient-handoff-panel__helper" role="status">
+              <span>
+                Follow-through task options are unavailable right now. Shared handoff editing still
+                works without task linking.
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  void taskLinkOptionsQuery.refetch();
+                }}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : null}
+
+          {!taskLinkOptionsQuery.isError && linkedTaskId && selectedLinkedTaskOption && !selectableTaskOptions.some((task) => task.id === linkedTaskId) ? (
+            <div className="patient-handoff-panel__helper" role="note">
+              <span>
+                This handoff currently references a task that is no longer open for new selection.
+                Keep, replace, or clear the link explicitly.
+              </span>
+            </div>
+          ) : null}
 
           {ownerKind === 'clinician' ? (
             <div className="patient-handoff-panel__helper" role="note">

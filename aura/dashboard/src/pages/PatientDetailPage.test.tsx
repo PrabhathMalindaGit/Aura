@@ -15,6 +15,7 @@ import {
 import type {
   AlertItem,
   AppointmentRequestItem,
+  ClinicianCoordinationLinkedTaskSummary,
   ClinicianCoordinationRecord,
   ClinicianTaskItem,
   DashboardCommunicationOverviewItem,
@@ -394,6 +395,7 @@ interface FetchMockOptions {
   coordinationGetStatus?: number;
   coordinationPutStatus?: number;
   coordinationNoteStatus?: number;
+  taskLinkOptionsStatus?: number;
 }
 
 function installFetchMock(options: FetchMockOptions = {}) {
@@ -449,15 +451,74 @@ function installFetchMock(options: FetchMockOptions = {}) {
     };
   }
 
+  function buildLinkedTaskSummary(
+    task: ClinicianTaskItem,
+  ): ClinicianCoordinationLinkedTaskSummary {
+    return {
+      id: task.id,
+      title: task.title,
+      type: task.type,
+      priority: task.priority,
+      status: task.status,
+      dueAt: task.dueAt,
+      assignedTo: task.assignedTo,
+      source: task.source,
+      updatedAt: task.updatedAt,
+    };
+  }
+
+  function resolveLinkedTaskSummary(
+    linkedTaskId?: string | null,
+  ): ClinicianCoordinationLinkedTaskSummary | null | undefined {
+    const normalizedTaskId = linkedTaskId?.trim();
+    if (!normalizedTaskId) {
+      return undefined;
+    }
+
+    const linkedTask = taskState.find((task) => task.id === normalizedTaskId);
+    return linkedTask ? buildLinkedTaskSummary(linkedTask) : null;
+  }
+
+  function resolveCoordinationRecord(
+    record: ClinicianCoordinationRecord | null,
+  ): ClinicianCoordinationRecord | null {
+    if (!record?.currentHandoff) {
+      return record;
+    }
+
+    const linkedTaskId = record.currentHandoff.linkedTaskId?.trim();
+    if (!linkedTaskId) {
+      return {
+        ...record,
+        currentHandoff: {
+          ...record.currentHandoff,
+          linkedTaskId: undefined,
+          linkedTask: undefined,
+        },
+      };
+    }
+
+    return {
+      ...record,
+      currentHandoff: {
+        ...record.currentHandoff,
+        linkedTaskId,
+        linkedTask: resolveLinkedTaskSummary(linkedTaskId) ?? null,
+      },
+    };
+  }
+
   function isBlankSharedHandoff(input: {
     summary: string;
     nextStep: string;
     followUpOwner: { kind: string };
+    linkedTaskId?: string | null;
   }): boolean {
     return (
       input.summary.length === 0 &&
       input.nextStep === 'monitoring' &&
-      input.followUpOwner.kind === 'unassigned'
+      input.followUpOwner.kind === 'unassigned' &&
+      !(input.linkedTaskId?.trim())
     );
   }
 
@@ -468,6 +529,7 @@ function installFetchMock(options: FetchMockOptions = {}) {
         : input instanceof Request
           ? input.url
           : String(input);
+    const parsedUrl = new URL(url, 'http://localhost');
     const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
 
     if (method === 'PATCH' && url.includes('/clinician/alerts/')) {
@@ -568,6 +630,7 @@ function installFetchMock(options: FetchMockOptions = {}) {
               summary?: string;
               nextStep?: string;
               followUpOwner?: { kind: string; clinicianId?: string; displayName?: string; label?: string };
+              linkedTaskId?: string | null;
             })
           : {};
       const currentRecord = coordinationPatientId
@@ -576,11 +639,12 @@ function installFetchMock(options: FetchMockOptions = {}) {
       const summary = payload.summary?.trim() ?? '';
       const nextStep = payload.nextStep ?? 'monitoring';
       const followUpOwner = payload.followUpOwner ?? { kind: 'unassigned' };
+      const linkedTaskId = payload.linkedTaskId?.trim() || null;
 
       let nextRecord: ClinicianCoordinationRecord | null = currentRecord;
 
       if (coordinationPatientId) {
-        if (isBlankSharedHandoff({ summary, nextStep, followUpOwner })) {
+        if (isBlankSharedHandoff({ summary, nextStep, followUpOwner, linkedTaskId })) {
           if (!currentRecord || currentRecord.noteHistory.length === 0) {
             nextRecord = null;
           } else {
@@ -606,6 +670,8 @@ function installFetchMock(options: FetchMockOptions = {}) {
                         displayName: followUpOwner.displayName ?? 'Dr Elena Hall',
                       }
                     : { kind: 'unassigned' },
+              linkedTaskId: linkedTaskId ?? undefined,
+              linkedTask: resolveLinkedTaskSummary(linkedTaskId) ?? null,
               updatedBy: buildCoordinationAuthorSnapshot(),
               updatedAt: `${TODAY_KEY}T12:20:00.000Z`,
             },
@@ -620,7 +686,7 @@ function installFetchMock(options: FetchMockOptions = {}) {
 
       return createJsonResponse({
         ok: true,
-        coordination: nextRecord,
+        coordination: resolveCoordinationRecord(nextRecord),
       });
     }
 
@@ -662,7 +728,7 @@ function installFetchMock(options: FetchMockOptions = {}) {
 
       return createJsonResponse({
         ok: true,
-        coordination: nextRecord,
+        coordination: resolveCoordinationRecord(nextRecord),
       }, 201);
     }
 
@@ -674,7 +740,9 @@ function installFetchMock(options: FetchMockOptions = {}) {
       const coordinationPatientId = getPatientIdFromUrl(url);
       return createJsonResponse({
         ok: true,
-        coordination: coordinationPatientId ? coordinationState.get(coordinationPatientId) ?? null : null,
+        coordination: coordinationPatientId
+          ? resolveCoordinationRecord(coordinationState.get(coordinationPatientId) ?? null)
+          : null,
       });
     }
 
@@ -719,9 +787,36 @@ function installFetchMock(options: FetchMockOptions = {}) {
     }
 
     if (url.includes('/clinician/tasks')) {
+      const statusFilter = parsedUrl.searchParams.get('status');
+      const patientFilter = parsedUrl.searchParams.get('patientId');
+
+      if (
+        options.taskLinkOptionsStatus &&
+        options.taskLinkOptionsStatus >= 400 &&
+        statusFilter === 'open,in_progress'
+      ) {
+        return createJsonResponse(
+          { ok: false, error: 'TASK_LINK_OPTIONS_FAILED' },
+          options.taskLinkOptionsStatus,
+        );
+      }
+
+      const tasks = taskState.filter((task) => {
+        if (patientFilter && task.patientId !== patientFilter) {
+          return false;
+        }
+
+        if (!statusFilter) {
+          return true;
+        }
+
+        const statuses = statusFilter.split(',');
+        return statuses.includes(task.status);
+      });
+
       return createJsonResponse({
         ok: true,
-        tasks: taskState,
+        tasks,
       });
     }
 
@@ -1571,6 +1666,9 @@ describe('PatientDetailPage', () => {
     expect(within(latestActivity).getAllByText('No shared activity yet').length).toBeGreaterThan(0);
 
     const nextStepSelect = within(handoffPanel).getByLabelText('Recommended next step');
+    const linkedTaskSelect = within(handoffPanel).getByRole('combobox', {
+      name: 'Linked follow-through task',
+    });
     expect(within(nextStepSelect).getByRole('option', { name: 'Continue monitoring' })).toBeInTheDocument();
     expect(within(nextStepSelect).getByRole('option', { name: 'Review alerts' })).toBeInTheDocument();
     expect(within(nextStepSelect).getByRole('option', { name: 'Review communication' })).toBeInTheDocument();
@@ -1579,6 +1677,10 @@ describe('PatientDetailPage', () => {
     expect(within(nextStepSelect).getByRole('option', { name: 'Open plan' })).toBeInTheDocument();
     expect(within(nextStepSelect).queryByRole('option', { name: 'Open worklist' })).not.toBeInTheDocument();
     expect(within(nextStepSelect).queryByRole('option', { name: 'Review trends' })).not.toBeInTheDocument();
+    expect(within(linkedTaskSelect).getByRole('option', { name: /Check medication adherence/i })).toBeInTheDocument();
+    expect(
+      within(linkedTaskSelect).queryByRole('option', { name: /Confirm home exercise reminder/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('saves shared handoff and shared notes from patient detail', async () => {
@@ -1621,6 +1723,9 @@ describe('PatientDetailPage', () => {
     ).toBeInTheDocument();
     expect(within(savedHandoff).getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
     expect(within(savedHandoff).getByText('Updated the current shared handoff.')).toBeInTheDocument();
+    expect(
+      within(savedHandoff).getByText(formatDashboardDateTime(`${TODAY_KEY}T12:20:00.000Z`)),
+    ).toBeInTheDocument();
 
     const sharedNoteField = within(handoffPanel).getByLabelText('Add shared note');
     fireEvent.change(sharedNoteField, {
@@ -1641,6 +1746,201 @@ describe('PatientDetailPage', () => {
     expect(
       within(notesList).getByText('Patient asked for a calmer follow-up window tomorrow morning.'),
     ).toBeInTheDocument();
+  });
+
+  it('attaches a valid linked task to the shared handoff and keeps it distinct from handoff ownership', async () => {
+    installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    await user.type(
+      within(handoffPanel).getByLabelText('Handoff summary'),
+      'Keep the shared task reference visible for the next clinician.',
+    );
+    await user.selectOptions(within(handoffPanel).getByLabelText('Recommended next step'), 'tasks');
+    await user.selectOptions(within(handoffPanel).getByLabelText('Follow-up owner'), 'custom');
+    await user.type(within(handoffPanel).getByLabelText('Custom owner label'), 'Weekend review desk');
+    await user.selectOptions(
+      within(handoffPanel).getByRole('combobox', { name: 'Linked follow-through task' }),
+      basePatientTask.id,
+    );
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
+
+    expect(
+      await within(handoffPanel).findByText('Shared handoff saved for the care team.'),
+    ).toBeInTheDocument();
+
+    const savedHandoff = within(handoffPanel).getByTestId('patient-handoff-current');
+    const linkedTaskRegion = within(handoffPanel).getByRole('region', {
+      name: 'Linked follow-through task',
+    });
+    const latestActivity = within(handoffPanel).getByRole('region', {
+      name: 'Latest shared coordination activity',
+    });
+    const notesSection = within(handoffPanel).getByRole('region', {
+      name: 'Shared coordination note history',
+    });
+
+    expect(within(savedHandoff).getByText('Weekend review desk')).toBeInTheDocument();
+    expect(within(savedHandoff).queryByText('Assignee')).not.toBeInTheDocument();
+    expect(within(linkedTaskRegion).getByText('Check medication adherence')).toBeInTheDocument();
+    expect(within(linkedTaskRegion).getAllByText('Open').length).toBeGreaterThan(0);
+    expect(within(linkedTaskRegion).getByText('High')).toBeInTheDocument();
+    expect(within(linkedTaskRegion).getByText('clinician-1')).toBeInTheDocument();
+    expect(
+      within(linkedTaskRegion).getByText(
+        'Existing follow-through task reference only. Saving this handoff does not create or change the task.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(linkedTaskRegion).queryByText('Follow-up owner')).not.toBeInTheDocument();
+    expect(
+      within(latestActivity).getByText('Keep the shared task reference visible for the next clinician.'),
+    ).toBeInTheDocument();
+    expect(within(notesSection).queryByText('Check medication adherence')).not.toBeInTheDocument();
+  });
+
+  it('allows clearing a linked task while keeping the shared handoff saved', async () => {
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: {
+            summary: 'Shared handoff keeps the task link for now.',
+            nextStep: 'tasks',
+            followUpOwner: {
+              kind: 'custom',
+              label: 'Weekend review desk',
+            },
+            linkedTaskId: basePatientTask.id,
+            linkedTask: {
+              id: basePatientTask.id,
+              title: basePatientTask.title,
+              type: basePatientTask.type,
+              priority: basePatientTask.priority,
+              status: basePatientTask.status,
+              dueAt: basePatientTask.dueAt,
+              assignedTo: basePatientTask.assignedTo,
+              source: basePatientTask.source,
+              updatedAt: basePatientTask.updatedAt,
+            },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+          },
+        }),
+      },
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    expect(
+      within(
+        within(handoffPanel).getByRole('region', { name: 'Linked follow-through task' }),
+      ).getByText('Check medication adherence'),
+    ).toBeInTheDocument();
+
+    await user.clear(within(handoffPanel).getByLabelText('Handoff summary'));
+    await user.type(
+      within(handoffPanel).getByLabelText('Handoff summary'),
+      'Keep the handoff but remove the task reference.',
+    );
+    await user.selectOptions(
+      within(handoffPanel).getByRole('combobox', { name: 'Linked follow-through task' }),
+      '',
+    );
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
+
+    expect(
+      await within(handoffPanel).findByText('Shared handoff saved for the care team.'),
+    ).toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByTestId('patient-handoff-current'),
+    ).toHaveTextContent('Keep the handoff but remove the task reference.');
+    expect(
+      within(
+        within(handoffPanel).getByRole('region', { name: 'Linked follow-through task' }),
+      ).getAllByText('No follow-through task linked').length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('shows a truthful unavailable linked task state when the saved task reference cannot resolve', async () => {
+    installFetchMock({
+      coordinationByPatient: {
+        [patientId]: createSharedCoordinationRecord({
+          currentHandoff: {
+            summary: 'This handoff still points to a missing task.',
+            nextStep: 'tasks',
+            followUpOwner: {
+              kind: 'unassigned',
+            },
+            linkedTaskId: 'task-missing',
+            linkedTask: null,
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: `${TODAY_KEY}T10:45:00.000Z`,
+          },
+        }),
+      },
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    const linkedTaskRegion = within(handoffPanel).getByRole('region', {
+      name: 'Linked follow-through task',
+    });
+
+    expect(within(linkedTaskRegion).getAllByText('Linked task unavailable').length).toBeGreaterThan(0);
+    expect(
+      within(linkedTaskRegion).getByText(
+        'This handoff still points to a task id, but Aura cannot resolve that task right now. Clear or replace the link explicitly.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps handoff editing available when task link options fail to load', async () => {
+    installFetchMock({
+      taskLinkOptionsStatus: 400,
+    });
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+    const handoffPanel = await screen.findByTestId('patient-handoff-panel');
+    const linkedTaskSelect = within(handoffPanel).getByRole('combobox', {
+      name: 'Linked follow-through task',
+    }) as HTMLSelectElement;
+    const summaryField = within(handoffPanel).getByLabelText('Handoff summary');
+
+    await waitFor(() => {
+      expect(handoffPanel).toHaveTextContent(
+        'Follow-through task options are unavailable right now. Shared handoff editing still works without task linking.',
+      );
+      expect(linkedTaskSelect).toBeDisabled();
+    });
+    expect(summaryField).toBeEnabled();
+
+    await user.type(summaryField, 'Shared handoff should still save without task options.');
+    await user.click(within(handoffPanel).getByRole('button', { name: 'Save shared handoff' }));
+
+    expect(
+      await within(handoffPanel).findByText('Shared handoff saved for the care team.'),
+    ).toBeInTheDocument();
+    expect(
+      within(handoffPanel).getByTestId('patient-handoff-current'),
+    ).toHaveTextContent('Shared handoff should still save without task options.');
   });
 
   it('opens the saved next step only for a real supported patient-detail target', async () => {
@@ -1820,6 +2120,9 @@ describe('PatientDetailPage', () => {
     });
     expect(within(latestActivity).getByText('Latest note-only coordination context.')).toBeInTheDocument();
     expect(within(latestActivity).getAllByText('Shared coordination note added').length).toBeGreaterThan(0);
+    expect(
+      within(handoffPanel).queryByRole('region', { name: 'Linked follow-through task' }),
+    ).not.toBeInTheDocument();
 
     const notesSection = within(handoffPanel).getByRole('region', {
       name: 'Shared coordination note history',

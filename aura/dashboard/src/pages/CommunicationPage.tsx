@@ -34,6 +34,11 @@ import {
   type CommunicationThreadView,
 } from '../services/communicationWorkspace';
 import {
+  getClinicianCoordinationLinkedTaskAssigneeLabel,
+  getClinicianCoordinationLinkedTaskEmptyLabel,
+  getClinicianCoordinationLinkedTaskSourceLabel,
+  getClinicianCoordinationLinkedTaskStatusLabel,
+  getClinicianCoordinationLinkedTaskUnavailableLabel,
   getClinicianCoordinationLatestActivity,
   getClinicianCoordinationFollowUpOwnerLabel,
   getClinicianCoordinationNextStepLabel,
@@ -270,6 +275,8 @@ export function CommunicationPage(): JSX.Element {
   const activePatientCoordination = activePatientCoordinationQuery.data ?? null;
   const activePatientCurrentHandoff = activePatientCoordination?.currentHandoff ?? null;
   const activePatientCoordinationNotes = activePatientCoordination?.noteHistory ?? [];
+  const activePatientLinkedTask = activePatientCurrentHandoff?.linkedTask ?? null;
+  const activePatientLinkedTaskId = activePatientCurrentHandoff?.linkedTaskId ?? '';
   const latestSharedCoordinationActivity = useMemo(
     () => getClinicianCoordinationLatestActivity(activePatientCoordination),
     [activePatientCoordination],
@@ -1015,6 +1022,128 @@ export function CommunicationPage(): JSX.Element {
                               </>
                             ) : null}
                           </dl>
+                        </section>
+
+                        <section
+                          className="inbox-handoff__activity"
+                          aria-label="Linked follow-through task"
+                        >
+                          <div className="inbox-handoff__form-heading">
+                            <div>
+                              <p className="inbox-handoff__eyebrow">Linked follow-through task</p>
+                              <h4 className="inbox-handoff__form-title">Existing workflow object</h4>
+                            </div>
+                            <span className="inbox-handoff__form-side">
+                              {activePatientLinkedTaskId
+                                ? activePatientLinkedTask
+                                  ? 'Linked task on file'
+                                  : getClinicianCoordinationLinkedTaskUnavailableLabel()
+                                : getClinicianCoordinationLinkedTaskEmptyLabel()}
+                            </span>
+                          </div>
+                          {activePatientLinkedTaskId ? (
+                            activePatientLinkedTask ? (
+                              <article className="inbox-handoff__note-item inbox-handoff__note-item--activity">
+                                <div className="inbox-handoff__note-meta">
+                                  <div className="inbox-handoff__note-author-copy">
+                                    <strong>{activePatientLinkedTask.title}</strong>
+                                    <span>
+                                      Existing follow-through task reference only. Shared
+                                      coordination does not create or complete this task.
+                                    </span>
+                                  </div>
+                                  <div className="inbox-handoff__activity-meta">
+                                    <span className="inbox-handoff__note-time">
+                                      {getClinicianCoordinationLinkedTaskStatusLabel(
+                                        activePatientLinkedTask.status,
+                                      )}
+                                    </span>
+                                    <span
+                                      className="inbox-handoff__note-time"
+                                      title={formatDashboardDateTime(
+                                        activePatientLinkedTask.dueAt ??
+                                          activePatientLinkedTask.updatedAt,
+                                      )}
+                                    >
+                                      {activePatientLinkedTask.dueAt
+                                        ? `Due ${formatDashboardRelativeTime(
+                                            activePatientLinkedTask.dueAt,
+                                          )}`
+                                        : `Updated ${formatDashboardRelativeTime(
+                                            activePatientLinkedTask.updatedAt,
+                                          )}`}
+                                    </span>
+                                  </div>
+                                </div>
+                                <dl className="communication-page__handoff-facts">
+                                  <div>
+                                    <dt>Status</dt>
+                                    <dd>
+                                      {getClinicianCoordinationLinkedTaskStatusLabel(
+                                        activePatientLinkedTask.status,
+                                      )}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Priority</dt>
+                                    <dd>
+                                      {getClinicianCoordinationLinkedTaskStatusLabel(
+                                        activePatientLinkedTask.priority,
+                                      )}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Assignee</dt>
+                                    <dd>
+                                      {getClinicianCoordinationLinkedTaskAssigneeLabel(
+                                        activePatientLinkedTask.assignedTo,
+                                      )}
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Due</dt>
+                                    <dd>
+                                      {activePatientLinkedTask.dueAt
+                                        ? formatDashboardDateTime(activePatientLinkedTask.dueAt)
+                                        : 'Not set'}
+                                    </dd>
+                                  </div>
+                                  {getClinicianCoordinationLinkedTaskSourceLabel(
+                                    activePatientLinkedTask,
+                                  ) ? (
+                                    <div>
+                                      <dt>Source</dt>
+                                      <dd>
+                                        {getClinicianCoordinationLinkedTaskSourceLabel(
+                                          activePatientLinkedTask,
+                                        )}
+                                      </dd>
+                                    </div>
+                                  ) : null}
+                                </dl>
+                              </article>
+                            ) : (
+                              <div className="inbox-handoff__empty-state">
+                                <p className="inbox-handoff__summary">
+                                  {getClinicianCoordinationLinkedTaskUnavailableLabel()}
+                                </p>
+                                <p className="inbox-handoff__note">
+                                  This handoff still points to a task id, but Aura cannot resolve
+                                  that task right now.
+                                </p>
+                              </div>
+                            )
+                          ) : (
+                            <div className="inbox-handoff__empty-state">
+                              <p className="inbox-handoff__summary">
+                                {getClinicianCoordinationLinkedTaskEmptyLabel()}
+                              </p>
+                              <p className="inbox-handoff__note">
+                                If the care team needs an explicit workflow reference, link one
+                                from Patient Detail.
+                              </p>
+                            </div>
+                          )}
                         </section>
 
                         <section

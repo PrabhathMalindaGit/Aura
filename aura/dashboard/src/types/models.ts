@@ -561,7 +561,26 @@ export interface ClinicianCoordinationCurrentHandoff {
   summary: string;
   nextStep: ClinicianCoordinationNextStep;
   followUpOwner: ClinicianCoordinationFollowUpOwner;
+  linkedTaskId?: string;
+  linkedTask?: ClinicianCoordinationLinkedTaskSummary | null;
   updatedBy: ClinicianCoordinationAuthorSnapshot;
+  updatedAt: string;
+}
+
+export interface ClinicianCoordinationLinkedTaskSummary {
+  id: string;
+  title: string;
+  type: ClinicianTaskType;
+  priority: ClinicianTaskPriority;
+  status: ClinicianTaskStatus | string;
+  dueAt?: string;
+  assignedTo?: string;
+  source?: {
+    type?: string;
+    entityType?: string;
+    entityId?: string;
+    label?: string;
+  };
   updatedAt: string;
 }
 
@@ -589,6 +608,7 @@ export interface PutPatientCurrentHandoffPayload {
   summary?: string;
   nextStep?: ClinicianCoordinationNextStep;
   followUpOwner?: ClinicianCoordinationFollowUpOwner;
+  linkedTaskId?: string | null;
   updatedBy?: string;
   updatedByName?: string;
 }

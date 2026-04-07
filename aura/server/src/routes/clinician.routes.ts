@@ -23,6 +23,7 @@ import {
 } from "../services/alertNotificationService";
 import {
   appendClinicianCoordinationNote,
+  ClinicianCoordinationValidationError,
   getClinicianCoordinationByPatient,
   saveClinicianCurrentHandoff,
   type CoordinationAuthorSnapshot,
@@ -118,6 +119,7 @@ const coordinationCurrentHandoffSchema = z.object({
   summary: z.string().trim().max(COORDINATION_SUMMARY_MAX_LENGTH).optional(),
   nextStep: z.enum(COORDINATION_NEXT_STEP_VALUES).optional(),
   followUpOwner: coordinationFollowUpOwnerSchema.optional(),
+  linkedTaskId: z.union([z.string().trim().min(1).max(120), z.null()]).optional(),
   updatedBy: z.string().trim().min(1).max(120).optional(),
   updatedByName: z.string().trim().min(1).max(120).optional(),
 });
@@ -285,6 +287,22 @@ function mapCoordinationRecord(
           followUpOwner: mapCoordinationFollowUpOwner(
             coordination.currentHandoff.followUpOwner
           ),
+          linkedTaskId: coordination.currentHandoff.linkedTaskId,
+          linkedTask: coordination.currentHandoff.linkedTask
+            ? {
+                id: coordination.currentHandoff.linkedTask.id,
+                title: coordination.currentHandoff.linkedTask.title,
+                type: coordination.currentHandoff.linkedTask.type,
+                priority: coordination.currentHandoff.linkedTask.priority,
+                status: coordination.currentHandoff.linkedTask.status,
+                dueAt: coordination.currentHandoff.linkedTask.dueAt,
+                assignedTo: coordination.currentHandoff.linkedTask.assignedTo,
+                source: coordination.currentHandoff.linkedTask.source,
+                updatedAt: coordination.currentHandoff.linkedTask.updatedAt,
+              }
+            : coordination.currentHandoff.linkedTaskId
+              ? null
+              : undefined,
           updatedBy: mapCoordinationAuthor(coordination.currentHandoff.updatedBy),
           updatedAt: coordination.currentHandoff.updatedAt,
         }
@@ -1605,7 +1623,14 @@ router.put(
       }
 
       const requestWithUser = req as RequestWithUser;
-      const { summary, nextStep, followUpOwner, updatedBy, updatedByName } =
+      const {
+        summary,
+        nextStep,
+        followUpOwner,
+        linkedTaskId,
+        updatedBy,
+        updatedByName,
+      } =
         req.body as z.infer<typeof coordinationCurrentHandoffSchema>;
       const actor = resolveClinicianActor(
         requestWithUser,
@@ -1625,6 +1650,7 @@ router.put(
         summary,
         nextStep,
         followUpOwner: toCoordinationFollowUpOwnerInput(followUpOwner),
+        linkedTaskId,
         updatedBy: {
           clinicianId: actor.id,
           displayName: actor.name ?? actor.id,
@@ -1636,6 +1662,19 @@ router.put(
         coordination: mapCoordinationRecord(coordination),
       });
     } catch (error) {
+      if (error instanceof ClinicianCoordinationValidationError) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: [
+            {
+              path: error.path,
+              message: error.message,
+            },
+          ],
+        });
+      }
+
       logger.error("Put clinician coordination handoff route failed", {
         route: "PUT /clinician/patients/:patientId/coordination/current-handoff",
         patientId:

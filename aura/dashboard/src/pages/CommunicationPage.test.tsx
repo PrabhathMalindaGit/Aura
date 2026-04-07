@@ -713,6 +713,70 @@ afterEach(() => {
     });
   });
 
+  it('renders a linked task as read-only shared context without mutating the local draft', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1', {
+          currentHandoff: {
+            summary: 'Keep the real workflow object visible for the next clinician.',
+            nextStep: 'tasks',
+            followUpOwner: {
+              kind: 'custom',
+              label: 'Weekend review desk',
+            },
+            linkedTaskId: 'task-1',
+            linkedTask: {
+              id: 'task-1',
+              title: 'Check medication adherence',
+              type: 'adherence_review',
+              priority: 'high',
+              status: 'open',
+              dueAt: '2026-03-09T18:00:00.000Z',
+              assignedTo: 'clinician-7',
+              source: {
+                type: 'manual',
+                label: 'Manual follow-up',
+              },
+              updatedAt: '2026-03-09T12:05:00.000Z',
+            },
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: '2026-03-09T11:45:00.000Z',
+          },
+        }),
+      },
+    });
+    const user = userEvent.setup();
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(replyField, 'Keep this local draft unchanged while viewing the linked task.');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    const linkedTaskRegion = within(coordinationContext).getByRole('region', {
+      name: 'Linked follow-through task',
+    });
+
+    expect(within(linkedTaskRegion).getByText('Check medication adherence')).toBeInTheDocument();
+    expect(within(linkedTaskRegion).getAllByText('Open').length).toBeGreaterThan(0);
+    expect(within(linkedTaskRegion).getByText('High')).toBeInTheDocument();
+    expect(within(linkedTaskRegion).getByText('clinician-7')).toBeInTheDocument();
+    expect(within(linkedTaskRegion).getByText('Manual follow-up')).toBeInTheDocument();
+    expect(
+      within(linkedTaskRegion).getByText(
+        'Existing follow-through task reference only. Shared coordination does not create or complete this task.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(linkedTaskRegion).queryByRole('button', { name: /Complete/i })).not.toBeInTheDocument();
+    expect(replyField).toHaveValue('Keep this local draft unchanged while viewing the linked task.');
+
+    const timeline = screen.getByRole('list', { name: 'Patient communication timeline' });
+    expect(within(timeline).queryByText('Check medication adherence')).not.toBeInTheDocument();
+  });
+
   it('appends a shared coordination note from Communication without changing the personal draft', async () => {
     installCommunicationFetchMock({
       coordinationByPatient: {
@@ -809,6 +873,9 @@ afterEach(() => {
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
     expect(await within(coordinationContext).findByText('No current shared handoff saved.')).toBeInTheDocument();
     expect(
+      within(coordinationContext).getByRole('region', { name: 'Linked follow-through task' }),
+    ).toHaveTextContent('No follow-through task linked');
+    expect(
       await within(coordinationContext).findByLabelText('Add shared coordination note'),
     ).toBeInTheDocument();
     expect(
@@ -847,6 +914,41 @@ afterEach(() => {
     expect(replyField).toHaveValue('Local draft should survive shared-note failure.');
   });
 
+  it('shows a truthful unavailable linked task state when the saved task reference cannot resolve', async () => {
+    installCommunicationFetchMock({
+      coordinationByPatient: {
+        'patient-1': createSharedCoordinationRecord('patient-1', {
+          currentHandoff: {
+            summary: 'The handoff still points to an unavailable task.',
+            nextStep: 'tasks',
+            followUpOwner: { kind: 'unassigned' },
+            linkedTaskId: 'task-missing',
+            linkedTask: null,
+            updatedBy: {
+              clinicianId: 'coordination-clinician-1',
+              displayName: 'Dr Elena Hall',
+            },
+            updatedAt: '2026-03-09T11:45:00.000Z',
+          },
+        }),
+      },
+    });
+
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    const linkedTaskRegion = await within(coordinationContext).findByRole('region', {
+      name: 'Linked follow-through task',
+    });
+
+    expect(within(linkedTaskRegion).getAllByText('Linked task unavailable').length).toBeGreaterThan(0);
+    expect(
+      within(linkedTaskRegion).getByText(
+        'This handoff still points to a task id, but Aura cannot resolve that task right now.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('retries cleanly when the shared coordination fetch fails and keeps the personal draft untouched', async () => {
     installCommunicationFetchMock({
       coordinationGetStatus: 400,
@@ -883,6 +985,16 @@ afterEach(() => {
               displayName: 'Dr Elena Hall',
             },
             updatedAt: '2026-03-09T11:45:00.000Z',
+            linkedTaskId: 'task-patient-1',
+            linkedTask: {
+              id: 'task-patient-1',
+              title: 'Patient one linked task',
+              type: 'follow_up',
+              priority: 'high',
+              status: 'open',
+              assignedTo: 'clinician-1',
+              updatedAt: '2026-03-09T11:45:00.000Z',
+            },
           },
         }),
         'patient-2': createSharedCoordinationRecord('patient-2', {
@@ -895,6 +1007,16 @@ afterEach(() => {
               displayName: 'Dr Morgan Shaw',
             },
             updatedAt: '2026-03-09T11:55:00.000Z',
+            linkedTaskId: 'task-patient-2',
+            linkedTask: {
+              id: 'task-patient-2',
+              title: 'Patient two linked task',
+              type: 'communication',
+              priority: 'medium',
+              status: 'in_progress',
+              assignedTo: 'clinician-2',
+              updatedAt: '2026-03-09T11:55:00.000Z',
+            },
           },
           noteHistory: [
             {
@@ -916,11 +1038,14 @@ afterEach(() => {
 
     const coordinationContext = await screen.findByTestId('communication-shared-coordination');
     expect(await within(coordinationContext).findByText('Patient one shared handoff.')).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('Patient one linked task')).toBeInTheDocument();
 
     await user.click(await screen.findByRole('button', { name: /Avery Chen/ }));
 
     expect(await within(coordinationContext).findByText('Patient two shared handoff.')).toBeInTheDocument();
+    expect(await within(coordinationContext).findByText('Patient two linked task')).toBeInTheDocument();
     expect(within(coordinationContext).queryByText('Patient one shared handoff.')).not.toBeInTheDocument();
+    expect(within(coordinationContext).queryByText('Patient one linked task')).not.toBeInTheDocument();
   });
 
   it('does not let browser-local handoff storage drive inbox shared context', async () => {
@@ -956,6 +1081,16 @@ afterEach(() => {
               displayName: 'Dr Elena Hall',
             },
             updatedAt: '2026-03-09T11:45:00.000Z',
+            linkedTaskId: 'task-support-1',
+            linkedTask: {
+              id: 'task-support-1',
+              title: 'Shared linked task should stay out of the timeline.',
+              type: 'follow_up',
+              priority: 'medium',
+              status: 'open',
+              assignedTo: 'clinician-1',
+              updatedAt: '2026-03-09T11:45:00.000Z',
+            },
           },
           noteHistory: [
             {
@@ -990,5 +1125,8 @@ afterEach(() => {
       within(timeline).queryByText('Shared coordination belongs in the support block, not the communication timeline.'),
     ).not.toBeInTheDocument();
     expect(within(timeline).queryByText('This shared note should not appear as a timeline message.')).not.toBeInTheDocument();
+    expect(
+      within(timeline).queryByText('Shared linked task should stay out of the timeline.'),
+    ).not.toBeInTheDocument();
   });
 });

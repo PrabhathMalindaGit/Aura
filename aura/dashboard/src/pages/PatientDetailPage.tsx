@@ -2898,6 +2898,7 @@ export function PatientDetailPage(): JSX.Element {
                 <div className="patient-detail-tab-grid__full">
                   <PatientHandoffPanel
                     patientId={patientId}
+                    taskSnapshot={patientTasksQuery.data ?? []}
                     onOpenNextAction={(action) => handleOperationalAction(action)}
                   />
                 </div>

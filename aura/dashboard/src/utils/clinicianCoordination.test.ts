@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ClinicianCoordinationRecord } from '../types/models';
-import { getClinicianCoordinationLatestActivity } from './clinicianCoordination';
+import {
+  getClinicianCoordinationLatestActivity,
+  getClinicianCoordinationLinkedTaskAssigneeLabel,
+  getClinicianCoordinationLinkedTaskEmptyLabel,
+  getClinicianCoordinationLinkedTaskSourceLabel,
+  getClinicianCoordinationLinkedTaskStatusLabel,
+  getClinicianCoordinationLinkedTaskUnavailableLabel,
+} from './clinicianCoordination';
 
 function createCoordinationRecord(
   overrides: Partial<ClinicianCoordinationRecord> = {},
@@ -163,5 +170,46 @@ describe('clinicianCoordination latest activity helpers', () => {
       kind: 'custom',
       label: 'Weekend review desk',
     });
+  });
+});
+
+describe('clinicianCoordination linked task helpers', () => {
+  it('returns truthful empty and unavailable labels', () => {
+    expect(getClinicianCoordinationLinkedTaskEmptyLabel()).toBe(
+      'No follow-through task linked',
+    );
+    expect(getClinicianCoordinationLinkedTaskUnavailableLabel()).toBe(
+      'Linked task unavailable',
+    );
+  });
+
+  it('humanizes linked task status labels', () => {
+    expect(getClinicianCoordinationLinkedTaskStatusLabel('in_progress')).toBe('In Progress');
+    expect(getClinicianCoordinationLinkedTaskStatusLabel('completed')).toBe('Completed');
+  });
+
+  it('prefers explicit source labels over derived source types', () => {
+    expect(
+      getClinicianCoordinationLinkedTaskSourceLabel({
+        source: {
+          label: 'Communication no-response escalation',
+          type: 'automation',
+          entityType: 'communication_no_response',
+        },
+      }),
+    ).toBe('Communication no-response escalation');
+
+    expect(
+      getClinicianCoordinationLinkedTaskSourceLabel({
+        source: {
+          entityType: 'appointment_follow_up',
+        },
+      }),
+    ).toBe('Appointment Follow Up');
+  });
+
+  it('uses task assignment only and never infers assignee from coordination ownership', () => {
+    expect(getClinicianCoordinationLinkedTaskAssigneeLabel('clinician-7')).toBe('clinician-7');
+    expect(getClinicianCoordinationLinkedTaskAssigneeLabel()).toBe('Assignee not set');
   });
 });

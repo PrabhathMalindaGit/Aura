@@ -14,6 +14,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 import app from "../src/app";
 import ClinicianCoordination from "../src/models/ClinicianCoordination";
+import Task from "../src/models/Task";
 import User from "../src/models/User";
 import { signAuthToken } from "../src/utils/jwt";
 
@@ -53,6 +54,7 @@ describe("clinician coordination routes", () => {
 
     await Promise.all([
       ClinicianCoordination.deleteMany({}),
+      Task.deleteMany({}),
       User.deleteMany({}),
     ]);
   });
@@ -170,6 +172,107 @@ describe("clinician coordination routes", () => {
     );
   });
 
+  it("saves a valid linked task id and returns the resolved linked task summary without mutating the task", async () => {
+    const clinicianUser = await createClinicianUser();
+    const task = await Task.create({
+      patientId: "patient-1",
+      title: "Review missed check-in follow-up",
+      type: "follow_up",
+      priority: "high",
+      status: "open",
+      assignedTo: "clinician-1",
+      createdBy: "clinician-1",
+      dueAt: new Date("2026-04-05T10:00:00.000Z"),
+      source: {
+        type: "manual",
+        entityType: "follow_up",
+        entityId: "task-1",
+        label: "Manual follow-up",
+      },
+    });
+
+    const response = await request(app)
+      .put("/clinician/patients/patient-1/coordination/current-handoff")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`)
+      .send({
+        summary: "Keep the task visible for the next reviewer.",
+        nextStep: "tasks",
+        followUpOwner: { kind: "custom", label: "Weekend review desk" },
+        linkedTaskId: String(task._id),
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.coordination.currentHandoff).toMatchObject({
+      summary: "Keep the task visible for the next reviewer.",
+      nextStep: "tasks",
+      followUpOwner: { kind: "custom", label: "Weekend review desk" },
+      linkedTaskId: String(task._id),
+      linkedTask: {
+        id: String(task._id),
+        title: "Review missed check-in follow-up",
+        status: "open",
+        priority: "high",
+        assignedTo: "clinician-1",
+      },
+    });
+
+    const readResponse = await request(app)
+      .get("/clinician/patients/patient-1/coordination")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`);
+
+    expect(readResponse.status).toBe(200);
+    expect(readResponse.body.coordination.currentHandoff.linkedTask).toMatchObject({
+      id: String(task._id),
+      title: "Review missed check-in follow-up",
+      source: {
+        label: "Manual follow-up",
+      },
+    });
+
+    const storedTask = await Task.findById(task._id).lean();
+    expect(storedTask?.status).toBe("open");
+    expect(storedTask?.assignedTo).toBe("clinician-1");
+  });
+
+  it("rejects invalid or wrong-patient linked task ids", async () => {
+    const clinicianUser = await createClinicianUser();
+    const otherPatientTask = await Task.create({
+      patientId: "patient-2",
+      title: "Other patient task",
+      type: "follow_up",
+      priority: "medium",
+      status: "open",
+      createdBy: "clinician-1",
+      source: { type: "manual" },
+    });
+
+    const missingTaskResponse = await request(app)
+      .put("/clinician/patients/patient-1/coordination/current-handoff")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`)
+      .send({
+        summary: "Attempt invalid link.",
+        nextStep: "tasks",
+        followUpOwner: { kind: "unassigned" },
+        linkedTaskId: String(new mongoose.Types.ObjectId()),
+      });
+
+    expect(missingTaskResponse.status).toBe(400);
+    expect(missingTaskResponse.body.error).toBe("VALIDATION_ERROR");
+
+    const wrongPatientResponse = await request(app)
+      .put("/clinician/patients/patient-1/coordination/current-handoff")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`)
+      .send({
+        summary: "Attempt wrong-patient link.",
+        nextStep: "tasks",
+        followUpOwner: { kind: "unassigned" },
+        linkedTaskId: String(otherPatientTask._id),
+      });
+
+    expect(wrongPatientResponse.status).toBe(400);
+    expect(wrongPatientResponse.body.error).toBe("VALIDATION_ERROR");
+  });
+
   it("appends coordination notes in newest-first order without replacing current handoff", async () => {
     const clinicianUser = await createClinicianUser();
     const authHeader = {
@@ -259,6 +362,85 @@ describe("clinician coordination routes", () => {
     expect(cleared.body.coordination.noteHistory[0].text).toBe(
       "Shared note should survive handoff clearing."
     );
+  });
+
+  it("allows clearing the linked task while keeping the current handoff", async () => {
+    const clinicianUser = await createClinicianUser();
+    const task = await Task.create({
+      patientId: "patient-1",
+      title: "Review communication follow-up",
+      type: "communication",
+      priority: "medium",
+      status: "in_progress",
+      createdBy: "clinician-1",
+      source: { type: "manual" },
+    });
+
+    await request(app)
+      .put("/clinician/patients/patient-1/coordination/current-handoff")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`)
+      .send({
+        summary: "Keep the handoff but attach a task first.",
+        nextStep: "communication",
+        followUpOwner: { kind: "unassigned" },
+        linkedTaskId: String(task._id),
+      });
+
+    const cleared = await request(app)
+      .put("/clinician/patients/patient-1/coordination/current-handoff")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`)
+      .send({
+        summary: "Keep the handoff but clear the link.",
+        nextStep: "communication",
+        followUpOwner: { kind: "unassigned" },
+        linkedTaskId: null,
+      });
+
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.coordination.currentHandoff).toMatchObject({
+      summary: "Keep the handoff but clear the link.",
+    });
+    expect(cleared.body.coordination.currentHandoff).not.toHaveProperty("linkedTaskId");
+  });
+
+  it("does not clear a blank handoff when a linked task is still attached", async () => {
+    const clinicianUser = await createClinicianUser();
+    const task = await Task.create({
+      patientId: "patient-1",
+      title: "Open task that remains linked",
+      type: "follow_up",
+      priority: "medium",
+      status: "open",
+      createdBy: "clinician-1",
+      source: { type: "manual" },
+    });
+
+    const response = await request(app)
+      .put("/clinician/patients/patient-1/coordination/current-handoff")
+      .set("Authorization", `Bearer ${clinicianToken(clinicianUser)}`)
+      .send({
+        summary: "",
+        nextStep: "monitoring",
+        followUpOwner: { kind: "unassigned" },
+        linkedTaskId: String(task._id),
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.coordination.currentHandoff).toMatchObject({
+      summary: "",
+      nextStep: "monitoring",
+      followUpOwner: { kind: "unassigned" },
+      linkedTaskId: String(task._id),
+      linkedTask: {
+        id: String(task._id),
+        title: "Open task that remains linked",
+      },
+    });
+
+    const stored = await ClinicianCoordination.findOne({
+      patientId: "patient-1",
+    }).lean();
+    expect(stored?.currentHandoff?.linkedTaskId).toBe(String(task._id));
   });
 
   it("does not create shared coordination when clearing a patient with no record", async () => {

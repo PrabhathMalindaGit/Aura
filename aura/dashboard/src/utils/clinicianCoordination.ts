@@ -1,10 +1,12 @@
 import type {
   ClinicianCoordinationAuthorSnapshot,
   ClinicianCoordinationFollowUpOwner,
+  ClinicianCoordinationLinkedTaskSummary,
   ClinicianCoordinationNextStep,
   ClinicianCoordinationNoteItem,
   ClinicianCoordinationRecord,
 } from '../types/models';
+import { humanizeDashboardLabel } from './dashboard';
 import { parseIsoToMs } from './date';
 
 export type ClinicianCoordinationDraftNextStep = ClinicianCoordinationNextStep | '';
@@ -21,6 +23,47 @@ export interface ClinicianCoordinationLatestActivity {
   author: ClinicianCoordinationAuthorSnapshot;
   timestamp: string;
   text: string;
+}
+
+export function getClinicianCoordinationLinkedTaskEmptyLabel(): string {
+  return 'No follow-through task linked';
+}
+
+export function getClinicianCoordinationLinkedTaskUnavailableLabel(): string {
+  return 'Linked task unavailable';
+}
+
+export function getClinicianCoordinationLinkedTaskStatusLabel(status?: string | null): string {
+  return humanizeDashboardLabel(status ?? undefined);
+}
+
+export function getClinicianCoordinationLinkedTaskAssigneeLabel(
+  assignedTo?: string | null,
+): string {
+  return assignedTo?.trim() ? assignedTo : 'Assignee not set';
+}
+
+export function getClinicianCoordinationLinkedTaskSourceLabel(
+  task?: Pick<ClinicianCoordinationLinkedTaskSummary, 'source'> | null,
+): string | null {
+  const source = task?.source;
+  if (!source) {
+    return null;
+  }
+
+  if (source.label?.trim()) {
+    return source.label.trim();
+  }
+
+  if (source.entityType?.trim()) {
+    return humanizeDashboardLabel(source.entityType);
+  }
+
+  if (source.type?.trim()) {
+    return humanizeDashboardLabel(source.type);
+  }
+
+  return null;
 }
 
 export const CLINICIAN_COORDINATION_NEXT_STEP_OPTIONS: Array<{

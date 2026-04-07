@@ -102,7 +102,6 @@ const currentHandoffSchema = new Schema(
   {
     summary: {
       type: String,
-      required: true,
       trim: true,
       maxlength: COORDINATION_SUMMARY_MAX_LENGTH,
       default: "",
@@ -117,6 +116,11 @@ const currentHandoffSchema = new Schema(
       type: followUpOwnerSchema,
       required: true,
       default: () => ({ kind: "unassigned" }),
+    },
+    linkedTaskId: {
+      type: String,
+      trim: true,
+      maxlength: 120,
     },
     updatedBy: {
       type: authorSnapshotSchema,

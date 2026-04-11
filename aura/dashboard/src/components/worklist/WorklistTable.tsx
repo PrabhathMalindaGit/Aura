@@ -171,7 +171,13 @@ export function WorklistTable({
                     <p className="worklist-table__signal-support">
                       {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
                       {' · '}
-                      {item.communicationNeedsResponse ? 'Response requested' : 'No response delay'}
+                      {item.communicationNeedsResponse
+                        ? item.communicationSummary?.delayedResponse
+                          ? `Response delayed (${item.communicationSummary.responseAgeHours ?? '—'}h)`
+                          : item.communicationSummary?.responseDelayHours
+                            ? `Response target ${item.communicationSummary.responseDelayHours}h`
+                            : 'Response requested'
+                        : 'No response delay'}
                     </p>
                   </div>
                 </td>
@@ -206,6 +212,9 @@ export function WorklistTable({
                           ? 'Taken'
                           : 'Missed'
                         : '—'}
+                      {item.thresholdSummary
+                        ? ` · Pain threshold ${item.thresholdSummary.painHighThreshold}/10`
+                        : ''}
                     </p>
                   </div>
                 </td>

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import ExercisePlan from "../models/ExercisePlan";
+import ExercisePlanRevision from "../models/ExercisePlanRevision";
 import { requirePatientAuth } from "../middleware/patientAuth";
 import { validateBody } from "../middleware/validate";
 import type { RequestWithPatient } from "../types/patientAuth";
@@ -32,6 +33,7 @@ const putExercisePlanSchema = z
     timezone: z.string().trim().max(120).optional(),
     daysOfWeek: z.array(dayOfWeekSchema).min(1).max(7),
     items: z.array(exercisePlanItemSchema).max(30),
+    expectedVersion: z.number().int().min(0).optional(),
   })
   .superRefine((value, ctx) => {
     const uniqueDays = new Set(value.daysOfWeek);
@@ -316,6 +318,71 @@ router.get("/clinician/patients/:patientId/exercise-plan", async (req, res) => {
   }
 });
 
+router.get("/clinician/patients/:patientId/exercise-plan/history", async (req, res) => {
+  const patientId =
+    typeof req.params.patientId === "string" ? req.params.patientId.trim() : "";
+
+  if (!patientId) {
+    return res.status(400).json({
+      ok: false,
+      error: "VALIDATION_ERROR",
+      details: [
+        {
+          path: "patientId",
+          message: "patientId is required",
+        },
+      ],
+    });
+  }
+
+  try {
+    const revisions = await ExercisePlanRevision.find({ patientId })
+      .sort({ version: -1, savedAt: -1 })
+      .limit(25)
+      .lean();
+
+    return res.json({
+      ok: true,
+      patientId,
+      items: revisions.map((revision) => ({
+        id: String(revision._id),
+        patientId,
+        version: typeof revision.version === "number" ? revision.version : 1,
+        savedAt:
+          revision.savedAt instanceof Date
+            ? revision.savedAt.toISOString()
+            : new Date(0).toISOString(),
+        savedBy:
+          revision.savedBy &&
+          typeof revision.savedBy === "object" &&
+          typeof revision.savedBy.clinicianId === "string"
+            ? {
+                clinicianId: revision.savedBy.clinicianId,
+                name:
+                  typeof revision.savedBy.name === "string"
+                    ? revision.savedBy.name
+                    : undefined,
+              }
+            : undefined,
+        snapshot:
+          revision.snapshot && typeof revision.snapshot === "object"
+            ? mapPlanDocument(revision.snapshot as Record<string, unknown>)
+            : null,
+      })),
+    });
+  } catch (error) {
+    logger.error("Get clinician exercise plan history failed", {
+      route: "GET /clinician/patients/:patientId/exercise-plan/history",
+      patientId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
 router.put(
   "/clinician/patients/:patientId/exercise-plan",
   validateBody(putExercisePlanSchema),
@@ -348,8 +415,23 @@ router.put(
 
     try {
       const existing = await ExercisePlan.findOne({ patientId });
+      if (
+        typeof body.expectedVersion === "number" &&
+        ((existing?.version ?? 0) !== body.expectedVersion)
+      ) {
+        return res.status(409).json({
+          ok: false,
+          error: "VERSION_CONFLICT",
+          currentVersion: existing?.version ?? 0,
+        });
+      }
+
       const nextVersion = existing ? Math.max(existing.version ?? 1, 1) + 1 : 1;
       const normalizedItems = [...body.items].sort((left, right) => left.order - right.order);
+      const savedBy = {
+        clinicianId: requestWithUser.user.id,
+        name: requestWithUser.user.name,
+      };
 
       const updated = await ExercisePlan.findOneAndUpdate(
         { patientId },
@@ -360,10 +442,7 @@ router.put(
             daysOfWeek: normalizeDays(body.daysOfWeek),
             items: normalizedItems,
             version: nextVersion,
-            updatedBy: {
-              clinicianId: requestWithUser.user.id,
-              name: requestWithUser.user.name,
-            },
+            updatedBy: savedBy,
           },
         },
         {
@@ -372,6 +451,22 @@ router.put(
           setDefaultsOnInsert: true,
         }
       ).lean();
+
+      await ExercisePlanRevision.create({
+        patientId,
+        version: nextVersion,
+        savedBy,
+        savedAt: new Date(),
+        snapshot: {
+          title: body.title,
+          timezone: body.timezone,
+          daysOfWeek: normalizeDays(body.daysOfWeek),
+          items: normalizedItems,
+          version: nextVersion,
+          updatedAt: new Date(),
+          updatedBy: savedBy,
+        },
+      });
 
       return res.json({
         ok: true,

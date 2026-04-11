@@ -520,6 +520,14 @@ export interface DashboardCommunicationOverviewItem {
   linkedTaskId?: string;
   messageCreatedAt: string;
   messagePreview?: string;
+  patientRiskLevel?: 'low' | 'high' | string;
+  openAlertCount?: number;
+  lastCheckinAt?: string;
+  lastPainScore?: number;
+  responseState?: 'reviewing' | 'delayed' | string;
+  responseDelayHours?: number;
+  responseAgeHours?: number;
+  thresholdSummary?: PatientThresholdConfig;
 }
 
 export interface DashboardCommunicationOverview {
@@ -693,12 +701,21 @@ export interface WorklistRecord {
     count: number;
   };
   communicationNeedsResponse: boolean;
+  communicationSummary?: {
+    needsResponseCount: number;
+    flaggedBySafetyCount: number;
+    latestMessageAt?: string;
+    delayedResponse: boolean;
+    responseDelayHours?: number;
+    responseAgeHours?: number;
+  };
   activeTaskCount: number;
   proms?: {
     dueCount: number;
     overdueCount: number;
     nextDueAt?: string;
   };
+  thresholdSummary?: PatientThresholdConfig;
   topIssue?: string;
   reviewReason?: string;
   priorityScore: number;
@@ -719,14 +736,69 @@ export interface PatchAlertResponse {
 export interface AlertContextResponse {
   ok: true;
   alert: AlertItem;
+  triggering?: unknown;
   triggeringEvent?: TriggeringEvent;
   timeline?: TimelineEvent[];
+  auditTrail?: SafetyAuditEntry[];
 }
 
 export interface AlertContextResult {
   alert: AlertItem;
   triggeringEvent?: TriggeringEvent;
   timeline?: TimelineEvent[];
+  auditTrail?: SafetyAuditEntry[];
+}
+
+export interface PatientThresholdConfig {
+  patientId: string;
+  painHighThreshold: number;
+  missedCheckinDays: number;
+  responseDelayHours: number;
+  safetyFlaggedResponseDelayHours: number;
+  rationale?: string;
+  version: number;
+  configured: boolean;
+  updatedAt?: string;
+  createdAt?: string;
+  updatedBy?: {
+    clinicianId: string;
+    name?: string;
+  };
+}
+
+export interface PatientThresholdConfigResponse {
+  ok: true;
+  patientId: string;
+  thresholds: PatientThresholdConfig;
+}
+
+export interface PutPatientThresholdConfigPayload {
+  painHighThreshold: number;
+  missedCheckinDays: number;
+  responseDelayHours: number;
+  safetyFlaggedResponseDelayHours: number;
+  rationale?: string;
+}
+
+export interface SafetyAuditEntry {
+  id: string;
+  patientId: string;
+  alertId?: string;
+  eventType: string;
+  summary: string;
+  occurredAt: string;
+  actor?: {
+    clinicianId?: string;
+    name?: string;
+  };
+  notificationStatus?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface PatientSafetyEventsResponse {
+  ok: true;
+  patientId: string;
+  items: SafetyAuditEntry[];
 }
 
 export type ExercisePlanIntensity = 'easy' | 'moderate' | 'hard';
@@ -762,6 +834,24 @@ export interface ExercisePlanResponse {
   ok: true;
   patientId: string;
   plan: ExercisePlan | null;
+}
+
+export interface ExercisePlanRevision {
+  id: string;
+  patientId: string;
+  version: number;
+  savedAt: string;
+  savedBy?: {
+    clinicianId: string;
+    name?: string;
+  };
+  snapshot: ExercisePlan | null;
+}
+
+export interface ExercisePlanHistoryResponse {
+  ok: true;
+  patientId: string;
+  items: ExercisePlanRevision[];
 }
 
 export type RehabStatus = 'locked' | 'current' | 'done';

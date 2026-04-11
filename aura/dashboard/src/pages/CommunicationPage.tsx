@@ -78,6 +78,27 @@ function getThreadMetaSummary(thread: CommunicationThread): string {
   return 'Recent patient message in review';
 }
 
+function getCommunicationContextSummary(item: DashboardCommunicationOverviewItem | null): string | null {
+  if (!item) {
+    return null;
+  }
+
+  const parts = [
+    item.patientRiskLevel === 'high' ? 'Higher risk context' : 'Lower risk context',
+    typeof item.openAlertCount === 'number'
+      ? `${item.openAlertCount} open alert${item.openAlertCount === 1 ? '' : 's'}`
+      : null,
+    item.lastPainScore !== undefined ? `Last pain ${item.lastPainScore}/10` : null,
+    item.responseState === 'delayed'
+      ? `Response delayed past ${item.responseDelayHours ?? 'configured'}h`
+      : item.responseDelayHours
+        ? `Response target ${item.responseDelayHours}h`
+        : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 function formatCountLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
@@ -182,6 +203,17 @@ export function CommunicationPage(): JSX.Element {
     () => deriveCommunicationThreads(communicationQuery.data?.items ?? [], localState),
     [communicationQuery.data?.items, localState],
   );
+  const threadContextMap = useMemo(() => {
+    const map = new Map<string, DashboardCommunicationOverviewItem>();
+    for (const item of communicationQuery.data?.items ?? []) {
+      const key = item.patientId.trim() || `unknown-${item.id}`;
+      const existing = map.get(key);
+      if (!existing || Date.parse(item.messageCreatedAt) > Date.parse(existing.messageCreatedAt)) {
+        map.set(key, item);
+      }
+    }
+    return map;
+  }, [communicationQuery.data?.items]);
   const filteredThreads = useMemo(
     () => filterCommunicationThreads(allThreads, currentView),
     [allThreads, currentView],
@@ -244,6 +276,10 @@ export function CommunicationPage(): JSX.Element {
   const selectedThread = useMemo(
     () => allThreads.find((thread) => thread.id === selectedThreadId) ?? null,
     [allThreads, selectedThreadId],
+  );
+  const activeThreadContext = useMemo(
+    () => (selectedThread ? threadContextMap.get(selectedThread.id) ?? null : null),
+    [selectedThread, threadContextMap],
   );
   const selectedThreadVisibleInCurrentView = useMemo(
     () => filteredThreads.some((thread) => thread.id === selectedThreadId),
@@ -620,6 +656,8 @@ export function CommunicationPage(): JSX.Element {
                 const isSelected = thread.id === activeThread?.id;
                 const threadTone = getCommunicationThreadTone(thread);
                 const primaryBadge = getThreadPriorityBadge(thread);
+                const threadContext = threadContextMap.get(thread.id) ?? null;
+                const threadContextSummary = getCommunicationContextSummary(threadContext);
 
                 return (
                   <article key={thread.id} className="communication-page__thread-list-item" role="listitem">
@@ -654,6 +692,11 @@ export function CommunicationPage(): JSX.Element {
                               <span className="communication-page__thread-id">ID: {thread.patientId}</span>
                             ) : null}
                           </div>
+                          {threadContextSummary ? (
+                            <div className="inbox-thread-item__meta-line">
+                              <span className="communication-page__thread-meta-note">{threadContextSummary}</span>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                       <p className="communication-page__thread-preview">{thread.latestEventPreview}</p>
@@ -697,6 +740,16 @@ export function CommunicationPage(): JSX.Element {
                         Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
                       </span>
                     </div>
+                    {activeThreadContext ? (
+                      <div className="inbox-response-stage__meta">
+                        <span>{getCommunicationContextSummary(activeThreadContext)}</span>
+                        {activeThreadContext.lastCheckinAt ? (
+                          <span>
+                            Last check-in {formatDashboardRelativeTime(activeThreadContext.lastCheckinAt)}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 <div className="inbox-response-stage__header-side">

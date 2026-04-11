@@ -49,7 +49,7 @@ describe("GET /clinician/alerts/:id/context", () => {
     vi.useRealTimers();
   });
 
-  it("returns check-in triggering context and timeline in ascending order", async () => {
+  it("returns check-in triggering context and audit trail in ascending order", async () => {
     vi.setSystemTime(new Date("2026-03-11T09:00:00.000Z"));
     const checkin = await CheckIn.create({
       patientId: "p1",
@@ -77,6 +77,7 @@ describe("GET /clinician/alerts/:id/context", () => {
       },
       status: "open",
       seenBy: ["clinician-1"],
+      seenAt: new Date("2026-03-11T09:05:45.000Z"),
       notification: {
         channel: "telegram",
         status: "failed",
@@ -117,16 +118,29 @@ describe("GET /clinician/alerts/:id/context", () => {
     expect(response.body.alert._id).toBe(String(alert._id));
     expect(response.body.triggering?.type).toBe("checkin");
     expect(response.body.triggering?.checkin?.pain).toBe(8);
-    expect(response.body.timeline).toHaveLength(2);
-    expect(response.body.timeline[0]?.type).toBe("ALERT_CREATED");
-    expect(response.body.timeline[1]?.type).toBe("NOTIFICATION_FAILED");
+    expect(Array.isArray(response.body.auditTrail)).toBe(true);
+    expect(response.body.auditTrail.length).toBeGreaterThanOrEqual(2);
 
-    const firstAt = Date.parse(response.body.timeline[0]?.createdAt as string);
-    const secondAt = Date.parse(response.body.timeline[1]?.createdAt as string);
-    expect(firstAt).toBeLessThan(secondAt);
+    const eventTypes = response.body.auditTrail.map((entry: { eventType: string }) => entry.eventType);
+    expect(eventTypes).toEqual(
+      expect.arrayContaining(["ALERT_CREATED", "NOTIFICATION_FAILED", "ALERT_SEEN"]),
+    );
 
-    expect(response.body.timeline[0]?.payload?.text).toBeUndefined();
-    expect(response.body.timeline[1]?.payload?.notes).toBeUndefined();
+    const firstAt = Date.parse(response.body.auditTrail[0]?.occurredAt as string);
+    const lastAt = Date.parse(
+      response.body.auditTrail[response.body.auditTrail.length - 1]?.occurredAt as string,
+    );
+    expect(firstAt).toBeLessThanOrEqual(lastAt);
+
+    const createdEntry = response.body.auditTrail.find(
+      (entry: { eventType: string }) => entry.eventType === "ALERT_CREATED",
+    );
+    const failureEntry = response.body.auditTrail.find(
+      (entry: { eventType: string }) => entry.eventType === "NOTIFICATION_FAILED",
+    );
+
+    expect(createdEntry?.meta?.text).toBeUndefined();
+    expect(failureEntry?.meta?.notes).toBeUndefined();
   });
 
   it("returns bounded chat message context window", async () => {

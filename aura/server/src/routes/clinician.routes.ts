@@ -29,6 +29,14 @@ import {
   type CoordinationAuthorSnapshot,
   type CoordinationFollowUpOwner,
 } from "../services/clinicianCoordinationService";
+import {
+  getPatientThresholdConfig,
+  savePatientThresholdConfig,
+} from "../services/patientThresholdService";
+import {
+  listAlertSafetyAuditTrail,
+  listPatientSafetyEvents,
+} from "../services/safetyEventService";
 import { isObjectId } from "../utils/ids";
 import { logger } from "../utils/logger";
 
@@ -68,6 +76,24 @@ const retryNotificationSchema = z.object({
   requestedByName: z.string().trim().min(1).optional(),
   reason: z.string().trim().max(200).optional(),
 });
+const thresholdSchema = z
+  .object({
+    painHighThreshold: z.number().min(0).max(10),
+    missedCheckinDays: z.number().int().min(1).max(14),
+    responseDelayHours: z.number().int().min(1).max(168),
+    safetyFlaggedResponseDelayHours: z.number().int().min(1).max(168),
+    rationale: z.string().trim().max(280).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.safetyFlaggedResponseDelayHours > value.responseDelayHours) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["safetyFlaggedResponseDelayHours"],
+        message:
+          "safetyFlaggedResponseDelayHours must be less than or equal to responseDelayHours",
+      });
+    }
+  });
 const listPatientsQuerySchema = z.object({
   status: patientStatusFilterSchema.optional().default("all"),
   clinicianId: z.string().trim().min(1).optional(),
@@ -957,26 +983,19 @@ router.get("/clinician/alerts/:id/context", async (req, res) => {
       }
     }
 
-    const careEvents = await CareEvent.find({
-      alertId: String(alert._id),
-    })
-      .sort({ createdAt: 1 })
-      .lean();
-
-    const timeline = careEvents.map((event) => {
-      const eventRecord = event as unknown as Record<string, unknown>;
-      return {
-        id: String(eventRecord._id ?? ""),
-        type: toStringOrNull(eventRecord.type) ?? "UNKNOWN",
-        createdAt: toIsoDateStringRequired(eventRecord.createdAt),
-        payload: sanitizePayload(eventRecord.payload) ?? {},
-      };
-    });
+    const auditTrail = await listAlertSafetyAuditTrail(String(alert._id));
+    const timeline = auditTrail.map((entry) => ({
+      id: entry.id,
+      type: entry.eventType,
+      createdAt: entry.occurredAt,
+      payload: sanitizePayload(entry.meta) ?? {},
+    }));
 
     return res.json({
       ok: true,
       alert: mapAlertContextAlert(alert as unknown as Record<string, unknown>),
       triggering,
+      auditTrail,
       timeline,
     });
   } catch (error) {
@@ -1153,6 +1172,137 @@ router.get("/clinician/patients", async (req, res) => {
       ok: false,
       error: "INTERNAL_ERROR",
       message: "Something went wrong",
+    });
+  }
+});
+
+router.get("/clinician/patients/:patientId/thresholds", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const thresholds = await getPatientThresholdConfig(parsedPatientId.patientId);
+    return res.json({
+      ok: true,
+      patientId: parsedPatientId.patientId,
+      thresholds,
+    });
+  } catch (error) {
+    logger.error("Get patient thresholds route failed", {
+      route: "GET /clinician/patients/:patientId/thresholds",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.put(
+  "/clinician/patients/:patientId/thresholds",
+  validateBody(thresholdSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const actor = resolveClinicianActor(requestWithUser);
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const body = req.body as z.infer<typeof thresholdSchema>;
+      const result = await savePatientThresholdConfig({
+        patientId: parsedPatientId.patientId,
+        painHighThreshold: body.painHighThreshold,
+        missedCheckinDays: body.missedCheckinDays,
+        responseDelayHours: body.responseDelayHours,
+        safetyFlaggedResponseDelayHours: body.safetyFlaggedResponseDelayHours,
+        rationale: body.rationale,
+        updatedBy: {
+          clinicianId: actor.id,
+          name: requestWithUser.user?.name ?? actor.name,
+        },
+      });
+
+      await CareEvent.create({
+        type: "PATIENT_THRESHOLD_UPDATED",
+        patientId: parsedPatientId.patientId,
+        payload: {
+          previous: result.previous,
+          current: result.current,
+          rationale: body.rationale?.trim() || undefined,
+          updatedBy: actor.id,
+          updatedByName: requestWithUser.user?.name ?? actor.name,
+        },
+      });
+
+      return res.json({
+        ok: true,
+        patientId: parsedPatientId.patientId,
+        thresholds: result.current,
+      });
+    } catch (error) {
+      logger.error("Put patient thresholds route failed", {
+        route: "PUT /clinician/patients/:patientId/thresholds",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.get("/clinician/patients/:patientId/safety-events", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const events = await listPatientSafetyEvents(parsedPatientId.patientId);
+    return res.json({
+      ok: true,
+      patientId: parsedPatientId.patientId,
+      items: events,
+    });
+  } catch (error) {
+    logger.error("Get patient safety events route failed", {
+      route: "GET /clinician/patients/:patientId/safety-events",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
     });
   }
 });
@@ -2278,6 +2428,15 @@ router.patch(
   validateBody(patchSchema),
   async (req, res) => {
     try {
+      const requestWithUser = req as RequestWithUser;
+      const actor = resolveClinicianActor(requestWithUser);
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
       const { id } = req.params;
 
       if (!isObjectId(id)) {
@@ -2318,6 +2477,17 @@ router.patch(
           message: "Alert not found",
         });
       }
+
+      await CareEvent.create({
+        type: status === "resolved" ? "ALERT_RESOLVED" : "ALERT_ACKNOWLEDGED",
+        patientId: updated.patientId,
+        alertId: String(updated._id),
+        payload: {
+          clinicianId: actor.id,
+          clinicianName: requestWithUser.user?.name ?? actor.name,
+          status,
+        },
+      });
 
       return res.json({
         ok: true,

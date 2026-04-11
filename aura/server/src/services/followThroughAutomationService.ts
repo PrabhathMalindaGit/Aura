@@ -8,6 +8,11 @@ import {
   getPriorityQueue,
 } from "./dashboardSummaryService";
 import { listAppointmentWorkflowItems } from "./appointmentWorkflowService";
+import { getDefaultThresholdSnapshot } from "./patientThresholdService";
+import {
+  deriveResponseDelayState,
+  getThresholdsForPatients,
+} from "./riskEvaluationService";
 import { listClinicianWorklist } from "./worklistService";
 
 export const FOLLOW_THROUGH_WORKFLOW_VALUES = [
@@ -742,6 +747,11 @@ export async function processCommunicationNoResponseAutomation(
     .limit(normalized.limit * 3)
     .lean();
   const patientInfoMap = await getPatientInfoMap(reviews.map((row) => row.patientId));
+  const thresholdMap = await getThresholdsForPatients(
+    reviews
+      .map((row) => cleanString(row.patientId))
+      .filter((value): value is string => Boolean(value))
+  );
 
   const specs: Array<{
     dedupeKey: string;
@@ -761,8 +771,15 @@ export async function processCommunicationNoResponseAutomation(
       continue;
     }
 
-    const thresholdMs = review.flaggedBySafety === true ? 6 * MS_PER_HOUR : 24 * MS_PER_HOUR;
-    if (normalized.now.getTime() - messageCreatedAt.getTime() < thresholdMs) {
+    const thresholds =
+      thresholdMap.get(patientId) ?? getDefaultThresholdSnapshot(patientId);
+    const responseState = deriveResponseDelayState({
+      messageCreatedAt,
+      flaggedBySafety: review.flaggedBySafety === true,
+      now: normalized.now,
+      thresholds,
+    });
+    if (!responseState.delayed) {
       continue;
     }
 
@@ -818,7 +835,7 @@ export async function processCommunicationNoResponseAutomation(
     });
 
     specs.push({
-      dedupeKey: `communication:${messageId}:${review.flaggedBySafety === true ? "6h" : "24h"}`,
+      dedupeKey: `communication:${messageId}:${responseState.thresholdHours}h`,
       review,
       taskId: task?.id,
     });

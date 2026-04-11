@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
 import ChatMessage from "../models/ChatMessage";
+import CheckIn from "../models/CheckIn";
 import InsightSuggestion from "../models/InsightSuggestion";
 import Patient from "../models/Patient";
 import Task from "../models/Task";
@@ -12,6 +13,11 @@ import {
   getCommunicationOverviewCounts,
   listRecentCommunicationNeedingResponse,
 } from "./communicationReviewService";
+import { getDefaultThresholdSnapshot } from "./patientThresholdService";
+import {
+  deriveResponseDelayState,
+  getThresholdsForPatients,
+} from "./riskEvaluationService";
 import { listTasks } from "./taskService";
 import { listClinicianWorklist } from "./worklistService";
 
@@ -84,6 +90,18 @@ function cleanString(value: unknown): string | undefined {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 }
+
+type LatestCheckinOverviewRow = {
+  _id: string;
+  lastCheckinAt?: Date;
+  lastPainScore?: number;
+  latestRiskLevel?: "low" | "high";
+};
+
+type AlertOverviewRow = {
+  _id: string;
+  openAlertCount: number;
+};
 
 export async function getDashboardSummary(clinicianId?: string) {
   const [openAlertsCount, pendingInsightsCount, openFollowUpTasksCount, messagesNeedingResponseCount, worklist, todaysAppointments] =
@@ -170,13 +188,40 @@ export async function getCommunicationOverview(limit = 10) {
     .map((review) => cleanString(review.messageId))
     .filter((value): value is string => Boolean(value));
 
-  const [patients, messages] = await Promise.all([
+  const [patients, messages, latestCheckins, alertCounts, thresholdMap] = await Promise.all([
     Patient.find({ patientId: { $in: patientIds } })
       .select({ patientId: 1, displayName: 1 })
       .lean(),
     ChatMessage.find({ _id: { $in: messageIds.filter((value) => Types.ObjectId.isValid(value)) } })
       .select({ text: 1 })
       .lean(),
+    CheckIn.aggregate<LatestCheckinOverviewRow>([
+      { $match: { patientId: { $in: patientIds } } },
+      { $sort: { patientId: 1, date: -1, createdAt: -1 } },
+      {
+        $group: {
+          _id: "$patientId",
+          lastCheckinAt: { $first: "$createdAt" },
+          lastPainScore: { $first: "$pain" },
+          latestRiskLevel: { $first: "$risk.level" },
+        },
+      },
+    ]),
+    Alert.aggregate<AlertOverviewRow>([
+      {
+        $match: {
+          patientId: { $in: patientIds },
+          status: "open",
+        },
+      },
+      {
+        $group: {
+          _id: "$patientId",
+          openAlertCount: { $sum: 1 },
+        },
+      },
+    ]),
+    getThresholdsForPatients(patientIds),
   ]);
 
   const patientNameMap = new Map(
@@ -185,24 +230,67 @@ export async function getCommunicationOverview(limit = 10) {
   const messagePreviewMap = new Map(
     messages.map((row) => [String(row._id), cleanString(row.text)])
   );
+  const latestCheckinMap = new Map<string, LatestCheckinOverviewRow>(
+    latestCheckins.map((row) => [row._id, row])
+  );
+  const alertCountMap = new Map(alertCounts.map((row) => [row._id, row.openAlertCount]));
+  const now = new Date();
 
   return {
     counts,
-    items: reviews.map((review) => ({
-      id: String(review._id),
-      patientId: review.patientId,
-      patientName: patientNameMap.get(review.patientId) ?? review.patientId,
-      messageId: review.messageId,
-      needsResponse: review.needsResponse === true,
-      flaggedBySafety: review.flaggedBySafety === true,
-      followUpRequested: review.followUpRequested === true,
-      linkedTaskId: cleanString(review.linkedTaskId),
-      messageCreatedAt: toIso(toDate(review.messageCreatedAt)),
-      messagePreview:
-        cleanString(review.messagePreview) ??
-        messagePreviewMap.get(cleanString(review.messageId) ?? "") ??
-        undefined,
-    })),
+    items: reviews.map((review) => {
+      const thresholds =
+        thresholdMap.get(review.patientId) ??
+        getDefaultThresholdSnapshot(review.patientId);
+      const messageCreatedAtDate = toDate(review.messageCreatedAt) ?? new Date();
+      const responseState = deriveResponseDelayState({
+        messageCreatedAt: messageCreatedAtDate,
+        flaggedBySafety: review.flaggedBySafety === true,
+        now,
+        thresholds,
+      });
+      const latestCheckin = latestCheckinMap.get(review.patientId);
+
+      return {
+        id: String(review._id),
+        patientId: review.patientId,
+        patientName: patientNameMap.get(review.patientId) ?? review.patientId,
+        messageId: review.messageId,
+        needsResponse: review.needsResponse === true,
+        flaggedBySafety: review.flaggedBySafety === true,
+        followUpRequested: review.followUpRequested === true,
+        linkedTaskId: cleanString(review.linkedTaskId),
+        messageCreatedAt: toIso(messageCreatedAtDate),
+        messagePreview:
+          cleanString(review.messagePreview) ??
+          messagePreviewMap.get(cleanString(review.messageId) ?? "") ??
+          undefined,
+        patientRiskLevel:
+          (alertCountMap.get(review.patientId) ?? 0) > 0 ||
+          latestCheckin?.latestRiskLevel === "high"
+            ? "high"
+            : "low",
+        openAlertCount: alertCountMap.get(review.patientId) ?? 0,
+        lastCheckinAt: toIso(toDate(latestCheckin?.lastCheckinAt)),
+        lastPainScore:
+          typeof latestCheckin?.lastPainScore === "number"
+            ? latestCheckin.lastPainScore
+            : undefined,
+        responseState: responseState.delayed ? "delayed" : "reviewing",
+        responseDelayHours: responseState.thresholdHours,
+        responseAgeHours: responseState.elapsedHours,
+        thresholdSummary: {
+          painHighThreshold: thresholds.painHighThreshold,
+          missedCheckinDays: thresholds.missedCheckinDays,
+          responseDelayHours: thresholds.responseDelayHours,
+          safetyFlaggedResponseDelayHours:
+            thresholds.safetyFlaggedResponseDelayHours,
+          configured: thresholds.configured,
+          updatedAt: thresholds.updatedAt,
+          updatedByName: thresholds.updatedBy?.name,
+        },
+      };
+    }),
   };
 }
 
@@ -363,7 +451,7 @@ async function buildCommunicationPriorityItems(
     itemType: "communication",
     patientId: item.patientId,
     title: `${item.patientName} message needs review`,
-    subtitle: item.messagePreview,
+    subtitle: cleanString(item.messagePreview),
     priority: item.flaggedBySafety ? "high" : "medium",
     status: item.needsResponse ? "needs_response" : "tracked",
     source: "chat",
@@ -373,6 +461,13 @@ async function buildCommunicationPriorityItems(
     meta: {
       flaggedBySafety: item.flaggedBySafety,
       linkedTaskId: item.linkedTaskId,
+      patientRiskLevel: item.patientRiskLevel,
+      openAlertCount: item.openAlertCount,
+      lastCheckinAt: item.lastCheckinAt,
+      lastPainScore: item.lastPainScore,
+      responseState: item.responseState,
+      responseDelayHours: item.responseDelayHours,
+      responseAgeHours: item.responseAgeHours,
     },
   }));
 }

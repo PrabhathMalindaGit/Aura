@@ -17,11 +17,28 @@ export type WorklistRecord = {
     count: number;
   };
   communicationNeedsResponse: boolean;
+  communicationSummary?: {
+    needsResponseCount: number;
+    flaggedBySafetyCount: number;
+    latestMessageAt?: string;
+    delayedResponse: boolean;
+    responseDelayHours?: number;
+    responseAgeHours?: number;
+  };
   activeTaskCount: number;
   proms: {
     dueCount: number;
     overdueCount: number;
     nextDueAt?: string;
+  };
+  thresholdSummary?: {
+    painHighThreshold: number;
+    missedCheckinDays: number;
+    responseDelayHours: number;
+    safetyFlaggedResponseDelayHours: number;
+    configured: boolean;
+    updatedAt?: string;
+    updatedByName?: string;
   };
   topIssue?: string;
   reviewReason?: string;

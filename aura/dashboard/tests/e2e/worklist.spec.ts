@@ -7,7 +7,7 @@ test('worklist page loads operational rows and routes safely into alerts', async
   await page.goto('/worklist');
 
   await expect(page).toHaveURL(/\/worklist$/);
-  await expect(page.getByRole('heading', { level: 2, name: 'Worklist' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Queue' })).toBeVisible();
   await expect(page.getByText('High pain escalation')).toBeVisible();
   await expect(page.getByText('Missed daily check-ins')).toBeVisible();
 
@@ -16,5 +16,5 @@ test('worklist page loads operational rows and routes safely into alerts', async
   await expect(page.getByTestId('worklist-row-p2')).toHaveCount(0);
 
   await page.getByTestId('worklist-row-p1').getByRole('button', { name: 'Alerts' }).click();
-  await expect(page).toHaveURL(/\/alerts$/);
+  await expect(page).toHaveURL(/\/alerts(\?|$)/);
 });

@@ -35,6 +35,7 @@ import {
   fetchPhotoBlob,
   generatePatientInsights,
   getDashboardCommunicationOverview,
+  getExercisePlan,
   getPatientMedicationAdherence,
   getPatientPhotos,
   getPatientInsights,
@@ -48,12 +49,15 @@ import {
   listAppointmentRequests,
   listAlerts,
   listClinicianTasks,
+  putPatientThresholds,
   reviewInsight,
   setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
   useClinicianWorklist,
   usePatientCoordination,
   usePatients,
+  usePatientSafetyEvents,
+  usePatientThresholds,
   usePatientTrends,
   useUpdateAlertStatus,
 } from '../services/clinicianApi';
@@ -75,10 +79,12 @@ import type {
   AppointmentRequestItem,
   ClinicianTaskItem,
   DashboardCommunicationOverviewItem,
+  ExercisePlan,
   PatientSummary,
   PromDueCard,
   PromHistoryRow,
   RehabPayload,
+  SafetyAuditEntry,
   SymptomPhotoItem,
   TrendPointRaw,
   WorklistRecord,
@@ -390,6 +396,13 @@ export function PatientDetailPage(): JSX.Element {
   const [insightActionNotice, setInsightActionNotice] = useState<string | null>(null);
   const [operationsError, setOperationsError] = useState<string | null>(null);
   const [operationsNotice, setOperationsNotice] = useState<string | null>(null);
+  const [thresholdDraft, setThresholdDraft] = useState({
+    painHighThreshold: 7,
+    missedCheckinDays: 2,
+    responseDelayHours: 24,
+    safetyFlaggedResponseDelayHours: 6,
+    rationale: '',
+  });
   const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
   const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
@@ -571,6 +584,19 @@ export function PatientDetailPage(): JSX.Element {
     placeholderData: (previous) => previous,
   });
 
+  const patientPlanQuery = useQuery({
+    queryKey: ['patient-exercise-plan', patientId],
+    queryFn: () => getExercisePlan(patientId ?? ''),
+    enabled: Boolean(patientId) && shouldLoadGuidanceBucket,
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const patientThresholdsQuery = usePatientThresholds(patientId);
+  const patientSafetyEventsQuery = usePatientSafetyEvents(patientId);
+
   const patientInsightsQuery = useQuery({
     queryKey: ['patient-insights', patientId],
     queryFn: async () => {
@@ -645,6 +671,23 @@ export function PatientDetailPage(): JSX.Element {
         patientTasksQuery.refetch(),
         patientWorklistQuery.refetch(),
         patientCommunicationQuery.refetch(),
+      ]);
+    },
+    onError: (error) => {
+      setOperationsNotice(null);
+      setOperationsError(toUserMessage(asAppError(error)));
+    },
+  });
+  const saveThresholdsMutation = useMutation({
+    mutationFn: () => putPatientThresholds(patientId ?? '', thresholdDraft),
+    onSuccess: async () => {
+      setOperationsError(null);
+      setOperationsNotice('Patient thresholds updated.');
+      await Promise.allSettled([
+        patientThresholdsQuery.refetch(),
+        patientWorklistQuery.refetch(),
+        patientCommunicationQuery.refetch(),
+        patientSafetyEventsQuery.refetch(),
       ]);
     },
     onError: (error) => {
@@ -1223,6 +1266,28 @@ export function PatientDetailPage(): JSX.Element {
 
   const hasTrendData = normalizedTrends.some((point) => trendPointHasAnyData(point));
   const patientExportRangeError = validateDateRange(patientExportRange);
+  const patientPlan = (patientPlanQuery.data ?? null) as ExercisePlan | null;
+  const patientThresholds =
+    patientThresholdsQuery.data ?? patientWorklistItem?.thresholdSummary ?? null;
+  const recentSafetyEvents = useMemo(
+    () => ((patientSafetyEventsQuery.data ?? []) as SafetyAuditEntry[]).slice(0, 4),
+    [patientSafetyEventsQuery.data],
+  );
+
+  useEffect(() => {
+    if (!patientThresholds) {
+      return;
+    }
+
+    setThresholdDraft({
+      painHighThreshold: patientThresholds.painHighThreshold,
+      missedCheckinDays: patientThresholds.missedCheckinDays,
+      responseDelayHours: patientThresholds.responseDelayHours,
+      safetyFlaggedResponseDelayHours: patientThresholds.safetyFlaggedResponseDelayHours,
+      rationale: patientThresholds.rationale ?? '',
+    });
+  }, [patientThresholds]);
+
   const currentRehabPhaseTitle =
     patientRehab?.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ??
     patientWorklistItem?.rehabPhase ??
@@ -1466,11 +1531,14 @@ export function PatientDetailPage(): JSX.Element {
 
     if (shouldLoadGuidanceBucket) {
       refreshes.push(
+        patientPlanQuery.refetch(),
         patientRehabQuery.refetch(),
         patientPromsQuery.refetch(),
         patientInsightsQuery.refetch(),
       );
     }
+
+    refreshes.push(patientThresholdsQuery.refetch(), patientSafetyEventsQuery.refetch());
 
     if (shouldLoadSessionsBucket) {
       refreshes.push(patientSessionsQuery.refetch());
@@ -1497,12 +1565,15 @@ export function PatientDetailPage(): JSX.Element {
     patientInsightsQuery,
     patientMedicationAdherenceQuery,
     patientNutritionQuery,
+    patientPlanQuery,
     patientPhotosQuery,
     patientPromsQuery,
     patientRecentCheckinsQuery,
     patientRehabQuery,
     patientSessionsQuery,
+    patientSafetyEventsQuery,
     patientTasksQuery,
+    patientThresholdsQuery,
     patientWearablesDailyQuery,
     patientWearablesSummaryQuery,
     patientWorklistQuery,
@@ -2814,6 +2885,189 @@ export function PatientDetailPage(): JSX.Element {
                       </p>
                     </article>
                   </div>
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Plan and thresholds"
+                  action={
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        void saveThresholdsMutation.mutateAsync();
+                      }}
+                      disabled={saveThresholdsMutation.isPending}
+                    >
+                      {saveThresholdsMutation.isPending ? 'Saving…' : 'Save thresholds'}
+                    </Button>
+                  }
+                >
+                  <p className="patient-detail-panel__support-meta">
+                    Review the current exercise plan state alongside the patient-specific thresholds driving queue and inbox timing.
+                  </p>
+                  <div className="patient-detail-digest-list">
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Exercise plan</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientPlan
+                            ? `Version ${patientPlan.version}`
+                            : 'No plan assigned'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientPlan
+                          ? `${patientPlan.items.length} exercise${
+                              patientPlan.items.length === 1 ? '' : 's'
+                            } · updated ${formatDashboardRelativeTime(patientPlan.updatedAt)}.`
+                          : 'Create a structured plan before assigning or revising exercise work.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Pain threshold</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientThresholds
+                            ? `>= ${patientThresholds.painHighThreshold}`
+                            : 'Default'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientThresholds
+                          ? `Missed check-in ${patientThresholds.missedCheckinDays} day${
+                              patientThresholds.missedCheckinDays === 1 ? '' : 's'
+                            } · response delay ${patientThresholds.responseDelayHours}h · safety delay ${
+                              patientThresholds.safetyFlaggedResponseDelayHours
+                            }h.`
+                          : 'Threshold settings are using the default server rules.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Threshold owner</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientThresholds?.updatedBy?.name ??
+                            patientThresholds?.updatedBy?.clinicianId ??
+                            'Default rules'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientThresholds?.updatedAt
+                          ? `Updated ${formatDashboardRelativeTime(patientThresholds.updatedAt)}.`
+                          : 'No patient-specific threshold override has been saved yet.'}
+                      </p>
+                    </article>
+                  </div>
+                  <div className="patient-detail-overview-grid">
+                    <div className="form-field">
+                      <span>Pain high threshold</span>
+                      <input
+                        value={thresholdDraft.painHighThreshold}
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            painHighThreshold: Number.parseInt(event.target.value || '0', 10) || 0,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="form-field">
+                      <span>Missed check-in days</span>
+                      <input
+                        value={thresholdDraft.missedCheckinDays}
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            missedCheckinDays: Number.parseInt(event.target.value || '0', 10) || 0,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="form-field">
+                      <span>Response delay hours</span>
+                      <input
+                        value={thresholdDraft.responseDelayHours}
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            responseDelayHours: Number.parseInt(event.target.value || '0', 10) || 0,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="form-field">
+                      <span>Safety-flagged delay hours</span>
+                      <input
+                        value={thresholdDraft.safetyFlaggedResponseDelayHours}
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            safetyFlaggedResponseDelayHours:
+                              Number.parseInt(event.target.value || '0', 10) || 0,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="form-field">
+                    <span>Rationale</span>
+                    <textarea
+                      rows={2}
+                      value={thresholdDraft.rationale}
+                      onChange={(event) =>
+                        setThresholdDraft((current) => ({
+                          ...current,
+                          rationale: event.target.value,
+                        }))
+                      }
+                      placeholder="Brief note for why this patient needs a different threshold profile"
+                    />
+                  </div>
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Recent safety context"
+                >
+                  <p className="patient-detail-panel__support-meta">
+                    Confirm the trigger-to-resolution chain before changing outreach, thresholds, or plan intensity.
+                  </p>
+                  {patientSafetyEventsQuery.isLoading && recentSafetyEvents.length === 0 ? (
+                    <div className="patient-detail-skeleton-grid" aria-label="Safety context loading placeholder">
+                      <Skeleton height={52} />
+                      <Skeleton height={52} />
+                    </div>
+                  ) : recentSafetyEvents.length === 0 ? (
+                    <EmptyState
+                      title="No recent safety events"
+                      description="New alerts, notification attempts, and clinician actions will appear here."
+                      tone="success"
+                    />
+                  ) : (
+                    <div className="patient-detail-digest-list">
+                      {recentSafetyEvents.map((event) => (
+                        <article key={event.id} className="patient-detail-digest-item">
+                          <div className="patient-detail-digest-item__meta">
+                            <span className="patient-detail-digest-item__label">{event.eventType}</span>
+                            <strong className="patient-detail-digest-item__value">{event.summary}</strong>
+                          </div>
+                          <p className="patient-detail-digest-item__text">
+                            {formatDashboardDateTime(event.occurredAt)}
+                            {event.actor?.name || event.actor?.clinicianId
+                              ? ` · ${event.actor?.name ?? event.actor?.clinicianId}`
+                              : ''}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </Card>
               </div>
             </section>

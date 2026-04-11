@@ -121,6 +121,12 @@ const communicationOverview = {
       followUpRequested: true,
       messageCreatedAt: '2026-03-09T11:15:00.000Z',
       messagePreview: 'Pain is much worse after exercise today.',
+      patientRiskLevel: 'high',
+      openAlertCount: 2,
+      lastCheckinAt: '2026-03-09T08:15:00.000Z',
+      lastPainScore: 8,
+      responseState: 'delayed',
+      responseDelayHours: 8,
     },
     {
       id: 'comm-2',
@@ -132,6 +138,12 @@ const communicationOverview = {
       followUpRequested: false,
       messageCreatedAt: '2026-03-09T09:00:00.000Z',
       messagePreview: 'The morning session felt harder than usual.',
+      patientRiskLevel: 'high',
+      openAlertCount: 2,
+      lastCheckinAt: '2026-03-09T08:15:00.000Z',
+      lastPainScore: 8,
+      responseState: 'delayed',
+      responseDelayHours: 8,
     },
     {
       id: 'comm-3',
@@ -143,6 +155,12 @@ const communicationOverview = {
       followUpRequested: true,
       messageCreatedAt: '2026-03-09T10:30:00.000Z',
       messagePreview: 'Can someone confirm whether tomorrow still works?',
+      patientRiskLevel: 'low',
+      openAlertCount: 0,
+      lastCheckinAt: '2026-03-08T09:30:00.000Z',
+      lastPainScore: 3,
+      responseState: 'reviewing',
+      responseDelayHours: 24,
     },
   ],
 };
@@ -297,6 +315,9 @@ afterEach(() => {
         'Pain is much worse after exercise today.',
       ),
     ).toBeInTheDocument();
+    expect(screen.getAllByText(/Higher risk context/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/2 open alerts/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Response delayed past 8h/i)[0]).toBeInTheDocument();
     expect(
       screen.getByText(
         'This timeline is limited to patient communication plus local clinician replies saved in this browser.',

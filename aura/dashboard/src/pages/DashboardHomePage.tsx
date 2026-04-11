@@ -250,6 +250,22 @@ function threadDominantBadge(
   return null;
 }
 
+function communicationContextLine(item: DashboardCommunicationOverviewItem): string | null {
+  const parts = [
+    item.patientRiskLevel === 'high' ? 'Higher risk context' : null,
+    typeof item.openAlertCount === 'number'
+      ? `${item.openAlertCount} open alert${item.openAlertCount === 1 ? '' : 's'}`
+      : null,
+    item.responseState === 'delayed'
+      ? `Response delayed past ${item.responseDelayHours ?? 'configured'}h`
+      : item.responseDelayHours
+        ? `Response target ${item.responseDelayHours}h`
+        : null,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 export function DashboardHomePage(): JSX.Element {
   const navigate = useNavigate();
   const notificationPreferences = useNotificationPreferences();
@@ -731,9 +747,13 @@ export function DashboardHomePage(): JSX.Element {
                   </div>
                   <div className="today-priority-item__footer">
                     <span className="today-priority-item__footnote">
-                      {item.dueAt
-                        ? `Due ${formatDashboardDateTime(item.dueAt)}`
-                        : `Opened ${formatDashboardDateTime(item.createdAt)}`}
+                      {typeof item.meta?.responseState === 'string'
+                        ? `${String(item.meta.responseState)} · ${
+                            item.meta?.openAlertCount ?? 0
+                          } open alert${item.meta?.openAlertCount === 1 ? '' : 's'}`
+                        : item.dueAt
+                          ? `Due ${formatDashboardDateTime(item.dueAt)}`
+                          : `Opened ${formatDashboardDateTime(item.createdAt)}`}
                     </span>
                     <Button size="sm" onClick={() => openPriorityItem(item)}>
                       {priorityActionLabel(item)}
@@ -872,6 +892,9 @@ export function DashboardHomePage(): JSX.Element {
                       <p className="today-support-item__note">
                         {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
                       </p>
+                      {communicationContextLine(item) ? (
+                        <p className="today-support-item__note">{communicationContextLine(item)}</p>
+                      ) : null}
                       <div className="today-support-item__footer">
                         <div className="today-support-item__meta-wrap">
                           <span

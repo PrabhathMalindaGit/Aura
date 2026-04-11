@@ -19,6 +19,7 @@ import AppointmentSlot from "../src/models/AppointmentSlot";
 import CheckIn from "../src/models/CheckIn";
 import CommunicationReview from "../src/models/CommunicationReview";
 import Patient from "../src/models/Patient";
+import PatientThresholdConfig from "../src/models/PatientThresholdConfig";
 import PromInstance from "../src/models/PromInstance";
 import Task from "../src/models/Task";
 import User from "../src/models/User";
@@ -65,6 +66,7 @@ describe("clinician worklist route", () => {
       CheckIn.deleteMany({}),
       CommunicationReview.deleteMany({}),
       Patient.deleteMany({}),
+      PatientThresholdConfig.deleteMany({}),
       PromInstance.deleteMany({}),
       Task.deleteMany({}),
       User.deleteMany({}),
@@ -195,6 +197,19 @@ describe("clinician worklist route", () => {
       messagePreview: "Pain is worse and I need advice.",
     });
 
+    await PatientThresholdConfig.create({
+      patientId: "p1",
+      painHighThreshold: 6,
+      missedCheckinDays: 3,
+      responseDelayHours: 36,
+      safetyFlaggedResponseDelayHours: 8,
+      version: 1,
+      updatedBy: {
+        clinicianId,
+        name: "Clinician One",
+      },
+    });
+
     const slot = await AppointmentSlot.create({
       clinicianId: "clinician-1",
       startsAt: new Date("2026-03-09T16:00:00.000Z"),
@@ -289,10 +304,24 @@ describe("clinician worklist route", () => {
       latestRiskLevel: "high",
       lastPainScore: 8,
       communicationNeedsResponse: true,
+      communicationSummary: {
+        needsResponseCount: 1,
+        flaggedBySafetyCount: 1,
+        delayedResponse: false,
+        responseDelayHours: 8,
+      },
       activeTaskCount: 1,
       proms: {
         dueCount: 2,
         overdueCount: 1,
+      },
+      thresholdSummary: {
+        painHighThreshold: 6,
+        missedCheckinDays: 3,
+        responseDelayHours: 36,
+        safetyFlaggedResponseDelayHours: 8,
+        configured: true,
+        updatedByName: "Clinician One",
       },
     });
     expect(p1.missedCheckins.flag).toBe(false);

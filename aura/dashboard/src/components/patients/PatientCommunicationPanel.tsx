@@ -89,6 +89,11 @@ export function PatientCommunicationPanel({
   const showQuickReplyHelpers = replyTemplates.length > 0 || hasSignature;
   const safetyFlaggedCount = items.filter((item) => item.flaggedBySafety).length;
   const followUpRequestedCount = items.filter((item) => item.followUpRequested).length;
+  const delayedCount = items.filter((item) => item.responseState === 'delayed').length;
+  const openAlertCount = items.reduce(
+    (total, item) => total + (item.openAlertCount ?? 0),
+    0,
+  );
 
   return (
     <Card
@@ -147,6 +152,14 @@ export function PatientCommunicationPanel({
             <span className="patient-communication-queue-strip__item">
               <strong>{followUpRequestedCount}</strong>
               <span>Follow-up requested</span>
+            </span>
+            <span className="patient-communication-queue-strip__item">
+              <strong>{delayedCount}</strong>
+              <span>Delayed</span>
+            </span>
+            <span className="patient-communication-queue-strip__item">
+              <strong>{openAlertCount}</strong>
+              <span>Open alerts</span>
             </span>
           </div>
           <div

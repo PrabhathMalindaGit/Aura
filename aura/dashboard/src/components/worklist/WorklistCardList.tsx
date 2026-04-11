@@ -112,7 +112,13 @@ export function WorklistCardList({
                 <p className="worklist-card__signal-support">
                   {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
                   {' · '}
-                  {item.communicationNeedsResponse ? 'Response requested' : 'No response delay'}
+                  {item.communicationNeedsResponse
+                    ? item.communicationSummary?.delayedResponse
+                      ? `Response delayed (${item.communicationSummary.responseAgeHours ?? '—'}h)`
+                      : item.communicationSummary?.responseDelayHours
+                        ? `Response target ${item.communicationSummary.responseDelayHours}h`
+                        : 'Response requested'
+                    : 'No response delay'}
                 </p>
               </div>
 
@@ -149,6 +155,12 @@ export function WorklistCardList({
                       : '—'}
                   </dd>
                 </div>
+                {item.thresholdSummary ? (
+                  <div className="worklist-card__activity-stat">
+                    <dt>Pain threshold</dt>
+                    <dd>{item.thresholdSummary.painHighThreshold}/10</dd>
+                  </div>
+                ) : null}
               </dl>
 
               <div className="worklist-card__actions">

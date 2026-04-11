@@ -5,6 +5,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 import app from "../src/app";
 import ExercisePlan from "../src/models/ExercisePlan";
+import ExercisePlanRevision from "../src/models/ExercisePlanRevision";
 import Patient from "../src/models/Patient";
 import { signPatientToken } from "../src/utils/patientJwt";
 import { signAuthToken } from "../src/utils/jwt";
@@ -25,7 +26,11 @@ describe("exercise plan routes", () => {
   });
 
   beforeEach(async () => {
-    await Promise.all([ExercisePlan.deleteMany({}), Patient.deleteMany({})]);
+    await Promise.all([
+      ExercisePlan.deleteMany({}),
+      ExercisePlanRevision.deleteMany({}),
+      Patient.deleteMany({}),
+    ]);
     await Patient.insertMany([
       { patientId: "p1", displayName: "Patient One", status: "active" },
       { patientId: "p2", displayName: "Patient Two", status: "active" },
@@ -238,5 +243,84 @@ describe("exercise plan routes", () => {
 
     expect(missingField.status).toBe(400);
     expect(missingField.body.error).toBe("VALIDATION_ERROR");
+  });
+
+  it("returns revision history after clinician saves", async () => {
+    const token = createClinicianToken();
+
+    await request(app)
+      .put("/clinician/patients/p1/exercise-plan")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "Strength Plan",
+        daysOfWeek: [1, 3, 5],
+        items: [
+          {
+            key: "sit-stand",
+            name: "Sit to stand",
+            instructions: "Stand up and sit down with control.",
+            order: 1,
+          },
+        ],
+      });
+
+    const historyResponse = await request(app)
+      .get("/clinician/patients/p1/exercise-plan/history")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(historyResponse.status).toBe(200);
+    expect(historyResponse.body.ok).toBe(true);
+    expect(historyResponse.body.items).toHaveLength(1);
+    expect(historyResponse.body.items[0]).toMatchObject({
+      version: 1,
+      savedBy: {
+        clinicianId: "clinician-1",
+        name: "Clinician One",
+      },
+    });
+    expect(historyResponse.body.items[0].snapshot.title).toBe("Strength Plan");
+  });
+
+  it("returns 409 when expectedVersion is stale", async () => {
+    const token = createClinicianToken();
+
+    const firstSave = await request(app)
+      .put("/clinician/patients/p1/exercise-plan")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "Version one",
+        daysOfWeek: [1, 3, 5],
+        items: [
+          {
+            key: "sit-stand",
+            name: "Sit to stand",
+            instructions: "Stand up and sit down with control.",
+            order: 1,
+          },
+        ],
+      });
+
+    expect(firstSave.status).toBe(200);
+
+    const staleSave = await request(app)
+      .put("/clinician/patients/p1/exercise-plan")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        title: "Version two",
+        expectedVersion: 0,
+        daysOfWeek: [1, 3, 5],
+        items: [
+          {
+            key: "sit-stand",
+            name: "Sit to stand",
+            instructions: "Stand up and sit down with control.",
+            order: 1,
+          },
+        ],
+      });
+
+    expect(staleSave.status).toBe(409);
+    expect(staleSave.body.error).toBe("VERSION_CONFLICT");
+    expect(staleSave.body.currentVersion).toBe(1);
   });
 });

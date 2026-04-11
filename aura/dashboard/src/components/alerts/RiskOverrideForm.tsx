@@ -22,7 +22,7 @@ interface RiskOverrideFormProps {
 export function RiskOverrideForm({
   alert,
   saving = false,
-  backendReady = false,
+  backendReady = true,
   onSave,
   onClear,
 }: RiskOverrideFormProps): JSX.Element {

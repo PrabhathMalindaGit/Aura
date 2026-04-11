@@ -69,6 +69,9 @@ export function getWorklistReviewSupport(item: WorklistRecord): string {
   }
 
   if (item.communicationNeedsResponse) {
+    if (item.communicationSummary?.delayedResponse) {
+      return `Patient communication has exceeded the ${item.communicationSummary.responseDelayHours ?? 'configured'} hour response target.`;
+    }
     return 'Patient communication is waiting for clinician follow-up.';
   }
 

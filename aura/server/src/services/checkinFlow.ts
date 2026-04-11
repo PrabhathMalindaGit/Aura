@@ -23,6 +23,7 @@ import {
   markAlertNotificationEnqueueFailure,
 } from "./alertNotificationService";
 import { classify } from "./ai";
+import { evaluateRiskDecision } from "./riskEvaluationService";
 
 export type CheckInFlowInput = {
   patientId: string;
@@ -241,10 +242,15 @@ export async function processCheckIn(
     patientId: input.patientId,
   });
 
-  const reasonCodes = Array.from(
-    new Set<string>([...aiResult.reasons, ...explicitReasonCodes])
-  );
-  const riskLevel = explicitReasonCodes.length > 0 ? "high" : aiResult.risk;
+  const riskDecision = await evaluateRiskDecision({
+    patientId: input.patientId,
+    aiRisk: aiResult.risk,
+    aiReasons: aiResult.reasons,
+    pain: input.pain,
+    explicitReasonCodes,
+  });
+  const reasonCodes = riskDecision.reasonCodes;
+  const riskLevel = riskDecision.riskLevel;
 
   // The critical write set is the finalized check-in, plus the alert for high-risk cases.
   const checkin = await CheckIn.create({

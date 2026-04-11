@@ -381,5 +381,22 @@ export async function installMockApi(
     await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
   });
 
+  await page.route('**/auth/clinician/me', async (route) => {
+    if (scenario === 'offline') {
+      await route.abort('internetdisconnected');
+      return;
+    }
+
+    await fulfillJson(route, 200, {
+      ok: true,
+      clinician: {
+        id: 'clinician-1',
+        email: 'clinician1@example.com',
+        name: 'Clinician One',
+        role: 'clinician',
+      },
+    });
+  });
+
   return tracker;
 }

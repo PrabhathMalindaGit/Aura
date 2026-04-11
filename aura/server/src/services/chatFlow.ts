@@ -12,6 +12,7 @@ import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
 import { redactText } from "../utils/redact";
 import { AIUnavailableError, classify, ragReply } from "./ai";
+import { evaluateRiskDecision } from "./riskEvaluationService";
 
 export const HIGH_RISK_REPLY =
   "I'm concerned about your safety. I've alerted your clinician. If you feel in danger, contact local emergency services now.";
@@ -52,8 +53,13 @@ export async function processChatMessage(
       patientId: input.patientId,
     }
   );
+  const riskDecision = await evaluateRiskDecision({
+    patientId: input.patientId,
+    aiRisk: aiResult.risk,
+    aiReasons: aiResult.reasons,
+  });
   let assistantReply: string | undefined;
-  if (aiResult.risk === "low") {
+  if (riskDecision.riskLevel === "low") {
     if (input.lowRiskMode === "rag") {
       try {
         assistantReply = (
@@ -94,17 +100,17 @@ export async function processChatMessage(
     role: "user",
     text: input.text,
     risk: {
-      level: aiResult.risk,
-      reasons: aiResult.reasons,
+      level: riskDecision.riskLevel,
+      reasons: riskDecision.reasonCodes,
     },
   });
 
-  if (aiResult.risk === "high") {
+  if (riskDecision.riskLevel === "high") {
     let alertId: string;
     try {
       const alert = await Alert.create({
         patientId: input.patientId,
-        reason: aiResult.reasons.join(", "),
+        reason: riskDecision.reasonCodes.join(", "),
         source: {
           type: "chat",
           sourceId: toId(userMsg._id),
@@ -171,7 +177,7 @@ export async function processChatMessage(
         patientId: input.patientId,
         alertId,
         payload: {
-          reasons: aiResult.reasons,
+          reasons: riskDecision.reasonCodes,
           text: redactText(input.text),
         },
       });
@@ -190,9 +196,9 @@ export async function processChatMessage(
         alert: {
           _id: alertId,
           patientId: input.patientId,
-          reason: aiResult.reasons,
+          reason: riskDecision.reasonCodes,
         },
-        reasonCodes: aiResult.reasons,
+        reasonCodes: riskDecision.reasonCodes,
         requestId: requestContext?.requestId,
       });
       n8nDelivered = await dispatchJob(
@@ -253,7 +259,7 @@ export async function processChatMessage(
           text: HIGH_RISK_REPLY,
           risk: {
             level: "high",
-            reasons: aiResult.reasons,
+            reasons: riskDecision.reasonCodes,
           },
         });
         assistantMessageId = toId(assistantMsg._id);
@@ -274,7 +280,7 @@ export async function processChatMessage(
       userMessageId: toId(userMsg._id),
       userCreatedAt: userMsg.createdAt.toISOString(),
       riskLevel: "high",
-      reasonCodes: aiResult.reasons,
+      reasonCodes: riskDecision.reasonCodes,
       assistantReply: input.persistHighRiskAssistantReply
         ? HIGH_RISK_REPLY
         : undefined,
@@ -348,7 +354,7 @@ export async function processChatMessage(
     userMessageId: toId(userMsg._id),
     userCreatedAt: userMsg.createdAt.toISOString(),
     riskLevel: "low",
-    reasonCodes: aiResult.reasons,
+    reasonCodes: riskDecision.reasonCodes,
     assistantReply,
     assistantMessageId: toId(assistantMsg._id),
     assistantCreatedAt: assistantMsg.createdAt.toISOString(),

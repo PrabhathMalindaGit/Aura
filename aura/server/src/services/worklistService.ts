@@ -3,13 +3,18 @@ import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
 import PromInstance from "../models/PromInstance";
 import Task from "../models/Task";
+import {
+  getDefaultThresholdSnapshot,
+} from "./patientThresholdService";
+import {
+  deriveMissedCheckinsFromThreshold,
+  deriveResponseDelayState,
+  getThresholdsForPatients,
+} from "./riskEvaluationService";
 import { listAppointmentWorkflowItems } from "./appointmentWorkflowService";
 import { getCommunicationNeedsResponseSummaryByPatient } from "./communicationReviewService";
 import { normalizeRehabPhases, recomputePhaseStatuses } from "./rehabPhaseService";
 import type { WorklistRecord } from "../types/worklist";
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MISSED_CHECKIN_THRESHOLD_DAYS = 2;
 
 type WorklistSort =
   | "priority"
@@ -102,33 +107,6 @@ function getRehabPhaseLabel(rawPatient: Record<string, unknown>): string | undef
     new Date()
   );
   return timeline.phases.find((phase) => phase.status === "current")?.title;
-}
-
-function deriveMissedCheckins(
-  patientStatus: WorklistRecord["patientStatus"],
-  referenceDate: Date | null,
-  now: Date
-): { flag: boolean; count: number } {
-  if (patientStatus === "discharged" || patientStatus === "inactive") {
-    return {
-      flag: false,
-      count: 0,
-    };
-  }
-
-  if (!referenceDate) {
-    return {
-      flag: true,
-      count: 1,
-    };
-  }
-
-  const elapsedDays = Math.floor((now.getTime() - referenceDate.getTime()) / MS_PER_DAY);
-  const missedCount = Math.max(0, elapsedDays - (MISSED_CHECKIN_THRESHOLD_DAYS - 1));
-  return {
-    flag: missedCount > 0,
-    count: missedCount,
-  };
 }
 
 function deriveTopIssue(input: {
@@ -425,6 +403,7 @@ export async function listClinicianWorklist(
   for (const item of appointmentItems) {
     patientIds.add(item.patientId);
   }
+  const thresholdMap = await getThresholdsForPatients(Array.from(patientIds));
 
   const rows: WorklistRecordInternal[] = Array.from(patientIds).map((patientId) => {
     const patient = patientMap.get(patientId);
@@ -441,17 +420,32 @@ export async function listClinicianWorklist(
       patient?.status === "inactive"
         ? patient.status
         : "active";
+    const thresholds = thresholdMap.get(patientId);
 
     const referenceDate =
       toDate(latestCheckin?.lastCheckinAt) ??
       toDate(patient?.updatedAt) ??
       toDate(patient?.createdAt);
-    const missedCheckins = deriveMissedCheckins(patientStatus, referenceDate, now);
+    const missedCheckins = deriveMissedCheckinsFromThreshold({
+      patientStatus,
+      referenceDate,
+      now,
+      thresholds: thresholds ?? getDefaultThresholdSnapshot(patientId),
+    });
     const latestRiskLevel =
       (alertSummary?.openAlertsCount ?? 0) > 0 ||
       latestCheckin?.latestRiskLevel === "high"
         ? "high"
         : "low";
+    const responseDelayState =
+      communicationSummary?.latestMessageAt && thresholds
+        ? deriveResponseDelayState({
+            messageCreatedAt: communicationSummary.latestMessageAt,
+            flaggedBySafety: (communicationSummary.flaggedBySafetyCount ?? 0) > 0,
+            now,
+            thresholds,
+          })
+        : undefined;
 
     const nextAppointmentAtIso = toIso(appointmentSummary?.nextAppointmentAt);
     const nextPromDueAtIso = toIso(promSummary?.nextDueAt);
@@ -507,12 +501,34 @@ export async function listClinicianWorklist(
       nextAppointmentAt: nextAppointmentAtIso,
       missedCheckins,
       communicationNeedsResponse: (communicationSummary?.needsResponseCount ?? 0) > 0,
+      communicationSummary: communicationSummary
+        ? {
+            needsResponseCount: communicationSummary.needsResponseCount,
+            flaggedBySafetyCount: communicationSummary.flaggedBySafetyCount,
+            latestMessageAt: toIso(communicationSummary.latestMessageAt),
+            delayedResponse: responseDelayState?.delayed ?? false,
+            responseDelayHours: responseDelayState?.thresholdHours,
+            responseAgeHours: responseDelayState?.elapsedHours,
+          }
+        : undefined,
       activeTaskCount: taskSummary?.activeTaskCount ?? 0,
       proms: {
         dueCount: promSummary?.dueCount ?? 0,
         overdueCount: promSummary?.overdueCount ?? 0,
         nextDueAt: nextPromDueAtIso,
       },
+      thresholdSummary: thresholds
+        ? {
+            painHighThreshold: thresholds.painHighThreshold,
+            missedCheckinDays: thresholds.missedCheckinDays,
+            responseDelayHours: thresholds.responseDelayHours,
+            safetyFlaggedResponseDelayHours:
+              thresholds.safetyFlaggedResponseDelayHours,
+            configured: thresholds.configured,
+            updatedAt: thresholds.updatedAt,
+            updatedByName: thresholds.updatedBy?.name,
+          }
+        : undefined,
       topIssue,
       reviewReason: topIssue,
       priorityScore: derivePriorityScore({

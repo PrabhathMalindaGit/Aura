@@ -7,16 +7,14 @@ test('dashboard home loads command-center modules and routes into alerts', async
   await page.goto('/');
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading', { level: 2, name: 'Dashboard' })).toBeVisible();
-  await expect(page.locator('.dashboard-priority-card')).toContainText('Priority queue');
+  await expect(page.getByText('Open next')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Due today' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Inbox needing response' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Keep the day moving' })).toBeVisible();
   await expect(page.getByText('Assigned high-risk alert')).toBeVisible();
-  await expect(page.getByRole('heading', { level: 2, name: /Recent safety events/ })).toBeVisible();
-  await expect(page.locator('.dashboard-appointments-card')).toContainText("Today's appointments");
-  await expect(page.locator('.dashboard-tasks-card')).toContainText('Follow-up tasks');
-  await expect(page.locator('.dashboard-communication-card')).toContainText('Communication review');
+  await expect(page.getByText('Operational context')).toBeVisible();
 
-  const priorityCard = page.locator('.dashboard-priority-card');
-  await priorityCard.locator('.card__header').getByRole('button', { name: 'Open alerts' }).click();
+  await page.getByRole('button', { name: 'Open alerts' }).first().click();
 
   await expect(page).toHaveURL(/\/alerts$/);
 });

@@ -64,6 +64,8 @@ import {
   type CheckinEvent,
   type ChatEvent,
   type ExercisePlan,
+  type ExercisePlanHistoryResponse,
+  type ExercisePlanRevision,
   type ExercisePlanResponse,
   type RehabPayload,
   type RehabResponse,
@@ -83,7 +85,12 @@ import {
   type ListPatientsResponse,
   type PatchAlertResponse,
   type PatientSummary,
+  type PatientSafetyEventsResponse,
+  type PatientThresholdConfig,
+  type PatientThresholdConfigResponse,
   type PutPatientCurrentHandoffPayload,
+  type PutPatientThresholdConfigPayload,
+  type SafetyAuditEntry,
   type TimelineEvent,
   type TrendPointRaw,
   type TrendsResponse,
@@ -135,6 +142,9 @@ export const clinicianQueryKeys = {
   alertContext: (alertId: string): QueryKey => ['alert-context', alertId],
   patients: (): QueryKey => ['patients'],
   patientCoordination: (patientId: string): QueryKey => ['patient-coordination', patientId],
+  patientThresholds: (patientId: string): QueryKey => ['patient-thresholds', patientId],
+  patientSafetyEvents: (patientId: string): QueryKey => ['patient-safety-events', patientId],
+  exercisePlanHistory: (patientId: string): QueryKey => ['exercise-plan-history', patientId],
 } as const;
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
@@ -355,7 +365,33 @@ export function deriveAlertTimeline(alert: AlertItem): TimelineEvent[] {
   return sortTimeline(events);
 }
 
+function mapAuditEntryToTimelineEvent(entry: SafetyAuditEntry): TimelineEvent {
+  const status: TimelineEvent['status'] =
+    entry.eventType.includes('FAILED')
+      ? 'fail'
+      : entry.eventType.includes('OVERRIDE') || entry.eventType.includes('SKIPPED')
+        ? 'warn'
+        : 'ok';
+  const detailParts = [
+    entry.actor?.name ?? entry.actor?.clinicianId,
+    entry.notificationStatus ? `Notification: ${entry.notificationStatus}` : null,
+  ].filter(Boolean);
+
+  return {
+    type: entry.eventType,
+    at: entry.occurredAt,
+    label: entry.summary,
+    detail: detailParts.length > 0 ? detailParts.join(' | ') : undefined,
+    status,
+  };
+}
+
 function isContextEndpointUnavailable(error: unknown): boolean {
+  const appError = asAppError(error);
+  return appError.kind === 'HTTP' && [404, 405, 501].includes(appError.status ?? 0);
+}
+
+function isOptionalEndpointUnavailable(error: unknown): boolean {
   const appError = asAppError(error);
   return appError.kind === 'HTTP' && [404, 405, 501].includes(appError.status ?? 0);
 }
@@ -1092,7 +1128,9 @@ export async function getExercisePlan(patientId: string): Promise<ExercisePlan |
 
 export interface PutExercisePlanPayload {
   title: string;
+  timezone?: string;
   daysOfWeek: number[];
+  expectedVersion?: number;
   items: Array<{
     key: string;
     name: string;
@@ -1125,6 +1163,81 @@ export async function putExercisePlan(
   }
 
   return response.plan;
+}
+
+export async function getExercisePlanHistory(
+  patientId: string,
+): Promise<ExercisePlanRevision[]> {
+  try {
+    const response = await fetchJson<ExercisePlanHistoryResponse>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/exercise-plan/history`,
+      {
+        method: 'GET',
+      },
+    );
+
+    return response.items ?? [];
+  } catch (error) {
+    if (isOptionalEndpointUnavailable(error)) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function getPatientThresholds(
+  patientId: string,
+): Promise<PatientThresholdConfig | null> {
+  try {
+    const response = await fetchJson<PatientThresholdConfigResponse>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/thresholds`,
+      {
+        method: 'GET',
+      },
+    );
+
+    return response.thresholds ?? null;
+  } catch (error) {
+    if (isOptionalEndpointUnavailable(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function putPatientThresholds(
+  patientId: string,
+  payload: PutPatientThresholdConfigPayload,
+): Promise<PatientThresholdConfig> {
+  const response = await fetchJson<PatientThresholdConfigResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/thresholds`,
+    {
+      method: 'PUT',
+      json: payload,
+    },
+  );
+
+  return response.thresholds;
+}
+
+export async function getPatientSafetyEvents(
+  patientId: string,
+): Promise<SafetyAuditEntry[]> {
+  try {
+    const response = await fetchJson<PatientSafetyEventsResponse>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/safety-events`,
+      {
+        method: 'GET',
+      },
+    );
+
+    return response.items ?? [];
+  } catch (error) {
+    if (isOptionalEndpointUnavailable(error)) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function getRehabPhases(patientId: string): Promise<RehabPayload> {
@@ -1255,11 +1368,23 @@ export async function getAlertContext(alertId: string): Promise<AlertContextResu
       `/clinician/alerts/${encodeURIComponent(alertId)}/context`,
       { method: 'GET' },
     );
+    const auditTrail = response.auditTrail ?? [];
+    const mappedTimeline =
+      auditTrail.length > 0
+        ? auditTrail.map((entry) => mapAuditEntryToTimelineEvent(entry))
+        : response.timeline?.length
+          ? response.timeline
+          : deriveAlertTimeline(response.alert);
 
     return {
       alert: response.alert,
-      triggeringEvent: response.triggeringEvent as CheckinEvent | ChatEvent | undefined,
-      timeline: response.timeline?.length ? response.timeline : deriveAlertTimeline(response.alert),
+      triggeringEvent:
+        (response.triggeringEvent ?? response.triggering) as
+          | CheckinEvent
+          | ChatEvent
+          | undefined,
+      auditTrail,
+      timeline: mappedTimeline,
     };
   } catch (error) {
     if (!isContextEndpointUnavailable(error)) {
@@ -1271,6 +1396,7 @@ export async function getAlertContext(alertId: string): Promise<AlertContextResu
     return {
       alert,
       triggeringEvent: undefined,
+      auditTrail: undefined,
       timeline: deriveAlertTimeline(alert),
     };
   }
@@ -1469,6 +1595,33 @@ export function usePatientCoordination(
     staleTime: QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: true,
+  });
+}
+
+export function usePatientThresholds(
+  patientId: string | null | undefined,
+): UseQueryResult<PatientThresholdConfig | null, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.patientThresholds(patientId ?? 'unknown'),
+    queryFn: () => getPatientThresholds(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function usePatientSafetyEvents(
+  patientId: string | null | undefined,
+): UseQueryResult<SafetyAuditEntry[], unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.patientSafetyEvents(patientId ?? 'unknown'),
+    queryFn: () => getPatientSafetyEvents(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
   });
 }
 

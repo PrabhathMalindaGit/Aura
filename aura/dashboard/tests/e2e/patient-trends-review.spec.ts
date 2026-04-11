@@ -5,7 +5,7 @@ import { installMockApi } from './helpers/mockApi';
 test('Trend review supports 14/30 toggle and day drilldown', async ({ page }) => {
   const tracker = await installMockApi(page, { scenario: 'default' });
 
-  await page.goto('/patients/p1?days=14');
+  await page.goto('/patients/p1/history?days=14');
   await page.waitForLoadState('networkidle');
 
   await expect(page.getByTestId('days-toggle-14')).toHaveAttribute('aria-selected', 'true');
@@ -34,6 +34,7 @@ test('Patient detail operational panels surface priorities, communication, tasks
   await expect(page.getByTestId('patient-detail-current-context')).toContainText('High pain escalation');
   await expect(page.getByTestId('patient-current-priorities')).toContainText('Open safety alert needs review');
   await expect(page.getByTestId('patient-recommended-actions')).toContainText('Review latest alert');
+  await page.getByRole('tab', { name: 'Communications & Notes' }).click();
   await expect(page.getByTestId('patient-communication-panel')).toContainText(
     'Pain is much worse after exercise today.',
   );

@@ -70,7 +70,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Today',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="home-variant" color={color} focused={focused} />
           ),
@@ -88,7 +88,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: "Chat",
+          title: "Messages",
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="chat-processing" color={color} focused={focused} />
           ),

@@ -2,10 +2,56 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function parseISODateTime(value?: string): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function isSameLocalDay(left: Date, right: Date): boolean {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function addLocalDays(reference: Date, days: number): Date {
+  const next = new Date(reference);
+  next.setDate(reference.getDate() + days);
+  return next;
+}
+
+function formatMonthDay(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function formatMonthDayTime(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatClockTime(date: Date): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function formatISOToHuman(iso: string): string {
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) {
-    return iso;
+  const date = parseISODateTime(iso);
+  if (!date) {
+    return "Date unavailable";
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -13,6 +59,98 @@ export function formatISOToHuman(iso: string): string {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+export function formatPatientCardTimestamp(
+  iso?: string,
+  now: Date = new Date(),
+): string | undefined {
+  const date = parseISODateTime(iso);
+  if (!date) {
+    return undefined;
+  }
+
+  if (isSameLocalDay(date, now)) {
+    return `Today at ${formatClockTime(date)}`;
+  }
+
+  const yesterday = addLocalDays(now, -1);
+  if (isSameLocalDay(date, yesterday)) {
+    return `Yesterday at ${formatClockTime(date)}`;
+  }
+
+  return `${formatMonthDay(date)} at ${formatClockTime(date)}`;
+}
+
+export function formatPatientChatTimestamp(
+  iso?: string,
+  now: Date = new Date(),
+): string | null {
+  const date = parseISODateTime(iso);
+  if (!date) {
+    return null;
+  }
+
+  if (isSameLocalDay(date, now)) {
+    return formatClockTime(date);
+  }
+
+  const yesterday = addLocalDays(now, -1);
+  if (isSameLocalDay(date, yesterday)) {
+    return `Yesterday, ${formatClockTime(date)}`;
+  }
+
+  return formatMonthDayTime(date);
+}
+
+export function formatPatientDueLabel(
+  iso?: string,
+  now: Date = new Date(),
+): string | undefined {
+  const date = parseISODateTime(iso);
+  if (!date) {
+    return undefined;
+  }
+
+  if (date.getTime() < now.getTime()) {
+    return "Overdue";
+  }
+
+  if (isSameLocalDay(date, now)) {
+    return "Due today";
+  }
+
+  const tomorrow = addLocalDays(now, 1);
+  if (isSameLocalDay(date, tomorrow)) {
+    return "Due tomorrow";
+  }
+
+  return `Due ${formatMonthDay(date)}`;
+}
+
+export function formatPatientDueTimestamp(
+  iso?: string,
+  now: Date = new Date(),
+): string | undefined {
+  const date = parseISODateTime(iso);
+  if (!date) {
+    return undefined;
+  }
+
+  const label = formatPatientDueLabel(iso, now);
+  if (label === "Overdue") {
+    return `Was due ${formatMonthDayTime(date)}`;
+  }
+
+  if (label === "Due today") {
+    return `Due today at ${formatClockTime(date)}`;
+  }
+
+  if (label === "Due tomorrow") {
+    return `Due tomorrow at ${formatClockTime(date)}`;
+  }
+
+  return `Due ${formatMonthDayTime(date)}`;
 }
 
 export function formatRelativeFromNow(ts: number): string {

@@ -48,6 +48,7 @@ import {
   countUnreadReminders,
   splitReminderGroups,
 } from "@/src/utils/reminders";
+import { formatTaskTitle } from "@/src/utils/tasks";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
@@ -397,7 +398,7 @@ export default function RemindersScreen() {
         setNotice({
           variant: "info",
           title: "Reminder updated",
-          message: `${completed.title} is marked done.`,
+          message: `${formatTaskTitle(completed)} is marked done.`,
         });
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t update reminder");

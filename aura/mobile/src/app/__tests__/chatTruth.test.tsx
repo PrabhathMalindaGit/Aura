@@ -663,4 +663,59 @@ describe("chat truth fix", () => {
     expect(getLocalAttemptCard(root)?.props.actions[0]?.label).toBe("Refresh chat");
     expect(getLocalAttemptCard(root)?.props.actions[0]?.disabled).toBe(false);
   });
+
+  it("groups duplicate communication prompts into one patient-safe workflow card", async () => {
+    listPatientTasks.mockResolvedValue([
+      {
+        id: "task-1",
+        title: "Urgent message follow-up",
+        description:
+          "Patient One has a message without clinician response since 2026-03-24T09:00:00.000Z",
+        type: "communication",
+        priority: "urgent",
+        status: "open",
+        dueAt: "2026-03-24T12:00:00.000Z",
+        createdAt: "2026-03-24T09:00:00.000Z",
+        updatedAt: "2026-03-24T09:05:00.000Z",
+        sourceLabel: "Communication no-response escalation",
+        linkedMessageId: "thread-77",
+        patientCompletable: false,
+        patientAction: {
+          kind: "chat",
+          label: "Reply in chat",
+        },
+      },
+      {
+        id: "task-2",
+        title: "Message follow-up",
+        description:
+          "Patient One has a message without clinician response since 2026-03-24T09:10:00.000Z",
+        type: "communication",
+        priority: "high",
+        status: "open",
+        dueAt: "2026-03-24T16:00:00.000Z",
+        createdAt: "2026-03-24T09:10:00.000Z",
+        updatedAt: "2026-03-24T09:12:00.000Z",
+        sourceLabel: "Communication no-response escalation",
+        linkedMessageId: "thread-77",
+        patientCompletable: false,
+        patientAction: {
+          kind: "chat",
+          label: "Reply in chat",
+        },
+      },
+    ]);
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+    const workflowCards = root.findAll((node) => String(node.type) === "mock-workflow-card");
+
+    expect(workflowCards).toHaveLength(1);
+    expect(workflowCards[0].props.title).toBe("Please reply to your care team");
+    expect(workflowCards[0].props.text).toBe(
+      "Your care team is waiting for a reply. Open chat when you can.",
+    );
+    expect(workflowCards[0].props.chips).toEqual(["Overdue", "Care team message"]);
+    expect(JSON.stringify(workflowCards[0].props)).not.toContain("2026-03-24T09:00:00.000Z");
+  });
 });

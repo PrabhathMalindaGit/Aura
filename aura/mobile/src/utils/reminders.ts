@@ -21,9 +21,12 @@ import {
 } from "@/src/utils/appointments";
 import {
   derivePatientTaskAction,
+  formatPatientTaskSourceLabel,
   formatTaskDueDetail,
   formatTaskDueLabel,
   formatTaskSupportText,
+  formatTaskTitle,
+  groupTasksByPatientIntent,
   isCommunicationTask,
   isTaskActive,
 } from "@/src/utils/tasks";
@@ -319,7 +322,7 @@ function buildTaskReminder(
   const action = derivePatientTaskAction(task);
   const unread = !readState.readById[reminderId];
   const dueLabel = formatTaskDueLabel(task, now);
-  const detailLabel = formatTaskDueDetail(task);
+  const detailLabel = formatTaskDueDetail(task, now);
   const sourceType: ReminderSourceType = isCommunicationTask(task)
     ? "communication"
     : action.icon === "checkin"
@@ -329,7 +332,7 @@ function buildTaskReminder(
   return {
     id: reminderId,
     sourceType,
-    title: task.title,
+    title: formatTaskTitle(task),
     message: formatTaskSupportText(task),
     status:
       task.status === "completed"
@@ -365,7 +368,9 @@ function buildTaskReminder(
             : meta.group === "soon"
               ? "Coming up"
               : "Update",
-    chips: [dueLabel, task.sourceLabel].filter((value): value is string => Boolean(value)),
+    chips: [dueLabel, formatPatientTaskSourceLabel(task)].filter(
+      (value): value is string => Boolean(value),
+    ),
     completableTaskId:
       task.patientCompletable && isTaskActive(task) ? task.id : undefined,
   };
@@ -482,9 +487,14 @@ export function buildReminderItems(
   readState: ReminderReadState,
   now = new Date(),
 ): ReminderItem[] {
+  const groupedActiveTasks = groupTasksByPatientIntent(tasks.filter((task) => isTaskActive(task)));
+  const settledTasks = tasks.filter((task) => !isTaskActive(task));
   const reminders = [
     ...dueProms.map((item) => buildPromReminder(item, readState, now)),
-    ...tasks
+    ...groupedActiveTasks
+      .map((task) => buildTaskReminder(task, readState, now))
+      .filter((item): item is ReminderItem => Boolean(item)),
+    ...settledTasks
       .map((task) => buildTaskReminder(task, readState, now))
       .filter((item): item is ReminderItem => Boolean(item)),
     ...requests

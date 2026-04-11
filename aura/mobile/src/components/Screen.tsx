@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
 
 type ScreenProps = {
@@ -19,6 +20,7 @@ type ScreenProps = {
   accessibilityLabel?: string;
   testID?: string;
   maxWidth?: number;
+  auditLabel?: string;
   contentContainerStyle?: StyleProp<ViewStyle>;
   containerStyle?: StyleProp<ViewStyle>;
 };
@@ -32,12 +34,14 @@ export function Screen({
   accessibilityLabel,
   testID,
   maxWidth,
+  auditLabel,
   contentContainerStyle,
   containerStyle,
 }: ScreenProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const widthStyle = maxWidth ? { maxWidth, width: "100%" as const } : null;
+  useDevRenderAudit(auditLabel ? `Screen:${auditLabel}` : undefined);
 
   const content = (
     <View style={[styles.content, widthStyle, containerStyle]}>

@@ -34,6 +34,7 @@ import { CheckinReviewCard } from "@/src/components/checkin/CheckinReviewCard";
 import { CheckinSectionCard } from "@/src/components/checkin/CheckinSectionCard";
 import { NeedHelpPrompt } from "@/src/components/checkin/NeedHelpPrompt";
 import { SymptomChipGroup } from "@/src/components/checkin/SymptomChipGroup";
+import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useAuth } from "@/src/state/auth";
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
@@ -382,6 +383,7 @@ export default function CheckinScreen() {
   const auth = useAuth();
   const isOffline = useIsOffline();
   useReducedMotion();
+  useDevRenderAudit("CheckinScreen");
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
@@ -606,6 +608,11 @@ export default function CheckinScreen() {
     }
     return null;
   }, [bodyMap.selectedRegions.length, pain, recovery.exercisePercent, support.mood]);
+  const shouldShowValidationBanner = Boolean(validationMessage);
+  const shouldShowNoticeBanner =
+    Boolean(notice) &&
+    notice?.variant !== "success" &&
+    (!shouldShowValidationBanner || notice?.title !== "Check your entries");
 
   const stepMessage = useMemo(() => {
     if (activeStep >= 2 && (support.mood === null || support.mood < 1 || support.mood > 5)) {
@@ -1537,6 +1544,7 @@ export default function CheckinScreen() {
     return (
       <Screen
         scroll={false}
+        auditLabel="CheckinScreen"
         banner={<TrustBanner status={trustStatus} offlineMode="onlineOnly" />}
       >
         <View style={styles.loadingContainer}>
@@ -1560,6 +1568,7 @@ export default function CheckinScreen() {
   return (
     <Screen
       scroll={false}
+      auditLabel="CheckinScreen"
       banner={
         <TrustBanner
           status={trustStatus}
@@ -1637,15 +1646,15 @@ export default function CheckinScreen() {
             />
           ) : null}
 
-          {validationMessage ? (
+          {shouldShowValidationBanner ? (
             <Banner
               variant="warning"
               title="Check your entries"
-              message={validationMessage}
+              message={validationMessage ?? undefined}
             />
           ) : null}
 
-          {notice && notice.variant !== "success" ? (
+          {shouldShowNoticeBanner && notice ? (
             <Banner
               variant={notice.variant}
               title={notice.title}

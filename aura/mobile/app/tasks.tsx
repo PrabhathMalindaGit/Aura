@@ -33,6 +33,7 @@ import {
   compareCompletedTasks,
   derivePatientTaskAction,
   formatTaskDueLabel,
+  formatTaskTitle,
   isCommunicationTask,
   isTaskActive,
 } from "@/src/utils/tasks";
@@ -310,7 +311,7 @@ export default function TasksScreen() {
         setNotice({
           variant: "info",
           title: "Task updated",
-          message: `${completed.title} is marked done.`,
+          message: `${formatTaskTitle(completed)} is marked done.`,
         });
       } catch (error) {
         const friendly = toFriendlyError(error, "Couldn’t update task");

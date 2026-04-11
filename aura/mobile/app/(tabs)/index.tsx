@@ -39,6 +39,7 @@ import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useIsOffline } from "@/src/state/network";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
+import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
 import type { ReminderItem, ReminderReadState } from "@/src/types/reminder";
 import type { PatientTaskItem } from "@/src/types/task";
@@ -158,6 +159,7 @@ export default function HomeScreen() {
   const isOffline = useIsOffline();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  useDevRenderAudit("TodayScreen");
 
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
@@ -766,6 +768,7 @@ export default function HomeScreen() {
   return (
     <Screen
       scroll
+      auditLabel="TodayScreen"
       contentContainerStyle={styles.container}
       banner={<TrustBanner status={trustStatus} />}
     >

@@ -49,8 +49,18 @@ import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
 import type { PatientTaskItem } from "@/src/types/task";
+import { useDevRenderAudit } from "@/src/dev/renderAudit";
+import { formatPatientChatTimestamp } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
-import { derivePatientTaskAction, formatTaskDueLabel, formatTaskSupportText, isCommunicationTask } from "@/src/utils/tasks";
+import {
+  derivePatientTaskAction,
+  formatPatientTaskSourceLabel,
+  formatTaskDueLabel,
+  formatTaskSupportText,
+  formatTaskTitle,
+  groupTasksByPatientIntent,
+  isCommunicationTask,
+} from "@/src/utils/tasks";
 
 // Layout: Single Screen wrapper; avoid nested ScrollView.
 type MessageItem = ChatItem & {
@@ -225,34 +235,7 @@ function isGroupStart(items: MessageItem[], index: number): boolean {
 }
 
 function formatTimestampLabel(iso?: string): string | null {
-  if (!iso) {
-    return null;
-  }
-
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) {
-    return null;
-  }
-
-  const now = new Date();
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  if (sameDay) {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(date);
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
+  return formatPatientChatTimestamp(iso);
 }
 
 function normalizeChatError(error: unknown): ApiError {
@@ -404,6 +387,7 @@ export default function ChatScreen() {
   const reduceMotion = useReducedMotion();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  useDevRenderAudit("ChatScreen");
 
   const {
     label: chatRefreshLabel,
@@ -593,10 +577,15 @@ export default function ChatScreen() {
   );
 
   const communicationPrompts = useMemo(
-    () =>
-      workflowTasks
+    () => {
+      const grouped = groupTasksByPatientIntent(
+        workflowTasks
         .filter((task) => isCommunicationTask(task) && (task.status === "open" || task.status === "in_progress"))
-        .slice(0, 2),
+        .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)),
+      );
+
+      return grouped.slice(0, 2);
+    },
     [workflowTasks],
   );
 
@@ -1153,6 +1142,7 @@ export default function ChatScreen() {
   return (
     <Screen
       scroll={false}
+      auditLabel="ChatScreen"
       header={
         <HeroHeader
           variant="compact"
@@ -1213,9 +1203,9 @@ export default function ChatScreen() {
                     <WorkflowMessageCard
                       key={task.id}
                       compact
-                      title={task.title}
+                      title={formatTaskTitle(task)}
                       text={formatTaskSupportText(task)}
-                      chips={[formatTaskDueLabel(task), task.sourceLabel].filter(
+                      chips={[formatTaskDueLabel(task), formatPatientTaskSourceLabel(task)].filter(
                         (value): value is string => Boolean(value),
                       )}
                       tone={task.priority === "urgent" || task.priority === "high" ? "warning" : "info"}

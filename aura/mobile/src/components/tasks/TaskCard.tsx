@@ -7,6 +7,7 @@ import {
   derivePatientTaskAction,
   formatTaskStatusLabel,
   formatTaskSupportText,
+  formatTaskTitle,
   getTaskIcon,
   taskStatusVariant,
 } from "@/src/utils/tasks";
@@ -71,7 +72,7 @@ export function TaskCard({
       <MediaCard
         variant={compact ? "compact" : "default"}
         leading={{ type: "icon", icon: getTaskIcon(task), tone: leadingToneForTask(task) }}
-        title={task.title}
+        title={formatTaskTitle(task)}
         subtitle={formatTaskSupportText(task)}
         statusPill={{
           text: formatTaskStatusLabel(task),

@@ -24,6 +24,7 @@ import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
 import { StatusPill } from "@/src/components/StatusPill";
 import { API_BASE } from "@/src/config/env";
+import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import {
   cancelReminder,
   getPermissionStatus,
@@ -192,6 +193,7 @@ export default function SettingsScreen() {
   const auth = useAuth();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  useDevRenderAudit("SettingsScreen");
   const network = useNetwork();
   const reminderPermissionError = useLastError("reminderPermission");
   const reminderScheduleError = useLastError("reminderSchedule");
@@ -582,6 +584,7 @@ export default function SettingsScreen() {
   return (
     <Screen
       scroll
+      auditLabel="SettingsScreen"
       contentContainerStyle={styles.container}
       header={
         <HeroHeader
@@ -868,77 +871,52 @@ export default function SettingsScreen() {
             />
           }
         >
-        <MediaCard
-          variant="compact"
-          leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
-          title="Caregiver access"
-          subtitle="Share weekly report and progress"
-          chips={[{ text: caregiverInfo.value === "Off" ? "Off" : "On", tone: "muted" }]}
-          onPress={() => {
-            router.push("/caregiver-invite" as Href);
-          }}
-        />
-        <Row
-          title="Caregiver access"
-          subtitle={caregiverInfo.subtitle}
-          leftIcon={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver access icon" />}
-          right={<Text style={styles.rowValue}>{caregiverInfo.value}</Text>}
-          onPress={() => {
-            router.push("/caregiver-invite" as Href);
-          }}
-        />
-      </Section>
+          <Row
+            title="Caregiver access"
+            subtitle={caregiverInfo.subtitle}
+            leftIcon={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver access icon" />}
+            right={<Text style={styles.rowValue}>{caregiverInfo.value}</Text>}
+            onPress={() => {
+              router.push("/caregiver-invite" as Href);
+            }}
+          />
+        </Section>
 
-      <Section
-        title="Support and safety"
-        subtitle="Quick access to guided support, care-team contact, and urgent-help guidance."
-        card
-        left={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Support and safety section icon" />}
-      >
-        <MediaCard
-          variant="compact"
-          leading={{ type: "icon", icon: "safety", tone: "warning" }}
-          title="Safety support"
-          subtitle="Breathing and grounding tools"
-          actions={[
-            {
-              label: "Open Safety",
-              kind: "primary",
-              onPress: () => {
+        <Section
+          title="Support and safety"
+          subtitle="Quick access to guided support, care-team contact, and urgent-help guidance."
+          card
+          left={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Support and safety section icon" />}
+        >
+          <View style={styles.stack}>
+            <Row
+              title="Safety plan"
+              subtitle="Open guided support steps"
+              leftIcon={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Safety plan icon" />}
+              onPress={() => {
                 router.push("/safety" as never);
-              },
-            },
-          ]}
-        />
-        <View style={styles.stack}>
-          <Row
-            title="Safety plan"
-            subtitle="Open guided support steps"
-            leftIcon={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Safety plan icon" />}
-            onPress={() => {
-              router.push("/safety" as never);
-            }}
-          />
-          <Row
-            title="Contact clinic"
-            subtitle="Send a message to your care team"
-            leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Contact clinic icon" />}
-            onPress={() => {
-              router.push("/(tabs)/chat");
-            }}
-          />
-          <Row
-            title="Emergency help"
-            subtitle="If urgent, contact local emergency services"
-            leftIcon={<DomainIcon icon="warning" tone="warning" accessibilityLabel="Emergency help icon" />}
-            accessory="none"
-          />
-        </View>
-        <Text style={styles.supportNote}>
-          If you feel unsafe or overwhelmed, open your Safety plan for guided next steps and the
-          quickest support actions.
-        </Text>
-      </Section>
+              }}
+            />
+            <Row
+              title="Contact clinic"
+              subtitle="Send a message to your care team"
+              leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Contact clinic icon" />}
+              onPress={() => {
+                router.push("/(tabs)/chat");
+              }}
+            />
+            <Row
+              title="Emergency help"
+              subtitle="If urgent, contact local emergency services"
+              leftIcon={<DomainIcon icon="warning" tone="warning" accessibilityLabel="Emergency help icon" />}
+              accessory="none"
+            />
+          </View>
+          <Text style={styles.supportNote}>
+            If you feel unsafe or overwhelmed, open your Safety plan for guided next steps and the
+            quickest support actions.
+          </Text>
+        </Section>
 
       <Section
         title="App info"
@@ -973,7 +951,7 @@ export default function SettingsScreen() {
           right={<StatusPill label={isDeveloperExpanded ? "Open" : "Collapsed"} />}
         >
           <Row
-            title="Developer Mode"
+            title="Show developer tools"
             subtitle="Dev builds only"
             leftIcon={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Developer mode icon" />}
             onPress={toggleDeveloperMode}

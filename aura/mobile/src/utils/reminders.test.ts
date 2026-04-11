@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PromDueCard } from "@/src/api/patient";
 import type { ReminderReadState } from "@/src/types/reminder";
+import type { PatientTaskItem } from "@/src/types/task";
 import { buildReminderItems } from "@/src/utils/reminders";
 
 const EMPTY_READ_STATE: ReminderReadState = {
@@ -85,5 +86,66 @@ describe("buildReminderItems PROM follow-through", () => {
     expect(reminders[0].group).toBe("attention");
     expect(reminders[1].status).toBe("due");
     expect(reminders[1].group).toBe("soon");
+  });
+
+  it("groups duplicate communication workflows into one patient reminder", () => {
+    const tasks: PatientTaskItem[] = [
+      {
+        id: "task-urgent",
+        title: "Urgent message follow-up",
+        description:
+          "Patient One has a message without clinician response since 2026-03-09T08:00:00.000Z",
+        type: "communication",
+        priority: "urgent",
+        status: "open",
+        dueAt: "2026-03-09T13:00:00.000Z",
+        createdAt: "2026-03-09T08:00:00.000Z",
+        updatedAt: "2026-03-09T08:10:00.000Z",
+        sourceLabel: "Communication no-response escalation",
+        linkedMessageId: "thread-1",
+        patientCompletable: false,
+        patientAction: {
+          kind: "chat",
+          label: "Reply in chat",
+        },
+      },
+      {
+        id: "task-duplicate",
+        title: "Message follow-up",
+        description:
+          "Patient One has a message without clinician response since 2026-03-09T09:00:00.000Z",
+        type: "communication",
+        priority: "high",
+        status: "open",
+        dueAt: "2026-03-09T16:00:00.000Z",
+        createdAt: "2026-03-09T09:00:00.000Z",
+        updatedAt: "2026-03-09T09:05:00.000Z",
+        sourceLabel: "Communication no-response escalation",
+        linkedMessageId: "thread-1",
+        patientCompletable: false,
+        patientAction: {
+          kind: "chat",
+          label: "Reply in chat",
+        },
+      },
+    ];
+
+    const reminders = buildReminderItems(
+      tasks,
+      [],
+      [],
+      EMPTY_READ_STATE,
+      new Date("2026-03-09T12:00:00.000Z"),
+    );
+
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0].linkedEntityId).toBe("task-urgent");
+    expect(reminders[0].title).toBe("Please reply to your care team");
+    expect(reminders[0].message).toBe(
+      "Your care team is waiting for a reply. Open chat when you can.",
+    );
+    expect(reminders[0].chips).toEqual(["Due today", "Care team message"]);
+    expect(reminders[0].timingLabel).toContain("Due today at");
+    expect(reminders[0].message).not.toContain("2026-03-09T08:00:00.000Z");
   });
 });

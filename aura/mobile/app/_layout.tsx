@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import "@/src/services/notificationsInit";
+import { useDevRenderAudit } from '@/src/dev/renderAudit';
 import { AuthProvider, useAuth } from '@/src/state/auth';
 import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
 import { SyncCoordinator } from '@/src/sync/SyncCoordinator';
@@ -51,6 +52,7 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
   const colorScheme = useColorScheme();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  useDevRenderAudit("RootLayoutNav");
   const isWeb = Platform.OS === "web";
   const webViewportStyle = useMemo(
     () => (isWeb ? ({ minHeight: "100vh" } as any) : null),

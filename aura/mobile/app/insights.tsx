@@ -471,7 +471,7 @@ export default function InsightsScreen() {
               </Text>
             </Card>
 
-            {__DEV__ ? (
+            {false ? (
               <View style={styles.devBlock}>
                 <SecondaryButton
                   label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}

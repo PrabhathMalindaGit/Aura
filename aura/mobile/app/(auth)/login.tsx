@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
@@ -12,7 +12,6 @@ import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TextField } from "@/src/components/TextField";
-import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
@@ -56,11 +55,6 @@ export default function LoginScreen() {
   const [accessCode, setAccessCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
-
-  const helperText = useMemo(
-    () => (__DEV__ ? "Demo: P1-DEMO, P2-DEMO, P3-DEMO" : null),
-    []
-  );
 
   const handleSubmit = async () => {
     if (!accessCode.trim()) {
@@ -111,7 +105,6 @@ export default function LoginScreen() {
               label={isOffline ? "Offline" : "Secure sign-in"}
               variant={isOffline ? "warning" : "info"}
             />
-            {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
           </View>
 
           <View style={styles.formStack}>
@@ -119,7 +112,7 @@ export default function LoginScreen() {
               label="Access code"
               value={accessCode}
               onChangeText={setAccessCode}
-              placeholder="e.g., P1-DEMO"
+              placeholder="Enter your access code"
               helperText="Use the code your care team gave you."
               autoCapitalize="characters"
             />
@@ -154,8 +147,6 @@ export default function LoginScreen() {
               onClear={authError.lastError ? authError.clear : undefined}
             />
           </View>
-
-          <Text style={styles.apiText}>API: {API_BASE}</Text>
         </Card>
       </View>
     </Screen>
@@ -185,11 +176,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     actions: {
       gap: tokens.spacing.sm,
-    },
-    apiText: {
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      color: tokens.colors.textMuted,
     },
   });
 }

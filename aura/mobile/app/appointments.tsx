@@ -64,6 +64,11 @@ import {
   formatAppointmentWorkflowLabel,
   getAppointmentWorkflowStatus,
 } from "@/src/utils/appointments";
+import {
+  formatPatientAbsoluteDateTime,
+  formatPatientClockTime,
+  formatPatientDateHeading,
+} from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -176,42 +181,15 @@ function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | 
 }
 
 function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString([], {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientAbsoluteDateTime(value) ?? "Time unavailable";
 }
 
 function formatTime(value: string): string {
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientClockTime(value) ?? "Time unavailable";
 }
 
 function formatDateHeading(value: string): string {
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return "Unknown date";
-  }
-
-  return parsed.toLocaleDateString([], {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
+  return formatPatientDateHeading(value) ?? "Date unavailable";
 }
 
 function toLocalDateKey(value: string): string {
@@ -637,7 +615,7 @@ export default function AppointmentsScreen() {
 
     return (
       <View style={styles.listHeader}>
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"
@@ -1029,9 +1007,12 @@ export default function AppointmentsScreen() {
   if (auth.status === "loading") {
     return (
       <Screen scroll={false}>
-        <View style={styles.centeredFull}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading appointments"
+          description="Checking your requests and available times."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }

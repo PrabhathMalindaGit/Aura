@@ -20,6 +20,7 @@ import {
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { DomainIcon } from "@/src/components/IconSet";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -336,7 +337,7 @@ export default function ExerciseSessionsScreen() {
 
     return (
       <View style={styles.listHeader}>
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"
@@ -551,9 +552,12 @@ export default function ExerciseSessionsScreen() {
         scroll={false}
         header={<HeroHeader variant="compact" title="Exercise sessions" subtitle="Recent sessions" />}
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading sessions"
+          description="Preparing your exercise session history."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }

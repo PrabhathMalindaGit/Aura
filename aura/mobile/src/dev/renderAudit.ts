@@ -2,6 +2,15 @@ import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
 const activeMounts = new Map<string, number>();
+const DEBUG_UI_FLAG = "__AURA_ENABLE_PATIENT_DEBUG_UI__";
+
+type DebugGlobal = typeof globalThis & {
+  [DEBUG_UI_FLAG]?: boolean;
+};
+
+export function isPatientDebugUIEnabled(): boolean {
+  return __DEV__ && Boolean((globalThis as DebugGlobal)[DEBUG_UI_FLAG]);
+}
 
 export function useDevRenderAudit(label?: string) {
   const instanceIdRef = useRef(
@@ -11,7 +20,7 @@ export function useDevRenderAudit(label?: string) {
   );
 
   useEffect(() => {
-    if (!__DEV__ || Platform.OS !== "web" || !label) {
+    if (!isPatientDebugUIEnabled() || Platform.OS !== "web" || !label) {
       return;
     }
 

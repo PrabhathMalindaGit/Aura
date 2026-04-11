@@ -20,6 +20,7 @@ import {
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { DomainIcon } from "@/src/components/IconSet";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -332,7 +333,7 @@ export default function ExercisePlanScreen() {
     const showNotice = Boolean(notice && !(isOffline && notice.title === "Offline"));
     return (
       <View style={styles.listHeader}>
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"
@@ -549,9 +550,12 @@ export default function ExercisePlanScreen() {
         scroll={false}
         header={<HeroHeader variant="compact" title="Today’s plan" subtitle="Plan overview" />}
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading today’s plan"
+          description="Preparing your rehab plan for this device."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }

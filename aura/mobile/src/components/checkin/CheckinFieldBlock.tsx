@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import React, { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { useTokens } from "@/src/theme/tokens";
@@ -8,6 +8,8 @@ type CheckinFieldBlockProps = {
   description?: string;
   errorText?: string | null;
   accessory?: ReactNode;
+  fieldId?: string;
+  onMeasureField?: (fieldId: string, y: number) => void;
   children: ReactNode;
 };
 
@@ -16,13 +18,22 @@ export function CheckinFieldBlock({
   description,
   errorText,
   accessory,
+  fieldId,
+  onMeasureField,
   children,
 }: CheckinFieldBlockProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   return (
-    <View style={styles.block}>
+    <View
+      style={styles.block}
+      onLayout={({ nativeEvent }) => {
+        if (fieldId && onMeasureField) {
+          onMeasureField(fieldId, nativeEvent.layout.y);
+        }
+      }}
+    >
       <View style={styles.header}>
         <View style={styles.copy}>
           <Text style={styles.title}>{title}</Text>

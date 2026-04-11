@@ -1,4 +1,5 @@
 import React from "react";
+import { createRef } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -37,13 +38,25 @@ vi.mock("react-native", () => ({
   StyleSheet: {
     create: <T extends Record<string, unknown>>(styles: T) => styles,
   },
-  ScrollView: ({
-    children,
-    ...props
-  }: {
-    children?: React.ReactNode;
-    [key: string]: unknown;
-  }) => React.createElement("mock-scroll-view", props, children),
+  ScrollView: React.forwardRef(
+    (
+      {
+        children,
+        ...props
+      }: {
+        children?: React.ReactNode;
+        [key: string]: unknown;
+      },
+      ref: React.ForwardedRef<{ scrollTo: () => void }>,
+    ) => {
+      if (typeof ref === "function") {
+        ref({ scrollTo: () => undefined });
+      } else if (ref) {
+        ref.current = { scrollTo: () => undefined };
+      }
+      return React.createElement("mock-scroll-view", props, children);
+    },
+  ),
   Text: ({
     children,
     ...props
@@ -104,6 +117,8 @@ describe("CheckinFlowShell", () => {
   });
 
   it("renders one persistent shell with the step header, stepper, helper area, and sticky footer", () => {
+    const scrollViewRef = createRef<any>();
+
     act(() => {
       renderer = create(
         <CheckinFlowShell
@@ -121,6 +136,7 @@ describe("CheckinFlowShell", () => {
           activeStep={1}
           onSelectStep={() => undefined}
           footer={React.createElement("mock-footer", {}, "Footer")}
+          scrollViewRef={scrollViewRef}
         >
           {React.createElement("mock-step-card", {}, "Step content")}
         </CheckinFlowShell>,
@@ -166,5 +182,6 @@ describe("CheckinFlowShell", () => {
 
     expect(textContent).toContain("Recovery");
     expect(textContent).toContain("Exercises, strain and medication");
+    expect(scrollViewRef.current).toBeTruthy();
   });
 });

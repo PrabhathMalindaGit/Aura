@@ -20,6 +20,7 @@ import {
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { DomainIcon } from "@/src/components/IconSet";
 import { GlassPanel } from "@/src/components/GlassPanel";
 import { HeroHeader } from "@/src/components/HeroHeader";
@@ -382,9 +383,12 @@ export default function PromFillScreen() {
   if (auth.status === "loading") {
     return (
       <Screen scroll={false}>
-        <View style={styles.centeredFull}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading questionnaire"
+          description="Preparing your next assessment."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }

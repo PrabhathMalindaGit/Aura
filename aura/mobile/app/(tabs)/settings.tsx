@@ -25,7 +25,7 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { SettingsGroup } from "@/src/components/settings/SettingsGroup";
 import { SettingsItem } from "@/src/components/settings/SettingsItem";
 import { API_BASE } from "@/src/config/env";
-import { useDevRenderAudit } from "@/src/dev/renderAudit";
+import { isPatientDebugUIEnabled, useDevRenderAudit } from "@/src/dev/renderAudit";
 import {
   cancelReminder,
   getPermissionStatus,
@@ -220,7 +220,7 @@ export default function SettingsScreen() {
   const [isReminderBusy, setIsReminderBusy] = useState(false);
   const [isDeveloperExpanded, setIsDeveloperExpanded] = useState(false);
 
-  const isDeveloperModeVisible = __DEV__;
+  const isDeveloperModeVisible = isPatientDebugUIEnabled();
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientId = auth.patient?.id ?? "";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
@@ -608,9 +608,9 @@ export default function SettingsScreen() {
         return;
       }
 
-      setDevNotice("Reset demo state and cleared local demo caches and queues.");
+      setDevNotice("Reset local preview state and cleared device caches and queues.");
     } catch {
-      setDevNotice("Could not complete demo reset.");
+      setDevNotice("Could not complete the local reset.");
     } finally {
       setIsResettingDemo(false);
     }
@@ -972,7 +972,7 @@ export default function SettingsScreen() {
             <SettingsGroup testID="settings-group-developer" tone="subtle">
               <SettingsItem
                 title="Show developer tools"
-                subtitle="Local demo and debug actions."
+                subtitle="Local development actions."
                 leading={
                   <DomainIcon
                     icon="settings"
@@ -990,7 +990,7 @@ export default function SettingsScreen() {
             <FadeSlideIn visible={isDeveloperExpanded} reduceMotion={reduceMotion}>
               <Card variant="outlined" style={styles.devPanelCard}>
                 <View testID="settings-developer-panel" style={styles.devPanel}>
-                  <Text style={styles.devGroupTitle}>Demo data</Text>
+                  <Text style={styles.devGroupTitle}>Preview data</Text>
                   <SecondaryButton
                     label="UI Gallery"
                     onPress={() => {
@@ -998,13 +998,13 @@ export default function SettingsScreen() {
                     }}
                   />
                   <SecondaryButton
-                    label={isResettingDemo ? "Resetting…" : "Reset demo state"}
+                    label={isResettingDemo ? "Resetting…" : "Reset local state"}
                     loading={isResettingDemo}
                     disabled={!patientId || isResettingDemo}
                     onPress={() =>
                       confirmAction(
-                        "Reset demo state?",
-                        "This clears local demo caches, drafts, and pending queues for this patient.",
+                        "Reset local state?",
+                        "This clears local caches, drafts, and pending queues for this patient.",
                         () => {
                           void runReset(false);
                         },
@@ -1018,7 +1018,7 @@ export default function SettingsScreen() {
                     onPress={() =>
                       confirmAction(
                         "Reset and sign out?",
-                        "This clears local demo state for this patient and signs out.",
+                        "This clears local state for this patient and signs out.",
                         () => {
                           void runReset(true);
                         },
@@ -1098,7 +1098,7 @@ export default function SettingsScreen() {
                       router.push({
                         pathname: "/safety",
                         params: {
-                          alertId: "demo-alert",
+                          alertId: "preview-alert",
                           reasonCodes: "PAIN_GE_THRESHOLD",
                         },
                       })
@@ -1125,7 +1125,7 @@ export default function SettingsScreen() {
                   <Text style={styles.devLine}>
                     Network: {network.isOffline ? "Offline" : "Online"}
                   </Text>
-                  <Text style={styles.devLine}>API: {API_BASE}</Text>
+                  <Text style={styles.devLine}>Server: {API_BASE}</Text>
 
                   {reminderPermissionError.lastError || reminderScheduleError.lastError ? (
                     <Card variant="outlined" style={styles.devDiagnosticsCard}>

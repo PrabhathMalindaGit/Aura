@@ -1,6 +1,6 @@
 export const APP_NAME = "Aura";
 
-// Demo-safe defaults. Replace with deployment-specific numbers before production release.
+// Optional support contacts. Leave blank to use in-app guidance instead of a phone shortcut.
 export const SUPPORT_PHONE_PLACEHOLDER = "";
 export const EMERGENCY_NUMBER_PLACEHOLDER = "";
 

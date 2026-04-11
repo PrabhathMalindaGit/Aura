@@ -6,6 +6,7 @@ export type CheckinNoticeLike = {
 } | null;
 
 export type CheckinStepVisualState = "active" | "done" | "upcoming";
+export type CheckinValidationField = "mood";
 
 export function getCheckinStepVisualState(
   index: number,

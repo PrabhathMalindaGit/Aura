@@ -1,6 +1,6 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system/legacy";
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -8,6 +8,7 @@ import { getPhotoMeta, type SymptomPhotoKind, type SymptomPhotoMeta } from "@/sr
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -18,6 +19,7 @@ import { TrackerTile } from "@/src/components/TrackerTile";
 import { API_BASE } from "@/src/config/env";
 import { useAuth } from "@/src/state/auth";
 import { useTokens } from "@/src/theme/tokens";
+import { formatISOToHuman, formatPatientCardTimestamp } from "@/src/utils/date";
 
 type NoticeState = {
   variant: "info" | "warning" | "error";
@@ -85,32 +87,13 @@ function formatFileSize(value?: number): string {
 
 function formatDate(value?: string): string {
   if (!value) {
-    return "Unknown";
+    return "Date unavailable";
   }
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-  });
+  return formatISOToHuman(value);
 }
 
 function formatDateTime(value?: string): string {
-  if (!value) {
-    return "Unknown time";
-  }
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientCardTimestamp(value) ?? "Saved time unavailable";
 }
 
 export default function SymptomPhotoViewScreen() {
@@ -204,9 +187,12 @@ export default function SymptomPhotoViewScreen() {
           />
         }
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading photo"
+          description="Preparing your saved symptom photo."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }
@@ -216,16 +202,17 @@ export default function SymptomPhotoViewScreen() {
   }
 
   const pendingKind = normalizeKind(params.kind);
-  const pendingDate = typeof params.date === "string" ? params.date : "Unknown";
+  const pendingDate = typeof params.date === "string" ? params.date : "Date unavailable";
   const pendingNote =
     typeof params.note === "string" && params.note.trim() ? params.note.trim() : undefined;
   const pendingCreatedAt =
     typeof params.createdAt === "string" ? params.createdAt : undefined;
 
   const displayKind = isPending ? pendingKind : meta?.kind ?? "other";
-  const displayDate = isPending ? pendingDate : meta?.date ?? "Unknown";
+  const displayDate = formatDate(isPending ? pendingDate : meta?.date);
   const displayNote = isPending ? pendingNote : meta?.note;
   const displayCreatedAt = isPending ? pendingCreatedAt : meta?.createdAt;
+  const savedTimestampLabel = formatDateTime(displayCreatedAt);
   const photoStatusLabel = isPending ? "Pending sync" : "Uploaded";
   const photoStatusTone = isPending ? "warning" : "success";
   const photoStoryTitle = isPending
@@ -235,7 +222,9 @@ export default function SymptomPhotoViewScreen() {
     ? "The image is stored locally for now. Once it syncs, it becomes part of your shared symptom history."
     : "Use the capture date, symptom type, and note below to remember what this photo was documenting.";
   const reviewSubtitle =
-    displayDate !== "Unknown" ? `${formatDate(displayCreatedAt)} · ${kindLabel(displayKind)}` : "Symptom photo";
+    displayDate !== "Date unavailable"
+      ? `${formatDate(displayCreatedAt)} · ${kindLabel(displayKind)}`
+      : "Symptom photo";
 
   return (
     <Screen
@@ -264,7 +253,7 @@ export default function SymptomPhotoViewScreen() {
           <View style={styles.headerPills}>
             <StatusPill label={photoStatusLabel} variant={photoStatusTone} accessible={false} />
             <StatusPill label={kindLabel(displayKind)} variant="info" accessible={false} />
-            <StatusPill label={displayDate !== "Unknown" ? displayDate : "Date unavailable"} variant="neutral" accessible={false} />
+            <StatusPill label={displayDate} variant="neutral" accessible={false} />
           </View>
         </HeroHeader>
       }
@@ -388,7 +377,11 @@ export default function SymptomPhotoViewScreen() {
         <MediaCard
           leading={{ type: "icon", icon: "info", tone: "muted" }}
           title="Photo summary"
-          subtitle={displayCreatedAt ? `Saved ${formatDateTime(displayCreatedAt)}` : "Saved time unavailable"}
+          subtitle={
+            savedTimestampLabel === "Saved time unavailable"
+              ? savedTimestampLabel
+              : `Saved ${savedTimestampLabel}`
+          }
           chips={[
             { text: `Date ${displayDate}`, tone: "muted" },
             { text: kindLabel(displayKind), tone: "muted" },

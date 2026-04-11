@@ -10,6 +10,7 @@ import {
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { DomainIcon } from "@/src/components/IconSet";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -21,7 +22,7 @@ import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import { useIsOffline } from "@/src/state/network";
 import { useTokens } from "@/src/theme/tokens";
-import { formatISOToHuman } from "@/src/utils/date";
+import { formatISOToHuman, formatPatientSyncLabel } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type DetailParams = {
@@ -62,15 +63,7 @@ function formatDuration(seconds: number): string {
 }
 
 function formatTimestamp(value: number | null): string {
-  if (!value || !Number.isFinite(value)) {
-    return "Never";
-  }
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientSyncLabel(value);
 }
 
 function sessionStatusLabel(status: string): string {
@@ -133,9 +126,12 @@ export default function ExerciseSessionDetailScreen() {
         scroll={false}
         header={<HeroHeader variant="compact" title="Session detail" subtitle="Session" />}
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading session detail"
+          description="Preparing the latest information for this session."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }
@@ -202,7 +198,7 @@ export default function ExerciseSessionDetailScreen() {
       }
     >
       <ScrollView contentContainerStyle={styles.container}>
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"
@@ -243,11 +239,22 @@ export default function ExerciseSessionDetailScreen() {
         ) : null}
 
         {isLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="small" />
-          </View>
+          <EmptyState
+            variant="compact"
+            title="Loading session detail"
+            description="Checking the latest progress for this session."
+            illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+          />
         ) : errorMessage ? (
-          <Banner variant="danger" title="Couldn’t load session" message={errorMessage} />
+          <Banner
+            variant="danger"
+            title="Couldn’t load session"
+            message={errorMessage}
+            actionLabel="Retry"
+            onAction={() => {
+              void loadDetail();
+            }}
+          />
         ) : !session ? (
           <Banner
             variant="info"

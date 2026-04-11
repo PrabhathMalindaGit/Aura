@@ -1,5 +1,5 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import { DomainIcon } from "@/src/components/IconSet";
 import { GlassPanel } from "@/src/components/GlassPanel";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { MediaCard } from "@/src/components/MediaCard";
+import { EmptyState } from "@/src/components/EmptyState";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
@@ -166,9 +167,12 @@ export default function SafetyScreen() {
   if (status === "loading") {
     return (
       <Screen scroll={false}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading safety support"
+          description="Preparing the safest next steps for you now."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }
@@ -250,9 +254,10 @@ export default function SafetyScreen() {
             />
           ) : (
             <Card variant="outlined" style={styles.supportFallbackCard}>
-              <Text style={styles.supportFallbackTitle}>Clinic phone not configured</Text>
+              <Text style={styles.supportFallbackTitle}>Clinic support is available in Messages</Text>
               <Text style={styles.supportFallbackText}>
-                Use chat or your care plan for the correct support number in this demo environment.
+                Use Messages or your care plan to reach your clinic team if a phone number is not
+                listed here.
               </Text>
             </Card>
           )}
@@ -334,7 +339,7 @@ export default function SafetyScreen() {
             subtitle={
               clinicNumberConfigured
                 ? "Use your clinic support line"
-                : "Use chat or your care plan for the correct support number"
+                : "Use Messages or your care plan to reach clinic support"
             }
             leftIcon={<DomainIcon icon="appointments" tone="muted" accessibilityLabel="Call clinic icon" />}
             onPress={

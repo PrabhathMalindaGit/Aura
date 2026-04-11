@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { isPatientDebugUIEnabled } from "@/src/dev/renderAudit";
+
 type LastRefreshedProps = {
   label?: string;
   value: string;
@@ -7,10 +9,14 @@ type LastRefreshedProps = {
 };
 
 export function LastRefreshed({
-  label = "Last refreshed",
+  label = "Updated",
   value,
   compact = false,
 }: LastRefreshedProps) {
+  if (!isPatientDebugUIEnabled()) {
+    return null;
+  }
+
   return (
     <View style={compact ? styles.compactContainer : styles.container}>
       <Text style={compact ? styles.compactText : styles.text}>

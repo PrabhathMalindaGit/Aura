@@ -43,6 +43,10 @@ import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTokens } from "@/src/theme/tokens";
+import {
+  formatPatientCardTimestamp,
+  formatPatientDueTimestamp,
+} from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -68,16 +72,7 @@ type ListItem =
   | { type: "empty"; key: string; title: string; description: string; illustration: "today" | "progress" | "offline" };
 
 function formatDateTime(value?: string | null): string {
-  if (!value) {
-    return "--";
-  }
-
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return "--";
-  }
-
-  return parsed.toLocaleString();
+  return formatPatientCardTimestamp(value ?? undefined) ?? "Date unavailable";
 }
 
 function formatRelativeDate(value?: string | null): string {
@@ -124,27 +119,27 @@ function formatPromptDueSummary(dueAt: string): {
     return {
       statusText: "Due today",
       statusTone: "warning",
-      subtitle: `Due today · ${formatDateTime(dueAt)}`,
+      subtitle: formatPatientDueTimestamp(dueAt) ?? "Due date unavailable",
     };
   }
   if (relative === "Tomorrow") {
     return {
       statusText: "Due soon",
       statusTone: "info",
-      subtitle: `Due tomorrow · ${formatDateTime(dueAt)}`,
+      subtitle: formatPatientDueTimestamp(dueAt) ?? "Due date unavailable",
     };
   }
   if (relative.endsWith("ago") || relative === "Yesterday") {
     return {
       statusText: "Overdue",
       statusTone: "danger",
-      subtitle: `Past due · ${formatDateTime(dueAt)}`,
+      subtitle: formatPatientDueTimestamp(dueAt) ?? "Due date unavailable",
     };
   }
   return {
     statusText: "Assigned",
     statusTone: "info",
-    subtitle: `${relative} · ${formatDateTime(dueAt)}`,
+    subtitle: formatPatientDueTimestamp(dueAt) ?? `${relative} · Date unavailable`,
   };
 }
 
@@ -559,9 +554,12 @@ export default function PromsScreen() {
   if (auth.status === "loading") {
     return (
       <Screen scroll={false}>
-        <View style={styles.centeredFull}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading assessments"
+          description="Checking what is due and what has already been completed."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }
@@ -674,7 +672,7 @@ export default function PromsScreen() {
         showChevron={false}
       />
 
-      {__DEV__ ? (
+      {false ? (
         <Card variant="outlined" padding={tokens.spacing.md}>
           <Pressable
             accessibilityRole="button"

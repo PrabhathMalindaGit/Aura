@@ -2,13 +2,28 @@ export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function parseISODateTime(value?: string): Date | null {
-  if (!value) {
+type PatientDateInput = string | number | Date | null | undefined;
+const MIN_PATIENT_EVENT_YEAR = 2000;
+
+function parsePatientEventDateTime(value?: PatientDateInput): Date | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string" && !value.trim()) {
     return null;
   }
 
   const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) ? parsed : null;
+  if (!Number.isFinite(parsed.getTime())) {
+    return null;
+  }
+
+  if (parsed.getTime() <= 0 || parsed.getUTCFullYear() < MIN_PATIENT_EVENT_YEAR) {
+    return null;
+  }
+
+  return parsed;
 }
 
 function isSameLocalDay(left: Date, right: Date): boolean {
@@ -49,7 +64,7 @@ function formatClockTime(date: Date): string {
 }
 
 export function formatISOToHuman(iso: string): string {
-  const date = parseISODateTime(iso);
+  const date = parsePatientEventDateTime(iso);
   if (!date) {
     return "Date unavailable";
   }
@@ -65,7 +80,7 @@ export function formatPatientCardTimestamp(
   iso?: string,
   now: Date = new Date(),
 ): string | undefined {
-  const date = parseISODateTime(iso);
+  const date = parsePatientEventDateTime(iso);
   if (!date) {
     return undefined;
   }
@@ -86,7 +101,7 @@ export function formatPatientChatTimestamp(
   iso?: string,
   now: Date = new Date(),
 ): string | null {
-  const date = parseISODateTime(iso);
+  const date = parsePatientEventDateTime(iso);
   if (!date) {
     return null;
   }
@@ -107,7 +122,7 @@ export function formatPatientDueLabel(
   iso?: string,
   now: Date = new Date(),
 ): string | undefined {
-  const date = parseISODateTime(iso);
+  const date = parsePatientEventDateTime(iso);
   if (!date) {
     return undefined;
   }
@@ -132,7 +147,7 @@ export function formatPatientDueTimestamp(
   iso?: string,
   now: Date = new Date(),
 ): string | undefined {
-  const date = parseISODateTime(iso);
+  const date = parsePatientEventDateTime(iso);
   if (!date) {
     return undefined;
   }
@@ -151,6 +166,52 @@ export function formatPatientDueTimestamp(
   }
 
   return `Due ${formatMonthDayTime(date)}`;
+}
+
+export function formatPatientAbsoluteDateTime(value?: PatientDateInput): string | undefined {
+  const date = parsePatientEventDateTime(value);
+  if (!date) {
+    return undefined;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+export function formatPatientClockTime(value?: PatientDateInput): string | undefined {
+  const date = parsePatientEventDateTime(value);
+  if (!date) {
+    return undefined;
+  }
+
+  return formatClockTime(date);
+}
+
+export function formatPatientDateHeading(value?: PatientDateInput): string | undefined {
+  const date = parsePatientEventDateTime(value);
+  if (!date) {
+    return undefined;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+export function formatPatientSyncLabel(value?: PatientDateInput): string {
+  const date = parsePatientEventDateTime(value);
+  if (!date) {
+    return "Not synced yet";
+  }
+
+  return `Last synced ${formatMonthDayTime(date)}`;
 }
 
 export function formatRelativeFromNow(ts: number): string {

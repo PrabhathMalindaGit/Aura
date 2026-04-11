@@ -44,7 +44,13 @@ import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
 import type { ReminderItem, ReminderReadState } from "@/src/types/reminder";
 import type { PatientTaskItem } from "@/src/types/task";
-import { addDaysISO, formatISOToHuman, startOfWeekMondayISO, todayISO } from "@/src/utils/date";
+import {
+  addDaysISO,
+  formatISOToHuman,
+  formatPatientCardTimestamp,
+  startOfWeekMondayISO,
+  todayISO,
+} from "@/src/utils/date";
 import { buildReminderItems, buildReminderPreview, countUnreadReminders } from "@/src/utils/reminders";
 import { isTaskActive } from "@/src/utils/tasks";
 
@@ -644,14 +650,8 @@ export default function HomeScreen() {
       setAppointmentSummary({
         status: "ready",
         pendingCount,
-        nextApprovedLabel: nextApproved
-          ? new Date(nextApproved.startsAt).toLocaleString([], {
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : "No upcoming appointments",
+        nextApprovedLabel:
+          formatPatientCardTimestamp(nextApproved?.startsAt) ?? "No upcoming appointments",
         hasUpcoming: Boolean(nextApproved),
       });
     })();
@@ -703,14 +703,8 @@ export default function HomeScreen() {
           setAppointmentSummary({
             status: "ready",
             pendingCount,
-            nextApprovedLabel: nextApproved
-              ? new Date(nextApproved.startsAt).toLocaleString([], {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "No upcoming appointments",
+            nextApprovedLabel:
+              formatPatientCardTimestamp(nextApproved?.startsAt) ?? "No upcoming appointments",
             hasUpcoming: Boolean(nextApproved),
           });
           await Promise.all([

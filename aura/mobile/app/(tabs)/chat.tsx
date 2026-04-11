@@ -1187,7 +1187,7 @@ export default function ChatScreen() {
       setNotice({
         variant: "info",
         title: "Preset loaded",
-        message: "Inserted low-risk demo message.",
+        message: "Inserted low-risk test message.",
       });
       router.setParams({ devPreset: "", devToken: "" });
       return;
@@ -1198,7 +1198,7 @@ export default function ChatScreen() {
       setNotice({
         variant: "warning",
         title: "Preset loaded",
-        message: "Inserted high-risk demo message.",
+        message: "Inserted high-risk test message.",
       });
       router.setParams({ devPreset: "", devToken: "" });
     }

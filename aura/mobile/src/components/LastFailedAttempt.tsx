@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { isPatientDebugUIEnabled } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
 
 type LastFailedAttemptProps = {
@@ -13,13 +14,17 @@ type LastFailedAttemptProps = {
 };
 
 export function LastFailedAttempt({
-  label = "Last failed attempt",
+  label = "Recent issue",
   value,
   title,
   message,
   onClear,
   compact = false,
 }: LastFailedAttemptProps) {
+  if (!isPatientDebugUIEnabled()) {
+    return null;
+  }
+
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const hasDetails = Boolean(title || message) && value !== "Never";

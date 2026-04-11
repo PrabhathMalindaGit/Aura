@@ -3,8 +3,8 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from '@/src/state/auth';
 import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
 import { SyncCoordinator } from '@/src/sync/SyncCoordinator';
 import { useTokens } from '@/src/theme/tokens';
+import { SecondaryButton } from '@/src/components/SecondaryButton';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -53,6 +54,7 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   useDevRenderAudit("RootLayoutNav");
+  const [showBootFallback, setShowBootFallback] = useState(false);
   const isWeb = Platform.OS === "web";
   const webViewportStyle = useMemo(
     () => (isWeb ? ({ minHeight: "100vh" } as any) : null),
@@ -71,6 +73,40 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
     [isWeb, tokens.scheme]
   );
 
+  useEffect(() => {
+    if (fontsLoaded) {
+      setShowBootFallback(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowBootFallback(true);
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }, [fontsLoaded]);
+
+  const handleRetryBoot = () => {
+    if (typeof window !== "undefined" && typeof window.location?.reload === "function") {
+      window.location.reload();
+    }
+  };
+
+  const bootOverlay = !fontsLoaded ? (
+    <View pointerEvents="auto" style={styles.loadingOverlay}>
+      <View style={styles.bootCard}>
+        <ActivityIndicator size="small" color={tokens.colors.primary} />
+        <Text style={styles.bootTitle}>Loading Aura</Text>
+        <Text style={styles.bootText}>
+          Preparing your secure patient workspace. This usually takes a moment.
+        </Text>
+        {showBootFallback && isWeb ? (
+          <SecondaryButton label="Try again" onPress={handleRetryBoot} />
+        ) : null}
+      </View>
+    </View>
+  ) : null;
+
   return (
     <AuthProvider>
       <CaregiverSessionProvider>
@@ -82,22 +118,14 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
               <View style={[styles.webFrameOuter, webShadowStyle]}>
                 <View style={styles.webFrameInner}>
                   <Slot />
-                  {!fontsLoaded ? (
-                    <View pointerEvents="none" style={styles.loadingOverlay}>
-                      <ActivityIndicator size="small" />
-                    </View>
-                  ) : null}
+                  {bootOverlay}
                 </View>
               </View>
             </View>
           ) : (
             <View style={styles.root}>
               <Slot />
-              {!fontsLoaded ? (
-                <View pointerEvents="none" style={styles.loadingOverlay}>
-                  <ActivityIndicator size="small" />
-                </View>
-              ) : null}
+              {bootOverlay}
             </View>
           )}
         </ThemeProvider>
@@ -138,6 +166,32 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: tokens.colors.background,
+      paddingHorizontal: tokens.spacing.lg,
+    },
+    bootCard: {
+      width: "100%",
+      maxWidth: 360,
+      borderRadius: tokens.radius.xl,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+      paddingHorizontal: tokens.spacing.xl,
+      paddingVertical: tokens.spacing.xl,
+      gap: tokens.spacing.sm,
+      alignItems: "center",
+    },
+    bootTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textAlign: "center",
+    },
+    bootText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      textAlign: "center",
     },
     webBackdrop: {
       flex: 1,

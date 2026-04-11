@@ -188,6 +188,7 @@ vi.mock("@/src/config/env", () => ({
 }));
 
 vi.mock("@/src/dev/renderAudit", () => ({
+  isPatientDebugUIEnabled: () => false,
   useDevRenderAudit: () => undefined,
 }));
 
@@ -332,7 +333,7 @@ describe("SettingsScreen", () => {
     expect(findByTestId(renderer!.root, "mock-pressable", "settings-logout-button")).toHaveLength(1);
   });
 
-  it("keeps caregiver and safety concepts to one primary row each, and keeps developer collapsed by default", async () => {
+  it("keeps caregiver and safety concepts to one primary row each, without exposing developer controls", async () => {
     let renderer: ReactTestRenderer;
 
     await act(async () => {
@@ -341,11 +342,11 @@ describe("SettingsScreen", () => {
 
     expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Caregiver access")).toHaveLength(1);
     expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Safety plan")).toHaveLength(1);
-    expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Show developer tools")).toHaveLength(1);
+    expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Show developer tools")).toHaveLength(0);
     expect(findByTestId(renderer!.root, "mock-view", "settings-developer-panel")).toHaveLength(0);
   });
 
-  it("shows the developer section only in dev mode", async () => {
+  it("keeps the developer section hidden when patient debug UI is disabled", async () => {
     let renderer: ReactTestRenderer;
 
     (globalThis as { __DEV__?: boolean }).__DEV__ = false;

@@ -596,7 +596,7 @@ export default function ExerciseSessionScreen() {
           />
         }
       >
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"

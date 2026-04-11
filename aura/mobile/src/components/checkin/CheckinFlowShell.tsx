@@ -1,4 +1,4 @@
-import React, { useMemo, type ReactNode } from "react";
+import React, { useMemo, type ReactNode, type RefObject } from "react";
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { GlassPanel } from "@/src/components/GlassPanel";
@@ -24,6 +24,7 @@ type CheckinFlowShellProps = {
   footer?: ReactNode;
   footerSpacerHeight?: number;
   scrollContentStyle?: StyleProp<ViewStyle>;
+  scrollViewRef?: RefObject<ScrollView | null>;
   children: ReactNode;
 };
 
@@ -42,6 +43,7 @@ export function CheckinFlowShell({
   footer,
   footerSpacerHeight = 164,
   scrollContentStyle,
+  scrollViewRef,
   children,
 }: CheckinFlowShellProps) {
   const tokens = useTokens();
@@ -50,6 +52,7 @@ export function CheckinFlowShell({
   return (
     <View style={styles.flex}>
       <ScrollView
+        ref={scrollViewRef}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[

@@ -321,7 +321,7 @@ export default function RehabJourneyScreen() {
 
   const listHeader = (
     <View style={styles.headerStack}>
-      {__DEV__ ? (
+      {false ? (
         <Card variant="outlined" padding={tokens.spacing.md}>
           <Pressable
             accessibilityRole="button"

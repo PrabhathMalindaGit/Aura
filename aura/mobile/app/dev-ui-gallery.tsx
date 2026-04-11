@@ -25,6 +25,7 @@ import { TipCard } from "@/src/components/TipCard";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
+import { isPatientDebugUIEnabled } from "@/src/dev/renderAudit";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
 
@@ -93,7 +94,7 @@ export default function DevUiGalleryScreen() {
     "focus",
   );
 
-  if (!__DEV__) {
+  if (!isPatientDebugUIEnabled()) {
     return <Redirect href="/(tabs)" />;
   }
 

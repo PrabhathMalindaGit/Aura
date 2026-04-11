@@ -343,6 +343,9 @@ vi.mock("@/src/theme/tokens", () => ({
 vi.mock("@/src/utils/date", () => ({
   addDaysISO: vi.fn(() => "2026-04-10"),
   formatISOToHuman: vi.fn(() => "Apr 8"),
+  formatPatientCardTimestamp: vi.fn((value?: string) =>
+    value ? "Apr 12 at 10:00 AM" : undefined,
+  ),
   startOfWeekMondayISO: vi.fn(() => "2026-04-06"),
   todayISO: vi.fn(() => "2026-04-11"),
 }));

@@ -1,8 +1,9 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -34,6 +35,7 @@ import { CheckinStepCard } from "@/src/components/checkin/CheckinStepCard";
 import { NeedHelpPrompt } from "@/src/components/checkin/NeedHelpPrompt";
 import { SymptomChipGroup } from "@/src/components/checkin/SymptomChipGroup";
 import {
+  type CheckinValidationField,
   getCheckinPrimaryActionLabel,
   resolveCheckinHelperNotice,
 } from "@/src/components/checkin/checkinFlowState";
@@ -118,7 +120,7 @@ const CHECKIN_STEPS: Array<{
 const BODY_MAP_LIMIT = 6;
 type MedicationStatusOption = CheckinMedicationStatus | "skip";
 type CheckinValidation = {
-  field: "mood";
+  field: CheckinValidationField;
   stepIndex: number;
   message: string;
 };
@@ -351,11 +353,31 @@ function renderFivePointChips(params: {
   errorText?: string | null;
   options: Record<number, string>;
   styles: ReturnType<typeof createStyles>;
+  fieldId?: CheckinValidationField;
+  onMeasureField?: (fieldId: CheckinValidationField, y: number) => void;
 }) {
-  const { label, value, onChange, onClear, helperText, errorText, options, styles } = params;
+  const {
+    label,
+    value,
+    onChange,
+    onClear,
+    helperText,
+    errorText,
+    options,
+    styles,
+    fieldId,
+    onMeasureField,
+  } = params;
 
   return (
-    <View style={styles.fieldGroup}>
+    <View
+      style={styles.fieldGroup}
+      onLayout={({ nativeEvent }) => {
+        if (fieldId && onMeasureField) {
+          onMeasureField(fieldId, nativeEvent.layout.y);
+        }
+      }}
+    >
       <View style={styles.inlineHeaderRow}>
         <Text style={styles.fieldLabel}>{label}</Text>
         {onClear ? (
@@ -471,6 +493,10 @@ export default function CheckinScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
   const [submittedCheckin, setSubmittedCheckin] = useState<SubmittedCheckinState | null>(null);
+  const [pendingValidationField, setPendingValidationField] =
+    useState<CheckinValidationField | null>(null);
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const validationFieldOffsets = useRef<Partial<Record<CheckinValidationField, number>>>({});
 
   const friendlyDate = useMemo(
     () =>
@@ -499,6 +525,46 @@ export default function CheckinScreen() {
   const avatarRing = trustStatus.kind === "ok" ? "ok" : "attention";
   const isLastStep = activeStep === CHECKIN_STEPS.length - 1;
   const currentStep = CHECKIN_STEPS[activeStep];
+
+  const scrollToValidationField = useCallback(
+    (field: CheckinValidationField): boolean => {
+      const targetY = validationFieldOffsets.current[field];
+      if (typeof targetY !== "number") {
+        return false;
+      }
+
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, targetY - tokens.spacing.lg),
+        animated: true,
+      });
+      return true;
+    },
+    [tokens.spacing.lg],
+  );
+
+  const registerValidationField = useCallback(
+    (field: CheckinValidationField, y: number) => {
+      validationFieldOffsets.current[field] = y;
+      if (pendingValidationField === field && scrollToValidationField(field)) {
+        setPendingValidationField(null);
+      }
+    },
+    [pendingValidationField, scrollToValidationField],
+  );
+
+  useEffect(() => {
+    if (!pendingValidationField) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (scrollToValidationField(pendingValidationField)) {
+        setPendingValidationField(null);
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [activeStep, pendingValidationField, scrollToValidationField]);
 
   const resetForm = () => {
     setPain(0);
@@ -677,8 +743,8 @@ export default function CheckinScreen() {
       return Boolean(stepMessage);
     }
 
-    return Boolean(validationState) || isOffline;
-  }, [isLastStep, isOffline, isSubmitting, stepMessage, validationState]);
+    return isOffline;
+  }, [isLastStep, isOffline, isSubmitting, stepMessage]);
 
   const primaryLabel = useMemo(
     () => (isSubmitting ? "Submitting…" : getCheckinPrimaryActionLabel(activeStep)),
@@ -852,6 +918,7 @@ export default function CheckinScreen() {
       setSubmittedCheckin(null);
       setNotice(null);
       setActiveStep(validationState.stepIndex);
+      setPendingValidationField(validationState.field);
       return;
     }
 
@@ -1292,6 +1359,8 @@ export default function CheckinScreen() {
         errorText: activeStep === 2 && validationState?.field === "mood" ? validationState.message : null,
         options: FIVE_POINT_RECOVERY_LABELS,
         styles,
+        fieldId: "mood",
+        onMeasureField: registerValidationField,
       })}
 
       <OptionalStepper
@@ -1781,6 +1850,7 @@ export default function CheckinScreen() {
           footer={footerContent}
           footerSpacerHeight={160}
           scrollContentStyle={styles.container}
+          scrollViewRef={scrollViewRef}
         >
           {renderCurrentStep()}
         </CheckinFlowShell>

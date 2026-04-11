@@ -53,7 +53,7 @@ import {
 } from "@/src/state/photosCache";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTokens } from "@/src/theme/tokens";
-import { todayISO } from "@/src/utils/date";
+import { formatPatientCardTimestamp, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -197,16 +197,7 @@ function toPendingItem(entry: PendingPhotoUpload): CombinedPhotoItem {
 }
 
 function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
-    return "Unknown time";
-  }
-  return parsed.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientCardTimestamp(value) ?? "Saved time unavailable";
 }
 
 function toBannerVariant(variant: NoticeState["variant"]): "info" | "warning" | "danger" {
@@ -631,9 +622,12 @@ export default function SymptomPhotosScreen() {
           />
         }
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading symptom photos"
+          description="Preparing your saved photo history."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }
@@ -977,7 +971,7 @@ export default function SymptomPhotosScreen() {
               </Text>
             </Card>
 
-            {__DEV__ ? (
+            {false ? (
               <View style={styles.devBlock}>
                 <SecondaryButton
                   label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}
@@ -987,7 +981,7 @@ export default function SymptomPhotosScreen() {
                 />
                 {showDevDiagnostics ? (
                   <View style={styles.devMetaWrap}>
-                    <LastRefreshed label="Last refreshed" value={photosRefresh.label} compact />
+                    <LastRefreshed label="Updated" value={photosRefresh.label} compact />
                     <LastFailedAttempt
                       label="Last photo load failure"
                       value={photosLoadError.label}

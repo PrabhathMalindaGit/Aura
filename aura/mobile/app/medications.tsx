@@ -626,7 +626,7 @@ export default function MedicationsScreen() {
 
     return (
       <View style={styles.listHeader}>
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"

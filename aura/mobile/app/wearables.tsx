@@ -15,6 +15,7 @@ import {
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import { DomainIcon } from "@/src/components/IconSet";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
@@ -44,7 +45,7 @@ import {
   setWearablesConnected,
 } from "@/src/state/wearablesConnection";
 import { useTokens } from "@/src/theme/tokens";
-import { addDaysISO, todayISO } from "@/src/utils/date";
+import { addDaysISO, formatPatientSyncLabel, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 
 type NoticeState = {
@@ -139,15 +140,7 @@ function formatDayLabel(date: string): string {
 }
 
 function formatTimestamp(value: number | null): string {
-  if (!value || !Number.isFinite(value)) {
-    return "Never";
-  }
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatPatientSyncLabel(value);
 }
 
 function formatWholeNumber(value: number | null): string {
@@ -797,7 +790,7 @@ export default function WearablesScreen() {
           </Text>
         </Card>
 
-        {__DEV__ ? (
+        {false ? (
           <Card variant="outlined" padding={tokens.spacing.md}>
             <Pressable
               accessibilityRole="button"
@@ -906,9 +899,12 @@ export default function WearablesScreen() {
           <HeroHeader variant="compact" title="Wearables" subtitle="Connected health support" />
         }
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading wearable summary"
+          description="Preparing your connected-device summary."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }

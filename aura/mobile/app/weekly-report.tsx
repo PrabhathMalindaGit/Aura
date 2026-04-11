@@ -497,9 +497,12 @@ export default function WeeklyReportScreen() {
           />
         }
       >
-        <View style={styles.centered}>
-          <ActivityIndicator size="small" />
-        </View>
+        <EmptyState
+          variant="compact"
+          title="Loading weekly summary"
+          description="Preparing your latest weekly review."
+          illustration={<ActivityIndicator size="small" color={tokens.colors.primary} />}
+        />
       </Screen>
     );
   }
@@ -598,7 +601,7 @@ export default function WeeklyReportScreen() {
         )}
         ListHeaderComponent={
           <View style={styles.stack}>
-        {__DEV__ ? (
+        {false ? (
           <View style={styles.devBlock}>
                 <SecondaryButton
                   label={showDevDiagnostics ? "Hide diagnostics" : "Diagnostics (dev)"}

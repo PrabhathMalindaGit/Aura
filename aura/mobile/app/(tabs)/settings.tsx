@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Linking,
+  Pressable,
   StyleSheet,
   Switch,
   Text,
@@ -10,19 +11,19 @@ import {
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
 
-import { Banner } from "@/src/components/Banner";
 import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { DomainIcon } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
-import { FadeSlideIn } from "@/src/components/Motion";
+import { FadeSlideIn, getPressFeedbackStyle } from "@/src/components/Motion";
 import { HeroHeader } from "@/src/components/HeroHeader";
-import { MediaCard } from "@/src/components/MediaCard";
-import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
-import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { Section } from "@/src/components/Section";
+import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { StatusPill } from "@/src/components/StatusPill";
+import { SettingsGroup } from "@/src/components/settings/SettingsGroup";
+import { SettingsItem } from "@/src/components/settings/SettingsItem";
 import { API_BASE } from "@/src/config/env";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import {
@@ -35,8 +36,8 @@ import {
   sendTestNotificationNow,
 } from "@/src/services/reminders";
 import { useAuth } from "@/src/state/auth";
-import { resetAllUsage } from "@/src/state/copingUsage";
 import { clearCachedCheckins } from "@/src/state/checkinsCache";
+import { resetAllUsage } from "@/src/state/copingUsage";
 import { clearAllLastErrors, useLastError } from "@/src/state/lastError";
 import { useNetwork } from "@/src/state/network";
 import { clearPending } from "@/src/state/pendingSessions";
@@ -47,7 +48,6 @@ import { runLayoutAnimationIfAllowed } from "@/src/theme/motion";
 import { useTokens } from "@/src/theme/tokens";
 import { resetDemoState } from "@/src/utils/demoReset";
 
-// Layout: Single Screen wrapper; avoid nested ScrollView.
 const DEFAULT_HOUR = 19;
 const DEFAULT_MINUTE = 0;
 
@@ -103,7 +103,7 @@ function normalizeInputs(hourInput: string, minuteInput: string): {
 }
 
 function toBannerVariant(
-  value: "info" | "warning" | "error"
+  value: "info" | "warning" | "error",
 ): "info" | "warning" | "danger" {
   return value === "error" ? "danger" : value;
 }
@@ -132,7 +132,7 @@ function extractPatientPhotoUri(patient: unknown): string | null {
 
 function getRehabPhaseLabel(patient: unknown): string {
   if (!patient || typeof patient !== "object") {
-    return "Rehab phase not set";
+    return "Rehab program not set";
   }
 
   const record = patient as Record<string, unknown>;
@@ -149,14 +149,14 @@ function getRehabPhaseLabel(patient: unknown): string {
     }
   }
 
-  return "Rehab phase not set";
+  return "Rehab program not set";
 }
 
 function getCaregiverLabel(patient: unknown): { value: string; subtitle: string } {
   if (!patient || typeof patient !== "object") {
     return {
       value: "Off",
-      subtitle: "Invite a caregiver to view summaries",
+      subtitle: "Invite a caregiver to view progress summaries.",
     };
   }
 
@@ -171,20 +171,20 @@ function getCaregiverLabel(patient: unknown): { value: string; subtitle: string 
   if (caregiverName) {
     return {
       value: caregiverName,
-      subtitle: "Linked caregiver access",
+      subtitle: `Linked with ${caregiverName}.`,
     };
   }
 
   if (caregiverEnabled === true) {
     return {
       value: "On",
-      subtitle: "Linked caregiver access",
+      subtitle: "A caregiver is linked to your progress summaries.",
     };
   }
 
   return {
     value: "Off",
-    subtitle: "Invite a caregiver to view summaries",
+    subtitle: "Invite a caregiver to view progress summaries.",
   };
 }
 
@@ -193,10 +193,14 @@ export default function SettingsScreen() {
   const auth = useAuth();
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
-  useDevRenderAudit("SettingsScreen");
   const network = useNetwork();
+  const reduceMotion = useReducedMotion();
+
+  useDevRenderAudit("SettingsScreen");
+
   const reminderPermissionError = useLastError("reminderPermission");
   const reminderScheduleError = useLastError("reminderSchedule");
+
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResettingDemo, setIsResettingDemo] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -215,9 +219,8 @@ export default function SettingsScreen() {
   const [timeValidationError, setTimeValidationError] = useState<string | null>(null);
   const [isReminderBusy, setIsReminderBusy] = useState(false);
   const [isDeveloperExpanded, setIsDeveloperExpanded] = useState(false);
-  const isDeveloperModeVisible = __DEV__;
-  const reduceMotion = useReducedMotion();
 
+  const isDeveloperModeVisible = __DEV__;
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientId = auth.patient?.id ?? "";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
@@ -232,6 +235,53 @@ export default function SettingsScreen() {
     }
     return `${twoDigit(normalized.hour)}:${twoDigit(normalized.minute)}`;
   }, [hourInput, minuteInput]);
+
+  const reminderBanner = useMemo(() => {
+    if (timeValidationError) {
+      return {
+        variant: "warning" as const,
+        title: "Check the reminder time",
+        message: timeValidationError,
+      };
+    }
+
+    if (reminderNotice) {
+      return {
+        variant: toBannerVariant(reminderNotice.variant),
+        title: reminderNotice.title,
+        message: reminderNotice.message,
+        actionLabel: reminderNotice.actionLabel,
+        onAction: reminderNotice.onAction,
+      };
+    }
+
+    if (reminderPermissionError.lastError) {
+      return {
+        variant: "warning" as const,
+        title: "Notifications are off for Aura",
+        message: "Enable them in your device settings to use reminders.",
+        actionLabel: "Open Settings",
+        onAction: () => {
+          void openSystemSettings();
+        },
+      };
+    }
+
+    if (reminderScheduleError.lastError) {
+      return {
+        variant: "warning" as const,
+        title: reminderScheduleError.lastError.title,
+        message: reminderScheduleError.lastError.message,
+      };
+    }
+
+    return null;
+  }, [
+    reminderNotice,
+    reminderPermissionError.lastError,
+    reminderScheduleError.lastError,
+    timeValidationError,
+  ]);
 
   useEffect(() => {
     if (!patientId) {
@@ -263,7 +313,7 @@ export default function SettingsScreen() {
     enabled: boolean,
     hour: number,
     minute: number,
-    nextNotificationId: string | null
+    nextNotificationId: string | null,
   ) => {
     if (!patientId) {
       return;
@@ -323,7 +373,7 @@ export default function SettingsScreen() {
         setReminderNotice({
           variant: "warning",
           title: "Notifications are off for Aura",
-          message: "Enable them in system settings.",
+          message: "Enable them in your device settings.",
           actionLabel: "Open Settings",
           onAction: () => {
             void openSystemSettings();
@@ -351,9 +401,9 @@ export default function SettingsScreen() {
       await reminderScheduleError.clear();
       setReminderNotice({
         variant: "info",
-        title: "Reminder enabled",
+        title: "Reminder updated",
         message: `Daily reminder set for ${twoDigit(normalized.hour)}:${twoDigit(
-          normalized.minute
+          normalized.minute,
         )}.`,
       });
     } catch {
@@ -387,8 +437,8 @@ export default function SettingsScreen() {
       await reminderScheduleError.clear();
       setReminderNotice({
         variant: "info",
-        title: "Reminder disabled",
-        message: "Daily reminder is turned off.",
+        title: "Reminder turned off",
+        message: "Daily reminders are disabled on this device.",
       });
     } catch {
       await reminderScheduleError.setLocalError({
@@ -418,7 +468,7 @@ export default function SettingsScreen() {
     const parsed = parseNumericInput(hourInput);
     const normalized = sanitizeReminderTime(
       parsed ?? DEFAULT_HOUR,
-      parseNumericInput(minuteInput) ?? DEFAULT_MINUTE
+      parseNumericInput(minuteInput) ?? DEFAULT_MINUTE,
     );
     setHourInput(String(normalized.hour));
     setMinuteInput(twoDigit(normalized.minute));
@@ -436,7 +486,7 @@ export default function SettingsScreen() {
     const parsed = parseNumericInput(minuteInput);
     const normalized = sanitizeReminderTime(
       parseNumericInput(hourInput) ?? DEFAULT_HOUR,
-      parsed ?? DEFAULT_MINUTE
+      parsed ?? DEFAULT_MINUTE,
     );
     setHourInput(String(normalized.hour));
     setMinuteInput(twoDigit(normalized.minute));
@@ -487,7 +537,7 @@ export default function SettingsScreen() {
 
   const handleClearRefreshStamps = async () => {
     await clearAllLastRefreshed();
-    setDevNotice("Cleared last refreshed stamps.");
+    setDevNotice("Cleared last refreshed timestamps.");
   };
 
   const handleClearLastErrors = async () => {
@@ -558,7 +608,7 @@ export default function SettingsScreen() {
         return;
       }
 
-      setDevNotice("Reset demo state and cleared local demo caches/pending queues.");
+      setDevNotice("Reset demo state and cleared local demo caches and queues.");
     } catch {
       setDevNotice("Could not complete demo reset.");
     } finally {
@@ -576,7 +626,6 @@ export default function SettingsScreen() {
   };
 
   const toggleDeveloperMode = () => {
-    // Keep disclosure motion native-only and disabled when reduced motion is on.
     runLayoutAnimationIfAllowed(reduceMotion);
     setIsDeveloperExpanded((current) => !current);
   };
@@ -590,163 +639,70 @@ export default function SettingsScreen() {
         <HeroHeader
           variant="compact"
           title="Settings"
-          subtitle="Preferences for this app and device"
+          subtitle="Manage this device’s account, reminders, care access, and support."
           left={
             <Avatar
               size={44}
-              name={patientName ?? "Patient"}
+              name={patientName}
               photoUrl={patientPhotoUri ?? undefined}
               ring={network.isOffline ? "attention" : "none"}
             />
           }
-          rightActions={[
-            {
-              icon: "safety",
-              tone: "warning",
-              accessibilityLabel: "Open Safety support",
-              onPress: () => {
-                router.push("/safety" as never);
-              },
-            },
-          ]}
         >
-          <View style={styles.headerPills}>
-            <StatusPill
-              label={connectionLabel}
-              variant={network.isOffline ? "warning" : "success"}
-              accessible={false}
-            />
-            <StatusPill
-              label={reminderEnabled ? "Reminders on" : "Reminders off"}
-              variant={reminderEnabled ? "info" : "neutral"}
-              accessible={false}
-            />
-            <StatusPill
-              label={caregiverInfo.value === "Off" ? "Caregiver off" : "Caregiver on"}
-              variant={caregiverInfo.value === "Off" ? "neutral" : "info"}
-              accessible={false}
-            />
-          </View>
-
-          <Card variant="outlined" style={styles.storyCard}>
-            <Text style={styles.storyEyebrow}>Personal workspace</Text>
-            <Text style={styles.storyTitle}>Adjust how Aura feels on this device</Text>
-            <Text style={styles.storyText}>
-              Use these settings to manage reminders, support access, and local app preferences.
-              Changes here affect this app experience on your current device.
+          <Card variant="outlined" style={styles.headerCard}>
+            <Text style={styles.headerEyebrow}>On this device</Text>
+            <Text style={styles.headerTitle}>A calm place to manage your Aura basics</Text>
+            <Text style={styles.headerText}>
+              Most choices here apply only to this device. Safety and care-team options stay
+              available whenever you need them.
             </Text>
           </Card>
         </HeroHeader>
       }
     >
-      <View style={styles.heroSpacing}>
-        <Section
-          title="Profile and sign-in"
-          subtitle="Your account context, care team access, and current session."
-          card
-          left={<DomainIcon icon="login" tone="muted" accessibilityLabel="Account section icon" />}
-          right={
-            <StatusPill
-              label={auth.status === "signedIn" ? "Signed in" : auth.status}
-              variant={auth.status === "signedIn" ? "success" : "neutral"}
-            />
-          }
-        >
-          <Card variant="outlined" style={styles.sectionContextCard}>
-            <Text style={styles.sectionContextTitle}>Current profile</Text>
-            <Text style={styles.sectionContextText}>
-              Review who is signed in, your rehab phase, and how to reach your care team from
-              this app.
-            </Text>
-          </Card>
-
-          <MediaCard
-            variant="emphasis"
-            leading={{
-              type: "avatar",
-              name: patientName,
-              photoUrl: patientPhotoUri,
-              ring: network.isOffline ? "attention" : "none",
-            }}
-            title={patientName}
-            subtitle={rehabPhaseLabel ?? `Patient ID: ${patientId || "Unavailable"}`}
-            chips={[
-              {
-                text: auth.status === "signedIn" ? "Signed in" : auth.status,
-                tone: "muted",
-              },
-              {
-                text: reminderEnabled ? "Reminders on" : "Reminders off",
-                tone: "muted",
-              },
-              {
-                text: caregiverInfo.value === "Off" ? "Caregiver off" : "Caregiver on",
-                tone: "muted",
-              },
-            ]}
-            actions={[
-              {
-                label: "Open Safety",
-                kind: "primary",
-                onPress: () => {
-                  router.push("/safety" as never);
-                },
-              },
-            ]}
-          />
-
-          <View style={styles.stack}>
-            <Row
-              title="Care team"
-              subtitle="Message your care team"
-              leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Care team icon" />}
-              onPress={() => router.push("/(tabs)/chat")}
-            />
-            <Row
-              title="Profile details"
-              subtitle={`Patient ID: ${patientId || "Unavailable"}`}
-              leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="Profile details icon" />}
+      <View testID="settings-shell" style={styles.shell}>
+        <Section title="Account" subtitle="Who is using Aura on this device.">
+          <SettingsGroup testID="settings-group-account">
+            <SettingsItem
+              title={patientName}
+              subtitle="Current profile on this device"
+              leading={
+                <Avatar
+                  size={28}
+                  name={patientName}
+                  photoUrl={patientPhotoUri ?? undefined}
+                  ring={network.isOffline ? "attention" : "none"}
+                />
+              }
+              statusLabel={auth.status === "signedIn" ? "Signed in" : auth.status}
+              statusVariant={auth.status === "signedIn" ? "success" : "neutral"}
               accessory="none"
             />
-          </View>
-
-          {logoutError ? (
-            <Banner variant="warning" title="Logout failed" message={logoutError} />
-          ) : null}
-
-          <SecondaryButton
-            label={isSigningOut ? "Signing out…" : "Log out"}
-            loading={isSigningOut}
-            disabled={isSigningOut}
-            onPress={confirmSignOut}
-          />
+            <SettingsItem
+              title="Patient ID"
+              subtitle={patientId || "Unavailable"}
+              leading={<DomainIcon icon="info" tone="muted" accessibilityLabel="Patient ID icon" />}
+              accessory="none"
+            />
+          </SettingsGroup>
         </Section>
 
-        <Section
-          title="Reminder preferences"
-          subtitle="Manage daily reminder timing for this device."
-          card
-          left={<DomainIcon icon="weekly" tone="muted" accessibilityLabel="Reminders section icon" />}
-          right={
-            <StatusPill
-              label={reminderEnabled ? "On" : "Off"}
-              variant={reminderEnabled ? "success" : "neutral"}
-            />
-          }
-        >
-          <Card variant="outlined" style={styles.sectionContextCard}>
-            <Text style={styles.sectionContextTitle}>Daily reminder</Text>
-            <Text style={styles.sectionContextText}>
-              Reminder timing is stored on this device. Enable notifications here, then pick a
-              time that fits your recovery routine.
-            </Text>
-          </Card>
-
-          <View style={styles.stack}>
-            <Row
+        <Section title="Preferences" subtitle="Reminder settings for this device.">
+          <SettingsGroup testID="settings-group-preferences">
+            <SettingsItem
               title="Daily reminders"
-              subtitle={reminderEnabled ? "Enabled" : "Disabled"}
-              leftIcon={<DomainIcon icon="weekly" tone="accent" accessibilityLabel="Daily reminders icon" />}
+              subtitle={
+                reminderEnabled
+                  ? `On every day at ${timePreview}`
+                  : "Receive a daily reminder to check in on this device."
+              }
+              leading={
+                <DomainIcon
+                  icon="weekly"
+                  tone="accent"
+                  accessibilityLabel="Daily reminder icon"
+                />
+              }
               right={
                 <Switch
                   value={reminderEnabled}
@@ -756,27 +712,59 @@ export default function SettingsScreen() {
               }
               accessory="none"
             />
-
-            <Row
+            <SettingsItem
               title="Reminder time"
-              subtitle={reminderEnabled ? "Update your daily reminder time" : "Turn reminders on first"}
-              leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="Reminder time icon" />}
-              right={<Text style={styles.rowValue}>{reminderEnabled ? timePreview : "Off"}</Text>}
+              subtitle={
+                reminderEnabled
+                  ? "Adjust the time used for your daily reminder."
+                  : "Choose a time now and turn reminders on when you are ready."
+              }
+              leading={
+                <DomainIcon
+                  icon="settings"
+                  tone="muted"
+                  accessibilityLabel="Reminder time icon"
+                />
+              }
+              statusLabel={reminderEnabled ? timePreview : "Off"}
+              statusVariant={reminderEnabled ? "info" : "neutral"}
               accessory="none"
             />
-          </View>
+            <SettingsItem
+              title="Notification settings"
+              subtitle="Open your device settings if reminders are blocked."
+              leading={
+                <DomainIcon
+                  icon="info"
+                  tone="muted"
+                  accessibilityLabel="Notification settings icon"
+                />
+              }
+              onPress={() => {
+                void openSystemSettings();
+              }}
+            />
+          </SettingsGroup>
 
           <Card variant="outlined" style={styles.timeCard}>
-            <Text style={styles.timeCardTitle}>Reminder time</Text>
-            <Text style={styles.timeCardSubtitle}>
-              {reminderEnabled
-                ? `Current reminder set for ${timePreview}.`
-                : "Set a daily reminder time once reminders are enabled."}
-            </Text>
+            <View style={styles.timeCardHeader}>
+              <View style={styles.timeCardCopy}>
+                <Text style={styles.timeCardTitle}>Daily reminder time</Text>
+                <Text style={styles.timeCardSubtitle}>
+                  {reminderEnabled
+                    ? "Changes update when you leave each field."
+                    : "Pick a time now. It will be used when reminders are turned on."}
+                </Text>
+              </View>
+              <StatusPill
+                label={timePreview === "--:--" ? "Check time" : timePreview}
+                variant={timePreview === "--:--" ? "warning" : "info"}
+              />
+            </View>
 
             <View style={styles.timeRow}>
               <View style={styles.timeInputWrap}>
-                <Text style={styles.timeLabel}>Hour (0-23)</Text>
+                <Text style={styles.timeLabel}>Hour</Text>
                 <TextInput
                   value={hourInput}
                   onChangeText={setHourInput}
@@ -788,7 +776,7 @@ export default function SettingsScreen() {
                 />
               </View>
               <View style={styles.timeInputWrap}>
-                <Text style={styles.timeLabel}>Minute (0-59)</Text>
+                <Text style={styles.timeLabel}>Minute</Text>
                 <TextInput
                   value={minuteInput}
                   onChangeText={setMinuteInput}
@@ -802,318 +790,387 @@ export default function SettingsScreen() {
             </View>
           </Card>
 
-          {timeValidationError ? (
-            <Banner variant="warning" title="Invalid time" message={timeValidationError} />
-          ) : null}
-
-          {reminderEnabled && !timeValidationError ? (
+          {reminderBanner ? (
             <Banner
-              variant="info"
-              title="Reminder active"
-              message={`Daily reminder set for ${timePreview}.`}
+              variant={reminderBanner.variant}
+              title={reminderBanner.title}
+              message={reminderBanner.message}
+              actionLabel={reminderBanner.actionLabel}
+              onAction={reminderBanner.onAction}
             />
           ) : null}
+        </Section>
 
-          {reminderPermissionError.lastError ? (
-            <Banner
-              variant="warning"
-              title="Notifications need permission"
-              message="Enable notifications in device settings to use reminders."
-              actionLabel="Open Settings"
-              onAction={() => {
-                void openSystemSettings();
+        <Section title="Care" subtitle="People and program details connected to your recovery.">
+          <SettingsGroup testID="settings-group-care">
+            <SettingsItem
+              title="Caregiver access"
+              subtitle={caregiverInfo.subtitle}
+              leading={
+                <DomainIcon
+                  icon="caregiver"
+                  tone="accent"
+                  accessibilityLabel="Caregiver access icon"
+                />
+              }
+              onPress={() => {
+                router.push("/caregiver-invite" as Href);
               }}
+              statusLabel={caregiverInfo.value === "Off" ? "Off" : "Linked"}
+              statusVariant={caregiverInfo.value === "Off" ? "neutral" : "info"}
+              testID="settings-caregiver-row"
             />
-          ) : null}
-
-          {reminderPermissionError.lastError || reminderScheduleError.lastError ? (
-            <View style={styles.diagnosticsCard}>
-              <Text style={styles.diagnosticsTitle}>Reminder diagnostics</Text>
-              <LastFailedAttempt
-                label="Last reminder permission issue"
-                value={reminderPermissionError.label}
-                title={reminderPermissionError.lastError?.title}
-                message={reminderPermissionError.lastError?.message}
-                onClear={reminderPermissionError.lastError ? reminderPermissionError.clear : undefined}
-                compact
-              />
-              <LastFailedAttempt
-                label="Last reminder scheduling issue"
-                value={reminderScheduleError.label}
-                title={reminderScheduleError.lastError?.title}
-                message={reminderScheduleError.lastError?.message}
-                onClear={reminderScheduleError.lastError ? reminderScheduleError.clear : undefined}
-                compact
-              />
-            </View>
-          ) : null}
-
-          {reminderNotice ? (
-            <Banner
-              variant={toBannerVariant(reminderNotice.variant)}
-              title={reminderNotice.title}
-              message={reminderNotice.message}
-              actionLabel={reminderNotice.actionLabel}
-              onAction={reminderNotice.onAction}
+            <SettingsItem
+              title="Recovery program"
+              subtitle={rehabPhaseLabel}
+              leading={
+                <DomainIcon
+                  icon="progress"
+                  tone="muted"
+                  accessibilityLabel="Recovery program icon"
+                />
+              }
+              accessory="none"
             />
-          ) : null}
+          </SettingsGroup>
         </Section>
 
         <Section
-          title="Caregiver"
-          subtitle="Share progress summaries and invite a trusted supporter."
-          card
-          left={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver section icon" />}
-          right={
-            <StatusPill
-              label={caregiverInfo.value === "Off" ? "Off" : "On"}
-              variant={caregiverInfo.value === "Off" ? "neutral" : "info"}
-            />
-          }
+          title="Support & Safety"
+          subtitle="Fast access to support options and safety guidance."
         >
-          <Row
-            title="Caregiver access"
-            subtitle={caregiverInfo.subtitle}
-            leftIcon={<DomainIcon icon="caregiver" tone="accent" accessibilityLabel="Caregiver access icon" />}
-            right={<Text style={styles.rowValue}>{caregiverInfo.value}</Text>}
-            onPress={() => {
-              router.push("/caregiver-invite" as Href);
-            }}
-          />
-        </Section>
-
-        <Section
-          title="Support and safety"
-          subtitle="Quick access to guided support, care-team contact, and urgent-help guidance."
-          card
-          left={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Support and safety section icon" />}
-        >
-          <View style={styles.stack}>
-            <Row
+          <SettingsGroup testID="settings-group-support">
+            <SettingsItem
               title="Safety plan"
-              subtitle="Open guided support steps"
-              leftIcon={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Safety plan icon" />}
+              subtitle="Open guided support steps."
+              leading={
+                <DomainIcon
+                  icon="safety"
+                  tone="warning"
+                  accessibilityLabel="Safety plan icon"
+                />
+              }
               onPress={() => {
                 router.push("/safety" as never);
               }}
+              testID="settings-safety-row"
             />
-            <Row
-              title="Contact clinic"
-              subtitle="Send a message to your care team"
-              leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Contact clinic icon" />}
+            <SettingsItem
+              title="Messages with your care team"
+              subtitle="Open Messages to contact your care team."
+              leading={
+                <DomainIcon
+                  icon="chat"
+                  tone="accent"
+                  accessibilityLabel="Care team messages icon"
+                />
+              }
               onPress={() => {
                 router.push("/(tabs)/chat");
               }}
             />
-            <Row
+            <SettingsItem
               title="Emergency help"
-              subtitle="If urgent, contact local emergency services"
-              leftIcon={<DomainIcon icon="warning" tone="warning" accessibilityLabel="Emergency help icon" />}
+              subtitle="If you need urgent help, contact local emergency services."
+              leading={
+                <DomainIcon
+                  icon="warning"
+                  tone="warning"
+                  accessibilityLabel="Emergency help icon"
+                />
+              }
               accessory="none"
             />
-          </View>
-          <Text style={styles.supportNote}>
-            If you feel unsafe or overwhelmed, open your Safety plan for guided next steps and the
-            quickest support actions.
-          </Text>
+          </SettingsGroup>
         </Section>
 
-      <Section
-        title="App info"
-        subtitle="Version and local app context for this device."
-        card
-        left={<DomainIcon icon="info" tone="muted" accessibilityLabel="App info section icon" />}
-      >
-        <View style={styles.stack}>
-          <Row
-            title="About Aura"
-            subtitle="Recovery tracking and support"
-            leftIcon={<DomainIcon icon="info" tone="muted" accessibilityLabel="About Aura icon" />}
-            accessory="none"
-          />
-          <Row
-            title="Version"
-            leftIcon={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Version icon" />}
-            right={<Text style={styles.rowValue}>Mobile preview</Text>}
-            accessory="none"
-          />
-        </View>
-      </Section>
-
-      {/* IMPORTANT: Developer Mode renders once (not inside lists). */}
-      {isDeveloperModeVisible ? (
-        <Section
-          title="Developer Mode"
-          subtitle="Local demo and debug tools for development builds."
-          card
-          cardVariant="outlined"
-          left={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Developer mode section icon" />}
-          right={<StatusPill label={isDeveloperExpanded ? "Open" : "Collapsed"} />}
-        >
-          <Row
-            title="Show developer tools"
-            subtitle="Dev builds only"
-            leftIcon={<DomainIcon icon="settings" tone="muted" accessibilityLabel="Developer mode icon" />}
-            onPress={toggleDeveloperMode}
-            right={<Text style={styles.rowValue}>{isDeveloperExpanded ? "Hide" : "Show"}</Text>}
-          />
-
-          <FadeSlideIn visible={isDeveloperExpanded} reduceMotion={reduceMotion}>
-            <View style={styles.devPanel}>
-              <Text style={styles.devGroupTitle}>Demo data</Text>
-              <SecondaryButton
-                label="UI Gallery"
-                onPress={() => {
-                  router.push("/dev-ui-gallery" as Href);
-                }}
-              />
-              <SecondaryButton
-                label={isResettingDemo ? "Resetting…" : "Reset demo state"}
-                loading={isResettingDemo}
-                disabled={!patientId || isResettingDemo}
-                onPress={() =>
-                  confirmAction(
-                    "Reset demo state?",
-                    "This clears local demo caches, drafts, and pending queues for this patient.",
-                    () => {
-                      void runReset(false);
-                    }
-                  )
-                }
-              />
-              <SecondaryButton
-                label={isResettingDemo ? "Resetting…" : "Reset + sign out"}
-                loading={isResettingDemo}
-                disabled={!patientId || isResettingDemo}
-                onPress={() =>
-                  confirmAction(
-                    "Reset and sign out?",
-                    "This clears local demo state for this patient and signs out.",
-                    () => {
-                      void runReset(true);
-                    }
-                  )
-                }
-              />
-              <SecondaryButton
-                label="Reset coping usage"
-                disabled={!patientId}
-                onPress={() =>
-                  confirmAction(
-                    "Reset coping usage?",
-                    "This clears local breathing and grounding usage counters.",
-                    () => {
-                      void handleResetCopingUsage();
-                    }
-                  )
-                }
-              />
-
-              <Text style={styles.devGroupTitle}>Cache & sync</Text>
-              <SecondaryButton
-                label="Clear last refreshed stamps"
-                onPress={() =>
-                  confirmAction(
-                    "Clear refresh stamps?",
-                    "This removes local last-refreshed timestamps.",
-                    () => {
-                      void handleClearRefreshStamps();
-                    }
-                  )
-                }
-              />
-              <SecondaryButton
-                label="Clear last failed attempts"
-                onPress={() =>
-                  confirmAction(
-                    "Clear last failed attempts?",
-                    "This removes locally stored error history.",
-                    () => {
-                      void handleClearLastErrors();
-                    }
-                  )
-                }
-              />
-              <SecondaryButton
-                label="Clear saved progress cache"
-                disabled={!patientId}
-                onPress={() =>
-                  confirmAction(
-                    "Clear saved progress?",
-                    "This removes cached check-ins for this patient on this device.",
-                    () => {
-                      void handleClearSavedProgress();
-                    }
-                  )
-                }
-              />
-              <SecondaryButton
-                label="Clear pending sessions"
-                disabled={!patientId}
-                onPress={() =>
-                  confirmAction(
-                    "Clear pending sessions?",
-                    "This removes locally queued exercise session uploads.",
-                    () => {
-                      void handleClearPendingSessions();
-                    }
-                  )
-                }
-              />
-
-              <Text style={styles.devGroupTitle}>Safety/testing</Text>
-              <SecondaryButton
-                label="Open Safety screen (test)"
-                onPress={() =>
-                  router.push({
-                    pathname: "/safety",
-                    params: {
-                      alertId: "demo-alert",
-                      reasonCodes: "PAIN_GE_THRESHOLD",
-                    },
-                  })
-                }
-              />
-              <SecondaryButton
-                label="Send test notification now"
-                onPress={() => {
-                  void handleSendTestReminder();
-                }}
-                disabled={isReminderBusy}
-              />
-              <SecondaryButton
-                label="List scheduled notifications"
-                onPress={() => {
-                  void handleListScheduled();
-                }}
-                disabled={isReminderBusy}
-              />
-
-              <Text style={styles.devGroupTitle}>Diagnostics</Text>
-              <Text style={styles.devLine}>Auth: {auth.status}</Text>
-              <Text style={styles.devLine}>Patient ID: {patientId || "none"}</Text>
-              <Text style={styles.devLine}>
-                Network: {network.isOffline ? "Offline" : "Online"}
-              </Text>
-              <Text style={styles.devLine}>API: {API_BASE}</Text>
-
-              {devNotice ? (
-                <Banner
-                  variant="info"
-                  title="Developer"
-                  message={devNotice}
-                  actionLabel="Dismiss"
-                  onAction={() => setDevNotice(null)}
+        <Section title="App / About" subtitle="Helpful app information for this device.">
+          <SettingsGroup testID="settings-group-app">
+            <SettingsItem
+              title="Connection"
+              subtitle={
+                network.isOffline
+                  ? "You’re offline. Saved items stay on this device until you reconnect."
+                  : "Aura is connected."
+              }
+              leading={
+                <DomainIcon
+                  icon="settings"
+                  tone={network.isOffline ? "warning" : "success"}
+                  accessibilityLabel="Connection icon"
                 />
-              ) : null}
-            </View>
-          </FadeSlideIn>
-
-          {!isDeveloperExpanded ? (
-            <Text style={styles.devHint}>Hidden by default. Expand for local demo and debug actions.</Text>
-          ) : null}
+              }
+              statusLabel={connectionLabel}
+              statusVariant={network.isOffline ? "warning" : "success"}
+              accessory="none"
+            />
+            <SettingsItem
+              title="About Aura"
+              subtitle="Recovery tracking and support."
+              leading={
+                <DomainIcon
+                  icon="info"
+                  tone="muted"
+                  accessibilityLabel="About Aura icon"
+                />
+              }
+              accessory="none"
+            />
+            <SettingsItem
+              title="Version"
+              subtitle="Mobile preview"
+              leading={
+                <DomainIcon
+                  icon="settings"
+                  tone="muted"
+                  accessibilityLabel="Version icon"
+                />
+              }
+              accessory="none"
+            />
+          </SettingsGroup>
         </Section>
-      ) : null}
+
+        <Section title="Account actions" subtitle="Session control for this device.">
+          <Card variant="outlined" style={styles.logoutCard}>
+            <View style={styles.logoutCopy}>
+              <Text style={styles.logoutTitle}>Log out of this device</Text>
+              <Text style={styles.logoutText}>
+                You’ll need your access code to sign in again.
+              </Text>
+            </View>
+
+            {logoutError ? (
+              <Banner variant="warning" title="Logout failed" message={logoutError} />
+            ) : null}
+
+            <Pressable
+              testID="settings-logout-button"
+              accessibilityRole="button"
+              accessibilityLabel={isSigningOut ? "Logging out" : "Log out"}
+              accessibilityState={{ disabled: isSigningOut, busy: isSigningOut || undefined }}
+              disabled={isSigningOut}
+              onPress={confirmSignOut}
+              style={({ pressed }) => [
+                styles.logoutButton,
+                isSigningOut ? styles.logoutButtonDisabled : null,
+                pressed && !isSigningOut ? getPressFeedbackStyle(reduceMotion, 0.92) : null,
+              ]}
+            >
+              <Text style={styles.logoutButtonLabel}>
+                {isSigningOut ? "Signing out…" : "Log out"}
+              </Text>
+            </Pressable>
+          </Card>
+        </Section>
+
+        {isDeveloperModeVisible ? (
+          <Section
+            title="Developer"
+            subtitle="Development build only. Hidden by default."
+          >
+            <SettingsGroup testID="settings-group-developer" tone="subtle">
+              <SettingsItem
+                title="Show developer tools"
+                subtitle="Local demo and debug actions."
+                leading={
+                  <DomainIcon
+                    icon="settings"
+                    tone="muted"
+                    accessibilityLabel="Developer tools icon"
+                  />
+                }
+                onPress={toggleDeveloperMode}
+                statusLabel={isDeveloperExpanded ? "Open" : "Collapsed"}
+                statusVariant="neutral"
+                testID="settings-developer-toggle"
+              />
+            </SettingsGroup>
+
+            <FadeSlideIn visible={isDeveloperExpanded} reduceMotion={reduceMotion}>
+              <Card variant="outlined" style={styles.devPanelCard}>
+                <View testID="settings-developer-panel" style={styles.devPanel}>
+                  <Text style={styles.devGroupTitle}>Demo data</Text>
+                  <SecondaryButton
+                    label="UI Gallery"
+                    onPress={() => {
+                      router.push("/dev-ui-gallery" as Href);
+                    }}
+                  />
+                  <SecondaryButton
+                    label={isResettingDemo ? "Resetting…" : "Reset demo state"}
+                    loading={isResettingDemo}
+                    disabled={!patientId || isResettingDemo}
+                    onPress={() =>
+                      confirmAction(
+                        "Reset demo state?",
+                        "This clears local demo caches, drafts, and pending queues for this patient.",
+                        () => {
+                          void runReset(false);
+                        },
+                      )
+                    }
+                  />
+                  <SecondaryButton
+                    label={isResettingDemo ? "Resetting…" : "Reset + sign out"}
+                    loading={isResettingDemo}
+                    disabled={!patientId || isResettingDemo}
+                    onPress={() =>
+                      confirmAction(
+                        "Reset and sign out?",
+                        "This clears local demo state for this patient and signs out.",
+                        () => {
+                          void runReset(true);
+                        },
+                      )
+                    }
+                  />
+                  <SecondaryButton
+                    label="Reset coping usage"
+                    disabled={!patientId}
+                    onPress={() =>
+                      confirmAction(
+                        "Reset coping usage?",
+                        "This clears local breathing and grounding usage counters.",
+                        () => {
+                          void handleResetCopingUsage();
+                        },
+                      )
+                    }
+                  />
+
+                  <Text style={styles.devGroupTitle}>Cache & sync</Text>
+                  <SecondaryButton
+                    label="Clear last refreshed stamps"
+                    onPress={() =>
+                      confirmAction(
+                        "Clear refresh stamps?",
+                        "This removes local last-refreshed timestamps.",
+                        () => {
+                          void handleClearRefreshStamps();
+                        },
+                      )
+                    }
+                  />
+                  <SecondaryButton
+                    label="Clear last failed attempts"
+                    onPress={() =>
+                      confirmAction(
+                        "Clear last failed attempts?",
+                        "This removes locally stored error history.",
+                        () => {
+                          void handleClearLastErrors();
+                        },
+                      )
+                    }
+                  />
+                  <SecondaryButton
+                    label="Clear saved progress cache"
+                    disabled={!patientId}
+                    onPress={() =>
+                      confirmAction(
+                        "Clear saved progress?",
+                        "This removes cached check-ins for this patient on this device.",
+                        () => {
+                          void handleClearSavedProgress();
+                        },
+                      )
+                    }
+                  />
+                  <SecondaryButton
+                    label="Clear pending sessions"
+                    disabled={!patientId}
+                    onPress={() =>
+                      confirmAction(
+                        "Clear pending sessions?",
+                        "This removes locally queued exercise session uploads.",
+                        () => {
+                          void handleClearPendingSessions();
+                        },
+                      )
+                    }
+                  />
+
+                  <Text style={styles.devGroupTitle}>Safety/testing</Text>
+                  <SecondaryButton
+                    label="Open Safety screen (test)"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/safety",
+                        params: {
+                          alertId: "demo-alert",
+                          reasonCodes: "PAIN_GE_THRESHOLD",
+                        },
+                      })
+                    }
+                  />
+                  <SecondaryButton
+                    label="Send test notification now"
+                    onPress={() => {
+                      void handleSendTestReminder();
+                    }}
+                    disabled={isReminderBusy}
+                  />
+                  <SecondaryButton
+                    label="List scheduled notifications"
+                    onPress={() => {
+                      void handleListScheduled();
+                    }}
+                    disabled={isReminderBusy}
+                  />
+
+                  <Text style={styles.devGroupTitle}>Diagnostics</Text>
+                  <Text style={styles.devLine}>Auth: {auth.status}</Text>
+                  <Text style={styles.devLine}>Patient ID: {patientId || "none"}</Text>
+                  <Text style={styles.devLine}>
+                    Network: {network.isOffline ? "Offline" : "Online"}
+                  </Text>
+                  <Text style={styles.devLine}>API: {API_BASE}</Text>
+
+                  {reminderPermissionError.lastError || reminderScheduleError.lastError ? (
+                    <Card variant="outlined" style={styles.devDiagnosticsCard}>
+                      <Text style={styles.devGroupTitle}>Reminder diagnostics</Text>
+                      <LastFailedAttempt
+                        label="Last reminder permission issue"
+                        value={reminderPermissionError.label}
+                        title={reminderPermissionError.lastError?.title}
+                        message={reminderPermissionError.lastError?.message}
+                        onClear={
+                          reminderPermissionError.lastError
+                            ? reminderPermissionError.clear
+                            : undefined
+                        }
+                        compact
+                      />
+                      <LastFailedAttempt
+                        label="Last reminder scheduling issue"
+                        value={reminderScheduleError.label}
+                        title={reminderScheduleError.lastError?.title}
+                        message={reminderScheduleError.lastError?.message}
+                        onClear={
+                          reminderScheduleError.lastError
+                            ? reminderScheduleError.clear
+                            : undefined
+                        }
+                        compact
+                      />
+                    </Card>
+                  ) : null}
+
+                  {devNotice ? (
+                    <Banner
+                      variant="info"
+                      title="Developer"
+                      message={devNotice}
+                      actionLabel="Dismiss"
+                      onAction={() => setDevNotice(null)}
+                    />
+                  ) : null}
+                </View>
+              </Card>
+            </FadeSlideIn>
+          </Section>
+        ) : null}
       </View>
     </Screen>
   );
@@ -1125,19 +1182,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
     },
-    heroSpacing: {
+    shell: {
       gap: tokens.spacing.sm,
     },
-    headerPills: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.xs,
-    },
-    storyCard: {
+    headerCard: {
       gap: tokens.spacing.xs,
       backgroundColor: tokens.colors.surface,
     },
-    storyEyebrow: {
+    headerEyebrow: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
@@ -1145,43 +1197,30 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       textTransform: "uppercase",
       letterSpacing: 0.4,
     },
-    storyTitle: {
+    headerTitle: {
       color: tokens.colors.text,
       fontSize: tokens.typography.section.fontSize,
       lineHeight: tokens.typography.section.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
     },
-    storyText: {
+    headerText: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
-    },
-    stack: {
-      gap: tokens.spacing.sm,
-    },
-    sectionContextCard: {
-      gap: tokens.spacing.xs,
-      backgroundColor: tokens.colors.surface,
-    },
-    sectionContextTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    sectionContextText: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-    },
-    rowValue: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
     },
     timeCard: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.md,
+      marginTop: tokens.spacing.sm,
+    },
+    timeCardHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.md,
+    },
+    timeCardCopy: {
+      flex: 1,
+      gap: tokens.spacing.xs,
     },
     timeCardTitle: {
       color: tokens.colors.text,
@@ -1209,54 +1248,66 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     timeInput: {
-      minHeight: 44,
+      minHeight: 48,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.sm,
-      paddingHorizontal: tokens.spacing.md - 2,
+      borderRadius: tokens.radius.md,
+      paddingHorizontal: tokens.spacing.md,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.text,
       backgroundColor: tokens.colors.surface,
     },
-    diagnosticsCard: {
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      backgroundColor: tokens.colors.surfaceElevated,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
+    logoutCard: {
+      gap: tokens.spacing.md,
+      backgroundColor: tokens.colors.dangerTextOn,
+      borderColor: tokens.colors.danger,
+    },
+    logoutCopy: {
       gap: tokens.spacing.xs,
     },
-    diagnosticsTitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
+    logoutTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
-      textTransform: "uppercase",
-      letterSpacing: 0.2,
     },
-    supportNote: {
+    logoutText: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-      marginTop: tokens.spacing.xs,
     },
-    devHint: {
+    logoutButton: {
+      minHeight: 48,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.danger,
+      backgroundColor: tokens.colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.lg,
+    },
+    logoutButtonDisabled: {
+      opacity: 0.55,
+    },
+    logoutButtonLabel: {
+      color: tokens.colors.danger,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    devPanelCard: {
       marginTop: tokens.spacing.sm,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      color: tokens.colors.textMuted,
+      backgroundColor: tokens.colors.surfaceSubtle,
     },
     devPanel: {
-      marginTop: tokens.spacing.sm,
       gap: tokens.spacing.sm,
     },
     devGroupTitle: {
       marginTop: tokens.spacing.sm,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: "700",
+      fontWeight: tokens.typography.weights.semibold,
       letterSpacing: 0.3,
       color: tokens.colors.textMuted,
       textTransform: "uppercase",
@@ -1265,6 +1316,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       color: tokens.colors.textMuted,
+    },
+    devDiagnosticsCard: {
+      gap: tokens.spacing.sm,
+      backgroundColor: tokens.colors.surface,
     },
   });
 }

@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,9 +15,7 @@ import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
-import { GlassPanel } from "@/src/components/GlassPanel";
-import { HeroHeader } from "@/src/components/HeroHeader";
-import { DomainIcon, type DomainIconKey } from "@/src/components/IconSet";
+import type { DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
@@ -26,16 +23,20 @@ import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
-import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { BodyMapSelector } from "@/src/components/checkin/BodyMapSelector";
+import { CheckinFieldBlock } from "@/src/components/checkin/CheckinFieldBlock";
+import { CheckinFlowShell } from "@/src/components/checkin/CheckinFlowShell";
 import { CheckinReviewCard } from "@/src/components/checkin/CheckinReviewCard";
-import { CheckinSectionCard } from "@/src/components/checkin/CheckinSectionCard";
+import { CheckinStepCard } from "@/src/components/checkin/CheckinStepCard";
 import { NeedHelpPrompt } from "@/src/components/checkin/NeedHelpPrompt";
 import { SymptomChipGroup } from "@/src/components/checkin/SymptomChipGroup";
+import {
+  getCheckinPrimaryActionLabel,
+  resolveCheckinHelperNotice,
+} from "@/src/components/checkin/checkinFlowState";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
-import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useAuth } from "@/src/state/auth";
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
@@ -112,9 +113,13 @@ const CHECKIN_STEPS: Array<{
   },
 ] as const;
 
-const FOOTER_HEIGHT = 118;
 const BODY_MAP_LIMIT = 6;
 type MedicationStatusOption = CheckinMedicationStatus | "skip";
+type CheckinValidation = {
+  field: "mood";
+  stepIndex: number;
+  message: string;
+};
 
 type SubmitNotice = {
   variant: BannerVariant;
@@ -130,6 +135,10 @@ type StepperProps = {
   max: number;
   step: number;
   valueFormatter?: (value: number) => string;
+  leftHint?: string;
+  rightHint?: string;
+  helperText?: string;
+  errorText?: string | null;
   onChange: (nextValue: number) => void;
 };
 
@@ -181,6 +190,10 @@ function Stepper({
   max,
   step,
   valueFormatter,
+  leftHint,
+  rightHint,
+  helperText,
+  errorText,
   onChange,
 }: StepperProps) {
   const tokens = useTokens();
@@ -202,7 +215,9 @@ function Stepper({
         >
           <Text style={styles.stepperButtonText}>−</Text>
         </Pressable>
-        <Text style={styles.stepperValue}>{displayValue}</Text>
+        <View style={styles.stepperValueWrap}>
+          <Text style={styles.stepperValue}>{displayValue}</Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
@@ -215,6 +230,14 @@ function Stepper({
           <Text style={styles.stepperButtonText}>+</Text>
         </Pressable>
       </View>
+      {leftHint || rightHint ? (
+        <View style={styles.scaleHintsRow}>
+          <Text style={styles.scaleHint}>{leftHint ?? ""}</Text>
+          <Text style={styles.scaleHint}>{rightHint ?? ""}</Text>
+        </View>
+      ) : null}
+      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
+      {errorText ? <Text style={styles.inlineErrorText}>{errorText}</Text> : null}
     </View>
   );
 }
@@ -315,10 +338,12 @@ function renderFivePointChips(params: {
   value: number | null;
   onChange: (nextValue: number) => void;
   onClear?: () => void;
+  helperText?: string;
+  errorText?: string | null;
   options: Record<number, string>;
   styles: ReturnType<typeof createStyles>;
 }) {
-  const { label, value, onChange, onClear, options, styles } = params;
+  const { label, value, onChange, onClear, helperText, errorText, options, styles } = params;
 
   return (
     <View style={styles.fieldGroup}>
@@ -337,6 +362,7 @@ function renderFivePointChips(params: {
           </Pressable>
         ) : null}
       </View>
+      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
       <View style={styles.chipRow}>
         {[1, 2, 3, 4, 5].map((entry) => {
           const selected = value === entry;
@@ -373,6 +399,7 @@ function renderFivePointChips(params: {
           );
         })}
       </View>
+      {errorText ? <Text style={styles.inlineErrorText}>{errorText}</Text> : null}
     </View>
   );
 }
@@ -382,7 +409,6 @@ export default function CheckinScreen() {
   const params = useLocalSearchParams<CheckinDevParams>();
   const auth = useAuth();
   const isOffline = useIsOffline();
-  useReducedMotion();
   useDevRenderAudit("CheckinScreen");
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
@@ -432,6 +458,7 @@ export default function CheckinScreen() {
     selections: {},
   });
   const [notes, setNotes] = useState("");
+  const [showDailyContext, setShowDailyContext] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
 
@@ -462,6 +489,7 @@ export default function CheckinScreen() {
   const avatarRing = trustStatus.kind === "ok" ? "ok" : "attention";
   const isLastStep = activeStep === CHECKIN_STEPS.length - 1;
   const isSuccessState = notice?.variant === "success";
+  const currentStep = CHECKIN_STEPS[activeStep];
 
   const resetForm = () => {
     setPain(0);
@@ -496,6 +524,7 @@ export default function CheckinScreen() {
       selections: {},
     });
     setNotes("");
+    setShowDailyContext(false);
     setActiveStep(0);
   };
 
@@ -593,33 +622,42 @@ export default function CheckinScreen() {
     }
   }, [auth.status, devPreset, devToken, router]);
 
-  const validationMessage = useMemo(() => {
+  const validationState = useMemo<CheckinValidation | null>(() => {
     if (support.mood === null || support.mood < 1 || support.mood > 5) {
-      return "Select your mood from 1 to 5 before submitting.";
+      return {
+        field: "mood",
+        stepIndex: 2,
+        message: "Choose the number that best matches your mood today.",
+      };
     }
-    if (pain < 0 || pain > 10) {
-      return "Pain must be between 0 and 10.";
-    }
-    if (recovery.exercisePercent < 0 || recovery.exercisePercent > 100) {
-      return "Exercise completion must be between 0% and 100%.";
-    }
-    if (bodyMap.selectedRegions.length > BODY_MAP_LIMIT) {
-      return `Select up to ${BODY_MAP_LIMIT} body areas.`;
-    }
+
     return null;
-  }, [bodyMap.selectedRegions.length, pain, recovery.exercisePercent, support.mood]);
-  const shouldShowValidationBanner = Boolean(validationMessage);
-  const shouldShowNoticeBanner =
-    Boolean(notice) &&
-    notice?.variant !== "success" &&
-    (!shouldShowValidationBanner || notice?.title !== "Check your entries");
+  }, [support.mood]);
+
+  const validationMessage = validationState?.message ?? null;
+  const helperNotice = useMemo(
+    () => resolveCheckinHelperNotice(notice, validationMessage),
+    [notice, validationMessage],
+  );
+  const shouldShowDailyContext =
+    showDailyContext ||
+    dailySignals.sleepHours !== null ||
+    dailySignals.sleepQuality !== null ||
+    dailySignals.sleepDisturbances !== null ||
+    dailySignals.hydrationLevel !== null ||
+    dailySignals.energyLevel !== null;
 
   const stepMessage = useMemo(() => {
-    if (activeStep >= 2 && (support.mood === null || support.mood < 1 || support.mood > 5)) {
-      return "Select your mood to continue.";
+    if (validationState && validationState.stepIndex === activeStep) {
+      return validationState.message;
     }
+
+    if (validationState && isLastStep) {
+      return `Complete ${CHECKIN_STEPS[validationState.stepIndex]?.label ?? "the highlighted step"} before submitting.`;
+    }
+
     return null;
-  }, [activeStep, support.mood]);
+  }, [activeStep, isLastStep, validationState]);
 
   const primaryDisabled = useMemo(() => {
     if (isSubmitting) {
@@ -630,8 +668,13 @@ export default function CheckinScreen() {
       return Boolean(stepMessage);
     }
 
-    return Boolean(validationMessage) || isOffline;
-  }, [isLastStep, isOffline, isSubmitting, stepMessage, validationMessage]);
+    return Boolean(validationState) || isOffline;
+  }, [isLastStep, isOffline, isSubmitting, stepMessage, validationState]);
+
+  const primaryLabel = useMemo(
+    () => (isSubmitting ? "Submitting…" : getCheckinPrimaryActionLabel(activeStep)),
+    [activeStep, isSubmitting],
+  );
 
   const reviewChips = useMemo(
     () =>
@@ -757,12 +800,9 @@ export default function CheckinScreen() {
       return;
     }
 
-    if (validationMessage) {
-      setNotice({
-        variant: "warning",
-        title: "Check your entries",
-        message: validationMessage,
-      });
+    if (validationState) {
+      setNotice(null);
+      setActiveStep(validationState.stepIndex);
       return;
     }
 
@@ -860,44 +900,15 @@ export default function CheckinScreen() {
   };
 
   const renderSymptomsStep = () => (
-    <View style={styles.stepContentStack}>
-      <View style={styles.stepSummaryRow}>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="checkin"
-            label="Pain"
-            value={`${pain}/10`}
-            delta="Current"
-            tone={pain >= 7 ? "warning" : "accent"}
-            variant="compact"
-            micro={{
-              type: "sparkline",
-              values: [Math.max(0, pain - 2), pain],
-              tone: pain >= 7 ? "warning" : "accent",
-            }}
-          />
-        </View>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="rehabJourney"
-            label="Body areas"
-            value={bodyMap.selectedRegions.length === 0 ? "None" : `${bodyMap.selectedRegions.length}`}
-            delta={bodyMap.primaryRegion ? regionLabel(bodyMap.primaryRegion) : "Select areas"}
-            tone={bodyMap.selectedRegions.length > 0 ? "primary" : "muted"}
-            variant="compact"
-            micro={{
-              type: "ring",
-              progress: Math.min(1, bodyMap.selectedRegions.length / BODY_MAP_LIMIT),
-            }}
-          />
-        </View>
-      </View>
-
-      <CheckinSectionCard
-        title="Symptoms"
-        description="Capture pain first, then add the other symptoms you noticed today."
-        icon="checkin"
-        tone="warning"
+    <CheckinStepCard
+      title="How your body feels today"
+      description="Start with pain, then add any symptoms and body areas that need attention."
+      icon="checkin"
+      tone="warning"
+    >
+      <CheckinFieldBlock
+        title="Pain level"
+        description="Use the full range from no pain to worst pain today."
       >
         <Stepper
           label="Pain"
@@ -905,15 +916,22 @@ export default function CheckinScreen() {
           min={0}
           max={10}
           step={1}
+          leftHint="No pain"
+          rightHint="Worst pain"
+          helperText="Current pain level"
           valueFormatter={(value) => `${value}/10`}
           onChange={(value) => {
             setNotice(null);
             setPain(value);
           }}
         />
+      </CheckinFieldBlock>
 
+      <CheckinFieldBlock
+        title="Other symptoms"
+        description="Choose any symptoms that stood out today."
+      >
         <SymptomChipGroup
-          label="Other symptoms"
           options={CHECKIN_SYMPTOM_FLAGS.map((flag) => ({
             value: flag,
             label: SYMPTOM_FLAG_LABELS[flag],
@@ -924,13 +942,11 @@ export default function CheckinScreen() {
             setSymptomFlags((current) => toggleSymptomFlag(current, value));
           }}
         />
-      </CheckinSectionCard>
+      </CheckinFieldBlock>
 
-      <CheckinSectionCard
-        title="Body map"
-        description="Mark where symptoms are showing up, then choose the area that feels most bothersome."
-        icon="rehabJourney"
-        tone="accent"
+      <CheckinFieldBlock
+        title="Body areas"
+        description="Tap the body map to mark where symptoms feel most bothersome."
       >
         <BodyMapSelector
           value={bodyMap}
@@ -939,7 +955,7 @@ export default function CheckinScreen() {
         />
 
         {bodyMap.selectedRegions.length > 0 ? (
-          <View style={styles.selectionStack}>
+          <View style={styles.regionDetailStack}>
             {bodyMap.selectedRegions.map((region) => {
               const selection = bodyMap.selections[region] ?? {
                 intensity: pain > 0 ? pain : 5,
@@ -947,19 +963,36 @@ export default function CheckinScreen() {
               };
               const isPrimary = bodyMap.primaryRegion === region;
               return (
-                <Card key={`region-${region}`} variant="outlined" style={styles.subCard}>
-                  <View style={styles.sectionStack}>
-                    <View style={styles.inlineHeaderRow}>
+                <Card
+                  key={`region-${region}`}
+                  variant="outlined"
+                  padding={tokens.spacing.lg}
+                  style={styles.regionDetailCard}
+                >
+                  <View style={styles.regionCardStack}>
+                    <View style={styles.regionCardHeader}>
                       <View style={styles.regionHeaderCopy}>
                         <Text style={styles.fieldLabel}>{regionLabel(region)}</Text>
                         <Text style={styles.helperText}>
-                          {isPrimary ? "Primary body area" : "Secondary body area"}
+                          {isPrimary ? "Most bothersome area" : "Additional area"}
                         </Text>
                       </View>
                       <View style={styles.regionHeaderActions}>
                         {isPrimary ? (
-                          <StatusPill label="Primary" variant="warning" accessible={false} />
-                        ) : null}
+                          <StatusPill label="Primary" variant="success" accessible={false} />
+                        ) : (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Mark ${regionLabel(region)} as the primary area`}
+                            onPress={() => handleSetPrimaryRegion(region)}
+                            style={({ pressed }) => [
+                              styles.inlineTextButton,
+                              pressed ? styles.inlineTextButtonPressed : null,
+                            ]}
+                          >
+                            <Text style={styles.inlineTextButtonText}>Make primary</Text>
+                          </Pressable>
+                        )}
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={`Remove ${regionLabel(region)}`}
@@ -975,11 +1008,13 @@ export default function CheckinScreen() {
                     </View>
 
                     <Stepper
-                      label={`${regionLabel(region)} intensity`}
+                      label="Intensity"
                       value={selection.intensity}
                       min={0}
                       max={10}
                       step={1}
+                      leftHint="Mild"
+                      rightHint="Severe"
                       valueFormatter={(value) => `${value}/10`}
                       onChange={(value) => updateBodyMapSelection(region, { intensity: value })}
                     />
@@ -1021,54 +1056,20 @@ export default function CheckinScreen() {
             })}
           </View>
         ) : null}
-      </CheckinSectionCard>
-    </View>
+      </CheckinFieldBlock>
+    </CheckinStepCard>
   );
 
   const renderRecoveryStep = () => (
-    <View style={styles.stepContentStack}>
-      <View style={styles.stepSummaryRow}>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="exercise"
-            label="Exercises"
-            value={`${recovery.exercisePercent}%`}
-            delta="Completed"
-            tone={recovery.exercisePercent >= 70 ? "success" : "warning"}
-            variant="compact"
-            micro={{
-              type: "bars",
-              values: [Math.max(0, recovery.exercisePercent - 20), recovery.exercisePercent],
-            }}
-          />
-        </View>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="meds"
-            label="Medication"
-            value={medicationStatusLabel(adherence.medicationStatus)}
-            delta="Today"
-            tone={
-              adherence.medicationStatus === "taken"
-                ? "success"
-                : adherence.medicationStatus === "missed"
-                  ? "warning"
-                  : "muted"
-            }
-            variant="compact"
-            micro={{
-              type: "ring",
-              progress: adherence.medicationStatus === "taken" ? 1 : adherence.medicationStatus ? 0.3 : 0,
-            }}
-          />
-        </View>
-      </View>
-
-      <CheckinSectionCard
-        title="Recovery / rehab progress"
-        description="Keep this practical: how much of the plan you completed and how it felt."
-        icon="exercise"
-        tone="accent"
+    <CheckinStepCard
+      title="How recovery is going"
+      description="Keep this practical: what you completed and how the plan felt."
+      icon="exercise"
+      tone="primary"
+    >
+      <CheckinFieldBlock
+        title="Exercise completion"
+        description="Estimate how much of today’s plan you were able to do."
       >
         <Stepper
           label="Exercises completed"
@@ -1076,61 +1077,73 @@ export default function CheckinScreen() {
           min={0}
           max={100}
           step={10}
+          leftHint="None"
+          rightHint="All planned"
+          helperText="Use 10% steps for a quick estimate."
           valueFormatter={(value) => `${value}%`}
           onChange={(value) => {
             setNotice(null);
             setRecovery((current) => ({ ...current, exercisePercent: value }));
           }}
         />
+      </CheckinFieldBlock>
 
-        <OptionalStepper
-          label="Rehab difficulty"
-          value={recovery.difficultyLevel}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_DIFFICULTY_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setRecovery((current) => ({ ...current, difficultyLevel: value }));
-          }}
-          clearLabel="Clear difficulty"
-        />
+      <CheckinFieldBlock
+        title="How rehab felt"
+        description="These ratings help your clinician understand how manageable recovery feels."
+      >
+        <View style={styles.metricStack}>
+          {renderFivePointChips({
+            label: "Rehab difficulty",
+            value: recovery.difficultyLevel,
+            onChange: (value) => {
+              setNotice(null);
+              setRecovery((current) => ({ ...current, difficultyLevel: value }));
+            },
+            onClear: () => {
+              setNotice(null);
+              setRecovery((current) => ({ ...current, difficultyLevel: null }));
+            },
+            helperText: "1 is very easy and 5 is very hard.",
+            options: FIVE_POINT_DIFFICULTY_LABELS,
+            styles,
+          })}
 
-        <OptionalStepper
-          label="Confidence in progress"
-          value={recovery.confidenceLevel}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_RECOVERY_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setRecovery((current) => ({ ...current, confidenceLevel: value }));
-          }}
-          clearLabel="Clear confidence"
-        />
+          {renderFivePointChips({
+            label: "Confidence in progress",
+            value: recovery.confidenceLevel,
+            onChange: (value) => {
+              setNotice(null);
+              setRecovery((current) => ({ ...current, confidenceLevel: value }));
+            },
+            onClear: () => {
+              setNotice(null);
+              setRecovery((current) => ({ ...current, confidenceLevel: null }));
+            },
+            options: FIVE_POINT_RECOVERY_LABELS,
+            styles,
+          })}
 
-        <OptionalStepper
-          label="Movement / function"
-          value={recovery.mobilityLevel}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_RECOVERY_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setRecovery((current) => ({ ...current, mobilityLevel: value }));
-          }}
-          clearLabel="Clear movement"
-        />
-      </CheckinSectionCard>
+          {renderFivePointChips({
+            label: "Movement and function",
+            value: recovery.mobilityLevel,
+            onChange: (value) => {
+              setNotice(null);
+              setRecovery((current) => ({ ...current, mobilityLevel: value }));
+            },
+            onClear: () => {
+              setNotice(null);
+              setRecovery((current) => ({ ...current, mobilityLevel: null }));
+            },
+            options: FIVE_POINT_RECOVERY_LABELS,
+            styles,
+          })}
+        </View>
+      </CheckinFieldBlock>
 
-      <CheckinSectionCard
-        title="Medication / adherence"
-        description="Capture whether medication or the plan was missed, then add a lightweight reason only if helpful."
-        icon="meds"
-        tone="primary"
+      <CheckinFieldBlock
+        title="Medication"
+        description="Record whether medication was taken today."
       >
         <SegmentedControl
           value={adherence.medicationStatus ?? "skip"}
@@ -1208,169 +1221,147 @@ export default function CheckinScreen() {
             </View>
           </View>
         ) : null}
-      </CheckinSectionCard>
-    </View>
+      </CheckinFieldBlock>
+    </CheckinStepCard>
   );
 
   const renderSupportStep = () => (
-    <View style={styles.stepContentStack}>
-      <View style={styles.stepSummaryRow}>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="insights"
-            label="Mood"
-            value={support.mood === null ? "—" : `${support.mood}/5`}
-            delta="Today"
-            tone={support.mood !== null && support.mood <= 2 ? "warning" : "success"}
-            variant="compact"
-            micro={
-              support.mood === null
-                ? { type: "dots", values: [0, 0, 0] }
-                : {
-                    type: "sparkline",
-                    values: [Math.max(1, support.mood - 1), support.mood],
-                    tone: support.mood <= 2 ? "warning" : "success",
-                  }
-            }
-          />
-        </View>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="sleep"
-            label="Sleep"
-            value={
-              dailySignals.sleepHours === null ? "Not set" : `${dailySignals.sleepHours.toFixed(1)}h`
-            }
-            delta="Overnight"
-            tone={dailySignals.sleepHours !== null && dailySignals.sleepHours < 6 ? "warning" : "accent"}
-            variant="compact"
-            micro={
-              dailySignals.sleepHours === null
-                ? { type: "dots", values: [0, 0, 0] }
-                : {
-                    type: "sparkline",
-                    values: [Math.max(0, dailySignals.sleepHours - 1), dailySignals.sleepHours],
-                    tone: dailySignals.sleepHours < 6 ? "warning" : "accent",
-                  }
-            }
-          />
-        </View>
-      </View>
+    <CheckinStepCard
+      title="Mood, context, and support"
+      description="Share how you feel today and whether you need extra help."
+      icon="coping"
+      tone="success"
+    >
+      {renderFivePointChips({
+        label: "Mood",
+        value: support.mood,
+        onChange: (value) => {
+          setNotice(null);
+          setSupport((current) => ({ ...current, mood: value }));
+        },
+        helperText: "1 is very low and 5 is very strong.",
+        errorText: activeStep === 2 && validationState?.field === "mood" ? validationState.message : null,
+        options: FIVE_POINT_RECOVERY_LABELS,
+        styles,
+      })}
 
-      <CheckinSectionCard
-        title="Mood and support"
-        description="Share how you feel today and whether things feel manageable."
-        icon="coping"
-        tone="accent"
+      <OptionalStepper
+        label="Stress or overwhelm"
+        value={support.stressLevel}
+        min={1}
+        max={5}
+        step={1}
+        valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
+        onChange={(value) => {
+          setNotice(null);
+          setSupport((current) => ({ ...current, stressLevel: value }));
+        }}
+        clearLabel="Clear stress"
+      />
+
+      <CheckinFieldBlock
+        title="Daily context"
+        description="Add extra sleep, hydration, and energy detail when it helps explain your day."
+        accessory={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={shouldShowDailyContext ? "Hide daily context details" : "Add daily context details"}
+            onPress={() => setShowDailyContext((current) => !current)}
+            style={({ pressed }) => [
+              styles.inlineTextButton,
+              pressed ? styles.inlineTextButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.inlineTextButtonText}>
+              {shouldShowDailyContext ? "Hide details" : "Add details"}
+            </Text>
+          </Pressable>
+        }
       >
-        {renderFivePointChips({
-          label: "Mood",
-          value: support.mood,
-          onChange: (value) => {
-            setNotice(null);
-            setSupport((current) => ({ ...current, mood: value }));
-          },
-          options: FIVE_POINT_RECOVERY_LABELS,
-          styles,
-        })}
+        {shouldShowDailyContext ? (
+          <View style={styles.metricStack}>
+            <OptionalStepper
+              label="Hours slept"
+              value={dailySignals.sleepHours}
+              min={0}
+              max={16}
+              step={0.5}
+              leftHint="Very little"
+              rightHint="A full night"
+              valueFormatter={(value) => `${value.toFixed(1)} hours`}
+              onChange={(value) => {
+                setNotice(null);
+                setDailySignals((current) => ({ ...current, sleepHours: value }));
+              }}
+              clearLabel="Clear hours"
+            />
 
-        <OptionalStepper
-          label="Stress or overwhelm"
-          value={support.stressLevel}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setSupport((current) => ({ ...current, stressLevel: value }));
-          }}
-          clearLabel="Clear stress"
-        />
-      </CheckinSectionCard>
+            <OptionalStepper
+              label="Sleep quality"
+              value={dailySignals.sleepQuality}
+              min={1}
+              max={5}
+              step={1}
+              valueFormatter={(value) => scaleLabel(value, FIVE_POINT_RECOVERY_LABELS)}
+              onChange={(value) => {
+                setNotice(null);
+                setDailySignals((current) => ({ ...current, sleepQuality: value }));
+              }}
+              clearLabel="Clear quality"
+            />
 
-      <CheckinSectionCard
-        title="Sleep / hydration / daily support"
-        description="Add the small daily signals that help your clinician understand recovery context."
-        icon="sleep"
-        tone="accent"
-      >
-        <OptionalStepper
-          label="Hours slept"
-          value={dailySignals.sleepHours}
-          min={0}
-          max={16}
-          step={0.5}
-          valueFormatter={(value) => `${value.toFixed(1)} hours`}
-          onChange={(value) => {
-            setNotice(null);
-            setDailySignals((current) => ({ ...current, sleepHours: value }));
-          }}
-          clearLabel="Clear hours"
-        />
+            <OptionalStepper
+              label="Night disturbances"
+              value={dailySignals.sleepDisturbances}
+              min={0}
+              max={5}
+              step={1}
+              valueFormatter={(value) => `${value}`}
+              onChange={(value) => {
+                setNotice(null);
+                setDailySignals((current) => ({ ...current, sleepDisturbances: value }));
+              }}
+              clearLabel="Clear disturbances"
+            />
 
-        <OptionalStepper
-          label="Sleep quality"
-          value={dailySignals.sleepQuality}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_RECOVERY_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setDailySignals((current) => ({ ...current, sleepQuality: value }));
-          }}
-          clearLabel="Clear quality"
-        />
+            <OptionalStepper
+              label="Hydration"
+              value={dailySignals.hydrationLevel}
+              min={1}
+              max={5}
+              step={1}
+              valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
+              onChange={(value) => {
+                setNotice(null);
+                setDailySignals((current) => ({ ...current, hydrationLevel: value }));
+              }}
+              clearLabel="Clear hydration"
+            />
 
-        <OptionalStepper
-          label="Night disturbances"
-          value={dailySignals.sleepDisturbances}
-          min={0}
-          max={5}
-          step={1}
-          valueFormatter={(value) => `${value}`}
-          onChange={(value) => {
-            setNotice(null);
-            setDailySignals((current) => ({ ...current, sleepDisturbances: value }));
-          }}
-          clearLabel="Clear disturbances"
-        />
+            <OptionalStepper
+              label="Energy and readiness"
+              value={dailySignals.energyLevel}
+              min={1}
+              max={5}
+              step={1}
+              valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
+              onChange={(value) => {
+                setNotice(null);
+                setDailySignals((current) => ({ ...current, energyLevel: value }));
+              }}
+              clearLabel="Clear energy"
+            />
+          </View>
+        ) : (
+          <Text style={styles.helperText}>
+            These extra details are optional and can be added when they help tell the story of today.
+          </Text>
+        )}
+      </CheckinFieldBlock>
 
-        <OptionalStepper
-          label="Hydration"
-          value={dailySignals.hydrationLevel}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setDailySignals((current) => ({ ...current, hydrationLevel: value }));
-          }}
-          clearLabel="Clear hydration"
-        />
-
-        <OptionalStepper
-          label="Energy / readiness"
-          value={dailySignals.energyLevel}
-          min={1}
-          max={5}
-          step={1}
-          valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
-          onChange={(value) => {
-            setNotice(null);
-            setDailySignals((current) => ({ ...current, energyLevel: value }));
-          }}
-          clearLabel="Clear energy"
-        />
-      </CheckinSectionCard>
-
-      <CheckinSectionCard
-        title="Notes / extra concerns"
-        description="Free text still matters. Add anything you want your clinician to review today."
-        icon="chat"
-        tone="accent"
+      <CheckinFieldBlock
+        title="Notes"
+        description="Add anything you want your clinician to review today."
       >
         <TextInput
           value={notes}
@@ -1389,13 +1380,11 @@ export default function CheckinScreen() {
         <Text style={styles.helperText}>
           Notes can still help your care team spot issues that need follow-up.
         </Text>
-      </CheckinSectionCard>
+      </CheckinFieldBlock>
 
-      <CheckinSectionCard
-        title="Need help?"
-        description="Use this final prompt to clearly tell us whether you need support or urgent help today."
-        icon="safety"
-        tone="warning"
+      <CheckinFieldBlock
+        title="Support today"
+        description="Use this final prompt to tell us whether you need support or urgent help."
       >
         <NeedHelpPrompt
           helpLevel={support.helpLevel}
@@ -1414,114 +1403,67 @@ export default function CheckinScreen() {
             setSupport((current) => ({ ...current, wantsExtraSupport: value }));
           }}
         />
-      </CheckinSectionCard>
-    </View>
+      </CheckinFieldBlock>
+    </CheckinStepCard>
   );
 
   const renderReviewStep = () => (
-    <View style={styles.stepContentStack}>
-      <View style={styles.stepSummaryRow}>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="warning"
-            label="Support"
-            value={support.helpLevel === "urgent" ? "Urgent" : support.helpLevel === "follow_up" ? "Follow-up" : "Stable"}
-            delta={support.safetyState === "unsafe" ? "Unsafe" : support.safetyState === "unsure" ? "Not sure" : "Feels safe"}
-            tone={
-              support.helpLevel === "urgent" || support.safetyState === "unsafe"
-                ? "warning"
-                : support.helpLevel === "follow_up"
-                  ? "accent"
-                  : "success"
-            }
-            variant="compact"
-            micro={{
-              type: "ring",
-              progress:
-                support.helpLevel === "urgent" || support.safetyState === "unsafe"
-                  ? 1
-                  : support.helpLevel === "follow_up"
-                    ? 0.6
-                    : 0.25,
-            }}
-          />
-        </View>
-        <View style={styles.stepSummaryCell}>
-          <TrackerTile
-            icon="rehabJourney"
-            label="Review"
-            value={`${reviewChips.length} signals`}
-            delta={bodyMap.selectedRegions.length > 0 ? "Body map added" : "No body map"}
-            tone="accent"
-            variant="compact"
-            micro={{
-              type: "bars",
-              values: [reviewChips.length, Math.max(1, bodyMap.selectedRegions.length)],
-            }}
-          />
-        </View>
-      </View>
-
+    <CheckinStepCard
+      title="Final review"
+      description="Take a final look before you submit."
+      icon="success"
+      tone="success"
+    >
       {(support.helpLevel === "urgent" || support.safetyState === "unsafe") ? (
         <Banner
           variant="warning"
-          title="This may trigger immediate follow-up"
-          message="If you submit with urgent help requested or feeling unsafe, the existing safety routing will escalate the check-in for review."
+          title="Immediate follow-up may be triggered"
+          message="Urgent help requests or feeling unsafe use the same safety routing already in place."
         />
       ) : null}
 
-      <CheckinSectionCard
-        title="Review before submit"
-        description="Make sure the key parts of today’s rehab check-in look right."
-        icon="success"
-        tone="success"
-      >
-        <CheckinReviewCard
-          summary={reviewSummary}
-          chips={reviewChips}
-          notesPreview={notes.trim() ? notes.trim() : undefined}
-        />
-      </CheckinSectionCard>
+      <CheckinReviewCard
+        summary={reviewSummary}
+        chips={reviewChips}
+        notesPreview={notes.trim() ? notes.trim() : undefined}
+      />
 
-      <CheckinSectionCard
-        title="What will be sent"
-        description="A structured rehab check-in with symptoms, body regions, recovery context, support signals and your note text."
-        icon="info"
-        tone="accent"
-      >
-        <View style={styles.reviewGrid}>
-          <View style={styles.reviewGridItem}>
-            <Text style={styles.reviewLabel}>Recovery</Text>
-            <Text style={styles.reviewValue}>
-              {`${recovery.exercisePercent}% complete · ${scaleLabel(
-                recovery.confidenceLevel,
-                FIVE_POINT_RECOVERY_LABELS,
-              )} confidence`}
-            </Text>
-          </View>
-          <View style={styles.reviewGridItem}>
-            <Text style={styles.reviewLabel}>Medication</Text>
-            <Text style={styles.reviewValue}>{medicationStatusLabel(adherence.medicationStatus)}</Text>
-          </View>
-          <View style={styles.reviewGridItem}>
-            <Text style={styles.reviewLabel}>Support</Text>
-            <Text style={styles.reviewValue}>
-              {support.helpLevel === "urgent"
-                ? "Urgent help requested"
-                : support.helpLevel === "follow_up"
-                  ? "Follow-up requested"
-                  : support.wantsExtraSupport
-                    ? "Extra support requested"
-                    : "No extra support requested"}
-            </Text>
-          </View>
-          <View style={styles.reviewGridItem}>
-            <Text style={styles.reviewLabel}>Body map</Text>
-            <Text style={styles.reviewValue}>{summarizePrimaryBodyMap(bodyMap)}</Text>
-          </View>
+      <View style={styles.reviewGrid}>
+        <View style={styles.reviewGridItem}>
+          <Text style={styles.reviewLabel}>Mood</Text>
+          <Text style={styles.reviewValue}>{scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS)}</Text>
         </View>
-      </CheckinSectionCard>
-    </View>
+        <View style={styles.reviewGridItem}>
+          <Text style={styles.reviewLabel}>Recovery</Text>
+          <Text style={styles.reviewValue}>
+            {`${recovery.exercisePercent}% complete · ${scaleLabel(
+              recovery.confidenceLevel,
+              FIVE_POINT_RECOVERY_LABELS,
+            )} confidence`}
+          </Text>
+        </View>
+        <View style={styles.reviewGridItem}>
+          <Text style={styles.reviewLabel}>Medication</Text>
+          <Text style={styles.reviewValue}>{medicationStatusLabel(adherence.medicationStatus)}</Text>
+        </View>
+        <View style={styles.reviewGridItem}>
+          <Text style={styles.reviewLabel}>Support</Text>
+          <Text style={styles.reviewValue}>
+            {support.helpLevel === "urgent"
+              ? "Urgent help requested"
+              : support.helpLevel === "follow_up"
+                ? "Follow-up requested"
+                : support.wantsExtraSupport
+                  ? "Extra support requested"
+                  : "No extra support requested"}
+          </Text>
+        </View>
+        <View style={styles.reviewGridItem}>
+          <Text style={styles.reviewLabel}>Body map</Text>
+          <Text style={styles.reviewValue}>{summarizePrimaryBodyMap(bodyMap)}</Text>
+        </View>
+      </View>
+    </CheckinStepCard>
   );
 
   const renderCurrentStep = () => {
@@ -1539,6 +1481,121 @@ export default function CheckinScreen() {
 
     return renderReviewStep();
   };
+
+  const shellHelperContent = (
+    <>
+      <TrustCues
+        status={trustStatus}
+        offlineMode="onlineOnly"
+        lastUpdatedLabel={checkinsRefresh.label}
+        showLastUpdated
+        showPending
+        showSavedLocalHint
+        style={styles.statusStrip}
+      />
+
+      {checkinError.lastError ? (
+        <LastFailedAttempt
+          value={checkinError.label}
+          title={checkinError.lastError.title}
+          message={checkinError.lastError.message}
+          onClear={checkinError.clear}
+          compact
+        />
+      ) : null}
+
+      {helperNotice ? (
+        <Banner
+          variant={helperNotice.variant}
+          title={helperNotice.title}
+          message={helperNotice.message}
+          actionLabel={helperNotice.retryable && !isOffline ? "Try again" : undefined}
+          onAction={
+            helperNotice.retryable && !isOffline
+              ? () => {
+                  void handleSubmit();
+                }
+              : undefined
+          }
+        />
+      ) : null}
+    </>
+  );
+
+  const footerContent = (
+    <View style={styles.footerInner}>
+      {isOffline ? (
+        <Banner
+          variant="warning"
+          title="Connect to submit today’s check-in"
+          message="You can finish the check-in now, but submission still needs a connection."
+        />
+      ) : null}
+
+      {stepMessage ? <Text style={styles.footerHint}>{stepMessage}</Text> : null}
+
+      {isLastStep ? (
+        <View style={styles.footerButtonRow}>
+          <View style={styles.footerButtonSlot}>
+            <SecondaryButton
+              label="Back"
+              disabled={isSubmitting}
+              onPress={() => {
+                setNotice(null);
+                setActiveStep((current) => Math.max(0, current - 1));
+              }}
+            />
+          </View>
+          <View style={styles.footerButtonSlot}>
+            <PrimaryButton
+              label={primaryLabel}
+              loading={isSubmitting}
+              disabled={primaryDisabled}
+              onPress={() => {
+                void handleSubmit();
+              }}
+            />
+          </View>
+        </View>
+      ) : activeStep > 0 ? (
+        <View style={styles.footerButtonRow}>
+          <View style={styles.footerButtonSlot}>
+            <SecondaryButton
+              label="Back"
+              disabled={isSubmitting}
+              onPress={() => {
+                setNotice(null);
+                setActiveStep((current) => Math.max(0, current - 1));
+              }}
+            />
+          </View>
+          <View style={styles.footerButtonSlot}>
+            <PrimaryButton
+              label={primaryLabel}
+              disabled={primaryDisabled}
+              onPress={() => {
+                setNotice(null);
+                setActiveStep((current) =>
+                  Math.min(CHECKIN_STEPS.length - 1, current + 1),
+                );
+              }}
+            />
+          </View>
+        </View>
+      ) : (
+        <PrimaryButton
+          label={primaryLabel}
+          disabled={primaryDisabled}
+          onPress={() => {
+            setNotice(null);
+            setActiveStep((current) =>
+              Math.min(CHECKIN_STEPS.length - 1, current + 1),
+            );
+          }}
+        />
+      )}
+    </View>
+  );
 
   if (auth.status === "loading") {
     return (
@@ -1583,278 +1640,88 @@ export default function CheckinScreen() {
         />
       }
     >
-      <View style={styles.flex}>
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.container}
-        >
-          <HeroHeader
-            variant="compact"
-            title="Check-in"
-            subtitle="Structured rehab monitoring"
-            left={
-              <Avatar
-                size={40}
-                name={patientLabel}
-                photoUrl={patientPhotoUri ?? undefined}
-                ring={avatarRing}
-              />
-            }
-            rightActions={[
-              {
-                icon: "safety",
-                onPress: () => {
-                  router.push("/safety" as never);
-                },
-                accessibilityLabel: "Open Safety support",
-                tone: "warning",
+      {isSuccessState ? (
+        <Card padding={tokens.spacing.xl}>
+          <View style={styles.sectionStack}>
+            <EmptyState
+              variant="compact"
+              illustrationKey="checkinSuccess"
+              title="Check-in complete"
+              description="Saved. Thank you for checking in."
+              ctaLabel="Back to Today"
+              onCtaPress={() => {
+                setNotice(null);
+                router.replace("/(tabs)");
+              }}
+            />
+            <SecondaryButton
+              label="View progress"
+              onPress={() => {
+                setNotice(null);
+                router.push("/(tabs)/progress");
+              }}
+            />
+            <SecondaryButton
+              label="Start another check-in"
+              onPress={() => {
+                setNotice(null);
+                setActiveStep(0);
+              }}
+            />
+          </View>
+        </Card>
+      ) : (
+        <CheckinFlowShell
+          title="Daily check-in"
+          subtitle={`Step ${activeStep + 1} of ${CHECKIN_STEPS.length}`}
+          currentStepTitle={currentStep.label}
+          currentStepDescription={currentStep.description}
+          left={
+            <Avatar
+              size={40}
+              name={patientLabel}
+              photoUrl={patientPhotoUri ?? undefined}
+              ring={avatarRing}
+            />
+          }
+          rightActions={[
+            {
+              icon: "safety",
+              onPress: () => {
+                router.push("/safety" as never);
               },
-              {
-                icon: "progress",
-                onPress: () => {
-                  router.push("/(tabs)/progress" as never);
-                },
-                accessibilityLabel: "Open Progress",
-                tone: "muted",
+              accessibilityLabel: "Open Safety support",
+              tone: "success",
+            },
+            {
+              icon: "progress",
+              onPress: () => {
+                router.push("/(tabs)/progress" as never);
               },
-            ]}
-          >
+              accessibilityLabel: "Open Progress",
+              tone: "muted",
+            },
+          ]}
+          statusContent={
             <View style={styles.heroMetaRow}>
               <StatusPill label={friendlyDate} variant="info" accessible={false} />
               <StatusPill label="Safety routing on" variant="success" accessible={false} />
-              <StatusPill label="Daily rehab check-in" variant="neutral" accessible={false} />
             </View>
-            <TrustCues
-              status={trustStatus}
-              offlineMode="onlineOnly"
-              lastUpdatedLabel={checkinsRefresh.label}
-              showLastUpdated
-              showPending
-              showSavedLocalHint
-              style={styles.statusStrip}
-            />
-          </HeroHeader>
-
-          {checkinError.lastError ? (
-            <LastFailedAttempt
-              value={checkinError.label}
-              title={checkinError.lastError.title}
-              message={checkinError.lastError.message}
-              onClear={checkinError.clear}
-              compact
-            />
-          ) : null}
-
-          {shouldShowValidationBanner ? (
-            <Banner
-              variant="warning"
-              title="Check your entries"
-              message={validationMessage ?? undefined}
-            />
-          ) : null}
-
-          {shouldShowNoticeBanner && notice ? (
-            <Banner
-              variant={notice.variant}
-              title={notice.title}
-              message={notice.message}
-              actionLabel={notice.retryable && !isOffline ? "Try again" : undefined}
-              onAction={
-                notice.retryable && !isOffline
-                  ? () => {
-                      void handleSubmit();
-                    }
-                  : undefined
-              }
-            />
-          ) : null}
-
-          {isSuccessState ? (
-            <Card>
-              <View style={styles.sectionStack}>
-                <EmptyState
-                  variant="compact"
-                  illustrationKey="checkinSuccess"
-                  title="Check-in complete"
-                  description="Saved. Thank you for checking in."
-                  ctaLabel="Back to Home"
-                  onCtaPress={() => {
-                    setNotice(null);
-                    router.replace("/(tabs)");
-                  }}
-                />
-                <SecondaryButton
-                  label="View progress"
-                  onPress={() => {
-                    setNotice(null);
-                    router.push("/(tabs)/progress");
-                  }}
-                />
-                <SecondaryButton
-                  label="Start another check-in"
-                  onPress={() => {
-                    setNotice(null);
-                    setActiveStep(0);
-                  }}
-                />
-              </View>
-            </Card>
-          ) : (
-            <>
-              <Card>
-                <View style={styles.sectionStack}>
-                  <Text style={styles.sectionTitle}>Sections</Text>
-                  <View style={styles.stepperChipRow}>
-                    {CHECKIN_STEPS.map((step, index) => {
-                      const selected = index === activeStep;
-                      const completed = index < activeStep;
-                      return (
-                        <Pressable
-                          key={step.key}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Open section ${index + 1}: ${step.label}`}
-                          onPress={() => {
-                            setNotice(null);
-                            setActiveStep(index);
-                          }}
-                          style={({ pressed }) => [
-                            styles.stepChip,
-                            selected ? styles.stepChipSelected : null,
-                            completed ? styles.stepChipCompleted : null,
-                            pressed ? styles.stepChipPressed : null,
-                          ]}
-                        >
-                          <View style={styles.stepChipIconWrap}>
-                            <View accessible={false} importantForAccessibility="no-hide-descendants">
-                              <DomainIcon
-                                icon={step.icon}
-                                tone={selected ? "accent" : completed ? "success" : "muted"}
-                                size={17}
-                                accessibilityLabel={`${step.label} section icon`}
-                              />
-                            </View>
-                            {completed ? (
-                              <View style={styles.completedDot}>
-                                <Text style={styles.completedDotText}>✓</Text>
-                              </View>
-                            ) : null}
-                          </View>
-                          <View style={styles.stepChipCopy}>
-                            <Text
-                              style={[
-                                styles.stepChipTitle,
-                                selected ? styles.stepChipTitleSelected : null,
-                              ]}
-                            >
-                              {step.label}
-                            </Text>
-                            <Text
-                              style={[
-                                styles.stepChipSubtitle,
-                                selected ? styles.stepChipSubtitleSelected : null,
-                              ]}
-                            >
-                              {step.description}
-                            </Text>
-                          </View>
-                          {selected ? <View style={styles.stepChipUnderline} /> : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              </Card>
-
-              {renderCurrentStep()}
-            </>
-          )}
-        </ScrollView>
-
-        {!isSuccessState ? (
-          <View style={styles.footerWrap}>
-            <GlassPanel
-              fallbackVariant="elevated"
-              fallbackOpacity={0.78}
-              style={styles.footerPanel}
-              accessibilityLabel="Check-in footer actions"
-            >
-              <View style={styles.footerInner}>
-                {isOffline ? (
-                  <Banner
-                    variant="warning"
-                    title="Connect to submit today’s check-in"
-                    message="You can finish the check-in now, but submission needs a connection."
-                  />
-                ) : null}
-
-                {stepMessage ? <Text style={styles.footerHint}>{stepMessage}</Text> : null}
-
-                {isLastStep ? (
-                  <View style={styles.footerButtonRow}>
-                    <View style={styles.footerButtonSlot}>
-                      <SecondaryButton
-                        label="Back"
-                        disabled={isSubmitting}
-                        onPress={() => {
-                          setNotice(null);
-                          setActiveStep((current) => Math.max(0, current - 1));
-                        }}
-                      />
-                    </View>
-                    <View style={styles.footerButtonSlot}>
-                      <PrimaryButton
-                        label={isSubmitting ? "Submitting…" : "Submit check-in"}
-                        loading={isSubmitting}
-                        disabled={primaryDisabled}
-                        onPress={() => {
-                          void handleSubmit();
-                        }}
-                      />
-                    </View>
-                  </View>
-                ) : activeStep > 0 ? (
-                  <View style={styles.footerButtonRow}>
-                    <View style={styles.footerButtonSlot}>
-                      <SecondaryButton
-                        label="Back"
-                        disabled={isSubmitting}
-                        onPress={() => {
-                          setNotice(null);
-                          setActiveStep((current) => Math.max(0, current - 1));
-                        }}
-                      />
-                    </View>
-                    <View style={styles.footerButtonSlot}>
-                      <PrimaryButton
-                        label="Continue"
-                        disabled={primaryDisabled}
-                        onPress={() => {
-                          setNotice(null);
-                          setActiveStep((current) =>
-                            Math.min(CHECKIN_STEPS.length - 1, current + 1),
-                          );
-                        }}
-                      />
-                    </View>
-                  </View>
-                ) : (
-                  <PrimaryButton
-                    label="Continue"
-                    disabled={primaryDisabled}
-                    onPress={() => {
-                      setNotice(null);
-                      setActiveStep((current) =>
-                        Math.min(CHECKIN_STEPS.length - 1, current + 1),
-                      );
-                    }}
-                  />
-                )}
-              </View>
-            </GlassPanel>
-          </View>
-        ) : null}
-      </View>
+          }
+          helperContent={shellHelperContent}
+          steps={CHECKIN_STEPS}
+          activeStep={activeStep}
+          onSelectStep={(index) => {
+            setNotice(null);
+            setActiveStep(index);
+          }}
+          footer={footerContent}
+          footerSpacerHeight={160}
+          scrollContentStyle={styles.container}
+        >
+          {renderCurrentStep()}
+        </CheckinFlowShell>
+      )}
     </Screen>
   );
 }
@@ -1873,8 +1740,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     container: {
-      gap: tokens.spacing.md,
-      paddingBottom: FOOTER_HEIGHT + tokens.spacing.xxxl,
+      gap: tokens.spacing.lg,
     },
     heroMetaRow: {
       flexDirection: "row",
@@ -1887,24 +1753,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.sm,
       marginTop: tokens.spacing.xs,
       marginBottom: 0,
-    },
-    stepContentStack: {
-      gap: tokens.spacing.md,
-    },
-    sectionTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    stepSummaryRow: {
-      flexDirection: "row",
-      gap: tokens.spacing.sm,
-      flexWrap: "wrap",
-    },
-    stepSummaryCell: {
-      flex: 1,
-      minWidth: 0,
     },
     sectionStack: {
       gap: tokens.spacing.md,
@@ -1942,7 +1790,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       backgroundColor: tokens.colors.surface,
     },
     choiceChipSelected: {
-      backgroundColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primarySoft,
       borderColor: tokens.colors.primary,
     },
     choiceChipPressed: {
@@ -1956,7 +1804,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       textAlign: "center",
     },
     choiceChipTextSelected: {
-      color: tokens.colors.primaryTextOn,
+      color: tokens.colors.primary,
     },
     choiceChipCaption: {
       color: tokens.colors.textMuted,
@@ -1965,103 +1813,50 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       textAlign: "center",
     },
     choiceChipCaptionSelected: {
-      color: tokens.colors.primaryTextOn,
+      color: tokens.colors.primary,
     },
     notesInput: {
       minHeight: 120,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
+      borderRadius: tokens.radius.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.text,
-      backgroundColor: tokens.colors.surface,
-    },
-    stepperChipRow: {
-      gap: tokens.spacing.sm,
-    },
-    stepChip: {
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
-      backgroundColor: tokens.colors.surface,
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: tokens.spacing.sm,
-      minHeight: 44,
-      position: "relative",
-    },
-    stepChipSelected: {
-      borderColor: tokens.colors.accent,
-      backgroundColor: tokens.colors.accentTextOn,
-    },
-    stepChipCompleted: {
-      borderColor: tokens.colors.success,
-    },
-    stepChipPressed: {
-      opacity: 0.86,
-    },
-    stepChipIconWrap: {
-      width: 24,
-      minHeight: 24,
-      alignItems: "center",
-      justifyContent: "center",
-      position: "relative",
-    },
-    completedDot: {
-      position: "absolute",
-      right: -8,
-      top: -5,
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      backgroundColor: tokens.colors.success,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    completedDotText: {
-      color: tokens.colors.successTextOn,
-      fontSize: 9,
-      lineHeight: 10,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    stepChipCopy: {
-      flex: 1,
-      gap: 2,
-      paddingRight: tokens.spacing.sm,
-    },
-    stepChipTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    stepChipTitleSelected: {
-      color: tokens.colors.accent,
-    },
-    stepChipSubtitle: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-    },
-    stepChipSubtitleSelected: {
-      color: tokens.colors.text,
-    },
-    stepChipUnderline: {
-      position: "absolute",
-      left: tokens.spacing.md,
-      right: tokens.spacing.md,
-      bottom: 0,
-      height: 2,
-      borderRadius: 1,
-      backgroundColor: tokens.colors.accent,
+      backgroundColor: tokens.colors.surfaceSubtle,
     },
     stepperWrapper: {
       gap: tokens.spacing.sm,
+    },
+    stepperValueWrap: {
+      flex: 1,
+      minHeight: 72,
+      borderRadius: tokens.radius.lg,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.md,
+    },
+    scaleHintsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    scaleHint: {
+      flex: 1,
+      color: tokens.colors.textTertiary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    inlineErrorText: {
+      color: tokens.colors.danger,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
     },
     optionalStepperWrapper: {
       gap: tokens.spacing.xs,
@@ -2125,18 +1920,31 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     stepperValue: {
-      minWidth: 96,
       textAlign: "center",
       color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
+      fontSize: tokens.typography.title.fontSize,
+      lineHeight: tokens.typography.title.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
     },
-    selectionStack: {
-      gap: tokens.spacing.sm,
+    metricStack: {
+      gap: tokens.spacing.lg,
     },
-    subCard: {
-      backgroundColor: tokens.colors.surfaceElevated,
+    regionDetailStack: {
+      gap: tokens.spacing.md,
+      marginTop: tokens.spacing.sm,
+    },
+    regionDetailCard: {
+      backgroundColor: tokens.colors.surfaceSubtle,
+      borderColor: tokens.colors.border,
+    },
+    regionCardStack: {
+      gap: tokens.spacing.lg,
+    },
+    regionCardHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.md,
     },
     regionHeaderCopy: {
       flex: 1,
@@ -2147,15 +1955,35 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
       gap: tokens.spacing.sm,
     },
+    inlineTextButton: {
+      minHeight: 36,
+      borderRadius: tokens.radius.sm,
+      paddingHorizontal: tokens.spacing.sm + 2,
+      paddingVertical: tokens.spacing.xs + 2,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: tokens.colors.primarySoft,
+      borderWidth: 1,
+      borderColor: tokens.colors.primary,
+    },
+    inlineTextButtonPressed: {
+      opacity: 0.84,
+    },
+    inlineTextButtonText: {
+      color: tokens.colors.primary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
     reviewGrid: {
       gap: tokens.spacing.sm,
     },
     reviewGridItem: {
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
+      borderRadius: tokens.radius.lg,
       padding: tokens.spacing.md,
-      backgroundColor: tokens.colors.surfaceElevated,
+      backgroundColor: tokens.colors.surfaceSubtle,
       gap: 2,
     },
     reviewLabel: {
@@ -2163,8 +1991,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
-      textTransform: "uppercase",
-      letterSpacing: 0.4,
+      letterSpacing: 0.2,
     },
     reviewValue: {
       color: tokens.colors.text,
@@ -2172,24 +1999,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.medium,
     },
-    footerWrap: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      paddingTop: tokens.spacing.sm,
-      paddingBottom: tokens.spacing.sm,
-    },
-    footerPanel: {
-      borderRadius: tokens.radius.lg,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-    },
     footerInner: {
       gap: tokens.spacing.sm,
     },
     footerHint: {
-      color: tokens.colors.warning,
+      color: tokens.colors.danger,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.medium,

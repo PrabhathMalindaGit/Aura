@@ -80,7 +80,7 @@ export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: B
           { value: 'back', label: 'Back' },
         ]}
         size="sm"
-        tone="accent"
+        tone="primary"
         accessibilityLabel="Body map view"
       />
 
@@ -180,7 +180,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderRadius: tokens.radius.xl,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surfaceElevated,
+      backgroundColor: tokens.colors.surfaceSubtle,
       overflow: 'hidden',
     },
     silhouette: {
@@ -313,18 +313,18 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       backgroundColor: 'transparent',
     },
     hotspotSelected: {
-      borderColor: tokens.colors.accent,
-      backgroundColor: `${tokens.colors.accent}33`,
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primarySoft,
     },
     hotspotPrimary: {
-      borderColor: tokens.colors.warning,
-      backgroundColor: `${tokens.colors.warning}33`,
+      borderColor: tokens.colors.success,
+      backgroundColor: tokens.colors.successSoft,
     },
     hotspotPressed: {
       opacity: 0.82,
     },
     primaryGlyph: {
-      color: tokens.colors.warning,
+      color: tokens.colors.success,
       fontSize: 12,
       lineHeight: 14,
       fontWeight: tokens.typography.weights.semibold,
@@ -355,8 +355,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.sm,
     },
     selectionChipPrimary: {
-      borderColor: tokens.colors.warning,
-      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primarySoft,
     },
     selectionChipPressed: {
       opacity: 0.84,
@@ -369,7 +369,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     selectionChipTextPrimary: {
-      color: tokens.colors.warning,
+      color: tokens.colors.primary,
     },
     helperText: {
       color: tokens.colors.textMuted,

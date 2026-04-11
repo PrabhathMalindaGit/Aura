@@ -81,8 +81,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       justifyContent: 'center',
     },
     chipSelected: {
-      borderColor: tokens.colors.accent,
-      backgroundColor: tokens.colors.accent,
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primarySoft,
     },
     chipPressed: {
       opacity: 0.84,
@@ -94,7 +94,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     chipTextSelected: {
-      color: tokens.colors.accentTextOn,
+      color: tokens.colors.primary,
     },
   });
 }

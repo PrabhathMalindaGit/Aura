@@ -85,7 +85,7 @@ export function NeedHelpPrompt({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     stack: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.lg,
     },
     copy: {
       gap: 4,
@@ -102,16 +102,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.caption.lineHeight,
     },
     switchRow: {
-      minHeight: 56,
+      minHeight: 64,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
+      borderRadius: tokens.radius.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: tokens.spacing.sm,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: tokens.colors.surfaceElevated,
     },
     switchCopy: {
       flex: 1,

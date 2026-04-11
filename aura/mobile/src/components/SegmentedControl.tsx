@@ -74,8 +74,7 @@ export function SegmentedControl<T extends string>({
 
   const selectedBackgroundColor =
     tone === "accent" ? tokens.colors.accent : tokens.colors.primary;
-  const selectedTextColor =
-    tone === "accent" ? tokens.colors.accentTextOn : tokens.colors.primaryTextOn;
+  const selectedTextColor = tokens.colors.primaryTextOn;
 
   const canUseNativeIOS =
     Platform.OS === "ios" &&

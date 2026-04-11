@@ -51,7 +51,7 @@ export function CheckinReviewCard({ summary, chips, notesPreview }: CheckinRevie
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     stack: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.lg,
     },
     summary: {
       color: tokens.colors.text,
@@ -77,8 +77,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
-      textTransform: 'uppercase',
-      letterSpacing: 0.4,
     },
     notesText: {
       color: tokens.colors.text,

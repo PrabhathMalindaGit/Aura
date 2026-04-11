@@ -41,6 +41,11 @@ import {
 } from "@/src/components/checkin/checkinFlowState";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useAuth } from "@/src/state/auth";
+import {
+  clearCheckinDraft,
+  getCheckinDraft,
+  setCheckinDraft,
+} from "@/src/state/checkinDraft";
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
@@ -50,6 +55,7 @@ import type {
   BodyMapSelection,
   CheckinAdherenceDraft,
   CheckinBodyMapDraft,
+  CheckinDraftRecord,
   CheckinDailySignalsDraft,
   CheckinMedicationStatus,
   CheckinRecoveryDraft,
@@ -69,6 +75,7 @@ import {
   type BodyMapRegion,
 } from "@/src/utils/bodyMapLabels";
 import {
+  buildCheckinDraftRecord,
   buildCheckinPayload,
   buildReviewChips,
   FIVE_POINT_DIFFICULTY_LABELS,
@@ -76,6 +83,7 @@ import {
   FIVE_POINT_SUPPORT_LABELS,
   MEDICATION_REASON_OPTIONS,
   MEDICATION_STATUS_LABELS,
+  hasMeaningfulCheckinDraft,
   medicationStatusLabel,
   scaleLabel,
   summarizePrimaryBodyMap,
@@ -118,6 +126,8 @@ const CHECKIN_STEPS: Array<{
 ] as const;
 
 const BODY_MAP_LIMIT = 6;
+const CHECKIN_AUTO_SAVE_DELAY_MS = 450;
+const FIVE_POINT_CHOICES = [1, 2, 3, 4, 5] as const;
 type MedicationStatusOption = CheckinMedicationStatus | "skip";
 type CheckinValidation = {
   field: CheckinValidationField;
@@ -435,6 +445,71 @@ function renderFivePointChips(params: {
   );
 }
 
+function hasRecoveryDetail(
+  recovery: CheckinRecoveryDraft,
+  adherence: CheckinAdherenceDraft,
+): boolean {
+  return (
+    recovery.confidenceLevel !== null ||
+    recovery.mobilityLevel !== null ||
+    adherence.medicationStatus !== null ||
+    Boolean(adherence.medicationReason?.trim())
+  );
+}
+
+function renderFixedFiveChoiceControl(params: {
+  value: number | null;
+  onChange: (nextValue: number) => void;
+  options: Record<number, string>;
+  helperText?: string;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { value, onChange, options, helperText, styles } = params;
+
+  return (
+    <View style={styles.fixedChoiceStack}>
+      {helperText ? <Text style={styles.helperText}>{helperText}</Text> : null}
+      <View style={styles.fixedChoiceRow}>
+        {FIVE_POINT_CHOICES.map((entry) => {
+          const selected = value === entry;
+          return (
+            <Pressable
+              key={`fixed-choice-${entry}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Set value ${entry}`}
+              accessibilityState={{ selected }}
+              onPress={() => onChange(entry)}
+              style={({ pressed }) => [
+                styles.fixedChoiceButton,
+                selected ? styles.fixedChoiceButtonSelected : null,
+                pressed ? styles.choiceChipPressed : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.fixedChoiceValue,
+                  selected ? styles.fixedChoiceValueSelected : null,
+                ]}
+              >
+                {entry}
+              </Text>
+              <Text
+                numberOfLines={2}
+                style={[
+                  styles.fixedChoiceCaption,
+                  selected ? styles.fixedChoiceCaptionSelected : null,
+                ]}
+              >
+                {options[entry]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 export default function CheckinScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<CheckinDevParams>();
@@ -489,14 +564,17 @@ export default function CheckinScreen() {
     selections: {},
   });
   const [notes, setNotes] = useState("");
+  const [showRecoveryDetails, setShowRecoveryDetails] = useState(false);
   const [showDailyContext, setShowDailyContext] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
   const [submittedCheckin, setSubmittedCheckin] = useState<SubmittedCheckinState | null>(null);
   const [pendingValidationField, setPendingValidationField] =
     useState<CheckinValidationField | null>(null);
+  const [draftHydrated, setDraftHydrated] = useState(false);
   const scrollViewRef = useRef<ScrollView | null>(null);
   const validationFieldOffsets = useRef<Partial<Record<CheckinValidationField, number>>>({});
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const friendlyDate = useMemo(
     () =>
@@ -566,6 +644,135 @@ export default function CheckinScreen() {
     return () => clearTimeout(timer);
   }, [activeStep, pendingValidationField, scrollToValidationField]);
 
+  useEffect(() => {
+    let active = true;
+
+    if (auth.status !== "signedIn" || !patientId || !date) {
+      setDraftHydrated(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    setDraftHydrated(false);
+    void (async () => {
+      const draftRecord = await getCheckinDraft(patientId, date);
+      if (!active) {
+        return;
+      }
+
+      if (draftRecord) {
+        setPain(draftRecord.pain);
+        setSymptomFlags(draftRecord.symptomFlags);
+        setRecovery(draftRecord.recovery);
+        setAdherence(draftRecord.adherence);
+        setSupport(draftRecord.support);
+        setDailySignals(draftRecord.dailySignals);
+        setBodyMap(draftRecord.bodyMap);
+        setNotes(draftRecord.notes);
+        setShowRecoveryDetails(
+          draftRecord.showRecoveryDetails ||
+            hasRecoveryDetail(draftRecord.recovery, draftRecord.adherence),
+        );
+        setShowDailyContext(draftRecord.showDailyContext);
+        setActiveStep(Math.max(0, Math.min(CHECKIN_STEPS.length - 1, draftRecord.activeStep)));
+        setNotice({
+          variant: "info",
+          title: "Draft restored",
+          message: "Your unfinished check-in from earlier today is ready to continue.",
+        });
+      }
+
+      setDraftHydrated(true);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [auth.status, date, patientId]);
+
+  const draftRecord = useMemo<CheckinDraftRecord | null>(() => {
+    if (!patientId || !date) {
+      return null;
+    }
+
+    return buildCheckinDraftRecord({
+      patientId,
+      date,
+      activeStep,
+      showRecoveryDetails,
+      showDailyContext:
+        showDailyContext ||
+        dailySignals.sleepHours !== null ||
+        dailySignals.sleepQuality !== null ||
+        dailySignals.sleepDisturbances !== null ||
+        dailySignals.hydrationLevel !== null ||
+        dailySignals.energyLevel !== null,
+      pain,
+      symptomFlags,
+      recovery,
+      adherence,
+      support,
+      dailySignals,
+      bodyMap,
+      notes,
+    });
+  }, [
+    activeStep,
+    adherence,
+    bodyMap,
+    dailySignals,
+    date,
+    notes,
+    pain,
+    patientId,
+    recovery,
+    showRecoveryDetails,
+    showDailyContext,
+    support,
+    symptomFlags,
+  ]);
+
+  useEffect(() => {
+    if (!draftHydrated || auth.status !== "signedIn" || !patientId || !date || submittedCheckin) {
+      return;
+    }
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      if (!draftRecord) {
+        return;
+      }
+
+      if (
+        !hasMeaningfulCheckinDraft({
+          pain: draftRecord.pain,
+          symptomFlags: draftRecord.symptomFlags,
+          recovery: draftRecord.recovery,
+          adherence: draftRecord.adherence,
+          support: draftRecord.support,
+          dailySignals: draftRecord.dailySignals,
+          bodyMap: draftRecord.bodyMap,
+          notes: draftRecord.notes,
+        })
+      ) {
+        void clearCheckinDraft(patientId, date);
+        return;
+      }
+
+      void setCheckinDraft(draftRecord);
+    }, CHECKIN_AUTO_SAVE_DELAY_MS);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [auth.status, date, draftHydrated, draftRecord, patientId, submittedCheckin]);
+
   const resetForm = () => {
     setPain(0);
     setSymptomFlags([]);
@@ -599,6 +806,7 @@ export default function CheckinScreen() {
       selections: {},
     });
     setNotes("");
+    setShowRecoveryDetails(false);
     setShowDailyContext(false);
     setActiveStep(0);
   };
@@ -643,6 +851,7 @@ export default function CheckinScreen() {
         },
       });
       setNotes("Knee felt tight after exercises but manageable.");
+      setShowRecoveryDetails(true);
       setNotice({
         variant: "success",
         title: "Preset applied",
@@ -688,6 +897,7 @@ export default function CheckinScreen() {
         },
       });
       setNotes("Pain spiked after walking and I need help today.");
+      setShowRecoveryDetails(true);
       setNotice({
         variant: "warning",
         title: "Preset applied",
@@ -999,12 +1209,12 @@ export default function CheckinScreen() {
         pathname: "/safety",
         params: routeParams,
       });
-      resetForm();
       setSubmittedCheckin(null);
       return;
     }
 
     const submittedAtISO = new Date().toISOString();
+    await clearCheckinDraft(patientId, date);
     setSubmittedCheckin({
       submittedAtISO,
       summary: reviewSummary,
@@ -1178,6 +1388,7 @@ export default function CheckinScreen() {
 
   const renderRecoveryStep = () => (
     <CheckinStepCard
+      compact
       title="How recovery is going"
       description="Keep this practical: what you completed and how the plan felt."
       icon="exercise"
@@ -1206,9 +1417,10 @@ export default function CheckinScreen() {
 
       <CheckinFieldBlock
         title="How rehab felt"
-        description="These ratings help your clinician understand how manageable recovery feels."
+        description="Start with the main effort rating for today’s plan."
+        compact
       >
-        <View style={styles.metricStack}>
+        <View style={styles.metricStackCompact}>
           {renderFivePointChips({
             label: "Rehab difficulty",
             value: recovery.difficultyLevel,
@@ -1224,7 +1436,40 @@ export default function CheckinScreen() {
             options: FIVE_POINT_DIFFICULTY_LABELS,
             styles,
           })}
+        </View>
+      </CheckinFieldBlock>
 
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.recoveryDisclosureCard}
+      >
+        <View style={styles.inlineHeaderRow}>
+          <View style={styles.sectionStack}>
+            <Text style={styles.fieldLabel}>Optional detail</Text>
+            <Text style={styles.helperText}>
+              Add confidence, mobility, or medication detail only when it helps explain today.
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              showRecoveryDetails ? "Hide optional recovery details" : "Show optional recovery details"
+            }
+            onPress={() => setShowRecoveryDetails((current) => !current)}
+            style={({ pressed }) => [
+              styles.inlineTextButton,
+              pressed ? styles.inlineTextButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.inlineTextButtonText}>
+              {showRecoveryDetails ? "Hide details" : "Add details"}
+            </Text>
+          </Pressable>
+        </View>
+
+        {showRecoveryDetails ? (
+          <View style={styles.metricStackCompact}>
           {renderFivePointChips({
             label: "Confidence in progress",
             value: recovery.confidenceLevel,
@@ -1254,90 +1499,91 @@ export default function CheckinScreen() {
             options: FIVE_POINT_RECOVERY_LABELS,
             styles,
           })}
-        </View>
-      </CheckinFieldBlock>
+            <CheckinFieldBlock
+              title="Medication"
+              description="Record whether medication was taken today."
+              compact
+            >
+              <SegmentedControl
+                value={adherence.medicationStatus ?? "skip"}
+                onChange={(value: MedicationStatusOption) => {
+                  setNotice(null);
+                  setAdherence((current) => ({
+                    ...current,
+                    medicationStatus: value === "skip" ? null : value,
+                    medicationReason:
+                      value === "taken" || value === "skip" ? null : current.medicationReason,
+                  }));
+                }}
+                options={[
+                  { value: "skip", label: "Skip" },
+                  ...CHECKIN_MEDICATION_STATUSES.map((status) => ({
+                    value: status,
+                    label: MEDICATION_STATUS_LABELS[status],
+                  })),
+                ]}
+                allowWrap
+                tone="primary"
+                accessibilityLabel="Medication status"
+              />
 
-      <CheckinFieldBlock
-        title="Medication"
-        description="Record whether medication was taken today."
-      >
-        <SegmentedControl
-          value={adherence.medicationStatus ?? "skip"}
-          onChange={(value: MedicationStatusOption) => {
-            setNotice(null);
-            setAdherence((current) => ({
-              ...current,
-              medicationStatus: value === "skip" ? null : value,
-              medicationReason:
-                value === "taken" || value === "skip" ? null : current.medicationReason,
-            }));
-          }}
-          options={[
-            { value: "skip", label: "Skip" },
-            ...CHECKIN_MEDICATION_STATUSES.map((status) => ({
-              value: status,
-              label: MEDICATION_STATUS_LABELS[status],
-            })),
-          ]}
-          allowWrap
-          tone="primary"
-          accessibilityLabel="Medication status"
-        />
-
-        {adherence.medicationStatus && adherence.medicationStatus !== "taken" ? (
-          <View style={styles.fieldGroup}>
-            <View style={styles.inlineHeaderRow}>
-              <Text style={styles.fieldLabel}>Why was it missed or not needed?</Text>
-              {adherence.medicationReason ? (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setNotice(null);
-                    setAdherence((current) => ({ ...current, medicationReason: null }));
-                  }}
-                  style={({ pressed }) => [
-                    styles.clearOptionalButton,
-                    pressed ? styles.clearOptionalButtonPressed : null,
-                  ]}
-                >
-                  <Text style={styles.clearOptionalButtonText}>Clear</Text>
-                </Pressable>
+              {adherence.medicationStatus && adherence.medicationStatus !== "taken" ? (
+                <View style={styles.fieldGroup}>
+                  <View style={styles.inlineHeaderRow}>
+                    <Text style={styles.fieldLabel}>Why was it missed or not needed?</Text>
+                    {adherence.medicationReason ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => {
+                          setNotice(null);
+                          setAdherence((current) => ({ ...current, medicationReason: null }));
+                        }}
+                        style={({ pressed }) => [
+                          styles.clearOptionalButton,
+                          pressed ? styles.clearOptionalButtonPressed : null,
+                        ]}
+                      >
+                        <Text style={styles.clearOptionalButtonText}>Clear</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <View style={styles.chipRow}>
+                    {MEDICATION_REASON_OPTIONS.map((option) => {
+                      const selected = adherence.medicationReason === option;
+                      return (
+                        <Pressable
+                          key={option}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Set medication reason ${option}`}
+                          accessibilityState={{ selected }}
+                          onPress={() => {
+                            setNotice(null);
+                            setAdherence((current) => ({ ...current, medicationReason: option }));
+                          }}
+                          style={({ pressed }) => [
+                            styles.choiceChip,
+                            selected ? styles.choiceChipSelected : null,
+                            pressed ? styles.choiceChipPressed : null,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.choiceChipText,
+                              selected ? styles.choiceChipTextSelected : null,
+                            ]}
+                          >
+                            {option}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
               ) : null}
-            </View>
-            <View style={styles.chipRow}>
-              {MEDICATION_REASON_OPTIONS.map((option) => {
-                const selected = adherence.medicationReason === option;
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Set medication reason ${option}`}
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      setNotice(null);
-                      setAdherence((current) => ({ ...current, medicationReason: option }));
-                    }}
-                    style={({ pressed }) => [
-                      styles.choiceChip,
-                      selected ? styles.choiceChipSelected : null,
-                      pressed ? styles.choiceChipPressed : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.choiceChipText,
-                        selected ? styles.choiceChipTextSelected : null,
-                      ]}
-                    >
-                      {option}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            </CheckinFieldBlock>
           </View>
         ) : null}
-      </CheckinFieldBlock>
+      </Card>
     </CheckinStepCard>
   );
 
@@ -1348,20 +1594,30 @@ export default function CheckinScreen() {
       icon="coping"
       tone="success"
     >
-      {renderFivePointChips({
-        label: "Mood",
-        value: support.mood,
-        onChange: (value) => {
-          setNotice(null);
-          setSupport((current) => ({ ...current, mood: value }));
-        },
-        helperText: "1 is very low and 5 is very strong.",
-        errorText: activeStep === 2 && validationState?.field === "mood" ? validationState.message : null,
-        options: FIVE_POINT_RECOVERY_LABELS,
-        styles,
-        fieldId: "mood",
-        onMeasureField: registerValidationField,
-      })}
+      <CheckinFieldBlock
+        title="Mood"
+        description="Choose the number that best matches your mood today."
+        errorText={
+          activeStep === 2 && validationState?.field === "mood"
+            ? validationState.message
+            : null
+        }
+        fieldId="mood"
+        onMeasureField={(fieldId, y) =>
+          registerValidationField(fieldId as CheckinValidationField, y)
+        }
+      >
+        {renderFixedFiveChoiceControl({
+          value: support.mood,
+          onChange: (value) => {
+            setNotice(null);
+            setSupport((current) => ({ ...current, mood: value }));
+          },
+          helperText: "1 is very low and 5 is very strong.",
+          options: FIVE_POINT_RECOVERY_LABELS,
+          styles,
+        })}
+      </CheckinFieldBlock>
 
       <OptionalStepper
         label="Stress or overwhelm"
@@ -1555,9 +1811,9 @@ export default function CheckinScreen() {
           <Text style={styles.reviewLabel}>Recovery</Text>
           <Text style={styles.reviewValue}>
             {`${recovery.exercisePercent}% complete · ${scaleLabel(
-              recovery.confidenceLevel,
-              FIVE_POINT_RECOVERY_LABELS,
-            )} confidence`}
+              recovery.difficultyLevel,
+              FIVE_POINT_DIFFICULTY_LABELS,
+            )} difficulty`}
           </Text>
         </View>
         <View style={styles.reviewGridItem}>
@@ -1909,6 +2165,49 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
+    fixedChoiceStack: {
+      gap: tokens.spacing.sm,
+    },
+    fixedChoiceRow: {
+      flexDirection: "row",
+      alignItems: "stretch",
+      gap: tokens.spacing.sm,
+    },
+    fixedChoiceButton: {
+      flex: 1,
+      minHeight: 86,
+      borderRadius: tokens.radius.lg,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: tokens.spacing.xs,
+      paddingVertical: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+    },
+    fixedChoiceButtonSelected: {
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primarySoft,
+    },
+    fixedChoiceValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    fixedChoiceValueSelected: {
+      color: tokens.colors.primary,
+    },
+    fixedChoiceCaption: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textAlign: "center",
+    },
+    fixedChoiceCaptionSelected: {
+      color: tokens.colors.primary,
+    },
     choiceChip: {
       minWidth: 56,
       minHeight: 44,
@@ -2061,6 +2360,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     metricStack: {
       gap: tokens.spacing.lg,
+    },
+    metricStackCompact: {
+      gap: tokens.spacing.md,
+    },
+    recoveryDisclosureCard: {
+      gap: tokens.spacing.md,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      borderColor: tokens.colors.border,
     },
     regionDetailStack: {
       gap: tokens.spacing.md,

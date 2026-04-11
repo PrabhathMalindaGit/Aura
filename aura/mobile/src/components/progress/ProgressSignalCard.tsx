@@ -66,8 +66,8 @@ export function ProgressSignalCard({
         <View style={styles.chartWrap}>
           <MicroSparkline
             values={sparklineValues}
-            width={108}
-            height={36}
+            width={112}
+            height={44}
             strokeWidth={2.5}
             tone={sparklineTone}
             showBaseline
@@ -85,7 +85,7 @@ export function ProgressSignalCard({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     card: {
-      minHeight: 176,
+      minHeight: 184,
       gap: tokens.spacing.md,
       backgroundColor: tokens.colors.surface,
     },
@@ -110,7 +110,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     chartWrap: {
-      minHeight: 36,
+      minHeight: 44,
       justifyContent: "center",
     },
     detail: {

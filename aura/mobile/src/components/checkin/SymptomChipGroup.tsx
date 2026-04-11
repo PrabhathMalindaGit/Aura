@@ -35,6 +35,7 @@ export function SymptomChipGroup<T extends string>({
               key={option.value}
               accessibilityRole="button"
               accessibilityLabel={`${selected ? 'Remove' : 'Add'} ${option.label}`}
+              accessibilityHint={selected ? 'Currently selected' : 'Double tap to select'}
               accessibilityState={{ selected }}
               onPress={() => onToggle(option.value)}
               style={({ pressed }) => [
@@ -43,9 +44,17 @@ export function SymptomChipGroup<T extends string>({
                 pressed ? styles.chipPressed : null,
               ]}
             >
-              <Text style={[styles.chipText, selected ? styles.chipTextSelected : null]}>
-                {option.label}
-              </Text>
+              <View style={styles.chipContent}>
+                <View
+                  style={[
+                    styles.selectionDot,
+                    selected ? styles.selectionDotSelected : null,
+                  ]}
+                />
+                <Text style={[styles.chipText, selected ? styles.chipTextSelected : null]}>
+                  {option.label}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
@@ -83,9 +92,27 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     chipSelected: {
       borderColor: tokens.colors.primary,
       backgroundColor: tokens.colors.primarySoft,
+      borderWidth: 1.5,
     },
     chipPressed: {
       opacity: 0.84,
+    },
+    chipContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: tokens.spacing.xs,
+    },
+    selectionDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceSubtle,
+    },
+    selectionDotSelected: {
+      borderColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primary,
     },
     chipText: {
       color: tokens.colors.text,

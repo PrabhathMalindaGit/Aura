@@ -51,10 +51,10 @@ export function CheckinConfirmationPanel({
             <View style={styles.copy}>
               <Text style={styles.eyebrow}>Today’s check-in</Text>
               <Text accessibilityRole="header" style={styles.title}>
-                Check-in saved
+                Check-in submitted
               </Text>
               <Text style={styles.description}>
-                Your update was recorded and added to your recovery timeline.
+                Your update was recorded and added to today’s recovery timeline.
               </Text>
             </View>
           </View>

@@ -46,9 +46,13 @@ import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import {
+  assessProgressValue,
   buildProgressHistoryRows,
   buildProgressStoryCopy,
   describeTrendChange,
+  evaluateProgressTrend,
+  getProgressHistoryStatus,
+  type ProgressAssessment,
   type ProgressHistoryRow,
 } from "@/src/utils/progressPresentation";
 import { parseCheckinTime } from "@/src/utils/progressStats";
@@ -73,7 +77,7 @@ type TrendItem = {
   title: string;
   deltaLabel: string;
   deltaValue: number | null;
-  assessment: string;
+  assessment: ProgressAssessment;
   direction: "up" | "down" | "flat";
   variant: PillVariant;
   hasData: boolean;
@@ -94,13 +98,6 @@ type TrendSplit = {
   previous: number | null;
   recent: number | null;
 };
-
-type HistoryCardStatus =
-  | {
-      text: string;
-      tone: "neutral" | "info" | "success" | "warning" | "danger";
-    }
-  | undefined;
 
 function toFriendlyProgressError(error: unknown): {
   title: string;
@@ -217,34 +214,6 @@ function average(values: number[]): number | null {
   return total / values.length;
 }
 
-function deriveAssessment(
-  value: number | null,
-  thresholds: { good: number; okay: number },
-  preferHigh = true,
-): { label: string; variant: PillVariant } {
-  if (value === null || !Number.isFinite(value)) {
-    return { label: "No data yet", variant: "neutral" };
-  }
-
-  if (preferHigh) {
-    if (value >= thresholds.good) {
-      return { label: "Improving", variant: "success" };
-    }
-    if (value >= thresholds.okay) {
-      return { label: "Stable", variant: "info" };
-    }
-    return { label: "Needs attention", variant: "warning" };
-  }
-
-  if (value <= thresholds.good) {
-    return { label: "Improving", variant: "success" };
-  }
-  if (value <= thresholds.okay) {
-    return { label: "Stable", variant: "info" };
-  }
-  return { label: "Needs attention", variant: "warning" };
-}
-
 function computeTrendSplit(
   items: CheckInItem[],
   rangeDays: RangeDays,
@@ -279,81 +248,6 @@ function computeTrendSplit(
     previous: average(previousValues),
     recent: average(recentValues),
   };
-}
-
-function evaluateTrend(
-  previous: number | null,
-  recent: number | null,
-  betterWhen: "higher" | "lower",
-  threshold: number,
-  unit = "",
-): Omit<TrendItem, "key" | "title"> {
-  if (
-    previous === null ||
-    recent === null ||
-    !Number.isFinite(previous) ||
-    !Number.isFinite(recent)
-  ) {
-    return {
-      deltaLabel: "Building",
-      deltaValue: null,
-      assessment: "No data yet",
-      direction: "flat",
-      variant: "neutral",
-      hasData: false,
-    };
-  }
-
-  const delta = recent - previous;
-  const absDelta = Math.abs(delta);
-  const rounded = Number(delta.toFixed(unit === "%" ? 0 : 1));
-  const sign = rounded > 0 ? "+" : "";
-  const deltaLabel = `${sign}${rounded}${unit}`;
-
-  if (absDelta <= threshold) {
-    return {
-      deltaLabel,
-      deltaValue: rounded,
-      assessment: "Stable",
-      direction: "flat",
-      variant: "info",
-      hasData: true,
-    };
-  }
-
-  const improving = betterWhen === "higher" ? delta > 0 : delta < 0;
-
-  return {
-    deltaLabel,
-    deltaValue: rounded,
-    assessment: improving ? "Improving" : "Needs attention",
-    direction:
-      improving
-        ? betterWhen === "higher"
-          ? "up"
-          : "down"
-        : betterWhen === "higher"
-          ? "down"
-          : "up",
-    variant: improving ? "success" : "warning",
-    hasData: true,
-  };
-}
-
-function historyStatus(item: CheckInItem): HistoryCardStatus {
-  if (item.support?.needsUrgentHelp || item.support?.feelsSafe === false) {
-    return { text: "Safety check", tone: "danger" };
-  }
-
-  if (item.support?.wantsFollowUp || item.support?.wantsExtraSupport) {
-    return { text: "Support requested", tone: "warning" };
-  }
-
-  if (item.notes?.trim()) {
-    return { text: "Note added", tone: "info" };
-  }
-
-  return undefined;
 }
 
 function historySubtitle(item: CheckInItem): string {
@@ -602,17 +496,29 @@ export default function ProgressScreen() {
 
     return [
       {
-        ...evaluateTrend(painSplit.previous, painSplit.recent, "lower", 0.3),
+        ...evaluateProgressTrend({
+          key: "pain",
+          previous: painSplit.previous,
+          recent: painSplit.recent,
+        }),
         key: "pain",
         title: "Pain",
       },
       {
-        ...evaluateTrend(moodSplit.previous, moodSplit.recent, "higher", 0.2),
+        ...evaluateProgressTrend({
+          key: "mood",
+          previous: moodSplit.previous,
+          recent: moodSplit.recent,
+        }),
         key: "mood",
         title: "Mood",
       },
       {
-        ...evaluateTrend(adherenceSplit.previous, adherenceSplit.recent, "higher", 5, "%"),
+        ...evaluateProgressTrend({
+          key: "adherence",
+          previous: adherenceSplit.previous,
+          recent: adherenceSplit.recent,
+        }),
         key: "adherence",
         title: "Exercise adherence",
       },
@@ -620,9 +526,9 @@ export default function ProgressScreen() {
   }, [filteredItems, rangeDays]);
 
   const signalItems = useMemo<SignalItem[]>(() => {
-    const painStatus = deriveAssessment(painAvg, { good: 4, okay: 6 }, false);
-    const moodStatus = deriveAssessment(moodAvg, { good: 4, okay: 3 }, true);
-    const adherenceStatus = deriveAssessment(exerciseAvgPct, { good: 75, okay: 50 }, true);
+    const painStatus = assessProgressValue("pain", painAvg);
+    const moodStatus = assessProgressValue("mood", moodAvg);
+    const adherenceStatus = assessProgressValue("adherence", exerciseAvgPct);
 
     const painTrend = trendItems.find((trend) => trend.key === "pain") ?? {
       key: "pain",
@@ -701,11 +607,7 @@ export default function ProgressScreen() {
     ];
 
     if (hydrationStats.avg !== null || hydrationSeries.length > 0) {
-      const hydrationStatus = deriveAssessment(
-        hydrationStats.avg,
-        { good: 1800, okay: 1400 },
-        true,
-      );
+      const hydrationStatus = assessProgressValue("hydration", hydrationStats.avg);
 
       summary.push({
         key: "hydration",
@@ -721,7 +623,7 @@ export default function ProgressScreen() {
         sparklineTone: sparklineToneFromVariant(hydrationStatus.variant),
       });
     } else {
-      const sleepStatus = deriveAssessment(sleepAvgHours, { good: 7, okay: 6 }, true);
+      const sleepStatus = assessProgressValue("sleep", sleepAvgHours);
       summary.push({
         key: "sleep",
         title: "Sleep",
@@ -1193,7 +1095,7 @@ export default function ProgressScreen() {
                 subtitle={historySubtitle(item)}
                 chips={historyChips(item)}
                 maxChips={3}
-                statusPill={historyStatus(item)}
+                statusPill={getProgressHistoryStatus(item)}
                 onPress={() => {
                   setSelectedCheckin(item);
                   router.push("/checkin-detail" as any);

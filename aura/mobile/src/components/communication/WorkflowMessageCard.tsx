@@ -13,6 +13,7 @@ type WorkflowMessageCardProps = {
   text: string;
   chips?: string[];
   tone?: TipCardTone;
+  statusLabel?: string;
   actionLabel: string;
   onAction: () => void;
   compact?: boolean;
@@ -34,7 +35,7 @@ function resolveToneStyles(
       backgroundColor: tokens.colors.warningSoft,
       borderColor: tokens.colors.warning,
       iconTone: "warning",
-      statusLabel: "Needs attention",
+      statusLabel: "Response delayed",
       statusVariant: "warning",
     };
   }
@@ -53,7 +54,7 @@ function resolveToneStyles(
     backgroundColor: tokens.colors.primarySoft,
     borderColor: tokens.colors.primary,
     iconTone: "primary",
-    statusLabel: "Care update",
+    statusLabel: "Care team reviewing",
     statusVariant: "info",
   };
 }
@@ -63,6 +64,7 @@ export function WorkflowMessageCard({
   text,
   chips = [],
   tone = "info",
+  statusLabel,
   actionLabel,
   onAction,
   compact = false,
@@ -99,7 +101,7 @@ export function WorkflowMessageCard({
               <Text style={styles.title}>{title}</Text>
             </View>
             <StatusPill
-              label={toneStyles.statusLabel}
+              label={statusLabel ?? toneStyles.statusLabel}
               variant={toneStyles.statusVariant}
               accessible={false}
             />

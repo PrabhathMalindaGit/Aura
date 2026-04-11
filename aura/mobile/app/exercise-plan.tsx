@@ -1,5 +1,5 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -30,16 +30,19 @@ import { Screen } from "@/src/components/Screen";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
+import { getActiveExerciseSession } from "@/src/state/activeExerciseSession";
 import {
   getCachedExercisePlan,
   setCachedExercisePlan,
 } from "@/src/state/exercisePlanCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
+import { getPending, type PendingExerciseSession } from "@/src/state/pendingSessions";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTokens } from "@/src/theme/tokens";
 import { formatISOToHuman } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { derivePlanUiState } from "@/src/utils/planState";
 
 type LoadSource = "live" | "cache" | "none";
 
@@ -191,11 +194,30 @@ export default function ExercisePlanScreen() {
 
   const patientId = auth.patient?.id ?? "";
   const [response, setResponse] = useState<TodayPlanResponse | null>(null);
+  const [pendingSessions, setPendingSessions] = useState<PendingExerciseSession[]>([]);
+  const [activeSession, setActiveSession] = useState<Awaited<
+    ReturnType<typeof getActiveExerciseSession>
+  > | null>(null);
   const [source, setSource] = useState<LoadSource>("none");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<PlanNotice | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+
+  const loadLocalPlanState = useCallback(async () => {
+    if (!patientId) {
+      setPendingSessions([]);
+      setActiveSession(null);
+      return;
+    }
+
+    const [pending, active] = await Promise.all([
+      getPending(patientId),
+      getActiveExerciseSession(patientId),
+    ]);
+    setPendingSessions(pending);
+    setActiveSession(active);
+  }, [patientId]);
 
   const loadPlan = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -216,6 +238,7 @@ export default function ExercisePlanScreen() {
         if (cached) {
           setResponse(cached.response);
           setSource("cache");
+          await loadLocalPlanState();
           setNotice({
             variant: "warning",
             title: "Offline",
@@ -243,6 +266,7 @@ export default function ExercisePlanScreen() {
         setResponse(livePlan);
         setSource("live");
         await setCachedExercisePlan(patientId, livePlan);
+        await loadLocalPlanState();
         await exercisePlanRefresh.refreshLocal();
         await exercisePlanError.clear();
       } catch (error) {
@@ -255,6 +279,7 @@ export default function ExercisePlanScreen() {
         });
 
         const cached = await getCachedExercisePlan(patientId);
+        await loadLocalPlanState();
         if (cached) {
           setResponse(cached.response);
           setSource("cache");
@@ -289,7 +314,7 @@ export default function ExercisePlanScreen() {
         setIsRefreshing(false);
       }
     },
-    [auth.token, exercisePlanError, exercisePlanRefresh, isOffline, patientId]
+    [auth.token, exercisePlanError, exercisePlanRefresh, isOffline, loadLocalPlanState, patientId]
   );
 
   useEffect(() => {
@@ -320,6 +345,15 @@ export default function ExercisePlanScreen() {
 
   const plan = response?.plan ?? null;
   const items = plan?.items ?? [];
+  const planUiState = useMemo(
+    () =>
+      derivePlanUiState({
+        response,
+        activeSession,
+        pendingSessions,
+      }),
+    [activeSession, pendingSessions, response],
+  );
   const dayLabel =
     response && response.dayOfWeek >= 0 && response.dayOfWeek <= 6
       ? DAY_LABELS[response.dayOfWeek]
@@ -394,16 +428,8 @@ export default function ExercisePlanScreen() {
 
         <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
           <Text style={styles.storyEyebrow}>Rehab plan</Text>
-          <Text style={styles.storyTitle}>
-            {items.length > 0
-              ? `Your plan for ${dayLabel ?? "today"} is ready`
-              : "Your rehab plan will appear here when it is ready"}
-          </Text>
-          <Text style={styles.storyText}>
-            {firstExercise
-              ? `Start with ${firstExercise.name} and move through the session one step at a time.`
-              : "When your clinician assigns exercises, this screen will guide you through what to do next."}
-          </Text>
+          <Text style={styles.storyTitle}>{planUiState.title}</Text>
+          <Text style={styles.storyText}>{planUiState.description}</Text>
         </Card>
 
         <View style={styles.trackerGrid}>
@@ -412,7 +438,7 @@ export default function ExercisePlanScreen() {
               icon="exercise"
               label="Exercises"
               value={`${items.length}`}
-              delta="Today"
+              delta={planUiState.restDay ? "Rest day" : "Today"}
               tone="accent"
               micro={{ type: "dots", values: [items.length, 0, 0, 0, 0, 0, 0] }}
             />
@@ -440,42 +466,116 @@ export default function ExercisePlanScreen() {
           <View style={styles.trackerTileWrap}>
             <TrackerTile
               icon="progress"
-              label="Status"
-              value={source === "live" ? "Live" : source === "cache" ? "Saved" : "None"}
-              delta="Data source"
-              tone={source === "live" ? "success" : source === "cache" ? "warning" : "muted"}
-              micro={{ type: "dots", values: [source === "live" ? 2 : source === "cache" ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+              label="Plan state"
+              value={planUiState.statusLabel}
+              delta={source === "live" ? "Live" : source === "cache" ? "Saved" : "Ready"}
+              tone={
+                planUiState.kind === "complete"
+                  ? "success"
+                  : planUiState.kind === "in_progress"
+                    ? "primary"
+                    : source === "cache"
+                      ? "warning"
+                      : "muted"
+              }
+              micro={{
+                type: "dots",
+                values: [
+                  planUiState.kind === "complete"
+                    ? 3
+                    : planUiState.kind === "in_progress"
+                      ? 2
+                      : planUiState.kind === "assigned"
+                        ? 1
+                        : 0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                ],
+              }}
             />
           </View>
         </View>
 
-        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
-          <Text style={styles.sectionEyebrow}>Do next</Text>
-          <Text style={styles.sectionTitle}>Start today’s rehab session when you’re ready</Text>
-          <Text style={styles.sectionText}>
-            Use the current plan as your guide, then log how the session felt once you finish.
-          </Text>
-        </Card>
-
         <MediaCard
           leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-          title={firstExercise ? `Start with ${firstExercise.name}` : "Start today’s session"}
+          title={
+            planUiState.kind === "no_plan_yet"
+              ? "No plan has been assigned yet"
+              : planUiState.restDay
+                ? "Nothing is scheduled for today"
+                : planUiState.kind === "in_progress"
+                  ? "Continue today’s session"
+                  : planUiState.kind === "complete"
+                    ? "Today’s session is already logged"
+                    : firstExercise
+                      ? `Start with ${firstExercise.name}`
+                      : "Open today’s plan"
+          }
           subtitle={
-            firstExercise
-              ? "Follow the planned exercise order and record how the session felt."
-              : "Log completion and how the session felt once a plan is assigned."
+            planUiState.kind === "no_plan_yet"
+              ? "You can still review previous sessions while your clinician prepares your next plan."
+              : planUiState.description
           }
           chips={[
-            { text: isOffline ? "Offline mode" : "Ready", tone: isOffline ? "warning" : "success" },
-            { text: `${items.length} exercises`, tone: "muted" },
+            {
+              text: planUiState.statusLabel,
+              tone:
+                planUiState.kind === "complete"
+                  ? "success"
+                  : planUiState.kind === "in_progress"
+                    ? "info"
+                    : planUiState.kind === "assigned"
+                      ? "muted"
+                      : "warning",
+            },
+            ...(planUiState.kind === "assigned" && planUiState.restDay
+              ? [{ text: "Nothing scheduled today", tone: "muted" as const }]
+              : items.length > 0
+                ? [{ text: `${items.length} exercises`, tone: "muted" as const }]
+                : []),
           ]}
-          variant={firstExercise ? "emphasis" : "default"}
+          variant={
+            planUiState.kind === "assigned" || planUiState.kind === "in_progress"
+              ? "emphasis"
+              : "default"
+          }
           actions={[
             {
-              label: "Start session",
-              kind: "primary",
+              label:
+                planUiState.kind === "no_plan_yet"
+                  ? "View sessions"
+                  : planUiState.kind === "complete"
+                    ? "View sessions"
+                    : planUiState.kind === "assigned" && planUiState.restDay
+                      ? "Open plan"
+                      : planUiState.primaryActionLabel,
+              kind:
+                planUiState.kind === "assigned" && !planUiState.restDay
+                  ? "primary"
+                  : planUiState.kind === "in_progress"
+                    ? "primary"
+                    : "secondary",
               onPress: () => {
-                router.push("/exercise-session");
+                if (planUiState.kind === "assigned" && !planUiState.restDay) {
+                  router.push("/exercise-session");
+                  return;
+                }
+
+                if (planUiState.kind === "in_progress") {
+                  router.push("/exercise-session");
+                  return;
+                }
+
+                if (planUiState.kind === "assigned" && planUiState.restDay) {
+                  router.push("/exercise-plan");
+                  return;
+                }
+
+                router.push("/exercise-sessions");
               },
             },
             {
@@ -487,14 +587,6 @@ export default function ExercisePlanScreen() {
             },
           ]}
         />
-
-        <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntroCard}>
-          <Text style={styles.sectionEyebrow}>Plan details</Text>
-          <Text style={styles.sectionTitle}>Move through the exercises in order</Text>
-          <Text style={styles.sectionText}>
-            Each exercise shows the planned dose, intensity, and any caution notes included in your plan.
-          </Text>
-        </Card>
 
         {plan ? (
           <Text style={styles.metaText}>
@@ -519,6 +611,7 @@ export default function ExercisePlanScreen() {
     firstExercise,
     items.length,
     notice,
+    planUiState,
     plan,
     response?.date,
     router,
@@ -531,10 +624,6 @@ export default function ExercisePlanScreen() {
     styles.listHeader,
     styles.metaText,
     styles.pressed,
-    styles.sectionEyebrow,
-    styles.sectionIntroCard,
-    styles.sectionText,
-    styles.sectionTitle,
     styles.storyCard,
     styles.storyEyebrow,
     styles.storyText,
@@ -601,11 +690,24 @@ export default function ExercisePlanScreen() {
           ]}
         >
           <View style={styles.headerPills}>
-            <StatusPill label={`${items.length} exercises`} variant="info" />
+            <StatusPill
+              label={
+                planUiState.restDay ? "Nothing scheduled today" : `${items.length} exercises`
+              }
+              variant={planUiState.restDay ? "neutral" : "info"}
+            />
             {estimatedMinutes !== null ? <StatusPill label={`${estimatedMinutes} min`} variant="neutral" /> : null}
             <StatusPill
-              label={isOffline ? "Offline" : source === "live" ? "Up to date" : "Saved"}
-              variant={isOffline ? "warning" : source === "live" ? "success" : "neutral"}
+              label={planUiState.statusLabel}
+              variant={
+                planUiState.kind === "complete"
+                  ? "success"
+                  : planUiState.kind === "in_progress"
+                    ? "info"
+                    : isOffline
+                      ? "warning"
+                      : "neutral"
+              }
             />
           </View>
         </HeroHeader>
@@ -622,8 +724,16 @@ export default function ExercisePlanScreen() {
             <View style={styles.centered}>
               <ActivityIndicator size="small" />
             </View>
+          ) : plan && items.length === 0 ? (
+            <Card variant="outlined" padding={tokens.spacing.md} style={styles.restDayCard}>
+              <Text style={styles.emptyTitle}>Nothing scheduled for today</Text>
+              <Text style={styles.emptyText}>
+                Your plan is still assigned. Use this screen to review the full program and return when exercises are scheduled again.
+              </Text>
+            </Card>
           ) : (
             <Card variant="outlined" padding={tokens.spacing.md}>
+              <Text style={styles.emptyTitle}>No plan assigned yet</Text>
               <Text style={styles.emptyText}>
                 No plan is assigned yet. Your clinician will add your exercises here when they are ready.
               </Text>
@@ -641,25 +751,20 @@ export default function ExercisePlanScreen() {
 
           return (
             <MediaCard
-              variant={item.order === 1 ? "emphasis" : "default"}
+              variant="default"
               leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-              title={item.name}
-              subtitle={item.instructions}
+              title={`${item.order}. ${item.name}`}
+              subtitle={
+                item.contraindications?.length
+                  ? `${item.instructions} Caution: ${item.contraindications.join(", ")}.`
+                  : item.instructions
+              }
               chips={chips}
               maxChips={4}
               statusPill={
-                item.order === 1
-                  ? { text: "Start here", tone: "info" }
-                  : { text: `Step ${item.order}`, tone: "neutral" }
+                item.order === 1 ? { text: "Start here", tone: "info" } : { text: `Step ${item.order}`, tone: "neutral" }
               }
               actions={[
-                {
-                  label: "Start session",
-                  kind: "primary",
-                  onPress: () => {
-                    router.push("/exercise-session");
-                  },
-                },
                 ...(item.videoUrl
                   ? [
                       {
@@ -720,6 +825,16 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.textMuted,
     },
+    emptyTitle: {
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      color: tokens.colors.text,
+      fontWeight: tokens.typography.weights.semibold,
+      marginBottom: tokens.spacing.xs,
+    },
+    restDayCard: {
+      backgroundColor: tokens.colors.surfaceSubtle,
+    },
     metaText: {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
@@ -743,28 +858,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     storyText: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-    },
-    sectionIntroCard: {
-      gap: tokens.spacing.xs,
-    },
-    sectionEyebrow: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-    },
-    sectionTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.section.fontSize,
-      lineHeight: tokens.typography.section.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-    },
-    sectionText: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,

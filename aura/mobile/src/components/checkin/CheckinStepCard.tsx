@@ -10,6 +10,7 @@ type CheckinStepCardProps = {
   description?: string;
   icon: DomainIconKey;
   tone?: DomainIconTone;
+  compact?: boolean;
   children: ReactNode;
 };
 
@@ -18,14 +19,18 @@ export function CheckinStepCard({
   description,
   icon,
   tone = "primary",
+  compact = false,
   children,
 }: CheckinStepCardProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
   return (
-    <Card padding={tokens.spacing.xl} style={styles.card}>
-      <View style={styles.stack}>
+    <Card
+      padding={compact ? tokens.spacing.lg : tokens.spacing.xl}
+      style={styles.card}
+    >
+      <View style={[styles.stack, compact ? styles.stackCompact : null]}>
         <View style={styles.header}>
           <View style={styles.iconWrap}>
             <DomainIcon icon={icon} size={18} tone={tone} accessibilityLabel={`${title} icon`} />
@@ -49,6 +54,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     stack: {
       gap: tokens.spacing.xl,
+    },
+    stackCompact: {
+      gap: tokens.spacing.lg,
     },
     header: {
       flexDirection: "row",

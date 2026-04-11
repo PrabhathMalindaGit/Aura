@@ -54,8 +54,8 @@ export function ProgressTrendCard({
           <View style={styles.chartWrap}>
             <MicroSparkline
               values={sparklineValues}
-              width={94}
-              height={40}
+              width={100}
+              height={44}
               strokeWidth={2.5}
               tone={sparklineTone}
               showBaseline

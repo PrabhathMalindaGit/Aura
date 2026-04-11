@@ -2,6 +2,7 @@ import type { CheckInCreatePayload } from '@/src/api/patient';
 import type {
   CheckinAdherenceDraft,
   CheckinBodyMapDraft,
+  CheckinDraftRecord,
   CheckinDailySignalsDraft,
   CheckinHelpLevel,
   CheckinReviewChip,
@@ -291,4 +292,53 @@ export function summarizePrimaryBodyMap(input: CheckinBodyMapDraft): string {
   }
 
   return labels.join(' · ');
+}
+
+function hasBodyMapSelections(input: CheckinBodyMapDraft): boolean {
+  return (
+    input.selectedRegions.length > 0 ||
+    input.primaryRegion !== null ||
+    Object.keys(input.selections).length > 0
+  );
+}
+
+export function hasMeaningfulCheckinDraft(input: {
+  pain: number;
+  symptomFlags: CheckinSymptomFlag[];
+  recovery: CheckinRecoveryDraft;
+  adherence: CheckinAdherenceDraft;
+  support: CheckinSupportDraft;
+  dailySignals: CheckinDailySignalsDraft;
+  bodyMap: CheckinBodyMapDraft;
+  notes: string;
+}): boolean {
+  return (
+    input.pain > 0 ||
+    input.symptomFlags.length > 0 ||
+    input.recovery.exercisePercent > 0 ||
+    input.recovery.difficultyLevel !== null ||
+    input.recovery.confidenceLevel !== null ||
+    input.recovery.mobilityLevel !== null ||
+    input.adherence.medicationStatus !== null ||
+    Boolean(input.adherence.medicationReason?.trim()) ||
+    input.support.mood !== null ||
+    input.support.stressLevel !== null ||
+    input.support.wantsExtraSupport ||
+    input.support.helpLevel !== null ||
+    input.support.safetyState !== null ||
+    input.dailySignals.sleepHours !== null ||
+    input.dailySignals.sleepQuality !== null ||
+    input.dailySignals.sleepDisturbances !== null ||
+    input.dailySignals.hydrationLevel !== null ||
+    input.dailySignals.energyLevel !== null ||
+    hasBodyMapSelections(input.bodyMap) ||
+    input.notes.trim().length > 0
+  );
+}
+
+export function buildCheckinDraftRecord(input: Omit<CheckinDraftRecord, 'savedAt'>): CheckinDraftRecord {
+  return {
+    ...input,
+    savedAt: Date.now(),
+  };
 }

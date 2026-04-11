@@ -9,6 +9,9 @@ const {
   scrollToMock,
   clearCheckinError,
   reloadCheckinError,
+  getCheckinDraft,
+  setCheckinDraft,
+  clearCheckinDraft,
 } = vi.hoisted(() => ({
   createCheckin: vi.fn(),
   routerPush: vi.fn(),
@@ -16,6 +19,9 @@ const {
   scrollToMock: vi.fn(),
   clearCheckinError: vi.fn(async () => undefined),
   reloadCheckinError: vi.fn(async () => undefined),
+  getCheckinDraft: vi.fn(async () => null),
+  setCheckinDraft: vi.fn(async () => undefined),
+  clearCheckinDraft: vi.fn(async () => undefined),
 }));
 
 vi.mock("expo-router", () => ({
@@ -244,6 +250,12 @@ vi.mock("@/src/state/auth", () => ({
   }),
 }));
 
+vi.mock("@/src/state/checkinDraft", () => ({
+  getCheckinDraft,
+  setCheckinDraft,
+  clearCheckinDraft,
+}));
+
 vi.mock("@/src/state/lastError", () => ({
   useLastError: () => ({
     label: "Never",
@@ -296,6 +308,20 @@ vi.mock("@/src/theme/tokens", () => ({
 
 import CheckinScreen from "@/app/(tabs)/checkin";
 
+function findByA11y(root: ReactTestRenderer["root"], label: string) {
+  const match = root.findAll(
+    (node) =>
+      typeof node.props?.accessibilityLabel === "string" &&
+      node.props.accessibilityLabel === label,
+  )[0];
+
+  if (!match) {
+    throw new Error(`Could not find accessibility label: ${label}`);
+  }
+
+  return match;
+}
+
 describe("Check-in screen validation", () => {
   let renderer: ReactTestRenderer | null = null;
 
@@ -305,6 +331,10 @@ describe("Check-in screen validation", () => {
     createCheckin.mockReset();
     clearCheckinError.mockReset();
     reloadCheckinError.mockReset();
+    getCheckinDraft.mockReset();
+    getCheckinDraft.mockResolvedValue(null);
+    setCheckinDraft.mockReset();
+    clearCheckinDraft.mockReset();
   });
 
   afterEach(() => {
@@ -351,5 +381,142 @@ describe("Check-in screen validation", () => {
 
     expect(text).toContain("Choose the number that best matches your mood today.");
     expect(scrollToMock).toHaveBeenCalled();
+  });
+
+  it("keeps recovery focused on two primary inputs until optional detail is expanded", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+    act(() => {
+      navigator.props.onSelectStep(1);
+    });
+
+    const initialText = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .map((node) => node.children.join(" "));
+
+    expect(initialText).toContain("Exercise completion");
+    expect(initialText).toContain("How rehab felt");
+    expect(initialText).not.toContain("Confidence in progress");
+    expect(initialText).not.toContain("Movement and function");
+
+    act(() => {
+      findByA11y(renderer!.root, "Show optional recovery details").props.onPress();
+    });
+
+    const expandedText = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .map((node) => node.children.join(" "));
+
+    expect(expandedText).toContain("Confidence in progress");
+    expect(expandedText).toContain("Movement and function");
+    expect(expandedText).toContain("Medication");
+  });
+
+  it("autosaves a same-day draft and clears it after a successful low-risk submit", async () => {
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "low", reasonCodes: [] },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+
+    await act(async () => {
+      vi.runAllTimers();
+      await Promise.resolve();
+    });
+
+    expect(setCheckinDraft).toHaveBeenCalled();
+
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin).toHaveBeenCalled();
+    expect(clearCheckinDraft).toHaveBeenCalledWith("patient-1", "2026-04-11");
+
+    const confirmation = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-checkin-confirmation-panel",
+    )[0];
+    expect(confirmation).toBeTruthy();
+  });
+
+  it("routes high-risk submissions to Safety without showing a success confirmation", async () => {
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "high", reasonCodes: ["URGENT_HELP"] },
+      alertId: "alert-1",
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith({
+      pathname: "/safety",
+      params: {
+        alertId: "alert-1",
+        reasonCodes: "URGENT_HELP",
+      },
+    });
+    expect(
+      renderer!.root.findAll(
+        (node) => String(node.type) === "mock-checkin-confirmation-panel",
+      ),
+    ).toHaveLength(0);
+    expect(clearCheckinDraft).not.toHaveBeenCalled();
   });
 });

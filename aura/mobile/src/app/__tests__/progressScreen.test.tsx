@@ -67,6 +67,7 @@ vi.mock("react-native", () => ({
     ),
   RefreshControl: (props: Record<string, unknown>) =>
     React.createElement("mock-refresh-control", props),
+  Platform: { OS: "web" },
   StyleSheet: {
     create: <T extends Record<string, unknown>>(styles: T) => styles,
   },
@@ -400,6 +401,74 @@ describe("ProgressScreen", () => {
     expect(text).toContain("Pain improved");
     expect(text).toContain("This week");
     expect(text).toContain("Last week");
+  });
+
+  it("uses the shared threshold logic to surface worsening trends and stronger high-risk history emphasis", async () => {
+    listCheckins.mockResolvedValue([
+      {
+        id: "checkin-1",
+        date: "2026-04-10T09:00:00.000Z",
+        pain: 8,
+        mood: 2,
+        adherence: { exercises: 0.4, medication: false },
+        support: { wantsFollowUp: true },
+      },
+      {
+        id: "checkin-2",
+        date: "2026-04-09T09:00:00.000Z",
+        pain: 7,
+        mood: 2,
+        adherence: { exercises: 0.5, medication: false },
+      },
+      {
+        id: "checkin-3",
+        date: "2026-04-03T09:00:00.000Z",
+        pain: 3,
+        mood: 4,
+        adherence: { exercises: 0.9, medication: true },
+      },
+      {
+        id: "checkin-4",
+        date: "2026-03-28T09:00:00.000Z",
+        pain: 2,
+        mood: 4,
+        adherence: { exercises: 0.8, medication: true },
+      },
+      {
+        id: "checkin-5",
+        date: "2026-03-20T09:00:00.000Z",
+        pain: 2,
+        mood: 4,
+        adherence: { exercises: 0.9, medication: true },
+      },
+      {
+        id: "checkin-6",
+        date: "2026-03-18T09:00:00.000Z",
+        pain: 3,
+        mood: 4,
+        adherence: { exercises: 0.85, medication: true },
+      },
+    ]);
+
+    let renderer: ReactTestRenderer;
+
+    await act(async () => {
+      renderer = create(<ProgressScreen />);
+    });
+
+    const trendCards = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-progress-trend-card",
+    );
+    const historyCards = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-media-card",
+    );
+
+    expect(trendCards.some((node) => node.props.statusLabel === "Worsening")).toBe(true);
+    expect(
+      historyCards.some(
+        (node) => node.props.statusPill?.text === "Support requested" || node.props.statusPill?.text === "High pain day",
+      ),
+    ).toBe(true);
   });
 
   it("shows a clearer empty state when there are no check-ins in the selected window", async () => {

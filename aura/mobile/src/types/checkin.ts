@@ -67,3 +67,20 @@ export type CheckinReviewChip = {
   label: string;
   tone: 'neutral' | 'accent' | 'warning' | 'success' | 'danger';
 };
+
+export type CheckinDraftRecord = {
+  patientId: string;
+  date: string;
+  savedAt: number;
+  activeStep: number;
+  showRecoveryDetails: boolean;
+  showDailyContext: boolean;
+  pain: number;
+  symptomFlags: CheckinSymptomFlag[];
+  recovery: CheckinRecoveryDraft;
+  adherence: CheckinAdherenceDraft;
+  support: CheckinSupportDraft;
+  dailySignals: CheckinDailySignalsDraft;
+  bodyMap: CheckinBodyMapDraft;
+  notes: string;
+};

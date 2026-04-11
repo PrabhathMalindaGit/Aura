@@ -37,6 +37,12 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
 import {
+  clearActiveExerciseSession,
+  getActiveExerciseSession,
+  setActiveExerciseSession,
+  type ActiveExerciseSessionRecord,
+} from "@/src/state/activeExerciseSession";
+import {
   getCachedExercisePlan,
   setCachedExercisePlan,
 } from "@/src/state/exercisePlanCache";
@@ -200,6 +206,23 @@ function toRunnerExercises(response: TodayPlanResponse): RunnerExercise[] {
     .sort((left, right) => left.order - right.order);
 }
 
+function fromStoredExercises(exercises: ActiveExerciseSessionRecord["exercises"]): RunnerExercise[] {
+  return (exercises ?? [])
+    .map((item) => ({
+      itemKey: item.itemKey,
+      nameSnapshot: item.nameSnapshot,
+      order: item.order,
+      instructions: item.instructions,
+      planned: item.planned,
+      completed: item.completed,
+      difficulty: item.difficulty,
+      painDuring: item.painDuring,
+      note: item.note,
+      completedAt: item.completedAt,
+    }))
+    .sort((left, right) => left.order - right.order);
+}
+
 export default function ExerciseSessionScreen() {
   const router = useRouter();
   const auth = useAuth();
@@ -213,6 +236,9 @@ export default function ExerciseSessionScreen() {
   const [planResponse, setPlanResponse] = useState<TodayPlanResponse | null>(null);
   const [sessionExercises, setSessionExercises] = useState<RunnerExercise[]>([]);
   const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
+  const [sessionRecordStatus, setSessionRecordStatus] = useState<"in_progress" | "complete">(
+    "in_progress",
+  );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -257,6 +283,58 @@ export default function ExerciseSessionScreen() {
     return () => clearInterval(timer);
   }, [sessionStartedAtMs]);
 
+  const applyLoadedPlan = useCallback(
+    async (response: TodayPlanResponse) => {
+      setPlanResponse(response);
+
+      if (!response.plan) {
+        setSessionExercises([]);
+        setSessionStartedAtMs(null);
+        setSessionRecordStatus("in_progress");
+        setElapsedSeconds(0);
+        await clearActiveExerciseSession(patientId);
+        return;
+      }
+
+      const stored = await getActiveExerciseSession(patientId);
+      const startedAtMs =
+        stored?.status === "in_progress" &&
+        stored.date === response.date &&
+        (stored.planVersion === response.plan.version || stored.planTitle === response.plan.title) &&
+        stored.exercises.length > 0
+          ? Date.parse(stored.startedAt)
+          : Number.NaN;
+
+      if (Number.isFinite(startedAtMs)) {
+        setSessionExercises(fromStoredExercises(stored!.exercises));
+        setSessionStartedAtMs(startedAtMs);
+        setSessionRecordStatus("in_progress");
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)));
+        return;
+      }
+
+      const freshExercises = toRunnerExercises(response);
+      const startedAt = new Date().toISOString();
+      setSessionExercises(freshExercises);
+      setSessionStartedAtMs(Date.parse(startedAt));
+      setSessionRecordStatus("in_progress");
+      setElapsedSeconds(0);
+
+      await setActiveExerciseSession({
+        patientId,
+        date: response.date,
+        planVersion: response.plan.version,
+        planTitle: response.plan.title,
+        planDayOfWeek: response.dayOfWeek,
+        startedAt,
+        status: "in_progress",
+        exercises: freshExercises,
+        updatedAt: Date.now(),
+      });
+    },
+    [patientId],
+  );
+
   const loadPlan = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
       if (!auth.token || !patientId) {
@@ -276,15 +354,14 @@ export default function ExerciseSessionScreen() {
         if (!cached?.response.plan) {
           setPlanResponse(cached?.response ?? null);
           setSessionExercises([]);
+          setSessionStartedAtMs(null);
+          setElapsedSeconds(0);
           setIsLoading(false);
           setIsRefreshing(false);
           return;
         }
 
-        setPlanResponse(cached.response);
-        setSessionExercises(toRunnerExercises(cached.response));
-        setSessionStartedAtMs(Date.now());
-        setElapsedSeconds(0);
+        await applyLoadedPlan(cached.response);
         setIsLoading(false);
         setIsRefreshing(false);
         return;
@@ -294,10 +371,7 @@ export default function ExerciseSessionScreen() {
         const response = await getTodayExercisePlan(auth.token, {
           tzOffsetMinutes: -new Date().getTimezoneOffset(),
         });
-        setPlanResponse(response);
-        setSessionExercises(toRunnerExercises(response));
-        setSessionStartedAtMs(Date.now());
-        setElapsedSeconds(0);
+        await applyLoadedPlan(response);
         await setCachedExercisePlan(patientId, response);
       } catch (error) {
         const friendly = toFriendlyError(error);
@@ -311,7 +385,7 @@ export default function ExerciseSessionScreen() {
         setIsRefreshing(false);
       }
     },
-    [auth.token, isOffline, patientId]
+    [applyLoadedPlan, auth.token, isOffline, patientId]
   );
 
   useEffect(() => {
@@ -320,6 +394,33 @@ export default function ExerciseSessionScreen() {
     }
     void loadPlan("initial");
   }, [auth.status, loadPlan]);
+
+  useEffect(() => {
+    if (!patientId || !planResponse?.plan || sessionStartedAtMs === null) {
+      return;
+    }
+
+    void setActiveExerciseSession({
+      patientId,
+      date: planResponse.date,
+      planVersion: planResponse.plan.version,
+      planTitle: planResponse.plan.title,
+      planDayOfWeek: planResponse.dayOfWeek,
+      startedAt: new Date(sessionStartedAtMs).toISOString(),
+      status: sessionRecordStatus,
+      completedAt: sessionRecordStatus === "complete" ? new Date().toISOString() : undefined,
+      completionSource: queuedLocalId ? "pending" : undefined,
+      exercises: sessionExercises,
+      updatedAt: Date.now(),
+    });
+  }, [
+    patientId,
+    planResponse,
+    queuedLocalId,
+    sessionExercises,
+    sessionRecordStatus,
+    sessionStartedAtMs,
+  ]);
 
   function openFeedback(index: number): void {
     const target = sessionExercises[index];
@@ -450,7 +551,23 @@ export default function ExerciseSessionScreen() {
     setNotice(null);
 
     if (isOffline) {
+      setSessionRecordStatus("complete");
       await queuePending(payload);
+      if (planResponse?.plan) {
+        await setActiveExerciseSession({
+          patientId,
+          date: planResponse.date,
+          planVersion: planResponse.plan.version,
+          planTitle: planResponse.plan.title,
+          planDayOfWeek: planResponse.dayOfWeek,
+          startedAt: payload.startedAt,
+          status: "complete",
+          completedAt: endedAtIso,
+          completionSource: "pending",
+          exercises: sessionExercises,
+          updatedAt: Date.now(),
+        });
+      }
       await saveSessionError.setLocalError({
         title: "Couldn’t save session",
         message: "You’re offline. Saved locally — not sent.",
@@ -472,6 +589,22 @@ export default function ExerciseSessionScreen() {
 
     try {
       const created = await createExerciseSession(auth.token, payload);
+      setSessionRecordStatus("complete");
+      if (planResponse?.plan) {
+        await setActiveExerciseSession({
+          patientId,
+          date: planResponse.date,
+          planVersion: planResponse.plan.version,
+          planTitle: planResponse.plan.title,
+          planDayOfWeek: planResponse.dayOfWeek,
+          startedAt: payload.startedAt,
+          status: "complete",
+          completedAt: endedAtIso,
+          completionSource: "server",
+          exercises: sessionExercises,
+          updatedAt: Date.now(),
+        });
+      }
       await exerciseSessionsRefresh.refreshLocal();
       await saveSessionError.clear();
 
@@ -486,7 +619,23 @@ export default function ExerciseSessionScreen() {
       router.replace("/exercise-sessions");
     } catch (error) {
       const friendly = toFriendlyError(error);
+      setSessionRecordStatus("complete");
       await queuePending(payload);
+      if (planResponse?.plan) {
+        await setActiveExerciseSession({
+          patientId,
+          date: planResponse.date,
+          planVersion: planResponse.plan.version,
+          planTitle: planResponse.plan.title,
+          planDayOfWeek: planResponse.dayOfWeek,
+          startedAt: payload.startedAt,
+          status: "complete",
+          completedAt: endedAtIso,
+          completionSource: "pending",
+          exercises: sessionExercises,
+          updatedAt: Date.now(),
+        });
+      }
       await saveSessionError.setLocalError({
         title: friendly.title,
         message: friendly.message,
@@ -516,6 +665,7 @@ export default function ExerciseSessionScreen() {
     router,
     saveSessionError,
     sessionExercises,
+    setSessionRecordStatus,
     sessionStartedAtMs,
     planResponse,
   ]);

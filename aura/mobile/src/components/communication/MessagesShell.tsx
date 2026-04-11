@@ -58,7 +58,7 @@ export function MessagesShell({
 
         {shortcuts.length > 0 ? (
           <View style={styles.shortcutsWrap}>
-            <Text style={styles.shortcutsLabel}>Quick links</Text>
+            <Text style={styles.shortcutsLabel}>Shortcuts</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}

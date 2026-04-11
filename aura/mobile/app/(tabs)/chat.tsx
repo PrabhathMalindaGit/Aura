@@ -651,10 +651,10 @@ export default function ChatScreen() {
       dueLabel === "Overdue" || task.priority === "urgent" || task.priority === "high";
 
     return {
-      title: isDelayed ? "A response is delayed" : "Your care team has an update",
+      title: isDelayed ? "Response delayed" : "Care team reviewing",
       text: isDelayed
-        ? "Your care team is waiting for a reply. You can still message them here."
-        : "Open the latest message and reply when you can.",
+        ? "A reply is taking longer than expected. You can still message your care team here."
+        : "Your care team is reviewing the latest update. You can still message here at any time.",
       chips: [
         dueLabel,
         extraCount > 0
@@ -662,6 +662,7 @@ export default function ChatScreen() {
           : formatPatientTaskSourceLabel(task),
       ].filter((value): value is string => Boolean(value)),
       tone: isDelayed ? ("warning" as const) : ("info" as const),
+      statusLabel: isDelayed ? "Response delayed" : "Care team reviewing",
       actionLabel: action.icon === "chat" ? "Reply here" : action.label,
       action: () => {
         router.push(action.href as never);
@@ -1330,10 +1331,17 @@ export default function ChatScreen() {
                   text={promptSummary.text}
                   chips={promptSummary.chips}
                   tone={promptSummary.tone}
+                  statusLabel={promptSummary.statusLabel}
                   actionLabel={promptSummary.actionLabel}
                   onAction={promptSummary.action}
                 />
-              ) : null}
+              ) : (
+                <Banner
+                  variant="info"
+                  title="You can still message here"
+                  message="Your care team conversation stays available even when there is no open prompt."
+                />
+              )}
 
               {showingOfflineCache && !isOffline ? (
                 <Banner

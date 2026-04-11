@@ -11,13 +11,18 @@ const {
   routerPush,
   getCachedExercisePlan,
   getCachedInsights,
+  getActiveExerciseSession,
+  getPending,
 } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   getCachedExercisePlan: vi.fn(async () => ({
     response: {
       plan: {
+        title: "Knee recovery",
         items: [{ name: "Heel slides" }, { name: "Walk for 10 minutes" }],
+        version: 2,
       },
+      date: "2026-04-11",
     },
   })),
   getCachedInsights: vi.fn(async () => ({
@@ -29,6 +34,8 @@ const {
       },
     ],
   })),
+  getActiveExerciseSession: vi.fn(async () => null),
+  getPending: vi.fn(async () => []),
 }));
 
 const reminderItems = [
@@ -126,6 +133,13 @@ vi.mock("@/src/api/tasks", () => ({
 
 vi.mock("@/src/api/patient", () => ({
   getDueProms: vi.fn(async () => []),
+  getWeeklyReport: vi.fn(async () => ({
+    summary: {
+      headline: "A steady week",
+      highlights: ["Pain stayed stable", "Medication stayed on track"],
+    },
+    checkins: { count: 2 },
+  })),
 }));
 
 vi.mock("@/src/components/Avatar", () => ({
@@ -234,6 +248,10 @@ vi.mock("@/src/state/auth", () => ({
   }),
 }));
 
+vi.mock("@/src/state/activeExerciseSession", () => ({
+  getActiveExerciseSession,
+}));
+
 vi.mock("@/src/state/appointmentsCache", () => ({
   getCachedAppointmentRequests: vi.fn(async () => ({ requests: [] })),
   setCachedAppointmentRequests: vi.fn(async () => undefined),
@@ -288,6 +306,10 @@ vi.mock("@/src/state/network", () => ({
   useIsOffline: () => false,
 }));
 
+vi.mock("@/src/state/pendingSessions", () => ({
+  getPending,
+}));
+
 vi.mock("@/src/state/trustStatus", () => ({
   useTrustStatus: () => ({ kind: "ok" }),
 }));
@@ -299,8 +321,10 @@ vi.mock("@/src/state/weeklyReportCache", () => ({
         headline: "A steady week",
         highlights: ["Pain stayed stable", "Medication stayed on track"],
       },
+      checkins: { count: 2 },
     },
   })),
+  setCachedWeeklyReport: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/src/dev/renderAudit", () => ({
@@ -369,11 +393,16 @@ describe("Today screen", () => {
     routerPush.mockReset();
     getCachedExercisePlan.mockReset();
     getCachedInsights.mockReset();
+    getActiveExerciseSession.mockReset();
+    getPending.mockReset();
     getCachedExercisePlan.mockResolvedValue({
       response: {
         plan: {
+          title: "Knee recovery",
           items: [{ name: "Heel slides" }, { name: "Walk for 10 minutes" }],
+          version: 2,
         },
+        date: "2026-04-11",
       },
     });
     getCachedInsights.mockResolvedValue({
@@ -385,6 +414,8 @@ describe("Today screen", () => {
         },
       ],
     });
+    getActiveExerciseSession.mockResolvedValue(null);
+    getPending.mockResolvedValue([]);
   });
 
   it("renders the new grouped attention summary and primary check-in block", async () => {
@@ -411,18 +442,30 @@ describe("Today screen", () => {
     const primaryButtons = findHostNodes(root, "mock-primary-button");
     expect(primaryButtons.map((node) => node.props.label)).toContain("Start check-in");
 
+    const weeklyReportCard = findHostNodes(root, "mock-media-card").find(
+      (node) => node.props.title === "Weekly report",
+    );
+    expect(weeklyReportCard).toBeTruthy();
+    expect(weeklyReportCard?.props.subtitle).toBe("A steady week");
+    expect(weeklyReportCard?.props.chips).toEqual([
+      expect.objectContaining({ text: "2 highlights" }),
+    ]);
+
     const sections = findHostNodes(root, "mock-section");
     expect(sections.map((node) => node.props.title)).toEqual(
       expect.arrayContaining(["Needs your attention", "Recovery signals", "Today’s plan", "Insights"]),
     );
   });
 
-  it("shows stronger empty states when plan and reviewed insights are not available yet", async () => {
+  it("shows rest-day plan truth and reviewed-insight empty state when no exercises are scheduled today", async () => {
     getCachedExercisePlan.mockResolvedValue({
       response: {
         plan: {
+          title: "Knee recovery",
           items: [],
+          version: 2,
         },
+        date: "2026-04-11",
       },
     });
     getCachedInsights.mockResolvedValue({ items: [] });
@@ -436,13 +479,21 @@ describe("Today screen", () => {
     const emptyStates = findHostNodes(renderer!.root, "mock-empty-state");
     const titles = emptyStates.map((node) => node.props.title);
     const descriptions = emptyStates.map((node) => node.props.description);
-
-    expect(titles).toEqual(
-      expect.arrayContaining(["No plan assigned for today", "No reviewed insights yet"]),
+    const planCard = findHostNodes(renderer!.root, "mock-media-card").find(
+      (node) => node.props.title === "Plan assigned for today",
     );
+
+    expect(planCard).toBeTruthy();
+    expect(planCard?.props.subtitle).toContain("Nothing is scheduled for today");
+    expect(planCard?.props.chips).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ text: "Assigned" }),
+        expect.objectContaining({ text: "Nothing scheduled today" }),
+      ]),
+    );
+    expect(titles).toEqual(expect.arrayContaining(["No reviewed insights yet"]));
     expect(descriptions).toEqual(
       expect.arrayContaining([
-        "There is nothing scheduled in your plan right now. Open your plan to review upcoming exercises.",
         "Keep completing check-ins and reviewed insights will appear here when they are ready.",
       ]),
     );

@@ -6,7 +6,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { listMyRequests, type AppointmentRequestItem } from "@/src/api/appointments";
 import { listPatientTasks } from "@/src/api/tasks";
-import { getDueProms, type CheckInItem, type PromDueCard } from "@/src/api/patient";
+import { getDueProms, getWeeklyReport, type CheckInItem, type PromDueCard } from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -25,6 +25,7 @@ import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
+import { getActiveExerciseSession } from "@/src/state/activeExerciseSession";
 import {
   getCachedAppointmentRequests,
   setCachedAppointmentRequests,
@@ -36,10 +37,11 @@ import { getCachedProms, setCachedPromDueCards } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { getReminderReadState, markReminderRead, syncReminderReadState } from "@/src/state/inAppReminders";
 import { useLastRefreshed } from "@/src/state/refresh";
+import { getPending } from "@/src/state/pendingSessions";
 import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useIsOffline } from "@/src/state/network";
 import { useTrustStatus } from "@/src/state/trustStatus";
-import { getCachedWeeklyReport } from "@/src/state/weeklyReportCache";
+import { getCachedWeeklyReport, setCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
 import type { ReminderItem, ReminderReadState } from "@/src/types/reminder";
@@ -51,6 +53,7 @@ import {
   startOfWeekMondayISO,
   todayISO,
 } from "@/src/utils/date";
+import { derivePlanUiState, type PlanUiStateKind } from "@/src/utils/planState";
 import { buildReminderItems, buildReminderPreview, countUnreadReminders } from "@/src/utils/reminders";
 import { isTaskActive } from "@/src/utils/tasks";
 
@@ -62,9 +65,13 @@ type CheckinSummary = {
 };
 
 type PlanSummary = {
-  status: "loading" | "assigned" | "none";
+  status: "loading" | PlanUiStateKind;
   itemCount: number;
   previewItems: string[];
+  title: string;
+  description: string;
+  restDay: boolean;
+  actionLabel: string;
 };
 
 type RehabSummary = {
@@ -78,7 +85,7 @@ type PromSummary = {
 };
 
 type WeeklySummary = {
-  status: "loading" | "available" | "none";
+  status: "loading" | "available" | "building" | "none";
   headline: string;
   highlightsCount: number;
 };
@@ -231,6 +238,10 @@ export default function HomeScreen() {
     status: "loading",
     itemCount: 0,
     previewItems: [],
+    title: "",
+    description: "",
+    restDay: false,
+    actionLabel: "Open plan",
   });
   const [rehabSummary, setRehabSummary] = useState<RehabSummary>({
     status: "loading",
@@ -425,28 +436,44 @@ export default function HomeScreen() {
     let active = true;
 
     if (!patientId) {
-      setPlanSummary({ status: "none", itemCount: 0, previewItems: [] });
+      setPlanSummary({
+        status: "no_plan_yet",
+        itemCount: 0,
+        previewItems: [],
+        title: "No plan yet",
+        description: "Your clinician will add exercises here when a plan is ready.",
+        restDay: false,
+        actionLabel: "Open plan",
+      });
       return () => {
         active = false;
       };
     }
 
     void (async () => {
-      const cached = await getCachedExercisePlan(patientId);
+      const [cached, activeSession, pendingSessions] = await Promise.all([
+        getCachedExercisePlan(patientId),
+        getActiveExerciseSession(patientId),
+        getPending(patientId),
+      ]);
       if (!active) {
         return;
       }
 
-      const items = cached?.response.plan?.items ?? [];
-      if (items.length === 0) {
-        setPlanSummary({ status: "none", itemCount: 0, previewItems: [] });
-        return;
-      }
+      const state = derivePlanUiState({
+        response: cached?.response ?? null,
+        activeSession,
+        pendingSessions,
+      });
 
       setPlanSummary({
-        status: "assigned",
-        itemCount: items.length,
-        previewItems: items.slice(0, 3).map((item) => item.name),
+        status: state.kind,
+        itemCount: state.itemCount,
+        previewItems: state.previewItems,
+        title: state.title,
+        description: state.description,
+        restDay: state.restDay,
+        actionLabel: state.primaryActionLabel,
       });
     })();
 
@@ -540,12 +567,14 @@ export default function HomeScreen() {
       }
 
       if (!cached?.report) {
-        setWeeklySummary({ status: "none", headline: "", highlightsCount: 0 });
+        setWeeklySummary({ status: "building", headline: "", highlightsCount: 0 });
         return;
       }
 
+      const isBuilding =
+        cached.report.checkins.count === 0 && cached.report.summary.highlights.length === 0;
       setWeeklySummary({
-        status: "available",
+        status: isBuilding ? "building" : "available",
         headline: cached.report.summary.headline,
         highlightsCount: cached.report.summary.highlights.length,
       });
@@ -730,6 +759,90 @@ export default function HomeScreen() {
         active = false;
       };
     }, [appointmentsRefresh, auth.token, isOffline, patientId, promsRefresh, tasksRefresh]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const token = auth.token;
+      if (!token || !patientId) {
+        return undefined;
+      }
+
+      let active = true;
+      void (async () => {
+        if (isOffline) {
+          const cached = await getCachedWeeklyReport(patientId, thisWeekStart);
+          if (!active) {
+            return;
+          }
+
+          if (!cached?.report) {
+            setWeeklySummary({ status: "building", headline: "", highlightsCount: 0 });
+            return;
+          }
+
+          const isBuilding =
+            cached.report.checkins.count === 0 && cached.report.summary.highlights.length === 0;
+          setWeeklySummary({
+            status: isBuilding ? "building" : "available",
+            headline: cached.report.summary.headline,
+            highlightsCount: cached.report.summary.highlights.length,
+          });
+          return;
+        }
+
+        try {
+          const report = await getWeeklyReport(token, {
+            weekStart: thisWeekStart,
+            tzOffsetMinutes,
+          });
+          if (!active) {
+            return;
+          }
+
+          await Promise.all([
+            setCachedWeeklyReport(patientId, thisWeekStart, report),
+            weeklyReportRefresh.refreshLocal(),
+          ]);
+
+          const isBuilding = report.checkins.count === 0 && report.summary.highlights.length === 0;
+          setWeeklySummary({
+            status: isBuilding ? "building" : "available",
+            headline: report.summary.headline,
+            highlightsCount: report.summary.highlights.length,
+          });
+        } catch {
+          const cached = await getCachedWeeklyReport(patientId, thisWeekStart);
+          if (!active) {
+            return;
+          }
+
+          if (!cached?.report) {
+            setWeeklySummary({ status: "building", headline: "", highlightsCount: 0 });
+            return;
+          }
+
+          const isBuilding =
+            cached.report.checkins.count === 0 && cached.report.summary.highlights.length === 0;
+          setWeeklySummary({
+            status: isBuilding ? "building" : "available",
+            headline: cached.report.summary.headline,
+            highlightsCount: cached.report.summary.highlights.length,
+          });
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [
+      auth.token,
+      isOffline,
+      patientId,
+      thisWeekStart,
+      tzOffsetMinutes,
+      weeklyReportRefresh,
+    ]),
   );
 
   useFocusEffect(
@@ -1088,12 +1201,12 @@ export default function HomeScreen() {
             <SkeletonBlock height={14} width="58%" />
             <SkeletonBlock height={72} width="100%" radius={14} />
           </View>
-        ) : planSummary.status === "none" ? (
+        ) : planSummary.status === "no_plan_yet" ? (
           <EmptyState
             variant="compact"
             illustrationKey="today"
-            title="No plan assigned for today"
-            description="There is nothing scheduled in your plan right now. Open your plan to review upcoming exercises."
+            title="No plan assigned yet"
+            description="Your plan will appear here once it is assigned. You can still open the plan screen to review previous sessions."
             ctaLabel="Open plan"
             onCtaPress={() => {
               router.push("/exercise-plan");
@@ -1103,17 +1216,33 @@ export default function HomeScreen() {
           <MediaCard
             variant="emphasis"
             leading={{ type: "icon", icon: "exercise", tone: "primary" }}
-            title={`${planSummary.itemCount} exercise item${planSummary.itemCount === 1 ? "" : "s"} planned`}
-            subtitle={
-              rehabSummary.status === "set"
-                ? `Current phase: ${rehabSummary.currentTitle}`
-                : "Your current plan is ready to review."
-            }
+            title={planSummary.title}
+            subtitle={planSummary.description}
             chips={[
+              {
+                text:
+                  planSummary.status === "complete"
+                    ? "Complete"
+                    : planSummary.status === "in_progress"
+                      ? "In progress"
+                      : "Assigned",
+                tone:
+                  planSummary.status === "complete"
+                    ? "success"
+                    : planSummary.status === "in_progress"
+                      ? "info"
+                      : "muted",
+              },
+              ...(rehabSummary.status === "set"
+                ? [{ text: rehabSummary.currentTitle, tone: "muted" as const }]
+                : []),
               ...planSummary.previewItems.slice(0, 2).map((itemName) => ({
                 text: itemName,
                 tone: "muted" as const,
               })),
+              ...(planSummary.restDay
+                ? [{ text: "Nothing scheduled today", tone: "muted" as const }]
+                : []),
               ...(promSummary.status === "hasDue"
                 ? [
                     {
@@ -1127,9 +1256,27 @@ export default function HomeScreen() {
             ]}
             actions={[
               {
-                label: "Open plan",
-                kind: "secondary",
+                label:
+                  planSummary.status === "assigned" && !planSummary.restDay
+                    ? "Start session"
+                    : planSummary.status === "in_progress"
+                      ? "Open session"
+                      : "Open plan",
+                kind:
+                  planSummary.status === "assigned" && !planSummary.restDay
+                    ? "primary"
+                    : planSummary.status === "in_progress"
+                      ? "primary"
+                      : "secondary",
                 onPress: () => {
+                  if (planSummary.status === "assigned" && !planSummary.restDay) {
+                    router.push("/exercise-session");
+                    return;
+                  }
+                  if (planSummary.status === "in_progress") {
+                    router.push("/exercise-session");
+                    return;
+                  }
                   router.push("/exercise-plan");
                 },
               },
@@ -1205,7 +1352,9 @@ export default function HomeScreen() {
             subtitle={
               weeklySummary.status === "available"
                 ? weeklySummary.headline
-                : weeklySummary.status === "loading"
+                : weeklySummary.status === "building"
+                  ? "We’re building this week’s report from your recent check-ins."
+                  : weeklySummary.status === "loading"
                   ? "Loading…"
                   : "No report yet"
             }
@@ -1219,7 +1368,9 @@ export default function HomeScreen() {
                       tone: "muted",
                     },
                   ]
-                : weeklySummary.status === "none"
+                : weeklySummary.status === "building"
+                  ? [{ text: "Building", tone: "muted" }]
+                  : weeklySummary.status === "none"
                   ? [{ text: "Tap to view", tone: "muted" }]
                   : undefined
             }

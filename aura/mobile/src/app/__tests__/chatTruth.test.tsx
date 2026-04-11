@@ -730,9 +730,9 @@ describe("chat truth fix", () => {
     const workflowCards = root.findAll((node) => String(node.type) === "mock-workflow-card");
 
     expect(workflowCards).toHaveLength(1);
-    expect(workflowCards[0].props.title).toBe("A response is delayed");
+    expect(workflowCards[0].props.title).toBe("Response delayed");
     expect(workflowCards[0].props.text).toBe(
-      "Your care team is waiting for a reply. You can still message them here.",
+      "A reply is taking longer than expected. You can still message your care team here.",
     );
     expect(workflowCards[0].props.chips).toEqual(["Overdue", "Care team message"]);
     expect(JSON.stringify(workflowCards[0].props)).not.toContain("2026-03-24T09:00:00.000Z");

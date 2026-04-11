@@ -8,6 +8,7 @@ type CheckinFieldBlockProps = {
   description?: string;
   errorText?: string | null;
   accessory?: ReactNode;
+  compact?: boolean;
   fieldId?: string;
   onMeasureField?: (fieldId: string, y: number) => void;
   children: ReactNode;
@@ -18,6 +19,7 @@ export function CheckinFieldBlock({
   description,
   errorText,
   accessory,
+  compact = false,
   fieldId,
   onMeasureField,
   children,
@@ -27,7 +29,7 @@ export function CheckinFieldBlock({
 
   return (
     <View
-      style={styles.block}
+      style={[styles.block, compact ? styles.blockCompact : null]}
       onLayout={({ nativeEvent }) => {
         if (fieldId && onMeasureField) {
           onMeasureField(fieldId, nativeEvent.layout.y);
@@ -51,6 +53,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     block: {
       gap: tokens.spacing.md,
+    },
+    blockCompact: {
+      gap: tokens.spacing.sm,
     },
     header: {
       flexDirection: "row",

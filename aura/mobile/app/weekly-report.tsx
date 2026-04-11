@@ -1,5 +1,5 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -520,6 +520,9 @@ export default function WeeklyReportScreen() {
       ? "Needs attention"
       : "Stable week"
     : "Summary pending";
+  const reportIsBuilding = report
+    ? report.checkins.count === 0 && report.summary.highlights.length === 0
+    : false;
   const weeklyTakeawayTitle =
     selectedWeek === "this" ? "This week at a glance" : "Last week at a glance";
 
@@ -692,8 +695,16 @@ export default function WeeklyReportScreen() {
             {!isLoading && !report ? (
               <EmptyState
                 illustrationKey="weekly"
-                title="No weekly summary available"
-                description="Connect online and refresh when you’re ready. Your weekly summary will appear here once it’s available."
+                title={
+                  selectedWeek === "this"
+                    ? "This week’s report is still building"
+                    : "No weekly summary available"
+                }
+                description={
+                  selectedWeek === "this"
+                    ? "Complete a few check-ins and refresh when you’re ready. This summary will fill in as weekly data becomes available."
+                    : "Connect online and refresh when you’re ready. Your weekly summary will appear here once it’s available."
+                }
                 ctaLabel="Retry"
                 onCtaPress={() => {
                   void loadReport("refresh");
@@ -722,7 +733,9 @@ export default function WeeklyReportScreen() {
                       {report.summary.headline || "This week at a glance"}
                     </Text>
                     <Text style={styles.storyText}>
-                      {report.summary.highlights.length > 0
+                      {reportIsBuilding
+                        ? "Your weekly summary is starting to build from your recent check-ins and recovery activity."
+                        : report.summary.highlights.length > 0
                         ? report.summary.highlights.slice(0, 2).join(" ")
                         : "This summary brings together your recent check-ins, recovery habits, and follow-through signals."}
                     </Text>

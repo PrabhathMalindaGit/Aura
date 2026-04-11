@@ -1,3 +1,4 @@
+import React from "react";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -13,7 +14,6 @@ import { HeroHeader } from "@/src/components/HeroHeader";
 import { DomainIcon } from "@/src/components/IconSet";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
-import { ReminderCard } from "@/src/components/reminders/ReminderCard";
 import { UnreadBadge } from "@/src/components/reminders/UnreadBadge";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
@@ -21,6 +21,7 @@ import { Section } from "@/src/components/Section";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
+import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
@@ -151,6 +152,41 @@ function average(values: number[]): number | null {
   }
 
   return values.reduce((sum, current) => sum + current, 0) / values.length;
+}
+
+function reminderToneToTipTone(
+  tone: ReminderItem["tone"],
+): "info" | "success" | "warning" | "neutral" {
+  if (tone === "warning") {
+    return "warning";
+  }
+  if (tone === "success") {
+    return "success";
+  }
+  if (tone === "neutral") {
+    return "neutral";
+  }
+  return "info";
+}
+
+function buildAttentionChips(reminder: ReminderItem | null, additionalCount: number): string[] {
+  if (!reminder) {
+    return [];
+  }
+
+  const next = [...reminder.chips];
+
+  if (reminder.timingLabel) {
+    next.unshift(reminder.timingLabel);
+  } else if (reminder.statusLabel) {
+    next.unshift(reminder.statusLabel);
+  }
+
+  if (additionalCount > 0) {
+    next.push(`${additionalCount} more item${additionalCount === 1 ? "" : "s"}`);
+  }
+
+  return Array.from(new Set(next.filter((item) => item.trim().length > 0))).slice(0, 3);
 }
 
 export default function HomeScreen() {
@@ -751,6 +787,22 @@ export default function HomeScreen() {
     () => countUnreadReminders(reminders),
     [reminders],
   );
+  const primaryReminder = previewReminders[0] ?? null;
+  const additionalReminderCount = useMemo(
+    () => Math.max(0, reminders.length - (primaryReminder ? 1 : 0)),
+    [primaryReminder, reminders.length],
+  );
+  const attentionChips = useMemo(
+    () => buildAttentionChips(primaryReminder, additionalReminderCount),
+    [additionalReminderCount, primaryReminder],
+  );
+  const headerSupportText = useMemo(() => {
+    if (checkinSummary.completedToday) {
+      return "Today’s update is complete. You can review the rest of your plan below.";
+    }
+
+    return "A short update keeps your recovery plan clear and helps your care team follow along.";
+  }, [checkinSummary.completedToday]);
 
   const handleOpenReminder = useCallback(
     async (reminder: ReminderItem) => {
@@ -791,7 +843,7 @@ export default function HomeScreen() {
               router.push("/safety" as never);
             },
             accessibilityLabel: "Open Safety support",
-            tone: "warning",
+            tone: "success",
           },
           {
             icon: "bell",
@@ -810,7 +862,9 @@ export default function HomeScreen() {
             tone: activeTaskCount > 0 ? "accent" : "muted",
           },
         ]}
-      />
+      >
+        <Text style={styles.heroSupportText}>{headerSupportText}</Text>
+      </HeroHeader>
 
       {/* Status strip */}
       <TrustCues
@@ -831,175 +885,198 @@ export default function HomeScreen() {
         style={styles.statusStrip}
       />
 
-      {previewReminders.length > 0 ? (
+      {primaryReminder ? (
         <Section
           title="Needs your attention"
-          subtitle="Follow-up steps, questionnaires, appointment updates, and care team prompts."
+          subtitle={`${reminders.length} update${reminders.length === 1 ? "" : "s"} ready to review.`}
           left={
             <View accessible={false} importantForAccessibility="no-hide-descendants">
               <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />
             </View>
           }
           right={<UnreadBadge count={unreadReminderCount} compactLabel />}
-          card
         >
-          <View style={styles.actionStack}>
-            {previewReminders.map((reminder) => (
-              <ReminderCard
-                key={reminder.id}
-                reminder={reminder}
-                compact
-                onPressPrimary={() => {
-                  void handleOpenReminder(reminder);
-                }}
-              />
-            ))}
-            <View style={styles.homeWorkflowActions}>
-              <SecondaryButton
-                label={unreadReminderCount > 0 ? "Open reminders" : "View reminders"}
-                onPress={() => {
-                  router.push("/reminders" as never);
-                }}
-              />
-              {activeTaskCount > 0 ? (
-                <SecondaryButton
-                  label="View all tasks"
-                  onPress={() => {
+          <TipCard
+            tone={reminderToneToTipTone(primaryReminder.tone)}
+            leading={{
+              type: "icon",
+              icon: primaryReminder.primaryActionIcon,
+              tone: primaryReminder.tone === "warning" ? "warning" : "primary",
+            }}
+            title={primaryReminder.title}
+            text={primaryReminder.message}
+            chips={attentionChips}
+            actions={[
+              {
+                label: primaryReminder.primaryActionLabel,
+                onPress: () => {
+                  void handleOpenReminder(primaryReminder);
+                },
+              },
+              {
+                label:
+                  unreadReminderCount > 0
+                    ? "Open reminders"
+                    : activeTaskCount > 0
+                      ? "View tasks"
+                      : "Open details",
+                kind: "secondary",
+                onPress: () => {
+                  if (activeTaskCount > 0 && unreadReminderCount === 0) {
                     router.push("/tasks" as never);
-                  }}
-                />
-              ) : null}
-            </View>
-          </View>
+                    return;
+                  }
+                  router.push("/reminders" as never);
+                },
+              },
+            ]}
+          />
         </Section>
       ) : null}
 
-      {/* Tracker grid */}
-      <View style={styles.trackerGrid}>
-        <View style={styles.trackerCell}>
-          <TrackerTile
-            icon="checkin"
-            label="Pain"
-            value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
-            delta="Last 7 check-ins"
-            tone="warning"
-            micro={
-              painSeries.length >= 2
-                ? { type: "sparkline", values: painSeries, tone: "warning" }
-                : { type: "dots", values: [0, 0, 0] }
-            }
-            onPress={() => {
-              router.push("/(tabs)/progress" as never);
-            }}
-          />
-        </View>
-        <View style={styles.trackerCell}>
-          <TrackerTile
-            icon="checkin"
-            label="Mood"
-            value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
-            delta="Last 7 check-ins"
-            tone="success"
-            micro={
-              moodSeries.length >= 2
-                ? { type: "sparkline", values: moodSeries, tone: "success" }
-                : { type: "dots", values: [0, 0, 0] }
-            }
-            onPress={() => {
-              router.push("/(tabs)/progress" as never);
-            }}
-          />
-        </View>
-        <View style={styles.trackerCell}>
-          <TrackerTile
-            icon="exercise"
-            label="Adherence"
-            value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
-            delta="Exercises"
-            tone="accent"
-            micro={
-              adherenceSeries.length >= 2
-                ? { type: "bars", values: adherenceSeries }
-                : { type: "dots", values: [0, 0, 0] }
-            }
-            onPress={() => {
-              router.push("/(tabs)/progress" as never);
-            }}
-          />
-        </View>
-        <View style={styles.trackerCell}>
-          <TrackerTile
-            icon="meds"
-            label="Medication"
-            value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
-            delta="Taken"
-            tone="primary"
-            micro={
-              medsPct !== null
-                ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
-                : { type: "dots", values: [0, 0, 0] }
-            }
-            onPress={() => {
-              router.push("/(tabs)/progress" as never);
-            }}
-          />
-        </View>
-      </View>
-
-      {/* Primary card */}
       <Section
-        title="Today’s check-in"
-        subtitle="One check-in keeps your recovery timeline clear."
+        title="Recovery signals"
+        subtitle="A quick view of recent check-ins."
         left={
           <View accessible={false} importantForAccessibility="no-hide-descendants">
             <DomainIcon
-              icon="checkin"
+              icon="insights"
               size={18}
               tone="muted"
-              accessibilityLabel="Check-in icon"
+              accessibilityLabel="Recovery signals icon"
             />
           </View>
-        }
-        card
-        right={
-          <StatusPill
-            label={checkinSummary.completedToday ? "Completed" : "Not done"}
-            variant={checkinSummary.completedToday ? "success" : "warning"}
-          />
         }
       >
-        {checkinSummary.status === "loading" ? (
-          <View style={styles.skeletonStack}>
-            <SkeletonBlock height={14} width="72%" />
-            <SkeletonBlock height={48} width="100%" radius={12} />
-          </View>
-        ) : checkinSummary.completedToday ? (
-          <View style={styles.actionStack}>
-            <Text style={styles.bodyText}>You’ve already completed today’s check-in.</Text>
-            <SecondaryButton
-              label="View details"
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerCell}>
+            <TrackerTile
+              icon="checkin"
+              label="Pain"
+              value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
+              delta="Last 7 check-ins"
+              tone="warning"
+              micro={
+                painSeries.length >= 2
+                  ? { type: "sparkline", values: painSeries, tone: "warning" }
+                  : { type: "dots", values: [0, 0, 0] }
+              }
               onPress={() => {
-                router.push("/(tabs)/progress");
+                router.push("/(tabs)/progress" as never);
               }}
             />
+          </View>
+          <View style={styles.trackerCell}>
+            <TrackerTile
+              icon="checkin"
+              label="Mood"
+              value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
+              delta="Last 7 check-ins"
+              tone="success"
+              micro={
+                moodSeries.length >= 2
+                  ? { type: "sparkline", values: moodSeries, tone: "success" }
+                  : { type: "dots", values: [0, 0, 0] }
+              }
+              onPress={() => {
+                router.push("/(tabs)/progress" as never);
+              }}
+            />
+          </View>
+          <View style={styles.trackerCell}>
+            <TrackerTile
+              icon="exercise"
+              label="Adherence"
+              value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
+              delta="Exercises"
+              tone="accent"
+              micro={
+                adherenceSeries.length >= 2
+                  ? { type: "bars", values: adherenceSeries }
+                  : { type: "dots", values: [0, 0, 0] }
+              }
+              onPress={() => {
+                router.push("/(tabs)/progress" as never);
+              }}
+            />
+          </View>
+          <View style={styles.trackerCell}>
+            <TrackerTile
+              icon="meds"
+              label="Medication"
+              value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
+              delta="Taken"
+              tone="primary"
+              micro={
+                medsPct !== null
+                  ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
+                  : { type: "dots", values: [0, 0, 0] }
+              }
+              onPress={() => {
+                router.push("/(tabs)/progress" as never);
+              }}
+            />
+          </View>
+        </View>
+      </Section>
+
+      <Card
+        padding={tokens.spacing.xl}
+        style={styles.checkinCard}
+        accessibilityLabel="Today’s check-in"
+      >
+        <View style={styles.checkinHeaderRow}>
+          <View style={styles.checkinCopy}>
+            <Text style={styles.checkinEyebrow}>Today’s check-in</Text>
+            <Text style={styles.checkinTitle}>
+              {checkinSummary.completedToday ? "You’re up to date for today." : "Start today’s check-in."}
+            </Text>
+            <Text style={styles.bodyText}>
+              {checkinSummary.completedToday
+                ? "Your latest update is saved. You can review progress or move on with today’s plan."
+                : "A short check-in keeps your recovery timeline current and helps your care team stay aligned."}
+            </Text>
+          </View>
+          <StatusPill
+            label={checkinSummary.completedToday ? "Done today" : "Ready today"}
+            variant={checkinSummary.completedToday ? "success" : "info"}
+          />
+        </View>
+
+        {checkinSummary.status === "loading" ? (
+          <View style={styles.skeletonStack}>
+            <SkeletonBlock height={14} width="70%" />
+            <SkeletonBlock height={56} width="100%" radius={14} />
           </View>
         ) : (
           <View style={styles.actionStack}>
-            <Text style={styles.bodyText}>Your care team relies on today’s update.</Text>
-            <PrimaryButton
-              label="Start check-in"
-              onPress={() => {
-                router.push("/(tabs)/checkin");
-              }}
-            />
+            <View style={styles.checkinMetaRow}>
+              <Text style={styles.checkinMetaLabel}>Last update</Text>
+              <Text style={styles.checkinMetaValue}>{lastCheckinLabel}</Text>
+            </View>
+            {checkinSummary.completedToday ? (
+              <SecondaryButton
+                label="View progress"
+                onPress={() => {
+                  router.push("/(tabs)/progress");
+                }}
+              />
+            ) : (
+              <PrimaryButton
+                label="Start check-in"
+                onPress={() => {
+                  router.push("/(tabs)/checkin");
+                }}
+              />
+            )}
           </View>
         )}
-      </Section>
+      </Card>
 
       {/* Secondary card: Today plan */}
       <Section
         title="Today’s plan"
-        subtitle="Preview your current exercise focus."
+        subtitle="Your current recovery focus."
         left={
           <View accessible={false} importantForAccessibility="no-hide-descendants">
             <DomainIcon
@@ -1015,9 +1092,7 @@ export default function HomeScreen() {
         {planSummary.status === "loading" ? (
           <View style={styles.skeletonStack}>
             <SkeletonBlock height={14} width="58%" />
-            <SkeletonBlock height={14} width="64%" />
-            <SkeletonBlock height={14} width="42%" />
-            <SkeletonBlock height={48} width="100%" radius={12} />
+            <SkeletonBlock height={72} width="100%" radius={14} />
           </View>
         ) : planSummary.status === "none" ? (
           <EmptyState
@@ -1031,37 +1106,48 @@ export default function HomeScreen() {
             }}
           />
         ) : (
-          <View style={styles.actionStack}>
-            <Text style={styles.bodyText}>
-              {planSummary.itemCount} exercise item{planSummary.itemCount === 1 ? "" : "s"} planned.
-            </Text>
-            <View style={styles.previewList}>
-              {planSummary.previewItems.map((itemName, index) => (
-                <Text key={`${itemName}-${index}`} style={styles.previewItem}>
-                  {index + 1}. {itemName}
-                </Text>
-              ))}
-            </View>
-            <Text style={styles.supportText}>
-              Rehab phase: {rehabSummary.status === "set" ? rehabSummary.currentTitle : "Not set"}
-            </Text>
-            <Text style={styles.supportText}>
-              Questionnaires due: {promSummary.status === "hasDue" ? promSummary.dueCount : 0}
-            </Text>
-            <SecondaryButton
-              label="Open plan"
-              onPress={() => {
-                router.push("/exercise-plan");
-              }}
-            />
-          </View>
+          <MediaCard
+            variant="emphasis"
+            leading={{ type: "icon", icon: "exercise", tone: "primary" }}
+            title={`${planSummary.itemCount} exercise item${planSummary.itemCount === 1 ? "" : "s"} planned`}
+            subtitle={
+              rehabSummary.status === "set"
+                ? `Current phase: ${rehabSummary.currentTitle}`
+                : "Your current plan is ready to review."
+            }
+            chips={[
+              ...planSummary.previewItems.slice(0, 2).map((itemName) => ({
+                text: itemName,
+                tone: "muted" as const,
+              })),
+              ...(promSummary.status === "hasDue"
+                ? [
+                    {
+                      text: `${promSummary.dueCount} questionnaire${
+                        promSummary.dueCount === 1 ? "" : "s"
+                      } due`,
+                      tone: "warning" as const,
+                    },
+                  ]
+                : []),
+            ]}
+            actions={[
+              {
+                label: "Open plan",
+                kind: "secondary",
+                onPress: () => {
+                  router.push("/exercise-plan");
+                },
+              },
+            ]}
+          />
         )}
       </Section>
 
       {/* Secondary card: Insights */}
       <Section
         title="Insights"
-        subtitle="Clinician-reviewed highlights from recent trends."
+        subtitle="Reviewed patterns from your recent progress."
         left={
           <View accessible={false} importantForAccessibility="no-hide-descendants">
             <DomainIcon
@@ -1077,7 +1163,7 @@ export default function HomeScreen() {
         {insightSummary.status === "loading" ? (
           <View style={styles.skeletonStack}>
             <SkeletonBlock height={14} width="50%" />
-            <SkeletonBlock height={64} width="100%" radius={12} />
+            <SkeletonBlock height={72} width="100%" radius={14} />
           </View>
         ) : insightSummary.status === "none" ? (
           <EmptyState
@@ -1087,25 +1173,32 @@ export default function HomeScreen() {
             description="Insights will appear after clinician review."
           />
         ) : (
-          <View style={styles.actionStack}>
-            {insightSummary.top.map((item) => (
-              <Card key={item.id} variant="outlined" padding={tokens.spacing.md}>
-                <Text style={styles.insightTitle}>{item.title}</Text>
-                <Text style={styles.insightMessage}>{item.message}</Text>
-              </Card>
-            ))}
-            <Text style={styles.supportText}>
-              {insightSummary.itemCount} approved insight
-              {insightSummary.itemCount === 1 ? "" : "s"} available.
-            </Text>
-          </View>
+          insightSummary.top.map((item) => (
+            <MediaCard
+              key={item.id}
+              leading={{ type: "icon", icon: "insights", tone: "success" }}
+              title={item.title}
+              subtitle={item.message}
+              chips={[
+                {
+                  text: `${insightSummary.itemCount} reviewed insight${
+                    insightSummary.itemCount === 1 ? "" : "s"
+                  }`,
+                  tone: "muted",
+                },
+              ]}
+              actions={[
+                {
+                  label: "View insights",
+                  kind: "secondary",
+                  onPress: () => {
+                    router.push("/insights" as never);
+                  },
+                },
+              ]}
+            />
+          ))
         )}
-        <SecondaryButton
-          label="View all"
-          onPress={() => {
-            router.push("/insights" as never);
-          }}
-        />
       </Section>
 
       {/* Two-column row */}
@@ -1113,7 +1206,7 @@ export default function HomeScreen() {
         <View style={styles.twoColumnCell}>
           <MediaCard
             variant="compact"
-            leading={{ type: "icon", icon: "weekly", tone: "accent" }}
+            leading={{ type: "icon", icon: "weekly", tone: "primary" }}
             title="Weekly report"
             subtitle={
               weeklySummary.status === "available"
@@ -1145,7 +1238,7 @@ export default function HomeScreen() {
         <View style={styles.twoColumnCell}>
           <MediaCard
             variant="compact"
-            leading={{ type: "icon", icon: "appointments", tone: "accent" }}
+            leading={{ type: "icon", icon: "appointments", tone: "primary" }}
             title="Next appointment"
             subtitle={
               appointmentSummary.status === "loading"
@@ -1165,34 +1258,22 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Safety shortcut card */}
-      <Section
-        title="Need support now?"
-        subtitle="Open your safety plan anytime."
-        left={
-          <View accessible={false} importantForAccessibility="no-hide-descendants">
-            <DomainIcon
-              icon="safety"
-              size={18}
-              tone="muted"
-              accessibilityLabel="Safety icon"
-            />
-          </View>
-        }
-        card
-        cardVariant="outlined"
-        right={<StatusPill label="Safety" variant="warning" />}
-      >
-        <Text style={styles.bodyText}>
-          If symptoms escalate or you feel unsafe, open your Safety Plan now.
-        </Text>
-        <SecondaryButton
-          label="Open Safety"
-          onPress={() => {
-            router.push("/safety" as never);
-          }}
-        />
-      </Section>
+      <TipCard
+        tone="safety"
+        leading={{ type: "icon", icon: "safety", tone: "success" }}
+        title="Safety Plan"
+        text="If symptoms change quickly or you feel unsafe, your safety plan is ready at any time."
+        chips={["Always available"]}
+        actions={[
+          {
+            label: "Open Safety Plan",
+            kind: "secondary",
+            onPress: () => {
+              router.push("/safety" as never);
+            },
+          },
+        ]}
+      />
 
       {isDashboardLoading ? (
         <Text style={styles.loadingFootnote}>Loading latest dashboard data…</Text>
@@ -1204,13 +1285,19 @@ export default function HomeScreen() {
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     container: {
-      gap: tokens.spacing.md,
-      paddingBottom: tokens.spacing.xl,
+      gap: tokens.spacing.xl,
+      paddingBottom: tokens.spacing.xxl,
     },
     statusStrip: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
+    },
+    heroSupportText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      maxWidth: 320,
     },
     trackerGrid: {
       flexDirection: "row",
@@ -1221,13 +1308,54 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       width: "48%",
       minWidth: 0,
     },
-    actionStack: {
+    checkinCard: {
+      backgroundColor: tokens.colors.primarySoft,
+      borderColor: tokens.colors.border,
+    },
+    checkinHeaderRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.lg,
+    },
+    checkinCopy: {
+      flex: 1,
       gap: tokens.spacing.sm,
     },
-    homeWorkflowActions: {
+    checkinEyebrow: {
+      color: tokens.colors.primary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    checkinTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.title.fontSize,
+      lineHeight: tokens.typography.title.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    checkinMetaRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+    },
+    checkinMetaLabel: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    checkinMetaValue: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    actionStack: {
+      gap: tokens.spacing.md,
     },
     bodyText: {
       color: tokens.colors.textMuted,
@@ -1238,27 +1366,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-    },
-    previewList: {
-      gap: tokens.spacing.xs,
-    },
-    previewItem: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    insightTitle: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
-      marginBottom: tokens.spacing.xs,
-    },
-    insightMessage: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
     },
     twoColumnRow: {
       flexDirection: "row",

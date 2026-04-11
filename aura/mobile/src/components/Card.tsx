@@ -48,15 +48,17 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderWidth: 1,
       borderColor: tokens.colors.border,
     },
-    defaultCard: {},
+    defaultCard: {
+      backgroundColor: tokens.colors.surface,
+    },
     elevated: {
-      borderColor: "transparent",
+      backgroundColor: tokens.colors.surface,
+      borderColor: tokens.colors.border,
       ...tokens.elevation.card,
     },
     outlined: {
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: tokens.colors.surfaceElevated,
       borderColor: tokens.colors.border,
     },
   });
 }
-

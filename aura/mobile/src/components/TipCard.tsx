@@ -71,9 +71,9 @@ function getToneStyles(tokens: ReturnType<typeof useTokens>, tone: TipCardTone) 
   }
   if (tone === "safety") {
     return {
-      backgroundColor: tokens.colors.accentTextOn,
-      borderColor: tokens.colors.accent,
-      iconTone: "accent" as DomainIconTone,
+      backgroundColor: tokens.colors.successTextOn,
+      borderColor: tokens.colors.success,
+      iconTone: "success" as DomainIconTone,
     };
   }
   return {
@@ -296,7 +296,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.xs,
     },
     chip: {
-      minHeight: 24,
+      minHeight: 26,
       borderRadius: tokens.radius.xl,
       backgroundColor: tokens.colors.surface,
       borderWidth: 1,

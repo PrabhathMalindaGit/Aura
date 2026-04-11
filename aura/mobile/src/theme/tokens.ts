@@ -9,20 +9,31 @@ import {
 
 export type ColorTokens = {
   background: string;
+  canvas: string;
   surface: string;
   surfaceElevated: string;
+  surfaceSubtle: string;
   text: string;
+  textPrimary: string;
   textMuted: string;
+  textSecondary: string;
+  textTertiary: string;
   border: string;
   primary: string;
+  primaryAction: string;
+  primarySoft: string;
   primaryTextOn: string;
   accent: string;
   accentTextOn: string;
   success: string;
+  safe: string;
+  successSoft: string;
   successTextOn: string;
   warning: string;
+  warningSoft: string;
   warningTextOn: string;
   danger: string;
+  dangerSoft: string;
   dangerTextOn: string;
   focusRing: string;
   overlay: string;
@@ -87,38 +98,38 @@ const spacing: SpacingTokens = {
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 20,
-  xxl: 24,
-  xxxl: 32,
-  xxxxl: 40,
+  xl: 24,
+  xxl: 32,
+  xxxl: 40,
+  xxxxl: 48,
 };
 
 const radius: RadiusTokens = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
 };
 
 const typography: TypographyTokens = {
   title: {
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "600",
   },
   section: {
-    fontSize: 19,
-    lineHeight: 24,
+    fontSize: 21,
+    lineHeight: 28,
     fontWeight: "600",
   },
   body: {
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 24,
     fontWeight: "400",
   },
   caption: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: "400",
   },
   weights: {
@@ -129,61 +140,83 @@ const typography: TypographyTokens = {
 };
 
 const layout: LayoutTokens = {
-  screenPaddingHorizontal: 16,
+  screenPaddingHorizontal: 18,
   screenPaddingVertical: 16,
-  contentMaxWidth: 420,
-  frameRadius: 28,
+  contentMaxWidth: 428,
+  frameRadius: 30,
 };
 
 const lightColors: ColorTokens = {
-  background: "#f3f7fb",
+  background: "#F6F3EE",
+  canvas: "#F6F3EE",
   surface: "#ffffff",
-  surfaceElevated: "#f8fbff",
-  text: "#0f1e2e",
-  textMuted: "#4b6175",
-  border: "#d7e1ea",
-  primary: "#0f766e",
-  primaryTextOn: "#f8fffe",
-  accent: "#0e7490",
-  accentTextOn: "#f3fcff",
-  success: "#16a34a",
-  successTextOn: "#f0fdf4",
-  warning: "#d97706",
-  warningTextOn: "#fff7ed",
-  danger: "#b91c1c",
-  dangerTextOn: "#fef2f2",
-  focusRing: "#0ea5e9",
-  overlay: "rgba(15, 23, 42, 0.45)",
+  surfaceElevated: "#FBF9F5",
+  surfaceSubtle: "#FBF9F5",
+  text: "#183042",
+  textPrimary: "#183042",
+  textMuted: "#5E7182",
+  textSecondary: "#5E7182",
+  textTertiary: "#8393A0",
+  border: "#D7E0E7",
+  primary: "#2F6FED",
+  primaryAction: "#2F6FED",
+  primarySoft: "#EEF4FF",
+  primaryTextOn: "#FFFFFF",
+  accent: "#2F6FED",
+  accentTextOn: "#EEF4FF",
+  success: "#2F8F83",
+  safe: "#2F8F83",
+  successSoft: "#EAF7F4",
+  successTextOn: "#EAF7F4",
+  warning: "#C9892B",
+  warningSoft: "#FBF3E4",
+  warningTextOn: "#FBF3E4",
+  danger: "#C94A3B",
+  dangerSoft: "#FCECE9",
+  dangerTextOn: "#FCECE9",
+  focusRing: "#7AA7FF",
+  overlay: "rgba(24, 48, 66, 0.18)",
 };
 
 const darkColors: ColorTokens = {
-  background: "#0c1422",
-  surface: "#132033",
-  surfaceElevated: "#1a2a3f",
-  text: "#edf4ff",
-  textMuted: "#b8c8dc",
-  border: "#36506d",
-  primary: "#14b8a6",
-  primaryTextOn: "#032624",
-  accent: "#38bdf8",
-  accentTextOn: "#072c42",
-  success: "#22c55e",
-  successTextOn: "#0a341d",
-  warning: "#f59e0b",
-  warningTextOn: "#402609",
-  danger: "#ef4444",
-  dangerTextOn: "#481112",
-  focusRing: "#38bdf8",
-  overlay: "rgba(2, 6, 23, 0.62)",
+  background: "#F6F3EE",
+  canvas: "#F6F3EE",
+  surface: "#FFFFFF",
+  surfaceElevated: "#FBF9F5",
+  surfaceSubtle: "#FBF9F5",
+  text: "#183042",
+  textPrimary: "#183042",
+  textMuted: "#5E7182",
+  textSecondary: "#5E7182",
+  textTertiary: "#8393A0",
+  border: "#D7E0E7",
+  primary: "#2F6FED",
+  primaryAction: "#2F6FED",
+  primarySoft: "#EEF4FF",
+  primaryTextOn: "#FFFFFF",
+  accent: "#2F6FED",
+  accentTextOn: "#EEF4FF",
+  success: "#2F8F83",
+  safe: "#2F8F83",
+  successSoft: "#EAF7F4",
+  successTextOn: "#EAF7F4",
+  warning: "#C9892B",
+  warningSoft: "#FBF3E4",
+  warningTextOn: "#FBF3E4",
+  danger: "#C94A3B",
+  dangerSoft: "#FCECE9",
+  dangerTextOn: "#FCECE9",
+  focusRing: "#7AA7FF",
+  overlay: "rgba(24, 48, 66, 0.18)",
 };
 
 function createElevationTokens(scheme: "light" | "dark", isWeb: boolean): ElevationTokens {
   const shadowColor =
-    scheme === "dark" ? "rgba(2, 6, 23, 0.58)" : "rgba(15, 23, 42, 0.18)";
+    scheme === "dark" ? "rgba(24, 48, 66, 0.16)" : "rgba(24, 48, 66, 0.08)";
 
-  const smShadow = `0px 1px 3px ${shadowColor}`;
-  const mdShadow = `0px 3px 8px ${shadowColor}`;
-  const cardShadow = `0px 2px 6px ${shadowColor}`;
+  const smShadow = `0px 1px 2px ${shadowColor}`;
+  const mdShadow = `0px 10px 24px ${shadowColor}`;
+  const cardShadow = `0px 4px 14px ${shadowColor}`;
 
   if (isWeb) {
     return {
@@ -217,7 +250,8 @@ function buildTokens(scheme: "light" | "dark"): ThemeTokens {
 }
 
 export function getTokens(colorScheme: ColorSchemeName): ThemeTokens {
-  return buildTokens(colorScheme === "dark" ? "dark" : "light");
+  void colorScheme;
+  return buildTokens("light");
 }
 
 export function useTokens(): ThemeTokens {

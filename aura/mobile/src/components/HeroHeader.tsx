@@ -54,14 +54,14 @@ export function HeroHeader({
   const reduceMotion = useReducedMotion();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const isCompact = variant === "compact";
-  const actionSize = 44;
+  const actionSize = 40;
 
   return (
     <LinearGradient
       testID={testID}
       colors={[
-        tokens.colors.background,
-        tokens.colors.accentTextOn,
+        tokens.colors.surfaceElevated,
+        tokens.colors.surface,
         tokens.colors.surfaceElevated,
       ]}
       start={{ x: 0, y: 0 }}
@@ -161,13 +161,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     container: {
       borderWidth: 1,
       borderRadius: tokens.radius.xl,
-      paddingVertical: tokens.spacing.lg,
-      paddingHorizontal: tokens.spacing.lg,
-      gap: tokens.spacing.md,
+      paddingVertical: tokens.spacing.xl,
+      paddingHorizontal: tokens.spacing.xl,
+      gap: tokens.spacing.lg,
+      ...tokens.elevation.card,
     },
     compactContainer: {
       paddingVertical: tokens.spacing.md,
-      paddingHorizontal: tokens.spacing.md,
+      paddingHorizontal: tokens.spacing.lg,
     },
     topRow: {
       flexDirection: "row",
@@ -195,8 +196,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     subtitle: {
       color: tokens.colors.textMuted,
-      fontSize: tokens.typography.body.fontSize,
-      lineHeight: tokens.typography.body.lineHeight,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     actionsRow: {
       flexDirection: "row",
@@ -209,7 +210,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderWidth: 1,
     },
     childrenWrap: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.md,
     },
   });
 }

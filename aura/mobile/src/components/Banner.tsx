@@ -75,11 +75,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     container: {
       borderWidth: 1,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.md - 2,
+      borderRadius: tokens.radius.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       justifyContent: "space-between",
       gap: tokens.spacing.sm,
     },
@@ -115,7 +115,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       opacity: 0.55,
     },
     actionText: {
-      color: tokens.colors.accent,
+      color: tokens.colors.primary,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.semibold,

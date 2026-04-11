@@ -32,7 +32,7 @@ export function Section({
   if (card) {
     return (
       <View style={styles.section}>
-        <Card variant={cardVariant} padding={tokens.spacing.lg}>
+        <Card variant={cardVariant} padding={tokens.spacing.xl}>
           <View style={styles.content}>
             <SectionTitle
               title={title}
@@ -66,7 +66,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     section: {
       marginBottom: tokens.spacing.xl,
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     content: {
       gap: tokens.spacing.md,

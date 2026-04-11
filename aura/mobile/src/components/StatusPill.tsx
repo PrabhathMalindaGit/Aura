@@ -62,9 +62,9 @@ export function StatusPill({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     base: {
-      minHeight: 24,
+      minHeight: 28,
       borderRadius: tokens.radius.xl,
-      paddingHorizontal: tokens.spacing.sm + 2,
+      paddingHorizontal: tokens.spacing.md,
       justifyContent: "center",
       alignItems: "center",
       borderWidth: 1,
@@ -79,7 +79,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderColor: tokens.colors.border,
     },
     neutralText: {
-      color: tokens.colors.text,
+      color: tokens.colors.textMuted,
     },
     info: {
       backgroundColor: tokens.colors.accentTextOn,

@@ -55,9 +55,11 @@ export function PrimaryButton({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     button: {
-      minHeight: 48,
+      minHeight: 52,
       borderRadius: tokens.radius.md,
       backgroundColor: tokens.colors.primary,
+      borderWidth: 1,
+      borderColor: tokens.colors.primary,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: tokens.spacing.lg,

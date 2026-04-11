@@ -58,35 +58,33 @@ export function TextField({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     wrapper: {
-      gap: tokens.spacing.xs + 2,
+      gap: tokens.spacing.sm,
     },
     label: {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.semibold,
+      fontWeight: tokens.typography.weights.medium,
       color: tokens.colors.textMuted,
-      letterSpacing: 0.24,
-      textTransform: "uppercase",
     },
     input: {
-      minHeight: 52,
+      minHeight: 54,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.md,
       paddingHorizontal: tokens.spacing.lg,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: tokens.colors.surfaceElevated,
       color: tokens.colors.text,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
     },
     inputFocused: {
-      borderColor: tokens.colors.primary,
-      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.focusRing,
+      backgroundColor: tokens.colors.surface,
     },
     helper: {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-      color: tokens.colors.textMuted,
+      color: tokens.colors.textTertiary,
     },
   });
 }

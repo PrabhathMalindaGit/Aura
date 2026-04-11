@@ -55,11 +55,11 @@ export function SecondaryButton({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     button: {
-      minHeight: 48,
+      minHeight: 52,
       borderRadius: tokens.radius.md,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      backgroundColor: tokens.colors.surfaceElevated,
+      backgroundColor: tokens.colors.surface,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: tokens.spacing.lg,
@@ -68,7 +68,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       opacity: 0.55,
     },
     label: {
-      color: tokens.colors.accent,
+      color: tokens.colors.primary,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       fontWeight: tokens.typography.weights.semibold,

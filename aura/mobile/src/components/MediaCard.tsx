@@ -373,8 +373,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     cardEmphasis: {
       backgroundColor: tokens.colors.surfaceElevated,
-      borderColor: tokens.colors.accent,
-      ...tokens.elevation.card,
+      borderColor: tokens.colors.border,
     },
     content: {
       gap: tokens.spacing.md,
@@ -429,7 +428,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingTop: tokens.spacing.xs,
     },
     chip: {
-      minHeight: 24,
+      minHeight: 26,
       borderRadius: tokens.radius.xl,
       borderWidth: 1,
       paddingHorizontal: tokens.spacing.sm,

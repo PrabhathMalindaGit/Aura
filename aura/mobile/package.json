@@ -7,7 +7,7 @@
     "start:raw": "npx expo start --clear",
     "android": "node scripts/expo-start.mjs --android",
     "ios": "node scripts/expo-start.mjs --ios",
-    "web": "node scripts/expo-start.mjs --web",
+    "web": "npm run env:web && node scripts/expo-start.mjs --web",
     "test": "vitest run",
     "web:guardrails": "node scripts/web-stability-check.mjs",
     "a11y:smoke": "node scripts/a11y-smoke-check.mjs",

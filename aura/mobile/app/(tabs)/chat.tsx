@@ -33,7 +33,7 @@ import type { DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { Screen } from "@/src/components/Screen";
 import { SkeletonBlock } from "@/src/components/Skeleton";
-import { StatusPill } from "@/src/components/StatusPill";
+import { StatusPill, type StatusPillVariant } from "@/src/components/StatusPill";
 import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
@@ -81,6 +81,7 @@ type ChatDevParams = {
 
 const CHAT_LIMIT = 50;
 const COMPACT_GROUP_GAP_MS = 5 * 60 * 1000;
+const STALE_SYNC_AFTER_MS = 2 * 60 * 60 * 1000;
 
 type QuickAction = {
   key: string;
@@ -423,6 +424,7 @@ export default function ChatScreen() {
 
   const {
     label: chatRefreshLabel,
+    lastRefreshedAt: chatLastRefreshedAt,
     refreshLocal: refreshChatStamp,
   } = useLastRefreshed("chat");
   const tasksRefresh = useLastRefreshed("tasks");
@@ -461,6 +463,22 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [isSafetyChecking, setIsSafetyChecking] = useState(false);
   const [showingOfflineCache, setShowingOfflineCache] = useState(false);
+
+  const chatSyncPill = useMemo(() => {
+    if (!chatLastRefreshedAt || !Number.isFinite(chatLastRefreshedAt)) {
+      return {
+        label: "Not synced yet",
+        variant: "neutral" as StatusPillVariant,
+      };
+    }
+
+    const isStale = Date.now() - chatLastRefreshedAt >= STALE_SYNC_AFTER_MS;
+    const variant: StatusPillVariant = isStale ? "warning" : "neutral";
+    return {
+      label: `Last synced ${chatRefreshLabel}`,
+      variant,
+    };
+  }, [chatLastRefreshedAt, chatRefreshLabel]);
   const [notice, setNotice] = useState<NoticeState | null>(null);
 
   const devPreset = useMemo(() => {
@@ -1293,7 +1311,11 @@ export default function ChatScreen() {
                 variant={isOffline ? "warning" : "success"}
                 accessible={false}
               />
-              <StatusPill label={`Updated ${chatRefreshLabel}`} variant="neutral" accessible={false} />
+              <StatusPill
+                label={chatSyncPill.label}
+                variant={chatSyncPill.variant}
+                accessible={false}
+              />
               {isSafetyChecking ? (
                 <StatusPill label="Safety check" variant="info" accessible={false} />
               ) : null}
@@ -1457,8 +1479,8 @@ export default function ChatScreen() {
                         title={isOffline ? "Offline — message history unavailable" : "No messages yet"}
                         description={
                           isOffline
-                            ? "Connect to load conversation history."
-                            : "You can message your care team here whenever you need to."
+                            ? "Reconnect to load your conversation. You can write a message once the connection returns."
+                            : "When you send a message here, your care team conversation will appear in this space."
                         }
                         ctaLabel={isOffline ? undefined : "Start a message"}
                         onCtaPress={

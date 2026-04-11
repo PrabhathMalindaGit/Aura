@@ -71,7 +71,8 @@ describe("TrustBanner", () => {
 
     const text = flattenText(renderer!.root);
 
-    expect(text).toContain("Nothing was sent");
+    expect(text).toContain("Sending is paused");
+    expect(text).toContain("Reconnect to send or submit from this screen.");
     expect(text).not.toContain("Saved on this device");
     expect(text).not.toContain("Saving on your device");
   });

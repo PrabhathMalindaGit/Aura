@@ -5,6 +5,8 @@ import { StatusPill, type StatusPillVariant } from "@/src/components/StatusPill"
 import type { TrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
 
+const DEFAULT_STALE_AFTER_MS = 2 * 60 * 60 * 1000;
+
 export type TrustCuePill = {
   label: string;
   variant?: StatusPillVariant;
@@ -14,12 +16,14 @@ type TrustCuesProps = {
   status: TrustStatus;
   offlineMode?: "summary" | "onlineOnly";
   lastUpdatedLabel?: string | null;
+  lastUpdatedAt?: number | null;
   showLastUpdated?: boolean;
   showPending?: boolean;
   showSavedLocalHint?: boolean;
   variant?: "compact" | "default";
   extraPills?: TrustCuePill[];
   maxPills?: number;
+  staleAfterMs?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -51,11 +55,11 @@ export function getTrustCueA11yLabel(text: string): string {
   if (lower === "synced") {
     return "Status: Synced";
   }
-  if (lower === "not updated") {
-    return "Last updated: Not available";
+  if (lower === "not synced yet") {
+    return "Last synced: Not available";
   }
-  if (lower.startsWith("updated ")) {
-    return `Last updated: ${trimmed.slice("Updated ".length)}`;
+  if (lower.startsWith("last synced ")) {
+    return `Last synced: ${trimmed.slice("Last synced ".length)}`;
   }
 
   const pendingMatch = /^pending\s+(\d+)$/i.exec(trimmed);
@@ -67,11 +71,11 @@ export function getTrustCueA11yLabel(text: string): string {
   return `Status: ${trimmed}`;
 }
 
-function toUpdatedLabel(label: string): string {
+function toLastSyncedLabel(label: string): string {
   if (!label || label === "Never") {
-    return "Not updated";
+    return "Not synced yet";
   }
-  return `Updated ${label}`;
+  return `Last synced ${label}`;
 }
 
 function trustPill(
@@ -110,23 +114,35 @@ export function TrustCues({
   status,
   offlineMode = "summary",
   lastUpdatedLabel,
+  lastUpdatedAt,
   showLastUpdated = true,
   showPending = true,
   showSavedLocalHint = true,
   variant = "compact",
   extraPills = [],
   maxPills = 2,
+  staleAfterMs = DEFAULT_STALE_AFTER_MS,
   style,
 }: TrustCuesProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  const isMeaningfullyStale = useMemo(() => {
+    if (!lastUpdatedAt || !Number.isFinite(lastUpdatedAt) || lastUpdatedAt <= 0) {
+      return false;
+    }
+
+    return Date.now() - lastUpdatedAt >= staleAfterMs;
+  }, [lastUpdatedAt, staleAfterMs]);
 
   const pills = useMemo(() => {
     const next: TrustCuePill[] = [...extraPills];
     next.push(trustPill(status, showPending));
 
     if (showLastUpdated && lastUpdatedLabel) {
-      next.push({ label: toUpdatedLabel(lastUpdatedLabel), variant: "neutral" });
+      next.push({
+        label: toLastSyncedLabel(lastUpdatedLabel),
+        variant: isMeaningfullyStale ? "warning" : "neutral",
+      });
     }
 
     if (
@@ -154,6 +170,7 @@ export function TrustCues({
   }, [
     extraPills,
     lastUpdatedLabel,
+    isMeaningfullyStale,
     maxPills,
     offlineMode,
     showLastUpdated,
@@ -169,7 +186,7 @@ export function TrustCues({
 
     if (status.kind === "offline") {
       return offlineMode === "onlineOnly"
-        ? "Offline. Nothing was sent."
+        ? "Offline. Sending is paused until you reconnect."
         : status.pendingCount > 0
           ? "Saved updates will sync when you reconnect."
           : "Using saved data until connection returns.";
@@ -187,8 +204,27 @@ export function TrustCues({
       return "Saved updates couldn’t sync. Open the tracker to retry.";
     }
 
+    if (showLastUpdated && lastUpdatedLabel) {
+      if (lastUpdatedLabel === "Never") {
+        return "This screen has not synced yet.";
+      }
+
+      if (isMeaningfullyStale) {
+        return "This information may be a little out of date. Refresh when you need the latest view.";
+      }
+    }
+
     return null;
-  }, [offlineMode, status.failedCount, status.kind, status.pendingCount, variant]);
+  }, [
+    isMeaningfullyStale,
+    lastUpdatedLabel,
+    offlineMode,
+    showLastUpdated,
+    status.failedCount,
+    status.kind,
+    status.pendingCount,
+    variant,
+  ]);
 
   if (pills.length === 0 && !caption) {
     return null;

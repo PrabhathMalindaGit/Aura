@@ -34,32 +34,32 @@ export function TrustBanner({
   switch (status.kind) {
     case "offline": {
       if (offlineMode === "onlineOnly") {
-        title = "Offline · Nothing was sent";
-        subtitle = "Reconnect to try again.";
+        title = "Offline · Sending is paused";
+        subtitle = "Reconnect to send or submit from this screen.";
       } else if (status.pendingCount > 0) {
         title = "Offline · Saved on this device";
         subtitle = `${status.pendingCount} update${
           status.pendingCount === 1 ? "" : "s"
-        } will sync when you reconnect.`;
+        } will sync when connection returns.`;
       } else {
-        title = "Offline";
-        subtitle = "Showing saved data until you reconnect.";
+        title = "Offline · Showing saved information";
+        subtitle = "We’ll refresh when connection returns.";
       }
       toneStyle = styles.offlineTone;
       break;
     }
     case "serverDown": {
-      title = "Service unavailable · Your data is safe";
-      subtitle = "We’ll retry when the service is back.";
+      title = "Live service unavailable";
+      subtitle = "Saved information is still available. We’ll try again shortly.";
       toneStyle = styles.serverTone;
       break;
     }
     case "attention": {
       const count = Math.max(0, status.failedCount || status.pendingCount);
-      title = "Couldn’t sync";
+      title = "Couldn’t finish syncing";
       subtitle = `${count} saved update${
         count === 1 ? "" : "s"
-      } need retry.`;
+      } still need a retry.`;
       toneStyle = styles.serverTone;
       break;
     }

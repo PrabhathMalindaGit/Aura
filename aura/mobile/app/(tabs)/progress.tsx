@@ -464,10 +464,11 @@ export default function ProgressScreen() {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
 
+  const progressRefresh = useLastRefreshed("progress");
   const {
     label: progressRefreshLabel,
     refreshLocal: refreshProgressStamp,
-  } = useLastRefreshed("progress");
+  } = progressRefresh;
   const {
     label: progressLoadErrorLabel,
     lastError: progressLoadLastError,
@@ -972,6 +973,7 @@ export default function ProgressScreen() {
         <TrustCues
           status={trustStatus}
           lastUpdatedLabel={progressRefreshLabel}
+          lastUpdatedAt={progressRefresh.lastRefreshedAt}
           showLastUpdated
           showPending
           showSavedLocalHint
@@ -1214,8 +1216,8 @@ export default function ProgressScreen() {
               title={isOffline ? "Offline — no saved progress yet" : "No check-ins in this window yet"}
               description={
                 isOffline
-                  ? "Connect again to refresh your recovery history."
-                  : "Your recovery story will appear here as you complete check-ins."
+                  ? "Reconnect to refresh your recovery history. Saved progress will appear here when it is available."
+                  : "Complete a daily check-in to start building your recovery story in this review window."
               }
               ctaLabel={isOffline ? undefined : "Start today’s check-in"}
               onCtaPress={

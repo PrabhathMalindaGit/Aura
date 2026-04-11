@@ -1099,7 +1099,7 @@ export default function HomeScreen() {
             variant="compact"
             illustrationKey="today"
             title="No plan assigned for today"
-            description="Open your plan screen to review upcoming exercises."
+            description="There is nothing scheduled in your plan right now. Open your plan to review upcoming exercises."
             ctaLabel="Open plan"
             onCtaPress={() => {
               router.push("/exercise-plan");
@@ -1170,7 +1170,7 @@ export default function HomeScreen() {
             variant="compact"
             illustrationKey="today"
             title="No reviewed insights yet"
-            description="Insights will appear after clinician review."
+            description="Keep completing check-ins and reviewed insights will appear here when they are ready."
           />
         ) : (
           insightSummary.top.map((item) => (

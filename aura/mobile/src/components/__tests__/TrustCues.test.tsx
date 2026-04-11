@@ -65,8 +65,28 @@ describe("TrustCues", () => {
     const text = flattenText(renderer!.root);
 
     expect(text).toContain("Offline");
-    expect(text).toContain("Nothing was sent.");
+    expect(text).toContain("Sending is paused until you reconnect.");
     expect(text).not.toContain("Saved on this device");
     expect(text).not.toContain("Saved locally");
+  });
+
+  it("shows a stale last-synced cue when refresh data is old", () => {
+    let renderer: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <TrustCues
+          status={{ kind: "ok", pendingCount: 0, failedCount: 0 }}
+          lastUpdatedLabel="3h ago"
+          lastUpdatedAt={Date.now() - 3 * 60 * 60 * 1000}
+          showLastUpdated
+          variant="default"
+        />
+      );
+    });
+
+    const text = flattenText(renderer!.root);
+
+    expect(text).toContain("Last synced 3h ago");
+    expect(text).toContain("This information may be a little out of date.");
   });
 });

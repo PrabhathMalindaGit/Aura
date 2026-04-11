@@ -222,6 +222,7 @@ vi.mock("@/src/theme/tokens", () => ({
 vi.mock("@/src/state/refresh", () => ({
   useLastRefreshed: (domain: string) => ({
     label: "Never",
+    lastRefreshedAt: null,
     refreshLocal: domain === "chat" ? refreshChat : refreshTasks,
   }),
 }));
@@ -740,6 +741,23 @@ describe("chat truth fix", () => {
     );
     expect(JSON.stringify(workflowCards[0].props).toLowerCase()).not.toContain(
       "follow-through",
+    );
+  });
+
+  it("shows a calmer empty state and a not-synced-yet cue when there is no conversation history", async () => {
+    const renderer = await renderScreen();
+    const root = renderer.root;
+    const statusPills = root.findAll(
+      (node) => String(node.type) === "mock-status-pill",
+    );
+    const text = flattenText(root);
+
+    expect(statusPills.map((node) => node.props.label)).toEqual(
+      expect.arrayContaining(["Live messages", "Not synced yet"]),
+    );
+    expect(text).toContain("No messages yet");
+    expect(text).toContain(
+      "When you send a message here, your care team conversation will appear in this space.",
     );
   });
 });

@@ -227,6 +227,7 @@ vi.mock("@/src/state/progressSelection", () => ({
 vi.mock("@/src/state/refresh", () => ({
   useLastRefreshed: () => ({
     label: "Just now",
+    lastRefreshedAt: Date.now(),
     refreshLocal: refreshProgress,
   }),
 }));
@@ -399,5 +400,31 @@ describe("ProgressScreen", () => {
     expect(text).toContain("Pain improved");
     expect(text).toContain("This week");
     expect(text).toContain("Last week");
+  });
+
+  it("shows a clearer empty state when there are no check-ins in the selected window", async () => {
+    listCheckins.mockResolvedValue([]);
+    getHydrationRange.mockResolvedValue({
+      days: [],
+      from: "2026-04-04",
+      to: "2026-04-11",
+      targetMl: 2000,
+    });
+
+    let renderer: ReactTestRenderer;
+
+    await act(async () => {
+      renderer = create(<ProgressScreen />);
+    });
+
+    const emptyState = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-empty-state",
+    )[0];
+
+    expect(emptyState?.props.title).toBe("No check-ins in this window yet");
+    expect(emptyState?.props.description).toBe(
+      "Complete a daily check-in to start building your recovery story in this review window.",
+    );
+    expect(emptyState?.props.ctaLabel).toBe("Start today’s check-in");
   });
 });

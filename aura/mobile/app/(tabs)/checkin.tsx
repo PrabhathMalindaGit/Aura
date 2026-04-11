@@ -14,7 +14,6 @@ import { createCheckin } from "@/src/api/patient";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
-import { EmptyState } from "@/src/components/EmptyState";
 import type { DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -26,9 +25,11 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { BodyMapSelector } from "@/src/components/checkin/BodyMapSelector";
+import { CheckinConfirmationPanel } from "@/src/components/checkin/CheckinConfirmationPanel";
 import { CheckinFieldBlock } from "@/src/components/checkin/CheckinFieldBlock";
 import { CheckinFlowShell } from "@/src/components/checkin/CheckinFlowShell";
 import { CheckinReviewCard } from "@/src/components/checkin/CheckinReviewCard";
+import { CheckinSubmissionRecoveryCard } from "@/src/components/checkin/CheckinSubmissionRecoveryCard";
 import { CheckinStepCard } from "@/src/components/checkin/CheckinStepCard";
 import { NeedHelpPrompt } from "@/src/components/checkin/NeedHelpPrompt";
 import { SymptomChipGroup } from "@/src/components/checkin/SymptomChipGroup";
@@ -50,6 +51,7 @@ import type {
   CheckinDailySignalsDraft,
   CheckinMedicationStatus,
   CheckinRecoveryDraft,
+  CheckinReviewChip,
   CheckinSupportDraft,
   CheckinSymptomFlag,
 } from "@/src/types/checkin";
@@ -126,6 +128,13 @@ type SubmitNotice = {
   title: string;
   message: string;
   retryable?: boolean;
+};
+
+type SubmittedCheckinState = {
+  submittedAtISO: string;
+  summary: string;
+  chips: CheckinReviewChip[];
+  notesPreview?: string;
 };
 
 type StepperProps = {
@@ -461,6 +470,7 @@ export default function CheckinScreen() {
   const [showDailyContext, setShowDailyContext] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
+  const [submittedCheckin, setSubmittedCheckin] = useState<SubmittedCheckinState | null>(null);
 
   const friendlyDate = useMemo(
     () =>
@@ -488,7 +498,6 @@ export default function CheckinScreen() {
 
   const avatarRing = trustStatus.kind === "ok" ? "ok" : "attention";
   const isLastStep = activeStep === CHECKIN_STEPS.length - 1;
-  const isSuccessState = notice?.variant === "success";
   const currentStep = CHECKIN_STEPS[activeStep];
 
   const resetForm = () => {
@@ -716,6 +725,44 @@ export default function CheckinScreen() {
     return parts.join(" ");
   }, [adherence.medicationStatus, bodyMap, pain, recovery.exercisePercent, support.helpLevel, support.wantsExtraSupport, symptomFlags]);
 
+  const submissionRecovery = useMemo(() => {
+    const lastError = checkinError.lastError;
+    if (!lastError) {
+      return null;
+    }
+
+    if (lastError.kind === "offline") {
+      return {
+        title: "Submission paused",
+        message: "You’re offline, so this check-in has not been submitted yet.",
+        detail: "Your answers are still on this screen. Reconnect when you’re ready, then submit again.",
+        primaryActionLabel: undefined,
+        secondaryActionLabel: "Continue editing",
+        statusLabel: "Offline",
+      };
+    }
+
+    if (lastError.kind === "network" || lastError.kind === "server") {
+      return {
+        title: "We couldn’t submit your check-in",
+        message: "The service could not finish this submission right now.",
+        detail: "Your answers are still on this screen. Try again when you’re ready.",
+        primaryActionLabel: "Try again",
+        secondaryActionLabel: "Continue editing",
+        statusLabel: checkinError.label,
+      };
+    }
+
+    return {
+      title: "We couldn’t submit your check-in",
+      message: lastError.message,
+      detail: "Your answers are still on this screen. Review anything you want to change, then try again.",
+      primaryActionLabel: lastError.retryable && !isOffline ? "Try again" : undefined,
+      secondaryActionLabel: "Continue editing",
+      statusLabel: checkinError.label,
+    };
+  }, [checkinError.label, checkinError.lastError, isOffline]);
+
   const handleToggleRegion = (region: BodyMapRegion) => {
     setNotice(null);
     setBodyMap((current) => {
@@ -791,6 +838,7 @@ export default function CheckinScreen() {
     }
 
     if (!auth.token) {
+      setSubmittedCheckin(null);
       setNotice({
         variant: "warning",
         title: "Session expired",
@@ -801,16 +849,17 @@ export default function CheckinScreen() {
     }
 
     if (validationState) {
+      setSubmittedCheckin(null);
       setNotice(null);
       setActiveStep(validationState.stepIndex);
       return;
     }
 
     if (isOffline) {
-      const message = "You’re offline. Nothing was sent.";
+      setSubmittedCheckin(null);
       await checkinError.setLocalError({
-        title: "Couldn’t submit",
-        message,
+        title: "Submission paused",
+        message: "You’re offline, so this check-in has not been submitted yet.",
         kind: "offline",
         retryable: true,
       });
@@ -831,6 +880,7 @@ export default function CheckinScreen() {
     });
 
     setNotice(null);
+    setSubmittedCheckin(null);
     setIsSubmitting(true);
     let response: Awaited<ReturnType<typeof createCheckin>> | null = null;
 
@@ -856,12 +906,7 @@ export default function CheckinScreen() {
         retryable: normalized.retryable,
         detail: normalized.detail,
       });
-      setNotice({
-        variant: "warning",
-        title: normalized.title ?? "Couldn’t submit",
-        message: normalized.message,
-        retryable: normalized.retryable,
-      });
+      setNotice(null);
       return;
     } finally {
       setIsSubmitting(false);
@@ -888,14 +933,18 @@ export default function CheckinScreen() {
         params: routeParams,
       });
       resetForm();
+      setSubmittedCheckin(null);
       return;
     }
 
-    setNotice({
-      variant: "success",
-      title: "Check-in complete",
-      message: "Saved. Thank you for checking in.",
+    const submittedAtISO = new Date().toISOString();
+    setSubmittedCheckin({
+      submittedAtISO,
+      summary: reviewSummary,
+      chips: reviewChips,
+      notesPreview: notes.trim() || undefined,
     });
+    setNotice(null);
     resetForm();
   };
 
@@ -1488,13 +1537,39 @@ export default function CheckinScreen() {
         status={trustStatus}
         offlineMode="onlineOnly"
         lastUpdatedLabel={checkinsRefresh.label}
+        lastUpdatedAt={checkinsRefresh.lastRefreshedAt}
         showLastUpdated
         showPending
         showSavedLocalHint
         style={styles.statusStrip}
       />
 
-      {checkinError.lastError ? (
+      {submissionRecovery ? (
+        <CheckinSubmissionRecoveryCard
+          testID="checkin-submission-recovery"
+          title={submissionRecovery.title}
+          message={submissionRecovery.message}
+          detail={submissionRecovery.detail}
+          primaryActionLabel={
+            submissionRecovery.primaryActionLabel && !isOffline
+              ? submissionRecovery.primaryActionLabel
+              : undefined
+          }
+          onPrimaryAction={
+            submissionRecovery.primaryActionLabel && !isOffline
+              ? () => {
+                  void handleSubmit();
+                }
+              : undefined
+          }
+          secondaryActionLabel={submissionRecovery.secondaryActionLabel}
+          onSecondaryAction={() => {
+            void checkinError.clear();
+            setNotice(null);
+          }}
+          statusLabel={submissionRecovery.statusLabel}
+        />
+      ) : checkinError.lastError ? (
         <LastFailedAttempt
           value={checkinError.label}
           title={checkinError.lastError.title}
@@ -1527,8 +1602,8 @@ export default function CheckinScreen() {
       {isOffline ? (
         <Banner
           variant="warning"
-          title="Connect to submit today’s check-in"
-          message="You can finish the check-in now, but submission still needs a connection."
+          title="You can keep filling this out offline"
+          message="Submit when your connection returns. Nothing is sent until you reconnect."
         />
       ) : null}
 
@@ -1640,36 +1715,24 @@ export default function CheckinScreen() {
         />
       }
     >
-      {isSuccessState ? (
-        <Card padding={tokens.spacing.xl}>
-          <View style={styles.sectionStack}>
-            <EmptyState
-              variant="compact"
-              illustrationKey="checkinSuccess"
-              title="Check-in complete"
-              description="Saved. Thank you for checking in."
-              ctaLabel="Back to Today"
-              onCtaPress={() => {
-                setNotice(null);
-                router.replace("/(tabs)");
-              }}
-            />
-            <SecondaryButton
-              label="View progress"
-              onPress={() => {
-                setNotice(null);
-                router.push("/(tabs)/progress");
-              }}
-            />
-            <SecondaryButton
-              label="Start another check-in"
-              onPress={() => {
-                setNotice(null);
-                setActiveStep(0);
-              }}
-            />
-          </View>
-        </Card>
+      {submittedCheckin ? (
+        <CheckinConfirmationPanel
+          testID="checkin-confirmation"
+          submittedAtISO={submittedCheckin.submittedAtISO}
+          summary={submittedCheckin.summary}
+          chips={submittedCheckin.chips}
+          notesPreview={submittedCheckin.notesPreview}
+          onBackToToday={() => {
+            setSubmittedCheckin(null);
+            setNotice(null);
+            router.replace("/(tabs)");
+          }}
+          onViewProgress={() => {
+            setSubmittedCheckin(null);
+            setNotice(null);
+            router.push("/(tabs)/progress");
+          }}
+        />
       ) : (
         <CheckinFlowShell
           title="Daily check-in"

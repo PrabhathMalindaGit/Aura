@@ -7,7 +7,29 @@ import {
 } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const routerPush = vi.fn();
+const {
+  routerPush,
+  getCachedExercisePlan,
+  getCachedInsights,
+} = vi.hoisted(() => ({
+  routerPush: vi.fn(),
+  getCachedExercisePlan: vi.fn(async () => ({
+    response: {
+      plan: {
+        items: [{ name: "Heel slides" }, { name: "Walk for 10 minutes" }],
+      },
+    },
+  })),
+  getCachedInsights: vi.fn(async () => ({
+    items: [
+      {
+        id: "insight-1",
+        title: "Recovery is steady",
+        message: "Pain has stayed within your recent range.",
+      },
+    ],
+  })),
+}));
 
 const reminderItems = [
   {
@@ -222,25 +244,11 @@ vi.mock("@/src/state/checkinsCache", () => ({
 }));
 
 vi.mock("@/src/state/exercisePlanCache", () => ({
-  getCachedExercisePlan: vi.fn(async () => ({
-    response: {
-      plan: {
-        items: [{ name: "Heel slides" }, { name: "Walk for 10 minutes" }],
-      },
-    },
-  })),
+  getCachedExercisePlan,
 }));
 
 vi.mock("@/src/state/insightsCache", () => ({
-  getCachedInsights: vi.fn(async () => ({
-    items: [
-      {
-        id: "insight-1",
-        title: "Recovery is steady",
-        message: "Pain has stayed within your recent range.",
-      },
-    ],
-  })),
+  getCachedInsights,
 }));
 
 vi.mock("@/src/state/promsCache", () => ({
@@ -356,6 +364,24 @@ describe("Today screen", () => {
 
   beforeEach(() => {
     routerPush.mockReset();
+    getCachedExercisePlan.mockReset();
+    getCachedInsights.mockReset();
+    getCachedExercisePlan.mockResolvedValue({
+      response: {
+        plan: {
+          items: [{ name: "Heel slides" }, { name: "Walk for 10 minutes" }],
+        },
+      },
+    });
+    getCachedInsights.mockResolvedValue({
+      items: [
+        {
+          id: "insight-1",
+          title: "Recovery is steady",
+          message: "Pain has stayed within your recent range.",
+        },
+      ],
+    });
   });
 
   it("renders the new grouped attention summary and primary check-in block", async () => {
@@ -385,6 +411,37 @@ describe("Today screen", () => {
     const sections = findHostNodes(root, "mock-section");
     expect(sections.map((node) => node.props.title)).toEqual(
       expect.arrayContaining(["Needs your attention", "Recovery signals", "Today’s plan", "Insights"]),
+    );
+  });
+
+  it("shows stronger empty states when plan and reviewed insights are not available yet", async () => {
+    getCachedExercisePlan.mockResolvedValue({
+      response: {
+        plan: {
+          items: [],
+        },
+      },
+    });
+    getCachedInsights.mockResolvedValue({ items: [] });
+
+    await act(async () => {
+      renderer = create(<HomeScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const emptyStates = findHostNodes(renderer!.root, "mock-empty-state");
+    const titles = emptyStates.map((node) => node.props.title);
+    const descriptions = emptyStates.map((node) => node.props.description);
+
+    expect(titles).toEqual(
+      expect.arrayContaining(["No plan assigned for today", "No reviewed insights yet"]),
+    );
+    expect(descriptions).toEqual(
+      expect.arrayContaining([
+        "There is nothing scheduled in your plan right now. Open your plan to review upcoming exercises.",
+        "Keep completing check-ins and reviewed insights will appear here when they are ready.",
+      ]),
     );
   });
 });

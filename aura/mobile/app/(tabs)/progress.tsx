@@ -1,5 +1,5 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -21,12 +21,14 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { MediaCard, type MediaCardChip } from "@/src/components/MediaCard";
+import { type MicroSparklineTone } from "@/src/components/MicroSparkline";
+import { ProgressSignalCard } from "@/src/components/progress/ProgressSignalCard";
+import { ProgressTrendCard } from "@/src/components/progress/ProgressTrendCard";
 import { SegmentedControl } from "@/src/components/SegmentedControl";
 import { Screen } from "@/src/components/Screen";
 import { Section } from "@/src/components/Section";
 import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
-import { TrackerTile } from "@/src/components/TrackerTile";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { useAuth } from "@/src/state/auth";
@@ -43,11 +45,16 @@ import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import {
+  buildProgressHistoryRows,
+  buildProgressStoryCopy,
+  describeTrendChange,
+  type ProgressHistoryRow,
+} from "@/src/utils/progressPresentation";
 import { parseCheckinTime } from "@/src/utils/progressStats";
 
-// Layout: Single Screen wrapper; avoid nested ScrollView.
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MICRO_FALLBACK_SERIES = [0, 0, 0, 0, 0, 0, 0];
+const MICRO_FALLBACK_SERIES = [0, 0, 0, 0, 0];
 
 type LoadSource = "live" | "cache" | "none";
 type RangeDays = 7 | 30 | 90;
@@ -61,22 +68,26 @@ type NoticeState = {
   onAction?: () => void;
 };
 
-type KpiItem = {
+type TrendItem = {
+  key: "pain" | "mood" | "adherence";
+  title: string;
+  deltaLabel: string;
+  deltaValue: number | null;
+  assessment: string;
+  direction: "up" | "down" | "flat";
+  variant: PillVariant;
+  hasData: boolean;
+};
+
+type SignalItem = {
   key: string;
   title: string;
   value: string;
   assessment: string;
   variant: PillVariant;
-  helper?: string;
-};
-
-type TrendItem = {
-  key: string;
-  title: string;
-  deltaLabel: string;
-  assessment: string;
-  direction: "up" | "down" | "flat";
-  variant: PillVariant;
+  detail: string;
+  sparklineValues: number[];
+  sparklineTone: MicroSparklineTone;
 };
 
 type TrendSplit = {
@@ -206,17 +217,10 @@ function average(values: number[]): number | null {
   return total / values.length;
 }
 
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1, value));
-}
-
 function deriveAssessment(
   value: number | null,
   thresholds: { good: number; okay: number },
-  preferHigh = true
+  preferHigh = true,
 ): { label: string; variant: PillVariant } {
   if (value === null || !Number.isFinite(value)) {
     return { label: "No data yet", variant: "neutral" };
@@ -244,7 +248,7 @@ function deriveAssessment(
 function computeTrendSplit(
   items: CheckInItem[],
   rangeDays: RangeDays,
-  selector: (item: CheckInItem) => number | null
+  selector: (item: CheckInItem) => number | null,
 ): TrendSplit {
   const now = Date.now();
   const windowStart = now - rangeDays * DAY_MS;
@@ -282,8 +286,8 @@ function evaluateTrend(
   recent: number | null,
   betterWhen: "higher" | "lower",
   threshold: number,
-  unit = ""
-): TrendItem {
+  unit = "",
+): Omit<TrendItem, "key" | "title"> {
   if (
     previous === null ||
     recent === null ||
@@ -291,92 +295,75 @@ function evaluateTrend(
     !Number.isFinite(recent)
   ) {
     return {
-      key: "",
-      title: "",
-      deltaLabel: "Not enough data",
+      deltaLabel: "Building",
+      deltaValue: null,
       assessment: "No data yet",
       direction: "flat",
       variant: "neutral",
+      hasData: false,
     };
   }
 
   const delta = recent - previous;
   const absDelta = Math.abs(delta);
-  const rounded = Number(delta.toFixed(1));
+  const rounded = Number(delta.toFixed(unit === "%" ? 0 : 1));
   const sign = rounded > 0 ? "+" : "";
   const deltaLabel = `${sign}${rounded}${unit}`;
 
   if (absDelta <= threshold) {
     return {
-      key: "",
-      title: "",
       deltaLabel,
+      deltaValue: rounded,
       assessment: "Stable",
       direction: "flat",
       variant: "info",
+      hasData: true,
     };
   }
 
   const improving = betterWhen === "higher" ? delta > 0 : delta < 0;
 
   return {
-    key: "",
-    title: "",
     deltaLabel,
+    deltaValue: rounded,
     assessment: improving ? "Improving" : "Needs attention",
-    direction: improving ? (betterWhen === "higher" ? "up" : "down") : betterWhen === "higher" ? "down" : "up",
+    direction:
+      improving
+        ? betterWhen === "higher"
+          ? "up"
+          : "down"
+        : betterWhen === "higher"
+          ? "down"
+          : "up",
     variant: improving ? "success" : "warning",
+    hasData: true,
   };
-}
-
-function trendArrow(direction: "up" | "down" | "flat"): string {
-  if (direction === "up") {
-    return "↑";
-  }
-  if (direction === "down") {
-    return "↓";
-  }
-  return "→";
-}
-
-function trendTitle(key: TrendItem["key"]): string {
-  if (key === "pain") {
-    return "Pain trend";
-  }
-  if (key === "mood") {
-    return "Mood trend";
-  }
-  return "Adherence trend";
-}
-
-function trendNarrative(trend: TrendItem, rangeDays: RangeDays): string {
-  const label = trend.title.toLowerCase();
-
-  if (trend.assessment === "Improving") {
-    return `${label} is moving in a better direction across the last ${rangeDays} days.`;
-  }
-
-  if (trend.assessment === "Stable") {
-    return `${label} looks steady across the last ${rangeDays} days.`;
-  }
-
-  return `${label} may need a closer look across this ${rangeDays}-day window.`;
 }
 
 function historyStatus(item: CheckInItem): HistoryCardStatus {
   if (item.support?.needsUrgentHelp || item.support?.feelsSafe === false) {
-    return { text: "Safety", tone: "danger" };
+    return { text: "Safety check", tone: "danger" };
   }
 
   if (item.support?.wantsFollowUp || item.support?.wantsExtraSupport) {
-    return { text: "Follow-up", tone: "warning" };
+    return { text: "Support requested", tone: "warning" };
   }
 
   if (item.notes?.trim()) {
-    return { text: "Note", tone: "info" };
+    return { text: "Note added", tone: "info" };
   }
 
   return undefined;
+}
+
+function historySubtitle(item: CheckInItem): string {
+  const parts = [`Pain ${item.pain}/10`, `Mood ${item.mood}/5`];
+
+  if (typeof item.sleep?.hours === "number") {
+    parts.push(`Sleep ${item.sleep.hours.toFixed(1)}h`);
+  }
+
+  return parts.join(" · ");
 }
 
 function historyChips(item: CheckInItem): MediaCardChip[] {
@@ -385,7 +372,12 @@ function historyChips(item: CheckInItem): MediaCardChip[] {
   if (typeof item.adherence?.exercises === "number") {
     chips.push({
       text: `Exercises ${Math.round(item.adherence.exercises * 100)}%`,
-      tone: item.adherence.exercises >= 0.75 ? "success" : item.adherence.exercises >= 0.5 ? "info" : "warning",
+      tone:
+        item.adherence.exercises >= 0.75
+          ? "success"
+          : item.adherence.exercises >= 0.5
+            ? "info"
+            : "warning",
     });
   }
 
@@ -396,10 +388,10 @@ function historyChips(item: CheckInItem): MediaCardChip[] {
     });
   }
 
-  if (typeof item.sleep?.hours === "number") {
+  if (item.support?.wantsFollowUp || item.support?.wantsExtraSupport) {
     chips.push({
-      text: `Sleep ${item.sleep.hours.toFixed(1)}h`,
-      tone: item.sleep.hours >= 7 ? "success" : item.sleep.hours >= 6 ? "info" : "warning",
+      text: "Support requested",
+      tone: "warning",
     });
   }
 
@@ -415,13 +407,13 @@ function historyChips(item: CheckInItem): MediaCardChip[] {
 
 function hydrationAverage(
   days: HydrationDayTotal[],
-  rangeDays: RangeDays
+  rangeDays: RangeDays,
 ): { avg: number | null; daysMeetingTarget: number; totalDays: number } {
   const end = todayISO();
   const from = addDaysISO(end, -(rangeDays - 1));
 
   const filtered = days.filter(
-    (day) => Date.parse(day.date) >= Date.parse(from) && Date.parse(day.date) <= Date.parse(end)
+    (day) => Date.parse(day.date) >= Date.parse(from) && Date.parse(day.date) <= Date.parse(end),
   );
 
   if (filtered.length === 0) {
@@ -438,6 +430,31 @@ function hydrationAverage(
     daysMeetingTarget: filtered.filter((day) => day.totalMl >= 2000).length,
     totalDays: filtered.length,
   };
+}
+
+function sparklineToneFromVariant(variant: PillVariant): MicroSparklineTone {
+  if (variant === "success") {
+    return "success";
+  }
+  if (variant === "warning" || variant === "danger") {
+    return "warning";
+  }
+  if (variant === "info") {
+    return "primary";
+  }
+  return "muted";
+}
+
+function detailFromTrend(
+  trend: TrendItem,
+  rangeDays: RangeDays,
+  fallback: string,
+): string {
+  if (!trend.hasData) {
+    return fallback;
+  }
+
+  return `${describeTrendChange(trend, rangeDays)}.`;
 }
 
 export default function ProgressScreen() {
@@ -482,10 +499,16 @@ export default function ProgressScreen() {
     });
   }, [items, rangeDays]);
 
+  const historyRows = useMemo(
+    () => buildProgressHistoryRows(filteredItems),
+    [filteredItems],
+  );
+
   const hydrationStats = useMemo(
     () => hydrationAverage(hydrationDays, rangeDays),
-    [hydrationDays, rangeDays]
+    [hydrationDays, rangeDays],
   );
+
   const last7Oldest = useMemo(() => {
     const newestFirst = sortByNewest(filteredItems);
     const latestWindow = newestFirst.slice(0, 7);
@@ -497,41 +520,33 @@ export default function ProgressScreen() {
       last7Oldest
         .map((item) => item.pain)
         .filter((value): value is number => Number.isFinite(value)),
-    [last7Oldest]
+    [last7Oldest],
   );
   const moodSeries = useMemo(
     () =>
       last7Oldest
         .map((item) => item.mood)
         .filter((value): value is number => Number.isFinite(value)),
-    [last7Oldest]
+    [last7Oldest],
   );
   const adherenceSeries = useMemo(
     () =>
       last7Oldest
         .map((item) => item.adherence?.exercises)
         .filter(
-          (value): value is number => typeof value === "number" && Number.isFinite(value)
+          (value): value is number => typeof value === "number" && Number.isFinite(value),
         )
         .map((value) => value * 100),
-    [last7Oldest]
-  );
-  const medsSeries = useMemo(
-    () =>
-      last7Oldest
-        .map((item) => item.adherence?.medication)
-        .filter((value): value is boolean => typeof value === "boolean")
-        .map((value) => (value ? 1 : 0)),
-    [last7Oldest]
+    [last7Oldest],
   );
   const sleepSeries = useMemo(
     () =>
       last7Oldest
         .map((item) => item.sleep?.hours)
         .filter(
-          (value): value is number => typeof value === "number" && Number.isFinite(value)
+          (value): value is number => typeof value === "number" && Number.isFinite(value),
         ),
-    [last7Oldest]
+    [last7Oldest],
   );
   const hydrationSeries = useMemo(() => {
     const end = todayISO();
@@ -554,11 +569,11 @@ export default function ProgressScreen() {
 
   const painAvg = useMemo(
     () => average(filteredItems.map((item) => item.pain)),
-    [filteredItems]
+    [filteredItems],
   );
   const moodAvg = useMemo(
     () => average(filteredItems.map((item) => item.mood)),
-    [filteredItems]
+    [filteredItems],
   );
   const exerciseAvgPct = useMemo(() => {
     const values = filteredItems
@@ -566,16 +581,6 @@ export default function ProgressScreen() {
       .filter((value): value is number => typeof value === "number" && Number.isFinite(value))
       .map((value) => value * 100);
     return average(values);
-  }, [filteredItems]);
-  const medicationPct = useMemo(() => {
-    const values = filteredItems
-      .map((item) => item.adherence?.medication)
-      .filter((value): value is boolean => typeof value === "boolean");
-    if (values.length === 0) {
-      return null;
-    }
-    const yesCount = values.filter(Boolean).length;
-    return (yesCount / values.length) * 100;
   }, [filteredItems]);
   const sleepAvgHours = useMemo(() => {
     const values = filteredItems
@@ -585,70 +590,84 @@ export default function ProgressScreen() {
   }, [filteredItems]);
 
   const trendItems = useMemo<TrendItem[]>(() => {
-    const painTrend = evaluateTrend(
-      computeTrendSplit(filteredItems, rangeDays, (item) => item.pain).previous,
-      computeTrendSplit(filteredItems, rangeDays, (item) => item.pain).recent,
-      "lower",
-      0.3,
-      ""
-    );
-    const moodTrend = evaluateTrend(
-      computeTrendSplit(filteredItems, rangeDays, (item) => item.mood).previous,
-      computeTrendSplit(filteredItems, rangeDays, (item) => item.mood).recent,
-      "higher",
-      0.2,
-      ""
-    );
-    const adherenceTrend = evaluateTrend(
-      computeTrendSplit(filteredItems, rangeDays, (item) => {
-        if (typeof item.adherence?.exercises !== "number") {
-          return null;
-        }
-        return item.adherence.exercises * 100;
-      }).previous,
-      computeTrendSplit(filteredItems, rangeDays, (item) => {
-        if (typeof item.adherence?.exercises !== "number") {
-          return null;
-        }
-        return item.adherence.exercises * 100;
-      }).recent,
-      "higher",
-      5,
-      "%"
-    );
+    const painSplit = computeTrendSplit(filteredItems, rangeDays, (item) => item.pain);
+    const moodSplit = computeTrendSplit(filteredItems, rangeDays, (item) => item.mood);
+    const adherenceSplit = computeTrendSplit(filteredItems, rangeDays, (item) => {
+      if (typeof item.adherence?.exercises !== "number") {
+        return null;
+      }
+      return item.adherence.exercises * 100;
+    });
 
     return [
       {
-        ...painTrend,
+        ...evaluateTrend(painSplit.previous, painSplit.recent, "lower", 0.3),
         key: "pain",
         title: "Pain",
       },
       {
-        ...moodTrend,
+        ...evaluateTrend(moodSplit.previous, moodSplit.recent, "higher", 0.2),
         key: "mood",
         title: "Mood",
       },
       {
-        ...adherenceTrend,
+        ...evaluateTrend(adherenceSplit.previous, adherenceSplit.recent, "higher", 5, "%"),
         key: "adherence",
-        title: "Adherence",
+        title: "Exercise adherence",
       },
     ];
   }, [filteredItems, rangeDays]);
 
-  const kpiItems = useMemo<KpiItem[]>(() => {
+  const signalItems = useMemo<SignalItem[]>(() => {
     const painStatus = deriveAssessment(painAvg, { good: 4, okay: 6 }, false);
     const moodStatus = deriveAssessment(moodAvg, { good: 4, okay: 3 }, true);
     const adherenceStatus = deriveAssessment(exerciseAvgPct, { good: 75, okay: 50 }, true);
-    const medicationStatus = deriveAssessment(medicationPct, { good: 80, okay: 60 }, true);
 
-    const base: KpiItem[] = [
+    const painTrend = trendItems.find((trend) => trend.key === "pain") ?? {
+      key: "pain",
+      title: "Pain",
+      deltaLabel: "Building",
+      deltaValue: null,
+      assessment: "No data yet",
+      direction: "flat" as const,
+      variant: "neutral" as const,
+      hasData: false,
+    };
+    const moodTrend = trendItems.find((trend) => trend.key === "mood") ?? {
+      key: "mood",
+      title: "Mood",
+      deltaLabel: "Building",
+      deltaValue: null,
+      assessment: "No data yet",
+      direction: "flat" as const,
+      variant: "neutral" as const,
+      hasData: false,
+    };
+    const adherenceTrend = trendItems.find((trend) => trend.key === "adherence") ?? {
+      key: "adherence",
+      title: "Exercise adherence",
+      deltaLabel: "Building",
+      deltaValue: null,
+      assessment: "No data yet",
+      direction: "flat" as const,
+      variant: "neutral" as const,
+      hasData: false,
+    };
+
+    const summary: SignalItem[] = [
       {
         key: "pain",
         title: "Pain",
         value: formatValue(painAvg, "/10"),
         assessment: painStatus.label,
         variant: painStatus.variant,
+        detail: detailFromTrend(
+          painTrend,
+          rangeDays,
+          `Add a few more check-ins to see your pain pattern over ${rangeDays} days.`,
+        ),
+        sparklineValues: painSeries.length >= 2 ? painSeries : MICRO_FALLBACK_SERIES,
+        sparklineTone: sparklineToneFromVariant(painTrend.variant),
       },
       {
         key: "mood",
@@ -656,6 +675,13 @@ export default function ProgressScreen() {
         value: formatValue(moodAvg, "/5"),
         assessment: moodStatus.label,
         variant: moodStatus.variant,
+        detail: detailFromTrend(
+          moodTrend,
+          rangeDays,
+          `Mood trends will become clearer once you have a few more recent entries.`,
+        ),
+        sparklineValues: moodSeries.length >= 2 ? moodSeries : MICRO_FALLBACK_SERIES,
+        sparklineTone: sparklineToneFromVariant(moodTrend.variant),
       },
       {
         key: "adherence",
@@ -663,94 +689,93 @@ export default function ProgressScreen() {
         value: formatValue(exerciseAvgPct, "%", 0),
         assessment: adherenceStatus.label,
         variant: adherenceStatus.variant,
-      },
-      {
-        key: "medication",
-        title: "Medication taken",
-        value: formatValue(medicationPct, "%", 0),
-        assessment: medicationStatus.label,
-        variant: medicationStatus.variant,
+        detail: detailFromTrend(
+          adherenceTrend,
+          rangeDays,
+          `Exercise check-ins will show a fuller pattern over this ${rangeDays}-day window.`,
+        ),
+        sparklineValues: adherenceSeries.length >= 2 ? adherenceSeries : MICRO_FALLBACK_SERIES,
+        sparklineTone: sparklineToneFromVariant(adherenceTrend.variant),
       },
     ];
 
-    if (sleepAvgHours !== null) {
-      const sleepStatus = deriveAssessment(sleepAvgHours, { good: 7, okay: 6 }, true);
-      base.push({
-        key: "sleep",
-        title: "Sleep",
-        value: formatValue(sleepAvgHours, "h"),
-        assessment: sleepStatus.label,
-        variant: sleepStatus.variant,
-      });
-    }
-
-    if (hydrationStats.avg !== null) {
+    if (hydrationStats.avg !== null || hydrationSeries.length > 0) {
       const hydrationStatus = deriveAssessment(
         hydrationStats.avg,
         { good: 1800, okay: 1400 },
-        true
+        true,
       );
-      base.push({
+
+      summary.push({
         key: "hydration",
         title: "Hydration",
         value: formatValue(hydrationStats.avg, " ml", 0),
         assessment: hydrationStatus.label,
         variant: hydrationStatus.variant,
-        helper: `${hydrationStats.daysMeetingTarget}/${hydrationStats.totalDays} goal days`,
+        detail:
+          hydrationStats.totalDays > 0
+            ? `${hydrationStats.daysMeetingTarget}/${hydrationStats.totalDays} days met your daily water target.`
+            : `Hydration totals will appear here once there is enough recent data.`,
+        sparklineValues: hydrationSeries.length >= 2 ? hydrationSeries : MICRO_FALLBACK_SERIES,
+        sparklineTone: sparklineToneFromVariant(hydrationStatus.variant),
+      });
+    } else {
+      const sleepStatus = deriveAssessment(sleepAvgHours, { good: 7, okay: 6 }, true);
+      summary.push({
+        key: "sleep",
+        title: "Sleep",
+        value: formatValue(sleepAvgHours, "h"),
+        assessment: sleepStatus.label,
+        variant: sleepStatus.variant,
+        detail:
+          sleepAvgHours !== null
+            ? `Average sleep across this ${rangeDays}-day window.`
+            : `Sleep entries will appear here as you continue checking in.`,
+        sparklineValues: sleepSeries.length >= 2 ? sleepSeries : MICRO_FALLBACK_SERIES,
+        sparklineTone: sparklineToneFromVariant(sleepStatus.variant),
       });
     }
 
-    return base.slice(0, 6);
-  }, [exerciseAvgPct, hydrationStats, medicationPct, moodAvg, painAvg, sleepAvgHours]);
+    return summary.slice(0, 4);
+  }, [
+    adherenceSeries,
+    exerciseAvgPct,
+    hydrationSeries,
+    hydrationStats,
+    moodAvg,
+    moodSeries,
+    painAvg,
+    painSeries,
+    rangeDays,
+    sleepAvgHours,
+    sleepSeries,
+    trendItems,
+  ]);
 
   const subtitle = useMemo(() => {
     if (source === "cache") {
-      return "Showing saved trend data.";
+      return "Showing saved progress from your recent check-ins.";
     }
-    return "Your recovery trends over time.";
+    return "Review your recent recovery patterns.";
   }, [source]);
 
   const latestCheckin = filteredItems[0] ?? null;
   const supportRequestsInRange = useMemo(
     () =>
       filteredItems.filter(
-        (item) => item.support?.wantsFollowUp || item.support?.wantsExtraSupport || item.support?.needsUrgentHelp,
+        (item) =>
+          item.support?.wantsFollowUp ||
+          item.support?.wantsExtraSupport ||
+          item.support?.needsUrgentHelp,
       ).length,
     [filteredItems],
   );
 
-  const progressStory = useMemo(() => {
-    if (filteredItems.length === 0) {
-      return {
-        title: "Your recovery story will build as new check-ins come in.",
-        body: "Use this screen to notice current direction first, then review the daily detail underneath.",
-      };
-    }
+  const progressStory = useMemo(
+    () => buildProgressStoryCopy(trendItems, rangeDays, filteredItems.length),
+    [filteredItems.length, rangeDays, trendItems],
+  );
 
-    const warningCount = trendItems.filter((item) => item.variant === "warning" || item.variant === "danger").length;
-    const improvingCount = trendItems.filter((item) => item.variant === "success").length;
-
-    if (warningCount > 0) {
-      return {
-        title: "A few recovery signals need a closer look.",
-        body: "Start with the trend cards below, then review recent check-ins to understand what changed.",
-      };
-    }
-
-    if (improvingCount >= 2) {
-      return {
-        title: "Recovery looks steady across this window.",
-        body: "You have enough recent data to see a clearer direction in pain, mood, and adherence.",
-      };
-    }
-
-    return {
-      title: "Recent recovery signals look broadly stable.",
-      body: "Use the trend summary for the headline view, then dip into the daily history for supporting detail.",
-    };
-  }, [filteredItems.length, trendItems]);
-
-  // Keep dependencies stable (functions/primitives only) to avoid repeated effect reloads.
   const loadProgress = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
       if (!auth.token || !patientId || loadInFlightRef.current) {
@@ -805,7 +830,11 @@ export default function ProgressScreen() {
         setSource("live");
         await Promise.all([
           setCachedCheckins(patientId, sortedItems),
-          mergeCachedHydrationDayTotals(patientId, hydrationRange.days, hydrationRange.targetMl),
+          mergeCachedHydrationDayTotals(
+            patientId,
+            hydrationRange.days,
+            hydrationRange.targetMl,
+          ),
           refreshProgressStamp(),
           clearProgressLoadError(),
         ]);
@@ -830,7 +859,7 @@ export default function ProgressScreen() {
           setNotice({
             variant: "warning",
             title: friendly.title,
-            message: "Showing saved data. Live refresh failed.",
+            message: "Showing saved progress. Live refresh failed.",
             actionLabel: friendly.retryable ? "Retry" : undefined,
             onAction: friendly.retryable
               ? () => {
@@ -866,7 +895,7 @@ export default function ProgressScreen() {
       patientId,
       refreshProgressStamp,
       setProgressLoadError,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -908,9 +937,9 @@ export default function ProgressScreen() {
   }
 
   const listHeader = (
-    <View style={styles.listHeader}>
+    <View testID="progress-shell" style={styles.listHeader}>
       <HeroHeader
-        title="Progress"
+        title="Recovery progress"
         subtitle={subtitle}
         rightActions={[
           {
@@ -924,18 +953,22 @@ export default function ProgressScreen() {
         ]}
       >
         <View style={styles.headerPillRow}>
-          <StatusPill label={`Range ${rangeDays}d`} variant="neutral" />
           <StatusPill
-            label={source === "cache" ? "Saved view" : source === "live" ? "Live trends" : "No data yet"}
+            label={
+              source === "cache"
+                ? "Saved view"
+                : source === "live"
+                  ? "Live view"
+                  : "No data yet"
+            }
             variant={source === "cache" ? "warning" : source === "live" ? "success" : "neutral"}
           />
-          {filteredItems.length > 0 ? (
-            <StatusPill
-              label={`${filteredItems.length} check-in${filteredItems.length === 1 ? "" : "s"}`}
-              variant="info"
-            />
-          ) : null}
+          <StatusPill
+            label={`${filteredItems.length} check-in${filteredItems.length === 1 ? "" : "s"}`}
+            variant="info"
+          />
         </View>
+
         <TrustCues
           status={trustStatus}
           lastUpdatedLabel={progressRefreshLabel}
@@ -944,13 +977,15 @@ export default function ProgressScreen() {
           showSavedLocalHint
           style={styles.trustCueRow}
         />
+
         <Card variant="outlined" style={styles.storyCard}>
-          <View style={styles.storyCardCopy}>
-            <Text style={styles.storyEyebrow}>Current direction</Text>
+          <View style={styles.storyCopy}>
+            <Text style={styles.storyEyebrow}>Trend story</Text>
             <Text style={styles.storyTitle}>{progressStory.title}</Text>
             <Text style={styles.storyText}>{progressStory.body}</Text>
           </View>
-          <View style={styles.storyFacts}>
+
+          <View style={styles.storyFactsRow}>
             <View style={styles.storyFact}>
               <Text style={styles.storyFactLabel}>Latest check-in</Text>
               <Text style={styles.storyFactValue}>
@@ -959,12 +994,12 @@ export default function ProgressScreen() {
             </View>
             <View style={styles.storyFact}>
               <Text style={styles.storyFactLabel}>Entries in view</Text>
-              <Text style={styles.storyFactValue}>{filteredItems.length || "0"}</Text>
+              <Text style={styles.storyFactValue}>{filteredItems.length || 0}</Text>
             </View>
             <View style={styles.storyFact}>
-              <Text style={styles.storyFactLabel}>Support requests</Text>
+              <Text style={styles.storyFactLabel}>Support requested</Text>
               <Text style={styles.storyFactValue}>
-                {supportRequestsInRange > 0 ? `${supportRequestsInRange} flagged` : "None in range"}
+                {supportRequestsInRange > 0 ? `${supportRequestsInRange} time${supportRequestsInRange === 1 ? "" : "s"}` : "None"}
               </Text>
             </View>
           </View>
@@ -997,10 +1032,12 @@ export default function ProgressScreen() {
 
       <Section
         title="Review window"
-        subtitle="Short windows highlight recent change. Longer windows show steadier recovery patterns."
+        subtitle="Choose the period you want to review."
+        right={<StatusPill label={`${rangeDays} days`} variant="info" />}
         card
       >
         <SegmentedControl
+          testID="progress-range-selector"
           value={String(rangeDays) as "7" | "30" | "90"}
           options={[
             { value: "7", label: "7d" },
@@ -1011,148 +1048,89 @@ export default function ProgressScreen() {
           accessibilityLabel="Progress range selector"
           tone="primary"
         />
+        <Text style={styles.rangeHelp}>
+          Short windows highlight recent change. Longer windows show steadier recovery patterns.
+        </Text>
       </Section>
 
       <Section
         title="Current signals"
-        subtitle="Start here for the clearest recent recovery measures in this window."
+        subtitle="Start here for the clearest recent measures in this review window."
         card
       >
         {isLoading && items.length === 0 ? (
-          <View style={styles.kpiGrid}>
+          <View style={styles.signalGrid}>
             {[0, 1, 2, 3].map((key) => (
-              <SkeletonBlock key={key} height={110} style={styles.kpiTileSkeleton} />
+              <SkeletonBlock
+                key={key}
+                height={176}
+                style={styles.signalSkeleton}
+              />
             ))}
           </View>
         ) : (
-          <View style={styles.kpiGrid}>
-            {kpiItems.map((kpi) => {
-              const mappedTone =
-                kpi.variant === "success"
-                  ? "success"
-                  : kpi.variant === "warning" || kpi.variant === "danger"
-                    ? "warning"
-                    : kpi.variant === "info"
-                      ? "accent"
-                      : "muted";
-
-              const mappedIcon =
-                kpi.key === "pain" || kpi.key === "mood"
-                  ? "checkin"
-                  : kpi.key === "adherence"
-                    ? "exercise"
-                    : kpi.key === "medication"
-                      ? "meds"
-                      : kpi.key === "sleep"
-                        ? "sleep"
-                        : kpi.key === "hydration"
-                          ? "hydration"
-                          : "progress";
-
-              const mappedMicro =
-                kpi.key === "pain"
-                  ? painSeries.length >= 2
-                    ? { type: "sparkline" as const, values: painSeries, tone: "warning" as const }
-                    : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
-                  : kpi.key === "mood"
-                    ? moodSeries.length >= 2
-                      ? { type: "sparkline" as const, values: moodSeries, tone: "success" as const }
-                      : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
-                    : kpi.key === "adherence"
-                      ? adherenceSeries.length >= 2
-                        ? { type: "bars" as const, values: adherenceSeries }
-                        : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
-                      : kpi.key === "medication"
-                        ? medsSeries.length >= 2
-                          ? {
-                              type: "ring" as const,
-                              progress: clamp01((medicationPct ?? 0) / 100),
-                            }
-                          : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
-                        : kpi.key === "sleep"
-                          ? sleepSeries.length >= 2
-                            ? { type: "sparkline" as const, values: sleepSeries, tone: "muted" as const }
-                            : { type: "dots" as const, values: MICRO_FALLBACK_SERIES }
-                          : hydrationSeries.length >= 2
-                            ? { type: "bars" as const, values: hydrationSeries }
-                            : { type: "dots" as const, values: MICRO_FALLBACK_SERIES };
-
-              const deltaLabel = kpi.helper
-                ? `${kpi.assessment} · ${kpi.helper}`
-                : `${kpi.assessment} · Last ${rangeDays}d`;
-
-              return (
-                <View key={kpi.key} style={styles.kpiTileWrap}>
-                  <TrackerTile
-                    icon={mappedIcon}
-                    label={kpi.title}
-                    value={kpi.value}
-                    delta={deltaLabel}
-                    tone={mappedTone}
-                    micro={mappedMicro}
-                  />
-                </View>
-              );
-            })}
+          <View testID="progress-signal-grid" style={styles.signalGrid}>
+            {signalItems.map((signal) => (
+              <View key={signal.key} style={styles.signalCardWrap}>
+                <ProgressSignalCard
+                  testID={`progress-signal-${signal.key}`}
+                  title={signal.title}
+                  value={signal.value}
+                  summary={signal.assessment}
+                  detail={signal.detail}
+                  sparklineValues={signal.sparklineValues}
+                  sparklineTone={signal.sparklineTone}
+                  variant={signal.variant}
+                />
+              </View>
+            ))}
           </View>
         )}
       </Section>
 
       <Section
         title="Trend story"
-        subtitle="These summaries help you see what is improving, what is steady, and what may need more attention."
+        subtitle="Specific changes across this review window."
         card
       >
-        <View style={styles.trendList}>
-          {trendItems.map((trend) => (
-            <MediaCard
-              key={trend.key}
-              variant="compact"
-              leading={{
-                type: "icon",
-                icon: trend.key === "adherence" ? "exercise" : trend.key === "mood" ? "progress" : "checkin",
-                tone:
-                  trend.variant === "success"
-                    ? "success"
-                    : trend.variant === "warning" || trend.variant === "danger"
-                      ? "warning"
-                      : trend.variant === "info"
-                        ? "accent"
-                        : "muted",
-              }}
-              title={trendTitle(trend.key)}
-              subtitle={`${trendArrow(trend.direction)} ${trend.deltaLabel} · ${trendNarrative(trend, rangeDays)}`}
-              chips={[
-                { text: `Last ${rangeDays}d`, tone: "muted" },
-                {
-                  text: `Change ${trend.deltaLabel}`,
-                  tone:
-                    trend.variant === "success"
-                      ? "success"
-                      : trend.variant === "warning" || trend.variant === "danger"
-                        ? "warning"
-                        : trend.variant === "info"
-                          ? "info"
-                          : "muted",
-                },
-              ]}
-              statusPill={{ text: trend.assessment, tone: trend.variant }}
-              showChevron={false}
-            />
-          ))}
+        <View testID="progress-trend-list" style={styles.trendList}>
+          {trendItems.map((trend) => {
+            const sparklineValues =
+              trend.key === "pain"
+                ? painSeries
+                : trend.key === "mood"
+                  ? moodSeries
+                  : adherenceSeries;
+
+            return (
+              <ProgressTrendCard
+                key={trend.key}
+                testID={`progress-trend-${trend.key}`}
+                title={trend.title}
+                sentence={describeTrendChange(trend, rangeDays)}
+                deltaLabel={trend.hasData ? trend.deltaLabel : "Building"}
+                rangeLabel={`Last ${rangeDays} days`}
+                statusLabel={trend.assessment}
+                variant={trend.variant}
+                sparklineValues={
+                  sparklineValues.length >= 2 ? sparklineValues : MICRO_FALLBACK_SERIES
+                }
+                sparklineTone={sparklineToneFromVariant(trend.variant)}
+              />
+            );
+          })}
         </View>
       </Section>
 
       <View style={styles.historyHeader}>
-        <Text style={styles.historyEyebrow}>Deeper history</Text>
+        <Text style={styles.historyEyebrow}>Supporting history</Text>
         <Text accessibilityRole="header" style={styles.historyTitle}>
           Recent check-ins
         </Text>
         <Text style={styles.historySubtitle}>
-          Use these daily entries as supporting detail beneath the trend summary above.
+          Grouped by week so it is easier to review the detail beneath your trends.
         </Text>
       </View>
-      {/* IMPORTANT: Header belongs in ListHeaderComponent only; do not duplicate in renderItem. */}
     </View>
   );
 
@@ -1168,9 +1146,10 @@ export default function ProgressScreen() {
         />
       }
     >
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => item.id}
+      <FlatList<ProgressHistoryRow>
+        testID="progress-history-list"
+        data={historyRows}
+        keyExtractor={(row) => row.key}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -1181,23 +1160,16 @@ export default function ProgressScreen() {
         }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={listHeader}
-        renderItem={({ item }) => {
-          const exercisePct =
-            typeof item.adherence?.exercises === "number"
-              ? `${Math.round(item.adherence.exercises * 100)}%`
-              : "—";
-          const medTaken =
-            typeof item.adherence?.medication === "boolean"
-              ? item.adherence.medication
-                ? "Yes"
-                : "No"
-              : "—";
-          const sleepSummary =
-            typeof item.sleep?.hours === "number"
-              ? `${item.sleep.hours.toFixed(1)}h`
-              : typeof item.sleep?.quality === "number"
-                ? `Q${item.sleep.quality}/5`
-                : null;
+        renderItem={({ item: row }) => {
+          if (row.type === "header") {
+            return (
+              <View style={styles.weekHeader}>
+                <Text style={styles.weekHeaderText}>{row.label}</Text>
+              </View>
+            );
+          }
+
+          const item = row.item;
 
           return (
             <View style={styles.historyRowWrap}>
@@ -1216,7 +1188,7 @@ export default function ProgressScreen() {
                           : "muted",
                 }}
                 title={formatDateTitle(item)}
-                subtitle={`Pain ${item.pain}/10 · Mood ${item.mood}/5 · Exercises ${exercisePct}${sleepSummary ? ` · Sleep ${sleepSummary}` : ""} · Medication ${medTaken}`}
+                subtitle={historySubtitle(item)}
                 chips={historyChips(item)}
                 maxChips={3}
                 statusPill={historyStatus(item)}
@@ -1232,14 +1204,14 @@ export default function ProgressScreen() {
           isLoading ? (
             <View style={styles.emptyLoadingWrap}>
               {[0, 1, 2].map((key) => (
-                <SkeletonBlock key={key} height={72} style={styles.historySkeleton} />
+                <SkeletonBlock key={key} height={76} style={styles.historySkeleton} />
               ))}
             </View>
           ) : (
             <EmptyState
               variant="compact"
               illustrationKey={isOffline ? "offline" : "progress"}
-              title={isOffline ? "Offline — no saved progress yet" : "No check-ins in this range yet"}
+              title={isOffline ? "Offline — no saved progress yet" : "No check-ins in this window yet"}
               description={
                 isOffline
                   ? "Connect again to refresh your recovery history."
@@ -1280,10 +1252,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       marginTop: tokens.spacing.xs,
     },
     storyCard: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.lg,
       backgroundColor: tokens.colors.surface,
     },
-    storyCardCopy: {
+    storyCopy: {
       gap: tokens.spacing.xs,
     },
     storyEyebrow: {
@@ -1301,14 +1273,18 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     storyText: {
-      color: tokens.colors.textMuted,
+      color: tokens.colors.textSecondary,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
     },
-    storyFacts: {
+    storyFactsRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     storyFact: {
+      flexGrow: 1,
+      minWidth: 96,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.md,
@@ -1334,20 +1310,25 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     failureCard: {
       backgroundColor: tokens.colors.surface,
     },
-    kpiGrid: {
+    rangeHelp: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    signalGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
-    kpiTileWrap: {
+    signalCardWrap: {
       width: "48%",
       flexGrow: 1,
     },
-    kpiTileSkeleton: {
+    signalSkeleton: {
       width: "48%",
       flexGrow: 1,
-      minHeight: 110,
-      borderRadius: tokens.radius.md,
+      minHeight: 176,
+      borderRadius: tokens.radius.lg,
     },
     trendList: {
       gap: tokens.spacing.sm,
@@ -1355,7 +1336,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     historyHeader: {
       gap: tokens.spacing.xs,
       marginTop: tokens.spacing.xs,
-      marginBottom: tokens.spacing.xs,
     },
     historyEyebrow: {
       color: tokens.colors.textMuted,
@@ -1372,13 +1352,25 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     historySubtitle: {
-      color: tokens.colors.textMuted,
+      color: tokens.colors.textSecondary,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
     },
     listContent: {
       gap: tokens.spacing.md,
       paddingBottom: tokens.spacing.xl,
+    },
+    weekHeader: {
+      paddingTop: tokens.spacing.sm,
+      paddingBottom: tokens.spacing.xs,
+    },
+    weekHeaderText: {
+      color: tokens.colors.textTertiary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
     },
     historyRowWrap: {
       marginBottom: tokens.spacing.xs,
@@ -1388,7 +1380,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     historySkeleton: {
       borderRadius: tokens.radius.md,
-      minHeight: 72,
+      minHeight: 76,
     },
   });
 }

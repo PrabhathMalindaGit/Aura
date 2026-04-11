@@ -195,18 +195,22 @@ vi.mock("@/src/theme/tokens", () => ({
       border: "#d8d8d8",
       danger: "#c53030",
       primary: "#2255aa",
+      primarySoft: "#eef4ff",
       primaryTextOn: "#ffffff",
       success: "#2f855a",
       successTextOn: "#edfdf4",
       surface: "#ffffff",
       surfaceElevated: "#f2f2f2",
+      surfaceSubtle: "#f6f6f6",
       text: "#111111",
       textMuted: "#666666",
+      textTertiary: "#7a7a7a",
       warning: "#b7791f",
       warningTextOn: "#fff8e1",
     },
     radius: { sm: 8, md: 12, lg: 16, xl: 24 },
-    spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
+    spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
+    elevation: { card: {}, sm: {}, md: {}, none: {} },
     typography: {
       body: { fontSize: 16, lineHeight: 22 },
       caption: { fontSize: 12, lineHeight: 16 },
@@ -262,6 +266,16 @@ vi.mock("@/src/components/Banner", () => ({
       message,
       actionLabel ? React.createElement("mock-banner-action", { label: actionLabel }, actionLabel) : null
     ),
+}));
+
+vi.mock("@/src/components/Card", () => ({
+  Card: ({
+    children,
+    ...props
+  }: {
+    children?: React.ReactNode;
+    [key: string]: unknown;
+  }) => React.createElement("mock-card", props, children),
 }));
 
 vi.mock("@/src/components/communication/WorkflowMessageCard", () => ({
@@ -325,6 +339,10 @@ vi.mock("@/src/components/Screen", () => ({
 
 vi.mock("@/src/components/Skeleton", () => ({
   SkeletonBlock: (props: Record<string, unknown>) => React.createElement("mock-skeleton", props),
+}));
+
+vi.mock("@/src/components/StatusPill", () => ({
+  StatusPill: (props: Record<string, unknown>) => React.createElement("mock-status-pill", props),
 }));
 
 vi.mock("@/src/components/TipCard", () => ({
@@ -711,11 +729,17 @@ describe("chat truth fix", () => {
     const workflowCards = root.findAll((node) => String(node.type) === "mock-workflow-card");
 
     expect(workflowCards).toHaveLength(1);
-    expect(workflowCards[0].props.title).toBe("Please reply to your care team");
+    expect(workflowCards[0].props.title).toBe("A response is delayed");
     expect(workflowCards[0].props.text).toBe(
-      "Your care team is waiting for a reply. Open chat when you can.",
+      "Your care team is waiting for a reply. You can still message them here.",
     );
     expect(workflowCards[0].props.chips).toEqual(["Overdue", "Care team message"]);
     expect(JSON.stringify(workflowCards[0].props)).not.toContain("2026-03-24T09:00:00.000Z");
+    expect(JSON.stringify(workflowCards[0].props).toLowerCase()).not.toContain(
+      "no-response escalation",
+    );
+    expect(JSON.stringify(workflowCards[0].props).toLowerCase()).not.toContain(
+      "follow-through",
+    );
   });
 });

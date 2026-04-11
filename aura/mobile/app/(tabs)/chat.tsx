@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,14 +24,16 @@ import {
 import { listPatientTasks } from "@/src/api/tasks";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
+import { Card } from "@/src/components/Card";
+import { MessagesShell } from "@/src/components/communication/MessagesShell";
 import { WorkflowMessageCard } from "@/src/components/communication/WorkflowMessageCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { GlassPanel } from "@/src/components/GlassPanel";
-import { HeroHeader } from "@/src/components/HeroHeader";
-import { DomainIcon, type DomainIconKey } from "@/src/components/IconSet";
+import type { DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { Screen } from "@/src/components/Screen";
 import { SkeletonBlock } from "@/src/components/Skeleton";
+import { StatusPill } from "@/src/components/StatusPill";
 import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { useAuth } from "@/src/state/auth";
@@ -50,14 +51,11 @@ import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
 import type { PatientTaskItem } from "@/src/types/task";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
-import { formatPatientChatTimestamp } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import {
   derivePatientTaskAction,
   formatPatientTaskSourceLabel,
   formatTaskDueLabel,
-  formatTaskSupportText,
-  formatTaskTitle,
   groupTasksByPatientIntent,
   isCommunicationTask,
 } from "@/src/utils/tasks";
@@ -82,8 +80,6 @@ type ChatDevParams = {
 };
 
 const CHAT_LIMIT = 50;
-const TIMESTAMP_GAP_MS = 30 * 60 * 1000;
-const TIMESTAMP_SENDER_CHANGE_GAP_MS = 10 * 60 * 1000;
 const COMPACT_GROUP_GAP_MS = 5 * 60 * 1000;
 
 type QuickAction = {
@@ -167,7 +163,17 @@ function toMessageTime(iso?: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function shouldShowTimestamp(items: MessageItem[], index: number): boolean {
+function isSameLocalDay(leftTs: number, rightTs: number): boolean {
+  const left = new Date(leftTs);
+  const right = new Date(rightTs);
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function shouldShowDaySeparator(items: MessageItem[], index: number): boolean {
   if (index === 0) {
     return true;
   }
@@ -181,19 +187,10 @@ function shouldShowTimestamp(items: MessageItem[], index: number): boolean {
   const currentTs = toMessageTime(current.createdAt);
   const previousTs = toMessageTime(previous.createdAt);
   if (currentTs === null || previousTs === null) {
-    return current.role !== previous.role;
+    return false;
   }
 
-  const gap = Math.abs(currentTs - previousTs);
-  if (gap >= TIMESTAMP_GAP_MS) {
-    return true;
-  }
-
-  if (current.role !== previous.role && gap >= TIMESTAMP_SENDER_CHANGE_GAP_MS) {
-    return true;
-  }
-
-  return false;
+  return !isSameLocalDay(currentTs, previousTs);
 }
 
 function isCompactGroup(items: MessageItem[], index: number): boolean {
@@ -234,8 +231,43 @@ function isGroupStart(items: MessageItem[], index: number): boolean {
   return !isCompactGroup(items, index);
 }
 
-function formatTimestampLabel(iso?: string): string | null {
-  return formatPatientChatTimestamp(iso);
+function formatConversationTimeLabel(iso?: string): string | null {
+  const timestamp = toMessageTime(iso);
+  if (timestamp === null) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function formatConversationDayLabel(
+  iso?: string,
+  now: Date = new Date(),
+): string | null {
+  const timestamp = toMessageTime(iso);
+  if (timestamp === null) {
+    return null;
+  }
+
+  const date = new Date(timestamp);
+  if (isSameLocalDay(timestamp, now.getTime())) {
+    return "Today";
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameLocalDay(timestamp, yesterday.getTime())) {
+    return "Yesterday";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 function normalizeChatError(error: unknown): ApiError {
@@ -401,7 +433,6 @@ export default function ChatScreen() {
     clear: clearChatLoadError,
   } = useLastError("chatLoad");
   const {
-    label: chatSendErrorLabel,
     lastError: chatSendLastError,
     setLocalError: setChatSendError,
     clear: clearChatSendError,
@@ -457,6 +488,7 @@ export default function ChatScreen() {
     () => isSending || isOffline || !draft.trim(),
     [draft, isOffline, isSending]
   );
+  const hasDraft = draft.trim().length > 0;
 
   const latestPatientLocalId = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -587,6 +619,47 @@ export default function ChatScreen() {
       return grouped.slice(0, 2);
     },
     [workflowTasks],
+  );
+  const promptSummary = useMemo(() => {
+    const task = communicationPrompts[0];
+    if (!task) {
+      return null;
+    }
+
+    const dueLabel = formatTaskDueLabel(task);
+    const action = derivePatientTaskAction(task);
+    const extraCount = Math.max(0, communicationPrompts.length - 1);
+    const isDelayed =
+      dueLabel === "Overdue" || task.priority === "urgent" || task.priority === "high";
+
+    return {
+      title: isDelayed ? "A response is delayed" : "Your care team has an update",
+      text: isDelayed
+        ? "Your care team is waiting for a reply. You can still message them here."
+        : "Open the latest message and reply when you can.",
+      chips: [
+        dueLabel,
+        extraCount > 0
+          ? `+${extraCount} more update${extraCount === 1 ? "" : "s"}`
+          : formatPatientTaskSourceLabel(task),
+      ].filter((value): value is string => Boolean(value)),
+      tone: isDelayed ? ("warning" as const) : ("info" as const),
+      actionLabel: action.icon === "chat" ? "Reply here" : action.label,
+      action: () => {
+        router.push(action.href as never);
+      },
+    };
+  }, [communicationPrompts, router]);
+  const contextNotice = localAttempt ? null : notice;
+  const messageShortcuts = useMemo(
+    () =>
+      quickActions.map((action) => ({
+        ...action,
+        onPress: () => {
+          router.push(action.route as never);
+        },
+      })),
+    [quickActions, router],
   );
 
   const loadWorkflowTasks = useCallback(async () => {
@@ -933,17 +1006,26 @@ export default function ChatScreen() {
 
   const renderItem = useCallback(
     ({ item, index }: { item: MessageItem; index: number }) => {
-      const showTimestamp = shouldShowTimestamp(messages, index);
-      const compact = !showTimestamp && isCompactGroup(messages, index);
-      const timestampLabel = showTimestamp ? formatTimestampLabel(item.createdAt) : null;
+      const showDaySeparator = shouldShowDaySeparator(messages, index);
+      const showGroupMeta = isGroupStart(messages, index);
+      const compact = !showGroupMeta && isCompactGroup(messages, index);
+      const dayLabel = showDaySeparator ? formatConversationDayLabel(item.createdAt) : null;
+      const timeLabel = showGroupMeta ? formatConversationTimeLabel(item.createdAt) : null;
 
       if (item.role === "system") {
         const isSafetySystem = item.text.toLowerCase().includes("safety");
         return (
           <View style={[styles.messageGroup, compact ? styles.messageGroupCompact : null]}>
-            {timestampLabel ? (
-              <Text style={styles.timestampLabel}>{timestampLabel}</Text>
+            {dayLabel ? (
+              <View style={styles.dayDivider}>
+                <View style={styles.dayDividerLine} />
+                <Text style={styles.dayDividerText}>{dayLabel}</Text>
+                <View style={styles.dayDividerLine} />
+              </View>
             ) : null}
+
+            {timeLabel ? <Text style={styles.messageMetaText}>{`Care update · ${timeLabel}`}</Text> : null}
+
             <TipCard
               compact
               tone={isSafetySystem ? "safety" : "neutral"}
@@ -965,10 +1047,17 @@ export default function ChatScreen() {
         !isPatient &&
         inlineAssistantTip !== null &&
         item.localId === inlineAssistantTip.targetLocalId;
+      const metaLabel = isPatient ? "You" : "Care team";
 
       return (
         <View style={[styles.messageGroup, compact ? styles.messageGroupCompact : null]}>
-          {timestampLabel ? <Text style={styles.timestampLabel}>{timestampLabel}</Text> : null}
+          {dayLabel ? (
+            <View style={styles.dayDivider}>
+              <View style={styles.dayDividerLine} />
+              <Text style={styles.dayDividerText}>{dayLabel}</Text>
+              <View style={styles.dayDividerLine} />
+            </View>
+          ) : null}
 
           <View style={[styles.messageRow, isPatient ? styles.rowPatient : styles.rowAssistant]}>
             {!isPatient ? (
@@ -988,6 +1077,17 @@ export default function ChatScreen() {
             ) : null}
 
             <View style={[styles.bubbleWrap, isPatient ? styles.patientBubbleWrap : styles.assistantBubbleWrap]}>
+              {timeLabel ? (
+                <Text
+                  style={[
+                    styles.messageMetaText,
+                    isPatient ? styles.messageMetaTextRight : null,
+                  ]}
+                >
+                  {`${metaLabel} · ${timeLabel}`}
+                </Text>
+              ) : null}
+
               <View
                 style={[
                   styles.bubble,
@@ -1125,7 +1225,7 @@ export default function ChatScreen() {
 
   if (auth.status === "loading") {
     return (
-      <Screen title="Chat" scroll={false}>
+      <Screen title="Messages" scroll={false}>
         <View style={styles.centered}>
           <SkeletonBlock width="60%" height={18} style={styles.loadingSkeleton} />
           <SkeletonBlock width="72%" height={54} style={styles.loadingSkeleton} />
@@ -1143,10 +1243,22 @@ export default function ChatScreen() {
     <Screen
       scroll={false}
       auditLabel="ChatScreen"
-      header={
-        <HeroHeader
-          variant="compact"
-          title="Chat"
+      banner={
+        <TrustBanner
+          status={trustStatus}
+          offlineMode="onlineOnly"
+          onRetry={() => {
+            void loadHistory();
+          }}
+        />
+      }
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.flex}
+      >
+        <MessagesShell
+          title="Messages"
           subtitle="Care team support"
           left={
             <Avatar
@@ -1163,7 +1275,7 @@ export default function ChatScreen() {
                 router.push("/safety" as never);
               },
               accessibilityLabel: "Open Safety support",
-              tone: "warning",
+              tone: "success",
             },
             {
               icon: "coping",
@@ -1171,192 +1283,78 @@ export default function ChatScreen() {
                 router.push("/coping-tools" as never);
               },
               accessibilityLabel: "Open coping tools",
-              tone: "accent",
+              tone: "muted",
             },
           ]}
-        />
-      }
-      // Banner belongs in Screen.banner; do not duplicate inside list header/items.
-      banner={
-        <TrustBanner
-          status={trustStatus}
-          offlineMode="onlineOnly"
-          onRetry={() => {
-            void loadHistory();
-          }}
-        />
-      }
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
-        <View style={styles.flex}>
-          <View style={styles.metaArea}>
-            <Text style={styles.metaText}>Last updated: {chatRefreshLabel}</Text>
-
-            {communicationPrompts.length > 0 ? (
-              <View style={styles.promptStack}>
-                {communicationPrompts.map((task) => {
-                  const action = derivePatientTaskAction(task);
-                  return (
-                    <WorkflowMessageCard
-                      key={task.id}
-                      compact
-                      title={formatTaskTitle(task)}
-                      text={formatTaskSupportText(task)}
-                      chips={[formatTaskDueLabel(task), formatPatientTaskSourceLabel(task)].filter(
-                        (value): value is string => Boolean(value),
-                      )}
-                      tone={task.priority === "urgent" || task.priority === "high" ? "warning" : "info"}
-                      actionLabel={action.label}
-                      onAction={() => {
-                        router.push(action.href as never);
-                      }}
-                    />
-                  );
-                })}
-              </View>
-            ) : null}
-
-            {showingOfflineCache && !isOffline ? (
-              <Banner
-                variant="info"
-                title="Showing saved messages"
-                message="Live chat is temporarily unavailable."
+          statusContent={
+            <View style={styles.statusRow}>
+              <StatusPill
+                label={isOffline ? "Offline" : "Live messages"}
+                variant={isOffline ? "warning" : "success"}
+                accessible={false}
               />
-            ) : null}
-
-            {notice ? (
-              <Banner
-                variant={notice.variant}
-                title={notice.title}
-                message={notice.message}
-                actionLabel={notice.actionLabel}
-                onAction={notice.action}
-              />
-            ) : null}
-
-            {chatLoadLastError ? (
-              <LastFailedAttempt
-                label="Last history load failure"
-                value={chatLoadErrorLabel}
-                title={chatLoadLastError.title}
-                message={chatLoadLastError.message}
-                onClear={clearChatLoadError}
-                compact
-              />
-            ) : null}
-
-            {chatSendLastError ? (
-              <LastFailedAttempt
-                label="Last send failure"
-                value={chatSendErrorLabel}
-                title={chatSendLastError.title}
-                message={chatSendLastError.message}
-                onClear={clearChatSendError}
-                compact
-              />
-            ) : null}
-          </View>
-
-          <View style={styles.listWrapper}>
-            {isLoading && messages.length === 0 ? (
-              <View style={styles.loadingList}>
-                <View style={styles.rowAssistant}>
-                  <SkeletonBlock width="66%" height={56} style={styles.loadingBubble} />
-                </View>
-                <View style={styles.rowPatient}>
-                  <SkeletonBlock width="52%" height={56} style={styles.loadingBubble} />
-                </View>
-                <View style={styles.rowAssistant}>
-                  <SkeletonBlock width="60%" height={56} style={styles.loadingBubble} />
-                </View>
-              </View>
-            ) : (
-              <FlatList
-                ref={listRef}
-                data={messages}
-                keyExtractor={(item) => (item.id ? `msg-${item.id}` : item.localId)}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.messageList}
-                renderItem={renderItem}
-                ListEmptyComponent={
-                  <View style={styles.emptyStateContent}>
-                    <EmptyState
-                      variant="compact"
-                      illustrationKey={isOffline ? "offline" : "chat"}
-                      title={isOffline ? "Offline — chat history unavailable" : "No messages yet"}
-                      description={
-                        isOffline
-                          ? "Connect to load conversation history."
-                          : "Start with a message below."
-                      }
-                      ctaLabel={isOffline ? undefined : "Send a message"}
-                      onCtaPress={
-                        isOffline
-                          ? undefined
-                          : () => {
-                              inputRef.current?.focus();
-                            }
-                      }
-                    />
-
-                    <View style={styles.emptyTips}>
-                      <TipCard
-                        tone="info"
-                        leading={{ type: "icon", icon: "chat", tone: "accent" }}
-                        title="Try a quick question"
-                        text="You can ask about exercises, pain, or scheduling."
-                        chips={["Exercises", "Pain", "Schedule"]}
-                        onPress={() => {
-                          setDraft("Can I do my exercises today?");
-                          inputRef.current?.focus();
-                        }}
-                        compact
-                      />
-                      <TipCard
-                        tone="safety"
-                        leading={{ type: "icon", icon: "coping", tone: "accent" }}
-                        title="Need a calming tool?"
-                        text="Open coping tools for guided breathing and grounding."
-                        actions={[
-                          {
-                            label: "Open Coping Tools",
-                            kind: "secondary",
-                            onPress: () => {
-                              router.push("/coping-tools" as never);
-                            },
-                          },
-                        ]}
-                        compact
-                      />
-                    </View>
-                  </View>
-                }
-              />
-            )}
-          </View>
-
-          <View style={styles.composerWrap}>
-            <GlassPanel
-              fallbackVariant="elevated"
-              fallbackOpacity={0.78}
-              style={styles.composerPanel}
-              accessibilityLabel="Chat composer panel"
-            >
+              <StatusPill label={`Updated ${chatRefreshLabel}`} variant="neutral" accessible={false} />
               {isSafetyChecking ? (
-                <Banner
-                  variant="info"
-                  title="Safety check in progress…"
-                  message="Please wait a moment."
+                <StatusPill label="Safety check" variant="info" accessible={false} />
+              ) : null}
+            </View>
+          }
+          contextContent={
+            <>
+              {promptSummary ? (
+                <WorkflowMessageCard
+                  compact
+                  title={promptSummary.title}
+                  text={promptSummary.text}
+                  chips={promptSummary.chips}
+                  tone={promptSummary.tone}
+                  actionLabel={promptSummary.actionLabel}
+                  onAction={promptSummary.action}
                 />
               ) : null}
 
+              {showingOfflineCache && !isOffline ? (
+                <Banner
+                  variant="info"
+                  title="Showing saved messages"
+                  message="Live chat is temporarily unavailable."
+                />
+              ) : null}
+
+              {contextNotice ? (
+                <Banner
+                  variant={contextNotice.variant}
+                  title={contextNotice.title}
+                  message={contextNotice.message}
+                  actionLabel={contextNotice.actionLabel}
+                  onAction={contextNotice.action}
+                />
+              ) : null}
+
+              {chatLoadLastError ? (
+                <LastFailedAttempt
+                  label="Last history load failure"
+                  value={chatLoadErrorLabel}
+                  title={chatLoadLastError.title}
+                  message={chatLoadLastError.message}
+                  onClear={clearChatLoadError}
+                  compact
+                />
+              ) : null}
+            </>
+          }
+          shortcuts={messageShortcuts}
+          composer={
+            <GlassPanel
+              fallbackVariant="surface"
+              fallbackOpacity={0.9}
+              style={styles.composerPanel}
+              accessibilityLabel="Chat composer panel"
+            >
               {isOffline ? (
                 <Banner
                   variant="warning"
-                  title="Offline — chat send is disabled"
+                  title="Offline — sending is paused"
                   message="Reconnect to send messages."
                 />
               ) : null}
@@ -1382,49 +1380,13 @@ export default function ChatScreen() {
                 />
               ) : null}
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.quickActionsRow}
-              >
-                {quickActions.map((action) => (
-                  <Pressable
-                    key={action.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={action.accessibilityLabel}
-                    accessibilityState={{ disabled: false }}
-                    onPress={() => {
-                      router.push(action.route as never);
-                    }}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    style={({ pressed }) => [
-                      styles.quickActionChip,
-                      pressed ? styles.quickActionChipPressed : null,
-                    ]}
-                  >
-                    <View
-                      accessible={false}
-                      importantForAccessibility="no-hide-descendants"
-                      style={styles.quickActionIconWrap}
-                    >
-                      <DomainIcon
-                        icon={action.icon}
-                        tone="accent"
-                        size={16}
-                        accessibilityLabel={`${action.label} icon`}
-                      />
-                    </View>
-                    <Text style={styles.quickActionChipText}>{action.label}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-
               <View style={styles.inputRow}>
                 <TextInput
                   ref={inputRef}
                   value={draft}
                   onChangeText={setDraft}
-                  placeholder="Type your message..."
+                  placeholder="Message your care team..."
+                  placeholderTextColor={tokens.colors.textMuted}
                   accessibilityLabel="Message input"
                   multiline
                   maxLength={1000}
@@ -1444,6 +1406,7 @@ export default function ChatScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={({ pressed }) => [
                     styles.sendButton,
+                    hasDraft && !isOffline ? styles.sendButtonReady : styles.sendButtonIdle,
                     isSendDisabled ? styles.sendButtonDisabled : null,
                     pressed && !isSendDisabled ? styles.sendButtonPressed : null,
                   ]}
@@ -1451,22 +1414,99 @@ export default function ChatScreen() {
                   {isSending ? (
                     <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
                   ) : (
-                    <View
-                      accessible={false}
-                      importantForAccessibility="no-hide-descendants"
-                    >
+                    <View accessible={false} importantForAccessibility="no-hide-descendants">
                       <MaterialCommunityIcons
                         name="send"
                         size={18}
-                        color={tokens.colors.primaryTextOn}
+                        color={hasDraft && !isOffline ? tokens.colors.primaryTextOn : tokens.colors.primary}
                       />
                     </View>
                   )}
                 </Pressable>
               </View>
             </GlassPanel>
-          </View>
-        </View>
+          }
+        >
+          <Card padding={0} style={styles.conversationCard}>
+            <View style={styles.listWrapper}>
+              {isLoading && messages.length === 0 ? (
+                <View style={styles.loadingList}>
+                  <View style={styles.rowAssistant}>
+                    <SkeletonBlock width="66%" height={56} style={styles.loadingBubble} />
+                  </View>
+                  <View style={styles.rowPatient}>
+                    <SkeletonBlock width="52%" height={56} style={styles.loadingBubble} />
+                  </View>
+                  <View style={styles.rowAssistant}>
+                    <SkeletonBlock width="60%" height={56} style={styles.loadingBubble} />
+                  </View>
+                </View>
+              ) : (
+                <FlatList
+                  ref={listRef}
+                  data={messages}
+                  keyExtractor={(item) => (item.id ? `msg-${item.id}` : item.localId)}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.messageList}
+                  renderItem={renderItem}
+                  ListEmptyComponent={
+                    <View style={styles.emptyStateContent}>
+                      <EmptyState
+                        variant="compact"
+                        illustrationKey={isOffline ? "offline" : "chat"}
+                        title={isOffline ? "Offline — message history unavailable" : "No messages yet"}
+                        description={
+                          isOffline
+                            ? "Connect to load conversation history."
+                            : "You can message your care team here whenever you need to."
+                        }
+                        ctaLabel={isOffline ? undefined : "Start a message"}
+                        onCtaPress={
+                          isOffline
+                            ? undefined
+                            : () => {
+                                inputRef.current?.focus();
+                              }
+                        }
+                      />
+
+                      <View style={styles.emptyTips}>
+                        <TipCard
+                          tone="info"
+                          leading={{ type: "icon", icon: "chat", tone: "accent" }}
+                          title="Try a quick question"
+                          text="You can ask about exercises, pain, or scheduling."
+                          chips={["Exercises", "Pain", "Schedule"]}
+                          onPress={() => {
+                            setDraft("Can I do my exercises today?");
+                            inputRef.current?.focus();
+                          }}
+                          compact
+                        />
+                        <TipCard
+                          tone="safety"
+                          leading={{ type: "icon", icon: "coping", tone: "accent" }}
+                          title="Need a calming tool?"
+                          text="Open coping tools for guided breathing and grounding."
+                          actions={[
+                            {
+                              label: "Open Coping Tools",
+                              kind: "secondary",
+                              onPress: () => {
+                                router.push("/coping-tools" as never);
+                              },
+                            },
+                          ]}
+                          compact
+                        />
+                      </View>
+                    </View>
+                  }
+                />
+              )}
+            </View>
+          </Card>
+        </MessagesShell>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -1486,36 +1526,38 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     loadingSkeleton: {
       alignSelf: "center",
     },
-    metaArea: {
+    statusRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
       gap: tokens.spacing.xs,
-      marginBottom: tokens.spacing.sm,
     },
-    promptStack: {
-      gap: tokens.spacing.sm,
-      marginBottom: tokens.spacing.xs,
-    },
-    metaText: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
+    conversationCard: {
+      flex: 1,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      borderColor: tokens.colors.border,
+      overflow: "hidden",
     },
     listWrapper: {
       flex: 1,
+      minHeight: 0,
     },
     loadingList: {
       flex: 1,
       justifyContent: "center",
       gap: tokens.spacing.md,
+      padding: tokens.spacing.lg,
     },
     loadingBubble: {
       borderRadius: tokens.radius.lg,
     },
     messageList: {
-      paddingVertical: tokens.spacing.sm,
-      paddingBottom: tokens.spacing.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingTop: tokens.spacing.md,
+      paddingBottom: tokens.spacing.xl,
       gap: tokens.spacing.xs,
     },
     emptyStateContent: {
+      padding: tokens.spacing.lg,
       gap: tokens.spacing.md,
     },
     emptyTips: {
@@ -1523,17 +1565,29 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     messageGroup: {
       gap: tokens.spacing.xs,
-      marginBottom: tokens.spacing.xs,
+      marginBottom: tokens.spacing.sm,
     },
     messageGroupCompact: {
       marginBottom: 2,
     },
-    timestampLabel: {
-      color: tokens.colors.textMuted,
+    dayDivider: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+      marginTop: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
+    },
+    dayDividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: tokens.colors.border,
+    },
+    dayDividerText: {
+      color: tokens.colors.textTertiary,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
       textAlign: "center",
-      marginVertical: tokens.spacing.xs,
+      fontWeight: tokens.typography.weights.medium,
     },
     messageRow: {
       width: "100%",
@@ -1560,6 +1614,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.xs,
       minWidth: 0,
     },
+    messageMetaText: {
+      color: tokens.colors.textTertiary,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    messageMetaTextRight: {
+      textAlign: "right",
+    },
     patientBubbleWrap: {
       maxWidth: "84%",
       alignItems: "flex-end",
@@ -1571,12 +1634,12 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     bubble: {
       maxWidth: "100%",
       borderRadius: tokens.radius.lg,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm + 2,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
       borderWidth: 1,
     },
     bubblePatient: {
-      backgroundColor: tokens.colors.primary,
+      backgroundColor: tokens.colors.primarySoft,
       borderColor: tokens.colors.primary,
     },
     bubbleAssistant: {
@@ -1588,7 +1651,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
     },
     messageTextPatient: {
-      color: tokens.colors.primaryTextOn,
+      color: tokens.colors.text,
     },
     messageTextAssistant: {
       color: tokens.colors.text,
@@ -1613,44 +1676,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
     },
-    composerWrap: {
-      borderTopWidth: 1,
-      borderTopColor: tokens.colors.border,
-      paddingTop: tokens.spacing.sm,
-      paddingBottom: tokens.spacing.xs,
-      backgroundColor: tokens.colors.background,
-    },
     composerPanel: {
       gap: tokens.spacing.sm,
-    },
-    quickActionsRow: {
-      gap: tokens.spacing.sm,
-      paddingRight: tokens.spacing.sm,
-    },
-    quickActionChip: {
-      minHeight: 44,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.xl,
-      backgroundColor: tokens.colors.surface,
-      paddingHorizontal: tokens.spacing.md,
-      alignItems: "center",
-      justifyContent: "center",
-      flexDirection: "row",
-      gap: tokens.spacing.xs,
-    },
-    quickActionChipPressed: {
-      opacity: 0.82,
-    },
-    quickActionChipText: {
-      color: tokens.colors.text,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    quickActionIconWrap: {
-      justifyContent: "center",
-      alignItems: "center",
     },
     inputRow: {
       flexDirection: "row",
@@ -1659,28 +1689,36 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     input: {
       flex: 1,
-      minHeight: 64,
+      minHeight: 56,
       maxHeight: 140,
       borderWidth: 1,
       borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
+      borderRadius: tokens.radius.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
       color: tokens.colors.text,
-      backgroundColor: tokens.colors.surface,
+      backgroundColor: tokens.colors.surfaceSubtle,
     },
     sendButton: {
       width: 48,
       height: 48,
       borderRadius: 24,
+      borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
+    },
+    sendButtonReady: {
       backgroundColor: tokens.colors.primary,
+      borderColor: tokens.colors.primary,
+    },
+    sendButtonIdle: {
+      backgroundColor: tokens.colors.surface,
+      borderColor: tokens.colors.border,
     },
     sendButtonDisabled: {
-      opacity: 0.5,
+      opacity: 0.6,
     },
     sendButtonPressed: {
       opacity: 0.88,

@@ -872,9 +872,13 @@ function normalizeCheckinAdaptationDecision(
     patientId?: unknown;
     date?: unknown;
     mode?: unknown;
+    decisionSource?: unknown;
     reasonCodes?: unknown;
+    reasonDetails?: unknown;
+    clinicianSummary?: unknown;
     explanation?: unknown;
     configVersion?: unknown;
+    thresholdVersion?: unknown;
     generatedAt?: unknown;
     optionalSections?: unknown;
   };
@@ -887,15 +891,27 @@ function normalizeCheckinAdaptationDecision(
     record.mode === "expanded"
       ? record.mode
       : null;
+  const decisionSource =
+    record.decisionSource === "persistent_force_full" ||
+    record.decisionSource === "temporary_force_full" ||
+    record.decisionSource === "hard_safety_expanded" ||
+    record.decisionSource === "cooldown_standard" ||
+    record.decisionSource === "adaptive_shortened" ||
+    record.decisionSource === "adaptive_standard_fallback" ||
+    record.decisionSource === "adaptive_expanded"
+      ? record.decisionSource
+      : null;
+  const clinicianSummary = toTrimmedString(record.clinicianSummary);
   const explanation = toTrimmedString(record.explanation);
   const generatedAt = toTrimmedString(record.generatedAt);
   const configVersion = toFiniteNumber(record.configVersion);
+  const thresholdVersion = toFiniteNumber(record.thresholdVersion);
   const optionalSectionsRecord =
     record.optionalSections && typeof record.optionalSections === "object"
       ? (record.optionalSections as Record<string, unknown>)
       : {};
 
-  if (!patientId || !date || !mode || !explanation || !generatedAt) {
+  if (!patientId || !date || !mode || !decisionSource || !clinicianSummary || !generatedAt) {
     return null;
   }
 
@@ -903,14 +919,39 @@ function normalizeCheckinAdaptationDecision(
     patientId,
     date,
     mode,
+    decisionSource,
     reasonCodes: Array.isArray(record.reasonCodes)
       ? record.reasonCodes
           .filter((entry): entry is string => typeof entry === "string")
           .map((entry) => entry.trim())
           .filter(Boolean)
       : [],
+    reasonDetails: Array.isArray(record.reasonDetails)
+      ? record.reasonDetails
+          .filter(
+            (entry): entry is Record<string, unknown> =>
+              Boolean(entry && typeof entry === "object"),
+          )
+          .map((entry): CheckinAdaptationDecision["reasonDetails"][number] => ({
+            code: toTrimmedString(entry.code) ?? "",
+            label: toTrimmedString(entry.label) ?? "",
+            category:
+              entry.category === "override" ||
+              entry.category === "safety" ||
+              entry.category === "cooldown" ||
+              entry.category === "stability" ||
+              entry.category === "adherence" ||
+              entry.category === "engagement" ||
+              entry.category === "configuration"
+                ? entry.category
+                : "configuration",
+          }))
+          .filter((entry) => entry.code.length > 0 && entry.label.length > 0)
+      : [],
+    clinicianSummary,
     explanation,
     configVersion: configVersion ?? 0,
+    thresholdVersion: thresholdVersion ?? 0,
     generatedAt,
     optionalSections: {
       recovery: optionalSectionsRecord.recovery !== false,

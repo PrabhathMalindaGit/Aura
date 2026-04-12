@@ -34,7 +34,12 @@ import {
   getPatientThresholdConfig,
   savePatientThresholdConfig,
 } from "../services/patientThresholdService";
-import { getCheckinAdaptationDecision } from "../services/checkinAdaptationService";
+import {
+  evaluateCheckinAdaptationDecision,
+} from "../services/checkinAdaptationService";
+import {
+  listCheckinAdaptationHistory,
+} from "../services/checkinAdaptationAuditService";
 import { buildDischargeExportDocument } from "../services/dischargeExportService";
 import {
   createDischargeSummaryPdfFilename,
@@ -122,6 +127,7 @@ const recoverySupportSchema = z.object({
   checkinMode: z.enum(["standard", "adaptive", "force_full"]),
   nudgesEnabled: z.boolean(),
   rationale: z.string().trim().max(280).optional(),
+  temporaryForceFullUntil: z.string().datetime().nullable().optional(),
 });
 
 const dischargePatientSchema = z.object({
@@ -1387,16 +1393,19 @@ router.get("/clinician/patients/:patientId/recovery-support", async (req, res) =
       });
     }
 
-    const [recoverySupport, adaptationDecision, recoveryNudge] = await Promise.all([
+    const [recoverySupport, adaptationEvaluation, adaptationHistory, recoveryNudge] =
+      await Promise.all([
       getPatientRecoverySupportConfig(parsedPatientId.patientId),
-      getCheckinAdaptationDecision({ patientId: parsedPatientId.patientId }),
+      evaluateCheckinAdaptationDecision({ patientId: parsedPatientId.patientId }),
+      listCheckinAdaptationHistory(parsedPatientId.patientId),
       getRecoveryNudge(parsedPatientId.patientId),
-    ]);
+      ]);
     return res.json({
       ok: true,
       patientId: parsedPatientId.patientId,
       recoverySupport,
-      adaptationDecision,
+      adaptationDecision: adaptationEvaluation.decision,
+      adaptationHistory,
       recoveryNudge,
     });
   } catch (error) {
@@ -1442,6 +1451,7 @@ router.put(
         checkinMode: body.checkinMode,
         nudgesEnabled: body.nudgesEnabled,
         rationale: body.rationale,
+        temporaryForceFullUntil: body.temporaryForceFullUntil ?? null,
         updatedBy: {
           clinicianId: actor.id,
           name: requestWithUser.user?.name ?? actor.name,

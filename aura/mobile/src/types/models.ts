@@ -50,14 +50,39 @@ export type ChatMessage = {
 
 export type CheckinAdaptationMode = "standard" | "shortened" | "expanded";
 export type RecoverySupportCheckinMode = "standard" | "adaptive" | "force_full";
+export type CheckinAdaptationDecisionSource =
+  | "persistent_force_full"
+  | "temporary_force_full"
+  | "hard_safety_expanded"
+  | "cooldown_standard"
+  | "adaptive_shortened"
+  | "adaptive_standard_fallback"
+  | "adaptive_expanded";
+export type CheckinAdaptationReasonCategory =
+  | "override"
+  | "safety"
+  | "cooldown"
+  | "stability"
+  | "adherence"
+  | "engagement"
+  | "configuration";
+export type CheckinAdaptationReasonDetail = {
+  code: string;
+  label: string;
+  category: CheckinAdaptationReasonCategory;
+};
 
 export type CheckinAdaptationDecision = {
   patientId: string;
   date: string;
   mode: CheckinAdaptationMode;
+  decisionSource: CheckinAdaptationDecisionSource;
   reasonCodes: string[];
-  explanation: string;
+  reasonDetails: CheckinAdaptationReasonDetail[];
+  clinicianSummary: string;
+  explanation?: string;
   configVersion: number;
+  thresholdVersion: number;
   generatedAt: string;
   optionalSections: {
     recovery: boolean;
@@ -81,6 +106,7 @@ export type RecoverySupportConfig = {
   checkinMode: RecoverySupportCheckinMode;
   nudgesEnabled: boolean;
   rationale?: string;
+  temporaryForceFullUntil?: string | null;
   version: number;
   configured: boolean;
   updatedAt?: string;

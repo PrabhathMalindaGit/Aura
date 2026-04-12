@@ -15,11 +15,15 @@ import {
 import type {
   AlertItem,
   AppointmentRequestItem,
+  CheckinAdaptationDecision,
+  CheckinAdaptationHistoryEntry,
   ClinicianCoordinationLinkedTaskSummary,
   ClinicianCoordinationRecord,
   ClinicianTaskItem,
   DashboardCommunicationOverviewItem,
   DischargeSummary,
+  PatientRecoverySupportConfig,
+  RecoveryNudge,
   WorklistRecord,
 } from '../types/models';
 import { formatDashboardDateTime } from '../utils/dashboard';
@@ -421,6 +425,10 @@ interface FetchMockOptions {
   coordinationPutStatus?: number;
   coordinationNoteStatus?: number;
   taskLinkOptionsStatus?: number;
+  recoverySupport?: Partial<PatientRecoverySupportConfig>;
+  adaptationDecision?: Partial<CheckinAdaptationDecision> | null;
+  adaptationHistory?: CheckinAdaptationHistoryEntry[];
+  recoveryNudge?: RecoveryNudge | null;
 }
 
 function installFetchMock(options: FetchMockOptions = {}) {
@@ -438,6 +446,74 @@ function installFetchMock(options: FetchMockOptions = {}) {
   const appointmentItems = options.appointments ?? [baseAppointmentRequest];
   const worklistItems = options.worklistItems ?? [baseWorklistItem];
   const patientStatus = options.patientStatus ?? 'active';
+  let recoverySupportState: PatientRecoverySupportConfig = {
+    patientId,
+    checkinMode: 'adaptive',
+    nudgesEnabled: true,
+    rationale: 'Adaptive support is enabled for this patient.',
+    temporaryForceFullUntil: null,
+    version: 2,
+    configured: true,
+    updatedAt: `${TODAY_KEY}T09:00:00.000Z`,
+    updatedBy: {
+      clinicianId: 'clinician-1',
+      name: 'Clinician One',
+    },
+    ...(options.recoverySupport ?? {}),
+  };
+  let adaptationDecisionState: CheckinAdaptationDecision | null =
+    options.adaptationDecision === null
+      ? null
+      : {
+          patientId,
+          date: TODAY_KEY,
+          mode: 'shortened',
+          decisionSource: 'adaptive_shortened',
+          reasonCodes: ['RECOVERY_STABLE'],
+          reasonDetails: [
+            {
+              code: 'RECOVERY_STABLE',
+              label: 'Pain, mood, and adherence stayed stable across recent check-ins.',
+              category: 'stability',
+            },
+          ],
+          clinicianSummary:
+            'Shortened prompts are active because recent recovery has stayed stable.',
+          explanation:
+            'Today’s check-in starts with the most important questions. You can add more detail anytime.',
+          configVersion: 2,
+          thresholdVersion: 1,
+          generatedAt: `${TODAY_KEY}T07:30:00.000Z`,
+          optionalSections: {
+            recovery: true,
+            support: true,
+            dailyContext: true,
+          },
+          ...(options.adaptationDecision ?? {}),
+        };
+  const adaptationHistoryState: CheckinAdaptationHistoryEntry[] =
+    options.adaptationHistory ??
+    (adaptationDecisionState
+      ? [
+          {
+            id: 'adaptation-1',
+            recordedAt: `${TODAY_KEY}T07:35:00.000Z`,
+            surface: 'patient_checkin',
+            decision: adaptationDecisionState,
+          },
+        ]
+      : []);
+  const recoveryNudgeState =
+    options.recoveryNudge ??
+    ({
+      patientId,
+      kind: 'weekly_summary_ready',
+      ruleCode: 'WEEKLY_SUMMARY_READY',
+      title: 'Weekly summary available',
+      message: 'Your weekly summary is ready to review.',
+      evidenceWindow: `${PREV_KEY} to ${TODAY_KEY}`,
+      generatedAt: `${TODAY_KEY}T07:45:00.000Z`,
+    } satisfies RecoveryNudge);
   const dischargeSummary =
     options.dischargeSummary === null
       ? null
@@ -651,6 +727,78 @@ function installFetchMock(options: FetchMockOptions = {}) {
             status: patientStatus,
           },
         ],
+      });
+    }
+
+    if (url.includes(`/clinician/patients/${patientId}/recovery-support`)) {
+      if (method === 'PUT') {
+        const payload =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as {
+                checkinMode?: PatientRecoverySupportConfig['checkinMode'];
+                nudgesEnabled?: boolean;
+                rationale?: string;
+                temporaryForceFullUntil?: string | null;
+              })
+            : {};
+
+        recoverySupportState = {
+          ...recoverySupportState,
+          checkinMode: payload.checkinMode ?? recoverySupportState.checkinMode,
+          nudgesEnabled: payload.nudgesEnabled ?? recoverySupportState.nudgesEnabled,
+          rationale: payload.rationale ?? recoverySupportState.rationale,
+          temporaryForceFullUntil:
+            payload.temporaryForceFullUntil ?? recoverySupportState.temporaryForceFullUntil,
+          version: recoverySupportState.version + 1,
+          updatedAt: `${TODAY_KEY}T12:45:00.000Z`,
+        };
+
+        if (
+          recoverySupportState.checkinMode === 'adaptive' &&
+          recoverySupportState.temporaryForceFullUntil
+        ) {
+          adaptationDecisionState = {
+            ...(adaptationDecisionState ?? {
+              patientId,
+              date: TODAY_KEY,
+              mode: 'standard',
+              decisionSource: 'temporary_force_full',
+              reasonCodes: [],
+              reasonDetails: [],
+              clinicianSummary: '',
+              configVersion: recoverySupportState.version,
+              thresholdVersion: 1,
+              generatedAt: `${TODAY_KEY}T12:45:00.000Z`,
+              optionalSections: {
+                recovery: true,
+                support: true,
+                dailyContext: true,
+              },
+            }),
+            mode: 'standard',
+            decisionSource: 'temporary_force_full',
+            clinicianSummary: 'Full flow is temporarily locked by clinician override.',
+            explanation:
+              'Today’s check-in includes the full set of questions while recent care updates settle.',
+            configVersion: recoverySupportState.version,
+            generatedAt: `${TODAY_KEY}T12:45:00.000Z`,
+          };
+        }
+
+        return createJsonResponse({
+          ok: true,
+          patientId,
+          recoverySupport: recoverySupportState,
+        });
+      }
+
+      return createJsonResponse({
+        ok: true,
+        patientId,
+        recoverySupport: recoverySupportState,
+        adaptationDecision: adaptationDecisionState,
+        adaptationHistory: adaptationHistoryState,
+        recoveryNudge: recoveryNudgeState,
       });
     }
 
@@ -1023,6 +1171,68 @@ describe('PatientDetailPage', () => {
     expect(await screen.findByRole('button', { name: 'Discharge patient' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Download PDF' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Print summary' })).not.toBeInTheDocument();
+  });
+
+  it('renders recovery-support decision source and compact adaptation history in the existing card', async () => {
+    installFetchMock();
+
+    renderPatientDetail();
+
+    const recoverySupportHeading = await screen.findByRole('heading', { name: 'Recovery support' });
+    const recoverySupportCard = recoverySupportHeading.closest('.card');
+    expect(recoverySupportCard).not.toBeNull();
+
+    expect(await within(recoverySupportCard as HTMLElement).findByText('Decision source')).toBeInTheDocument();
+    expect(
+      await within(recoverySupportCard as HTMLElement).findByText(
+        'Shortened prompts are active because recent recovery has stayed stable.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(recoverySupportCard as HTMLElement).getByText(
+        'Recent adaptation history keeps the last few decisions visible without expanding this into a separate analytics workflow.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('saves the temporary full-flow override from the compact recovery-support control', async () => {
+    const fetchMock = installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail();
+
+    const recoverySupportHeading = await screen.findByRole('heading', { name: 'Recovery support' });
+    const recoverySupportCard = recoverySupportHeading.closest('.card');
+    expect(recoverySupportCard).not.toBeNull();
+
+    const temporaryFullFlowSelect = await within(recoverySupportCard as HTMLElement).findByRole('combobox', {
+      name: 'Temporary full flow',
+    });
+
+    await user.selectOptions(temporaryFullFlowSelect, '7d');
+
+    await user.click(screen.getByRole('button', { name: 'Save support settings' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          if (!String(call[0]).includes(`/clinician/patients/${patientId}/recovery-support`)) {
+            return false;
+          }
+
+          const init = call[1] as RequestInit | undefined;
+          if ((init?.method ?? 'GET') !== 'PUT' || typeof init?.body !== 'string') {
+            return false;
+          }
+
+          const payload = JSON.parse(init.body) as { temporaryForceFullUntil?: string | null };
+          return (
+            typeof payload.temporaryForceFullUntil === 'string' &&
+            payload.temporaryForceFullUntil.length > 0
+          );
+        }),
+      ).toBe(true);
+    });
   });
 
   it('renders the new cockpit overview first, then opens the communications workspace on demand', async () => {

@@ -38,6 +38,10 @@ const patientRecoverySupportConfigSchema = new Schema(
       trim: true,
       maxlength: 500,
     },
+    temporaryForceFullUntil: {
+      type: Date,
+      default: null,
+    },
     version: {
       type: Number,
       default: 1,

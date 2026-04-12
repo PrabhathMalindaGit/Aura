@@ -829,15 +829,53 @@ export interface PutPatientThresholdConfigPayload {
 
 export type RecoverySupportCheckinMode = 'standard' | 'adaptive' | 'force_full';
 export type CheckinAdaptationMode = 'standard' | 'shortened' | 'expanded';
+export type CheckinAdaptationDecisionSource =
+  | 'persistent_force_full'
+  | 'temporary_force_full'
+  | 'hard_safety_expanded'
+  | 'cooldown_standard'
+  | 'adaptive_shortened'
+  | 'adaptive_standard_fallback'
+  | 'adaptive_expanded';
+export type CheckinAdaptationReasonCategory =
+  | 'override'
+  | 'safety'
+  | 'cooldown'
+  | 'stability'
+  | 'adherence'
+  | 'engagement'
+  | 'configuration';
+
+export interface CheckinAdaptationReasonDetail {
+  code: string;
+  label: string;
+  category: CheckinAdaptationReasonCategory;
+}
 
 export interface CheckinAdaptationDecision {
   patientId: string;
   date: string;
   mode: CheckinAdaptationMode;
+  decisionSource: CheckinAdaptationDecisionSource;
   reasonCodes: string[];
+  reasonDetails: CheckinAdaptationReasonDetail[];
+  clinicianSummary: string;
   explanation?: string;
   configVersion: number;
+  thresholdVersion: number;
   generatedAt: string;
+  optionalSections: {
+    recovery: boolean;
+    support: boolean;
+    dailyContext: boolean;
+  };
+}
+
+export interface CheckinAdaptationHistoryEntry {
+  id: string;
+  recordedAt: string;
+  surface: 'patient_checkin';
+  decision: CheckinAdaptationDecision;
 }
 
 export interface RecoveryNudge {
@@ -860,6 +898,7 @@ export interface PatientRecoverySupportConfig {
   checkinMode: RecoverySupportCheckinMode;
   nudgesEnabled: boolean;
   rationale?: string;
+  temporaryForceFullUntil?: string | null;
   version: number;
   updatedBy?: ClinicianActorAttribution;
   createdAt?: string;
@@ -872,6 +911,7 @@ export interface PatientRecoverySupportResponse {
   patientId: string;
   recoverySupport: PatientRecoverySupportConfig;
   adaptationDecision?: CheckinAdaptationDecision | null;
+  adaptationHistory?: CheckinAdaptationHistoryEntry[];
   recoveryNudge?: RecoveryNudge | null;
 }
 
@@ -879,6 +919,7 @@ export interface PutPatientRecoverySupportPayload {
   checkinMode: RecoverySupportCheckinMode;
   nudgesEnabled: boolean;
   rationale?: string;
+  temporaryForceFullUntil?: string | null;
 }
 
 export interface CaregiverAccessItem {

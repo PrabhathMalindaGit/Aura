@@ -749,11 +749,17 @@ export default function CheckinScreen() {
   }, [auth.status, auth.token, date, isOffline, patientId]);
 
   useEffect(() => {
-    if (adaptationDecision?.mode === "expanded") {
+    if (adaptationDecision?.optionalSections.recovery === false) {
       setShowRecoveryDetails(true);
+    }
+
+    if (adaptationDecision?.optionalSections.dailyContext === false) {
       setShowDailyContext(true);
     }
-  }, [adaptationDecision?.mode]);
+  }, [
+    adaptationDecision?.optionalSections.dailyContext,
+    adaptationDecision?.optionalSections.recovery,
+  ]);
 
   const draftRecord = useMemo<CheckinDraftRecord | null>(() => {
     if (!patientId || !date) {
@@ -989,19 +995,16 @@ export default function CheckinScreen() {
     [notice, validationMessage],
   );
   const shouldShowRecoveryDetails =
-    adaptationDecision?.mode === "expanded" || showRecoveryDetails;
+    adaptationDecision?.optionalSections.recovery === false || showRecoveryDetails;
   const shouldShowDailyContext =
-    adaptationDecision?.mode === "expanded" ||
+    adaptationDecision?.optionalSections.dailyContext === false ||
     showDailyContext ||
     dailySignals.sleepHours !== null ||
     dailySignals.sleepQuality !== null ||
     dailySignals.sleepDisturbances !== null ||
     dailySignals.hydrationLevel !== null ||
     dailySignals.energyLevel !== null;
-  const adaptationMessage =
-    adaptationDecision?.mode && adaptationDecision.mode !== "standard"
-      ? adaptationDecision.explanation
-      : null;
+  const adaptationMessage = adaptationDecision?.explanation ?? null;
 
   const stepMessage = useMemo(() => {
     if (validationState && validationState.stepIndex === activeStep) {
@@ -2244,6 +2247,17 @@ export default function CheckinScreen() {
               </View>
               {adaptationMessage ? (
                 <Text style={styles.heroAdaptationNote}>{adaptationMessage}</Text>
+              ) : null}
+              {adaptationDecision?.mode === "shortened" &&
+              (!shouldShowRecoveryDetails || !shouldShowDailyContext) ? (
+                <SecondaryButton
+                  label="Add more detail"
+                  onPress={() => {
+                    setNotice(null);
+                    setShowRecoveryDetails(true);
+                    setShowDailyContext(true);
+                  }}
+                />
               ) : null}
             </View>
           }

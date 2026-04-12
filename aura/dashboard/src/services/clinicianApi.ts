@@ -137,10 +137,12 @@ function createDefaultRecoverySupportResponse(patientId: string): PatientRecover
       patientId,
       checkinMode: 'standard',
       nudgesEnabled: false,
+      temporaryForceFullUntil: null,
       version: 0,
       configured: false,
     },
     adaptationDecision: null,
+    adaptationHistory: [],
     recoveryNudge: null,
   };
 }
@@ -1341,6 +1343,7 @@ export async function getPatientRecoverySupport(
       patientId,
       recoverySupport: response.recoverySupport ?? createDefaultRecoverySupportResponse(patientId).recoverySupport,
       adaptationDecision: response.adaptationDecision ?? null,
+      adaptationHistory: response.adaptationHistory ?? [],
       recoveryNudge: response.recoveryNudge ?? null,
     };
   } catch (error) {

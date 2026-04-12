@@ -7,6 +7,7 @@ export type PatientRecoverySupportSnapshot = {
   checkinMode: RecoverySupportCheckinMode;
   nudgesEnabled: boolean;
   rationale?: string;
+  temporaryForceFullUntil?: string | null;
   version: number;
   updatedBy?: {
     clinicianId: string;
@@ -22,6 +23,7 @@ export type SavePatientRecoverySupportConfigInput = {
   checkinMode: RecoverySupportCheckinMode;
   nudgesEnabled: boolean;
   rationale?: string;
+  temporaryForceFullUntil?: string | null;
   updatedBy: {
     clinicianId: string;
     name?: string;
@@ -50,9 +52,28 @@ function createDefaultSnapshot(patientId: string): PatientRecoverySupportSnapsho
     patientId,
     checkinMode: "standard",
     nudgesEnabled: false,
+    temporaryForceFullUntil: null,
     version: 0,
     configured: false,
   };
+}
+
+function normalizeFutureDateInput(value: string | null | undefined): Date | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+  if (!Number.isFinite(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.getTime() > Date.now() ? parsed : null;
 }
 
 function mapRecoverySupportDocument(
@@ -76,6 +97,7 @@ function mapRecoverySupportDocument(
         : "standard",
     nudgesEnabled: doc.nudgesEnabled === true,
     rationale: toTrimmedString(doc.rationale),
+    temporaryForceFullUntil: toIsoString(doc.temporaryForceFullUntil) ?? null,
     version: typeof doc.version === "number" ? doc.version : 1,
     updatedBy:
       updatedByRecord && typeof updatedByRecord.clinicianId === "string"
@@ -124,6 +146,9 @@ export async function savePatientRecoverySupportConfig(
   const previous = await getPatientRecoverySupportConfig(patientId);
   const existing = await PatientRecoverySupportConfig.findOne({ patientId });
   const nextVersion = existing ? Math.max(existing.version ?? 1, 1) + 1 : 1;
+  const temporaryForceFullUntil = normalizeFutureDateInput(
+    input.checkinMode === "force_full" ? null : input.temporaryForceFullUntil,
+  );
 
   const updated = await PatientRecoverySupportConfig.findOneAndUpdate(
     { patientId },
@@ -132,6 +157,7 @@ export async function savePatientRecoverySupportConfig(
         checkinMode: input.checkinMode,
         nudgesEnabled: input.nudgesEnabled,
         rationale: input.rationale?.trim() || undefined,
+        temporaryForceFullUntil,
         version: nextVersion,
         updatedBy: {
           clinicianId: input.updatedBy.clinicianId,

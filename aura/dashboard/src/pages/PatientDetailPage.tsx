@@ -342,6 +342,77 @@ function adaptationModeLabel(mode: CheckinAdaptationDecision['mode'] | undefined
   return 'Standard';
 }
 
+type TemporaryFullFlowOption = 'off' | '3d' | '7d';
+
+function temporaryFullFlowOptionLabel(option: TemporaryFullFlowOption): string {
+  if (option === '3d') {
+    return '3 days';
+  }
+
+  if (option === '7d') {
+    return '7 days';
+  }
+
+  return 'Off';
+}
+
+function getTemporaryFullFlowOption(
+  temporaryForceFullUntil: string | null | undefined,
+): TemporaryFullFlowOption {
+  if (!temporaryForceFullUntil) {
+    return 'off';
+  }
+
+  const parsed = Date.parse(temporaryForceFullUntil);
+  if (!Number.isFinite(parsed) || parsed <= Date.now()) {
+    return 'off';
+  }
+
+  const remainingDays = (parsed - Date.now()) / (24 * 60 * 60 * 1000);
+  return remainingDays <= 4 ? '3d' : '7d';
+}
+
+function buildTemporaryFullFlowUntil(option: TemporaryFullFlowOption): string | null {
+  if (option === 'off') {
+    return null;
+  }
+
+  const days = option === '3d' ? 3 : 7;
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function adaptationDecisionSourceLabel(
+  source: CheckinAdaptationDecision['decisionSource'] | undefined,
+): string {
+  switch (source) {
+    case 'persistent_force_full':
+      return 'Persistent force full';
+    case 'temporary_force_full':
+      return 'Temporary full flow';
+    case 'hard_safety_expanded':
+      return 'Hard safety';
+    case 'cooldown_standard':
+      return 'Cooldown';
+    case 'adaptive_shortened':
+      return 'Adaptive shortening';
+    case 'adaptive_expanded':
+      return 'Adaptive expansion';
+    case 'adaptive_standard_fallback':
+    default:
+      return 'Adaptive full flow';
+  }
+}
+
+function formatAdaptationReasonDetails(
+  details: CheckinAdaptationDecision['reasonDetails'] | undefined,
+): string {
+  if (!details || details.length === 0) {
+    return 'No additional rule detail recorded.';
+  }
+
+  return details.map((detail) => detail.label).join(' ');
+}
+
 function formatReasonCodes(reasonCodes: string[] | undefined): string {
   if (!reasonCodes || reasonCodes.length === 0) {
     return 'No rule codes recorded.';
@@ -455,6 +526,8 @@ export function PatientDetailPage(): JSX.Element {
     checkinMode: 'standard' as PatientRecoverySupportConfig['checkinMode'],
     nudgesEnabled: false,
     rationale: '',
+    temporaryForceFullOption: 'off' as TemporaryFullFlowOption,
+    temporaryForceFullUntil: null as string | null,
   });
   const [dischargeDraft, setDischargeDraft] = useState({
     summary: '',
@@ -763,7 +836,16 @@ export function PatientDetailPage(): JSX.Element {
     },
   });
   const saveRecoverySupportMutation = useMutation({
-    mutationFn: () => putPatientRecoverySupport(patientId ?? '', recoverySupportDraft),
+    mutationFn: () =>
+      putPatientRecoverySupport(patientId ?? '', {
+        checkinMode: recoverySupportDraft.checkinMode,
+        nudgesEnabled: recoverySupportDraft.nudgesEnabled,
+        rationale: recoverySupportDraft.rationale,
+        temporaryForceFullUntil:
+          recoverySupportDraft.checkinMode === 'adaptive'
+            ? recoverySupportDraft.temporaryForceFullUntil
+            : null,
+      }),
     onSuccess: async () => {
       setOperationsError(null);
       setOperationsNotice('Recovery support settings updated.');
@@ -1435,6 +1517,7 @@ export function PatientDetailPage(): JSX.Element {
   const patientRecoverySupport =
     patientRecoverySupportQuery.data?.recoverySupport ?? null;
   const currentAdaptationDecision = patientRecoverySupportQuery.data?.adaptationDecision ?? null;
+  const adaptationHistory = patientRecoverySupportQuery.data?.adaptationHistory ?? [];
   const currentRecoveryNudge = patientRecoverySupportQuery.data?.recoveryNudge ?? null;
   const caregiverAccessItems = useMemo<CaregiverAccessItem[]>(
     () => (patientCaregiverAccessQuery.data ?? []) as CaregiverAccessItem[],
@@ -1474,6 +1557,10 @@ export function PatientDetailPage(): JSX.Element {
       checkinMode: patientRecoverySupport.checkinMode,
       nudgesEnabled: patientRecoverySupport.nudgesEnabled,
       rationale: patientRecoverySupport.rationale ?? '',
+      temporaryForceFullOption: getTemporaryFullFlowOption(
+        patientRecoverySupport.temporaryForceFullUntil,
+      ),
+      temporaryForceFullUntil: patientRecoverySupport.temporaryForceFullUntil ?? null,
     });
   }, [patientRecoverySupport]);
 
@@ -3375,7 +3462,39 @@ export function PatientDetailPage(): JSX.Element {
                         </strong>
                       </div>
                       <p className="patient-detail-digest-item__text">
-                        {currentAdaptationDecision?.explanation ?? formatReasonCodes(currentAdaptationDecision?.reasonCodes)}
+                        {currentAdaptationDecision?.clinicianSummary ??
+                          currentAdaptationDecision?.explanation ??
+                          formatReasonCodes(currentAdaptationDecision?.reasonCodes)}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Decision source</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {adaptationDecisionSourceLabel(currentAdaptationDecision?.decisionSource)}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {formatAdaptationReasonDetails(currentAdaptationDecision?.reasonDetails)}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Temporary full flow</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientRecoverySupport?.temporaryForceFullUntil &&
+                          Date.parse(patientRecoverySupport.temporaryForceFullUntil) > Date.now()
+                            ? 'Active'
+                            : 'Off'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientRecoverySupport?.temporaryForceFullUntil &&
+                        Date.parse(patientRecoverySupport.temporaryForceFullUntil) > Date.now()
+                          ? `Expires ${formatDashboardDateTime(patientRecoverySupport.temporaryForceFullUntil)}.`
+                          : 'No temporary full-flow override is active.'}
                       </p>
                     </article>
 
@@ -3402,6 +3521,14 @@ export function PatientDetailPage(): JSX.Element {
                           setRecoverySupportDraft((current) => ({
                             ...current,
                             checkinMode: event.target.value as PatientRecoverySupportConfig['checkinMode'],
+                            temporaryForceFullOption:
+                              event.target.value === 'adaptive'
+                                ? current.temporaryForceFullOption
+                                : 'off',
+                            temporaryForceFullUntil:
+                              event.target.value === 'adaptive'
+                                ? current.temporaryForceFullUntil
+                                : null,
                           }))
                         }
                       >
@@ -3426,7 +3553,34 @@ export function PatientDetailPage(): JSX.Element {
                         <span>{recoverySupportDraft.nudgesEnabled ? 'Enabled' : 'Disabled'}</span>
                       </div>
                     </label>
+                    {recoverySupportDraft.checkinMode === 'adaptive' ? (
+                      <label className="form-field">
+                        <span>Temporary full flow</span>
+                        <select
+                          value={recoverySupportDraft.temporaryForceFullOption}
+                          onChange={(event) => {
+                            const option = event.target.value as TemporaryFullFlowOption;
+                            setRecoverySupportDraft((current) => ({
+                              ...current,
+                              temporaryForceFullOption: option,
+                              temporaryForceFullUntil: buildTemporaryFullFlowUntil(option),
+                            }));
+                          }}
+                        >
+                          <option value="off">Off</option>
+                          <option value="3d">3 days</option>
+                          <option value="7d">7 days</option>
+                        </select>
+                      </label>
+                    ) : null}
                   </div>
+                  {recoverySupportDraft.checkinMode === 'adaptive' &&
+                  recoverySupportDraft.temporaryForceFullOption !== 'off' ? (
+                    <p className="patient-detail-panel__support-meta">
+                      Temporary full flow will hold the canonical question set for{' '}
+                      {temporaryFullFlowOptionLabel(recoverySupportDraft.temporaryForceFullOption)}.
+                    </p>
+                  ) : null}
                   <div className="form-field">
                     <span>Rationale</span>
                     <textarea
@@ -3441,6 +3595,35 @@ export function PatientDetailPage(): JSX.Element {
                       placeholder="Brief note explaining why adaptive support is or is not enabled for this patient"
                     />
                   </div>
+                  {adaptationHistory.length > 0 ? (
+                    <div className="stack stack--2">
+                      <p className="patient-detail-panel__support-meta">
+                        Recent adaptation history keeps the last few decisions visible without expanding this into a separate analytics workflow.
+                      </p>
+                      <div className="patient-detail-digest-list">
+                        {adaptationHistory.slice(0, 7).map((entry) => (
+                          <article key={entry.id} className="patient-detail-digest-item">
+                            <div className="patient-detail-digest-item__meta">
+                              <span className="patient-detail-digest-item__label">
+                                {formatDashboardDateTime(entry.recordedAt)}
+                              </span>
+                              <strong className="patient-detail-digest-item__value">
+                                {`${adaptationModeLabel(entry.decision.mode)} · ${adaptationDecisionSourceLabel(
+                                  entry.decision.decisionSource,
+                                )}`}
+                              </strong>
+                            </div>
+                            <p className="patient-detail-digest-item__text">
+                              {entry.decision.clinicianSummary}
+                              {entry.decision.reasonDetails.length > 0
+                                ? ` ${formatAdaptationReasonDetails(entry.decision.reasonDetails)}`
+                                : ''}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </Card>
 
                 <Card

@@ -459,14 +459,25 @@ describe("Check-in screen validation", () => {
       patientId: "patient-1",
       date: "2026-04-11",
       mode: "shortened",
+      decisionSource: "adaptive_shortened",
       reasonCodes: ["stable_recent_recovery"],
-      explanation: "Today's check-in is shorter because recent recovery has been steady.",
+      reasonDetails: [
+        {
+          code: "RECOVERY_STABLE",
+          label: "Pain, mood, and adherence stayed stable across recent check-ins.",
+          category: "stability",
+        },
+      ],
+      clinicianSummary: "Shortened prompts are active because recent recovery has stayed stable.",
+      explanation:
+        "Today’s check-in starts with the most important questions. You can add more detail anytime.",
       configVersion: 2,
+      thresholdVersion: 1,
       generatedAt: "2026-04-11T07:00:00.000Z",
       optionalSections: {
-        recovery: false,
-        support: false,
-        dailyContext: false,
+        recovery: true,
+        support: true,
+        dailyContext: true,
       },
     });
 
@@ -485,8 +496,127 @@ describe("Check-in screen validation", () => {
 
     expect(statusPills.map((node) => node.props.label)).toContain("Shorter today");
     expect(text).toContain(
-      "Today's check-in is shorter because recent recovery has been steady.",
+      "Today’s check-in starts with the most important questions. You can add more detail anytime.",
     );
+
+    const addMoreDetailButton = renderer!.root.findAll(
+      (node) =>
+        String(node.type) === "mock-secondary-button" &&
+        node.props.label === "Add more detail",
+    )[0];
+
+    expect(addMoreDetailButton).toBeDefined();
+
+    await act(async () => {
+      addMoreDetailButton.props.onPress();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+    act(() => {
+      navigator.props.onSelectStep(1);
+    });
+
+    const expandedText = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .map((node) => node.children.join(" "));
+
+    expect(expandedText).toContain("Confidence in progress");
+  });
+
+  it("shows the calm full-flow explanation during a cooldown-backed standard day", async () => {
+    getCheckinAdaptation.mockResolvedValue({
+      patientId: "patient-1",
+      date: "2026-04-11",
+      mode: "standard",
+      decisionSource: "cooldown_standard",
+      reasonCodes: ["EXERCISE_PLAN_UPDATED_RECENTLY"],
+      reasonDetails: [
+        {
+          code: "EXERCISE_PLAN_UPDATED_RECENTLY",
+          label: "Exercise plan was updated within the last 72 hours.",
+          category: "cooldown",
+        },
+      ],
+      clinicianSummary: "Full flow is active while recent safety or care changes settle.",
+      explanation:
+        "Today’s check-in includes the full set of questions while recent care updates settle.",
+      configVersion: 2,
+      thresholdVersion: 1,
+      generatedAt: "2026-04-11T07:00:00.000Z",
+      optionalSections: {
+        recovery: true,
+        support: true,
+        dailyContext: true,
+      },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const text = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .map((node) => node.children.join(" "));
+
+    expect(text).toContain(
+      "Today’s check-in includes the full set of questions while recent care updates settle.",
+    );
+  });
+
+  it("keeps expanded mode opening the extra detail sections automatically", async () => {
+    getCheckinAdaptation.mockResolvedValue({
+      patientId: "patient-1",
+      date: "2026-04-11",
+      mode: "expanded",
+      decisionSource: "hard_safety_expanded",
+      reasonCodes: ["OPEN_ALERT_PRESENT"],
+      reasonDetails: [
+        {
+          code: "OPEN_ALERT_PRESENT",
+          label: "There is an open safety alert.",
+          category: "safety",
+        },
+      ],
+      clinicianSummary: "Expanded prompts are active because current safety signals need more detail.",
+      explanation:
+        "Today’s check-in includes a few extra detail prompts because recent recovery changed.",
+      configVersion: 2,
+      thresholdVersion: 1,
+      generatedAt: "2026-04-11T07:00:00.000Z",
+      optionalSections: {
+        recovery: false,
+        support: false,
+        dailyContext: false,
+      },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+    act(() => {
+      navigator.props.onSelectStep(1);
+    });
+
+    const statusPills = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-status-pill",
+    );
+    const text = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .map((node) => node.children.join(" "));
+
+    expect(statusPills.map((node) => node.props.label)).toContain("Extra detail today");
+    expect(text).toContain("Confidence in progress");
+    expect(text).toContain("Movement and function");
   });
 
   it("renders a read-only check-in shell when care status blocks active tracking", async () => {

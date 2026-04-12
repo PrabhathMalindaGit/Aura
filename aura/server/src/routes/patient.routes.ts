@@ -24,8 +24,9 @@ import { consumeLoginThrottle } from "../services/loginThrottle";
 import { AIUnavailableError } from "../services/ai";
 import { processChatMessage } from "../services/chatFlow";
 import {
-  getCheckinAdaptationDecision,
+  evaluateCheckinAdaptationDecision,
 } from "../services/checkinAdaptationService";
+import { recordCheckinAdaptationDecision } from "../services/checkinAdaptationAuditService";
 import {
   CheckInValidationError,
   DuplicateCheckInError,
@@ -414,15 +415,20 @@ router.get("/patient/checkin/adaptation", requirePatientAuth, async (req, res) =
   }
 
   try {
-    const decision = await getCheckinAdaptationDecision({
+    const evaluation = await evaluateCheckinAdaptationDecision({
       patientId,
       date: parsedQuery.data.date,
+    });
+    await recordCheckinAdaptationDecision({
+      patientId,
+      evaluation,
+      surface: "patient_checkin",
     });
 
     return res.json({
       ok: true,
       patientId,
-      decision,
+      decision: evaluation.decision,
     });
   } catch (error) {
     logger.error("Get patient checkin adaptation failed", {

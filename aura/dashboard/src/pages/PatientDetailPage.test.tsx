@@ -631,6 +631,7 @@ function installFetchMock(options: FetchMockOptions = {}) {
               nextStep?: string;
               followUpOwner?: { kind: string; clinicianId?: string; displayName?: string; label?: string };
               linkedTaskId?: string | null;
+              messageId?: string;
             })
           : {};
       const currentRecord = coordinationPatientId
@@ -698,7 +699,7 @@ function installFetchMock(options: FetchMockOptions = {}) {
       const coordinationPatientId = getPatientIdFromUrl(url);
       const payload =
         typeof init?.body === 'string'
-          ? (JSON.parse(init.body) as { text?: string })
+          ? (JSON.parse(init.body) as { text?: string; messageId?: string })
           : {};
       const currentRecord = coordinationPatientId
         ? coordinationState.get(coordinationPatientId) ?? null
@@ -744,6 +745,10 @@ function installFetchMock(options: FetchMockOptions = {}) {
           ? resolveCoordinationRecord(coordinationState.get(coordinationPatientId) ?? null)
           : null,
       });
+    }
+
+    if (url.includes('/communication/events')) {
+      return createJsonResponse({ ok: true }, 201);
     }
 
     if (url.includes('/clinician/worklist')) {
@@ -1075,6 +1080,26 @@ describe('PatientDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    });
+  });
+
+  it('records a patient-detail thread-open event when the communications workspace becomes active', async () => {
+    const fetchMock = installFetchMock();
+    const user = userEvent.setup();
+
+    renderPatientDetail(`/patients/${patientId}/overview?days=14`);
+
+    await openPatientWorkspaceTab(user, 'Communications & Notes');
+
+    await waitFor(() => {
+      const eventCall = fetchMock.mock.calls.find((call) =>
+        String(call[0]).includes('/communication/events'),
+      );
+      expect(eventCall).toBeDefined();
+      expect(JSON.parse(String(eventCall?.[1]?.body))).toEqual({
+        eventType: 'thread_opened',
+        sourceSurface: 'patient_detail_communication_panel',
+      });
     });
   });
 

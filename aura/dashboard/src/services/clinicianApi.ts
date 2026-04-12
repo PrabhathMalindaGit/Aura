@@ -1146,6 +1146,24 @@ export async function postPatientCoordinationNote(
   return response.coordination;
 }
 
+export async function recordCommunicationThreadOpened(
+  patientId: string,
+  payload: {
+    sourceSurface: string;
+  },
+): Promise<void> {
+  await fetchJson<{ ok: true }>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/communication/events`,
+    {
+      method: 'POST',
+      json: {
+        eventType: 'thread_opened',
+        sourceSurface: payload.sourceSurface,
+      },
+    },
+  );
+}
+
 export async function getExercisePlan(patientId: string): Promise<ExercisePlan | null> {
   const response = await fetchJson<ExercisePlanResponse>(
     `/clinician/patients/${encodeURIComponent(patientId)}/exercise-plan`,

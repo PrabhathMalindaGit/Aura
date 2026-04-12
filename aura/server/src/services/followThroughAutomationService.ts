@@ -13,6 +13,8 @@ import {
   deriveResponseDelayState,
   getThresholdsForPatients,
 } from "./riskEvaluationService";
+import { recordFollowUpRequestedEvent } from "./communicationEventService";
+import { requestCommunicationFollowUp } from "./communicationReviewService";
 import { listClinicianWorklist } from "./worklistService";
 
 export const FOLLOW_THROUGH_WORKFLOW_VALUES = [
@@ -833,6 +835,26 @@ export async function processCommunicationNoResponseAutomation(
         },
       },
     });
+
+    if (task?.id) {
+      await Promise.all([
+        requestCommunicationFollowUp(messageId, {
+          taskId: task.id,
+        }),
+        recordFollowUpRequestedEvent({
+          patientId,
+          messageId,
+          actor: {
+            actorType: "automation",
+            actorId: "automation:n8n:communication",
+            actorDisplayName: "Automation",
+          },
+          sourceSurface: "automation_communication_follow_up",
+          sourceRecordId: task.id,
+          createdAt: normalized.now,
+        }),
+      ]);
+    }
 
     specs.push({
       dedupeKey: `communication:${messageId}:${responseState.thresholdHours}h`,

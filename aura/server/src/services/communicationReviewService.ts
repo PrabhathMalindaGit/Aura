@@ -1,4 +1,10 @@
 import CommunicationReview from "../models/CommunicationReview";
+import type { CommunicationResolutionKind } from "../models/CommunicationReview";
+
+export type CommunicationClinicianSnapshot = {
+  clinicianId: string;
+  displayName?: string;
+};
 
 export type CommunicationReviewUpsertInput = {
   patientId: string;
@@ -30,6 +36,19 @@ function normalizePreview(value: string | undefined): string | undefined {
   return trimmed.length <= 280 ? trimmed : `${trimmed.slice(0, 277)}...`;
 }
 
+function normalizeClinicianSnapshot(
+  value: CommunicationClinicianSnapshot | undefined
+): CommunicationClinicianSnapshot | undefined {
+  if (!value?.clinicianId?.trim()) {
+    return undefined;
+  }
+
+  return {
+    clinicianId: value.clinicianId.trim(),
+    displayName: value.displayName?.trim() || undefined,
+  };
+}
+
 export async function upsertCommunicationReview(
   input: CommunicationReviewUpsertInput
 ) {
@@ -58,8 +77,8 @@ export async function upsertCommunicationReview(
 export async function linkTaskToCommunicationReview(
   messageId: string,
   taskId: string
-): Promise<void> {
-  await CommunicationReview.updateOne(
+): Promise<boolean> {
+  const result = await CommunicationReview.updateOne(
     { messageId },
     {
       $set: {
@@ -68,19 +87,72 @@ export async function linkTaskToCommunicationReview(
       },
     }
   );
+
+  return result.matchedCount > 0;
+}
+
+export async function recordCommunicationReview(
+  messageId: string,
+  reviewedBy: CommunicationClinicianSnapshot,
+  reviewedAt: Date = new Date()
+): Promise<boolean> {
+  const actor = normalizeClinicianSnapshot(reviewedBy);
+  if (!actor) {
+    return false;
+  }
+
+  const result = await CommunicationReview.updateOne(
+    { messageId },
+    {
+      $set: {
+        lastReviewedAt: reviewedAt,
+        lastReviewedBy: actor,
+      },
+    }
+  );
+
+  return result.matchedCount > 0;
+}
+
+export async function requestCommunicationFollowUp(
+  messageId: string,
+  input: {
+    taskId?: string;
+  } = {}
+): Promise<boolean> {
+  const result = await CommunicationReview.updateOne(
+    { messageId },
+    {
+      $set: {
+        followUpRequested: true,
+        ...(input.taskId ? { linkedTaskId: input.taskId } : {}),
+      },
+    }
+  );
+
+  return result.matchedCount > 0;
 }
 
 export async function resolveCommunicationReview(
   messageId: string,
-  reviewedAt: Date = new Date()
+  input: {
+    resolvedAt?: Date;
+    resolvedBy?: CommunicationClinicianSnapshot;
+    resolutionKind?: CommunicationResolutionKind;
+  } = {}
 ): Promise<void> {
+  const resolvedAt = input.resolvedAt ?? new Date();
+  const resolvedBy = normalizeClinicianSnapshot(input.resolvedBy);
+
   await CommunicationReview.updateOne(
     { messageId },
     {
       $set: {
         needsResponse: false,
         followUpRequested: false,
-        lastClinicianReplyAt: reviewedAt,
+        resolutionKind: input.resolutionKind ?? "no_follow_up_needed",
+        resolvedAt,
+        resolvedBy,
       },
     }
   );

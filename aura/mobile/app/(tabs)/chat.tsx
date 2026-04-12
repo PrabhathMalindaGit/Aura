@@ -19,6 +19,8 @@ import {
   extractConfirmedSendMessages,
   sendChat,
   type ChatItem,
+  type PatientChatHistory,
+  type PatientCommunicationSummaryState,
   type ChatSendResponse,
 } from "@/src/api/patient";
 import { listPatientTasks } from "@/src/api/tasks";
@@ -72,6 +74,16 @@ type NoticeState = {
   message: string;
   actionLabel?: string;
   action?: () => void;
+};
+
+type PromptSummary = {
+  title: string;
+  text: string;
+  chips?: string[];
+  tone?: "info" | "warning";
+  statusLabel?: string;
+  actionLabel: string;
+  action: () => void;
 };
 
 type ChatDevParams = {
@@ -461,6 +473,9 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [localAttempt, setLocalAttempt] = useState<ChatLocalAttempt | null>(null);
   const [workflowTasks, setWorkflowTasks] = useState<PatientTaskItem[]>([]);
+  const [patientCommunicationSummary, setPatientCommunicationSummary] = useState<
+    PatientCommunicationSummaryState | null | undefined
+  >(undefined);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -629,6 +644,10 @@ export default function ChatScreen() {
     []
   );
 
+  const focusComposerAction = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+
   const communicationPrompts = useMemo(
     () => {
       const grouped = groupTasksByPatientIntent(
@@ -641,7 +660,7 @@ export default function ChatScreen() {
     },
     [workflowTasks],
   );
-  const promptSummary = useMemo(() => {
+  const taskPromptSummary = useMemo<PromptSummary | null>(() => {
     const task = communicationPrompts[0];
     if (!task) {
       return null;
@@ -672,6 +691,37 @@ export default function ChatScreen() {
       },
     };
   }, [communicationPrompts, router]);
+  const promptSummary = useMemo<PromptSummary | null>(() => {
+    if (patientCommunicationSummary === "care_team_reviewing") {
+      return {
+        title: "Care team reviewing",
+        text: "Your care team is reviewing your latest update. You can still message here at any time.",
+        chips: [],
+        tone: "info",
+        statusLabel: "Care team reviewing",
+        actionLabel: "Reply here",
+        action: focusComposerAction,
+      };
+    }
+
+    if (patientCommunicationSummary === "response_delayed") {
+      return {
+        title: "Response delayed",
+        text: "A reply is taking longer than expected. You can still message your care team here.",
+        chips: [],
+        tone: "warning",
+        statusLabel: "Response delayed",
+        actionLabel: "Reply here",
+        action: focusComposerAction,
+      };
+    }
+
+    if (patientCommunicationSummary === null) {
+      return null;
+    }
+
+    return taskPromptSummary;
+  }, [focusComposerAction, patientCommunicationSummary, taskPromptSummary]);
   const contextNotice = localAttempt ? null : notice;
   const messageShortcuts = useMemo(
     () =>
@@ -769,17 +819,24 @@ export default function ChatScreen() {
         const cached = await getCachedChat(patientId);
         replaceConfirmedHistory(cached?.confirmedMessages ?? [], false);
         setLocalAttemptState(cached?.localAttempt ?? null, false);
+        setPatientCommunicationSummary(undefined);
         setShowingOfflineCache(Boolean(cached && cached.confirmedMessages.length > 0));
         return;
       }
 
-      const history = await chatHistory(auth.token, CHAT_LIMIT);
-      replaceConfirmedHistory(history, false);
+      const history = (await chatHistory(auth.token, CHAT_LIMIT)) as
+        | PatientChatHistory
+        | ChatItem[];
+      const historyItems = Array.isArray(history) ? history : history.items;
+      replaceConfirmedHistory(historyItems, false);
+      setPatientCommunicationSummary(
+        Array.isArray(history) ? undefined : history.patientCommunicationSummary,
+      );
       setShowingOfflineCache(false);
       await refreshChatStamp();
       await clearChatLoadError();
       persistChatSnapshot(
-        dedupeMessagesByIdentity(toRenderable(history)),
+        dedupeMessagesByIdentity(toRenderable(historyItems)),
         localAttemptRef.current
       );
     } catch (error) {
@@ -798,6 +855,7 @@ export default function ChatScreen() {
         setLocalAttemptState(cached.localAttempt, false);
         setShowingOfflineCache(cached.confirmedMessages.length > 0);
       }
+      setPatientCommunicationSummary(undefined);
 
       setNotice({
         variant: "warning",
@@ -894,6 +952,7 @@ export default function ChatScreen() {
         const response: ChatSendResponse = await sendChat(auth.token, messageToSend);
         await clearChatSendError();
         setLocalAttemptState(null);
+        setPatientCommunicationSummary(null);
         setShowingOfflineCache(false);
 
         const confirmedMessages = extractConfirmedSendMessages(response);

@@ -8,11 +8,10 @@ import {
 } from "./patientThresholdService";
 import {
   deriveMissedCheckinsFromThreshold,
-  deriveResponseDelayState,
   getThresholdsForPatients,
 } from "./riskEvaluationService";
 import { listAppointmentWorkflowItems } from "./appointmentWorkflowService";
-import { getCommunicationNeedsResponseSummaryByPatient } from "./communicationReviewService";
+import { getCommunicationTriageSummaryByPatient } from "./communicationTruthService";
 import { normalizeRehabPhases, recomputePhaseStatuses } from "./rehabPhaseService";
 import type { WorklistRecord } from "../types/worklist";
 
@@ -332,7 +331,7 @@ export async function listClinicianWorklist(
           },
         },
       ]),
-      getCommunicationNeedsResponseSummaryByPatient(),
+      getCommunicationTriageSummaryByPatient(),
       listAppointmentWorkflowItems({
         workflowStatuses: [
           "upcoming",
@@ -437,16 +436,6 @@ export async function listClinicianWorklist(
       latestCheckin?.latestRiskLevel === "high"
         ? "high"
         : "low";
-    const responseDelayState =
-      communicationSummary?.latestMessageAt && thresholds
-        ? deriveResponseDelayState({
-            messageCreatedAt: communicationSummary.latestMessageAt,
-            flaggedBySafety: (communicationSummary.flaggedBySafetyCount ?? 0) > 0,
-            now,
-            thresholds,
-          })
-        : undefined;
-
     const nextAppointmentAtIso = toIso(appointmentSummary?.nextAppointmentAt);
     const nextPromDueAtIso = toIso(promSummary?.nextDueAt);
     const topIssue = deriveTopIssue({
@@ -506,9 +495,16 @@ export async function listClinicianWorklist(
             needsResponseCount: communicationSummary.needsResponseCount,
             flaggedBySafetyCount: communicationSummary.flaggedBySafetyCount,
             latestMessageAt: toIso(communicationSummary.latestMessageAt),
-            delayedResponse: responseDelayState?.delayed ?? false,
-            responseDelayHours: responseDelayState?.thresholdHours,
-            responseAgeHours: responseDelayState?.elapsedHours,
+            delayedResponse: communicationSummary.responseDelayed,
+            responseDelayed: communicationSummary.responseDelayed,
+            responseDelayHours: communicationSummary.responseDelayHours,
+            responseAgeHours: communicationSummary.responseAgeHours,
+            responseDueAt: toIso(communicationSummary.responseDueAt),
+            reviewedAfterLatestInbound:
+              communicationSummary.reviewedAfterLatestInbound,
+            lastReviewedAt: toIso(communicationSummary.lastReviewedAt),
+            lastReviewedBy: communicationSummary.lastReviewedBy,
+            resolutionKind: communicationSummary.resolutionKind,
           }
         : undefined,
       activeTaskCount: taskSummary?.activeTaskCount ?? 0,

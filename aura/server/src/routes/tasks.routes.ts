@@ -10,8 +10,16 @@ import {
 } from "../models/Task";
 import {
   linkTaskToCommunicationReview,
+  recordCommunicationReview,
+  requestCommunicationFollowUp,
   resolveCommunicationReview,
 } from "../services/communicationReviewService";
+import {
+  recordFollowUpRequestedEvent,
+  recordResolvedNoFollowUpEvent,
+  recordReviewRecordedEvent,
+} from "../services/communicationEventService";
+import { getTrustedPatientMessageContext } from "../services/communicationTruthService";
 import {
   assignTask,
   completeTask,
@@ -204,6 +212,13 @@ function isObjectId(value: string): boolean {
   return Types.ObjectId.isValid(value);
 }
 
+function toClinicianActor(requestWithUser: RequestWithUser) {
+  return {
+    clinicianId: requestWithUser.user?.id ?? "",
+    displayName: requestWithUser.user?.name ?? requestWithUser.user?.id,
+  };
+}
+
 router.get("/patient/tasks", requirePatientAuth, async (req, res) => {
   const requestWithPatient = req as RequestWithPatient;
   const patientId = requestWithPatient.patient?.id;
@@ -340,7 +355,42 @@ router.post("/clinician/tasks", async (req, res) => {
   });
 
   if (task.linkedMessageId) {
-    await linkTaskToCommunicationReview(task.linkedMessageId, task.id);
+    const trustedMessage = await getTrustedPatientMessageContext({
+      patientId: task.patientId,
+      messageId: task.linkedMessageId,
+    });
+    if (trustedMessage) {
+      const actor = toClinicianActor(requestWithUser);
+      await Promise.all([
+        linkTaskToCommunicationReview(trustedMessage.messageId, task.id),
+        requestCommunicationFollowUp(trustedMessage.messageId, {
+          taskId: task.id,
+        }),
+        recordFollowUpRequestedEvent({
+          patientId: task.patientId,
+          messageId: trustedMessage.messageId,
+          actor: {
+            actorType: "clinician",
+            actorId: actor.clinicianId,
+            actorDisplayName: actor.displayName,
+          },
+          sourceSurface: "clinician_task_create",
+          sourceRecordId: task.id,
+        }),
+        recordCommunicationReview(trustedMessage.messageId, actor),
+        recordReviewRecordedEvent({
+          patientId: task.patientId,
+          messageId: trustedMessage.messageId,
+          actor: {
+            actorType: "clinician",
+            actorId: actor.clinicianId,
+            actorDisplayName: actor.displayName,
+          },
+          sourceSurface: "clinician_task_create",
+          sourceRecordId: task.id,
+        }),
+      ]);
+    }
   }
 
   return res.status(201).json({
@@ -391,6 +441,10 @@ router.patch("/clinician/tasks/:id", async (req, res) => {
       ? parsedBody.data.assignedTo
       : undefined;
   const nextStatus = parsedBody.data.status;
+  const existingTask = await getTaskById(taskId);
+  if (!existingTask) {
+    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+  }
 
   const task =
     nextAssignedTo !== undefined && Object.keys(parsedBody.data).length === 1
@@ -405,10 +459,67 @@ router.patch("/clinician/tasks/:id", async (req, res) => {
   }
 
   if (task.linkedMessageId) {
-    if (nextStatus === "completed" || task.status === "completed") {
-      await resolveCommunicationReview(task.linkedMessageId);
-    } else {
-      await linkTaskToCommunicationReview(task.linkedMessageId, task.id);
+    const trustedMessage = await getTrustedPatientMessageContext({
+      patientId: task.patientId,
+      messageId: task.linkedMessageId,
+    });
+    if (trustedMessage) {
+      const actor = toClinicianActor(requestWithUser);
+      if (nextStatus === "completed" || task.status === "completed") {
+        await Promise.all([
+          resolveCommunicationReview(trustedMessage.messageId, {
+            resolvedBy: actor,
+          }),
+          recordResolvedNoFollowUpEvent({
+            patientId: task.patientId,
+            messageId: trustedMessage.messageId,
+            actor: {
+              actorType: "clinician",
+              actorId: actor.clinicianId,
+              actorDisplayName: actor.displayName,
+            },
+            sourceSurface: "clinician_task_complete",
+            sourceRecordId: task.id,
+          }),
+        ]);
+      } else {
+        await Promise.all([
+          linkTaskToCommunicationReview(trustedMessage.messageId, task.id),
+          requestCommunicationFollowUp(trustedMessage.messageId, {
+            taskId: task.id,
+          }),
+          recordFollowUpRequestedEvent({
+            patientId: task.patientId,
+            messageId: trustedMessage.messageId,
+            actor: {
+              actorType: "clinician",
+              actorId: actor.clinicianId,
+              actorDisplayName: actor.displayName,
+            },
+            sourceSurface: "clinician_task_update",
+            sourceRecordId: task.id,
+          }),
+        ]);
+
+        const transitionedToInProgress =
+          existingTask.status !== "in_progress" && task.status === "in_progress";
+        if (transitionedToInProgress) {
+          await Promise.all([
+            recordCommunicationReview(trustedMessage.messageId, actor),
+            recordReviewRecordedEvent({
+              patientId: task.patientId,
+              messageId: trustedMessage.messageId,
+              actor: {
+                actorType: "clinician",
+                actorId: actor.clinicianId,
+                actorDisplayName: actor.displayName,
+              },
+              sourceSurface: "clinician_task_start",
+              sourceRecordId: task.id,
+            }),
+          ]);
+        }
+      }
     }
   }
 
@@ -444,7 +555,31 @@ router.post("/clinician/tasks/:id/complete", async (req, res) => {
   }
 
   if (existingTask.linkedMessageId || task.linkedMessageId) {
-    await resolveCommunicationReview(existingTask.linkedMessageId ?? task.linkedMessageId ?? "");
+    const linkedMessageId =
+      existingTask.linkedMessageId ?? task.linkedMessageId ?? "";
+    const trustedMessage = await getTrustedPatientMessageContext({
+      patientId: existingTask.patientId,
+      messageId: linkedMessageId,
+    });
+    if (trustedMessage) {
+      const actor = toClinicianActor(requestWithUser);
+      await Promise.all([
+        resolveCommunicationReview(trustedMessage.messageId, {
+          resolvedBy: actor,
+        }),
+        recordResolvedNoFollowUpEvent({
+          patientId: existingTask.patientId,
+          messageId: trustedMessage.messageId,
+          actor: {
+            actorType: "clinician",
+            actorId: actor.clinicianId,
+            actorDisplayName: actor.displayName,
+          },
+          sourceSurface: "clinician_task_complete",
+          sourceRecordId: task.id,
+        }),
+      ]);
+    }
   }
 
   return res.json({

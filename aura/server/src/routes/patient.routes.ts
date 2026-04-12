@@ -38,6 +38,7 @@ import {
   getPatientCareStatus,
   mapPatientCareStatus,
 } from "../services/patientCareStatusService";
+import { getPatientCommunicationSummary } from "../services/communicationTruthService";
 import { getRecoveryNudge } from "../services/progressNudgeService";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { logger } from "../utils/logger";
@@ -951,13 +952,17 @@ router.get("/patient/chat/history", requirePatientAuth, async (req, res) => {
   }
 
   try {
-    const messages = await ChatMessage.find({ patientId })
-      .sort({ createdAt: -1 })
-      .limit(parsedQuery.data.limit)
-      .lean();
+    const [messages, patientCommunicationSummary] = await Promise.all([
+      ChatMessage.find({ patientId })
+        .sort({ createdAt: -1 })
+        .limit(parsedQuery.data.limit)
+        .lean(),
+      getPatientCommunicationSummary(patientId),
+    ]);
 
     return res.json({
       ok: true,
+      patientCommunicationSummary,
       messages: messages.map((message) => ({
         id: String(message._id),
         role: message.role,

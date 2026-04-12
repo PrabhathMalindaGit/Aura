@@ -552,8 +552,17 @@ export interface DashboardCommunicationOverviewItem {
   lastCheckinAt?: string;
   lastPainScore?: number;
   responseState?: 'reviewing' | 'delayed' | string;
+  responseDueAt?: string;
+  responseDelayed?: boolean;
   responseDelayHours?: number;
   responseAgeHours?: number;
+  reviewedAfterLatestInbound?: boolean;
+  lastReviewedAt?: string;
+  lastReviewedBy?: {
+    clinicianId: string;
+    displayName?: string;
+  };
+  resolutionKind?: 'no_follow_up_needed';
   thresholdSummary?: PatientThresholdConfig;
 }
 
@@ -644,12 +653,14 @@ export interface PutPatientCurrentHandoffPayload {
   nextStep?: ClinicianCoordinationNextStep;
   followUpOwner?: ClinicianCoordinationFollowUpOwner;
   linkedTaskId?: string | null;
+  messageId?: string;
   updatedBy?: string;
   updatedByName?: string;
 }
 
 export interface AppendPatientCoordinationNotePayload {
   text: string;
+  messageId?: string;
   createdBy?: string;
   createdByName?: string;
 }
@@ -733,8 +744,17 @@ export interface WorklistRecord {
     flaggedBySafetyCount: number;
     latestMessageAt?: string;
     delayedResponse: boolean;
+    responseDelayed?: boolean;
     responseDelayHours?: number;
     responseAgeHours?: number;
+    responseDueAt?: string;
+    reviewedAfterLatestInbound?: boolean;
+    lastReviewedAt?: string;
+    lastReviewedBy?: {
+      clinicianId: string;
+      displayName?: string;
+    };
+    resolutionKind?: 'no_follow_up_needed';
   };
   activeTaskCount: number;
   proms?: {

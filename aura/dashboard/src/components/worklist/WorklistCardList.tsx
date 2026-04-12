@@ -113,8 +113,10 @@ export function WorklistCardList({
                   {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
                   {' · '}
                   {item.communicationNeedsResponse
-                    ? item.communicationSummary?.delayedResponse
+                    ? item.communicationSummary?.responseDelayed || item.communicationSummary?.delayedResponse
                       ? `Response delayed (${item.communicationSummary.responseAgeHours ?? '—'}h)`
+                      : item.communicationSummary?.reviewedAfterLatestInbound
+                        ? 'Reviewed and awaiting follow-up'
                       : item.communicationSummary?.responseDelayHours
                         ? `Response target ${item.communicationSummary.responseDelayHours}h`
                         : 'Response requested'

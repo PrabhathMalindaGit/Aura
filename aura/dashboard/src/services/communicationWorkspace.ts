@@ -47,6 +47,7 @@ export interface CommunicationTimelineEvent {
   preview: string;
   flaggedBySafety: boolean;
   followUpRequested: boolean;
+  reviewedAfterLatestInbound: boolean;
   localOnly: boolean;
 }
 
@@ -62,8 +63,11 @@ export interface CommunicationThread {
   latestReplyAt?: string;
   unread: boolean;
   needsResponse: boolean;
+  responseDelayed: boolean;
   safetyFlagged: boolean;
   followUpRequested: boolean;
+  reviewedAfterLatestInbound: boolean;
+  lastReviewedAt?: string;
   handled: boolean;
   timeline: CommunicationTimelineEvent[];
 }
@@ -459,6 +463,7 @@ function buildInboundEvent(item: DashboardCommunicationOverviewItem): Communicat
     preview,
     flaggedBySafety: item.flaggedBySafety === true,
     followUpRequested: item.followUpRequested === true,
+    reviewedAfterLatestInbound: item.reviewedAfterLatestInbound === true,
     localOnly: false,
   };
 }
@@ -475,6 +480,7 @@ function buildReplyEvent(reply: CommunicationLocalReply): CommunicationTimelineE
     preview: reply.text,
     flaggedBySafety: false,
     followUpRequested: false,
+    reviewedAfterLatestInbound: false,
     localOnly: true,
   };
 }
@@ -531,15 +537,16 @@ export function deriveCommunicationThreads(
       const latestInboundAt = latestInboundItem?.messageCreatedAt;
       const latestReplyAt = localReplies[localReplies.length - 1]?.createdAt;
       const latestInboundSortValue = toSortValue(latestInboundAt);
-      const latestReplySortValue = toSortValue(latestReplyAt);
       const reviewedAt = validPatientId ? localState.reviewedAtByPatient[patientId] : undefined;
       const unread = latestInboundSortValue > 0 && latestInboundSortValue > toSortValue(reviewedAt);
-      const needsResponse =
-        latestReplySortValue > 0
-          ? latestInboundSortValue > latestReplySortValue
-          : inboundItems.some((item) => item.needsResponse === true);
+      const needsResponse = inboundItems.some((item) => item.needsResponse === true);
+      const responseDelayed = inboundItems.some(
+        (item) => item.responseDelayed === true || item.responseState === 'delayed',
+      );
       const safetyFlagged = inboundItems.some((item) => item.flaggedBySafety === true);
       const followUpRequested = inboundItems.some((item) => item.followUpRequested === true);
+      const reviewedAfterLatestInbound = latestInboundItem?.reviewedAfterLatestInbound === true;
+      const lastReviewedAt = latestInboundItem?.lastReviewedAt;
 
       return {
         id: groupKey,
@@ -553,8 +560,11 @@ export function deriveCommunicationThreads(
         latestReplyAt,
         unread,
         needsResponse,
+        responseDelayed,
         safetyFlagged,
         followUpRequested,
+        reviewedAfterLatestInbound,
+        lastReviewedAt,
         handled: !unread && !needsResponse,
         timeline,
       } satisfies CommunicationThread;

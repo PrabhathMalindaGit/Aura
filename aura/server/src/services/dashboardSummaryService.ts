@@ -13,9 +13,11 @@ import {
   getCommunicationOverviewCounts,
   listRecentCommunicationNeedingResponse,
 } from "./communicationReviewService";
+import {
+  deriveCommunicationReviewTruthState,
+} from "./communicationTruthService";
 import { getDefaultThresholdSnapshot } from "./patientThresholdService";
 import {
-  deriveResponseDelayState,
   getThresholdsForPatients,
 } from "./riskEvaluationService";
 import { listTasks } from "./taskService";
@@ -243,11 +245,52 @@ export async function getCommunicationOverview(limit = 10) {
         thresholdMap.get(review.patientId) ??
         getDefaultThresholdSnapshot(review.patientId);
       const messageCreatedAtDate = toDate(review.messageCreatedAt) ?? new Date();
-      const responseState = deriveResponseDelayState({
-        messageCreatedAt: messageCreatedAtDate,
-        flaggedBySafety: review.flaggedBySafety === true,
-        now,
+      const truthState = deriveCommunicationReviewTruthState({
+        review: {
+          needsResponse: review.needsResponse === true,
+          flaggedBySafety: review.flaggedBySafety === true,
+          messageCreatedAt: messageCreatedAtDate,
+          lastReviewedAt: toDate(
+            (review as { lastReviewedAt?: unknown }).lastReviewedAt
+          ),
+          lastReviewedBy:
+            (review as { lastReviewedBy?: unknown }).lastReviewedBy &&
+            typeof (review as { lastReviewedBy?: unknown }).lastReviewedBy === "object" &&
+            !Array.isArray((review as { lastReviewedBy?: unknown }).lastReviewedBy)
+              ? {
+                  clinicianId:
+                    typeof (
+                      (review as { lastReviewedBy?: Record<string, unknown> }).lastReviewedBy
+                        ?.clinicianId
+                    ) === "string"
+                      ? String(
+                          (review as {
+                            lastReviewedBy?: Record<string, unknown>;
+                          }).lastReviewedBy?.clinicianId
+                        )
+                      : "",
+                  displayName:
+                    typeof (
+                      (review as { lastReviewedBy?: Record<string, unknown> }).lastReviewedBy
+                        ?.displayName
+                    ) === "string"
+                      ? String(
+                          (review as {
+                            lastReviewedBy?: Record<string, unknown>;
+                          }).lastReviewedBy?.displayName
+                        )
+                      : undefined,
+                }
+              : undefined,
+          resolutionKind:
+            (review as { resolutionKind?: unknown }).resolutionKind ===
+            "no_follow_up_needed"
+              ? "no_follow_up_needed"
+              : undefined,
+          resolvedAt: toDate((review as { resolvedAt?: unknown }).resolvedAt),
+        },
         thresholds,
+        now,
       });
       const latestCheckin = latestCheckinMap.get(review.patientId);
 
@@ -276,9 +319,23 @@ export async function getCommunicationOverview(limit = 10) {
           typeof latestCheckin?.lastPainScore === "number"
             ? latestCheckin.lastPainScore
             : undefined,
-        responseState: responseState.delayed ? "delayed" : "reviewing",
-        responseDelayHours: responseState.thresholdHours,
-        responseAgeHours: responseState.elapsedHours,
+        responseState: truthState.responseDelayed
+          ? "delayed"
+          : truthState.reviewedAfterLatestInbound
+            ? "reviewing"
+            : "awaiting_review",
+        responseDelayHours: truthState.responseDelayHours,
+        responseAgeHours: truthState.responseAgeHours,
+        responseDueAt: truthState.responseDueAt
+          ? toIso(truthState.responseDueAt)
+          : undefined,
+        responseDelayed: truthState.responseDelayed,
+        reviewedAfterLatestInbound: truthState.reviewedAfterLatestInbound,
+        lastReviewedAt: truthState.lastReviewedAt
+          ? toIso(truthState.lastReviewedAt)
+          : undefined,
+        lastReviewedBy: truthState.lastReviewedBy,
+        resolutionKind: truthState.resolutionKind,
         thresholdSummary: {
           painHighThreshold: thresholds.painHighThreshold,
           missedCheckinDays: thresholds.missedCheckinDays,
@@ -468,6 +525,12 @@ async function buildCommunicationPriorityItems(
       responseState: item.responseState,
       responseDelayHours: item.responseDelayHours,
       responseAgeHours: item.responseAgeHours,
+      responseDueAt: item.responseDueAt,
+      responseDelayed: item.responseDelayed,
+      reviewedAfterLatestInbound: item.reviewedAfterLatestInbound,
+      lastReviewedAt: item.lastReviewedAt,
+      lastReviewedBy: item.lastReviewedBy,
+      resolutionKind: item.resolutionKind,
     },
   }));
 }

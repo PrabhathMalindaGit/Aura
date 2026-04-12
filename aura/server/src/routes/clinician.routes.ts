@@ -43,6 +43,12 @@ import {
   getPatientRecoverySupportConfig,
   savePatientRecoverySupportConfig,
 } from "../services/patientRecoverySupportService";
+import {
+  recordThreadOpenedEvent,
+  recordReviewRecordedEvent,
+} from "../services/communicationEventService";
+import { recordCommunicationReview } from "../services/communicationReviewService";
+import { getTrustedPatientMessageContext } from "../services/communicationTruthService";
 import { getRecoveryNudge } from "../services/progressNudgeService";
 import {
   listAlertSafetyAuditTrail,
@@ -178,14 +184,21 @@ const coordinationCurrentHandoffSchema = z.object({
   nextStep: z.enum(COORDINATION_NEXT_STEP_VALUES).optional(),
   followUpOwner: coordinationFollowUpOwnerSchema.optional(),
   linkedTaskId: z.union([z.string().trim().min(1).max(120), z.null()]).optional(),
+  messageId: z.string().trim().min(1).max(120).optional(),
   updatedBy: z.string().trim().min(1).max(120).optional(),
   updatedByName: z.string().trim().min(1).max(120).optional(),
 });
 
 const coordinationAppendNoteSchema = z.object({
   text: z.string().trim().min(1).max(COORDINATION_NOTE_MAX_LENGTH),
+  messageId: z.string().trim().min(1).max(120).optional(),
   createdBy: z.string().trim().min(1).max(120).optional(),
   createdByName: z.string().trim().min(1).max(120).optional(),
+});
+
+const communicationThreadEventSchema = z.object({
+  eventType: z.literal("thread_opened"),
+  sourceSurface: z.string().trim().min(1).max(120),
 });
 
 const DEFAULT_PATIENTS_LIMIT = 200;
@@ -2166,6 +2179,7 @@ router.put(
         nextStep,
         followUpOwner,
         linkedTaskId,
+        messageId,
         updatedBy,
         updatedByName,
       } =
@@ -2194,6 +2208,45 @@ router.put(
           displayName: actor.name ?? actor.id,
         },
       });
+
+      if (messageId) {
+        try {
+          const trustedMessage = await getTrustedPatientMessageContext({
+            patientId: parsedPatientId.patientId,
+            messageId,
+          });
+          if (trustedMessage) {
+            await Promise.all([
+              recordCommunicationReview(trustedMessage.messageId, {
+                clinicianId: actor.id,
+                displayName: actor.name ?? actor.id,
+              }),
+              recordReviewRecordedEvent({
+                patientId: parsedPatientId.patientId,
+                messageId: trustedMessage.messageId,
+                actor: {
+                  actorType: "clinician",
+                  actorId: actor.id,
+                  actorDisplayName: actor.name ?? actor.id,
+                },
+                sourceSurface: "clinician_current_handoff",
+                sourceRecordId:
+                  coordination?.currentHandoff?.updatedAt ?? undefined,
+              }),
+            ]);
+          }
+        } catch (truthError) {
+          logger.error("Clinician coordination handoff truth write failed", {
+            route: "PUT /clinician/patients/:patientId/coordination/current-handoff",
+            patientId: parsedPatientId.patientId,
+            messageId,
+            message:
+              truthError instanceof Error
+                ? truthError.message
+                : String(truthError),
+          });
+        }
+      }
 
       return res.json({
         ok: true,
@@ -2242,7 +2295,7 @@ router.post(
       }
 
       const requestWithUser = req as RequestWithUser;
-      const { text, createdBy, createdByName } =
+      const { text, messageId, createdBy, createdByName } =
         req.body as z.infer<typeof coordinationAppendNoteSchema>;
       const actor = resolveClinicianActor(
         requestWithUser,
@@ -2266,6 +2319,44 @@ router.post(
         },
       });
 
+      if (messageId) {
+        try {
+          const trustedMessage = await getTrustedPatientMessageContext({
+            patientId: parsedPatientId.patientId,
+            messageId,
+          });
+          if (trustedMessage) {
+            await Promise.all([
+              recordCommunicationReview(trustedMessage.messageId, {
+                clinicianId: actor.id,
+                displayName: actor.name ?? actor.id,
+              }),
+              recordReviewRecordedEvent({
+                patientId: parsedPatientId.patientId,
+                messageId: trustedMessage.messageId,
+                actor: {
+                  actorType: "clinician",
+                  actorId: actor.id,
+                  actorDisplayName: actor.name ?? actor.id,
+                },
+                sourceSurface: "clinician_coordination_note",
+                sourceRecordId: coordination?.noteHistory?.[0]?.id,
+              }),
+            ]);
+          }
+        } catch (truthError) {
+          logger.error("Clinician coordination note truth write failed", {
+            route: "POST /clinician/patients/:patientId/coordination/notes",
+            patientId: parsedPatientId.patientId,
+            messageId,
+            message:
+              truthError instanceof Error
+                ? truthError.message
+                : String(truthError),
+          });
+        }
+      }
+
       return res.status(201).json({
         ok: true,
         coordination: mapCoordinationRecord(coordination),
@@ -2273,6 +2364,58 @@ router.post(
     } catch (error) {
       logger.error("Post clinician coordination note route failed", {
         route: "POST /clinician/patients/:patientId/coordination/notes",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.post(
+  "/clinician/patients/:patientId/communication/events",
+  validateBody(communicationThreadEventSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const actor = resolveClinicianActor(requestWithUser);
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const body = req.body as z.infer<typeof communicationThreadEventSchema>;
+      await recordThreadOpenedEvent({
+        patientId: parsedPatientId.patientId,
+        actor: {
+          actorType: "clinician",
+          actorId: actor.id,
+          actorDisplayName: actor.name ?? actor.id,
+        },
+        sourceSurface: body.sourceSurface,
+      });
+
+      return res.status(202).json({
+        ok: true,
+      });
+    } catch (error) {
+      logger.error("Clinician communication event route failed", {
+        route: "POST /clinician/patients/:patientId/communication/events",
         patientId:
           typeof req.params.patientId === "string" ? req.params.patientId : "",
         message: error instanceof Error ? error.message : String(error),

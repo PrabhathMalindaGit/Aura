@@ -12,6 +12,7 @@ import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { getSavedCommunicationFilter } from '../services/clinicianWorkspacePreferences';
 import {
+  recordCommunicationThreadOpened,
   useDashboardCommunicationOverview,
   useAppendPatientCoordinationNote,
   usePatientCoordination,
@@ -46,6 +47,7 @@ import {
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../utils/dashboard';
 import { toUserMessage } from '../utils/errors';
 import { truncateText } from '../utils/text';
+import type { DashboardCommunicationOverviewItem } from '../types/models';
 
 function normalizePatientId(value: string | null): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -59,8 +61,12 @@ function countThreadsByView(
 }
 
 function getThreadMetaSummary(thread: CommunicationThread): string {
-  if (thread.latestEventKind === 'clinician-reply') {
-    return 'Local clinician reply is the latest activity';
+  if (thread.responseDelayed) {
+    return 'Response is delayed past the configured threshold';
+  }
+
+  if (thread.reviewedAfterLatestInbound) {
+    return 'Durable care-team review is recorded';
   }
 
   if (thread.needsResponse) {
@@ -68,7 +74,11 @@ function getThreadMetaSummary(thread: CommunicationThread): string {
   }
 
   if (thread.unread) {
-    return 'Not yet reviewed in this browser';
+    return 'Not yet opened in this browser';
+  }
+
+  if (thread.latestEventKind === 'clinician-reply') {
+    return 'Local clinician reply is the latest activity';
   }
 
   if (thread.followUpRequested) {
@@ -89,7 +99,10 @@ function getCommunicationContextSummary(item: DashboardCommunicationOverviewItem
       ? `${item.openAlertCount} open alert${item.openAlertCount === 1 ? '' : 's'}`
       : null,
     item.lastPainScore !== undefined ? `Last pain ${item.lastPainScore}/10` : null,
-    item.responseState === 'delayed'
+    item.reviewedAfterLatestInbound && item.lastReviewedAt
+      ? `Reviewed ${formatDashboardRelativeTime(item.lastReviewedAt)}`
+      : null,
+    (item.responseDelayed === true || item.responseState === 'delayed')
       ? `Response delayed past ${item.responseDelayHours ?? 'configured'}h`
       : item.responseDelayHours
         ? `Response target ${item.responseDelayHours}h`
@@ -111,12 +124,20 @@ function getThreadPriorityBadge(thread: CommunicationThread): {
     return { label: 'Safety flagged', variant: 'danger' };
   }
 
+  if (thread.responseDelayed) {
+    return { label: 'Response delayed', variant: 'warning' };
+  }
+
   if (thread.needsResponse) {
     return { label: 'Needs response', variant: 'warning' };
   }
 
+  if (thread.reviewedAfterLatestInbound) {
+    return { label: 'Reviewed', variant: 'neutral' };
+  }
+
   if (thread.unread) {
-    return { label: 'Unread', variant: 'new' };
+    return { label: 'Opened only in this browser', variant: 'new' };
   }
 
   if (thread.followUpRequested) {
@@ -140,6 +161,10 @@ function getPatientInitials(name: string): string {
 function getCommunicationThreadTone(thread: CommunicationThread): 'safety' | 'response' | 'follow-up' | 'unread' | 'reviewed' {
   if (thread.safetyFlagged) {
     return 'safety';
+  }
+
+  if (thread.responseDelayed) {
+    return 'response';
   }
 
   if (thread.needsResponse) {
@@ -346,6 +371,18 @@ export function CommunicationPage(): JSX.Element {
   ]);
 
   useEffect(() => {
+    if (!activeThread?.validPatientId) {
+      return;
+    }
+
+    void recordCommunicationThreadOpened(activeThread.patientId, {
+      sourceSurface: 'communication_inbox',
+    }).catch(() => {
+      // Keep inbox navigation resilient if the internal signal cannot be recorded.
+    });
+  }, [activeThread?.id, activeThread?.patientId, activeThread?.validPatientId]);
+
+  useEffect(() => {
     if (!activeThreadId) {
       setDraftReply('');
       return;
@@ -474,7 +511,10 @@ export function CommunicationPage(): JSX.Element {
     }
 
     appendSharedCoordinationNoteMutation.mutate(
-      { text: sharedNoteDraft },
+      {
+        text: sharedNoteDraft,
+        messageId: activeThreadContext?.messageId,
+      },
       {
         onSuccess: () => {
           setSharedNoteDraft('');
@@ -753,12 +793,14 @@ export function CommunicationPage(): JSX.Element {
                   </div>
                 </div>
                 <div className="inbox-response-stage__header-side">
-                  <div className="communication-page__timeline-badges inbox-response-stage__badges">
-                    {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
-                    {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                    {activeThread.unread ? <Badge variant="new">Unread</Badge> : null}
-                    {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                  </div>
+                    <div className="communication-page__timeline-badges inbox-response-stage__badges">
+                      {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
+                      {activeThread.responseDelayed ? <Badge variant="warning">Response delayed</Badge> : null}
+                      {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
+                      {activeThread.reviewedAfterLatestInbound ? <Badge variant="neutral">Reviewed</Badge> : null}
+                      {activeThread.unread ? <Badge variant="new">Opened only in this browser</Badge> : null}
+                      {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                    </div>
                   {activeThread.validPatientId ? (
                     <div className="communication-page__timeline-actions inbox-response-stage__actions">
                       {activeThread.safetyFlagged ? (

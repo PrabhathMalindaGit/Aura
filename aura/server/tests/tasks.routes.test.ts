@@ -13,6 +13,7 @@ import {
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 import app from "../src/app";
+import CommunicationEvent from "../src/models/CommunicationEvent";
 import CommunicationReview from "../src/models/CommunicationReview";
 import Task from "../src/models/Task";
 import { signAuthToken } from "../src/utils/jwt";
@@ -53,7 +54,11 @@ describe("clinician task routes", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-09T08:00:00.000Z"));
 
-    await Promise.all([Task.deleteMany({}), CommunicationReview.deleteMany({})]);
+    await Promise.all([
+      Task.deleteMany({}),
+      CommunicationReview.deleteMany({}),
+      CommunicationEvent.deleteMany({}),
+    ]);
   });
 
   afterEach(() => {
@@ -99,6 +104,12 @@ describe("clinician task routes", () => {
       messageId: "507f1f77bcf86cd799439011",
     }).lean();
     expect(linkedReview?.linkedTaskId).toBe(createResponse.body.task.id);
+    expect(linkedReview?.followUpRequested).toBe(true);
+    expect(linkedReview?.lastReviewedAt).toBeInstanceOf(Date);
+    expect(linkedReview?.lastReviewedBy).toMatchObject({
+      clinicianId: "clinician-1",
+      displayName: "Clinician One",
+    });
 
     const listResponse = await request(app)
       .get("/clinician/tasks")
@@ -137,7 +148,27 @@ describe("clinician task routes", () => {
     }).lean();
     expect(completedReview?.needsResponse).toBe(false);
     expect(completedReview?.followUpRequested).toBe(false);
-    expect(completedReview?.lastClinicianReplyAt).toBeInstanceOf(Date);
+    expect(completedReview?.lastClinicianReplyAt).toBeNull();
+    expect(completedReview?.resolvedAt).toBeInstanceOf(Date);
+    expect(completedReview?.resolutionKind).toBe("no_follow_up_needed");
+    expect(completedReview?.resolvedBy).toMatchObject({
+      clinicianId: "clinician-1",
+      displayName: "Clinician One",
+    });
+
+    const events = await CommunicationEvent.find({
+      patientId: "p1",
+      messageId: "507f1f77bcf86cd799439011",
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+    expect(events.map((event) => event.eventType)).toEqual([
+      "follow_up_requested",
+      "review_recorded",
+      "follow_up_requested",
+      "review_recorded",
+      "resolved_no_follow_up",
+    ]);
 
     const secondCompleteResponse = await request(app)
       .post(`/clinician/tasks/${createResponse.body.task.id as string}/complete`)

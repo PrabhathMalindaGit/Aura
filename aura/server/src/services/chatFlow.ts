@@ -7,6 +7,7 @@ import {
   enqueueInitialAlertNotification,
   markAlertNotificationEnqueueFailure,
 } from "./alertNotificationService";
+import { recordPatientMessageSentEvent } from "./communicationEventService";
 import { upsertCommunicationReview } from "./communicationReviewService";
 import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
@@ -162,6 +163,23 @@ export async function processChatMessage(
       });
     } catch (error) {
       logger.error("Chat communication review upsert failed", {
+        flow: "chat",
+        stage: "post_commit",
+        patientId: input.patientId,
+        userMessageId: toId(userMsg._id),
+        alertId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await recordPatientMessageSentEvent({
+        patientId: input.patientId,
+        messageId: toId(userMsg._id),
+        createdAt: userMsg.createdAt,
+      });
+    } catch (error) {
+      logger.error("Chat communication event write failed", {
         flow: "chat",
         stage: "post_commit",
         patientId: input.patientId,
@@ -341,6 +359,23 @@ export async function processChatMessage(
     });
   } catch (error) {
     logger.error("Chat communication review upsert failed", {
+      flow: "chat",
+      stage: "post_commit",
+      patientId: input.patientId,
+      userMessageId: toId(userMsg._id),
+      assistantMessageId: toId(assistantMsg._id),
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  try {
+    await recordPatientMessageSentEvent({
+      patientId: input.patientId,
+      messageId: toId(userMsg._id),
+      createdAt: userMsg.createdAt,
+    });
+  } catch (error) {
+    logger.error("Chat communication event write failed", {
       flow: "chat",
       stage: "post_commit",
       patientId: input.patientId,

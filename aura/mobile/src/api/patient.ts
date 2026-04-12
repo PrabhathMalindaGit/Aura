@@ -653,6 +653,15 @@ export type ChatItem = {
   createdAt?: string;
 };
 
+export type PatientCommunicationSummaryState =
+  | "care_team_reviewing"
+  | "response_delayed";
+
+export type PatientChatHistory = {
+  items: ChatItem[];
+  patientCommunicationSummary?: PatientCommunicationSummaryState | null;
+};
+
 export type ChatSendResponse = {
   ok?: boolean;
   risk?: { level: "low" | "high"; reasonCodes?: string[] };
@@ -3778,12 +3787,30 @@ function sortChatItemsAscending(items: ChatItem[]): ChatItem[] {
   });
 }
 
-export async function chatHistory(token: string, limit = 50): Promise<ChatItem[]> {
+function toPatientCommunicationSummaryState(
+  value: unknown,
+): PatientCommunicationSummaryState | null | undefined {
+  if (value === "care_team_reviewing" || value === "response_delayed") {
+    return value;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  return undefined;
+}
+
+export async function chatHistory(
+  token: string,
+  limit = 50,
+): Promise<PatientChatHistory> {
   const payload = await apiFetchJson<
     | ChatItem[]
     | {
         items?: unknown;
         messages?: unknown;
+        patientCommunicationSummary?: unknown;
       }
   >(`/patient/chat/history?limit=${encodeURIComponent(String(limit))}`, {
     method: "GET",
@@ -3802,7 +3829,13 @@ export async function chatHistory(token: string, limit = 50): Promise<ChatItem[]
     .map((item) => toChatItem(item))
     .filter((item): item is ChatItem => Boolean(item));
 
-  return sortChatItemsAscending(normalized);
+  return {
+    items: sortChatItemsAscending(normalized),
+    patientCommunicationSummary:
+      !Array.isArray(payload) && payload
+        ? toPatientCommunicationSummaryState(payload.patientCommunicationSummary)
+        : undefined,
+  };
 }
 
 export async function sendChat(

@@ -59,6 +59,7 @@ function buildFallbackTimeline(items: DashboardCommunicationOverviewItem[]): Com
       preview: item.messagePreview?.trim() || 'Recent patient communication is waiting for review.',
       flaggedBySafety: item.flaggedBySafety,
       followUpRequested: item.followUpRequested,
+      reviewedAfterLatestInbound: item.reviewedAfterLatestInbound,
       localOnly: false,
     }));
 }
@@ -89,7 +90,15 @@ export function PatientCommunicationPanel({
   const showQuickReplyHelpers = replyTemplates.length > 0 || hasSignature;
   const safetyFlaggedCount = items.filter((item) => item.flaggedBySafety).length;
   const followUpRequestedCount = items.filter((item) => item.followUpRequested).length;
-  const delayedCount = items.filter((item) => item.responseState === 'delayed').length;
+  const delayedCount = items.filter(
+    (item) => item.responseDelayed || item.responseState === 'delayed',
+  ).length;
+  const reviewedCount = items.filter(
+    (item) =>
+      item.reviewedAfterLatestInbound === true &&
+      item.resolutionKind !== 'no_follow_up_needed' &&
+      !(item.responseDelayed || item.responseState === 'delayed'),
+  ).length;
   const openAlertCount = items.reduce(
     (total, item) => total + (item.openAlertCount ?? 0),
     0,
@@ -158,6 +167,10 @@ export function PatientCommunicationPanel({
               <span>Delayed</span>
             </span>
             <span className="patient-communication-queue-strip__item">
+              <strong>{reviewedCount}</strong>
+              <span>Reviewed</span>
+            </span>
+            <span className="patient-communication-queue-strip__item">
               <strong>{openAlertCount}</strong>
               <span>Open alerts</span>
             </span>
@@ -220,6 +233,9 @@ export function PatientCommunicationPanel({
                       <div className="patient-communication-timeline__badges">
                         {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
                         {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                        {event.reviewedAfterLatestInbound ? (
+                          <Badge variant="info">Reviewed</Badge>
+                        ) : null}
                         {event.localOnly ? <Badge variant="neutral">Local to this browser</Badge> : null}
                       </div>
                     </div>

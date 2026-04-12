@@ -22,8 +22,17 @@ export type WorklistRecord = {
     flaggedBySafetyCount: number;
     latestMessageAt?: string;
     delayedResponse: boolean;
+    responseDelayed?: boolean;
     responseDelayHours?: number;
     responseAgeHours?: number;
+    responseDueAt?: string;
+    reviewedAfterLatestInbound?: boolean;
+    lastReviewedAt?: string;
+    lastReviewedBy?: {
+      clinicianId: string;
+      displayName?: string;
+    };
+    resolutionKind?: "no_follow_up_needed";
   };
   activeTaskCount: number;
   proms: {

@@ -47,6 +47,7 @@ import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CheckIn from "../src/models/CheckIn";
+import CommunicationEvent from "../src/models/CommunicationEvent";
 import CommunicationReview from "../src/models/CommunicationReview";
 import LoginThrottle from "../src/models/LoginThrottle";
 import Patient from "../src/models/Patient";
@@ -98,6 +99,7 @@ describe("patient auth + patient endpoints", () => {
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CheckIn.deleteMany({}),
+      CommunicationEvent.deleteMany({}),
       CommunicationReview.deleteMany({}),
       LoginThrottle.deleteMany({}),
       Patient.deleteMany({}),
@@ -703,6 +705,12 @@ describe("patient auth + patient endpoints", () => {
       flaggedBySafety: false,
       followUpRequested: false,
     });
+    const event = await CommunicationEvent.findOne({
+      patientId: "p1",
+      messageId: String(messages[0]?._id),
+      eventType: "patient_message_sent",
+    }).lean();
+    expect(event).toBeTruthy();
   });
 
   it("returns high-risk patient chat without assistant reply", async () => {
@@ -781,6 +789,7 @@ describe("patient auth + patient endpoints", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(history.status).toBe(200);
+    expect(history.body.patientCommunicationSummary).toBeNull();
     expect(history.body.messages).toHaveLength(1);
   });
 
@@ -814,6 +823,7 @@ describe("patient auth + patient endpoints", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(history.status).toBe(200);
+    expect(history.body.patientCommunicationSummary).toBeNull();
     expect(history.body.messages).toHaveLength(2);
   });
 
@@ -876,6 +886,7 @@ describe("patient auth + patient endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
+    expect(response.body.patientCommunicationSummary).toBeNull();
     expect(response.body.messages).toHaveLength(2);
     expect(response.body.messages[0].text).toBe("Second");
   });

@@ -36,6 +36,7 @@ describe("patient chat api normalization", () => {
           createdAt: "2026-03-24T10:01:00.000Z",
         },
       ],
+      patientCommunicationSummary: "care_team_reviewing",
     });
 
     const history = await chatHistory("token-a", 10);
@@ -44,20 +45,37 @@ describe("patient chat api normalization", () => {
       method: "GET",
       token: "token-a",
     });
-    expect(history).toEqual([
-      {
-        id: "user-1",
-        role: "patient",
-        text: "Hello",
-        createdAt: "2026-03-24T10:00:00.000Z",
-      },
-      {
-        id: "assistant-1",
-        role: "assistant",
-        text: "Hi there",
-        createdAt: "2026-03-24T10:01:00.000Z",
-      },
-    ]);
+    expect(history).toEqual({
+      items: [
+        {
+          id: "user-1",
+          role: "patient",
+          text: "Hello",
+          createdAt: "2026-03-24T10:00:00.000Z",
+        },
+        {
+          id: "assistant-1",
+          role: "assistant",
+          text: "Hi there",
+          createdAt: "2026-03-24T10:01:00.000Z",
+        },
+      ],
+      patientCommunicationSummary: "care_team_reviewing",
+    });
+  });
+
+  it("ignores unapproved patient communication summary labels", async () => {
+    apiFetchJson.mockResolvedValue({
+      messages: [],
+      patientCommunicationSummary: "follow_up_requested",
+    });
+
+    const history = await chatHistory("token-a", 10);
+
+    expect(history).toEqual({
+      items: [],
+      patientCommunicationSummary: undefined,
+    });
   });
 
   it("extracts confirmed send messages from the patient chat route shape", async () => {

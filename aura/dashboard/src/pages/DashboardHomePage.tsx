@@ -239,6 +239,14 @@ function threadDominantBadge(
     return <Badge variant="danger">Safety flagged</Badge>;
   }
 
+  if (item.responseDelayed || item.responseState === 'delayed') {
+    return <Badge variant="warning">Response delayed</Badge>;
+  }
+
+  if (item.reviewedAfterLatestInbound) {
+    return <Badge variant="info">Reviewed</Badge>;
+  }
+
   if (item.needsResponse) {
     return <Badge variant="warning">Needs response</Badge>;
   }
@@ -256,8 +264,18 @@ function communicationContextLine(item: DashboardCommunicationOverviewItem): str
     typeof item.openAlertCount === 'number'
       ? `${item.openAlertCount} open alert${item.openAlertCount === 1 ? '' : 's'}`
       : null,
-    item.responseState === 'delayed'
+    item.responseDelayed || item.responseState === 'delayed'
       ? `Response delayed past ${item.responseDelayHours ?? 'configured'}h`
+      : item.reviewedAfterLatestInbound
+        ? item.lastReviewedAt
+          ? `Reviewed ${formatDashboardRelativeTime(item.lastReviewedAt)}`
+          : 'Reviewed in workflow'
+        : null,
+    item.followUpRequested && !item.reviewedAfterLatestInbound
+      ? 'Follow-up requested'
+      : null,
+    item.responseDueAt && !(item.responseDelayed || item.responseState === 'delayed')
+      ? `Response target ${formatDashboardRelativeTime(item.responseDueAt)}`
       : item.responseDelayHours
         ? `Response target ${item.responseDelayHours}h`
         : null,
@@ -903,6 +921,9 @@ export function DashboardHomePage(): JSX.Element {
                           >
                             {formatDashboardRelativeTime(item.messageCreatedAt)}
                           </span>
+                          {item.reviewedAfterLatestInbound ? (
+                            <span className="today-support-item__meta">Reviewed in workflow</span>
+                          ) : null}
                           {item.followUpRequested ? (
                             <span className="today-support-item__meta">Follow-up requested</span>
                           ) : null}

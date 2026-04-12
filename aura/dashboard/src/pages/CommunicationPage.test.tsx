@@ -215,6 +215,10 @@ function installCommunicationFetchMock(options: {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input));
 
+    if (url.pathname.match(/^\/clinician\/patients\/[^/]+\/communication\/events$/)) {
+      return createJsonResponse({ ok: true }, 201);
+    }
+
     if (url.pathname === '/clinician/dashboard/communication-overview') {
       return createJsonResponse({ ok: true, overview: communicationOverview });
     }
@@ -325,6 +329,29 @@ afterEach(() => {
     ).toBeInTheDocument();
   });
 
+  it('records thread-open as an internal event without surfacing reviewed truth on its own', async () => {
+    const user = userEvent.setup();
+    renderCommunicationPage('/communication?patientId=patient-2&view=needs-response');
+
+    await screen.findByRole('heading', { name: 'Inbox' });
+    await user.click(await screen.findByRole('button', { name: /Avery Chen/ }));
+
+    await waitFor(() => {
+      const eventCall = vi
+        .mocked(globalThis.fetch)
+        .mock.calls.find((call) => String(call[0]).includes('/communication/events'));
+      expect(eventCall).toBeDefined();
+      expect(JSON.parse(String(eventCall?.[1]?.body))).toEqual({
+        eventType: 'thread_opened',
+        sourceSurface: 'communication_inbox',
+      });
+    });
+
+    expect(
+      within(screen.getByRole('region', { name: 'Active communication review' })).queryByText('Reviewed'),
+    ).not.toBeInTheDocument();
+  });
+
   it('applies the saved default communication filter only when the route does not already set one', async () => {
     setClinicianProfile({
       ...getClinicianProfile(),
@@ -383,7 +410,7 @@ afterEach(() => {
     ).toBeInTheDocument();
   });
 
-  it('adds a browser-local clinician reply and updates the visible response state', async () => {
+  it('adds a browser-local clinician reply without clearing server-truth response pressure', async () => {
     const user = userEvent.setup();
     renderCommunicationPage('/communication?patientId=patient-2&view=needs-response');
 
@@ -424,9 +451,7 @@ afterEach(() => {
       ),
     ).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(within(screen.getByRole('button', { name: /Avery Chen/ })).queryByText('Needs response')).not.toBeInTheDocument();
-    });
+    expect(within(screen.getByRole('button', { name: /Avery Chen/ })).getByText('Needs response')).toBeInTheDocument();
   });
 
   it('inserts templates and dedupes the signature block without overwriting draft text', async () => {

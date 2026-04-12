@@ -45,12 +45,14 @@ import {
 
 interface PatientHandoffPanelProps {
   patientId: string;
+  communicationMessageId?: string;
   taskSnapshot?: ClinicianTaskItem[];
   onOpenNextAction: (action: Exclude<ClinicianCoordinationNextStep, 'monitoring'>) => void;
 }
 
 export function PatientHandoffPanel({
   patientId,
+  communicationMessageId,
   taskSnapshot = [],
   onOpenNextAction,
 }: PatientHandoffPanelProps): JSX.Element {
@@ -198,6 +200,7 @@ export function PatientHandoffPanel({
           label: customOwnerLabel,
         }),
         linkedTaskId: linkedTaskId.trim() || null,
+        messageId: communicationMessageId,
       },
       {
         onSuccess: (nextRecord) => {
@@ -229,6 +232,7 @@ export function PatientHandoffPanel({
     appendNoteMutation.mutate(
       {
         text: noteDraft,
+        messageId: communicationMessageId,
       },
       {
         onSuccess: () => {

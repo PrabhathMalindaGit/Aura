@@ -53,6 +53,7 @@ import {
   putPatientRecoverySupport,
   putPatientThresholds,
   reactivatePatient,
+  recordCommunicationThreadOpened,
   reviewInsight,
   setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
@@ -1319,6 +1320,18 @@ export function PatientDetailPage(): JSX.Element {
   useEffect(() => {
     setCommunicationLocalState(readCommunicationWorkspaceLocalState(communicationScopeKey));
   }, [communicationScopeKey]);
+
+  useEffect(() => {
+    if (!isCommunicationsWorkspace || !patientId) {
+      return;
+    }
+
+    void recordCommunicationThreadOpened(patientId, {
+      sourceSurface: 'patient_detail_communication_panel',
+    }).catch(() => {
+      // Internal-only signal; ignore transient failures so the workspace remains stable.
+    });
+  }, [isCommunicationsWorkspace, patientId]);
 
   useEffect(() => {
     if (communicationAuthoring.templates.length === 0) {
@@ -3672,6 +3685,7 @@ export function PatientDetailPage(): JSX.Element {
                 <div className="patient-detail-tab-grid__full">
                   <PatientHandoffPanel
                     patientId={patientId}
+                    communicationMessageId={latestCommunicationItem?.messageId}
                     taskSnapshot={patientTasksQuery.data ?? []}
                     onOpenNextAction={(action) => handleOperationalAction(action)}
                   />

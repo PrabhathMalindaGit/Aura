@@ -6,6 +6,7 @@ import {
   getPatientCoordination,
   postPatientCoordinationNote,
   putPatientCurrentHandoff,
+  recordCommunicationThreadOpened,
 } from './clinicianApi';
 import {
   buildClinicianCoordinationFollowUpOwner,
@@ -54,6 +55,7 @@ describe('clinician coordination api', () => {
         clinicianId: 'clinician-1',
         displayName: 'Dr Elena Hall',
       }),
+      messageId: 'msg-1',
     });
 
     const [calledUrl, init] = fetchMock.mock.calls[0] ?? [];
@@ -67,6 +69,7 @@ describe('clinician coordination api', () => {
         clinicianId: 'clinician-1',
         displayName: 'Dr Elena Hall',
       },
+      messageId: 'msg-1',
     });
   });
 
@@ -99,6 +102,7 @@ describe('clinician coordination api', () => {
 
     await postPatientCoordinationNote('patient-1', {
       text: 'Shared note text',
+      messageId: 'msg-1',
     });
 
     const [calledUrl, init] = fetchMock.mock.calls[0] ?? [];
@@ -106,6 +110,25 @@ describe('clinician coordination api', () => {
     expect(init?.method).toBe('POST');
     expect(JSON.parse(String(init?.body))).toEqual({
       text: 'Shared note text',
+      messageId: 'msg-1',
+    });
+  });
+
+  it('serializes internal thread-open events without inventing reviewed semantics', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      createJsonResponse({ ok: true }, 201),
+    );
+
+    await recordCommunicationThreadOpened('patient-1', {
+      sourceSurface: 'communication_inbox',
+    });
+
+    const [calledUrl, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(calledUrl)).toContain('/clinician/patients/patient-1/communication/events');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({
+      eventType: 'thread_opened',
+      sourceSurface: 'communication_inbox',
     });
   });
 });

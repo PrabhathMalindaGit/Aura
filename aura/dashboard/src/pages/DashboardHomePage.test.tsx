@@ -466,6 +466,40 @@ describe('DashboardHomePage', () => {
     });
   }, 10_000);
 
+  it('shows reviewed inbox truth from the server without overstating reply state', async () => {
+    installDashboardFetchMock({
+      communicationOverview: {
+        counts: {
+          needsResponseCount: 1,
+          flaggedBySafetyCount: 0,
+          followUpRequestedCount: 1,
+        },
+        items: [
+          {
+            id: 'comm-reviewed-1',
+            patientId: 'p1',
+            patientName: 'Jordan Lee',
+            messageId: 'msg-1',
+            needsResponse: true,
+            flaggedBySafety: false,
+            followUpRequested: true,
+            reviewedAfterLatestInbound: true,
+            lastReviewedAt: '2026-03-09T10:00:00.000Z',
+            messageCreatedAt: '2026-03-09T09:20:00.000Z',
+            messagePreview: 'Pain is much worse after yesterday’s session.',
+          },
+        ],
+      },
+    });
+
+    renderDashboardHome();
+
+    await screen.findByText('Pain is much worse after yesterday’s session.');
+    const communicationOverview = await screen.findByTestId('dashboard-home-communication-overview');
+    expect(within(communicationOverview).getByText('Reviewed')).toBeInTheDocument();
+    expect(within(communicationOverview).queryByText('Reply received')).not.toBeInTheDocument();
+  });
+
   it('reduces only the communication overview attention treatment when preferences are reduced', async () => {
     installDashboardFetchMock();
     setClinicianProfile({

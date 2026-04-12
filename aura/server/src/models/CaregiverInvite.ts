@@ -34,6 +34,20 @@ const caregiverInviteSchema = new Schema(
       type: Date,
       default: null,
     },
+    relationship: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+    },
+    caregiverName: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+    lastAccessedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

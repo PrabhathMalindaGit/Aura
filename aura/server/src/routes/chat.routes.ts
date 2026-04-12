@@ -10,6 +10,10 @@ import {
   LOW_RISK_REPLY,
   processChatMessage,
 } from "../services/chatFlow";
+import {
+  getChatAccessGate,
+  getPatientCareStatus,
+} from "../services/patientCareStatusService";
 import { logger } from "../utils/logger";
 import { verifyPatientToken } from "../utils/patientJwt";
 import { redactText } from "../utils/redact";
@@ -88,6 +92,16 @@ router.post("/chat/send", validateBody(chatSchema), async (req, res) => {
       });
     }
     const patientId = resolvedPatient.patientId;
+
+    const careStatus = await getPatientCareStatus(patientId);
+    const accessGate = getChatAccessGate(careStatus);
+    if (!accessGate.allowed) {
+      return res.status(403).json({
+        ok: false,
+        error: "FORBIDDEN",
+        message: accessGate.message,
+      });
+    }
 
     logger.info("POST /chat/send", {
       requestId,

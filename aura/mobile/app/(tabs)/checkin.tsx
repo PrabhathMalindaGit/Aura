@@ -11,10 +11,11 @@ import {
 } from "react-native";
 
 import { isApiError } from "@/src/api/client";
-import { createCheckin } from "@/src/api/patient";
+import { createCheckin, getCheckinAdaptation } from "@/src/api/patient";
 import { Banner, type BannerVariant } from "@/src/components/Banner";
 import { Avatar } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
+import { EmptyState } from "@/src/components/EmptyState";
 import type { DomainIconKey } from "@/src/components/IconSet";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
@@ -49,6 +50,12 @@ import {
 import { type LastErrorRecord, useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { useLastRefreshed } from "@/src/state/refresh";
+import {
+  canPatientUseCheckin,
+  getCachedRecoverySupport,
+  getCareModeNotice,
+  setCachedRecoverySupport,
+} from "@/src/state/recoverySupport";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
 import type {
@@ -63,6 +70,7 @@ import type {
   CheckinSupportDraft,
   CheckinSymptomFlag,
 } from "@/src/types/checkin";
+import type { CheckinAdaptationDecision } from "@/src/types/models";
 import {
   CHECKIN_SYMPTOM_FLAGS,
   CHECKIN_MEDICATION_STATUSES,
@@ -529,6 +537,8 @@ export default function CheckinScreen() {
     errorRecords: [checkinError.lastError],
     includePendingSync: false,
   });
+  const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
+  const checkinAvailable = canPatientUseCheckin(auth.patient);
 
   const [date] = useState(() => todayISO());
   const [activeStep, setActiveStep] = useState(0);
@@ -569,6 +579,8 @@ export default function CheckinScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notice, setNotice] = useState<SubmitNotice | null>(null);
   const [submittedCheckin, setSubmittedCheckin] = useState<SubmittedCheckinState | null>(null);
+  const [adaptationDecision, setAdaptationDecision] =
+    useState<CheckinAdaptationDecision | null>(null);
   const [pendingValidationField, setPendingValidationField] =
     useState<CheckinValidationField | null>(null);
   const [draftHydrated, setDraftHydrated] = useState(false);
@@ -690,6 +702,58 @@ export default function CheckinScreen() {
       active = false;
     };
   }, [auth.status, date, patientId]);
+
+  useEffect(() => {
+    let active = true;
+
+    if (auth.status !== "signedIn" || !patientId || !date) {
+      setAdaptationDecision(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      if (isOffline || !auth.token) {
+        const cached = await getCachedRecoverySupport(patientId, date);
+        if (active) {
+          setAdaptationDecision(cached?.adaptation ?? null);
+        }
+        return;
+      }
+
+      try {
+        const decision = await getCheckinAdaptation(auth.token, { date });
+        if (!active) {
+          return;
+        }
+        setAdaptationDecision(decision);
+
+        const cached = await getCachedRecoverySupport(patientId, date);
+        await setCachedRecoverySupport(patientId, date, {
+          adaptation: decision,
+          nudge: cached?.nudge ?? null,
+        });
+      } catch {
+        if (!active) {
+          return;
+        }
+        const cached = await getCachedRecoverySupport(patientId, date);
+        setAdaptationDecision(cached?.adaptation ?? null);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [auth.status, auth.token, date, isOffline, patientId]);
+
+  useEffect(() => {
+    if (adaptationDecision?.mode === "expanded") {
+      setShowRecoveryDetails(true);
+      setShowDailyContext(true);
+    }
+  }, [adaptationDecision?.mode]);
 
   const draftRecord = useMemo<CheckinDraftRecord | null>(() => {
     if (!patientId || !date) {
@@ -924,13 +988,20 @@ export default function CheckinScreen() {
     () => resolveCheckinHelperNotice(notice, validationMessage),
     [notice, validationMessage],
   );
+  const shouldShowRecoveryDetails =
+    adaptationDecision?.mode === "expanded" || showRecoveryDetails;
   const shouldShowDailyContext =
+    adaptationDecision?.mode === "expanded" ||
     showDailyContext ||
     dailySignals.sleepHours !== null ||
     dailySignals.sleepQuality !== null ||
     dailySignals.sleepDisturbances !== null ||
     dailySignals.hydrationLevel !== null ||
     dailySignals.energyLevel !== null;
+  const adaptationMessage =
+    adaptationDecision?.mode && adaptationDecision.mode !== "standard"
+      ? adaptationDecision.explanation
+      : null;
 
   const stepMessage = useMemo(() => {
     if (validationState && validationState.stepIndex === activeStep) {
@@ -1454,7 +1525,9 @@ export default function CheckinScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              showRecoveryDetails ? "Hide optional recovery details" : "Show optional recovery details"
+              shouldShowRecoveryDetails
+                ? "Hide optional recovery details"
+                : "Show optional recovery details"
             }
             onPress={() => setShowRecoveryDetails((current) => !current)}
             style={({ pressed }) => [
@@ -1463,12 +1536,12 @@ export default function CheckinScreen() {
             ]}
           >
             <Text style={styles.inlineTextButtonText}>
-              {showRecoveryDetails ? "Hide details" : "Add details"}
+              {shouldShowRecoveryDetails ? "Hide details" : "Add details"}
             </Text>
           </Pressable>
         </View>
 
-        {showRecoveryDetails ? (
+        {shouldShowRecoveryDetails ? (
           <View style={styles.metricStackCompact}>
           {renderFivePointChips({
             label: "Confidence in progress",
@@ -2022,6 +2095,73 @@ export default function CheckinScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  if (!checkinAvailable && careModeNotice) {
+    return (
+      <Screen
+        scroll={false}
+        auditLabel="CheckinScreen"
+        banner={<TrustBanner status={trustStatus} offlineMode="onlineOnly" />}
+      >
+        <CheckinFlowShell
+          title="Daily check-in"
+          subtitle={`Step 1 of ${CHECKIN_STEPS.length}`}
+          currentStepTitle="Check-in unavailable"
+          currentStepDescription={careModeNotice.title}
+          left={
+            <Avatar
+              size={40}
+              name={patientLabel}
+              photoUrl={patientPhotoUri ?? undefined}
+              ring={avatarRing}
+            />
+          }
+          rightActions={[
+            {
+              icon: "progress",
+              onPress: () => {
+                router.push("/(tabs)/progress" as never);
+              },
+              accessibilityLabel: "Open Progress",
+              tone: "muted",
+            },
+          ]}
+          statusContent={
+            <View style={styles.heroStatusStack}>
+              <View style={styles.heroMetaRow}>
+                <StatusPill label={friendlyDate} variant="info" accessible={false} />
+                <StatusPill label="Read-only" variant="neutral" accessible={false} />
+              </View>
+            </View>
+          }
+          helperContent={<Banner variant="info" title={careModeNotice.title} message={careModeNotice.message} />}
+          steps={CHECKIN_STEPS}
+          activeStep={0}
+          onSelectStep={() => undefined}
+          footer={
+            <View style={styles.footerInner}>
+              <PrimaryButton
+                label="Back to Today"
+                onPress={() => {
+                  router.replace("/(tabs)");
+                }}
+              />
+            </View>
+          }
+          footerSpacerHeight={132}
+        >
+          <EmptyState
+            title="Check-ins are not active right now"
+            description={careModeNotice.message}
+            ctaLabel="View progress"
+            onCtaPress={() => {
+              router.push("/(tabs)/progress");
+            }}
+          />
+        </CheckinFlowShell>
+      </Screen>
+    );
+  }
+
   return (
     <Screen
       scroll={false}
@@ -2091,9 +2231,20 @@ export default function CheckinScreen() {
             },
           ]}
           statusContent={
-            <View style={styles.heroMetaRow}>
-              <StatusPill label={friendlyDate} variant="info" accessible={false} />
-              <StatusPill label="Safety routing on" variant="success" accessible={false} />
+            <View style={styles.heroStatusStack}>
+              <View style={styles.heroMetaRow}>
+                <StatusPill label={friendlyDate} variant="info" accessible={false} />
+                <StatusPill label="Safety routing on" variant="success" accessible={false} />
+                {adaptationDecision?.mode === "shortened" ? (
+                  <StatusPill label="Shorter today" variant="neutral" accessible={false} />
+                ) : null}
+                {adaptationDecision?.mode === "expanded" ? (
+                  <StatusPill label="Extra detail today" variant="warning" accessible={false} />
+                ) : null}
+              </View>
+              {adaptationMessage ? (
+                <Text style={styles.heroAdaptationNote}>{adaptationMessage}</Text>
+              ) : null}
             </View>
           }
           helperContent={shellHelperContent}
@@ -2135,6 +2286,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
+    },
+    heroStatusStack: {
+      gap: tokens.spacing.sm,
+    },
+    heroAdaptationNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     statusStrip: {
       flexDirection: "row",

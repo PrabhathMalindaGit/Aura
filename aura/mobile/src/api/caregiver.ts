@@ -1,5 +1,6 @@
 import { apiFetchJson } from "@/src/api/client";
 import type { WeeklyReport } from "@/src/api/patient";
+import type { CaregiverAccessMeta } from "@/src/types/models";
 
 export type CaregiverPatient = {
   id: string;
@@ -9,6 +10,7 @@ export type CaregiverPatient = {
 export type CaregiverLoginResponse = {
   token: string;
   patient: CaregiverPatient;
+  access?: CaregiverAccessMeta;
 };
 
 export type CaregiverSummary = {
@@ -16,6 +18,7 @@ export type CaregiverSummary = {
   patientId: string;
   patient: CaregiverPatient;
   updatedAt: string;
+  access?: CaregiverAccessMeta;
   lastCheckin: {
     date: string;
     pain: number;
@@ -53,15 +56,20 @@ export type CaregiverSummary = {
   rehab: {
     currentPhaseTitle?: string | null;
   };
+  plan?: {
+    statusLabel?: string;
+    phaseTitle?: string | null;
+    itemCount: number;
+    title?: string;
+  } | null;
+  nextAppointment?: {
+    startsAt: string;
+    endsAt: string;
+    modality: "video";
+  } | null;
 };
 
-export type CaregiverInviteItem = {
-  inviteId: string;
-  codeHint: string;
-  expiresAt: string;
-  usedAt: string | null;
-  revokedAt: string | null;
-};
+export type CaregiverInviteItem = CaregiverAccessMeta;
 
 export type CaregiverInviteCreateResponse = {
   ok: true;
@@ -69,6 +77,9 @@ export type CaregiverInviteCreateResponse = {
   code: string;
   codeHint: string;
   expiresAt: string;
+  relationship?: string | null;
+  caregiverName?: string | null;
+  lastAccessedAt?: string | null;
 };
 
 function toTrimmedString(value: unknown): string | null {
@@ -126,6 +137,41 @@ function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
   return record;
 }
 
+function normalizeCaregiverAccess(value: unknown): CaregiverAccessMeta | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as {
+    inviteId?: unknown;
+    codeHint?: unknown;
+    expiresAt?: unknown;
+    usedAt?: unknown;
+    revokedAt?: unknown;
+    relationship?: unknown;
+    caregiverName?: unknown;
+    lastAccessedAt?: unknown;
+  };
+
+  const inviteId = toTrimmedString(record.inviteId);
+  const codeHint = toTrimmedString(record.codeHint);
+  const expiresAt = toTrimmedString(record.expiresAt);
+  if (!inviteId || !codeHint || !expiresAt) {
+    return undefined;
+  }
+
+  return {
+    inviteId,
+    codeHint,
+    expiresAt,
+    usedAt: toTrimmedString(record.usedAt) ?? null,
+    revokedAt: toTrimmedString(record.revokedAt) ?? null,
+    relationship: toTrimmedString(record.relationship) ?? null,
+    caregiverName: toTrimmedString(record.caregiverName) ?? null,
+    lastAccessedAt: toTrimmedString(record.lastAccessedAt) ?? null,
+  };
+}
+
 function normalizeSummary(value: unknown): CaregiverSummary | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -136,10 +182,13 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     patientId?: unknown;
     patient?: unknown;
     updatedAt?: unknown;
+    access?: unknown;
     lastCheckin?: unknown;
     safety?: unknown;
     proms?: unknown;
     rehab?: unknown;
+    plan?: unknown;
+    nextAppointment?: unknown;
   };
 
   const patientId = toTrimmedString(record.patientId);
@@ -252,6 +301,23 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     record.rehab && typeof record.rehab === "object"
       ? (record.rehab as { currentPhaseTitle?: unknown })
       : {};
+  const planRecord =
+    record.plan && typeof record.plan === "object"
+      ? (record.plan as {
+          statusLabel?: unknown;
+          phaseTitle?: unknown;
+          itemCount?: unknown;
+          title?: unknown;
+        })
+      : null;
+  const nextAppointmentRecord =
+    record.nextAppointment && typeof record.nextAppointment === "object"
+      ? (record.nextAppointment as {
+          startsAt?: unknown;
+          endsAt?: unknown;
+          modality?: unknown;
+        })
+      : null;
 
   const latestCompleted =
     promsRecord.latestCompleted && typeof promsRecord.latestCompleted === "object"
@@ -268,6 +334,7 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     patient,
     updatedAt:
       toTrimmedString(record.updatedAt) ?? new Date(0).toISOString(),
+    access: normalizeCaregiverAccess(record.access),
     lastCheckin,
     safety: {
       openAlertsCount: toFiniteNumber(safetyRecord.openAlertsCount) ?? 0,
@@ -290,17 +357,39 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     rehab: {
       currentPhaseTitle: toTrimmedString(rehabRecord.currentPhaseTitle),
     },
+    plan: planRecord
+      ? {
+          statusLabel: toTrimmedString(planRecord.statusLabel) ?? undefined,
+          phaseTitle: toTrimmedString(planRecord.phaseTitle) ?? null,
+          itemCount: toFiniteNumber(planRecord.itemCount) ?? 0,
+          title: toTrimmedString(planRecord.title) ?? undefined,
+        }
+      : null,
+    nextAppointment:
+      nextAppointmentRecord &&
+      toTrimmedString(nextAppointmentRecord.startsAt) &&
+      toTrimmedString(nextAppointmentRecord.endsAt)
+        ? {
+            startsAt: toTrimmedString(nextAppointmentRecord.startsAt) ?? "",
+            endsAt: toTrimmedString(nextAppointmentRecord.endsAt) ?? "",
+            modality: "video",
+          }
+        : null,
   };
 }
 
-export async function caregiverLogin(code: string): Promise<CaregiverLoginResponse> {
+export async function caregiverLogin(
+  code: string,
+  caregiverName?: string,
+): Promise<CaregiverLoginResponse> {
   const payload = await apiFetchJson<{
     ok?: unknown;
     token?: unknown;
     patient?: unknown;
+    access?: unknown;
   }>("/caregiver/auth/login", {
     method: "POST",
-    body: { code },
+    body: { code, caregiverName },
   });
 
   const token = toTrimmedString(payload.token);
@@ -317,6 +406,7 @@ export async function caregiverLogin(code: string): Promise<CaregiverLoginRespon
   return {
     token,
     patient,
+    access: normalizeCaregiverAccess(payload.access),
   };
 }
 
@@ -366,37 +456,13 @@ export async function getCaregiverWeeklyReport(
 }
 
 function normalizeInviteItem(value: unknown): CaregiverInviteItem | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const record = value as {
-    inviteId?: unknown;
-    codeHint?: unknown;
-    expiresAt?: unknown;
-    usedAt?: unknown;
-    revokedAt?: unknown;
-  };
-
-  const inviteId = toTrimmedString(record.inviteId);
-  const codeHint = toTrimmedString(record.codeHint);
-  const expiresAt = toTrimmedString(record.expiresAt);
-  if (!inviteId || !codeHint || !expiresAt) {
-    return null;
-  }
-
-  return {
-    inviteId,
-    codeHint,
-    expiresAt,
-    usedAt: toTrimmedString(record.usedAt),
-    revokedAt: toTrimmedString(record.revokedAt),
-  };
+  return normalizeCaregiverAccess(value) ?? null;
 }
 
 export async function createCaregiverInvite(
   token: string,
-  expiresHours = 24
+  expiresHours = 24,
+  relationship?: string,
 ): Promise<CaregiverInviteCreateResponse> {
   const payload = await apiFetchJson<{
     ok?: unknown;
@@ -404,10 +470,13 @@ export async function createCaregiverInvite(
     code?: unknown;
     codeHint?: unknown;
     expiresAt?: unknown;
+    relationship?: unknown;
+    caregiverName?: unknown;
+    lastAccessedAt?: unknown;
   }>("/patient/caregiver/invites", {
     method: "POST",
     token,
-    body: { expiresHours },
+    body: { expiresHours, relationship },
   });
 
   const inviteId = toTrimmedString(payload.inviteId);
@@ -429,6 +498,9 @@ export async function createCaregiverInvite(
     code,
     codeHint,
     expiresAt,
+    relationship: toTrimmedString(payload.relationship) ?? null,
+    caregiverName: toTrimmedString(payload.caregiverName) ?? null,
+    lastAccessedAt: toTrimmedString(payload.lastAccessedAt) ?? null,
   };
 }
 

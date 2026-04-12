@@ -33,6 +33,7 @@ import {
   assignPromToPatient,
   completeClinicianTask,
   fetchPhotoBlob,
+  dischargePatient,
   generatePatientInsights,
   getDashboardCommunicationOverview,
   getExercisePlan,
@@ -49,12 +50,17 @@ import {
   listAppointmentRequests,
   listAlerts,
   listClinicianTasks,
+  putPatientRecoverySupport,
   putPatientThresholds,
+  reactivatePatient,
   reviewInsight,
   setCurrentRehabPhase,
   tryGetPatientCheckinsRange,
   useClinicianWorklist,
+  usePatientCaregiverAccess,
   usePatientCoordination,
+  usePatientDischargeSummary,
+  usePatientRecoverySupport,
   usePatients,
   usePatientSafetyEvents,
   usePatientThresholds,
@@ -74,12 +80,16 @@ import {
 import { getSeenMap, getSeenStorageKey, pruneSeenMap, type SeenAlertMap } from '../services/seenStore';
 import type {
   AlertItem,
-  InsightItem,
   AlertStatus,
   AppointmentRequestItem,
+  CaregiverAccessItem,
+  CheckinAdaptationDecision,
+  DischargeSummary,
+  InsightItem,
   ClinicianTaskItem,
   DashboardCommunicationOverviewItem,
   ExercisePlan,
+  PatientRecoverySupportConfig,
   PatientSummary,
   PromDueCard,
   PromHistoryRow,
@@ -304,6 +314,40 @@ function statusLabel(status: PatientSummary['status']): string {
   return 'Active';
 }
 
+function recoverySupportModeLabel(mode: PatientRecoverySupportConfig['checkinMode'] | undefined): string {
+  if (mode === 'adaptive') {
+    return 'Adaptive';
+  }
+
+  if (mode === 'force_full') {
+    return 'Force full';
+  }
+
+  return 'Standard';
+}
+
+function adaptationModeLabel(mode: CheckinAdaptationDecision['mode'] | undefined): string {
+  if (mode === 'shortened') {
+    return 'Shortened';
+  }
+
+  if (mode === 'expanded') {
+    return 'Expanded';
+  }
+
+  return 'Standard';
+}
+
+function formatReasonCodes(reasonCodes: string[] | undefined): string {
+  if (!reasonCodes || reasonCodes.length === 0) {
+    return 'No rule codes recorded.';
+  }
+
+  return reasonCodes
+    .map((code) => code.replace(/_/g, ' ').toLowerCase())
+    .join(', ');
+}
+
 function rehabStatusIcon(status: RehabPayload['phases'][number]['status']): string {
   if (status === 'done') {
     return '✓';
@@ -403,6 +447,20 @@ export function PatientDetailPage(): JSX.Element {
     safetyFlaggedResponseDelayHours: 6,
     rationale: '',
   });
+  const [recoverySupportDraft, setRecoverySupportDraft] = useState({
+    checkinMode: 'standard' as PatientRecoverySupportConfig['checkinMode'],
+    nudgesEnabled: false,
+    rationale: '',
+  });
+  const [dischargeDraft, setDischargeDraft] = useState({
+    summary: '',
+    contactInstructions: '',
+    independentModeEnabled: true,
+  });
+  const [reactivationDraft, setReactivationDraft] = useState({
+    status: 'active' as 'active' | 'on_hold',
+    rationale: '',
+  });
   const [openingPhotoId, setOpeningPhotoId] = useState<string | null>(null);
   const [photoOpenError, setPhotoOpenError] = useState<string | null>(null);
   const [seenAlertMap, setSeenAlertMap] = useState<SeenAlertMap>(() => getSeenMap(CLINICIAN_BUCKET));
@@ -455,6 +513,8 @@ export function PatientDetailPage(): JSX.Element {
     [patientId, patientsQuery.data],
   );
   const patientCoordinationQuery = usePatientCoordination(patientId);
+  const shouldLoadDischargeSummary =
+    patientContext?.status === 'discharged' || patientContext?.status === 'inactive';
 
   const trendsQuery = usePatientTrends(patientId, selectedDays);
   const recentSleepTo = useMemo(() => toDateOnlyUTC(new Date()), []);
@@ -595,6 +655,9 @@ export function PatientDetailPage(): JSX.Element {
   });
 
   const patientThresholdsQuery = usePatientThresholds(patientId);
+  const patientRecoverySupportQuery = usePatientRecoverySupport(patientId);
+  const patientCaregiverAccessQuery = usePatientCaregiverAccess(patientId);
+  const patientDischargeSummaryQuery = usePatientDischargeSummary(patientId, shouldLoadDischargeSummary);
   const patientSafetyEventsQuery = usePatientSafetyEvents(patientId);
 
   const patientInsightsQuery = useQuery({
@@ -688,6 +751,71 @@ export function PatientDetailPage(): JSX.Element {
         patientWorklistQuery.refetch(),
         patientCommunicationQuery.refetch(),
         patientSafetyEventsQuery.refetch(),
+      ]);
+    },
+    onError: (error) => {
+      setOperationsNotice(null);
+      setOperationsError(toUserMessage(asAppError(error)));
+    },
+  });
+  const saveRecoverySupportMutation = useMutation({
+    mutationFn: () => putPatientRecoverySupport(patientId ?? '', recoverySupportDraft),
+    onSuccess: async () => {
+      setOperationsError(null);
+      setOperationsNotice('Recovery support settings updated.');
+      await Promise.allSettled([
+        patientRecoverySupportQuery.refetch(),
+        patientWorklistQuery.refetch(),
+        patientCommunicationQuery.refetch(),
+      ]);
+    },
+    onError: (error) => {
+      setOperationsNotice(null);
+      setOperationsError(toUserMessage(asAppError(error)));
+    },
+  });
+  const dischargePatientMutation = useMutation({
+    mutationFn: () =>
+      dischargePatient(patientId ?? '', {
+        ...dischargeDraft,
+        requestedBy: clinicianIdentity.clinicianId,
+        requestedByName: clinicianIdentity.displayName,
+      }),
+    onSuccess: async () => {
+      setOperationsError(null);
+      setOperationsNotice('Patient care status updated to discharged.');
+      await Promise.allSettled([
+        patientsQuery.refetch(),
+        patientRecoverySupportQuery.refetch(),
+        patientCaregiverAccessQuery.refetch(),
+        patientDischargeSummaryQuery.refetch(),
+        patientSafetyEventsQuery.refetch(),
+        patientWorklistQuery.refetch(),
+        patientCommunicationQuery.refetch(),
+      ]);
+    },
+    onError: (error) => {
+      setOperationsNotice(null);
+      setOperationsError(toUserMessage(asAppError(error)));
+    },
+  });
+  const reactivatePatientMutation = useMutation({
+    mutationFn: () =>
+      reactivatePatient(patientId ?? '', {
+        ...reactivationDraft,
+        requestedBy: clinicianIdentity.clinicianId,
+        requestedByName: clinicianIdentity.displayName,
+      }),
+    onSuccess: async () => {
+      setOperationsError(null);
+      setOperationsNotice('Patient reactivated.');
+      await Promise.allSettled([
+        patientsQuery.refetch(),
+        patientRecoverySupportQuery.refetch(),
+        patientDischargeSummaryQuery.refetch(),
+        patientSafetyEventsQuery.refetch(),
+        patientWorklistQuery.refetch(),
+        patientCommunicationQuery.refetch(),
       ]);
     },
     onError: (error) => {
@@ -1266,9 +1394,24 @@ export function PatientDetailPage(): JSX.Element {
 
   const hasTrendData = normalizedTrends.some((point) => trendPointHasAnyData(point));
   const patientExportRangeError = validateDateRange(patientExportRange);
+  const patientStatus = patientContext?.status ?? 'active';
   const patientPlan = (patientPlanQuery.data ?? null) as ExercisePlan | null;
   const patientThresholds =
     patientThresholdsQuery.data ?? patientWorklistItem?.thresholdSummary ?? null;
+  const patientRecoverySupport =
+    patientRecoverySupportQuery.data?.recoverySupport ?? null;
+  const currentAdaptationDecision = patientRecoverySupportQuery.data?.adaptationDecision ?? null;
+  const currentRecoveryNudge = patientRecoverySupportQuery.data?.recoveryNudge ?? null;
+  const caregiverAccessItems = useMemo<CaregiverAccessItem[]>(
+    () => (patientCaregiverAccessQuery.data ?? []) as CaregiverAccessItem[],
+    [patientCaregiverAccessQuery.data],
+  );
+  const activeCaregiverAccessItems = useMemo(
+    () => caregiverAccessItems.filter((item) => !item.revokedAt),
+    [caregiverAccessItems],
+  );
+  const patientDischargeSummary =
+    (patientDischargeSummaryQuery.data ?? null) as DischargeSummary | null;
   const recentSafetyEvents = useMemo(
     () => ((patientSafetyEventsQuery.data ?? []) as SafetyAuditEntry[]).slice(0, 4),
     [patientSafetyEventsQuery.data],
@@ -1287,6 +1430,34 @@ export function PatientDetailPage(): JSX.Element {
       rationale: patientThresholds.rationale ?? '',
     });
   }, [patientThresholds]);
+
+  useEffect(() => {
+    if (!patientRecoverySupport) {
+      return;
+    }
+
+    setRecoverySupportDraft({
+      checkinMode: patientRecoverySupport.checkinMode,
+      nudgesEnabled: patientRecoverySupport.nudgesEnabled,
+      rationale: patientRecoverySupport.rationale ?? '',
+    });
+  }, [patientRecoverySupport]);
+
+  useEffect(() => {
+    if (!patientDischargeSummary) {
+      return;
+    }
+
+    setDischargeDraft((current) =>
+      current.summary.trim() || current.contactInstructions.trim()
+        ? current
+        : {
+            summary: patientDischargeSummary.summary ?? '',
+            contactInstructions: patientDischargeSummary.safetyInstructions[0] ?? '',
+            independentModeEnabled: patientDischargeSummary.independentModeEnabled,
+          },
+    );
+  }, [patientDischargeSummary]);
 
   const currentRehabPhaseTitle =
     patientRehab?.phases.find((phase) => phase.key === patientRehab.currentKey)?.title ??
@@ -1523,7 +1694,13 @@ export function PatientDetailPage(): JSX.Element {
       patientAlertsQuery.refetch(),
       patientWorklistQuery.refetch(),
       patientAppointmentsQuery.refetch(),
+      patientRecoverySupportQuery.refetch(),
+      patientCaregiverAccessQuery.refetch(),
     ];
+
+    if (shouldLoadDischargeSummary) {
+      refreshes.push(patientDischargeSummaryQuery.refetch());
+    }
 
     if (shouldLoadOperationalBucket) {
       refreshes.push(patientTasksQuery.refetch(), patientCommunicationQuery.refetch());
@@ -3031,6 +3208,349 @@ export function PatientDetailPage(): JSX.Element {
                     />
                   </div>
                 </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Recovery support"
+                  action={
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        void saveRecoverySupportMutation.mutateAsync();
+                      }}
+                      disabled={saveRecoverySupportMutation.isPending}
+                    >
+                      {saveRecoverySupportMutation.isPending ? 'Saving…' : 'Save support settings'}
+                    </Button>
+                  }
+                >
+                  <p className="patient-detail-panel__support-meta">
+                    Keep adaptive check-ins and factual nudges explicit, auditable, and off by default until a clinician enables them.
+                  </p>
+                  <div className="patient-detail-digest-list">
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Check-in mode</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {recoverySupportModeLabel(patientRecoverySupport?.checkinMode)}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientRecoverySupport?.updatedAt
+                          ? `Updated ${formatDashboardRelativeTime(patientRecoverySupport.updatedAt)} by ${
+                              patientRecoverySupport.updatedBy?.name ??
+                              patientRecoverySupport.updatedBy?.clinicianId ??
+                              'the care team'
+                            }.`
+                          : 'No patient-specific recovery support override has been saved yet.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Today's adaptation</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {adaptationModeLabel(currentAdaptationDecision?.mode)}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {currentAdaptationDecision?.explanation ?? formatReasonCodes(currentAdaptationDecision?.reasonCodes)}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Current nudge</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {currentRecoveryNudge?.title ?? 'No active nudge'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {currentRecoveryNudge
+                          ? `${currentRecoveryNudge.message} · ${currentRecoveryNudge.evidenceWindow}`
+                          : 'No factual recovery nudge is active for this patient right now.'}
+                      </p>
+                    </article>
+                  </div>
+                  <div className="patient-detail-overview-grid">
+                    <label className="form-field">
+                      <span>Check-in mode</span>
+                      <select
+                        value={recoverySupportDraft.checkinMode}
+                        onChange={(event) =>
+                          setRecoverySupportDraft((current) => ({
+                            ...current,
+                            checkinMode: event.target.value as PatientRecoverySupportConfig['checkinMode'],
+                          }))
+                        }
+                      >
+                        <option value="standard">Standard</option>
+                        <option value="adaptive">Adaptive</option>
+                        <option value="force_full">Force full</option>
+                      </select>
+                    </label>
+                    <label className="form-field">
+                      <span>Patient nudges</span>
+                      <div className="patient-detail-actions">
+                        <input
+                          type="checkbox"
+                          checked={recoverySupportDraft.nudgesEnabled}
+                          onChange={(event) =>
+                            setRecoverySupportDraft((current) => ({
+                              ...current,
+                              nudgesEnabled: event.target.checked,
+                            }))
+                          }
+                        />
+                        <span>{recoverySupportDraft.nudgesEnabled ? 'Enabled' : 'Disabled'}</span>
+                      </div>
+                    </label>
+                  </div>
+                  <div className="form-field">
+                    <span>Rationale</span>
+                    <textarea
+                      rows={2}
+                      value={recoverySupportDraft.rationale}
+                      onChange={(event) =>
+                        setRecoverySupportDraft((current) => ({
+                          ...current,
+                          rationale: event.target.value,
+                        }))
+                      }
+                      placeholder="Brief note explaining why adaptive support is or is not enabled for this patient"
+                    />
+                  </div>
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Caregiver access"
+                >
+                  <p className="patient-detail-panel__support-meta">
+                    Patient-controlled caregiver access stays read-only. Review who can currently see summaries before changing plan intensity or discharge status.
+                  </p>
+                  {patientCaregiverAccessQuery.isLoading && caregiverAccessItems.length === 0 ? (
+                    <div className="patient-detail-skeleton-grid" aria-label="Caregiver access loading placeholder">
+                      <Skeleton height={52} />
+                      <Skeleton height={52} />
+                    </div>
+                  ) : activeCaregiverAccessItems.length === 0 ? (
+                    <EmptyState
+                      title="No caregiver access active"
+                      description="Caregiver invites and recent access will appear here when the patient chooses to share summary visibility."
+                    />
+                  ) : (
+                    <div className="patient-detail-digest-list">
+                      {activeCaregiverAccessItems.slice(0, 4).map((item) => (
+                        <article key={item.inviteId} className="patient-detail-digest-item">
+                          <div className="patient-detail-digest-item__meta">
+                            <span className="patient-detail-digest-item__label">
+                              {item.relationship ?? 'Caregiver access'}
+                            </span>
+                            <strong className="patient-detail-digest-item__value">
+                              {item.caregiverName ?? item.codeHint ?? 'Invite created'}
+                            </strong>
+                          </div>
+                          <p className="patient-detail-digest-item__text">
+                            {item.lastAccessedAt
+                              ? `Last accessed ${formatDashboardRelativeTime(item.lastAccessedAt)}.`
+                              : item.usedAt
+                                ? `Accepted ${formatDashboardRelativeTime(item.usedAt)}.`
+                                : item.expiresAt
+                                  ? `Invite expires ${formatDashboardRelativeTime(item.expiresAt)}.`
+                                  : 'Invite metadata is available in the caregiver workspace.'}
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                <Card
+                  className="patient-detail-panel patient-detail-panel--overview"
+                  title="Discharge and independent mode"
+                  action={
+                    patientStatus === 'discharged' || patientStatus === 'inactive' ? (
+                      <div className="patient-detail-actions">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            if (typeof window !== 'undefined') {
+                              window.print();
+                            }
+                          }}
+                          disabled={!patientDischargeSummary}
+                        >
+                          Print summary
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            void reactivatePatientMutation.mutateAsync();
+                          }}
+                          disabled={reactivatePatientMutation.isPending}
+                        >
+                          {reactivatePatientMutation.isPending ? 'Reactivating…' : 'Reactivate'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => {
+                          void dischargePatientMutation.mutateAsync();
+                        }}
+                        disabled={dischargePatientMutation.isPending || dischargeDraft.summary.trim().length < 3}
+                      >
+                        {dischargePatientMutation.isPending ? 'Updating…' : 'Discharge patient'}
+                      </Button>
+                    )
+                  }
+                >
+                  <p className="patient-detail-panel__support-meta">
+                    Use discharge when routine clinician monitoring should end or transition to patient-managed self-tracking. Historical data remains visible.
+                  </p>
+                  <div className="patient-detail-digest-list">
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Current care status</span>
+                        <strong className="patient-detail-digest-item__value">{statusLabel(patientStatus)}</strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientDischargeSummary?.dischargedAt
+                          ? `Changed ${formatDashboardDateTime(patientDischargeSummary.dischargedAt)}.`
+                          : 'Patient remains in an active care state.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Independent mode</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientDischargeSummary?.independentModeEnabled ? 'Enabled' : 'Not enabled'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientDischargeSummary?.independentModeEnabled
+                          ? 'The patient can keep using self-tracking without implying routine clinician monitoring.'
+                          : 'Check-in and plan activity stay read-only after discharge unless independent mode is enabled.'}
+                      </p>
+                    </article>
+
+                    <article className="patient-detail-digest-item">
+                      <div className="patient-detail-digest-item__meta">
+                        <span className="patient-detail-digest-item__label">Discharge summary</span>
+                        <strong className="patient-detail-digest-item__value">
+                          {patientDischargeSummary?.weeklyHeadline ?? 'Not generated yet'}
+                        </strong>
+                      </div>
+                      <p className="patient-detail-digest-item__text">
+                        {patientDischargeSummary?.recentTrendSummary ?? 'A structured summary becomes available after discharge.'}
+                      </p>
+                    </article>
+                  </div>
+                  {patientStatus === 'discharged' || patientStatus === 'inactive' ? (
+                    <div className="stack stack--2">
+                      {patientDischargeSummary ? (
+                        <div className="patient-detail-digest-list">
+                          <article className="patient-detail-digest-item">
+                            <div className="patient-detail-digest-item__meta">
+                              <span className="patient-detail-digest-item__label">Next steps</span>
+                              <strong className="patient-detail-digest-item__value">
+                                {patientDischargeSummary.planStatus}
+                              </strong>
+                            </div>
+                            <p className="patient-detail-digest-item__text">
+                              {patientDischargeSummary.nextSteps.join(' ')}
+                            </p>
+                          </article>
+                        </div>
+                      ) : null}
+                      <div className="patient-detail-overview-grid">
+                        <label className="form-field">
+                          <span>Reactivate as</span>
+                          <select
+                            value={reactivationDraft.status}
+                            onChange={(event) =>
+                              setReactivationDraft((current) => ({
+                                ...current,
+                                status: event.target.value as 'active' | 'on_hold',
+                              }))
+                            }
+                          >
+                            <option value="active">Active</option>
+                            <option value="on_hold">On hold</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="form-field">
+                        <span>Reactivation note</span>
+                        <textarea
+                          rows={2}
+                          value={reactivationDraft.rationale}
+                          onChange={(event) =>
+                            setReactivationDraft((current) => ({
+                              ...current,
+                              rationale: event.target.value,
+                            }))
+                          }
+                          placeholder="Brief note for why active monitoring is resuming"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="stack stack--2">
+                      <div className="form-field">
+                        <span>Discharge summary</span>
+                        <textarea
+                          rows={3}
+                          value={dischargeDraft.summary}
+                          onChange={(event) =>
+                            setDischargeDraft((current) => ({
+                              ...current,
+                              summary: event.target.value,
+                            }))
+                          }
+                          placeholder="Concise summary of the care transition and what the patient should expect next"
+                        />
+                      </div>
+                      <div className="form-field">
+                        <span>Contact instructions</span>
+                        <textarea
+                          rows={2}
+                          value={dischargeDraft.contactInstructions}
+                          onChange={(event) =>
+                            setDischargeDraft((current) => ({
+                              ...current,
+                              contactInstructions: event.target.value,
+                            }))
+                          }
+                          placeholder="Direct clinic contact instructions that remain truthful after routine monitoring ends"
+                        />
+                      </div>
+                      <label className="form-field">
+                        <span>Independent mode</span>
+                        <div className="patient-detail-actions">
+                          <input
+                            type="checkbox"
+                            checked={dischargeDraft.independentModeEnabled}
+                            onChange={(event) =>
+                              setDischargeDraft((current) => ({
+                                ...current,
+                                independentModeEnabled: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>Allow self-tracking after discharge</span>
+                        </div>
+                      </label>
+                    </div>
+                  )}
+                </Card>
+
 
                 <Card
                   className="patient-detail-panel patient-detail-panel--overview"

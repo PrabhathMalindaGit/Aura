@@ -46,6 +46,7 @@ import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
+import { canPatientUseMessages, getCareModeNotice } from "@/src/state/recoverySupport";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
@@ -449,6 +450,8 @@ export default function ChatScreen() {
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
+  const messagesAvailable = canPatientUseMessages(auth.patient);
+  const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
   const trustStatus = useTrustStatus({
     patientId,
     errorRecords: [chatLoadLastError, chatSendLastError],
@@ -503,8 +506,8 @@ export default function ChatScreen() {
   }, [params.focusComposer]);
 
   const isSendDisabled = useMemo(
-    () => isSending || isOffline || !draft.trim(),
-    [draft, isOffline, isSending]
+    () => isSending || isOffline || !messagesAvailable || !draft.trim(),
+    [draft, isOffline, isSending, messagesAvailable]
   );
   const hasDraft = draft.trim().length > 0;
 
@@ -835,6 +838,17 @@ export default function ChatScreen() {
         return;
       }
 
+      if (!messagesAvailable) {
+        setNotice({
+          variant: "info",
+          title: careModeNotice?.title ?? "Messages are read-only",
+          message:
+            careModeNotice?.message ??
+            "Routine messaging is no longer active here. Earlier messages stay available in this archive view.",
+        });
+        return;
+      }
+
       const attemptStartedAt = new Date().toISOString();
 
       if (isOffline) {
@@ -952,9 +966,12 @@ export default function ChatScreen() {
     },
     [
       auth.token,
+      careModeNotice?.message,
+      careModeNotice?.title,
       clearChatSendError,
       draft,
       isOffline,
+      messagesAvailable,
       patientId,
       replaceConfirmedHistory,
       refreshChatStamp,
@@ -1324,6 +1341,14 @@ export default function ChatScreen() {
           }
           contextContent={
             <>
+              {careModeNotice ? (
+                <Banner
+                  variant="info"
+                  title={careModeNotice.title}
+                  message={careModeNotice.message}
+                />
+              ) : null}
+
               {promptSummary ? (
                 <WorkflowMessageCard
                   compact
@@ -1410,50 +1435,58 @@ export default function ChatScreen() {
                 />
               ) : null}
 
-              <View style={styles.inputRow}>
-                <TextInput
-                  ref={inputRef}
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder="Message your care team..."
-                  placeholderTextColor={tokens.colors.textMuted}
-                  accessibilityLabel="Message input"
-                  multiline
-                  maxLength={1000}
-                  style={styles.input}
-                  editable={!isSending}
-                  textAlignVertical="top"
-                />
+              {messagesAvailable ? (
+                <View style={styles.inputRow}>
+                  <TextInput
+                    ref={inputRef}
+                    value={draft}
+                    onChangeText={setDraft}
+                    placeholder="Message your care team..."
+                    placeholderTextColor={tokens.colors.textMuted}
+                    accessibilityLabel="Message input"
+                    multiline
+                    maxLength={1000}
+                    style={styles.input}
+                    editable={!isSending}
+                    textAlignVertical="top"
+                  />
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={isSending ? "Sending message" : "Send message"}
-                  accessibilityState={{ disabled: isSendDisabled, busy: isSending || undefined }}
-                  disabled={isSendDisabled}
-                  onPress={() => {
-                    void handleSend();
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={({ pressed }) => [
-                    styles.sendButton,
-                    hasDraft && !isOffline ? styles.sendButtonReady : styles.sendButtonIdle,
-                    isSendDisabled ? styles.sendButtonDisabled : null,
-                    pressed && !isSendDisabled ? styles.sendButtonPressed : null,
-                  ]}
-                >
-                  {isSending ? (
-                    <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
-                  ) : (
-                    <View accessible={false} importantForAccessibility="no-hide-descendants">
-                      <MaterialCommunityIcons
-                        name="send"
-                        size={18}
-                        color={hasDraft && !isOffline ? tokens.colors.primaryTextOn : tokens.colors.primary}
-                      />
-                    </View>
-                  )}
-                </Pressable>
-              </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={isSending ? "Sending message" : "Send message"}
+                    accessibilityState={{ disabled: isSendDisabled, busy: isSending || undefined }}
+                    disabled={isSendDisabled}
+                    onPress={() => {
+                      void handleSend();
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={({ pressed }) => [
+                      styles.sendButton,
+                      hasDraft && !isOffline ? styles.sendButtonReady : styles.sendButtonIdle,
+                      isSendDisabled ? styles.sendButtonDisabled : null,
+                      pressed && !isSendDisabled ? styles.sendButtonPressed : null,
+                    ]}
+                  >
+                    {isSending ? (
+                      <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
+                    ) : (
+                      <View accessible={false} importantForAccessibility="no-hide-descendants">
+                        <MaterialCommunityIcons
+                          name="send"
+                          size={18}
+                          color={hasDraft && !isOffline ? tokens.colors.primaryTextOn : tokens.colors.primary}
+                        />
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <Banner
+                  variant="info"
+                  title="Messages are archived"
+                  message="Earlier conversation stays available here, but routine messaging is no longer active for this care status."
+                />
+              )}
             </GlassPanel>
           }
         >

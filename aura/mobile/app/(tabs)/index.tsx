@@ -6,8 +6,15 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { listMyRequests, type AppointmentRequestItem } from "@/src/api/appointments";
 import { listPatientTasks } from "@/src/api/tasks";
-import { getDueProms, getWeeklyReport, type CheckInItem, type PromDueCard } from "@/src/api/patient";
+import {
+  getDueProms,
+  getRecoveryNudge,
+  getWeeklyReport,
+  type CheckInItem,
+  type PromDueCard,
+} from "@/src/api/patient";
 import { Avatar } from "@/src/components/Avatar";
+import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
 import { EmptyState } from "@/src/components/EmptyState";
 import { HeroHeader } from "@/src/components/HeroHeader";
@@ -36,6 +43,13 @@ import { getCachedInsights } from "@/src/state/insightsCache";
 import { getCachedProms, setCachedPromDueCards } from "@/src/state/promsCache";
 import { getCachedRehabPhases } from "@/src/state/rehabPhasesCache";
 import { getReminderReadState, markReminderRead, syncReminderReadState } from "@/src/state/inAppReminders";
+import {
+  canPatientUseCheckin,
+  getCachedRecoverySupport,
+  getCareModeNotice,
+  getPatientCareMode,
+  setCachedRecoverySupport,
+} from "@/src/state/recoverySupport";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { getPending } from "@/src/state/pendingSessions";
 import { getCachedTasks, setCachedTasks } from "@/src/state/tasksCache";
@@ -44,6 +58,7 @@ import { useTrustStatus } from "@/src/state/trustStatus";
 import { getCachedWeeklyReport, setCachedWeeklyReport } from "@/src/state/weeklyReportCache";
 import { useDevRenderAudit } from "@/src/dev/renderAudit";
 import { useTokens } from "@/src/theme/tokens";
+import type { RecoveryNudge } from "@/src/types/models";
 import type { ReminderItem, ReminderReadState } from "@/src/types/reminder";
 import type { PatientTaskItem } from "@/src/types/task";
 import {
@@ -213,6 +228,9 @@ export default function HomeScreen() {
   const patientId = auth.patient?.id ?? "";
   const patientLabel = auth.patient?.displayName ?? auth.patient?.id ?? "Unknown";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
+  const careMode = getPatientCareMode(auth.patient);
+  const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
+  const checkinAvailable = canPatientUseCheckin(auth.patient);
 
   const tzOffsetMinutes = -new Date().getTimezoneOffset();
   const thisWeekStart = startOfWeekMondayISO(tzOffsetMinutes);
@@ -271,6 +289,7 @@ export default function HomeScreen() {
     hasUpcoming: false,
   });
   const [appointmentRequests, setAppointmentRequests] = useState<AppointmentRequestItem[]>([]);
+  const [recoveryNudge, setRecoveryNudge] = useState<RecoveryNudge | null>(null);
 
   const checkinsRefresh = useLastRefreshed("checkins");
   const exercisePlanRefresh = useLastRefreshed("exercisePlan");
@@ -878,6 +897,49 @@ export default function HomeScreen() {
     }, [appointmentRequests, patientId, promDueCards, taskItems]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      const token = auth.token;
+      if (!token || !patientId) {
+        setRecoveryNudge(null);
+        return undefined;
+      }
+
+      let active = true;
+      void (async () => {
+        if (isOffline) {
+          const cached = await getCachedRecoverySupport(patientId, today);
+          if (active) {
+            setRecoveryNudge(cached?.nudge ?? null);
+          }
+          return;
+        }
+
+        try {
+          const nudge = await getRecoveryNudge(token);
+          if (!active) {
+            return;
+          }
+          setRecoveryNudge(nudge);
+          const cached = await getCachedRecoverySupport(patientId, today);
+          await setCachedRecoverySupport(patientId, today, {
+            adaptation: cached?.adaptation ?? null,
+            nudge,
+          });
+        } catch {
+          const cached = await getCachedRecoverySupport(patientId, today);
+          if (active) {
+            setRecoveryNudge(cached?.nudge ?? null);
+          }
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, [auth.token, isOffline, patientId, today]),
+  );
+
   const activeTaskCount = useMemo(
     () => taskItems.filter((task) => isTaskActive(task)).length,
     [taskItems],
@@ -904,12 +966,40 @@ export default function HomeScreen() {
     [additionalReminderCount, primaryReminder],
   );
   const headerSupportText = useMemo(() => {
+    if (careMode === "independent") {
+      return "You can keep tracking your recovery here, but routine clinician monitoring is no longer active.";
+    }
+
+    if (careMode === "discharged" || careMode === "inactive") {
+      return "Your past recovery information is still available here in a read-only view.";
+    }
+
     if (checkinSummary.completedToday) {
       return "Today’s update is complete. You can review the rest of your plan below.";
     }
 
     return "A short update keeps your recovery plan clear and helps your care team follow along.";
-  }, [checkinSummary.completedToday]);
+  }, [careMode, checkinSummary.completedToday]);
+
+  const recoveryNudgeTone = useMemo(() => {
+    if (!recoveryNudge) {
+      return "info" as const;
+    }
+
+    if (
+      recoveryNudge.kind === "worsening_trend" ||
+      recoveryNudge.kind === "missed_recent_checkins" ||
+      recoveryNudge.kind === "low_exercise_completion"
+    ) {
+      return "warning" as const;
+    }
+
+    if (recoveryNudge.kind === "improving_trend") {
+      return "success" as const;
+    }
+
+    return "info" as const;
+  }, [recoveryNudge]);
 
   const handleOpenReminder = useCallback(
     async (reminder: ReminderItem) => {
@@ -991,6 +1081,62 @@ export default function HomeScreen() {
         ]}
         style={styles.statusStrip}
       />
+
+      {careModeNotice ? (
+        <Banner
+          variant={careMode === "independent" ? "info" : "warning"}
+          title={careModeNotice.title}
+          message={careModeNotice.message}
+        />
+      ) : null}
+
+      {recoveryNudge ? (
+        <TipCard
+          tone={recoveryNudgeTone}
+          leading={{
+            type: "icon",
+            icon: recoveryNudge.kind === "weekly_summary_ready" ? "weekly" : "insights",
+            tone:
+              recoveryNudgeTone === "warning"
+                ? "warning"
+                : recoveryNudgeTone === "success"
+                  ? "success"
+                  : "primary",
+          }}
+          title={recoveryNudge.title}
+          text={recoveryNudge.message}
+          chips={[recoveryNudge.evidenceWindow]}
+          actions={[
+            {
+              label:
+                recoveryNudge.kind === "weekly_summary_ready"
+                  ? "Open weekly report"
+                  : recoveryNudge.kind === "improving_trend" ||
+                      recoveryNudge.kind === "worsening_trend"
+                    ? "View progress"
+                    : checkinAvailable
+                      ? "Open check-in"
+                      : "Review progress",
+              onPress: () => {
+                if (recoveryNudge.kind === "weekly_summary_ready") {
+                  router.push("/weekly-report" as never);
+                  return;
+                }
+                if (
+                  recoveryNudge.kind === "improving_trend" ||
+                  recoveryNudge.kind === "worsening_trend"
+                ) {
+                  router.push("/(tabs)/progress" as never);
+                  return;
+                }
+                router.push(
+                  (checkinAvailable ? "/(tabs)/checkin" : "/(tabs)/progress") as never,
+                );
+              },
+            },
+          ]}
+        />
+      ) : null}
 
       {primaryReminder ? (
         <Section
@@ -1136,17 +1282,41 @@ export default function HomeScreen() {
           <View style={styles.checkinCopy}>
             <Text style={styles.checkinEyebrow}>Today’s check-in</Text>
             <Text style={styles.checkinTitle}>
-              {checkinSummary.completedToday ? "You’re up to date for today." : "Start today’s check-in."}
+              {careMode === "independent"
+                ? "Independent check-in is available."
+                : !checkinAvailable
+                  ? "Check-ins are not active right now."
+                  : checkinSummary.completedToday
+                    ? "You’re up to date for today."
+                    : "Start today’s check-in."}
             </Text>
             <Text style={styles.bodyText}>
-              {checkinSummary.completedToday
-                ? "Your latest update is saved. You can review progress or move on with today’s plan."
-                : "A short check-in keeps your recovery timeline current and helps your care team stay aligned."}
+              {careMode === "independent"
+                ? "You can keep tracking recovery here for your own reference, but routine clinician monitoring is no longer active."
+                : !checkinAvailable
+                  ? "Your past check-ins stay visible in Progress. New daily updates are not active for this care status."
+                  : checkinSummary.completedToday
+                    ? "Your latest update is saved. You can review progress or move on with today’s plan."
+                    : "A short check-in keeps your recovery timeline current and helps your care team stay aligned."}
             </Text>
           </View>
           <StatusPill
-            label={checkinSummary.completedToday ? "Done today" : "Ready today"}
-            variant={checkinSummary.completedToday ? "success" : "info"}
+            label={
+              !checkinAvailable
+                ? "Read-only"
+                : checkinSummary.completedToday
+                  ? "Done today"
+                  : careMode === "independent"
+                    ? "Available"
+                    : "Ready today"
+            }
+            variant={
+              !checkinAvailable
+                ? "neutral"
+                : checkinSummary.completedToday
+                  ? "success"
+                  : "info"
+            }
           />
         </View>
 
@@ -1161,7 +1331,14 @@ export default function HomeScreen() {
               <Text style={styles.checkinMetaLabel}>Last update</Text>
               <Text style={styles.checkinMetaValue}>{lastCheckinLabel}</Text>
             </View>
-            {checkinSummary.completedToday ? (
+            {!checkinAvailable ? (
+              <SecondaryButton
+                label="View progress"
+                onPress={() => {
+                  router.push("/(tabs)/progress");
+                }}
+              />
+            ) : checkinSummary.completedToday ? (
               <SecondaryButton
                 label="View progress"
                 onPress={() => {
@@ -1407,7 +1584,11 @@ export default function HomeScreen() {
         tone="safety"
         leading={{ type: "icon", icon: "safety", tone: "success" }}
         title="Safety Plan"
-        text="If symptoms change quickly or you feel unsafe, your safety plan is ready at any time."
+        text={
+          careMode === "active"
+            ? "If symptoms change quickly or you feel unsafe, your safety plan is ready at any time."
+            : "If symptoms change quickly or you feel unsafe, your safety plan is still available. Routine clinician monitoring may no longer be active."
+        }
         chips={["Always available"]}
         actions={[
           {

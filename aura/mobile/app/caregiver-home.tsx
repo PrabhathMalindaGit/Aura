@@ -472,6 +472,12 @@ export default function CaregiverHomeScreen() {
               subtitle={`ID: ${patientIdentifier}`}
               chips={[
                 { text: "Read-only", tone: "muted" },
+                ...(summary?.access?.relationship
+                  ? [{ text: summary.access.relationship, tone: "muted" as const }]
+                  : []),
+                ...(summary?.access?.caregiverName
+                  ? [{ text: summary.access.caregiverName, tone: "muted" as const }]
+                  : []),
                 {
                   text: lastCheckin ? "Latest check-in available" : "Waiting for first check-in",
                   tone: "muted",
@@ -550,6 +556,54 @@ export default function CaregiverHomeScreen() {
               }}
               onPress={() => router.push("/caregiver-weekly-report" as Href)}
             />
+
+            <View style={styles.twoColumnRow}>
+              <View style={styles.twoColumnCell}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "exercise", tone: "primary" }}
+                  title="Plan status"
+                  subtitle={
+                    summary?.plan?.statusLabel
+                      ? `${summary.plan.statusLabel}${summary.plan.phaseTitle ? ` · ${summary.plan.phaseTitle}` : ""}`
+                      : "No plan summary available"
+                  }
+                  chips={[
+                    {
+                      text:
+                        typeof summary?.plan?.itemCount === "number"
+                          ? `${summary.plan.itemCount} item${summary.plan.itemCount === 1 ? "" : "s"}`
+                          : "Read-only",
+                      tone: "muted",
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={styles.twoColumnCell}>
+                <MediaCard
+                  variant="compact"
+                  leading={{ type: "icon", icon: "appointments", tone: "primary" }}
+                  title="Next appointment"
+                  subtitle={
+                    summary?.nextAppointment?.startsAt
+                      ? new Intl.DateTimeFormat(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        }).format(new Date(summary.nextAppointment.startsAt))
+                      : "No upcoming appointment"
+                  }
+                  chips={[
+                    {
+                      text: summary?.nextAppointment?.modality === "video" ? "Video" : "Read-only",
+                      tone: "muted",
+                    },
+                  ]}
+                />
+              </View>
+            </View>
 
             <MediaCard
               leading={{ type: "icon", icon: "safety", tone: "warning" }}
@@ -656,6 +710,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     trackerTileWrap: {
       width: "48%",
       flexGrow: 1,
+      minWidth: 150,
+    },
+    twoColumnRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    twoColumnCell: {
+      flex: 1,
       minWidth: 150,
     },
     actionsCard: {

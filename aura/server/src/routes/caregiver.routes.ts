@@ -6,6 +6,9 @@ import { z } from "zod";
 import { requireCaregiverAuth } from "../middleware/caregiverAuth";
 import { requirePatientAuth } from "../middleware/patientAuth";
 import Alert from "../models/Alert";
+import AppointmentRequest from "../models/AppointmentRequest";
+import AppointmentSlot from "../models/AppointmentSlot";
+import CareEvent from "../models/CareEvent";
 import CaregiverInvite from "../models/CaregiverInvite";
 import CheckIn from "../models/CheckIn";
 import HydrationLog from "../models/HydrationLog";
@@ -15,6 +18,7 @@ import MedicationSchedule from "../models/MedicationSchedule";
 import NutritionLog from "../models/NutritionLog";
 import Patient from "../models/Patient";
 import PromInstance from "../models/PromInstance";
+import ExercisePlan from "../models/ExercisePlan";
 import {
   generateWeeklyReport,
   WeeklyReportValidationError,
@@ -37,10 +41,12 @@ const inviteCodePrefix = "CG";
 
 const createInviteBodySchema = z.object({
   expiresHours: z.coerce.number().int().min(1).max(168).optional().default(24),
+  relationship: z.string().trim().min(1).max(80).optional(),
 });
 
 const caregiverLoginBodySchema = z.object({
   code: z.string().trim().min(1).max(64),
+  caregiverName: z.string().trim().min(1).max(120).optional(),
 });
 
 const weeklyReportQuerySchema = z.object({
@@ -145,7 +151,89 @@ function hashInviteCode(canonical: string): string {
   return crypto.createHash("sha256").update(canonical).digest("hex");
 }
 
-async function createInviteCodeRecord(patientId: string, expiresHours: number) {
+function toTrimmedString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toIsoString(value: unknown): string | null {
+  return value instanceof Date && Number.isFinite(value.getTime()) ? value.toISOString() : null;
+}
+
+function mapCaregiverAccess(invite: Record<string, unknown>) {
+  return {
+    inviteId: String(invite._id ?? ""),
+    codeHint: typeof invite.codeHint === "string" ? invite.codeHint : "",
+    expiresAt: toIsoString(invite.expiresAt) ?? new Date(0).toISOString(),
+    usedAt: toIsoString(invite.usedAt),
+    revokedAt: toIsoString(invite.revokedAt),
+    relationship: toTrimmedString(invite.relationship),
+    caregiverName: toTrimmedString(invite.caregiverName),
+    lastAccessedAt: toIsoString(invite.lastAccessedAt),
+  };
+}
+
+async function writeCaregiverEvent(
+  type: string,
+  patientId: string,
+  inviteId: string | null,
+  payload: Record<string, unknown>
+): Promise<void> {
+  await CareEvent.create({
+    type,
+    patientId,
+    payload: {
+      ...payload,
+      inviteId: inviteId ?? undefined,
+    },
+  });
+}
+
+async function readNextAppointmentSummary(patientId: string) {
+  const approvedRequests = await AppointmentRequest.find({
+    patientId,
+    status: "approved",
+  })
+    .select({ slotId: 1, status: 1 })
+    .lean();
+
+  if (approvedRequests.length === 0) {
+    return null;
+  }
+
+  const slotIds = approvedRequests
+    .map((item) => item.slotId)
+    .filter(Boolean);
+
+  if (slotIds.length === 0) {
+    return null;
+  }
+
+  const slots = await AppointmentSlot.find({
+    _id: { $in: slotIds },
+    startsAt: { $gte: new Date() },
+  })
+    .select({ startsAt: 1, endsAt: 1, modality: 1 })
+    .sort({ startsAt: 1 })
+    .lean();
+
+  const nextSlot = slots[0];
+  if (!nextSlot) {
+    return null;
+  }
+
+  return {
+    startsAt: toIsoString(nextSlot.startsAt) ?? new Date(0).toISOString(),
+    endsAt: toIsoString(nextSlot.endsAt) ?? new Date(0).toISOString(),
+    modality: nextSlot.modality === "video" ? "video" : "video",
+  };
+}
+
+async function createInviteCodeRecord(patientId: string, expiresHours: number, relationship?: string | null) {
   const expiresAt = new Date(Date.now() + expiresHours * 60 * 60 * 1000);
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -160,6 +248,7 @@ async function createInviteCodeRecord(patientId: string, expiresHours: number) {
         codeHash,
         codeHint: canonical.slice(-4),
         expiresAt,
+        relationship: relationship?.trim() || undefined,
       });
 
       return {
@@ -256,13 +345,26 @@ router.post("/patient/caregiver/invites", requirePatientAuth, async (req, res) =
   }
 
   try {
-    const generated = await createInviteCodeRecord(patientId, parsedBody.data.expiresHours);
+    const generated = await createInviteCodeRecord(
+      patientId,
+      parsedBody.data.expiresHours,
+      parsedBody.data.relationship ?? null
+    );
+
+    await writeCaregiverEvent("CAREGIVER_GRANTED", patientId, String(generated.created._id), {
+      relationship: parsedBody.data.relationship?.trim() || undefined,
+      expiresAt: generated.created.expiresAt,
+    });
+
     return res.json({
       ok: true,
       code: generated.code,
       expiresAt: generated.created.expiresAt.toISOString(),
       inviteId: String(generated.created._id),
       codeHint: generated.created.codeHint,
+      relationship: toTrimmedString(generated.created.relationship),
+      caregiverName: toTrimmedString(generated.created.caregiverName),
+      lastAccessedAt: null,
     });
   } catch (error) {
     logger.error("Create caregiver invite failed", {
@@ -289,22 +391,12 @@ router.get("/patient/caregiver/invites", requirePatientAuth, async (req, res) =>
       expiresAt: { $gt: now },
     })
       .sort({ createdAt: -1 })
-      .select({ codeHint: 1, expiresAt: 1, usedAt: 1, revokedAt: 1, createdAt: 1 })
+      .select({ codeHint: 1, expiresAt: 1, usedAt: 1, revokedAt: 1, createdAt: 1, relationship: 1, caregiverName: 1, lastAccessedAt: 1 })
       .lean();
 
     return res.json({
       ok: true,
-      items: invites.map((invite) => ({
-        inviteId: String(invite._id),
-        codeHint: typeof invite.codeHint === "string" ? invite.codeHint : "",
-        expiresAt:
-          invite.expiresAt instanceof Date
-            ? invite.expiresAt.toISOString()
-            : new Date(0).toISOString(),
-        usedAt: invite.usedAt instanceof Date ? invite.usedAt.toISOString() : null,
-        revokedAt:
-          invite.revokedAt instanceof Date ? invite.revokedAt.toISOString() : null,
-      })),
+      items: invites.map((invite) => mapCaregiverAccess(invite as Record<string, unknown>)),
     });
   } catch (error) {
     logger.error("List caregiver invites failed", {
@@ -350,12 +442,16 @@ router.post(
         },
         { new: true }
       )
-        .select({ _id: 1, revokedAt: 1 })
+        .select({ _id: 1, revokedAt: 1, relationship: 1, caregiverName: 1, lastAccessedAt: 1 })
         .lean();
 
       if (!updated) {
         return res.status(404).json({ ok: false, error: "NOT_FOUND" });
       }
+
+      await writeCaregiverEvent("CAREGIVER_REVOKED", patientId, String(updated._id), {
+        revokedAt: updated.revokedAt,
+      });
 
       return res.json({
         ok: true,
@@ -364,6 +460,9 @@ router.post(
           updated.revokedAt instanceof Date
             ? updated.revokedAt.toISOString()
             : new Date().toISOString(),
+        relationship: toTrimmedString((updated as { relationship?: unknown }).relationship),
+        caregiverName: toTrimmedString((updated as { caregiverName?: unknown }).caregiverName),
+        lastAccessedAt: toIsoString((updated as { lastAccessedAt?: unknown }).lastAccessedAt),
       });
     } catch (error) {
       logger.error("Revoke caregiver invite failed", {
@@ -416,16 +515,29 @@ router.post("/caregiver/auth/login", async (req, res) => {
       return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
     }
 
-    if (!(invite.usedAt instanceof Date)) {
-      await CaregiverInvite.updateOne(
-        { _id: invite._id, usedAt: null },
-        { $set: { usedAt: new Date() } }
-      );
-    }
+    const caregiverName = parsedBody.data.caregiverName?.trim() || undefined;
+    const now = new Date();
+    const updatedInvite = await CaregiverInvite.findOneAndUpdate(
+      { _id: invite._id },
+      {
+        $set: {
+          usedAt: invite.usedAt instanceof Date ? invite.usedAt : now,
+          caregiverName: caregiverName || invite.caregiverName,
+          lastAccessedAt: now,
+        },
+      },
+      { new: true }
+    ).lean();
 
     const token = signCaregiverToken({
       patientId: invite.patientId,
       inviteId: String(invite._id),
+    });
+
+    await writeCaregiverEvent("CAREGIVER_ACCESSED", invite.patientId, String(invite._id), {
+      caregiverName: caregiverName || toTrimmedString(invite.caregiverName) || undefined,
+      relationship: toTrimmedString(invite.relationship) || undefined,
+      accessedAt: now,
     });
 
     return res.json({
@@ -438,6 +550,7 @@ router.post("/caregiver/auth/login", async (req, res) => {
             ? patient.displayName
             : undefined,
       },
+      access: mapCaregiverAccess((updatedInvite as Record<string, unknown>) ?? (invite as Record<string, unknown>)),
     });
   } catch (error) {
     logger.error("Caregiver login failed", {
@@ -456,7 +569,7 @@ router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
   }
 
   try {
-    const [patient, lastCheckin] = await Promise.all([
+    const [patient, lastCheckin, plan, nextAppointment] = await Promise.all([
       Patient.findOne({ patientId })
         .select({ patientId: 1, displayName: 1, rehab: 1 })
         .lean(),
@@ -471,6 +584,10 @@ router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
           createdAt: 1,
         })
         .lean(),
+      ExercisePlan.findOne({ patientId })
+        .select({ title: 1, items: 1, version: 1 })
+        .lean(),
+      readNextAppointmentSummary(patientId),
     ]);
 
     if (!patient) {
@@ -623,6 +740,18 @@ router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
           }
         : null;
 
+    const inviteAccess = await CaregiverInvite.findOneAndUpdate(
+      { _id: requestWithCaregiver.caregiver?.inviteId, patientId },
+      { $set: { lastAccessedAt: new Date() } },
+      { new: true }
+    )
+      .select({ _id: 1, relationship: 1, caregiverName: 1, lastAccessedAt: 1, usedAt: 1, revokedAt: 1, expiresAt: 1, codeHint: 1 })
+      .lean();
+
+    await writeCaregiverEvent("CAREGIVER_SUMMARY_ACCESSED", patientId, requestWithCaregiver.caregiver?.inviteId ?? null, {
+      accessedAt: new Date(),
+    });
+
     return res.json({
       ok: true,
       patientId,
@@ -633,6 +762,7 @@ router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
             ? patient.displayName
             : undefined,
       },
+      access: inviteAccess ? mapCaregiverAccess(inviteAccess as Record<string, unknown>) : null,
       updatedAt: new Date().toISOString(),
       lastCheckin: responseLastCheckin,
       safety: {
@@ -649,6 +779,20 @@ router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
             ? currentPhase.title
             : null,
       },
+      plan: {
+        statusLabel: plan
+          ? Array.isArray(plan.items) && plan.items.length > 0
+            ? "Plan assigned"
+            : "Nothing scheduled right now"
+          : "No plan assigned",
+        phaseTitle:
+          currentPhase && typeof currentPhase.title === "string"
+            ? currentPhase.title
+            : null,
+        itemCount: Array.isArray(plan?.items) ? plan.items.length : 0,
+        title: typeof plan?.title === "string" ? plan.title : undefined,
+      },
+      nextAppointment: nextAppointment,
     });
   } catch (error) {
     logger.error("Get caregiver summary failed", {

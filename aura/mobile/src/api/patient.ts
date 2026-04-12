@@ -1,5 +1,11 @@
 import { apiFetchJson, type ApiError } from "@/src/api/client";
-import type { Patient, Risk } from "@/src/types/models";
+import type {
+  CheckinAdaptationDecision,
+  Patient,
+  PatientDischarge,
+  RecoveryNudge,
+  Risk,
+} from "@/src/types/models";
 import {
   isBodyMapPainType,
   isBodyMapRegion,
@@ -15,6 +21,9 @@ type PatientLike = {
   id?: string;
   patientId?: string;
   displayName?: string;
+  status?: string;
+  clinicianId?: string;
+  discharge?: unknown;
 };
 
 type LoginApiPayload = {
@@ -26,6 +35,19 @@ type MeApiPayload = {
   ok?: boolean;
   patient?: PatientLike;
 } & PatientLike;
+
+type RecoverySupportApiResponse = {
+  ok?: boolean;
+  patientId?: unknown;
+  decision?: unknown;
+};
+
+type RecoveryNudgeApiResponse = {
+  ok?: boolean;
+  patientId?: unknown;
+  nudge?: unknown;
+};
+
 
 export type LoginResponse = {
   token: string;
@@ -644,6 +666,80 @@ export type ChatSendResponse = {
   };
 };
 
+function toTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function toActor(value: unknown): PatientDischarge["dischargedBy"] | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as { clinicianId?: unknown; name?: unknown };
+  const clinicianId = toTrimmedString(record.clinicianId);
+  const name = toTrimmedString(record.name);
+
+  if (!clinicianId && !name) {
+    return undefined;
+  }
+
+  return {
+    clinicianId,
+    name,
+  };
+}
+
+function toDischarge(value: unknown): PatientDischarge | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    dischargedAt?: unknown;
+    dischargedBy?: unknown;
+    independentModeEnabled?: unknown;
+    summary?: unknown;
+    contactInstructions?: unknown;
+    reactivatedAt?: unknown;
+    reactivatedBy?: unknown;
+    lastExportedAt?: unknown;
+    lastExportedBy?: unknown;
+  };
+
+  const discharge: PatientDischarge = {
+    dischargedAt: toTrimmedString(record.dischargedAt),
+    dischargedBy: toActor(record.dischargedBy),
+    independentModeEnabled:
+      typeof record.independentModeEnabled === "boolean"
+        ? record.independentModeEnabled
+        : undefined,
+    summary: toTrimmedString(record.summary),
+    contactInstructions: toTrimmedString(record.contactInstructions),
+    reactivatedAt: toTrimmedString(record.reactivatedAt),
+    reactivatedBy: toActor(record.reactivatedBy),
+    lastExportedAt: toTrimmedString(record.lastExportedAt),
+    lastExportedBy: toActor(record.lastExportedBy),
+  };
+
+  return Object.values(discharge).some((entry) => entry !== undefined)
+    ? discharge
+    : null;
+}
+
+function toPatientStatus(value: unknown): Patient["status"] | undefined {
+  return value === "active" ||
+    value === "on_hold" ||
+    value === "discharged" ||
+    value === "inactive"
+    ? value
+    : undefined;
+}
+
 function toPatient(value: PatientLike | null | undefined): Patient | null {
   if (!value) {
     return null;
@@ -657,6 +753,9 @@ function toPatient(value: PatientLike | null | undefined): Patient | null {
   return {
     id,
     displayName: value.displayName,
+    status: toPatientStatus(value.status),
+    clinicianId: toTrimmedString(value.clinicianId),
+    discharge: toDischarge(value.discharge),
   };
 }
 
@@ -699,6 +798,38 @@ export async function getMe(token: string): Promise<Patient> {
   return patient;
 }
 
+export async function getCheckinAdaptation(
+  token: string,
+  options: { date?: string } = {},
+): Promise<CheckinAdaptationDecision | null> {
+  const path = options.date
+    ? `/patient/checkin/adaptation?date=${encodeURIComponent(options.date)}`
+    : "/patient/checkin/adaptation";
+  const payload = await apiFetchJson<RecoverySupportApiResponse>(
+    path,
+    {
+      method: "GET",
+      token,
+    },
+  );
+
+  return normalizeCheckinAdaptationDecision(payload?.decision);
+}
+
+export async function getRecoveryNudge(
+  token: string,
+): Promise<RecoveryNudge | null> {
+  const payload = await apiFetchJson<RecoveryNudgeApiResponse>(
+    "/patient/recovery-nudge",
+    {
+      method: "GET",
+      token,
+    },
+  );
+
+  return normalizeRecoveryNudge(payload?.nudge);
+}
+
 function toRisk(value: unknown): Risk | undefined {
   if (!value || typeof value !== "object") {
     return undefined;
@@ -718,6 +849,111 @@ function toRisk(value: unknown): Risk | undefined {
   return {
     level: candidate.level,
     reasonCodes,
+  };
+}
+
+function normalizeCheckinAdaptationDecision(
+  value: unknown,
+): CheckinAdaptationDecision | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    patientId?: unknown;
+    date?: unknown;
+    mode?: unknown;
+    reasonCodes?: unknown;
+    explanation?: unknown;
+    configVersion?: unknown;
+    generatedAt?: unknown;
+    optionalSections?: unknown;
+  };
+
+  const patientId = toTrimmedString(record.patientId);
+  const date = toTrimmedString(record.date);
+  const mode =
+    record.mode === "standard" ||
+    record.mode === "shortened" ||
+    record.mode === "expanded"
+      ? record.mode
+      : null;
+  const explanation = toTrimmedString(record.explanation);
+  const generatedAt = toTrimmedString(record.generatedAt);
+  const configVersion = toFiniteNumber(record.configVersion);
+  const optionalSectionsRecord =
+    record.optionalSections && typeof record.optionalSections === "object"
+      ? (record.optionalSections as Record<string, unknown>)
+      : {};
+
+  if (!patientId || !date || !mode || !explanation || !generatedAt) {
+    return null;
+  }
+
+  return {
+    patientId,
+    date,
+    mode,
+    reasonCodes: Array.isArray(record.reasonCodes)
+      ? record.reasonCodes
+          .filter((entry): entry is string => typeof entry === "string")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+      : [],
+    explanation,
+    configVersion: configVersion ?? 0,
+    generatedAt,
+    optionalSections: {
+      recovery: optionalSectionsRecord.recovery !== false,
+      support: optionalSectionsRecord.support !== false,
+      dailyContext: optionalSectionsRecord.dailyContext !== false,
+    },
+  };
+}
+
+function normalizeRecoveryNudge(value: unknown): RecoveryNudge | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    patientId?: unknown;
+    kind?: unknown;
+    title?: unknown;
+    message?: unknown;
+    ruleCode?: unknown;
+    evidenceWindow?: unknown;
+    generatedAt?: unknown;
+  };
+
+  const patientId = toTrimmedString(record.patientId);
+  const kind = toTrimmedString(record.kind);
+  const title = toTrimmedString(record.title);
+  const message = toTrimmedString(record.message);
+  const ruleCode = toTrimmedString(record.ruleCode);
+  const evidenceWindow = toTrimmedString(record.evidenceWindow);
+  const generatedAt = toTrimmedString(record.generatedAt);
+
+  if (
+    !patientId ||
+    !kind ||
+    !title ||
+    !message ||
+    !ruleCode ||
+    !evidenceWindow ||
+    !generatedAt
+  ) {
+    return null;
+  }
+
+  return {
+    patientId,
+    kind,
+    title,
+    message,
+    ruleCode,
+    evidenceWindow,
+    generatedAt,
   };
 }
 

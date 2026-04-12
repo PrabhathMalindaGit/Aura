@@ -384,6 +384,33 @@ export interface GenerateInsightsResponse {
 
 export type PatientStatus = 'active' | 'on_hold' | 'discharged' | 'inactive';
 
+export interface ClinicianActorAttribution {
+  clinicianId: string;
+  name?: string;
+}
+
+export interface PatientDischarge {
+  dischargedAt?: string;
+  dischargedBy?: ClinicianActorAttribution;
+  independentModeEnabled?: boolean;
+  summary?: string;
+  contactInstructions?: string;
+  reactivatedAt?: string | null;
+  reactivatedBy?: ClinicianActorAttribution;
+  lastExportedAt?: string;
+  lastExportedBy?: ClinicianActorAttribution;
+}
+
+export interface PatientProfileDetail {
+  patientId: string;
+  displayName?: string;
+  status: PatientStatus;
+  clinicianId?: string;
+  discharge?: PatientDischarge;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface PatientSummary {
   id: string;
   displayName?: string;
@@ -778,6 +805,119 @@ export interface PutPatientThresholdConfigPayload {
   responseDelayHours: number;
   safetyFlaggedResponseDelayHours: number;
   rationale?: string;
+}
+
+export type RecoverySupportCheckinMode = 'standard' | 'adaptive' | 'force_full';
+export type CheckinAdaptationMode = 'standard' | 'shortened' | 'expanded';
+
+export interface CheckinAdaptationDecision {
+  patientId: string;
+  date: string;
+  mode: CheckinAdaptationMode;
+  reasonCodes: string[];
+  explanation?: string;
+  configVersion: number;
+  generatedAt: string;
+}
+
+export interface RecoveryNudge {
+  patientId: string;
+  kind:
+    | 'improving_trend'
+    | 'worsening_trend'
+    | 'low_exercise_completion'
+    | 'missed_recent_checkins'
+    | 'weekly_summary_ready';
+  ruleCode: string;
+  title: string;
+  message: string;
+  evidenceWindow: string;
+  generatedAt: string;
+}
+
+export interface PatientRecoverySupportConfig {
+  patientId: string;
+  checkinMode: RecoverySupportCheckinMode;
+  nudgesEnabled: boolean;
+  rationale?: string;
+  version: number;
+  updatedBy?: ClinicianActorAttribution;
+  createdAt?: string;
+  updatedAt?: string;
+  configured: boolean;
+}
+
+export interface PatientRecoverySupportResponse {
+  ok: true;
+  patientId: string;
+  recoverySupport: PatientRecoverySupportConfig;
+  adaptationDecision?: CheckinAdaptationDecision | null;
+  recoveryNudge?: RecoveryNudge | null;
+}
+
+export interface PutPatientRecoverySupportPayload {
+  checkinMode: RecoverySupportCheckinMode;
+  nudgesEnabled: boolean;
+  rationale?: string;
+}
+
+export interface CaregiverAccessItem {
+  inviteId: string;
+  relationship?: string;
+  caregiverName?: string;
+  codeHint?: string;
+  expiresAt?: string;
+  usedAt?: string;
+  revokedAt?: string;
+  lastAccessedAt?: string;
+  createdAt?: string;
+}
+
+export interface PatientCaregiverAccessResponse {
+  ok: true;
+  patientId: string;
+  items: CaregiverAccessItem[];
+}
+
+export interface DischargePatientPayload {
+  summary: string;
+  contactInstructions?: string;
+  independentModeEnabled?: boolean;
+  requestedBy?: string;
+  requestedByName?: string;
+}
+
+export interface ReactivatePatientPayload {
+  status: 'active' | 'on_hold';
+  rationale?: string;
+  requestedBy?: string;
+  requestedByName?: string;
+}
+
+export interface PatientProfileMutationResponse {
+  ok: true;
+  patient: PatientProfileDetail;
+}
+
+export interface DischargeSummary {
+  patientId: string;
+  patientName: string;
+  status: 'discharged' | 'inactive';
+  dischargedAt?: string;
+  independentModeEnabled: boolean;
+  summary?: string;
+  recentTrendSummary: string;
+  weeklyHeadline?: string;
+  planStatus: string;
+  nextSteps: string[];
+  safetyInstructions: string[];
+  generatedAt: string;
+}
+
+export interface DischargeSummaryResponse {
+  ok: true;
+  patientId: string;
+  summary: DischargeSummary | null;
 }
 
 export interface SafetyAuditEntry {

@@ -83,13 +83,24 @@ import {
   type WorklistSortOption,
   type ListAlertsResponse,
   type ListPatientsResponse,
+  type CaregiverAccessItem,
+  type DischargePatientPayload,
+  type DischargeSummary,
+  type DischargeSummaryResponse,
   type PatchAlertResponse,
+  type PatientCaregiverAccessResponse,
+  type PatientProfileDetail,
+  type PatientProfileMutationResponse,
+  type PatientRecoverySupportConfig,
+  type PatientRecoverySupportResponse,
   type PatientSummary,
   type PatientSafetyEventsResponse,
   type PatientThresholdConfig,
   type PatientThresholdConfigResponse,
   type PutPatientCurrentHandoffPayload,
+  type PutPatientRecoverySupportPayload,
   type PutPatientThresholdConfigPayload,
+  type ReactivatePatientPayload,
   type SafetyAuditEntry,
   type TimelineEvent,
   type TrendPointRaw,
@@ -115,6 +126,23 @@ interface AlertMutationContext {
 
 function retryIfAllowed(failureCount: number, error: unknown): boolean {
   return failureCount < 2 && isRetryable(asAppError(error));
+}
+
+
+function createDefaultRecoverySupportResponse(patientId: string): PatientRecoverySupportResponse {
+  return {
+    ok: true,
+    patientId,
+    recoverySupport: {
+      patientId,
+      checkinMode: 'standard',
+      nudgesEnabled: false,
+      version: 0,
+      configured: false,
+    },
+    adaptationDecision: null,
+    recoveryNudge: null,
+  };
 }
 
 export const clinicianQueryKeys = {
@@ -143,6 +171,9 @@ export const clinicianQueryKeys = {
   patients: (): QueryKey => ['patients'],
   patientCoordination: (patientId: string): QueryKey => ['patient-coordination', patientId],
   patientThresholds: (patientId: string): QueryKey => ['patient-thresholds', patientId],
+  patientRecoverySupport: (patientId: string): QueryKey => ['patient-recovery-support', patientId],
+  patientCaregiverAccess: (patientId: string): QueryKey => ['patient-caregiver-access', patientId],
+  patientDischargeSummary: (patientId: string): QueryKey => ['patient-discharge-summary', patientId],
   patientSafetyEvents: (patientId: string): QueryKey => ['patient-safety-events', patientId],
   exercisePlanHistory: (patientId: string): QueryKey => ['exercise-plan-history', patientId],
 } as const;
@@ -1220,6 +1251,118 @@ export async function putPatientThresholds(
   return response.thresholds;
 }
 
+export async function getPatientRecoverySupport(
+  patientId: string,
+): Promise<PatientRecoverySupportResponse> {
+  try {
+    const response = await fetchJson<Partial<PatientRecoverySupportResponse>>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/recovery-support`,
+      {
+        method: 'GET',
+      },
+    );
+
+    return {
+      ...createDefaultRecoverySupportResponse(patientId),
+      ...response,
+      patientId,
+      recoverySupport: response.recoverySupport ?? createDefaultRecoverySupportResponse(patientId).recoverySupport,
+      adaptationDecision: response.adaptationDecision ?? null,
+      recoveryNudge: response.recoveryNudge ?? null,
+    };
+  } catch (error) {
+    if (isOptionalEndpointUnavailable(error)) {
+      return createDefaultRecoverySupportResponse(patientId);
+    }
+    throw error;
+  }
+}
+
+export async function putPatientRecoverySupport(
+  patientId: string,
+  payload: PutPatientRecoverySupportPayload,
+): Promise<PatientRecoverySupportConfig> {
+  const response = await fetchJson<PatientRecoverySupportResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/recovery-support`,
+    {
+      method: 'PUT',
+      json: payload,
+    },
+  );
+
+  return response.recoverySupport;
+}
+
+export async function getPatientCaregiverAccess(
+  patientId: string,
+): Promise<CaregiverAccessItem[]> {
+  try {
+    const response = await fetchJson<PatientCaregiverAccessResponse>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/caregiver-access`,
+      {
+        method: 'GET',
+      },
+    );
+
+    return response.items ?? [];
+  } catch (error) {
+    if (isOptionalEndpointUnavailable(error)) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+export async function getPatientDischargeSummary(
+  patientId: string,
+): Promise<DischargeSummary | null> {
+  try {
+    const response = await fetchJson<DischargeSummaryResponse>(
+      `/clinician/patients/${encodeURIComponent(patientId)}/discharge-summary`,
+      {
+        method: 'GET',
+      },
+    );
+
+    return response.summary ?? null;
+  } catch (error) {
+    if (isOptionalEndpointUnavailable(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function dischargePatient(
+  patientId: string,
+  payload: DischargePatientPayload,
+): Promise<PatientProfileDetail> {
+  const response = await fetchJson<PatientProfileMutationResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/discharge`,
+    {
+      method: 'POST',
+      json: payload,
+    },
+  );
+
+  return response.patient;
+}
+
+export async function reactivatePatient(
+  patientId: string,
+  payload: ReactivatePatientPayload,
+): Promise<PatientProfileDetail> {
+  const response = await fetchJson<PatientProfileMutationResponse>(
+    `/clinician/patients/${encodeURIComponent(patientId)}/reactivate`,
+    {
+      method: 'POST',
+      json: payload,
+    },
+  );
+
+  return response.patient;
+}
+
 export async function getPatientSafetyEvents(
   patientId: string,
 ): Promise<SafetyAuditEntry[]> {
@@ -1605,6 +1748,47 @@ export function usePatientThresholds(
     queryKey: clinicianQueryKeys.patientThresholds(patientId ?? 'unknown'),
     queryFn: () => getPatientThresholds(patientId ?? ''),
     enabled: Boolean(patientId),
+    staleTime: QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function usePatientRecoverySupport(
+  patientId: string | null | undefined,
+): UseQueryResult<PatientRecoverySupportResponse, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.patientRecoverySupport(patientId ?? 'unknown'),
+    queryFn: () => getPatientRecoverySupport(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function usePatientCaregiverAccess(
+  patientId: string | null | undefined,
+): UseQueryResult<CaregiverAccessItem[], unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.patientCaregiverAccess(patientId ?? 'unknown'),
+    queryFn: () => getPatientCaregiverAccess(patientId ?? ''),
+    enabled: Boolean(patientId),
+    staleTime: QUERY_STALE_TIME_MS,
+    retry: retryIfAllowed,
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+}
+
+export function usePatientDischargeSummary(
+  patientId: string | null | undefined,
+  enabled: boolean = true,
+): UseQueryResult<DischargeSummary | null, unknown> {
+  return useQuery({
+    queryKey: clinicianQueryKeys.patientDischargeSummary(patientId ?? 'unknown'),
+    queryFn: () => getPatientDischargeSummary(patientId ?? ''),
+    enabled: enabled && Boolean(patientId),
     staleTime: QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,

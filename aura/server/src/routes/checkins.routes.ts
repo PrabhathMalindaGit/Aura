@@ -21,6 +21,10 @@ import {
   type CheckInFlowInput,
   processCheckIn,
 } from "../services/checkinFlow";
+import {
+  getCheckinAccessGate,
+  getPatientCareStatus,
+} from "../services/patientCareStatusService";
 import { logger } from "../utils/logger";
 import { verifyPatientToken } from "../utils/patientJwt";
 import { redactText } from "../utils/redact";
@@ -256,6 +260,16 @@ router.post("/checkins", validateBody(checkInSchema), async (req, res) => {
       });
     }
     const patientId = resolvedPatient.patientId;
+
+    const careStatus = await getPatientCareStatus(patientId);
+    const accessGate = getCheckinAccessGate(careStatus);
+    if (!accessGate.allowed) {
+      return res.status(403).json({
+        ok: false,
+        error: "FORBIDDEN",
+        message: accessGate.message,
+      });
+    }
 
     logger.info("POST /checkins", {
       requestId,

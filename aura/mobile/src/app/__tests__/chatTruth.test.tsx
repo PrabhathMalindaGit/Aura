@@ -30,6 +30,8 @@ const {
   chatLoadClear,
   chatSendSetError,
   chatSendClear,
+  canPatientUseMessages,
+  getCareModeNotice,
 } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routerReplace: vi.fn(),
@@ -50,6 +52,8 @@ const {
   chatLoadClear: vi.fn(async () => undefined),
   chatSendSetError: vi.fn(async () => undefined),
   chatSendClear: vi.fn(async () => undefined),
+  canPatientUseMessages: vi.fn(() => true),
+  getCareModeNotice: vi.fn((): any => null),
 }));
 
 vi.mock("expo-router", () => ({
@@ -242,6 +246,11 @@ vi.mock("@/src/state/trustStatus", () => ({
     pendingCount: 0,
     failedCount: 0,
   }),
+}));
+
+vi.mock("@/src/state/recoverySupport", () => ({
+  canPatientUseMessages,
+  getCareModeNotice,
 }));
 
 vi.mock("@/src/components/Avatar", () => ({
@@ -451,6 +460,10 @@ describe("chat truth fix", () => {
     chatLoadClear.mockClear();
     chatSendSetError.mockClear();
     chatSendClear.mockClear();
+    canPatientUseMessages.mockReset();
+    canPatientUseMessages.mockReturnValue(true);
+    getCareModeNotice.mockReset();
+    getCareModeNotice.mockReturnValue(null);
 
     chatHistory.mockResolvedValue([]);
     listPatientTasks.mockResolvedValue([]);
@@ -759,5 +772,25 @@ describe("chat truth fix", () => {
     expect(text).toContain(
       "When you send a message here, your care team conversation will appear in this space.",
     );
+  });
+
+  it("shows archived messaging when routine conversation is no longer active", async () => {
+    canPatientUseMessages.mockReturnValue(false);
+    getCareModeNotice.mockReturnValue({
+      title: "Care program completed",
+      message:
+        "Your care program has ended. Historical progress stays available here, but routine messaging and check-ins are no longer active.",
+    });
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+    const messageInputs = root.findAll(
+      (node) => typeof node.props?.accessibilityLabel === "string" && node.props.accessibilityLabel === "Message input",
+    );
+    const text = flattenText(root);
+
+    expect(messageInputs).toHaveLength(0);
+    expect(text).toContain("Messages are archived");
+    expect(text).toContain("Care program completed");
   });
 });

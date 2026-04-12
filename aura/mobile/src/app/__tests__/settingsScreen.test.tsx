@@ -22,6 +22,8 @@ const {
   scheduleSetError,
   scheduleClear,
   networkState,
+  getPatientCareMode,
+  getCareModeNotice,
 } = vi.hoisted(() => ({
   alertMock: vi.fn(),
   openSettingsMock: vi.fn(async () => undefined),
@@ -45,6 +47,8 @@ const {
   scheduleSetError: vi.fn(async () => undefined),
   scheduleClear: vi.fn(async () => undefined),
   networkState: { isOffline: false },
+  getPatientCareMode: vi.fn(() => "active"),
+  getCareModeNotice: vi.fn((): any => null),
 }));
 
 vi.mock("expo-router", () => ({
@@ -237,6 +241,11 @@ vi.mock("@/src/state/network", () => ({
   useNetwork: () => networkState,
 }));
 
+vi.mock("@/src/state/recoverySupport", () => ({
+  getPatientCareMode,
+  getCareModeNotice,
+}));
+
 vi.mock("@/src/state/pendingSessions", () => ({
   clearPending: vi.fn(async () => undefined),
 }));
@@ -311,6 +320,10 @@ describe("SettingsScreen", () => {
     signOut.mockReset();
     getReminderPrefs.mockClear();
     networkState.isOffline = false;
+    getPatientCareMode.mockReset();
+    getPatientCareMode.mockReturnValue("active");
+    getCareModeNotice.mockReset();
+    getCareModeNotice.mockReturnValue(null);
   });
 
   it("renders one coherent settings shell with each grouped section once", async () => {
@@ -357,5 +370,25 @@ describe("SettingsScreen", () => {
 
     expect(findByTestId(renderer!.root, "mock-settings-group", "settings-group-developer")).toHaveLength(0);
     expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Show developer tools")).toHaveLength(0);
+  });
+
+  it("shows the independent-mode notice while keeping care-summary sharing available", async () => {
+    let renderer: ReactTestRenderer;
+
+    getPatientCareMode.mockReturnValue("independent");
+    getCareModeNotice.mockReturnValue({
+      title: "Independent recovery mode",
+      message:
+        "Your care program has ended. You can keep tracking recovery here, but routine clinician monitoring is no longer active.",
+    });
+
+    await act(async () => {
+      renderer = create(<SettingsScreen />);
+    });
+
+    const banners = renderer!.root.findAll((node) => String(node.type) === "mock-banner");
+
+    expect(banners.some((node) => node.props.title === "Independent recovery mode")).toBe(true);
+    expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Share care summary")).toHaveLength(1);
   });
 });

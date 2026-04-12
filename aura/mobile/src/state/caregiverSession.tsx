@@ -24,7 +24,7 @@ type CaregiverSessionContextValue = {
   status: CaregiverSessionStatus;
   token: string | null;
   patient: CaregiverPatient | null;
-  signIn: (code: string) => Promise<void>;
+  signIn: (code: string, caregiverName?: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -65,7 +65,7 @@ export function CaregiverSessionProvider({ children }: { children: ReactNode }) 
     void restoreSession();
   }, [restoreSession]);
 
-  const signIn = useCallback(async (code: string) => {
+  const signIn = useCallback(async (code: string, caregiverName?: string) => {
     const trimmed = code.trim();
     if (!trimmed) {
       throw {
@@ -78,7 +78,7 @@ export function CaregiverSessionProvider({ children }: { children: ReactNode }) 
 
     setStatus("loading");
     try {
-      const response = await caregiverLogin(trimmed);
+      const response = await caregiverLogin(trimmed, caregiverName);
       await Promise.all([
         setCaregiverToken(response.token),
         setCaregiverProfile(response.patient),

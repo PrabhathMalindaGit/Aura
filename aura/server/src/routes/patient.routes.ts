@@ -24,11 +24,21 @@ import { consumeLoginThrottle } from "../services/loginThrottle";
 import { AIUnavailableError } from "../services/ai";
 import { processChatMessage } from "../services/chatFlow";
 import {
+  getCheckinAdaptationDecision,
+} from "../services/checkinAdaptationService";
+import {
   CheckInValidationError,
   DuplicateCheckInError,
   type CheckInFlowInput,
   processCheckIn,
 } from "../services/checkinFlow";
+import {
+  getChatAccessGate,
+  getCheckinAccessGate,
+  getPatientCareStatus,
+  mapPatientCareStatus,
+} from "../services/patientCareStatusService";
+import { getRecoveryNudge } from "../services/progressNudgeService";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { logger } from "../utils/logger";
 import { signPatientToken, hasPatientJwtSecretConfigured } from "../utils/patientJwt";
@@ -167,6 +177,10 @@ const patientChatHistoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(200).optional().default(50),
 });
 
+const patientAdaptationQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
 function normalizeBodyMapForFlow(
   value:
     | {
@@ -223,12 +237,16 @@ function mapPatientProfile(patient: {
   displayName?: string;
   status?: string;
   clinicianId?: string;
+  discharge?: unknown;
 }) {
+  const careStatus = mapPatientCareStatus(patient, patient.patientId);
+
   return {
-    id: patient.patientId,
-    displayName: patient.displayName,
-    status: patient.status ?? "active",
-    clinicianId: patient.clinicianId,
+    id: careStatus.patientId,
+    displayName: careStatus.displayName,
+    status: careStatus.status,
+    clinicianId: careStatus.clinicianId,
+    discharge: careStatus.discharge,
   };
 }
 
@@ -312,6 +330,7 @@ router.post("/patient/auth/login", validateBody(patientLoginSchema), async (req,
         status: typeof patient.status === "string" ? patient.status : undefined,
         clinicianId:
           typeof patient.clinicianId === "string" ? patient.clinicianId : undefined,
+        discharge: patient.discharge,
       }),
     });
   } catch (error) {
@@ -355,11 +374,90 @@ router.get("/patient/me", requirePatientAuth, async (req, res) => {
         status: typeof patient.status === "string" ? patient.status : undefined,
         clinicianId:
           typeof patient.clinicianId === "string" ? patient.clinicianId : undefined,
+        discharge: patient.discharge,
       }),
     });
   } catch (error) {
     logger.error("Get patient me failed", {
       route: "GET /patient/me",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.get("/patient/checkin/adaptation", requirePatientAuth, async (req, res) => {
+  const requestWithPatient = req as RequestWithPatient;
+  const patientId = requestWithPatient.patient?.id;
+
+  if (!patientId) {
+    return res.status(401).json({
+      ok: false,
+      error: "UNAUTHORIZED",
+    });
+  }
+
+  const parsedQuery = patientAdaptationQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    return res.status(400).json({
+      ok: false,
+      error: "VALIDATION_ERROR",
+      details: parsedQuery.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      })),
+    });
+  }
+
+  try {
+    const decision = await getCheckinAdaptationDecision({
+      patientId,
+      date: parsedQuery.data.date,
+    });
+
+    return res.json({
+      ok: true,
+      patientId,
+      decision,
+    });
+  } catch (error) {
+    logger.error("Get patient checkin adaptation failed", {
+      route: "GET /patient/checkin/adaptation",
+      patientId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.get("/patient/recovery-nudge", requirePatientAuth, async (req, res) => {
+  const requestWithPatient = req as RequestWithPatient;
+  const patientId = requestWithPatient.patient?.id;
+
+  if (!patientId) {
+    return res.status(401).json({
+      ok: false,
+      error: "UNAUTHORIZED",
+    });
+  }
+
+  try {
+    const nudge = await getRecoveryNudge(patientId);
+    return res.json({
+      ok: true,
+      patientId,
+      nudge,
+    });
+  } catch (error) {
+    logger.error("Get patient recovery nudge failed", {
+      route: "GET /patient/recovery-nudge",
+      patientId,
       message: error instanceof Error ? error.message : String(error),
     });
     return res.status(500).json({
@@ -388,6 +486,16 @@ router.post(
     try {
       const { date, mood, pain, symptoms, adherence, recovery, support, sleep, dailySignals, bodyMap, notes } =
         req.body as z.infer<typeof patientCheckInSchema>;
+
+      const careStatus = await getPatientCareStatus(patientId);
+      const accessGate = getCheckinAccessGate(careStatus);
+      if (!accessGate.allowed) {
+        return res.status(403).json({
+          ok: false,
+          error: "FORBIDDEN",
+          message: accessGate.message,
+        });
+      }
 
       const result = await processCheckIn({
         patientId,
@@ -732,6 +840,16 @@ router.post(
 
     try {
       const { message } = req.body as z.infer<typeof patientChatSendSchema>;
+
+      const careStatus = await getPatientCareStatus(patientId);
+      const accessGate = getChatAccessGate(careStatus);
+      if (!accessGate.allowed) {
+        return res.status(403).json({
+          ok: false,
+          error: "FORBIDDEN",
+          message: accessGate.message,
+        });
+      }
 
       const result = await processChatMessage({
         patientId,

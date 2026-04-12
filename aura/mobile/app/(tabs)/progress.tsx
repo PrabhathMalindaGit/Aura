@@ -10,6 +10,7 @@ import {
 
 import { isApiError, type ApiError } from "@/src/api/client";
 import {
+  getRecoveryNudge,
   getHydrationRange,
   listCheckins,
   type CheckInItem,
@@ -39,10 +40,17 @@ import {
 } from "@/src/state/hydrationCache";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
+import {
+  getCachedRecoverySupport,
+  getCareModeNotice,
+  getPatientCareMode,
+  setCachedRecoverySupport,
+} from "@/src/state/recoverySupport";
 import { setSelectedCheckin } from "@/src/state/progressSelection";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTrustStatus } from "@/src/state/trustStatus";
 import { useTokens } from "@/src/theme/tokens";
+import type { RecoveryNudge } from "@/src/types/models";
 import { addDaysISO, todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
 import {
@@ -378,8 +386,11 @@ export default function ProgressScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [notice, setNotice] = useState<NoticeState | null>(null);
+  const [recoveryNudge, setRecoveryNudge] = useState<RecoveryNudge | null>(null);
 
   const patientId = auth.patient?.id ?? "";
+  const careMode = getPatientCareMode(auth.patient);
+  const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
   const trustStatus = useTrustStatus({
     patientId,
     errorRecords: [progressLoadLastError],
@@ -678,6 +689,25 @@ export default function ProgressScreen() {
     () => buildProgressStoryCopy(trendItems, rangeDays, filteredItems.length),
     [filteredItems.length, rangeDays, trendItems],
   );
+  const nudgeVariant = useMemo<BannerVariant>(() => {
+    if (!recoveryNudge) {
+      return "info";
+    }
+
+    if (
+      recoveryNudge.kind === "worsening_trend" ||
+      recoveryNudge.kind === "missed_recent_checkins" ||
+      recoveryNudge.kind === "low_exercise_completion"
+    ) {
+      return "warning";
+    }
+
+    if (recoveryNudge.kind === "improving_trend") {
+      return "success";
+    }
+
+    return "info";
+  }, [recoveryNudge]);
 
   const loadProgress = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
@@ -809,6 +839,52 @@ export default function ProgressScreen() {
   }, [auth.status, loadProgress]);
 
   useEffect(() => {
+    let active = true;
+    const token = auth.token;
+
+    if (auth.status !== "signedIn" || !token || !patientId) {
+      setRecoveryNudge(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void (async () => {
+      const today = todayISO();
+
+      if (isOffline) {
+        const cached = await getCachedRecoverySupport(patientId, today);
+        if (active) {
+          setRecoveryNudge(cached?.nudge ?? null);
+        }
+        return;
+      }
+
+      try {
+        const nudge = await getRecoveryNudge(token);
+        if (!active) {
+          return;
+        }
+        setRecoveryNudge(nudge);
+        const cached = await getCachedRecoverySupport(patientId, today);
+        await setCachedRecoverySupport(patientId, today, {
+          adaptation: cached?.adaptation ?? null,
+          nudge,
+        });
+      } catch {
+        const cached = await getCachedRecoverySupport(patientId, today);
+        if (active) {
+          setRecoveryNudge(cached?.nudge ?? null);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [auth.status, auth.token, isOffline, patientId]);
+
+  useEffect(() => {
     if (!__DEV__) {
       return;
     }
@@ -909,6 +985,22 @@ export default function ProgressScreen() {
           </View>
         </Card>
       </HeroHeader>
+
+      {careModeNotice ? (
+        <Banner
+          variant={careMode === "independent" ? "info" : "warning"}
+          title={careModeNotice.title}
+          message={careModeNotice.message}
+        />
+      ) : null}
+
+      {recoveryNudge ? (
+        <Banner
+          variant={nudgeVariant}
+          title={recoveryNudge.title}
+          message={recoveryNudge.message}
+        />
+      ) : null}
 
       {notice ? (
         <Banner

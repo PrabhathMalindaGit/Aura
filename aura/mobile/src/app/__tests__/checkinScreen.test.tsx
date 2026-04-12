@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createCheckin,
+  getCheckinAdaptation,
   routerPush,
   routerReplace,
   scrollToMock,
@@ -12,8 +13,13 @@ const {
   getCheckinDraft,
   setCheckinDraft,
   clearCheckinDraft,
+  getCachedRecoverySupport,
+  setCachedRecoverySupport,
+  canPatientUseCheckin,
+  getCareModeNotice,
 } = vi.hoisted(() => ({
   createCheckin: vi.fn(),
+  getCheckinAdaptation: vi.fn(async (): Promise<any> => null),
   routerPush: vi.fn(),
   routerReplace: vi.fn(),
   scrollToMock: vi.fn(),
@@ -22,6 +28,10 @@ const {
   getCheckinDraft: vi.fn(async () => null),
   setCheckinDraft: vi.fn(async () => undefined),
   clearCheckinDraft: vi.fn(async () => undefined),
+  getCachedRecoverySupport: vi.fn(async () => null),
+  setCachedRecoverySupport: vi.fn(async () => undefined),
+  canPatientUseCheckin: vi.fn(() => true),
+  getCareModeNotice: vi.fn((): any => null),
 }));
 
 vi.mock("expo-router", () => ({
@@ -120,6 +130,11 @@ vi.mock("@/src/components/Card", () => ({
     children?: React.ReactNode;
     [key: string]: unknown;
   }) => React.createElement("mock-card", props, children),
+}));
+
+vi.mock("@/src/components/EmptyState", () => ({
+  EmptyState: (props: Record<string, unknown>) =>
+    React.createElement("mock-empty-state", props),
 }));
 
 vi.mock("@/src/components/HeroHeader", () => ({
@@ -232,6 +247,7 @@ vi.mock("@/src/components/checkin/SymptomChipGroup", () => ({
 
 vi.mock("@/src/api/patient", () => ({
   createCheckin,
+  getCheckinAdaptation,
 }));
 
 vi.mock("@/src/dev/renderAudit", () => ({
@@ -278,6 +294,13 @@ vi.mock("@/src/state/refresh", () => ({
   }),
 }));
 
+vi.mock("@/src/state/recoverySupport", () => ({
+  canPatientUseCheckin,
+  getCachedRecoverySupport,
+  getCareModeNotice,
+  setCachedRecoverySupport,
+}));
+
 vi.mock("@/src/state/trustStatus", () => ({
   useTrustStatus: () => ({ kind: "ok" }),
 }));
@@ -304,6 +327,10 @@ vi.mock("@/src/theme/tokens", () => ({
       weights: { medium: "500", semibold: "600" },
     },
   }),
+}));
+
+vi.mock("@/src/utils/date", () => ({
+  todayISO: vi.fn(() => "2026-04-11"),
 }));
 
 import CheckinScreen from "@/app/(tabs)/checkin";
@@ -335,6 +362,15 @@ describe("Check-in screen validation", () => {
     getCheckinDraft.mockResolvedValue(null);
     setCheckinDraft.mockReset();
     clearCheckinDraft.mockReset();
+    getCheckinAdaptation.mockReset();
+    getCheckinAdaptation.mockResolvedValue(null);
+    getCachedRecoverySupport.mockReset();
+    getCachedRecoverySupport.mockResolvedValue(null);
+    setCachedRecoverySupport.mockReset();
+    canPatientUseCheckin.mockReset();
+    canPatientUseCheckin.mockReturnValue(true);
+    getCareModeNotice.mockReset();
+    getCareModeNotice.mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -416,6 +452,68 @@ describe("Check-in screen validation", () => {
     expect(expandedText).toContain("Confidence in progress");
     expect(expandedText).toContain("Movement and function");
     expect(expandedText).toContain("Medication");
+  });
+
+  it("shows a calm shortened-check-in cue when adaptation is enabled for the day", async () => {
+    getCheckinAdaptation.mockResolvedValue({
+      patientId: "patient-1",
+      date: "2026-04-11",
+      mode: "shortened",
+      reasonCodes: ["stable_recent_recovery"],
+      explanation: "Today's check-in is shorter because recent recovery has been steady.",
+      configVersion: 2,
+      generatedAt: "2026-04-11T07:00:00.000Z",
+      optionalSections: {
+        recovery: false,
+        support: false,
+        dailyContext: false,
+      },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const statusPills = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-status-pill",
+    );
+    const text = renderer!.root
+      .findAll((node) => String(node.type) === "mock-text")
+      .map((node) => node.children.join(" "));
+
+    expect(statusPills.map((node) => node.props.label)).toContain("Shorter today");
+    expect(text).toContain(
+      "Today's check-in is shorter because recent recovery has been steady.",
+    );
+  });
+
+  it("renders a read-only check-in shell when care status blocks active tracking", async () => {
+    canPatientUseCheckin.mockReturnValue(false);
+    getCareModeNotice.mockReturnValue({
+      title: "Care program completed",
+      message:
+        "Your care program has ended. Historical progress stays available here, but routine messaging and check-ins are no longer active.",
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const emptyStates = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-empty-state",
+    );
+    const buttons = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-primary-button",
+    );
+
+    expect(emptyStates[0]?.props.title).toBe("Check-ins are not active right now");
+    expect(emptyStates[0]?.props.description).toContain(
+      "routine messaging and check-ins are no longer active",
+    );
+    expect(buttons.some((node) => node.props.label === "Back to Today")).toBe(true);
   });
 
   it("autosaves a same-day draft and clears it after a successful low-risk submit", async () => {

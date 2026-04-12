@@ -13,6 +13,12 @@ const {
   getCachedInsights,
   getActiveExerciseSession,
   getPending,
+  getRecoveryNudge,
+  getCachedRecoverySupport,
+  setCachedRecoverySupport,
+  canPatientUseCheckin,
+  getPatientCareMode,
+  getCareModeNotice,
 } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   getCachedExercisePlan: vi.fn(async () => ({
@@ -36,6 +42,12 @@ const {
   })),
   getActiveExerciseSession: vi.fn(async () => null),
   getPending: vi.fn(async () => []),
+  getRecoveryNudge: vi.fn(async (): Promise<any> => null),
+  getCachedRecoverySupport: vi.fn(async () => null),
+  setCachedRecoverySupport: vi.fn(async () => undefined),
+  canPatientUseCheckin: vi.fn(() => true),
+  getPatientCareMode: vi.fn(() => "active"),
+  getCareModeNotice: vi.fn((): any => null),
 }));
 
 const reminderItems = [
@@ -100,7 +112,9 @@ vi.mock("expo-router", () => ({
 }));
 
 vi.mock("@react-navigation/native", () => ({
-  useFocusEffect: () => undefined,
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    React.useEffect(() => effect(), []);
+  },
 }));
 
 vi.mock("react-native", () => ({
@@ -133,6 +147,7 @@ vi.mock("@/src/api/tasks", () => ({
 
 vi.mock("@/src/api/patient", () => ({
   getDueProms: vi.fn(async () => []),
+  getRecoveryNudge,
   getWeeklyReport: vi.fn(async () => ({
     summary: {
       headline: "A steady week",
@@ -144,6 +159,10 @@ vi.mock("@/src/api/patient", () => ({
 
 vi.mock("@/src/components/Avatar", () => ({
   Avatar: (props: Record<string, unknown>) => React.createElement("mock-avatar", props),
+}));
+
+vi.mock("@/src/components/Banner", () => ({
+  Banner: (props: Record<string, unknown>) => React.createElement("mock-banner", props),
 }));
 
 vi.mock("@/src/components/Card", () => ({
@@ -240,6 +259,7 @@ vi.mock("@/src/components/TrustCues", () => ({
 
 vi.mock("@/src/state/auth", () => ({
   useAuth: () => ({
+    status: "signedIn",
     token: "token-1",
     patient: {
       id: "patient-1",
@@ -308,6 +328,14 @@ vi.mock("@/src/state/network", () => ({
 
 vi.mock("@/src/state/pendingSessions", () => ({
   getPending,
+}));
+
+vi.mock("@/src/state/recoverySupport", () => ({
+  canPatientUseCheckin,
+  getCachedRecoverySupport,
+  getCareModeNotice,
+  getPatientCareMode,
+  setCachedRecoverySupport,
 }));
 
 vi.mock("@/src/state/trustStatus", () => ({
@@ -395,6 +423,17 @@ describe("Today screen", () => {
     getCachedInsights.mockReset();
     getActiveExerciseSession.mockReset();
     getPending.mockReset();
+    getRecoveryNudge.mockReset();
+    getRecoveryNudge.mockResolvedValue(null);
+    getCachedRecoverySupport.mockReset();
+    getCachedRecoverySupport.mockResolvedValue(null);
+    setCachedRecoverySupport.mockReset();
+    canPatientUseCheckin.mockReset();
+    canPatientUseCheckin.mockReturnValue(true);
+    getPatientCareMode.mockReset();
+    getPatientCareMode.mockReturnValue("active");
+    getCareModeNotice.mockReset();
+    getCareModeNotice.mockReturnValue(null);
     getCachedExercisePlan.mockResolvedValue({
       response: {
         plan: {
@@ -496,6 +535,50 @@ describe("Today screen", () => {
       expect.arrayContaining([
         "Keep completing check-ins and reviewed insights will appear here when they are ready.",
       ]),
+    );
+  });
+
+  it("shows one factual nudge and a calm independent-mode notice when supported", async () => {
+    getPatientCareMode.mockReturnValue("independent");
+    getCareModeNotice.mockReturnValue({
+      title: "Independent recovery mode",
+      message:
+        "Your care program has ended. You can keep tracking recovery here, but routine clinician monitoring is no longer active.",
+    });
+    getRecoveryNudge.mockResolvedValue({
+      patientId: "patient-1",
+      kind: "worsening_trend",
+      title: "Pain has been higher this week",
+      message: "Pain has been higher this week than last week. Use today’s check-in to note what changed.",
+      ruleCode: "worsening_trend",
+      evidenceWindow: "Past 7 days",
+      generatedAt: "2026-04-11T08:00:00.000Z",
+    });
+
+    await act(async () => {
+      renderer = create(<HomeScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const root = renderer!.root;
+    const banners = findHostNodes(root, "mock-banner");
+    const nudgeCards = findHostNodes(root, "mock-tip-card").filter(
+      (node) => node.props.title === "Pain has been higher this week",
+    );
+
+    expect(getRecoveryNudge).toHaveBeenCalledTimes(1);
+    expect(
+      banners.some((node) => node.props.title === "Independent recovery mode"),
+    ).toBe(true);
+    expect(nudgeCards).toHaveLength(1);
+    expect(nudgeCards[0]?.props.text).toBe(
+      "Pain has been higher this week than last week. Use today’s check-in to note what changed.",
     );
   });
 });

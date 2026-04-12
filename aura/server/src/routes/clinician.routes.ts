@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import Alert from "../models/Alert";
 import CareEvent from "../models/CareEvent";
+import CaregiverInvite from "../models/CaregiverInvite";
 import ChatMessage from "../models/ChatMessage";
 import CheckIn from "../models/CheckIn";
 import Patient from "../models/Patient";
@@ -33,6 +34,16 @@ import {
   getPatientThresholdConfig,
   savePatientThresholdConfig,
 } from "../services/patientThresholdService";
+import { getCheckinAdaptationDecision } from "../services/checkinAdaptationService";
+import { buildDischargeSummary } from "../services/dischargeSummaryService";
+import {
+  mapPatientCareStatus,
+} from "../services/patientCareStatusService";
+import {
+  getPatientRecoverySupportConfig,
+  savePatientRecoverySupportConfig,
+} from "../services/patientRecoverySupportService";
+import { getRecoveryNudge } from "../services/progressNudgeService";
 import {
   listAlertSafetyAuditTrail,
   listPatientSafetyEvents,
@@ -94,6 +105,27 @@ const thresholdSchema = z
       });
     }
   });
+const recoverySupportSchema = z.object({
+  checkinMode: z.enum(["standard", "adaptive", "force_full"]),
+  nudgesEnabled: z.boolean(),
+  rationale: z.string().trim().max(280).optional(),
+});
+
+const dischargePatientSchema = z.object({
+  summary: z.string().trim().min(3).max(1000),
+  contactInstructions: z.string().trim().max(500).optional(),
+  independentModeEnabled: z.boolean().optional().default(false),
+  requestedBy: z.string().trim().min(1).max(80).optional(),
+  requestedByName: z.string().trim().min(1).max(80).optional(),
+});
+
+const reactivatePatientSchema = z.object({
+  status: z.enum(["active", "on_hold"]).optional().default("active"),
+  rationale: z.string().trim().max(280).optional(),
+  requestedBy: z.string().trim().min(1).max(80).optional(),
+  requestedByName: z.string().trim().min(1).max(80).optional(),
+});
+
 const listPatientsQuerySchema = z.object({
   status: patientStatusFilterSchema.optional().default("all"),
   clinicianId: z.string().trim().min(1).optional(),
@@ -204,6 +236,7 @@ type PatientProfile = {
   displayName?: string;
   status?: "active" | "on_hold" | "discharged" | "inactive";
   clinicianId?: string;
+  discharge?: unknown;
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -772,13 +805,29 @@ function mapAssignmentCurrent(alert: Record<string, unknown>) {
 }
 
 function mapPatientProfile(patient: PatientProfile) {
+  const careStatus = mapPatientCareStatus(patient, patient.patientId);
   return {
     patientId: toStringOrNull(patient.patientId) ?? "",
     displayName: toStringOrNull(patient.displayName),
-    status: patient.status ?? "active",
-    clinicianId: toStringOrNull(patient.clinicianId),
+    status: careStatus.status,
+    clinicianId: careStatus.clinicianId,
+    discharge: careStatus.discharge,
     createdAt: toIsoDateStringRequired(patient.createdAt),
     updatedAt: toIsoDateStringRequired(patient.updatedAt),
+  };
+}
+
+function mapCaregiverAccessItem(invite: Record<string, unknown>) {
+  return {
+    inviteId: String(invite._id ?? ""),
+    relationship: toStringOrNull(invite.relationship),
+    caregiverName: toStringOrNull(invite.caregiverName),
+    codeHint: toStringOrNull(invite.codeHint),
+    expiresAt: toIsoDateStringOrNull(invite.expiresAt),
+    usedAt: toIsoDateStringOrNull(invite.usedAt),
+    revokedAt: toIsoDateStringOrNull(invite.revokedAt),
+    lastAccessedAt: toIsoDateStringOrNull(invite.lastAccessedAt),
+    createdAt: toIsoDateStringOrNull(invite.createdAt),
   };
 }
 
@@ -1304,6 +1353,345 @@ router.get("/clinician/patients/:patientId/safety-events", async (req, res) => {
       ok: false,
       error: "INTERNAL_ERROR",
     });
+  }
+});
+
+router.get("/clinician/patients/:patientId/recovery-support", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const [recoverySupport, adaptationDecision, recoveryNudge] = await Promise.all([
+      getPatientRecoverySupportConfig(parsedPatientId.patientId),
+      getCheckinAdaptationDecision({ patientId: parsedPatientId.patientId }),
+      getRecoveryNudge(parsedPatientId.patientId),
+    ]);
+    return res.json({
+      ok: true,
+      patientId: parsedPatientId.patientId,
+      recoverySupport,
+      adaptationDecision,
+      recoveryNudge,
+    });
+  } catch (error) {
+    logger.error("Get patient recovery support route failed", {
+      route: "GET /clinician/patients/:patientId/recovery-support",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.put(
+  "/clinician/patients/:patientId/recovery-support",
+  validateBody(recoverySupportSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const actor = resolveClinicianActor(requestWithUser);
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const body = req.body as z.infer<typeof recoverySupportSchema>;
+      const result = await savePatientRecoverySupportConfig({
+        patientId: parsedPatientId.patientId,
+        checkinMode: body.checkinMode,
+        nudgesEnabled: body.nudgesEnabled,
+        rationale: body.rationale,
+        updatedBy: {
+          clinicianId: actor.id,
+          name: requestWithUser.user?.name ?? actor.name,
+        },
+      });
+
+      await CareEvent.create({
+        type: "PATIENT_RECOVERY_SUPPORT_UPDATED",
+        patientId: parsedPatientId.patientId,
+        payload: {
+          previous: result.previous,
+          current: result.current,
+          rationale: body.rationale?.trim() || undefined,
+          updatedBy: actor.id,
+          updatedByName: requestWithUser.user?.name ?? actor.name,
+        },
+      });
+
+      return res.json({
+        ok: true,
+        patientId: parsedPatientId.patientId,
+        recoverySupport: result.current,
+      });
+    } catch (error) {
+      logger.error("Put patient recovery support route failed", {
+        route: "PUT /clinician/patients/:patientId/recovery-support",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({
+        ok: false,
+        error: "INTERNAL_ERROR",
+      });
+    }
+  }
+);
+
+router.get("/clinician/patients/:patientId/caregiver-access", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const items = await CaregiverInvite.find({ patientId: parsedPatientId.patientId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({
+      ok: true,
+      patientId: parsedPatientId.patientId,
+      items: items.map((invite) => mapCaregiverAccessItem(invite as Record<string, unknown>)),
+    });
+  } catch (error) {
+    logger.error("Get patient caregiver access route failed", {
+      route: "GET /clinician/patients/:patientId/caregiver-access",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.post(
+  "/clinician/patients/:patientId/discharge",
+  validateBody(dischargePatientSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const actor = resolveClinicianActor(
+        requestWithUser,
+        (req.body as z.infer<typeof dischargePatientSchema>).requestedBy,
+        (req.body as z.infer<typeof dischargePatientSchema>).requestedByName,
+      );
+      if (!actor) {
+        return res.status(401).json({
+          ok: false,
+          error: "UNAUTHORIZED",
+        });
+      }
+
+      const patient = await Patient.findOne({ patientId: parsedPatientId.patientId });
+      if (!patient) {
+        return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+      }
+
+      const body = req.body as z.infer<typeof dischargePatientSchema>;
+      const now = new Date();
+      patient.status = "discharged";
+      patient.discharge = {
+        ...(patient.discharge ?? {}),
+        dischargedAt: now,
+        dischargedBy: {
+          clinicianId: actor.id,
+          name: requestWithUser.user?.name ?? actor.name,
+        },
+        independentModeEnabled: body.independentModeEnabled === true,
+        summary: body.summary,
+        contactInstructions: body.contactInstructions?.trim() || undefined,
+        reactivatedAt: null,
+        reactivatedBy: undefined,
+      } as typeof patient.discharge;
+      await patient.save();
+
+      await CareEvent.create({
+        type: "PATIENT_DISCHARGED",
+        patientId: parsedPatientId.patientId,
+        payload: {
+          summary: body.summary,
+          contactInstructions: body.contactInstructions?.trim() || undefined,
+          independentModeEnabled: body.independentModeEnabled === true,
+          requestedBy: actor.id,
+          requestedByName: requestWithUser.user?.name ?? actor.name,
+        },
+      });
+
+      return res.json({
+        ok: true,
+        patient: mapPatientProfile(patient.toObject() as unknown as PatientProfile),
+      });
+    } catch (error) {
+      logger.error("Post patient discharge route failed", {
+        route: "POST /clinician/patients/:patientId/discharge",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.post(
+  "/clinician/patients/:patientId/reactivate",
+  validateBody(reactivatePatientSchema),
+  async (req, res) => {
+    try {
+      const parsedPatientId = parsePatientIdParam(req.params.patientId);
+      if (!parsedPatientId.patientId) {
+        return res.status(400).json({
+          ok: false,
+          error: "VALIDATION_ERROR",
+          details: parsedPatientId.details,
+        });
+      }
+
+      const requestWithUser = req as RequestWithUser;
+      const body = req.body as z.infer<typeof reactivatePatientSchema>;
+      const actor = resolveClinicianActor(requestWithUser, body.requestedBy, body.requestedByName);
+      if (!actor) {
+        return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+      }
+
+      const patient = await Patient.findOne({ patientId: parsedPatientId.patientId });
+      if (!patient) {
+        return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+      }
+
+      const now = new Date();
+      patient.status = body.status;
+      patient.discharge = {
+        ...(patient.discharge ?? {}),
+        independentModeEnabled: false,
+        reactivatedAt: now,
+        reactivatedBy: {
+          clinicianId: actor.id,
+          name: requestWithUser.user?.name ?? actor.name,
+        },
+      } as typeof patient.discharge;
+      await patient.save();
+
+      await CareEvent.create({
+        type: "PATIENT_REACTIVATED",
+        patientId: parsedPatientId.patientId,
+        payload: {
+          requestedBy: actor.id,
+          requestedByName: requestWithUser.user?.name ?? actor.name,
+          rationale: body.rationale?.trim() || undefined,
+          status: body.status,
+        },
+      });
+
+      return res.json({
+        ok: true,
+        patient: mapPatientProfile(patient.toObject() as unknown as PatientProfile),
+      });
+    } catch (error) {
+      logger.error("Post patient reactivate route failed", {
+        route: "POST /clinician/patients/:patientId/reactivate",
+        patientId:
+          typeof req.params.patientId === "string" ? req.params.patientId : "",
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+    }
+  }
+);
+
+router.get("/clinician/patients/:patientId/discharge-summary", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const requestWithUser = req as RequestWithUser;
+    const actor = resolveClinicianActor(requestWithUser);
+    if (!actor) {
+      return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    }
+
+    const summary = await buildDischargeSummary(parsedPatientId.patientId);
+    if (!summary) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    await Patient.updateOne(
+      { patientId: parsedPatientId.patientId },
+      {
+        $set: {
+          "discharge.lastExportedAt": new Date(),
+          "discharge.lastExportedBy": {
+            clinicianId: actor.id,
+            name: requestWithUser.user?.name ?? actor.name,
+          },
+        },
+      }
+    );
+
+    await CareEvent.create({
+      type: "DISCHARGE_SUMMARY_EXPORTED",
+      patientId: parsedPatientId.patientId,
+      payload: {
+        requestedBy: actor.id,
+        requestedByName: requestWithUser.user?.name ?? actor.name,
+        generatedAt: summary.generatedAt,
+      },
+    });
+
+    return res.json({ ok: true, patientId: parsedPatientId.patientId, summary });
+  } catch (error) {
+    logger.error("Get patient discharge summary route failed", {
+      route: "GET /clinician/patients/:patientId/discharge-summary",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
   }
 });
 

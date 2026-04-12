@@ -13,6 +13,8 @@ const {
   setPlanError,
   planRefreshState,
   planErrorState,
+  canPatientUsePlan,
+  getCareModeNotice,
   } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   getTodayExercisePlan: vi.fn(),
@@ -33,6 +35,8 @@ const {
     clear: vi.fn(async () => undefined),
     setLocalError: vi.fn(async () => undefined),
   },
+  canPatientUsePlan: vi.fn(() => true),
+  getCareModeNotice: vi.fn((): any => null),
 }));
 
 vi.mock("expo-router", () => ({
@@ -226,6 +230,11 @@ vi.mock("@/src/state/pendingSessions", () => ({
   getPending,
 }));
 
+vi.mock("@/src/state/recoverySupport", () => ({
+  canPatientUsePlan,
+  getCareModeNotice,
+}));
+
 vi.mock("@/src/state/refresh", () => ({
   useLastRefreshed: () => planRefreshState,
 }));
@@ -280,6 +289,10 @@ describe("Exercise plan screen", () => {
     refreshPlan.mockClear();
     clearPlanError.mockClear();
     setPlanError.mockClear();
+    canPatientUsePlan.mockReset();
+    canPatientUsePlan.mockReturnValue(true);
+    getCareModeNotice.mockReset();
+    getCareModeNotice.mockReturnValue(null);
     planRefreshState.refreshLocal = refreshPlan;
     planErrorState.clear = clearPlanError;
     planErrorState.setLocalError = setPlanError;
@@ -373,5 +386,51 @@ describe("Exercise plan screen", () => {
     expect(primaryCard).toBeTruthy();
     expect(primaryCard?.props.actions?.[0]?.label).toBe("Open session");
     expect(statusPills.some((node) => node.props.label === "In progress")).toBe(true);
+  });
+
+  it("keeps the plan readable but non-startable after discharge", async () => {
+    canPatientUsePlan.mockReturnValue(false);
+    getCareModeNotice.mockReturnValue({
+      title: "Care program completed",
+      message:
+        "Your care program has ended. Historical progress stays available here, but routine messaging and check-ins are no longer active.",
+    });
+    getTodayExercisePlan.mockResolvedValue({
+      ok: true,
+      patientId: "patient-1",
+      date: "2026-04-11",
+      dayOfWeek: 6,
+      plan: {
+        title: "Knee recovery",
+        daysOfWeek: [1, 3, 5],
+        items: [
+          {
+            key: "heel-slides",
+            name: "Heel slides",
+            instructions: "Slide your heel in and out.",
+            order: 1,
+          },
+        ],
+        version: 2,
+        updatedAt: "2026-04-10T09:00:00.000Z",
+      },
+    });
+
+    await act(async () => {
+      renderer = create(<ExercisePlanScreen />);
+      await flush();
+    });
+
+    const root = renderer!.root;
+    const banners = findHostNodes(root, "mock-banner");
+    const primaryCard = findHostNodes(root, "mock-media-card").find(
+      (node) => node.props.title === "Start with Heel slides",
+    );
+
+    expect(
+      banners.some((node) => node.props.title === "Care program completed"),
+    ).toBe(true);
+    expect(primaryCard?.props.actions?.[0]?.label).toBe("View plan");
+    expect(primaryCard?.props.actions?.[0]?.kind).toBe("secondary");
   });
 });

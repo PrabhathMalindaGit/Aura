@@ -59,6 +59,7 @@ export default function CaregiverLoginScreen() {
   const caregiverLoginError = useLastError("caregiverLogin");
 
   const [inviteCode, setInviteCode] = useState("");
+  const [caregiverName, setCaregiverName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
@@ -85,7 +86,7 @@ export default function CaregiverLoginScreen() {
     setInlineError(null);
     setIsSubmitting(true);
     try {
-      await caregiverSession.signIn(trimmed);
+      await caregiverSession.signIn(trimmed, caregiverName.trim() || undefined);
       await caregiverLoginError.clear();
       router.replace("/caregiver-home" as Href);
     } catch (error) {
@@ -192,6 +193,12 @@ export default function CaregiverLoginScreen() {
               onChangeText={setInviteCode}
               placeholder="CG-XXXX-XXXX"
               autoCapitalize="characters"
+            />
+            <TextField
+              label="Your name"
+              value={caregiverName}
+              onChangeText={setCaregiverName}
+              placeholder="How should this appear to the patient?"
             />
           </View>
 

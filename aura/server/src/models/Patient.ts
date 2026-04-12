@@ -95,7 +95,6 @@ const rehabSchema = new Schema(
             orders.add(order);
           }
 
-          // Phases use zero-based ordering.
           return orders.has(0);
         },
         message:
@@ -124,6 +123,67 @@ const rehabSchema = new Schema(
     },
     updatedBy: {
       type: rehabUpdatedBySchema,
+      default: undefined,
+    },
+  },
+  { _id: false }
+);
+
+const dischargeActorSchema = new Schema(
+  {
+    clinicianId: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+    name: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+    },
+  },
+  { _id: false }
+);
+
+const dischargeSchema = new Schema(
+  {
+    dischargedAt: {
+      type: Date,
+      default: null,
+    },
+    dischargedBy: {
+      type: dischargeActorSchema,
+      default: undefined,
+    },
+    independentModeEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    summary: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+    contactInstructions: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
+    reactivatedAt: {
+      type: Date,
+      default: null,
+    },
+    reactivatedBy: {
+      type: dischargeActorSchema,
+      default: undefined,
+    },
+    lastExportedAt: {
+      type: Date,
+      default: null,
+    },
+    lastExportedBy: {
+      type: dischargeActorSchema,
       default: undefined,
     },
   },
@@ -160,6 +220,10 @@ const patientSchema = new Schema(
     },
     rehab: {
       type: rehabSchema,
+      default: undefined,
+    },
+    discharge: {
+      type: dischargeSchema,
       default: undefined,
     },
   },

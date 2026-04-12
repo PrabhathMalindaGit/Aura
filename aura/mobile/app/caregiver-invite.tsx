@@ -25,6 +25,7 @@ import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
 import { Screen } from "@/src/components/Screen";
 import { StatusPill } from "@/src/components/StatusPill";
+import { TextField } from "@/src/components/TextField";
 import { useAuth } from "@/src/state/auth";
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
@@ -121,6 +122,8 @@ export default function CaregiverInviteScreen() {
   const [invites, setInvites] = useState<CaregiverInviteItem[]>([]);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [generatedExpiresAt, setGeneratedExpiresAt] = useState<string | null>(null);
+  const [generatedRelationship, setGeneratedRelationship] = useState<string | null>(null);
+  const [relationship, setRelationship] = useState("");
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
 
@@ -193,14 +196,20 @@ export default function CaregiverInviteScreen() {
     setIsSubmitting(true);
     setNotice(null);
     try {
-      const created = await createCaregiverInvite(auth.token, 24);
+      const created = await createCaregiverInvite(
+        auth.token,
+        24,
+        relationship.trim() || undefined,
+      );
       setGeneratedCode(created.code);
       setGeneratedExpiresAt(created.expiresAt);
+      setGeneratedRelationship(created.relationship ?? (relationship.trim() || null));
       setNotice({
         variant: "info",
         title: "Invite created",
         message: "Share this code securely. It is shown only once.",
       });
+      setRelationship("");
       await loadInvites();
     } catch (error) {
       const friendly = toFriendlyError(error, "Couldn’t create invite");
@@ -320,18 +329,37 @@ export default function CaregiverInviteScreen() {
             leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
             title={`•••• ${item.codeHint}`}
             subtitle={
-              item.usedAt
-                ? `Used ${formatISOToHuman(item.usedAt)}`
-                : `Expires ${formatISOToHuman(item.expiresAt)}`
+              item.relationship
+                ? `${item.relationship} · ${
+                    item.usedAt
+                      ? `Used ${formatISOToHuman(item.usedAt)}`
+                      : `Expires ${formatISOToHuman(item.expiresAt)}`
+                  }`
+                : item.usedAt
+                  ? `Used ${formatISOToHuman(item.usedAt)}`
+                  : `Expires ${formatISOToHuman(item.expiresAt)}`
             }
             statusPill={{
               text: item.usedAt ? "Used" : "Active",
               tone: item.usedAt ? "neutral" : "success",
             }}
             chips={
-              item.usedAt
-                ? [{ text: "Read-only access ended", tone: "muted" }]
-                : [{ text: "Read-only caregiver view", tone: "muted" }]
+              [
+                item.usedAt
+                  ? { text: "Read-only access ended", tone: "muted" as const }
+                  : { text: "Read-only caregiver view", tone: "muted" as const },
+                ...(item.caregiverName
+                  ? [{ text: item.caregiverName, tone: "muted" as const }]
+                  : []),
+                ...(item.lastAccessedAt
+                  ? [
+                      {
+                        text: `Last used ${formatISOToHuman(item.lastAccessedAt)}`,
+                        tone: "muted" as const,
+                      },
+                    ]
+                  : []),
+              ]
             }
             actions={[
               {
@@ -392,6 +420,19 @@ export default function CaregiverInviteScreen() {
               </Text>
             </View>
 
+            <View style={styles.formCard}>
+              <Text style={styles.formTitle}>Invite details</Text>
+              <Text style={styles.subtitle}>
+                Add an optional relationship label so active access stays easy to recognize later.
+              </Text>
+              <TextField
+                label="Relationship"
+                value={relationship}
+                onChangeText={setRelationship}
+                placeholder="Partner, parent, sibling, friend"
+              />
+            </View>
+
             <MediaCard
               variant="emphasis"
               leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
@@ -428,6 +469,9 @@ export default function CaregiverInviteScreen() {
                 <Text style={styles.generatedMeta}>
                   Expires: {generatedExpiresAt ? formatISOToHuman(generatedExpiresAt) : "—"}
                 </Text>
+                {generatedRelationship ? (
+                  <Text style={styles.generatedMeta}>Relationship: {generatedRelationship}</Text>
+                ) : null}
               </View>
             ) : null}
 
@@ -512,6 +556,25 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     sectionHelper: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    formCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    formTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    subtitle: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,

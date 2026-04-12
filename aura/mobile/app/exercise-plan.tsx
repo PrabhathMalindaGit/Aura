@@ -38,6 +38,7 @@ import {
 import { useLastError } from "@/src/state/lastError";
 import { useIsOffline } from "@/src/state/network";
 import { getPending, type PendingExerciseSession } from "@/src/state/pendingSessions";
+import { canPatientUsePlan, getCareModeNotice } from "@/src/state/recoverySupport";
 import { useLastRefreshed } from "@/src/state/refresh";
 import { useTokens } from "@/src/theme/tokens";
 import { formatISOToHuman } from "@/src/utils/date";
@@ -191,6 +192,8 @@ export default function ExercisePlanScreen() {
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const exercisePlanRefresh = useLastRefreshed("exercisePlan");
   const exercisePlanError = useLastError("exercisePlanLoad");
+  const planAvailable = canPatientUsePlan(auth.patient);
+  const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
 
   const patientId = auth.patient?.id ?? "";
   const [response, setResponse] = useState<TodayPlanResponse | null>(null);
@@ -426,6 +429,14 @@ export default function ExercisePlanScreen() {
           />
         ) : null}
 
+        {careModeNotice ? (
+          <Banner
+            variant="info"
+            title={careModeNotice.title}
+            message={careModeNotice.message}
+          />
+        ) : null}
+
         <Card variant="outlined" padding={tokens.spacing.md} style={styles.storyCard}>
           <Text style={styles.storyEyebrow}>Rehab plan</Text>
           <Text style={styles.storyTitle}>{planUiState.title}</Text>
@@ -546,7 +557,9 @@ export default function ExercisePlanScreen() {
           actions={[
             {
               label:
-                planUiState.kind === "no_plan_yet"
+                !planAvailable
+                  ? "View plan"
+                  : planUiState.kind === "no_plan_yet"
                   ? "View sessions"
                   : planUiState.kind === "complete"
                     ? "View sessions"
@@ -554,12 +567,17 @@ export default function ExercisePlanScreen() {
                       ? "Open plan"
                       : planUiState.primaryActionLabel,
               kind:
-                planUiState.kind === "assigned" && !planUiState.restDay
+                planAvailable && planUiState.kind === "assigned" && !planUiState.restDay
                   ? "primary"
-                  : planUiState.kind === "in_progress"
+                  : planAvailable && planUiState.kind === "in_progress"
                     ? "primary"
                     : "secondary",
               onPress: () => {
+                if (!planAvailable) {
+                  router.push("/exercise-sessions");
+                  return;
+                }
+
                 if (planUiState.kind === "assigned" && !planUiState.restDay) {
                   router.push("/exercise-session");
                   return;
@@ -599,6 +617,7 @@ export default function ExercisePlanScreen() {
       </View>
     );
   }, [
+    careModeNotice,
     dayLabel,
     estimatedMinutes,
     exercisePlanError.clear,
@@ -612,6 +631,7 @@ export default function ExercisePlanScreen() {
     items.length,
     notice,
     planUiState,
+    planAvailable,
     plan,
     response?.date,
     router,

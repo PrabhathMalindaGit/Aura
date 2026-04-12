@@ -3,6 +3,7 @@ import {
   Alert,
   Linking,
   Pressable,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -41,6 +42,7 @@ import { resetAllUsage } from "@/src/state/copingUsage";
 import { clearAllLastErrors, useLastError } from "@/src/state/lastError";
 import { useNetwork } from "@/src/state/network";
 import { clearPending } from "@/src/state/pendingSessions";
+import { getCareModeNotice, getPatientCareMode } from "@/src/state/recoverySupport";
 import { getReminderPrefs, setReminderPrefs } from "@/src/state/reminderPrefs";
 import { clearAllLastRefreshed } from "@/src/state/refresh";
 import { useReducedMotion } from "@/src/state/useReducedMotion";
@@ -226,6 +228,8 @@ export default function SettingsScreen() {
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
   const rehabPhaseLabel = useMemo(() => getRehabPhaseLabel(auth.patient), [auth.patient]);
   const caregiverInfo = useMemo(() => getCaregiverLabel(auth.patient), [auth.patient]);
+  const careMode = getPatientCareMode(auth.patient);
+  const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
   const connectionLabel = network.isOffline ? "Offline" : "Connected";
 
   const timePreview = useMemo(() => {
@@ -335,6 +339,33 @@ export default function SettingsScreen() {
         variant: "warning",
         title: "Settings unavailable",
         message: "Open your device settings and enable notifications for Aura.",
+      });
+    }
+  };
+
+  const shareCareSummary = async () => {
+    if (!careModeNotice) {
+      return;
+    }
+
+    const summaryLines = [
+      patientName,
+      careModeNotice.title,
+      careModeNotice.message,
+      auth.patient?.discharge?.summary,
+      auth.patient?.discharge?.contactInstructions,
+      rehabPhaseLabel !== "Rehab program not set" ? `Recovery program: ${rehabPhaseLabel}` : null,
+    ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+
+    try {
+      await Share.share({
+        message: summaryLines.join("\n\n"),
+      });
+    } catch {
+      setReminderNotice({
+        variant: "warning",
+        title: "Couldn’t open sharing",
+        message: "Please try again in a moment.",
       });
     }
   };
@@ -661,6 +692,14 @@ export default function SettingsScreen() {
       }
     >
       <View testID="settings-shell" style={styles.shell}>
+        {careModeNotice ? (
+          <Banner
+            variant={careMode === "independent" ? "info" : "warning"}
+            title={careModeNotice.title}
+            message={careModeNotice.message}
+          />
+        ) : null}
+
         <Section title="Account" subtitle="Who is using Aura on this device.">
           <SettingsGroup testID="settings-group-account">
             <SettingsItem
@@ -916,6 +955,22 @@ export default function SettingsScreen() {
               }
               accessory="none"
             />
+            {careModeNotice ? (
+              <SettingsItem
+                title="Share care summary"
+                subtitle="Open your device share sheet with a calm summary of your current care status."
+                leading={
+                  <DomainIcon
+                    icon="weekly"
+                    tone="muted"
+                    accessibilityLabel="Share care summary icon"
+                  />
+                }
+                onPress={() => {
+                  void shareCareSummary();
+                }}
+              />
+            ) : null}
             <SettingsItem
               title="Version"
               subtitle="Mobile preview"

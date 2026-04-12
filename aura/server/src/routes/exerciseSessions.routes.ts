@@ -4,6 +4,10 @@ import { z } from "zod";
 import { requirePatientAuth } from "../middleware/patientAuth";
 import { validateBody } from "../middleware/validate";
 import ExerciseSession from "../models/ExerciseSession";
+import {
+  getExerciseAccessGate,
+  getPatientCareStatus,
+} from "../services/patientCareStatusService";
 import type { RequestWithUser } from "../types/auth";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { isObjectId } from "../utils/ids";
@@ -210,6 +214,15 @@ router.post(
     }
 
     try {
+      const careStatus = await getPatientCareStatus(patientId);
+      const accessGate = getExerciseAccessGate(careStatus);
+      if (!accessGate.allowed) {
+        return res.status(403).json({
+          ok: false,
+          error: "FORBIDDEN",
+          message: accessGate.message,
+        });
+      }
       const body = req.body as z.infer<typeof createSessionSchema>;
       const startedAt = parseIsoDate(body.startedAt);
       const endedAt = parseIsoDate(body.endedAt);

@@ -35,8 +35,15 @@ import {
   savePatientThresholdConfig,
 } from "../services/patientThresholdService";
 import { getCheckinAdaptationDecision } from "../services/checkinAdaptationService";
+import { buildDischargeExportDocument } from "../services/dischargeExportService";
+import {
+  createDischargeSummaryPdfFilename,
+  renderDischargeSummaryPdf,
+} from "../services/dischargePdfService";
 import { buildDischargeSummary } from "../services/dischargeSummaryService";
 import {
+  getPatientCareStatus,
+  getPatientDischargeCareState,
   mapPatientCareStatus,
 } from "../services/patientCareStatusService";
 import {
@@ -1668,19 +1675,85 @@ router.get("/clinician/patients/:patientId/discharge-summary", async (req, res) 
       return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
     }
 
+    const patientExists = await Patient.exists({ patientId: parsedPatientId.patientId });
+    if (!patientExists) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    const careStatus = await getPatientCareStatus(parsedPatientId.patientId);
+    const careState = getPatientDischargeCareState(careStatus);
+    if (!careState) {
+      return res.status(409).json({
+        ok: false,
+        error: "INVALID_CARE_STATE",
+        status: careStatus.status,
+      });
+    }
+
     const summary = await buildDischargeSummary(parsedPatientId.patientId);
     if (!summary) {
       return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
 
+    return res.json({ ok: true, patientId: parsedPatientId.patientId, summary });
+  } catch (error) {
+    logger.error("Get patient discharge summary route failed", {
+      route: "GET /clinician/patients/:patientId/discharge-summary",
+      patientId:
+        typeof req.params.patientId === "string" ? req.params.patientId : "",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ ok: false, error: "INTERNAL_ERROR" });
+  }
+});
+
+router.get("/clinician/patients/:patientId/discharge-summary/pdf", async (req, res) => {
+  try {
+    const parsedPatientId = parsePatientIdParam(req.params.patientId);
+    if (!parsedPatientId.patientId) {
+      return res.status(400).json({
+        ok: false,
+        error: "VALIDATION_ERROR",
+        details: parsedPatientId.details,
+      });
+    }
+
+    const requestWithUser = req as RequestWithUser;
+    const actor = resolveClinicianActor(requestWithUser);
+    if (!actor) {
+      return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    }
+
+    const exportResult = await buildDischargeExportDocument(parsedPatientId.patientId);
+    if (exportResult.ok === false) {
+      if (exportResult.error === "NOT_FOUND") {
+        return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+      }
+
+      return res.status(409).json({
+        ok: false,
+        error: exportResult.error,
+        status: exportResult.status,
+      });
+    }
+
+    const pdfBuffer = await renderDischargeSummaryPdf(exportResult.document);
+    const actorName = requestWithUser.user?.name ?? actor.name;
+    const exportedAt = new Date(exportResult.document.generatedAt);
+    const auditTimestamp = Number.isFinite(exportedAt.getTime()) ? exportedAt : new Date();
+    const filename = createDischargeSummaryPdfFilename(
+      exportResult.document.patientId,
+      exportResult.document.generatedAt
+    );
+
     await Patient.updateOne(
       { patientId: parsedPatientId.patientId },
       {
         $set: {
-          "discharge.lastExportedAt": new Date(),
+          "discharge.lastExportedAt": auditTimestamp,
           "discharge.lastExportedBy": {
             clinicianId: actor.id,
-            name: requestWithUser.user?.name ?? actor.name,
+            name: actorName,
           },
         },
       }
@@ -1691,15 +1764,23 @@ router.get("/clinician/patients/:patientId/discharge-summary", async (req, res) 
       patientId: parsedPatientId.patientId,
       payload: {
         requestedBy: actor.id,
-        requestedByName: requestWithUser.user?.name ?? actor.name,
-        generatedAt: summary.generatedAt,
+        requestedByName: actorName,
+        generatedAt: exportResult.document.generatedAt,
+        format: "pdf",
+        surface: "clinician_dashboard",
+        filename,
       },
     });
 
-    return res.json({ ok: true, patientId: parsedPatientId.patientId, summary });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", String(pdfBuffer.length));
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.status(200).send(pdfBuffer);
   } catch (error) {
-    logger.error("Get patient discharge summary route failed", {
-      route: "GET /clinician/patients/:patientId/discharge-summary",
+    logger.error("Get patient discharge summary pdf route failed", {
+      route: "GET /clinician/patients/:patientId/discharge-summary/pdf",
       patientId:
         typeof req.params.patientId === "string" ? req.params.patientId : "",
       message: error instanceof Error ? error.message : String(error),

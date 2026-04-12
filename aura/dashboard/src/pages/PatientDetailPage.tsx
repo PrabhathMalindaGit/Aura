@@ -35,6 +35,7 @@ import {
   assignPromToPatient,
   completeClinicianTask,
   fetchPhotoBlob,
+  fetchDischargeSummaryPdf,
   dischargePatient,
   generatePatientInsights,
   getDashboardCommunicationOverview,
@@ -102,7 +103,7 @@ import type {
   TrendPointRaw,
   WorklistRecord,
 } from '../types/models';
-import { toCsv, downloadCsv } from '../utils/csv';
+import { toCsv, downloadBlob, downloadCsv } from '../utils/csv';
 import {
   getPresetDateRange,
   type DateRangeValue,
@@ -820,6 +821,24 @@ export function PatientDetailPage(): JSX.Element {
         patientWorklistQuery.refetch(),
         patientCommunicationQuery.refetch(),
       ]);
+    },
+    onError: (error) => {
+      setOperationsNotice(null);
+      setOperationsError(toUserMessage(asAppError(error)));
+    },
+  });
+  const downloadDischargeSummaryPdfMutation = useMutation({
+    mutationFn: () => fetchDischargeSummaryPdf(patientId ?? ''),
+    onSuccess: ({ blob, filename }) => {
+      const downloaded = downloadBlob(filename, blob);
+      if (!downloaded) {
+        setOperationsNotice(null);
+        setOperationsError('Discharge summary downloads are only available in the browser.');
+        return;
+      }
+
+      setOperationsError(null);
+      setOperationsNotice('Discharge summary PDF downloaded.');
     },
     onError: (error) => {
       setOperationsNotice(null);
@@ -1753,6 +1772,7 @@ export function PatientDetailPage(): JSX.Element {
     patientAlertsQuery,
     patientAppointmentsQuery,
     patientCommunicationQuery,
+    patientDischargeSummaryQuery,
     patientHydrationQuery,
     patientInsightsQuery,
     patientMedicationAdherenceQuery,
@@ -1760,6 +1780,7 @@ export function PatientDetailPage(): JSX.Element {
     patientPlanQuery,
     patientPhotosQuery,
     patientPromsQuery,
+    patientRecoverySupportQuery,
     patientRecentCheckinsQuery,
     patientRehabQuery,
     patientSessionsQuery,
@@ -1769,7 +1790,9 @@ export function PatientDetailPage(): JSX.Element {
     patientWearablesDailyQuery,
     patientWearablesSummaryQuery,
     patientWorklistQuery,
+    patientCaregiverAccessQuery,
     patientsQuery,
+    shouldLoadDischargeSummary,
     shouldLoadGuidanceBucket,
     shouldLoadHistoryReferenceBucket,
     shouldLoadOperationalBucket,
@@ -3470,6 +3493,18 @@ export function PatientDetailPage(): JSX.Element {
                   action={
                     patientStatus === 'discharged' || patientStatus === 'inactive' ? (
                       <div className="patient-detail-actions">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            void downloadDischargeSummaryPdfMutation.mutateAsync();
+                          }}
+                          disabled={
+                            !patientDischargeSummary || downloadDischargeSummaryPdfMutation.isPending
+                          }
+                        >
+                          {downloadDischargeSummaryPdfMutation.isPending ? 'Preparing PDF…' : 'Download PDF'}
+                        </Button>
                         <Button
                           size="sm"
                           variant="secondary"

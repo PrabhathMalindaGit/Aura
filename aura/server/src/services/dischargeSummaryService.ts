@@ -1,7 +1,10 @@
 import CheckIn from "../models/CheckIn";
 import ExercisePlan from "../models/ExercisePlan";
 import Patient from "../models/Patient";
-import { getPatientCareStatus } from "./patientCareStatusService";
+import {
+  getPatientCareStatus,
+  getPatientDischargeCareState,
+} from "./patientCareStatusService";
 import { generateWeeklyReport } from "./weeklyReportService";
 
 export type DischargeSummary = {
@@ -62,6 +65,11 @@ export async function buildDischargeSummary(patientIdInput: string): Promise<Dis
     return null;
   }
 
+  const dischargeCareState = getPatientDischargeCareState(careStatus);
+  if (!dischargeCareState) {
+    return null;
+  }
+
   const painValues = recentCheckins
     .map((item) => (typeof item.pain === "number" ? item.pain : null))
     .filter((item): item is number => item !== null);
@@ -87,7 +95,7 @@ export async function buildDischargeSummary(patientIdInput: string): Promise<Dis
       typeof patient.displayName === "string" && patient.displayName.trim().length > 0
         ? patient.displayName
         : patientId,
-    status: careStatus.status === "inactive" ? "inactive" : "discharged",
+    status: dischargeCareState === "inactive" ? "inactive" : "discharged",
     dischargedAt: careStatus.discharge?.dischargedAt,
     independentModeEnabled: careStatus.discharge?.independentModeEnabled === true,
     summary: careStatus.discharge?.summary,

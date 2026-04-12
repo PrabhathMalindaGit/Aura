@@ -1,6 +1,7 @@
 import Patient from "../models/Patient";
 
 export type PatientStatusValue = "active" | "on_hold" | "discharged" | "inactive";
+export type PatientDischargeCareState = "discharged" | "independent_mode" | "inactive";
 
 export type PatientActorSnapshot = {
   clinicianId: string;
@@ -133,6 +134,26 @@ export function isIndependentModeEnabled(
   patient: PatientCareStatusSnapshot | null | undefined
 ): boolean {
   return patient?.status === "discharged" && patient.discharge?.independentModeEnabled === true;
+}
+
+export function getPatientDischargeCareState(
+  patient: PatientCareStatusSnapshot | null | undefined
+): PatientDischargeCareState | null {
+  if (!patient) {
+    return null;
+  }
+
+  if (patient.status === "inactive") {
+    return "inactive";
+  }
+
+  if (patient.status !== "discharged") {
+    return null;
+  }
+
+  return patient.discharge?.independentModeEnabled === true
+    ? "independent_mode"
+    : "discharged";
 }
 
 export function getCheckinAccessGate(

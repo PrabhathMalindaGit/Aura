@@ -53,11 +53,15 @@ export function toCsv<Row>(
 }
 
 export function downloadCsv(filename: string, csvString: string): boolean {
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8' });
+  return downloadBlob(filename, blob);
+}
+
+export function downloadBlob(filename: string, blob: Blob): boolean {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return false;
   }
 
-  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
 

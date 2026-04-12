@@ -892,6 +892,61 @@ export async function fetchPhotoBlob(photoId: string): Promise<Blob> {
   }
 }
 
+function parseContentDispositionFilename(headerValue: string | null): string | null {
+  if (!headerValue) {
+    return null;
+  }
+
+  const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const plainMatch = headerValue.match(/filename="?([^"]+)"?/i);
+  return plainMatch?.[1]?.trim() || null;
+}
+
+export async function fetchDischargeSummaryPdf(
+  patientId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const token = getStoredClinicianToken();
+  const headers = new Headers();
+  headers.set('Accept', 'application/pdf');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/clinician/patients/${encodeURIComponent(patientId)}/discharge-summary/pdf`,
+      {
+        method: 'GET',
+        headers,
+      },
+    );
+    if (!response.ok) {
+      throw createAppError('HTTP', 'Could not download the discharge summary PDF.', {
+        status: response.status,
+      });
+    }
+
+    const filename =
+      parseContentDispositionFilename(response.headers.get('content-disposition')) ??
+      `Aura_Discharge_Summary_${patientId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+    return {
+      blob: await response.blob(),
+      filename,
+    };
+  } catch (error) {
+    throw asAppError(error);
+  }
+}
+
 export async function listInsightsQueue(
   status: InsightStatus = 'pending',
   limit: number = 50,

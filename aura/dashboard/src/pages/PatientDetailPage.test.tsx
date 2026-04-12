@@ -19,6 +19,7 @@ import type {
   ClinicianCoordinationRecord,
   ClinicianTaskItem,
   DashboardCommunicationOverviewItem,
+  DischargeSummary,
   WorklistRecord,
 } from '../types/models';
 import { formatDashboardDateTime } from '../utils/dashboard';
@@ -119,6 +120,27 @@ const baseWorklistItem: WorklistRecord = {
   reviewReason: 'Safety review, missed check-ins, and patient communication all need follow-up.',
   priorityScore: 92,
   updatedAt: `${TODAY_KEY}T11:00:00.000Z`,
+};
+
+const baseDischargeSummary: DischargeSummary = {
+  patientId,
+  patientName: 'Taylor Moss',
+  status: 'discharged',
+  dischargedAt: `${TODAY_KEY}T10:00:00.000Z`,
+  independentModeEnabled: true,
+  summary: 'Recovery goals were met and routine clinician monitoring has ended.',
+  recentTrendSummary: 'Recent recovery signals have remained broadly stable.',
+  weeklyHeadline: 'Recovery remained steady this week.',
+  planStatus: 'Plan version 3',
+  nextSteps: [
+    'Use Today and Progress to continue self-tracking.',
+    'Contact your clinic directly if your recovery changes or you need new care.',
+  ],
+  safetyInstructions: [
+    'Contact your clinic directly if pain increases or function drops.',
+    'Independent tracking does not mean your care team is monitoring new entries in real time.',
+  ],
+  generatedAt: `${TODAY_KEY}T11:30:00.000Z`,
 };
 
 function createSharedCoordinationRecord(
@@ -391,6 +413,9 @@ interface FetchMockOptions {
   tasks?: ClinicianTaskItem[];
   appointments?: AppointmentRequestItem[];
   worklistItems?: WorklistRecord[];
+  patientStatus?: WorklistRecord['patientStatus'];
+  dischargeSummary?: Partial<DischargeSummary> | null;
+  dischargePdfFilename?: string;
   coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
   coordinationGetStatus?: number;
   coordinationPutStatus?: number;
@@ -412,6 +437,17 @@ function installFetchMock(options: FetchMockOptions = {}) {
   const communicationItems = options.communicationItems ?? [baseCommunicationItem];
   const appointmentItems = options.appointments ?? [baseAppointmentRequest];
   const worklistItems = options.worklistItems ?? [baseWorklistItem];
+  const patientStatus = options.patientStatus ?? 'active';
+  const dischargeSummary =
+    options.dischargeSummary === null
+      ? null
+      : {
+          ...baseDischargeSummary,
+          status: patientStatus === 'inactive' ? 'inactive' : baseDischargeSummary.status,
+          ...(options.dischargeSummary ?? {}),
+        };
+  const dischargePdfFilename =
+    options.dischargePdfFilename ?? `Aura_Discharge_Summary_${patientId}_${TODAY_KEY}.pdf`;
   const coordinationState = new Map(
     Object.entries(options.coordinationByPatient ?? {}),
   );
@@ -612,10 +648,52 @@ function installFetchMock(options: FetchMockOptions = {}) {
           {
             id: patientId,
             displayName: 'Taylor Moss',
-            status: 'active',
+            status: patientStatus,
           },
         ],
       });
+    }
+
+    if (method === 'POST' && url.includes(`/clinician/patients/${patientId}/reactivate`)) {
+      return createJsonResponse({
+        ok: true,
+        patient: {
+          patientId,
+          displayName: 'Taylor Moss',
+          status: 'active',
+        },
+      });
+    }
+
+    if (method === 'POST' && url.includes(`/clinician/patients/${patientId}/discharge`)) {
+      return createJsonResponse({
+        ok: true,
+        patient: {
+          patientId,
+          displayName: 'Taylor Moss',
+          status: 'discharged',
+        },
+      });
+    }
+
+    if (url.includes(`/clinician/patients/${patientId}/discharge-summary/pdf`)) {
+      return new Response('pdf-bytes', {
+        status: 200,
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': `attachment; filename="${dischargePdfFilename}"`,
+        },
+      });
+    }
+
+    if (url.includes(`/clinician/patients/${patientId}/discharge-summary`)) {
+      return dischargeSummary
+        ? createJsonResponse({
+            ok: true,
+            patientId,
+            summary: dischargeSummary,
+          })
+        : createJsonResponse({ ok: false, error: 'NOT_FOUND' }, 404);
     }
 
     if (url.includes('/coordination/current-handoff')) {
@@ -865,6 +943,86 @@ describe('PatientDetailPage', () => {
     expect(screen.getByText('Missing route context')).toBeInTheDocument();
     expect(screen.getByText('Patient not found')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back to patients' })).toBeInTheDocument();
+  });
+
+  it('shows the PDF download action for discharged patients and preserves print/reactivation actions', async () => {
+    const fetchMock = installFetchMock({ patientStatus: 'discharged' });
+    const user = userEvent.setup();
+    const createObjectUrlSpy = vi.fn(() => 'blob:discharge-pdf');
+    const revokeObjectUrlSpy = vi.fn();
+    const printSpy = vi.fn();
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+
+    Object.defineProperty(window.URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: createObjectUrlSpy,
+    });
+    Object.defineProperty(window.URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: revokeObjectUrlSpy,
+    });
+    Object.defineProperty(window, 'print', {
+      configurable: true,
+      writable: true,
+      value: printSpy,
+    });
+
+    renderPatientDetail();
+
+    const downloadButton = await screen.findByRole('button', { name: 'Download PDF' });
+    const printButton = screen.getByRole('button', { name: 'Print summary' });
+    const reactivateButton = screen.getByRole('button', { name: 'Reactivate' });
+
+    await user.click(downloadButton);
+
+    await waitFor(() => {
+      expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
+    });
+    expect(fetchMock.mock.calls.some((call) =>
+      String(call[0]).includes(`/clinician/patients/${patientId}/discharge-summary/pdf`),
+    )).toBe(true);
+    expect(clickSpy).toHaveBeenCalled();
+
+    await user.click(printButton);
+    expect(printSpy).toHaveBeenCalledTimes(1);
+
+    await user.click(reactivateButton);
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some((call) =>
+        String(call[0]).includes(`/clinician/patients/${patientId}/reactivate`) &&
+        (((call[1] as RequestInit | undefined)?.method ?? 'GET') === 'POST'),
+      )).toBe(true);
+    });
+  });
+
+  it('shows the PDF download action for inactive patients', async () => {
+    installFetchMock({
+      patientStatus: 'inactive',
+      dischargeSummary: {
+        status: 'inactive',
+        independentModeEnabled: false,
+      },
+    });
+
+    renderPatientDetail();
+
+    expect(await screen.findByRole('button', { name: 'Download PDF' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Print summary' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
+  });
+
+  it('keeps the PDF download action hidden for active patients', async () => {
+    installFetchMock({ patientStatus: 'active' });
+
+    renderPatientDetail();
+
+    expect(await screen.findByRole('button', { name: 'Discharge patient' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Download PDF' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Print summary' })).not.toBeInTheDocument();
   });
 
   it('renders the new cockpit overview first, then opens the communications workspace on demand', async () => {

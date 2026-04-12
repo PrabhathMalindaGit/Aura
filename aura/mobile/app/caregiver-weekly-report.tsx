@@ -1,5 +1,5 @@
 import { Redirect, useRouter, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,8 +11,10 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 
 import { isApiError, type ApiError } from "@/src/api/client";
-import { getCaregiverWeeklyReport } from "@/src/api/caregiver";
-import type { WeeklyReport } from "@/src/api/patient";
+import {
+  getCaregiverWeeklyReport,
+  type CaregiverWeeklyReport,
+} from "@/src/api/caregiver";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { GlassPanel } from "@/src/components/GlassPanel";
@@ -108,6 +110,10 @@ function toFriendlyError(error: unknown, title: string): {
   };
 }
 
+function isCaregiverAccessError(error: unknown): boolean {
+  return isApiError(error) && (error.status === 401 || error.status === 403);
+}
+
 function numberOrDash(value: number | null): string {
   return value === null ? "—" : String(value);
 }
@@ -143,7 +149,7 @@ export default function CaregiverWeeklyReportScreen() {
   const caregiverLoadError = useLastError("caregiverLoad");
 
   const [selectedWeek, setSelectedWeek] = useState<WeekPreset>("this");
-  const [report, setReport] = useState<WeeklyReport | null>(null);
+  const [report, setReport] = useState<CaregiverWeeklyReport | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -213,6 +219,14 @@ export default function CaregiverWeeklyReportScreen() {
           caregiverLoadError.clear(),
         ]);
       } catch (error) {
+        if (isCaregiverAccessError(error)) {
+          await caregiverSession.signOut();
+          router.replace("/caregiver-login" as Href);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+
         const friendly = toFriendlyError(error, "Couldn’t load weekly report");
         await caregiverLoadError.setLocalError({
           title: friendly.title,
@@ -311,6 +325,10 @@ export default function CaregiverWeeklyReportScreen() {
   const weeklyStoryNote =
     report?.summary.highlights[0] ??
     "Use this view to stay informed about recovery trends, safety context, and what may need support next.";
+  const historicalFooter =
+    report?.careState.isHistorical === true
+      ? "This weekly view stays read-only and reflects historical recovery information."
+      : "This view stays read-only and highlights the most recent caregiver summary available for the selected week.";
 
   const header = (
     <HeroHeader
@@ -468,8 +486,9 @@ export default function CaregiverWeeklyReportScreen() {
                 <View style={styles.sectionIntro}>
                   <Text style={styles.sectionTitle}>Current signals</Text>
                   <Text style={styles.sectionHelper}>
-                    These highlights show how the patient has been feeling and how consistently
-                    recovery tasks were followed this week.
+                    {report.careState.isHistorical
+                      ? "These highlights keep the recent recovery picture visible without implying ongoing clinician monitoring."
+                      : "These highlights show how the patient has been feeling and how consistently recovery tasks were followed this week."}
                   </Text>
                 </View>
 
@@ -528,13 +547,7 @@ export default function CaregiverWeeklyReportScreen() {
                   leading={{ type: "icon", icon: "checkin", tone: "muted" }}
                   title="Check-ins this week"
                   subtitle={`Count: ${report.checkins.count} · Avg pain: ${numberOrDash(report.checkins.avgPain)} · Avg mood: ${numberOrDash(report.checkins.avgMood)}`}
-                  chips={[
-                    { text: `${report.checkins.count} logs`, tone: "muted" },
-                    {
-                      text: `Adherence ${pctOrDash(report.checkins.avgExercisesPct)}`,
-                      tone: "muted",
-                    },
-                  ]}
+                  chips={[{ text: `${report.checkins.count} logs`, tone: "muted" }]}
                 />
 
                 <MediaCard
@@ -557,34 +570,29 @@ export default function CaregiverWeeklyReportScreen() {
                 <MediaCard
                   leading={{ type: "icon", icon: "proms", tone: "accent" }}
                   title="Assessment updates"
-                  subtitle={`Due now: ${report.proms.dueNowCount} · Completed: ${report.proms.completedThisWeekCount}`}
-                  chips={
-                    report.proms.latestCompleted
-                      ? [
-                          {
-                            text: `${report.proms.latestCompleted.normalized}/100 ${report.proms.latestCompleted.bandLabel}`,
-                            tone: "muted",
-                          },
-                        ]
-                      : [{ text: "No score yet", tone: "muted" }]
-                  }
+                  subtitle={`Due now: ${report.assessments.dueNowCount} · Completed: ${report.assessments.completedThisWeekCount}`}
+                  chips={[
+                    {
+                      text:
+                        report.assessments.completedThisWeekCount > 0
+                          ? `${report.assessments.completedThisWeekCount} completed this week`
+                          : "No new assessment updates",
+                      tone: "muted",
+                    },
+                  ]}
                   statusPill={{
-                    text: report.proms.dueNowCount > 0 ? "Due now" : "Up to date",
-                    tone: report.proms.dueNowCount > 0 ? "info" : "success",
+                    text: report.assessments.dueNowCount > 0 ? "Due now" : "Up to date",
+                    tone: report.assessments.dueNowCount > 0 ? "info" : "success",
                   }}
                 />
 
                 <MediaCard
                   leading={{ type: "icon", icon: "exercise", tone: "accent" }}
                   title="Exercise follow-through"
-                  subtitle={`Sessions: ${report.exercises.sessionCount} · Avg pain during: ${numberOrDash(report.exercises.avgPainDuring)}`}
+                  subtitle={`Sessions: ${report.exercises.sessionCount} · Total time: ${report.exercises.totalDurationMinutes} min`}
                   chips={[
                     {
                       text: `${report.exercises.completedExercises}/${report.exercises.totalExercises} completed`,
-                      tone: "muted",
-                    },
-                    {
-                      text: `${report.exercises.totalDurationMinutes} min total`,
                       tone: "muted",
                     },
                   ]}
@@ -597,10 +605,6 @@ export default function CaregiverWeeklyReportScreen() {
                   chips={[
                     {
                       text: `Medication ${pctOrDash(report.medications.adherencePct)}`,
-                      tone: "muted",
-                    },
-                    {
-                      text: `Hydration target ${report.hydration.targetMl} ml`,
                       tone: "muted",
                     },
                   ]}
@@ -621,8 +625,7 @@ export default function CaregiverWeeklyReportScreen() {
         <View style={styles.footerCopy}>
           <Text style={styles.footerTitle}>Refresh when you need the latest summary</Text>
           <Text style={styles.footerText}>
-            This view stays read-only and highlights the most recent caregiver summary available for
-            the selected week.
+            {historicalFooter}
           </Text>
         </View>
         <PrimaryButton

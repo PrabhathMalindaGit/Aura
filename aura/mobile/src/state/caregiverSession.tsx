@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { caregiverLogin, type CaregiverPatient } from "@/src/api/caregiver";
+import { clearAllCaregiverCache } from "@/src/state/caregiverCache";
 import {
   clearCaregiverSessionStorage,
   getCaregiverProfile,
@@ -87,7 +88,7 @@ export function CaregiverSessionProvider({ children }: { children: ReactNode }) 
       setPatient(response.patient);
       setStatus("signedIn");
     } catch (error) {
-      await clearCaregiverSessionStorage();
+      await Promise.all([clearCaregiverSessionStorage(), clearAllCaregiverCache()]);
       setTokenState(null);
       setPatient(null);
       setStatus("signedOut");
@@ -96,7 +97,7 @@ export function CaregiverSessionProvider({ children }: { children: ReactNode }) 
   }, []);
 
   const signOut = useCallback(async () => {
-    await clearCaregiverSessionStorage();
+    await Promise.all([clearCaregiverSessionStorage(), clearAllCaregiverCache()]);
     setTokenState(null);
     setPatient(null);
     setStatus("signedOut");

@@ -109,7 +109,22 @@ export type CaregiverAccessMeta = {
   expiresAt: string;
   usedAt: string | null;
   revokedAt: string | null;
+  createdAt?: string | null;
+  status?: CaregiverInviteStatus;
   relationship?: string | null;
   caregiverName?: string | null;
   lastAccessedAt?: string | null;
 };
+
+export type CaregiverInviteStatus =
+  | "pending"
+  | "active"
+  | "expired"
+  | "revoked";
+
+export type CaregiverCareState =
+  | "active"
+  | "on_hold"
+  | "discharged"
+  | "independent_mode"
+  | "inactive";

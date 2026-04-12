@@ -7,6 +7,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 import app from "../src/app";
 import Alert from "../src/models/Alert";
+import CareEvent from "../src/models/CareEvent";
 import CaregiverInvite from "../src/models/CaregiverInvite";
 import CheckIn from "../src/models/CheckIn";
 import HydrationLog from "../src/models/HydrationLog";
@@ -45,6 +46,7 @@ describe("caregiver routes", () => {
   beforeEach(async () => {
     await Promise.all([
       CaregiverInvite.deleteMany({}),
+      CareEvent.deleteMany({}),
       Patient.deleteMany({}),
       CheckIn.deleteMany({}),
       HydrationLog.deleteMany({}),
@@ -82,6 +84,7 @@ describe("caregiver routes", () => {
     expect(listResponse.body.ok).toBe(true);
     expect(listResponse.body.items).toHaveLength(1);
     expect(listResponse.body.items[0].inviteId).toBe(inviteId);
+    expect(listResponse.body.items[0].status).toBe("pending");
     expect(listResponse.body.items[0]).not.toHaveProperty("code");
 
     const revokeResponse = await request(app)
@@ -95,7 +98,8 @@ describe("caregiver routes", () => {
       .get("/patient/caregiver/invites")
       .set("Authorization", `Bearer ${patientToken("p1")}`);
     expect(listAfterRevoke.status).toBe(200);
-    expect(listAfterRevoke.body.items).toHaveLength(0);
+    expect(listAfterRevoke.body.items).toHaveLength(1);
+    expect(listAfterRevoke.body.items[0].status).toBe("revoked");
   });
 
   it("caregiver login works with valid code and fails for wrong code", async () => {
@@ -112,6 +116,7 @@ describe("caregiver routes", () => {
     expect(loginResponse.body.ok).toBe(true);
     expect(loginResponse.body.token).toBeTypeOf("string");
     expect(loginResponse.body.patient.id).toBe("p1");
+    expect(loginResponse.body.access.status).toBe("active");
 
     const wrongCodeResponse = await request(app)
       .post("/caregiver/auth/login")
@@ -315,13 +320,193 @@ describe("caregiver routes", () => {
       scheduled: 2,
     });
     expect(response.body.safety.openAlertsCount).toBe(1);
-    expect(response.body.proms.dueNowCount).toBe(1);
-    expect(response.body.proms.latestCompleted.normalized).toBe(50);
+    expect(response.body.assessments.dueNowCount).toBe(1);
+    expect(response.body.careState.state).toBe("active");
+    expect(response.body.supportGuidance.clinicContact).toBeTypeOf("string");
 
     expect(response.body).not.toHaveProperty("chat");
     expect(response.body).not.toHaveProperty("photos");
+    expect(response.body).not.toHaveProperty("proms");
+    expect(response.body).not.toHaveProperty("rehab");
     expect(response.body.lastCheckin).not.toHaveProperty("notes");
     expect(response.body.lastCheckin).not.toHaveProperty("bodyMap");
+  });
+
+  it("invite list returns pending, active, expired, and revoked statuses", async () => {
+    const created = await request(app)
+      .post("/patient/caregiver/invites")
+      .set("Authorization", `Bearer ${patientToken("p1")}`)
+      .send({});
+    expect(created.status).toBe(200);
+
+    const pendingId = created.body.inviteId as string;
+
+    const login = await request(app)
+      .post("/caregiver/auth/login")
+      .send({ code: created.body.code, caregiverName: "Alex" });
+    expect(login.status).toBe(200);
+
+    const activeInvite = await CaregiverInvite.findById(pendingId);
+    expect(activeInvite).not.toBeNull();
+
+    await CaregiverInvite.create({
+      patientId: "p1",
+      codeHash: hashInvite("CG-EEEE-FFFF"),
+      codeHint: "FFFF",
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+
+    await CaregiverInvite.create({
+      patientId: "p1",
+      codeHash: hashInvite("CG-GGGG-HHHH"),
+      codeHint: "HHHH",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      revokedAt: new Date(),
+    });
+
+    const pendingInvite = await request(app)
+      .post("/patient/caregiver/invites")
+      .set("Authorization", `Bearer ${patientToken("p1")}`)
+      .send({ relationship: "Sibling" });
+    expect(pendingInvite.status).toBe(200);
+
+    const listResponse = await request(app)
+      .get("/patient/caregiver/invites")
+      .set("Authorization", `Bearer ${patientToken("p1")}`);
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.items.some((item: { status?: string }) => item.status === "active")).toBe(true);
+    expect(listResponse.body.items.some((item: { status?: string }) => item.status === "pending")).toBe(true);
+    expect(listResponse.body.items.some((item: { status?: string }) => item.status === "expired")).toBe(true);
+    expect(listResponse.body.items.some((item: { status?: string }) => item.status === "revoked")).toBe(true);
+  });
+
+  it("revoked caregiver invite is rejected on the next summary request", async () => {
+    const created = await request(app)
+      .post("/patient/caregiver/invites")
+      .set("Authorization", `Bearer ${patientToken("p1")}`)
+      .send({});
+    expect(created.status).toBe(200);
+
+    const login = await request(app)
+      .post("/caregiver/auth/login")
+      .send({ code: created.body.code });
+    expect(login.status).toBe(200);
+
+    const caregiverToken = login.body.token as string;
+    await request(app)
+      .post(`/patient/caregiver/invites/${created.body.inviteId}/revoke`)
+      .set("Authorization", `Bearer ${patientToken("p1")}`);
+
+    const response = await request(app)
+      .get("/caregiver/summary")
+      .set("Authorization", `Bearer ${caregiverToken}`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it("expired caregiver invite is rejected on the next weekly-report request", async () => {
+    const invite = await CaregiverInvite.create({
+      patientId: "p1",
+      codeHash: hashInvite("CG-ZYXW-9876"),
+      codeHint: "9876",
+      expiresAt: new Date(Date.now() + 60_000),
+      usedAt: new Date(),
+    });
+
+    const login = await request(app)
+      .post("/caregiver/auth/login")
+      .send({ code: "CG-ZYXW-9876" });
+    expect(login.status).toBe(200);
+
+    await CaregiverInvite.findByIdAndUpdate(invite._id, {
+      $set: { expiresAt: new Date(Date.now() - 60_000) },
+    });
+
+    const response = await request(app)
+      .get("/caregiver/reports/weekly")
+      .set("Authorization", `Bearer ${login.body.token as string}`);
+
+    expect(response.status).toBe(401);
+  });
+
+  it("caregiver weekly report uses a narrowed whitelist and audits access", async () => {
+    await CheckIn.create({
+      patientId: "p1",
+      date: "2026-04-07",
+      mood: 4,
+      pain: 3,
+      adherence: { exercises: 0.75, medication: true },
+      notes: "private note",
+      bodyMap: {
+        primaryRegion: "knee_left",
+        regions: [{ region: "knee_left", intensity: 4, type: "ache" }],
+      },
+      createdAt: new Date("2026-04-07T08:00:00.000Z"),
+    });
+
+    await PromInstance.create({
+      patientId: "p1",
+      templateKey: "AURA_RECOVERY_5",
+      templateVersion: 1,
+      titleSnapshot: "Aura Recovery 5",
+      questionsSnapshot: [
+        {
+          id: "q1",
+          text: "Pain interference",
+          type: "likert",
+          min: 0,
+          max: 4,
+          required: true,
+          reverse: false,
+        },
+      ],
+      dueAt: new Date("2026-04-10T00:00:00.000Z"),
+      status: "completed",
+      completedAt: new Date("2026-04-09T00:00:00.000Z"),
+      score: {
+        raw: 2,
+        normalized: 50,
+        bandKey: "amber",
+        bandLabel: "Moderate concern",
+      },
+    });
+
+    const created = await request(app)
+      .post("/patient/caregiver/invites")
+      .set("Authorization", `Bearer ${patientToken("p1")}`)
+      .send({});
+    expect(created.status).toBe(200);
+
+    const login = await request(app)
+      .post("/caregiver/auth/login")
+      .send({ code: created.body.code });
+    expect(login.status).toBe(200);
+
+    const response = await request(app)
+      .get("/caregiver/reports/weekly?weekStart=2026-04-06&tzOffsetMinutes=0")
+      .set("Authorization", `Bearer ${login.body.token as string}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.ok).toBe(true);
+    expect(response.body.summary.headline).toBeTypeOf("string");
+    expect(response.body.assessments.completedThisWeekCount).toBe(1);
+    expect(response.body).not.toHaveProperty("bodyMap");
+    expect(response.body).not.toHaveProperty("photos");
+    expect(response.body).not.toHaveProperty("wearables");
+    expect(response.body).not.toHaveProperty("proms");
+
+    const refreshedInvite = await CaregiverInvite.findById(created.body.inviteId).lean();
+    expect(refreshedInvite?.lastAccessedAt).toBeInstanceOf(Date);
+
+    const auditEvents = await CareEvent.find({
+      type: "CAREGIVER_WEEKLY_REPORT_ACCESSED",
+      patientId: "p1",
+    }).lean();
+    expect(auditEvents).toHaveLength(1);
+    expect(auditEvents[0]?.payload).toMatchObject({
+      surface: "weekly_report",
+    });
   });
 
   it("caregiver token cannot access patient endpoints", async () => {

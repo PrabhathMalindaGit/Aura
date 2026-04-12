@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   Alert,
   Linking,
@@ -27,6 +28,7 @@ import { SettingsGroup } from "@/src/components/settings/SettingsGroup";
 import { SettingsItem } from "@/src/components/settings/SettingsItem";
 import { API_BASE } from "@/src/config/env";
 import { isPatientDebugUIEnabled, useDevRenderAudit } from "@/src/dev/renderAudit";
+import { listCaregiverInvites, type CaregiverInviteItem } from "@/src/api/caregiver";
 import {
   cancelReminder,
   getPermissionStatus,
@@ -154,39 +156,27 @@ function getRehabPhaseLabel(patient: unknown): string {
   return "Rehab program not set";
 }
 
-function getCaregiverLabel(patient: unknown): { value: string; subtitle: string } {
-  if (!patient || typeof patient !== "object") {
+function getCaregiverLabel(invites: CaregiverInviteItem[]): { value: string; subtitle: string } {
+  const activeCount = invites.filter((item) => item.status === "active").length;
+  const pendingCount = invites.filter((item) => item.status === "pending").length;
+
+  if (activeCount > 0) {
+    return {
+      value: `${activeCount} linked`,
+      subtitle: "Manage who can view your read-only caregiver summary.",
+    };
+  }
+
+  if (pendingCount > 0) {
     return {
       value: "Off",
-      subtitle: "Invite a caregiver to view progress summaries.",
-    };
-  }
-
-  const record = patient as Record<string, unknown>;
-  const caregiverName =
-    typeof record.caregiverName === "string" && record.caregiverName.trim().length > 0
-      ? record.caregiverName.trim()
-      : null;
-  const caregiverEnabled =
-    typeof record.caregiverEnabled === "boolean" ? record.caregiverEnabled : null;
-
-  if (caregiverName) {
-    return {
-      value: caregiverName,
-      subtitle: `Linked with ${caregiverName}.`,
-    };
-  }
-
-  if (caregiverEnabled === true) {
-    return {
-      value: "On",
-      subtitle: "A caregiver is linked to your progress summaries.",
+      subtitle: `${pendingCount} invite${pendingCount === 1 ? "" : "s"} pending. Manage caregiver access here.`,
     };
   }
 
   return {
     value: "Off",
-    subtitle: "Invite a caregiver to view progress summaries.",
+    subtitle: "Manage who can view your read-only caregiver summary.",
   };
 }
 
@@ -221,16 +211,31 @@ export default function SettingsScreen() {
   const [timeValidationError, setTimeValidationError] = useState<string | null>(null);
   const [isReminderBusy, setIsReminderBusy] = useState(false);
   const [isDeveloperExpanded, setIsDeveloperExpanded] = useState(false);
+  const [caregiverInvites, setCaregiverInvites] = useState<CaregiverInviteItem[]>([]);
 
   const isDeveloperModeVisible = isPatientDebugUIEnabled();
   const patientName = auth.patient?.displayName ?? auth.patient?.id ?? "Patient";
   const patientId = auth.patient?.id ?? "";
   const patientPhotoUri = useMemo(() => extractPatientPhotoUri(auth.patient), [auth.patient]);
   const rehabPhaseLabel = useMemo(() => getRehabPhaseLabel(auth.patient), [auth.patient]);
-  const caregiverInfo = useMemo(() => getCaregiverLabel(auth.patient), [auth.patient]);
+  const caregiverInfo = useMemo(() => getCaregiverLabel(caregiverInvites), [caregiverInvites]);
   const careMode = getPatientCareMode(auth.patient);
   const careModeNotice = useMemo(() => getCareModeNotice(auth.patient), [auth.patient]);
   const connectionLabel = network.isOffline ? "Offline" : "Connected";
+
+  const refreshCaregiverInvites = useCallback(async () => {
+    if (auth.status !== "signedIn" || !("token" in auth) || !auth.token) {
+      setCaregiverInvites([]);
+      return;
+    }
+
+    try {
+      const items = await listCaregiverInvites(auth.token);
+      setCaregiverInvites(items);
+    } catch {
+      setCaregiverInvites([]);
+    }
+  }, [auth]);
 
   const timePreview = useMemo(() => {
     const normalized = normalizeInputs(hourInput, minuteInput);
@@ -312,6 +317,17 @@ export default function SettingsScreen() {
       active = false;
     };
   }, [patientId]);
+
+  useEffect(() => {
+    void refreshCaregiverInvites();
+  }, [refreshCaregiverInvites]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshCaregiverInvites();
+      return undefined;
+    }, [refreshCaregiverInvites]),
+  );
 
   const persistReminderPrefs = async (
     enabled: boolean,
@@ -855,7 +871,7 @@ export default function SettingsScreen() {
               onPress={() => {
                 router.push("/caregiver-invite" as Href);
               }}
-              statusLabel={caregiverInfo.value === "Off" ? "Off" : "Linked"}
+              statusLabel={caregiverInfo.value}
               statusVariant={caregiverInfo.value === "Off" ? "neutral" : "info"}
               testID="settings-caregiver-row"
             />

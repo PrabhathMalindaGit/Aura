@@ -1,6 +1,9 @@
 import { apiFetchJson } from "@/src/api/client";
-import type { WeeklyReport } from "@/src/api/patient";
-import type { CaregiverAccessMeta } from "@/src/types/models";
+import type {
+  CaregiverAccessMeta,
+  CaregiverCareState,
+  CaregiverInviteStatus,
+} from "@/src/types/models";
 
 export type CaregiverPatient = {
   id: string;
@@ -13,12 +16,29 @@ export type CaregiverLoginResponse = {
   access?: CaregiverAccessMeta;
 };
 
+export type CaregiverCareStateSummary = {
+  state: CaregiverCareState;
+  label: string;
+  message: string;
+  isHistorical: boolean;
+  dischargedAt?: string | null;
+  programSummary?: string | null;
+  contactInstructions?: string | null;
+};
+
+export type CaregiverSupportGuidance = {
+  clinicContact: string;
+  urgentHelp: string;
+  monitoringNote: string;
+};
+
 export type CaregiverSummary = {
   ok: true;
   patientId: string;
   patient: CaregiverPatient;
   updatedAt: string;
   access?: CaregiverAccessMeta;
+  careState: CaregiverCareStateSummary;
   lastCheckin: {
     date: string;
     pain: number;
@@ -45,16 +65,8 @@ export type CaregiverSummary = {
     openAlertsCount: number;
     highRiskAlerts14d: number;
   };
-  proms: {
+  assessments: {
     dueNowCount: number;
-    latestCompleted: {
-      normalized: number;
-      bandLabel: string;
-      completedAt: string;
-    } | null;
-  };
-  rehab: {
-    currentPhaseTitle?: string | null;
   };
   plan?: {
     statusLabel?: string;
@@ -67,6 +79,52 @@ export type CaregiverSummary = {
     endsAt: string;
     modality: "video";
   } | null;
+  supportGuidance: CaregiverSupportGuidance;
+};
+
+export type CaregiverWeeklyReport = {
+  ok: true;
+  patientId: string;
+  period: {
+    weekStart: string;
+    weekEnd: string;
+    tzOffsetMinutes: number | null;
+  };
+  careState: CaregiverCareStateSummary;
+  summary: {
+    headline: string;
+    highlights: string[];
+    nextSteps: string[];
+  };
+  checkins: {
+    count: number;
+    avgPain: number | null;
+    avgMood: number | null;
+  };
+  exercises: {
+    sessionCount: number;
+    totalDurationMinutes: number;
+    completedExercises: number;
+    totalExercises: number;
+  };
+  medications: {
+    adherencePct: number | null;
+  };
+  hydration: {
+    avgDailyMl: number | null;
+  };
+  nutrition: {
+    avgFruitVegServings: number | null;
+  };
+  assessments: {
+    dueNowCount: number;
+    completedThisWeekCount: number;
+  };
+  safety: {
+    alertsCreatedThisWeek: number;
+    highRiskAlertsThisWeek: number;
+  };
+  updatedAt: string;
 };
 
 export type CaregiverInviteItem = CaregiverAccessMeta;
@@ -120,21 +178,203 @@ function toPatient(value: unknown): CaregiverPatient | null {
   };
 }
 
-function normalizeWeeklyReport(value: unknown): WeeklyReport | null {
+function normalizeCaregiverCareState(value: unknown): CaregiverCareStateSummary | null {
   if (!value || typeof value !== "object") {
     return null;
   }
-  const record = value as WeeklyReport;
+
+  const record = value as {
+    state?: unknown;
+    label?: unknown;
+    message?: unknown;
+    isHistorical?: unknown;
+    dischargedAt?: unknown;
+    programSummary?: unknown;
+    contactInstructions?: unknown;
+  };
+
+  const state =
+    record.state === "active" ||
+    record.state === "on_hold" ||
+    record.state === "discharged" ||
+    record.state === "independent_mode" ||
+    record.state === "inactive"
+      ? record.state
+      : null;
+  const label = toTrimmedString(record.label);
+  const message = toTrimmedString(record.message);
+  if (!state || !label || !message || typeof record.isHistorical !== "boolean") {
+    return null;
+  }
+
+  return {
+    state,
+    label,
+    message,
+    isHistorical: record.isHistorical,
+    dischargedAt: toTrimmedString(record.dischargedAt) ?? null,
+    programSummary: toTrimmedString(record.programSummary) ?? null,
+    contactInstructions: toTrimmedString(record.contactInstructions) ?? null,
+  };
+}
+
+function normalizeSupportGuidance(value: unknown): CaregiverSupportGuidance | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as {
+    clinicContact?: unknown;
+    urgentHelp?: unknown;
+    monitoringNote?: unknown;
+  };
+  const clinicContact = toTrimmedString(record.clinicContact);
+  const urgentHelp = toTrimmedString(record.urgentHelp);
+  const monitoringNote = toTrimmedString(record.monitoringNote);
+  if (!clinicContact || !urgentHelp || !monitoringNote) {
+    return null;
+  }
+
+  return {
+    clinicContact,
+    urgentHelp,
+    monitoringNote,
+  };
+}
+
+function normalizeWeeklyReport(value: unknown): CaregiverWeeklyReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as {
+    ok?: unknown;
+    patientId?: unknown;
+    period?: unknown;
+    careState?: unknown;
+    summary?: unknown;
+    checkins?: unknown;
+    exercises?: unknown;
+    medications?: unknown;
+    hydration?: unknown;
+    nutrition?: unknown;
+    assessments?: unknown;
+    safety?: unknown;
+    updatedAt?: unknown;
+  };
   if (
     record.ok !== true ||
     typeof record.patientId !== "string" ||
     !record.period ||
-    typeof record.period.weekStart !== "string" ||
-    typeof record.period.weekEnd !== "string"
+    typeof (record.period as { weekStart?: unknown }).weekStart !== "string" ||
+    typeof (record.period as { weekEnd?: unknown }).weekEnd !== "string"
   ) {
     return null;
   }
-  return record;
+
+  const careState = normalizeCaregiverCareState(record.careState);
+  const summaryRecord =
+    record.summary && typeof record.summary === "object"
+      ? (record.summary as {
+          headline?: unknown;
+          highlights?: unknown;
+          nextSteps?: unknown;
+        })
+      : null;
+  const checkinsRecord =
+    record.checkins && typeof record.checkins === "object"
+      ? (record.checkins as { count?: unknown; avgPain?: unknown; avgMood?: unknown })
+      : null;
+  const exercisesRecord =
+    record.exercises && typeof record.exercises === "object"
+      ? (record.exercises as {
+          sessionCount?: unknown;
+          totalDurationMinutes?: unknown;
+          completedExercises?: unknown;
+          totalExercises?: unknown;
+        })
+      : null;
+  const medicationsRecord =
+    record.medications && typeof record.medications === "object"
+      ? (record.medications as { adherencePct?: unknown })
+      : null;
+  const hydrationRecord =
+    record.hydration && typeof record.hydration === "object"
+      ? (record.hydration as { avgDailyMl?: unknown })
+      : null;
+  const nutritionRecord =
+    record.nutrition && typeof record.nutrition === "object"
+      ? (record.nutrition as { avgFruitVegServings?: unknown })
+      : null;
+  const assessmentsRecord =
+    record.assessments && typeof record.assessments === "object"
+      ? (record.assessments as { dueNowCount?: unknown; completedThisWeekCount?: unknown })
+      : null;
+  const safetyRecord =
+    record.safety && typeof record.safety === "object"
+      ? (record.safety as {
+          alertsCreatedThisWeek?: unknown;
+          highRiskAlertsThisWeek?: unknown;
+        })
+      : null;
+
+  if (!careState || !summaryRecord || !checkinsRecord || !exercisesRecord) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    patientId: record.patientId,
+    period: {
+      weekStart: String((record.period as { weekStart: string }).weekStart),
+      weekEnd: String((record.period as { weekEnd: string }).weekEnd),
+      tzOffsetMinutes:
+        toFiniteNumber((record.period as { tzOffsetMinutes?: unknown }).tzOffsetMinutes),
+    },
+    careState,
+    summary: {
+      headline: toTrimmedString(summaryRecord.headline) ?? "",
+      highlights: Array.isArray(summaryRecord.highlights)
+        ? summaryRecord.highlights
+            .map((item) => toTrimmedString(item))
+            .filter((item): item is string => Boolean(item))
+        : [],
+      nextSteps: Array.isArray(summaryRecord.nextSteps)
+        ? summaryRecord.nextSteps
+            .map((item) => toTrimmedString(item))
+            .filter((item): item is string => Boolean(item))
+        : [],
+    },
+    checkins: {
+      count: toFiniteNumber(checkinsRecord.count) ?? 0,
+      avgPain: toFiniteNumber(checkinsRecord.avgPain),
+      avgMood: toFiniteNumber(checkinsRecord.avgMood),
+    },
+    exercises: {
+      sessionCount: toFiniteNumber(exercisesRecord.sessionCount) ?? 0,
+      totalDurationMinutes: toFiniteNumber(exercisesRecord.totalDurationMinutes) ?? 0,
+      completedExercises: toFiniteNumber(exercisesRecord.completedExercises) ?? 0,
+      totalExercises: toFiniteNumber(exercisesRecord.totalExercises) ?? 0,
+    },
+    medications: {
+      adherencePct: toFiniteNumber(medicationsRecord?.adherencePct),
+    },
+    hydration: {
+      avgDailyMl: toFiniteNumber(hydrationRecord?.avgDailyMl),
+    },
+    nutrition: {
+      avgFruitVegServings: toFiniteNumber(nutritionRecord?.avgFruitVegServings),
+    },
+    assessments: {
+      dueNowCount: toFiniteNumber(assessmentsRecord?.dueNowCount) ?? 0,
+      completedThisWeekCount:
+        toFiniteNumber(assessmentsRecord?.completedThisWeekCount) ?? 0,
+    },
+    safety: {
+      alertsCreatedThisWeek: toFiniteNumber(safetyRecord?.alertsCreatedThisWeek) ?? 0,
+      highRiskAlertsThisWeek: toFiniteNumber(safetyRecord?.highRiskAlertsThisWeek) ?? 0,
+    },
+    updatedAt: toTrimmedString(record.updatedAt) ?? new Date(0).toISOString(),
+  };
 }
 
 function normalizeCaregiverAccess(value: unknown): CaregiverAccessMeta | undefined {
@@ -148,6 +388,8 @@ function normalizeCaregiverAccess(value: unknown): CaregiverAccessMeta | undefin
     expiresAt?: unknown;
     usedAt?: unknown;
     revokedAt?: unknown;
+    createdAt?: unknown;
+    status?: unknown;
     relationship?: unknown;
     caregiverName?: unknown;
     lastAccessedAt?: unknown;
@@ -160,12 +402,22 @@ function normalizeCaregiverAccess(value: unknown): CaregiverAccessMeta | undefin
     return undefined;
   }
 
+  const status: CaregiverInviteStatus | undefined =
+    record.status === "pending" ||
+    record.status === "active" ||
+    record.status === "expired" ||
+    record.status === "revoked"
+      ? record.status
+      : undefined;
+
   return {
     inviteId,
     codeHint,
     expiresAt,
     usedAt: toTrimmedString(record.usedAt) ?? null,
     revokedAt: toTrimmedString(record.revokedAt) ?? null,
+    createdAt: toTrimmedString(record.createdAt) ?? null,
+    status,
     relationship: toTrimmedString(record.relationship) ?? null,
     caregiverName: toTrimmedString(record.caregiverName) ?? null,
     lastAccessedAt: toTrimmedString(record.lastAccessedAt) ?? null,
@@ -183,17 +435,20 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     patient?: unknown;
     updatedAt?: unknown;
     access?: unknown;
+    careState?: unknown;
     lastCheckin?: unknown;
     safety?: unknown;
-    proms?: unknown;
-    rehab?: unknown;
+    assessments?: unknown;
     plan?: unknown;
     nextAppointment?: unknown;
+    supportGuidance?: unknown;
   };
 
   const patientId = toTrimmedString(record.patientId);
   const patient = toPatient(record.patient);
-  if (record.ok !== true || !patientId || !patient) {
+  const careState = normalizeCaregiverCareState(record.careState);
+  const supportGuidance = normalizeSupportGuidance(record.supportGuidance);
+  if (record.ok !== true || !patientId || !patient || !careState || !supportGuidance) {
     return null;
   }
 
@@ -293,13 +548,9 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     record.safety && typeof record.safety === "object"
       ? (record.safety as { openAlertsCount?: unknown; highRiskAlerts14d?: unknown })
       : {};
-  const promsRecord =
-    record.proms && typeof record.proms === "object"
-      ? (record.proms as { dueNowCount?: unknown; latestCompleted?: unknown })
-      : {};
-  const rehabRecord =
-    record.rehab && typeof record.rehab === "object"
-      ? (record.rehab as { currentPhaseTitle?: unknown })
+  const assessmentsRecord =
+    record.assessments && typeof record.assessments === "object"
+      ? (record.assessments as { dueNowCount?: unknown })
       : {};
   const planRecord =
     record.plan && typeof record.plan === "object"
@@ -319,15 +570,6 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
         })
       : null;
 
-  const latestCompleted =
-    promsRecord.latestCompleted && typeof promsRecord.latestCompleted === "object"
-      ? (promsRecord.latestCompleted as {
-          normalized?: unknown;
-          bandLabel?: unknown;
-          completedAt?: unknown;
-        })
-      : null;
-
   return {
     ok: true,
     patientId,
@@ -335,27 +577,14 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
     updatedAt:
       toTrimmedString(record.updatedAt) ?? new Date(0).toISOString(),
     access: normalizeCaregiverAccess(record.access),
+    careState,
     lastCheckin,
     safety: {
       openAlertsCount: toFiniteNumber(safetyRecord.openAlertsCount) ?? 0,
       highRiskAlerts14d: toFiniteNumber(safetyRecord.highRiskAlerts14d) ?? 0,
     },
-    proms: {
-      dueNowCount: toFiniteNumber(promsRecord.dueNowCount) ?? 0,
-      latestCompleted:
-        latestCompleted &&
-        toFiniteNumber(latestCompleted.normalized) !== null &&
-        toTrimmedString(latestCompleted.bandLabel) &&
-        toTrimmedString(latestCompleted.completedAt)
-          ? {
-              normalized: toFiniteNumber(latestCompleted.normalized) ?? 0,
-              bandLabel: toTrimmedString(latestCompleted.bandLabel) ?? "",
-              completedAt: toTrimmedString(latestCompleted.completedAt) ?? "",
-            }
-          : null,
-    },
-    rehab: {
-      currentPhaseTitle: toTrimmedString(rehabRecord.currentPhaseTitle),
+    assessments: {
+      dueNowCount: toFiniteNumber(assessmentsRecord.dueNowCount) ?? 0,
     },
     plan: planRecord
       ? {
@@ -375,6 +604,7 @@ function normalizeSummary(value: unknown): CaregiverSummary | null {
             modality: "video",
           }
         : null,
+    supportGuidance,
   };
 }
 
@@ -430,7 +660,7 @@ export async function getCaregiverSummary(token: string): Promise<CaregiverSumma
 export async function getCaregiverWeeklyReport(
   token: string,
   params?: { weekStart?: string; tzOffsetMinutes?: number }
-): Promise<WeeklyReport> {
+): Promise<CaregiverWeeklyReport> {
   const query = new URLSearchParams();
   if (params?.weekStart) {
     query.set("weekStart", params.weekStart);

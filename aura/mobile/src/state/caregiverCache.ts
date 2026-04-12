@@ -1,13 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { CaregiverSummary } from "@/src/api/caregiver";
-import type { WeeklyReport } from "@/src/api/patient";
+import type { CaregiverSummary, CaregiverWeeklyReport } from "@/src/api/caregiver";
 
 export type CaregiverCache = {
   cachedAt: number;
   summary?: CaregiverSummary;
-  weeklyReportThisWeek?: WeeklyReport;
-  weeklyReportLastWeek?: WeeklyReport;
+  weeklyReportThisWeek?: CaregiverWeeklyReport;
+  weeklyReportLastWeek?: CaregiverWeeklyReport;
 };
 
 type WeekPreset = "this" | "last";
@@ -41,10 +40,10 @@ function normalize(value: unknown): CaregiverCache | null {
     next.summary = record.summary as CaregiverSummary;
   }
   if (record.weeklyReportThisWeek && typeof record.weeklyReportThisWeek === "object") {
-    next.weeklyReportThisWeek = record.weeklyReportThisWeek as WeeklyReport;
+    next.weeklyReportThisWeek = record.weeklyReportThisWeek as CaregiverWeeklyReport;
   }
   if (record.weeklyReportLastWeek && typeof record.weeklyReportLastWeek === "object") {
-    next.weeklyReportLastWeek = record.weeklyReportLastWeek as WeeklyReport;
+    next.weeklyReportLastWeek = record.weeklyReportLastWeek as CaregiverWeeklyReport;
   }
 
   return next;
@@ -97,7 +96,7 @@ export async function setCachedCaregiverSummary(
 export async function setCachedCaregiverWeeklyReport(
   patientId: string,
   preset: WeekPreset,
-  report: WeeklyReport
+  report: CaregiverWeeklyReport
 ): Promise<void> {
   const existing = (await readCache(patientId)) ?? { cachedAt: Date.now() };
   await writeCache(patientId, {
@@ -113,7 +112,7 @@ export async function setCachedCaregiverWeeklyReport(
 export function getCachedCaregiverWeeklyReport(
   cache: CaregiverCache | null,
   preset: WeekPreset
-): WeeklyReport | null {
+): CaregiverWeeklyReport | null {
   if (!cache) {
     return null;
   }

@@ -1,5 +1,5 @@
 import { Redirect, useRouter, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -107,6 +107,10 @@ function toFriendlyError(error: unknown, title: string): {
     kind: "unknown",
     retryable: true,
   };
+}
+
+function isCaregiverAccessError(error: unknown): boolean {
+  return isApiError(error) && (error.status === 401 || error.status === 403);
 }
 
 function formatPercent(value: number | undefined): string {
@@ -218,6 +222,14 @@ export default function CaregiverHomeScreen() {
           caregiverLoadError.clear(),
         ]);
       } catch (error) {
+        if (isCaregiverAccessError(error)) {
+          await caregiverSession.signOut();
+          router.replace("/caregiver-login" as Href);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+
         const friendly = toFriendlyError(error, "Couldn’t load caregiver view");
         await caregiverLoadError.setLocalError({
           title: friendly.title,
@@ -303,6 +315,8 @@ export default function CaregiverHomeScreen() {
   const patientIdentifier = summary?.patient.id ?? caregiverSession.patient?.id ?? "—";
   const openAlertsCount = summary?.safety.openAlertsCount ?? 0;
   const highRiskAlertsCount = summary?.safety.highRiskAlerts14d ?? 0;
+  const dueNowCount = summary?.assessments.dueNowCount ?? 0;
+  const careState = summary?.careState;
 
   const lastCheckin = summary?.lastCheckin;
   const adherencePctNumber =
@@ -322,7 +336,9 @@ export default function CaregiverHomeScreen() {
     .map((item) => ({ text: item, tone: "muted" as const }));
 
   const supportOverview =
-    openAlertsCount > 0
+    careState?.isHistorical
+      ? careState.message
+      : openAlertsCount > 0
       ? `There ${openAlertsCount === 1 ? "is" : "are"} ${openAlertsCount} open ${
           openAlertsCount === 1 ? "alert" : "alerts"
         } for ${patientName}. Start with safety and weekly updates.`
@@ -331,7 +347,9 @@ export default function CaregiverHomeScreen() {
         : `You’re following ${patientName}'s recovery through recent check-ins, weekly trends, and safety context.`;
 
   const supportPrompt =
-    openAlertsCount > 0
+    careState?.isHistorical
+      ? "Review the care status and support guidance before relying on older summaries."
+      : openAlertsCount > 0
       ? "Review the weekly summary and contact the clinic if something feels off."
       : lastCheckin
         ? "Use the latest check-in and weekly summary to notice what changed and what still needs support."
@@ -484,16 +502,53 @@ export default function CaregiverHomeScreen() {
                 },
               ]}
               statusPill={{
-                text: openAlertsCount > 0 ? "Needs review" : "Steady",
-                tone: openAlertsCount > 0 ? "warning" : "success",
+                text: careState?.label ?? (openAlertsCount > 0 ? "Needs review" : "Steady"),
+                tone:
+                  careState?.isHistorical
+                    ? "neutral"
+                    : openAlertsCount > 0
+                      ? "warning"
+                      : "success",
               }}
             />
+
+            {careState ? (
+              <View style={styles.infoCard}>
+                <View style={styles.infoCardHeader}>
+                  <Text style={styles.infoCardTitle}>Care status</Text>
+                  <StatusPill
+                    label={careState.label}
+                    variant={careState.isHistorical ? "neutral" : "info"}
+                  />
+                </View>
+                <Text style={styles.infoCardText}>{careState.message}</Text>
+                {careState.programSummary ? (
+                  <Text style={styles.infoCardNote}>{careState.programSummary}</Text>
+                ) : null}
+                <View style={styles.infoChipRow}>
+                  {careState.dischargedAt ? (
+                    <StatusPill
+                      label={`Updated ${new Intl.DateTimeFormat(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      }).format(new Date(careState.dischargedAt))}`}
+                      variant="neutral"
+                    />
+                  ) : null}
+                  <StatusPill
+                    label={careState.isHistorical ? "Historical view" : "Current view"}
+                    variant={careState.isHistorical ? "neutral" : "success"}
+                  />
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.sectionIntro}>
               <Text style={styles.sectionTitle}>This week</Text>
               <Text style={styles.sectionHelper}>
-                These signals help you notice how recovery is going before you look at the fuller
-                weekly summary.
+                {careState?.isHistorical
+                  ? "These read-only signals keep the recent recovery picture visible without implying ongoing clinician monitoring."
+                  : "These signals help you notice how recovery is going before you look at the fuller weekly summary."}
               </Text>
             </View>
 
@@ -576,6 +631,9 @@ export default function CaregiverHomeScreen() {
                           : "Read-only",
                       tone: "muted",
                     },
+                    ...(dueNowCount > 0
+                      ? [{ text: `${dueNowCount} assessment${dueNowCount === 1 ? "" : "s"} due`, tone: "muted" as const }]
+                      : []),
                   ]}
                 />
               </View>
@@ -616,11 +674,31 @@ export default function CaregiverHomeScreen() {
               }}
             />
 
+            <View style={styles.infoCard}>
+              <View style={styles.infoCardHeader}>
+                <Text style={styles.infoCardTitle}>Support guidance</Text>
+                <StatusPill label="Read-only" variant="neutral" />
+              </View>
+              <Text style={styles.infoCardText}>
+                {summary?.supportGuidance.clinicContact ??
+                  "If something feels off or recovery changes, contact the clinic directly."}
+              </Text>
+              <Text style={styles.infoCardNote}>
+                {summary?.supportGuidance.monitoringNote ??
+                  "Caregiver access is read-only and does not replace clinician guidance."}
+              </Text>
+              <Text style={styles.infoCardNote}>
+                {summary?.supportGuidance.urgentHelp ??
+                  "If the patient may need urgent help, contact local emergency services right away."}
+              </Text>
+            </View>
+
             <View style={styles.actionsCard}>
               <Text style={styles.actionsTitle}>Do next</Text>
               <Text style={styles.actionsHelper}>
-                Refresh this read-only view when you need the latest caregiver summary, or sign out
-                when you&apos;re done.
+                {careState?.isHistorical
+                  ? "Refresh this read-only historical view when you need the latest summary, or sign out when you’re done."
+                  : "Refresh this read-only view when you need the latest caregiver summary, or sign out when you’re done."}
               </Text>
               <View style={styles.actionsRow}>
                 <View style={styles.actionButtonWrap}>
@@ -701,6 +779,42 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
+    },
+    infoCard: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surface,
+      padding: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+    },
+    infoCardHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    infoCardTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      flex: 1,
+    },
+    infoCardText: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+    },
+    infoCardNote: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    infoChipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.xs,
     },
     trackerGrid: {
       flexDirection: "row",

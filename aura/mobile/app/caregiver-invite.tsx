@@ -108,6 +108,53 @@ function mapNoticeVariant(
   return variant;
 }
 
+function statusPresentation(
+  item: CaregiverInviteItem,
+): { label: string; tone: "neutral" | "success" | "warning" | "info" } {
+  if (item.status === "active") {
+    return { label: "Active", tone: "success" };
+  }
+  if (item.status === "pending") {
+    return { label: "Pending", tone: "info" };
+  }
+  if (item.status === "expired") {
+    return { label: "Expired", tone: "warning" };
+  }
+  if (item.status === "revoked") {
+    return { label: "Revoked", tone: "neutral" };
+  }
+  return { label: item.usedAt ? "Used" : "Active", tone: item.usedAt ? "neutral" : "success" };
+}
+
+function inviteSubtitle(item: CaregiverInviteItem): string {
+  const relationshipPrefix = item.relationship ? `${item.relationship} · ` : "";
+
+  if (item.status === "active") {
+    if (item.lastAccessedAt) {
+      return `${relationshipPrefix}Last accessed ${formatISOToHuman(item.lastAccessedAt)}`;
+    }
+    if (item.usedAt) {
+      return `${relationshipPrefix}Accepted ${formatISOToHuman(item.usedAt)}`;
+    }
+  }
+
+  if (item.status === "pending") {
+    return `${relationshipPrefix}Invite expires ${formatISOToHuman(item.expiresAt)}`;
+  }
+
+  if (item.status === "expired") {
+    return `${relationshipPrefix}Expired ${formatISOToHuman(item.expiresAt)}`;
+  }
+
+  if (item.revokedAt) {
+    return `${relationshipPrefix}Revoked ${formatISOToHuman(item.revokedAt)}`;
+  }
+
+  return item.usedAt
+    ? `${relationshipPrefix}Accepted ${formatISOToHuman(item.usedAt)}`
+    : `${relationshipPrefix}Expires ${formatISOToHuman(item.expiresAt)}`;
+}
+
 export default function CaregiverInviteScreen() {
   const router = useRouter();
   const tokens = useTokens();
@@ -172,6 +219,12 @@ export default function CaregiverInviteScreen() {
     }
     void loadInvites();
   }, [auth.status, loadInvites]);
+
+  const activeInvites = useMemo(
+    () => invites.filter((item) => item.status === "active" || item.status === "pending"),
+    [invites],
+  );
+  const recentInvites = useMemo(() => invites.slice(0, 6), [invites]);
 
   const handleGenerate = async () => {
     if (!auth.token) {
@@ -288,8 +341,8 @@ export default function CaregiverInviteScreen() {
         <StatusPill label="Read-only" variant="neutral" />
         <StatusPill label="24h code" variant="info" />
         <StatusPill
-          label={invites.length > 0 ? `${invites.length} active` : "No active codes"}
-          variant={invites.length > 0 ? "success" : "neutral"}
+          label={activeInvites.length > 0 ? `${activeInvites.length} active` : "No active codes"}
+          variant={activeInvites.length > 0 ? "success" : "neutral"}
         />
       </View>
 
@@ -320,7 +373,7 @@ export default function CaregiverInviteScreen() {
   return (
     <Screen scroll={false} header={header}>
       <FlatList
-        data={isLoading ? [] : invites}
+        data={isLoading ? [] : activeInvites}
         keyExtractor={(item) => item.inviteId}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
@@ -328,26 +381,14 @@ export default function CaregiverInviteScreen() {
           <MediaCard
             leading={{ type: "icon", icon: "caregiver", tone: "accent" }}
             title={`•••• ${item.codeHint}`}
-            subtitle={
-              item.relationship
-                ? `${item.relationship} · ${
-                    item.usedAt
-                      ? `Used ${formatISOToHuman(item.usedAt)}`
-                      : `Expires ${formatISOToHuman(item.expiresAt)}`
-                  }`
-                : item.usedAt
-                  ? `Used ${formatISOToHuman(item.usedAt)}`
-                  : `Expires ${formatISOToHuman(item.expiresAt)}`
-            }
+            subtitle={inviteSubtitle(item)}
             statusPill={{
-              text: item.usedAt ? "Used" : "Active",
-              tone: item.usedAt ? "neutral" : "success",
+              text: statusPresentation(item).label,
+              tone: statusPresentation(item).tone,
             }}
             chips={
               [
-                item.usedAt
-                  ? { text: "Read-only access ended", tone: "muted" as const }
-                  : { text: "Read-only caregiver view", tone: "muted" as const },
+                { text: "Read-only caregiver view", tone: "muted" as const },
                 ...(item.caregiverName
                   ? [{ text: item.caregiverName, tone: "muted" as const }]
                   : []),
@@ -361,16 +402,20 @@ export default function CaregiverInviteScreen() {
                   : []),
               ]
             }
-            actions={[
-              {
-                label: "Revoke",
-                kind: "secondary",
-                disabled: isSubmitting,
-                onPress: () => {
-                  void handleRevoke(item.inviteId);
-                },
-              },
-            ]}
+            actions={
+              item.status === "active" || item.status === "pending"
+                ? [
+                    {
+                      label: "Revoke",
+                      kind: "secondary",
+                      disabled: isSubmitting,
+                      onPress: () => {
+                        void handleRevoke(item.inviteId);
+                      },
+                    },
+                  ]
+                : undefined
+            }
           />
         )}
         ListHeaderComponent={
@@ -419,6 +464,22 @@ export default function CaregiverInviteScreen() {
                 only with someone you trust.
               </Text>
             </View>
+
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "weekly", tone: "accent" }}
+              title="What caregivers can see"
+              subtitle="Read-only summaries, weekly updates, plan status, next appointments, and the current care state."
+              chips={[{ text: "Summary-level only", tone: "muted" }]}
+            />
+
+            <MediaCard
+              variant="compact"
+              leading={{ type: "icon", icon: "safety", tone: "warning" }}
+              title="What stays private"
+              subtitle="Messages, notes, symptom photos, body map detail, detailed assessments, and clinician-only reasoning stay private."
+              chips={[{ text: "Always excluded", tone: "muted" }]}
+            />
 
             <View style={styles.formCard}>
               <Text style={styles.formTitle}>Invite details</Text>
@@ -476,9 +537,9 @@ export default function CaregiverInviteScreen() {
             ) : null}
 
             <View style={styles.sectionIntro}>
-              <Text style={styles.sectionTitle}>Shared access</Text>
+              <Text style={styles.sectionTitle}>Active access</Text>
               <Text style={styles.sectionHelper}>
-                Review active codes here and revoke any that should no longer open caregiver access.
+                Review current caregiver access here. Revoking a code ends access immediately and a new invite is needed to return.
               </Text>
             </View>
           </View>
@@ -496,7 +557,47 @@ export default function CaregiverInviteScreen() {
             )}
           </View>
         }
-        ListFooterComponent={isLoading ? null : <View style={styles.listFooter} />}
+        ListFooterComponent={
+          isLoading ? null : (
+            <View style={styles.footerContent}>
+              <View style={styles.sectionIntro}>
+                <Text style={styles.sectionTitle}>Recent invite activity</Text>
+                <Text style={styles.sectionHelper}>
+                  Review recent caregiver invite history here, including pending, active, expired, and revoked access.
+                </Text>
+              </View>
+              {recentInvites.length > 0 ? (
+                recentInvites.map((item) => (
+                  <MediaCard
+                    key={`history-${item.inviteId}`}
+                    leading={{ type: "icon", icon: "caregiver", tone: "muted" }}
+                    title={`•••• ${item.codeHint}`}
+                    subtitle={inviteSubtitle(item)}
+                    statusPill={{
+                      text: statusPresentation(item).label,
+                      tone: statusPresentation(item).tone,
+                    }}
+                    chips={[
+                      ...(item.relationship
+                        ? [{ text: item.relationship, tone: "muted" as const }]
+                        : []),
+                      ...(item.caregiverName
+                        ? [{ text: item.caregiverName, tone: "muted" as const }]
+                        : []),
+                    ]}
+                  />
+                ))
+              ) : (
+                <Banner
+                  variant="info"
+                  title="No invite history yet"
+                  message="Invite activity will appear here after you create or share caregiver access."
+                />
+              )}
+              <View style={styles.listFooter} />
+            </View>
+          )
+        }
       />
     </Screen>
   );
@@ -623,6 +724,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     listFooter: {
       height: tokens.spacing.md,
+    },
+    footerContent: {
+      gap: tokens.spacing.md,
     },
     devCard: {
       borderWidth: 1,

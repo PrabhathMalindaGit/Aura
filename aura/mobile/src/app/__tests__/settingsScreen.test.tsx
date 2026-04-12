@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   alertMock,
   openSettingsMock,
+  listCaregiverInvites,
   getReminderPrefs,
   setReminderPrefs,
   getPermissionStatus,
@@ -27,6 +28,7 @@ const {
 } = vi.hoisted(() => ({
   alertMock: vi.fn(),
   openSettingsMock: vi.fn(async () => undefined),
+  listCaregiverInvites: vi.fn(async () => []),
   getReminderPrefs: vi.fn(async () => ({
     enabled: true,
     hour: 19,
@@ -55,6 +57,10 @@ vi.mock("expo-router", () => ({
   useRouter: () => ({
     push: routerPush,
   }),
+}));
+
+vi.mock("@react-navigation/native", () => ({
+  useFocusEffect: () => undefined,
 }));
 
 vi.mock("react-native", () => ({
@@ -191,6 +197,10 @@ vi.mock("@/src/config/env", () => ({
   API_BASE: "http://localhost:3000",
 }));
 
+vi.mock("@/src/api/caregiver", () => ({
+  listCaregiverInvites,
+}));
+
 vi.mock("@/src/dev/renderAudit", () => ({
   isPatientDebugUIEnabled: () => false,
   useDevRenderAudit: () => undefined,
@@ -209,6 +219,7 @@ vi.mock("@/src/services/reminders", () => ({
 vi.mock("@/src/state/auth", () => ({
   useAuth: () => ({
     status: "signedIn",
+    token: "patient-token",
     patient: {
       id: "patient-1",
       displayName: "Patient One",
@@ -319,6 +330,8 @@ describe("SettingsScreen", () => {
     routerPush.mockReset();
     signOut.mockReset();
     getReminderPrefs.mockClear();
+    listCaregiverInvites.mockReset();
+    listCaregiverInvites.mockResolvedValue([] as any);
     networkState.isOffline = false;
     getPatientCareMode.mockReset();
     getPatientCareMode.mockReturnValue("active");
@@ -357,6 +370,48 @@ describe("SettingsScreen", () => {
     expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Safety plan")).toHaveLength(1);
     expect(findByTypeAndProp(renderer!.root, "mock-settings-item", "title", "Show developer tools")).toHaveLength(0);
     expect(findByTestId(renderer!.root, "mock-view", "settings-developer-panel")).toHaveLength(0);
+  });
+
+  it("uses live caregiver access counts for the settings row", async () => {
+    let renderer: ReactTestRenderer;
+
+    listCaregiverInvites.mockResolvedValue([
+      {
+        inviteId: "invite-1",
+        codeHint: "ABCD",
+        expiresAt: "2026-04-12T10:00:00.000Z",
+        usedAt: "2026-04-12T09:00:00.000Z",
+        revokedAt: null,
+        createdAt: "2026-04-12T08:00:00.000Z",
+        status: "active",
+      },
+      {
+        inviteId: "invite-2",
+        codeHint: "EFGH",
+        expiresAt: "2026-04-13T10:00:00.000Z",
+        usedAt: null,
+        revokedAt: null,
+        createdAt: "2026-04-12T08:30:00.000Z",
+        status: "pending",
+      },
+    ] as any);
+
+    await act(async () => {
+      renderer = create(<SettingsScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const caregiverRows = findByTypeAndProp(
+      renderer!.root,
+      "mock-settings-item",
+      "title",
+      "Caregiver access",
+    );
+
+    expect(caregiverRows).toHaveLength(1);
+    expect(caregiverRows[0]?.props.statusLabel).toBe("1 linked");
+    expect(caregiverRows[0]?.props.subtitle).toContain("read-only caregiver summary");
   });
 
   it("keeps the developer section hidden when patient debug UI is disabled", async () => {

@@ -5,24 +5,19 @@ import { z } from "zod";
 
 import { requireCaregiverAuth } from "../middleware/caregiverAuth";
 import { requirePatientAuth } from "../middleware/patientAuth";
-import Alert from "../models/Alert";
-import AppointmentRequest from "../models/AppointmentRequest";
-import AppointmentSlot from "../models/AppointmentSlot";
-import CareEvent from "../models/CareEvent";
 import CaregiverInvite from "../models/CaregiverInvite";
-import CheckIn from "../models/CheckIn";
-import HydrationLog from "../models/HydrationLog";
-import Medication from "../models/Medication";
-import MedicationLog from "../models/MedicationLog";
-import MedicationSchedule from "../models/MedicationSchedule";
-import NutritionLog from "../models/NutritionLog";
 import Patient from "../models/Patient";
-import PromInstance from "../models/PromInstance";
-import ExercisePlan from "../models/ExercisePlan";
 import {
-  generateWeeklyReport,
-  WeeklyReportValidationError,
-} from "../services/weeklyReportService";
+  listCaregiverAccessForPatient,
+  mapCaregiverAccess,
+  recordCaregiverSurfaceAccess,
+  writeCaregiverEvent,
+} from "../services/caregiverAccessService";
+import {
+  buildCaregiverSummaryView,
+  buildCaregiverWeeklyReportView,
+} from "../services/caregiverViewService";
+import { WeeklyReportValidationError } from "../services/weeklyReportService";
 import type { RequestWithCaregiver } from "../types/caregiverAuth";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { isObjectId } from "../utils/ids";
@@ -53,74 +48,6 @@ const weeklyReportQuerySchema = z.object({
   weekStart: z.string().regex(dateRegex).optional(),
   tzOffsetMinutes: z.coerce.number().int().min(-840).max(840).optional(),
 });
-
-function parseDateOnlyUtc(value: string): Date | null {
-  if (!dateRegex.test(value)) {
-    return null;
-  }
-
-  const [yearString, monthString, dayString] = value.split("-");
-  const year = Number.parseInt(yearString, 10);
-  const month = Number.parseInt(monthString, 10);
-  const day = Number.parseInt(dayString, 10);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return parsed;
-}
-
-function compareDateOnly(left: string, right: string): number {
-  return Date.parse(`${left}T00:00:00.000Z`) - Date.parse(`${right}T00:00:00.000Z`);
-}
-
-function scheduleAppliesOnDate(
-  schedule: {
-    daysOfWeek?: unknown;
-    startDate?: unknown;
-    endDate?: unknown;
-  },
-  date: string
-): boolean {
-  const parsed = parseDateOnlyUtc(date);
-  if (!parsed) {
-    return false;
-  }
-
-  const rawDays = Array.isArray(schedule.daysOfWeek)
-    ? schedule.daysOfWeek
-    : [0, 1, 2, 3, 4, 5, 6];
-  const days = rawDays.filter(
-    (value): value is number =>
-      Number.isInteger(value) && (value as number) >= 0 && (value as number) <= 6
-  );
-
-  if (!days.includes(parsed.getUTCDay())) {
-    return false;
-  }
-
-  const startDate =
-    typeof schedule.startDate === "string" && schedule.startDate.trim()
-      ? schedule.startDate
-      : null;
-  const endDate =
-    typeof schedule.endDate === "string" && schedule.endDate.trim()
-      ? schedule.endDate
-      : null;
-
-  if (startDate && compareDateOnly(date, startDate) < 0) {
-    return false;
-  }
-  if (endDate && compareDateOnly(date, endDate) > 0) {
-    return false;
-  }
-
-  return true;
-}
 
 function randomInvitePayload(length: number): string {
   const bytes = crypto.randomBytes(length);
@@ -160,79 +87,6 @@ function toTrimmedString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function toIsoString(value: unknown): string | null {
-  return value instanceof Date && Number.isFinite(value.getTime()) ? value.toISOString() : null;
-}
-
-function mapCaregiverAccess(invite: Record<string, unknown>) {
-  return {
-    inviteId: String(invite._id ?? ""),
-    codeHint: typeof invite.codeHint === "string" ? invite.codeHint : "",
-    expiresAt: toIsoString(invite.expiresAt) ?? new Date(0).toISOString(),
-    usedAt: toIsoString(invite.usedAt),
-    revokedAt: toIsoString(invite.revokedAt),
-    relationship: toTrimmedString(invite.relationship),
-    caregiverName: toTrimmedString(invite.caregiverName),
-    lastAccessedAt: toIsoString(invite.lastAccessedAt),
-  };
-}
-
-async function writeCaregiverEvent(
-  type: string,
-  patientId: string,
-  inviteId: string | null,
-  payload: Record<string, unknown>
-): Promise<void> {
-  await CareEvent.create({
-    type,
-    patientId,
-    payload: {
-      ...payload,
-      inviteId: inviteId ?? undefined,
-    },
-  });
-}
-
-async function readNextAppointmentSummary(patientId: string) {
-  const approvedRequests = await AppointmentRequest.find({
-    patientId,
-    status: "approved",
-  })
-    .select({ slotId: 1, status: 1 })
-    .lean();
-
-  if (approvedRequests.length === 0) {
-    return null;
-  }
-
-  const slotIds = approvedRequests
-    .map((item) => item.slotId)
-    .filter(Boolean);
-
-  if (slotIds.length === 0) {
-    return null;
-  }
-
-  const slots = await AppointmentSlot.find({
-    _id: { $in: slotIds },
-    startsAt: { $gte: new Date() },
-  })
-    .select({ startsAt: 1, endsAt: 1, modality: 1 })
-    .sort({ startsAt: 1 })
-    .lean();
-
-  const nextSlot = slots[0];
-  if (!nextSlot) {
-    return null;
-  }
-
-  return {
-    startsAt: toIsoString(nextSlot.startsAt) ?? new Date(0).toISOString(),
-    endsAt: toIsoString(nextSlot.endsAt) ?? new Date(0).toISOString(),
-    modality: nextSlot.modality === "video" ? "video" : "video",
-  };
-}
-
 async function createInviteCodeRecord(patientId: string, expiresHours: number, relationship?: string | null) {
   const expiresAt = new Date(Date.now() + expiresHours * 60 * 60 * 1000);
 
@@ -269,56 +123,6 @@ async function createInviteCodeRecord(patientId: string, expiresHours: number, r
   }
 
   throw new Error("Failed to generate unique caregiver invite code");
-}
-
-async function readMedicationSummaryForDate(
-  patientId: string,
-  date: string
-): Promise<{ taken: number; scheduled: number } | null> {
-  const medications = await Medication.find({ patientId, active: true })
-    .select({ _id: 1 })
-    .lean();
-  if (medications.length === 0) {
-    return null;
-  }
-
-  const medicationIds = medications.map((item) => item._id);
-  const [schedules, logs] = await Promise.all([
-    MedicationSchedule.find({
-      patientId,
-      medicationId: { $in: medicationIds },
-    })
-      .select({ times: 1, daysOfWeek: 1, startDate: 1, endDate: 1 })
-      .lean(),
-    MedicationLog.find({
-      patientId,
-      medicationId: { $in: medicationIds },
-      date,
-    })
-      .select({ status: 1 })
-      .lean(),
-  ]);
-
-  let scheduled = 0;
-  for (const schedule of schedules) {
-    if (!scheduleAppliesOnDate(schedule, date)) {
-      continue;
-    }
-    const times = Array.isArray(schedule.times)
-      ? schedule.times.filter((time): time is string => typeof time === "string")
-      : [];
-    scheduled += times.length;
-  }
-
-  const taken = logs.reduce(
-    (count, item) => count + (item.status === "taken" ? 1 : 0),
-    0
-  );
-
-  return {
-    taken,
-    scheduled,
-  };
 }
 
 router.post("/patient/caregiver/invites", requirePatientAuth, async (req, res) => {
@@ -384,19 +188,9 @@ router.get("/patient/caregiver/invites", requirePatientAuth, async (req, res) =>
   }
 
   try {
-    const now = new Date();
-    const invites = await CaregiverInvite.find({
-      patientId,
-      revokedAt: null,
-      expiresAt: { $gt: now },
-    })
-      .sort({ createdAt: -1 })
-      .select({ codeHint: 1, expiresAt: 1, usedAt: 1, revokedAt: 1, createdAt: 1, relationship: 1, caregiverName: 1, lastAccessedAt: 1 })
-      .lean();
-
     return res.json({
       ok: true,
-      items: invites.map((invite) => mapCaregiverAccess(invite as Record<string, unknown>)),
+      items: await listCaregiverAccessForPatient(patientId),
     });
   } catch (error) {
     logger.error("List caregiver invites failed", {
@@ -462,7 +256,10 @@ router.post(
             : new Date().toISOString(),
         relationship: toTrimmedString((updated as { relationship?: unknown }).relationship),
         caregiverName: toTrimmedString((updated as { caregiverName?: unknown }).caregiverName),
-        lastAccessedAt: toIsoString((updated as { lastAccessedAt?: unknown }).lastAccessedAt),
+        lastAccessedAt:
+          (updated as { lastAccessedAt?: unknown }).lastAccessedAt instanceof Date
+            ? ((updated as { lastAccessedAt: Date }).lastAccessedAt.toISOString())
+            : null,
       });
     } catch (error) {
       logger.error("Revoke caregiver invite failed", {
@@ -564,236 +361,34 @@ router.post("/caregiver/auth/login", async (req, res) => {
 router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
   const requestWithCaregiver = req as RequestWithCaregiver;
   const patientId = requestWithCaregiver.caregiver?.patientId;
+  const inviteId = requestWithCaregiver.caregiver?.inviteId;
   if (!patientId) {
+    return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+  }
+  if (!inviteId) {
     return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
   }
 
   try {
-    const [patient, lastCheckin, plan, nextAppointment] = await Promise.all([
-      Patient.findOne({ patientId })
-        .select({ patientId: 1, displayName: 1, rehab: 1 })
-        .lean(),
-      CheckIn.findOne({ patientId })
-        .sort({ createdAt: -1 })
-        .select({
-          date: 1,
-          pain: 1,
-          mood: 1,
-          adherence: 1,
-          sleep: 1,
-          createdAt: 1,
-        })
-        .lean(),
-      ExercisePlan.findOne({ patientId })
-        .select({ title: 1, items: 1, version: 1 })
-        .lean(),
-      readNextAppointmentSummary(patientId),
-    ]);
+    const access = await recordCaregiverSurfaceAccess({
+      patientId,
+      inviteId,
+      surface: "summary",
+      eventType: "CAREGIVER_SUMMARY_ACCESSED",
+    });
+    if (!access) {
+      return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    }
 
-    if (!patient) {
+    const summary = await buildCaregiverSummaryView({
+      patientId,
+      access,
+    });
+    if (!summary) {
       return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
 
-    const lastCheckinDate =
-      typeof lastCheckin?.date === "string" && dateRegex.test(lastCheckin.date)
-        ? lastCheckin.date
-        : null;
-
-    const [openAlertsCount, highRiskAlerts14d, dueNowCount, latestCompletedProm, hydrationRows, nutritionToday, medsToday] =
-      await Promise.all([
-        Alert.countDocuments({ patientId, status: "open" }),
-        Alert.countDocuments({
-          patientId,
-          risk: "high",
-          createdAt: { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
-        }),
-        PromInstance.countDocuments({ patientId, status: "due" }),
-        PromInstance.findOne({
-          patientId,
-          status: "completed",
-        })
-          .sort({ completedAt: -1 })
-          .select({ score: 1, completedAt: 1 })
-          .lean(),
-        lastCheckinDate
-          ? HydrationLog.find({ patientId, date: lastCheckinDate })
-              .select({ amountMl: 1 })
-              .lean()
-          : Promise.resolve([]),
-        lastCheckinDate
-          ? NutritionLog.findOne({ patientId, date: lastCheckinDate })
-              .sort({ createdAt: -1 })
-              .select({ protein: 1, fruitVegServings: 1 })
-              .lean()
-          : Promise.resolve(null),
-        lastCheckinDate
-          ? readMedicationSummaryForDate(patientId, lastCheckinDate)
-          : Promise.resolve(null),
-      ]);
-
-    const hydrationTodayMl =
-      hydrationRows.length > 0
-        ? hydrationRows.reduce((sum, item) => {
-            const amount = typeof item.amountMl === "number" ? item.amountMl : 0;
-            return sum + amount;
-          }, 0)
-        : undefined;
-
-    const latestCompletedScore =
-      latestCompletedProm &&
-      latestCompletedProm.completedAt instanceof Date &&
-      latestCompletedProm.score &&
-      typeof latestCompletedProm.score === "object" &&
-      typeof latestCompletedProm.score.normalized === "number" &&
-      typeof latestCompletedProm.score.bandLabel === "string"
-        ? {
-            normalized: Math.round(latestCompletedProm.score.normalized),
-            bandLabel: latestCompletedProm.score.bandLabel,
-            completedAt: latestCompletedProm.completedAt.toISOString(),
-          }
-        : null;
-
-    const rehabRecord =
-      patient.rehab && typeof patient.rehab === "object"
-        ? (patient.rehab as {
-            currentKey?: unknown;
-            phases?: Array<{ key?: unknown; title?: unknown; status?: unknown }>;
-          })
-        : null;
-    const rehabPhases = Array.isArray(rehabRecord?.phases)
-      ? rehabRecord.phases
-      : [];
-    const currentKey =
-      typeof rehabRecord?.currentKey === "string" ? rehabRecord.currentKey : null;
-    const currentPhase =
-      rehabPhases.find((phase) => phase.key === currentKey) ??
-      rehabPhases.find((phase) => phase.status === "current") ??
-      null;
-
-    const responseLastCheckin =
-      lastCheckin && lastCheckinDate
-        ? {
-            date: lastCheckinDate,
-            pain: typeof lastCheckin.pain === "number" ? lastCheckin.pain : 0,
-            mood: typeof lastCheckin.mood === "number" ? lastCheckin.mood : 0,
-            adherence: {
-              exercises:
-                lastCheckin.adherence &&
-                typeof lastCheckin.adherence === "object" &&
-                typeof (lastCheckin.adherence as { exercises?: unknown }).exercises ===
-                  "number"
-                  ? (lastCheckin.adherence as { exercises: number }).exercises
-                  : undefined,
-              medication:
-                lastCheckin.adherence &&
-                typeof lastCheckin.adherence === "object" &&
-                typeof (lastCheckin.adherence as { medication?: unknown }).medication ===
-                  "boolean"
-                  ? (lastCheckin.adherence as { medication: boolean }).medication
-                  : undefined,
-            },
-            sleep:
-              lastCheckin.sleep &&
-              typeof lastCheckin.sleep === "object" &&
-              (typeof (lastCheckin.sleep as { hours?: unknown }).hours === "number" ||
-                typeof (lastCheckin.sleep as { quality?: unknown }).quality === "number")
-                ? {
-                    hours:
-                      typeof (lastCheckin.sleep as { hours?: unknown }).hours ===
-                      "number"
-                        ? (lastCheckin.sleep as { hours: number }).hours
-                        : undefined,
-                    quality:
-                      typeof (lastCheckin.sleep as { quality?: unknown }).quality ===
-                      "number"
-                        ? (lastCheckin.sleep as { quality: number }).quality
-                        : undefined,
-                  }
-                : undefined,
-            hydrationTodayMl,
-            nutritionToday:
-              nutritionToday &&
-              (nutritionToday.protein === "low" ||
-                nutritionToday.protein === "ok" ||
-                nutritionToday.protein === "high" ||
-                typeof nutritionToday.fruitVegServings === "number")
-                ? {
-                    protein:
-                      nutritionToday.protein === "low" ||
-                      nutritionToday.protein === "ok" ||
-                      nutritionToday.protein === "high"
-                        ? nutritionToday.protein
-                        : undefined,
-                    fruitVegServings:
-                      typeof nutritionToday.fruitVegServings === "number"
-                        ? nutritionToday.fruitVegServings
-                        : undefined,
-                  }
-                : undefined,
-            medsToday:
-              medsToday && medsToday.scheduled > 0
-                ? {
-                    taken: medsToday.taken,
-                    scheduled: medsToday.scheduled,
-                  }
-                : undefined,
-          }
-        : null;
-
-    const inviteAccess = await CaregiverInvite.findOneAndUpdate(
-      { _id: requestWithCaregiver.caregiver?.inviteId, patientId },
-      { $set: { lastAccessedAt: new Date() } },
-      { new: true }
-    )
-      .select({ _id: 1, relationship: 1, caregiverName: 1, lastAccessedAt: 1, usedAt: 1, revokedAt: 1, expiresAt: 1, codeHint: 1 })
-      .lean();
-
-    await writeCaregiverEvent("CAREGIVER_SUMMARY_ACCESSED", patientId, requestWithCaregiver.caregiver?.inviteId ?? null, {
-      accessedAt: new Date(),
-    });
-
-    return res.json({
-      ok: true,
-      patientId,
-      patient: {
-        id: patient.patientId,
-        displayName:
-          typeof patient.displayName === "string"
-            ? patient.displayName
-            : undefined,
-      },
-      access: inviteAccess ? mapCaregiverAccess(inviteAccess as Record<string, unknown>) : null,
-      updatedAt: new Date().toISOString(),
-      lastCheckin: responseLastCheckin,
-      safety: {
-        openAlertsCount,
-        highRiskAlerts14d: highRiskAlerts14d,
-      },
-      proms: {
-        dueNowCount,
-        latestCompleted: latestCompletedScore,
-      },
-      rehab: {
-        currentPhaseTitle:
-          currentPhase && typeof currentPhase.title === "string"
-            ? currentPhase.title
-            : null,
-      },
-      plan: {
-        statusLabel: plan
-          ? Array.isArray(plan.items) && plan.items.length > 0
-            ? "Plan assigned"
-            : "Nothing scheduled right now"
-          : "No plan assigned",
-        phaseTitle:
-          currentPhase && typeof currentPhase.title === "string"
-            ? currentPhase.title
-            : null,
-        itemCount: Array.isArray(plan?.items) ? plan.items.length : 0,
-        title: typeof plan?.title === "string" ? plan.title : undefined,
-      },
-      nextAppointment: nextAppointment,
-    });
+    return res.json(summary);
   } catch (error) {
     logger.error("Get caregiver summary failed", {
       route: "GET /caregiver/summary",
@@ -807,7 +402,11 @@ router.get("/caregiver/summary", requireCaregiverAuth, async (req, res) => {
 router.get("/caregiver/reports/weekly", requireCaregiverAuth, async (req, res) => {
   const requestWithCaregiver = req as RequestWithCaregiver;
   const patientId = requestWithCaregiver.caregiver?.patientId;
+  const inviteId = requestWithCaregiver.caregiver?.inviteId;
   if (!patientId) {
+    return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+  }
+  if (!inviteId) {
     return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
   }
 
@@ -824,11 +423,26 @@ router.get("/caregiver/reports/weekly", requireCaregiverAuth, async (req, res) =
   }
 
   try {
-    const report = await generateWeeklyReport({
+    const access = await recordCaregiverSurfaceAccess({
       patientId,
+      inviteId,
+      surface: "weekly_report",
+      eventType: "CAREGIVER_WEEKLY_REPORT_ACCESSED",
+    });
+    if (!access) {
+      return res.status(401).json({ ok: false, error: "UNAUTHORIZED" });
+    }
+
+    const report = await buildCaregiverWeeklyReportView({
+      patientId,
+      access,
       weekStart: parsedQuery.data.weekStart,
       tzOffsetMinutes: parsedQuery.data.tzOffsetMinutes,
     });
+    if (!report) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
     return res.json(report);
   } catch (error) {
     if (error instanceof WeeklyReportValidationError) {

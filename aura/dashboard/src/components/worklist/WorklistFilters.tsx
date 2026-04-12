@@ -14,13 +14,19 @@ interface WorklistFiltersProps {
   onReset: () => void;
 }
 
-const TOGGLE_FILTERS: Array<{
-  key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse' | 'missedCheckins' | 'needsPromReview' | 'assignedToMe';
+const PRIMARY_TOGGLE_FILTERS: Array<{
+  key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse';
   label: string;
 }> = [
   { key: 'highRiskOnly', label: 'High risk' },
-  { key: 'hasOpenAlerts', label: 'Open alerts' },
   { key: 'needsResponse', label: 'Needs response' },
+  { key: 'hasOpenAlerts', label: 'Open alerts' },
+];
+
+const SECONDARY_TOGGLE_FILTERS: Array<{
+  key: 'highRiskOnly' | 'hasOpenAlerts' | 'needsResponse' | 'missedCheckins' | 'needsPromReview' | 'assignedToMe';
+  label: string;
+}> = [
   { key: 'missedCheckins', label: 'Missed check-ins' },
   { key: 'needsPromReview', label: 'PROMs due' },
   { key: 'assignedToMe', label: 'Assigned to me' },
@@ -81,24 +87,12 @@ export function WorklistFilters({
             <option value="nextAppointmentAt">Next appointment</option>
           </select>
         </label>
-
-        <div className="worklist-filters__actions">
-          <Button
-            className="worklist-filters__reset"
-            variant="ghost"
-            size="sm"
-            onClick={onReset}
-            disabled={disabled}
-          >
-            Reset filters
-          </Button>
-        </div>
       </div>
 
       <div className="worklist-filters__row worklist-filters__row--secondary">
-        <span className="worklist-filters__toolbar-label">Review filters</span>
-        <div className="worklist-filters__toggles" role="group" aria-label="Worklist quick filters">
-          {TOGGLE_FILTERS.map((filter) => (
+        <span className="worklist-filters__toolbar-label">Priority focus</span>
+        <div className="worklist-filters__toggles" role="group" aria-label="Worklist priority filters">
+          {PRIMARY_TOGGLE_FILTERS.map((filter) => (
             <Button
               key={filter.key}
               className="worklist-filters__toggle"
@@ -111,6 +105,36 @@ export function WorklistFilters({
               {filter.label}
             </Button>
           ))}
+        </div>
+      </div>
+
+      <div className="worklist-filters__row worklist-filters__row--secondary">
+        <span className="worklist-filters__toolbar-label">Narrow further</span>
+        <div className="worklist-filters__toggles" role="group" aria-label="Worklist quick filters">
+          {SECONDARY_TOGGLE_FILTERS.map((filter) => (
+            <Button
+              key={filter.key}
+              className="worklist-filters__toggle"
+              variant={filters[filter.key] ? 'primary' : 'secondary'}
+              size="sm"
+              disabled={disabled}
+              aria-pressed={filters[filter.key]}
+              onClick={() => onToggleFilter(filter.key)}
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+        <div className="worklist-filters__actions">
+          <Button
+            className="worklist-filters__reset"
+            variant="ghost"
+            size="sm"
+            onClick={onReset}
+            disabled={disabled}
+          >
+            Reset filters
+          </Button>
         </div>
       </div>
     </section>

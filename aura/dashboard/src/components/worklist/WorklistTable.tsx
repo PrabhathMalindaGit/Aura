@@ -1,9 +1,16 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
+import { ClinicianTruthChips } from '../clinician/ClinicianTruthChips';
 import { Button } from '../ui/Button';
 import { PatientStatusBadge } from '../patients/PatientStatusBadge';
 import type { WorklistRecord } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
-import { formatExercisesPct, getWorklistReviewLabel, getWorklistReviewSupport } from '../../utils/worklist';
+import {
+  formatExercisesPct,
+  getWorklistPrimaryAction,
+  getWorklistReviewLabel,
+  getWorklistReviewSupport,
+  getWorklistTruthChips,
+} from '../../utils/worklist';
 import { WorklistPriorityBadge } from './WorklistPriorityBadge';
 import {
   asPainText,
@@ -81,6 +88,8 @@ export function WorklistTable({
                 : followThroughSummary;
             const reviewLabel = getWorklistReviewLabel(item);
             const reviewSupport = getWorklistReviewSupport(item);
+            const truthChips = getWorklistTruthChips(item);
+            const primaryAction = getWorklistPrimaryAction(item);
             const rowToneClass =
               item.latestRiskLevel === 'high'
                 ? ' worklist-table__row--high-risk'
@@ -159,15 +168,17 @@ export function WorklistTable({
                     <p className={`worklist-table__signal-lead worklist-table__signal-lead--${leadSignal.tone}`}>
                       {leadSignal.label}
                     </p>
-                    {signalSummary.length > 0 ? (
-                      <p className="worklist-table__signal-summary">
-                        {signalSummary.join(' · ')}
-                      </p>
-                    ) : followThroughSummary.length > 0 ? (
-                      <p className="worklist-table__signal-summary">Follow-through still pending.</p>
-                    ) : (
-                      <p className="worklist-table__signal-summary">No linked follow-through right now.</p>
-                    )}
+                    <ClinicianTruthChips
+                      className="worklist-table__signal-chips"
+                      chips={truthChips}
+                    />
+                    <p className="worklist-table__signal-summary">
+                      {signalSummary.length > 0
+                        ? signalSummary.join(' · ')
+                        : followThroughSummary.length > 0
+                          ? 'Follow-through still pending.'
+                          : 'No linked follow-through right now.'}
+                    </p>
                     <p className="worklist-table__signal-support">
                       {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
                       {' · '}
@@ -231,14 +242,41 @@ export function WorklistTable({
                         className="worklist-table__open"
                         variant="primary"
                         size="sm"
-                        onClick={() => onOpenPatient(item.patientId)}
+                        onClick={() => {
+                          if (primaryAction.kind === 'alerts') {
+                            onOpenAlerts(item.patientId);
+                            return;
+                          }
+
+                          if (primaryAction.kind === 'communication') {
+                            onOpenCommunication(item.patientId);
+                            return;
+                          }
+
+                          if (primaryAction.kind === 'appointments') {
+                            onOpenAppointments(item.patientId);
+                            return;
+                          }
+
+                          onOpenPatient(item.patientId);
+                        }}
                       >
-                        Open patient
+                        {primaryAction.label}
                       </Button>
                     </div>
                     {hasCommunicationAction || item.openAlertsCount > 0 || hasAppointment ? (
                       <div className="worklist-table__actions-secondary">
-                        {hasCommunicationAction ? (
+                        {primaryAction.kind !== 'patient' ? (
+                          <Button
+                            className="worklist-table__patient-link"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenPatient(item.patientId)}
+                          >
+                            Open patient
+                          </Button>
+                        ) : null}
+                        {hasCommunicationAction && primaryAction.kind !== 'communication' ? (
                           <Button
                             className="worklist-table__communication"
                             variant="ghost"
@@ -248,7 +286,7 @@ export function WorklistTable({
                             Open communication
                           </Button>
                         ) : null}
-                        {item.openAlertsCount > 0 ? (
+                        {item.openAlertsCount > 0 && primaryAction.kind !== 'alerts' ? (
                           <Button
                             className="worklist-table__alerts"
                             variant="ghost"
@@ -258,7 +296,7 @@ export function WorklistTable({
                             Open alerts
                           </Button>
                         ) : null}
-                        {hasAppointment ? (
+                        {hasAppointment && primaryAction.kind !== 'appointments' ? (
                           <Button
                             className="worklist-table__appointments"
                             variant="ghost"

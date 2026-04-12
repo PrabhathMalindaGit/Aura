@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlertBanner } from '../components/ui/AlertBanner';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Section } from '../components/ui/Section';
+import { ClinicianConflictBanner } from '../components/clinician/ClinicianConflictBanner';
+import { ClinicianSummaryStrip } from '../components/clinician/ClinicianSummaryStrip';
 import {
   getExercisePlan,
   getExercisePlanHistory,
@@ -14,6 +16,20 @@ import type { ExercisePlan, ExercisePlanIntensity, ExercisePlanRevision } from '
 import { asAppError, toUserMessage } from '../utils/errors';
 
 type ExercisePlanDraftItem = PutExercisePlanPayload['items'][number];
+
+interface ExercisePlanItemValidationState {
+  key?: string;
+  name?: string;
+  instructions?: string;
+}
+
+interface ExercisePlanValidationState {
+  summary: string | null;
+  title?: string;
+  daysOfWeek?: string;
+  items: ExercisePlanItemValidationState[];
+  focusFieldId?: string;
+}
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sun' },
@@ -128,32 +144,105 @@ function sortDraftItems(items: ExercisePlanDraftItem[]): ExercisePlanDraftItem[]
   }));
 }
 
-function validateDraft(payload: PutExercisePlanPayload): string | null {
+function duplicateDraftItem(item: ExercisePlanDraftItem, order: number): ExercisePlanDraftItem {
+  const keyRoot = item.key.trim() || `exercise-${order}`;
+  return {
+    ...item,
+    key: `${keyRoot}-copy-${order}`,
+    order,
+  };
+}
+
+function moveDraftItem(
+  items: ExercisePlanDraftItem[],
+  fromIndex: number,
+  toIndex: number,
+): ExercisePlanDraftItem[] {
+  if (toIndex < 0 || toIndex >= items.length) {
+    return items;
+  }
+
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next.map((item, index) => ({ ...item, order: index + 1 }));
+}
+
+function buildComparablePayload(payload: PutExercisePlanPayload): PutExercisePlanPayload {
+  return {
+    title: payload.title.trim(),
+    timezone: payload.timezone?.trim() || undefined,
+    daysOfWeek: [...payload.daysOfWeek].sort((left, right) => left - right),
+    items: sortDraftItems(payload.items),
+  };
+}
+
+function plansEquivalent(left: PutExercisePlanPayload, right: PutExercisePlanPayload): boolean {
+  return JSON.stringify(buildComparablePayload(left)) === JSON.stringify(buildComparablePayload(right));
+}
+
+function validateDraft(payload: PutExercisePlanPayload): ExercisePlanValidationState {
+  const next: ExercisePlanValidationState = {
+    summary: null,
+    items: payload.items.map(() => ({})),
+  };
+
   if (!payload.title.trim()) {
-    return 'Plan title is required.';
+    next.title = 'Plan title is required.';
+    next.summary = 'Plan title is required.';
+    next.focusFieldId = 'plan-title';
+    return next;
   }
   if (payload.daysOfWeek.length === 0) {
-    return 'Select at least one day for this plan.';
+    next.daysOfWeek = 'Select at least one day for this plan.';
+    next.summary = 'Select at least one day for this plan.';
+    next.focusFieldId = 'plan-days';
+    return next;
   }
 
   const uniqueKeys = new Set<string>();
   for (const item of payload.items) {
+    const index = payload.items.indexOf(item);
     if (!item.name.trim()) {
-      return 'Each exercise needs a name.';
+      next.items[index] = {
+        ...next.items[index],
+        name: 'Each exercise needs a name.',
+      };
+      next.summary = 'Each exercise needs a name.';
+      next.focusFieldId = `exercise-${index}-name`;
+      return next;
     }
     if (!item.instructions.trim()) {
-      return 'Each exercise needs clear instructions.';
+      next.items[index] = {
+        ...next.items[index],
+        instructions: 'Each exercise needs clear instructions.',
+      };
+      next.summary = 'Each exercise needs clear instructions.';
+      next.focusFieldId = `exercise-${index}-instructions`;
+      return next;
     }
     if (!item.key.trim()) {
-      return 'Each exercise needs a stable key.';
+      next.items[index] = {
+        ...next.items[index],
+        key: 'Each exercise needs a stable key.',
+      };
+      next.summary = 'Each exercise needs a stable key.';
+      next.focusFieldId = `exercise-${index}-key`;
+      return next;
     }
     if (uniqueKeys.has(item.key.trim())) {
-      return 'Exercise keys must be unique.';
+      next.items[index] = {
+        ...next.items[index],
+        key: 'Exercise keys must be unique.',
+      };
+      next.summary = 'Exercise keys must be unique.';
+      next.focusFieldId = `exercise-${index}-key`;
+      return next;
     }
     uniqueKeys.add(item.key.trim());
   }
 
-  return null;
+  return next;
 }
 
 export function PatientExercisePlanPage(): JSX.Element {
@@ -165,8 +254,12 @@ export function PatientExercisePlanPage(): JSX.Element {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [conflictDetected, setConflictDetected] = useState(false);
+  const [selectedCompareRevisionId, setSelectedCompareRevisionId] = useState<string | null>(null);
+  const [expandedExerciseKeys, setExpandedExerciseKeys] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>({});
 
   useEffect(() => {
     if (!resolvedPatientId) {
@@ -194,6 +287,13 @@ export function PatientExercisePlanPage(): JSX.Element {
         setCurrentPlan(plan);
         setHistory(revisions);
         setDraft(toDraftPayload(plan));
+        setConflictDetected(false);
+        setSelectedCompareRevisionId(revisions[0]?.id ?? null);
+        setExpandedExerciseKeys(
+          Object.fromEntries(
+            toDraftPayload(plan).items.map((item, index) => [item.key, index === 0]),
+          ),
+        );
       } catch (error) {
         if (!active) {
           return;
@@ -212,6 +312,27 @@ export function PatientExercisePlanPage(): JSX.Element {
   }, [resolvedPatientId]);
 
   const sortedItems = useMemo(() => sortDraftItems(draft.items), [draft.items]);
+  const comparableDraft = useMemo(
+    () => ({
+      title: draft.title,
+      timezone: draft.timezone,
+      daysOfWeek: draft.daysOfWeek,
+      items: sortedItems,
+    }),
+    [draft.daysOfWeek, draft.timezone, draft.title, sortedItems],
+  );
+  const validationState = useMemo(() => validateDraft(comparableDraft), [comparableDraft]);
+  const isDirty = useMemo(
+    () => !plansEquivalent(comparableDraft, toDraftPayload(currentPlan)),
+    [comparableDraft, currentPlan],
+  );
+  const selectedCompareRevision = useMemo(
+    () =>
+      history.find((revision) => revision.id === selectedCompareRevisionId) ??
+      history[0] ??
+      null,
+    [history, selectedCompareRevisionId],
+  );
   const summaryText = useMemo(() => {
     if (!currentPlan) {
       return 'No plan assigned yet. Build the first structured plan below.';
@@ -221,11 +342,72 @@ export function PatientExercisePlanPage(): JSX.Element {
       currentPlan.updatedAt,
     ).toLocaleString()}`;
   }, [currentPlan]);
+  const statusSummaryItems = [
+    {
+      label: 'Draft state',
+      value: isDirty ? 'Unsaved changes' : 'Saved',
+      note: isDirty ? 'Current draft differs from latest saved version' : 'Draft matches saved plan',
+      tone: isDirty ? 'warning' : 'success',
+    },
+    {
+      label: 'Validation',
+      value: validationState.summary ? 'Needs attention' : 'Ready',
+      note: validationState.summary ?? 'Required plan fields are complete',
+      tone: validationState.summary ? 'danger' : 'success',
+    },
+    {
+      label: 'Save state',
+      value: isSaving ? 'Saving...' : 'Idle',
+      note: isSaving ? 'Writing a new revision now' : 'Save remains available while you edit',
+      tone: isSaving ? 'warning' : 'neutral',
+    },
+    {
+      label: 'Conflict state',
+      value: conflictDetected ? 'Compare before reload' : 'No conflict',
+      note: conflictDetected
+        ? 'A newer plan was saved elsewhere; your local draft is preserved'
+        : 'Optimistic version check is clear',
+      tone: conflictDetected ? 'danger' : 'neutral',
+    },
+  ] as const;
+
+  useEffect(() => {
+    setExpandedExerciseKeys((current) => {
+      const next = Object.fromEntries(
+        draft.items.map((item, index) => [item.key, current[item.key] ?? index === 0]),
+      );
+      return next;
+    });
+  }, [draft.items]);
 
   function updateDraft(nextDraft: PutExercisePlanPayload): void {
     setDraft(nextDraft);
     setEditorError(null);
     setNotice(null);
+  }
+
+  function registerFieldRef(fieldId: string) {
+    return (element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null): void => {
+      fieldRefs.current[fieldId] = element;
+    };
+  }
+
+  function focusField(fieldId: string | undefined): void {
+    if (!fieldId) {
+      return;
+    }
+
+    const field = fieldRefs.current[fieldId];
+    if (field) {
+      field.focus();
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (typeof document !== 'undefined') {
+      const anchor = document.querySelector<HTMLElement>(`[data-plan-field="${fieldId}"]`);
+      anchor?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   function handleToggleDay(day: number): void {
@@ -255,10 +437,15 @@ export function PatientExercisePlanPage(): JSX.Element {
   }
 
   function handleAddExercise(): void {
+    const nextItem = createEmptyDraftItem(draft.items.length + 1);
     updateDraft({
       ...draft,
-      items: [...draft.items, createEmptyDraftItem(draft.items.length + 1)],
+      items: [...draft.items, nextItem],
     });
+    setExpandedExerciseKeys((current) => ({
+      ...current,
+      [nextItem.key]: true,
+    }));
   }
 
   function handleRemoveExercise(index: number): void {
@@ -269,6 +456,32 @@ export function PatientExercisePlanPage(): JSX.Element {
           ? [createEmptyDraftItem(1)]
           : draft.items.filter((_, itemIndex) => itemIndex !== index),
     });
+  }
+
+  function handleDuplicateExercise(index: number): void {
+    const duplicated = duplicateDraftItem(draft.items[index], draft.items.length + 1);
+    updateDraft({
+      ...draft,
+      items: [...draft.items, duplicated],
+    });
+    setExpandedExerciseKeys((current) => ({
+      ...current,
+      [duplicated.key]: true,
+    }));
+  }
+
+  function handleMoveExercise(index: number, direction: -1 | 1): void {
+    updateDraft({
+      ...draft,
+      items: moveDraftItem(draft.items, index, index + direction),
+    });
+  }
+
+  function handleToggleExerciseExpanded(itemKey: string): void {
+    setExpandedExerciseKeys((current) => ({
+      ...current,
+      [itemKey]: !current[itemKey],
+    }));
   }
 
   function handleLoadTemplate(): void {
@@ -296,7 +509,9 @@ export function PatientExercisePlanPage(): JSX.Element {
       setCurrentPlan(plan);
       setHistory(revisions);
       setDraft(toDraftPayload(plan));
-    } catch (error) {
+      setConflictDetected(false);
+      setSelectedCompareRevisionId(revisions[0]?.id ?? null);
+      } catch (error) {
       setLoadError(toUserMessage(asAppError(error)));
     } finally {
       setIsLoading(false);
@@ -316,10 +531,11 @@ export function PatientExercisePlanPage(): JSX.Element {
       expectedVersion: currentPlan?.version,
       items: sortedItems,
     };
-    const validationMessage = validateDraft(payload);
-    if (validationMessage) {
-      setEditorError(validationMessage);
+    const validation = validateDraft(payload);
+    if (validation.summary) {
+      setEditorError(validation.summary);
       setNotice(null);
+      focusField(validation.focusFieldId);
       return;
     }
 
@@ -333,12 +549,26 @@ export function PatientExercisePlanPage(): JSX.Element {
       setCurrentPlan(saved);
       setHistory(revisions);
       setDraft(toDraftPayload(saved));
+      setConflictDetected(false);
+      setSelectedCompareRevisionId(revisions[0]?.id ?? null);
       setNotice('Exercise plan saved with a new revision.');
     } catch (error) {
       const appError = asAppError(error);
       if (appError.kind === 'HTTP' && appError.status === 409) {
+        try {
+          const [latestPlan, revisions] = await Promise.all([
+            getExercisePlan(resolvedPatientId),
+            getExercisePlanHistory(resolvedPatientId),
+          ]);
+          setCurrentPlan(latestPlan);
+          setHistory(revisions);
+          setSelectedCompareRevisionId(revisions[0]?.id ?? null);
+          setConflictDetected(true);
+        } catch {
+          // Keep the local draft intact even if the reload path cannot complete.
+        }
         setEditorError(
-          'Another clinician saved a newer plan version. Reload to review the latest version before saving again.',
+          'Another clinician saved a newer plan version. Compare the latest revision, then reload when you are ready to discard or merge your local draft.',
         );
       } else {
         setEditorError(toUserMessage(appError));
@@ -383,23 +613,50 @@ export function PatientExercisePlanPage(): JSX.Element {
         </AlertBanner>
       ) : null}
 
+      <div className="exercise-plan-status-bar">
+        <ClinicianSummaryStrip items={statusSummaryItems} />
+        <div className="inline-actions">
+          <Button
+            variant="ghost"
+            onClick={() => focusField(validationState.focusFieldId)}
+            disabled={!validationState.focusFieldId}
+          >
+            Jump to required
+          </Button>
+          <Button variant="secondary" onClick={() => void handleReload()} disabled={isLoading || isSaving}>
+            Reload
+          </Button>
+          <Button variant="secondary" onClick={handleLoadTemplate} disabled={isSaving}>
+            Load template
+          </Button>
+          <Button
+            onClick={() => void handleSave()}
+            disabled={isLoading || isSaving || (!isDirty && !conflictDetected)}
+          >
+            {isSaving ? 'Saving...' : 'Save plan'}
+          </Button>
+        </div>
+      </div>
+
+      {conflictDetected ? (
+        <ClinicianConflictBanner
+          title="A newer plan revision is available"
+          body="Your local draft is still preserved in this browser. Compare against the latest saved revision, then reload when you are ready to discard or rebuild from it."
+          compareAction={{
+            label: 'Compare latest saved',
+            onClick: () => setSelectedCompareRevisionId(history[0]?.id ?? null),
+          }}
+          reloadAction={{
+            label: 'Reload latest saved',
+            onClick: () => {
+              void handleReload();
+            },
+          }}
+        />
+      ) : null}
+
       <div className="patient-detail-overview-grid">
-        <Card
-          title="Current plan summary"
-          action={
-            <div className="inline-actions">
-              <Button variant="secondary" onClick={() => void handleReload()} disabled={isLoading || isSaving}>
-                Reload
-              </Button>
-              <Button variant="secondary" onClick={handleLoadTemplate} disabled={isSaving}>
-                Load template
-              </Button>
-              <Button onClick={() => void handleSave()} disabled={isLoading || isSaving}>
-                {isSaving ? 'Saving...' : 'Save plan'}
-              </Button>
-            </div>
-          }
-        >
+        <Card title="Current plan summary">
           <p className="muted-text">{summaryText}</p>
           {currentPlan?.updatedBy ? (
             <p className="muted-text">
@@ -435,9 +692,18 @@ export function PatientExercisePlanPage(): JSX.Element {
                 <article key={revision.id} className="patient-detail-digest-item">
                   <div className="patient-detail-digest-item__meta">
                     <span className="patient-detail-digest-item__label">Version {revision.version}</span>
-                    <strong className="patient-detail-digest-item__value">
-                      {revision.savedBy?.name ?? revision.savedBy?.clinicianId ?? 'Clinician'}
-                    </strong>
+                    <div className="inline-actions">
+                      <strong className="patient-detail-digest-item__value">
+                        {revision.savedBy?.name ?? revision.savedBy?.clinicianId ?? 'Clinician'}
+                      </strong>
+                      <Button
+                        size="sm"
+                        variant={selectedCompareRevision?.id === revision.id ? 'primary' : 'secondary'}
+                        onClick={() => setSelectedCompareRevisionId(revision.id)}
+                      >
+                        {selectedCompareRevision?.id === revision.id ? 'Comparing' : 'Compare'}
+                      </Button>
+                    </div>
                   </div>
                   <p className="patient-detail-digest-item__text">
                     {new Date(revision.savedAt).toLocaleString()}
@@ -454,19 +720,98 @@ export function PatientExercisePlanPage(): JSX.Element {
         </Card>
       </div>
 
+      {selectedCompareRevision?.snapshot ? (
+        <Card title="Draft vs saved revision">
+          <div className="patient-detail-overview-grid">
+            <div className="patient-detail-digest-list">
+              <article className="patient-detail-digest-item">
+                <div className="patient-detail-digest-item__meta">
+                  <span className="patient-detail-digest-item__label">Current draft</span>
+                  <strong className="patient-detail-digest-item__value">
+                    {draft.title.trim() || 'Untitled plan'}
+                  </strong>
+                </div>
+                <p className="patient-detail-digest-item__text">
+                  {draft.daysOfWeek.length > 0
+                    ? DAY_OPTIONS.filter((option) => draft.daysOfWeek.includes(option.value))
+                        .map((option) => option.label)
+                        .join(', ')
+                    : 'No scheduled days'}
+                  {' · '}
+                  {sortedItems.length} exercise{sortedItems.length === 1 ? '' : 's'}
+                </p>
+              </article>
+              {sortedItems.map((item, index) => (
+                <article key={`${item.key}-${index}`} className="patient-detail-digest-item">
+                  <div className="patient-detail-digest-item__meta">
+                    <span className="patient-detail-digest-item__label">Draft item {index + 1}</span>
+                    <strong className="patient-detail-digest-item__value">
+                      {item.name.trim() || 'Untitled exercise'}
+                    </strong>
+                  </div>
+                  <p className="patient-detail-digest-item__text">
+                    {item.instructions.trim() || 'No instructions yet.'}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="patient-detail-digest-list">
+              <article className="patient-detail-digest-item">
+                <div className="patient-detail-digest-item__meta">
+                  <span className="patient-detail-digest-item__label">
+                    Saved version {selectedCompareRevision.version}
+                  </span>
+                  <strong className="patient-detail-digest-item__value">
+                    {selectedCompareRevision.snapshot.title}
+                  </strong>
+                </div>
+                <p className="patient-detail-digest-item__text">
+                  {selectedCompareRevision.snapshot.daysOfWeek.length > 0
+                    ? DAY_OPTIONS.filter((option) =>
+                        selectedCompareRevision.snapshot?.daysOfWeek.includes(option.value),
+                      )
+                        .map((option) => option.label)
+                        .join(', ')
+                    : 'No scheduled days'}
+                  {' · '}
+                  {selectedCompareRevision.snapshot.items.length} exercise
+                  {selectedCompareRevision.snapshot.items.length === 1 ? '' : 's'}
+                </p>
+              </article>
+              {selectedCompareRevision.snapshot.items.map((item, index) => (
+                <article key={`${selectedCompareRevision.id}-${item.key}-${index}`} className="patient-detail-digest-item">
+                  <div className="patient-detail-digest-item__meta">
+                    <span className="patient-detail-digest-item__label">Saved item {index + 1}</span>
+                    <strong className="patient-detail-digest-item__value">{item.name}</strong>
+                  </div>
+                  <p className="patient-detail-digest-item__text">
+                    {item.instructions || 'No instructions saved.'}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
       <Card title="Plan details">
         <div className="form-field">
           <span>Plan title</span>
           <input
+            ref={registerFieldRef('plan-title')}
+            data-plan-field="plan-title"
             value={draft.title}
             onChange={(event) => updateDraft({ ...draft, title: event.target.value })}
             placeholder="Enter a plan title"
           />
+          {validationState.title ? <p className="validation-text">{validationState.title}</p> : null}
         </div>
 
         <div className="form-field">
           <span>Timezone</span>
           <input
+            ref={registerFieldRef('plan-timezone')}
             value={draft.timezone ?? ''}
             onChange={(event) => updateDraft({ ...draft, timezone: event.target.value })}
             placeholder="e.g. Asia/Colombo"
@@ -475,7 +820,7 @@ export function PatientExercisePlanPage(): JSX.Element {
 
         <div className="form-field">
           <span>Plan days</span>
-          <div className="inline-actions">
+          <div className="inline-actions" data-plan-field="plan-days">
             {DAY_OPTIONS.map((day) => (
               <Button
                 key={day.value}
@@ -488,6 +833,9 @@ export function PatientExercisePlanPage(): JSX.Element {
               </Button>
             ))}
           </div>
+          {validationState.daysOfWeek ? (
+            <p className="validation-text">{validationState.daysOfWeek}</p>
+          ) : null}
         </div>
       </Card>
 
@@ -503,8 +851,44 @@ export function PatientExercisePlanPage(): JSX.Element {
           {sortedItems.map((item, index) => (
             <article key={`${item.key}-${index}`} className="patient-detail-digest-item">
               <div className="patient-detail-digest-item__meta">
-                <span className="patient-detail-digest-item__label">Exercise {index + 1}</span>
+                <div>
+                  <span className="patient-detail-digest-item__label">Exercise {index + 1}</span>
+                  <strong className="patient-detail-digest-item__value">
+                    {item.name.trim() || 'Untitled exercise'}
+                  </strong>
+                </div>
                 <div className="inline-actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleExerciseExpanded(item.key)}
+                  >
+                    {expandedExerciseKeys[item.key] ? 'Collapse' : 'Expand'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleMoveExercise(index, -1)}
+                    disabled={isSaving || index === 0}
+                  >
+                    Move up
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleMoveExercise(index, 1)}
+                    disabled={isSaving || index === sortedItems.length - 1}
+                  >
+                    Move down
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDuplicateExercise(index)}
+                    disabled={isSaving}
+                  >
+                    Duplicate
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -515,151 +899,170 @@ export function PatientExercisePlanPage(): JSX.Element {
                   </Button>
                 </div>
               </div>
+              {expandedExerciseKeys[item.key] ? (
+                <>
+                  <div className="form-field">
+                    <span>Stable key</span>
+                    <input
+                      ref={registerFieldRef(`exercise-${index}-key`)}
+                      value={item.key}
+                      onChange={(event) =>
+                        handleItemChange(index, (current) => ({ ...current, key: event.target.value }))
+                      }
+                      placeholder="exercise-key"
+                    />
+                    {validationState.items[index]?.key ? (
+                      <p className="validation-text">{validationState.items[index]?.key}</p>
+                    ) : null}
+                  </div>
 
-              <div className="form-field">
-                <span>Stable key</span>
-                <input
-                  value={item.key}
-                  onChange={(event) =>
-                    handleItemChange(index, (current) => ({ ...current, key: event.target.value }))
-                  }
-                  placeholder="exercise-key"
-                />
-              </div>
+                  <div className="form-field">
+                    <span>Name</span>
+                    <input
+                      ref={registerFieldRef(`exercise-${index}-name`)}
+                      value={item.name}
+                      onChange={(event) =>
+                        handleItemChange(index, (current) => ({ ...current, name: event.target.value }))
+                      }
+                      placeholder="Exercise name"
+                    />
+                    {validationState.items[index]?.name ? (
+                      <p className="validation-text">{validationState.items[index]?.name}</p>
+                    ) : null}
+                  </div>
 
-              <div className="form-field">
-                <span>Name</span>
-                <input
-                  value={item.name}
-                  onChange={(event) =>
-                    handleItemChange(index, (current) => ({ ...current, name: event.target.value }))
-                  }
-                  placeholder="Exercise name"
-                />
-              </div>
+                  <div className="form-field">
+                    <span>Instructions</span>
+                    <textarea
+                      ref={registerFieldRef(`exercise-${index}-instructions`)}
+                      rows={3}
+                      value={item.instructions}
+                      onChange={(event) =>
+                        handleItemChange(index, (current) => ({
+                          ...current,
+                          instructions: event.target.value,
+                        }))
+                      }
+                      placeholder="Step-by-step guidance for the patient"
+                    />
+                    {validationState.items[index]?.instructions ? (
+                      <p className="validation-text">{validationState.items[index]?.instructions}</p>
+                    ) : null}
+                  </div>
 
-              <div className="form-field">
-                <span>Instructions</span>
-                <textarea
-                  rows={3}
-                  value={item.instructions}
-                  onChange={(event) =>
-                    handleItemChange(index, (current) => ({
-                      ...current,
-                      instructions: event.target.value,
-                    }))
-                  }
-                  placeholder="Step-by-step guidance for the patient"
-                />
-              </div>
+                  <div className="patient-detail-overview-grid">
+                    <div className="form-field">
+                      <span>Sets</span>
+                      <input
+                        value={item.sets ?? ''}
+                        onChange={(event) =>
+                          handleItemChange(index, (current) => ({
+                            ...current,
+                            sets: normalizeItemNumber(event.target.value),
+                          }))
+                        }
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <span>Reps</span>
+                      <input
+                        value={item.reps ?? ''}
+                        onChange={(event) =>
+                          handleItemChange(index, (current) => ({
+                            ...current,
+                            reps: normalizeItemNumber(event.target.value),
+                          }))
+                        }
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <span>Hold (seconds)</span>
+                      <input
+                        value={item.holdSeconds ?? ''}
+                        onChange={(event) =>
+                          handleItemChange(index, (current) => ({
+                            ...current,
+                            holdSeconds: normalizeItemNumber(event.target.value),
+                          }))
+                        }
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div className="form-field">
+                      <span>Rest (seconds)</span>
+                      <input
+                        value={item.restSeconds ?? ''}
+                        onChange={(event) =>
+                          handleItemChange(index, (current) => ({
+                            ...current,
+                            restSeconds: normalizeItemNumber(event.target.value),
+                          }))
+                        }
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
 
-              <div className="patient-detail-overview-grid">
-                <div className="form-field">
-                  <span>Sets</span>
-                  <input
-                    value={item.sets ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, (current) => ({
-                        ...current,
-                        sets: normalizeItemNumber(event.target.value),
-                      }))
-                    }
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="form-field">
-                  <span>Reps</span>
-                  <input
-                    value={item.reps ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, (current) => ({
-                        ...current,
-                        reps: normalizeItemNumber(event.target.value),
-                      }))
-                    }
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="form-field">
-                  <span>Hold (seconds)</span>
-                  <input
-                    value={item.holdSeconds ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, (current) => ({
-                        ...current,
-                        holdSeconds: normalizeItemNumber(event.target.value),
-                      }))
-                    }
-                    inputMode="numeric"
-                  />
-                </div>
-                <div className="form-field">
-                  <span>Rest (seconds)</span>
-                  <input
-                    value={item.restSeconds ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, (current) => ({
-                        ...current,
-                        restSeconds: normalizeItemNumber(event.target.value),
-                      }))
-                    }
-                    inputMode="numeric"
-                  />
-                </div>
-              </div>
+                  <div className="patient-detail-overview-grid">
+                    <label className="form-field">
+                      <span>Intensity</span>
+                      <select
+                        value={item.intensity ?? ''}
+                        onChange={(event) =>
+                          handleItemChange(index, (current) => ({
+                            ...current,
+                            intensity:
+                              event.target.value === ''
+                                ? undefined
+                                : (event.target.value as ExercisePlanIntensity),
+                          }))
+                        }
+                      >
+                        <option value="">Not set</option>
+                        {INTENSITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="form-field">
+                      <span>Guide or video URL</span>
+                      <input
+                        value={item.videoUrl ?? ''}
+                        onChange={(event) =>
+                          handleItemChange(index, (current) => ({
+                            ...current,
+                            videoUrl: event.target.value,
+                          }))
+                        }
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
 
-              <div className="patient-detail-overview-grid">
-                <label className="form-field">
-                  <span>Intensity</span>
-                  <select
-                    value={item.intensity ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, (current) => ({
-                        ...current,
-                        intensity:
-                          event.target.value === ''
-                            ? undefined
-                            : (event.target.value as ExercisePlanIntensity),
-                      }))
-                    }
-                  >
-                    <option value="">Not set</option>
-                    {INTENSITY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="form-field">
-                  <span>Guide or video URL</span>
-                  <input
-                    value={item.videoUrl ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, (current) => ({
-                        ...current,
-                        videoUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
-
-              <div className="form-field">
-                <span>Contraindications</span>
-                <textarea
-                  rows={3}
-                  value={serializeContraindications(item.contraindications)}
-                  onChange={(event) =>
-                    handleItemChange(index, (current) => ({
-                      ...current,
-                      contraindications: normalizeContraindications(event.target.value),
-                    }))
-                  }
-                  placeholder="One caution or contraindication per line"
-                />
-              </div>
+                  <div className="form-field">
+                    <span>Contraindications</span>
+                    <textarea
+                      rows={3}
+                      value={serializeContraindications(item.contraindications)}
+                      onChange={(event) =>
+                        handleItemChange(index, (current) => ({
+                          ...current,
+                          contraindications: normalizeContraindications(event.target.value),
+                        }))
+                      }
+                      placeholder="One caution or contraindication per line"
+                    />
+                  </div>
+                </>
+              ) : (
+                <p className="muted-text">
+                  {item.instructions.trim() || 'Expand to review instructions and structured fields.'}
+                </p>
+              )}
             </article>
           ))}
         </div>

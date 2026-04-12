@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { WorklistCardList } from '../components/worklist/WorklistCardList';
 import { WorklistFilters } from '../components/worklist/WorklistFilters';
 import { WorklistTable } from '../components/worklist/WorklistTable';
+import { ClinicianSummaryStrip } from '../components/clinician/ClinicianSummaryStrip';
 import { RetryButton } from '../components/system/RetryButton';
 import { StatusPanel } from '../components/system/StatusPanel';
 import { AlertBanner } from '../components/ui/AlertBanner';
@@ -111,6 +112,16 @@ export function WorklistPage(): JSX.Element {
     return {
       highRisk: items.filter((item) => item.latestRiskLevel === 'high').length,
       needsResponse: items.filter((item) => item.communicationNeedsResponse).length,
+      delayedResponse: items.filter(
+        (item) =>
+          item.communicationSummary?.responseDelayed === true ||
+          item.communicationSummary?.delayedResponse === true,
+      ).length,
+      reviewedAwaitingFollowUp: items.filter(
+        (item) =>
+          item.communicationSummary?.reviewedAfterLatestInbound === true &&
+          item.communicationNeedsResponse,
+      ).length,
       openAlerts: items.filter((item) => item.openAlertsCount > 0).length,
       activeTasks: items.filter((item) => item.activeTaskCount > 0).length,
     };
@@ -310,6 +321,48 @@ export function WorklistPage(): JSX.Element {
         </div>
 
         <div className="worklist-console__toolbar">
+          <ClinicianSummaryStrip
+            className="worklist-console__summary-strip"
+            ariaLabel="Queue truth summary"
+            items={[
+              {
+                key: 'high-risk',
+                label: 'High risk',
+                value: String(summary.highRisk),
+                hint: summary.highRisk > 0 ? 'Patients with the strongest risk pressure in this view.' : 'No high-risk patients in this view.',
+                tone: summary.highRisk > 0 ? 'danger' : 'default',
+              },
+              {
+                key: 'delayed-response',
+                label: 'Response delayed',
+                value: String(summary.delayedResponse),
+                hint:
+                  summary.delayedResponse > 0
+                    ? 'Server-backed delayed response pressure is active.'
+                    : 'No delayed communication in this view.',
+                tone: summary.delayedResponse > 0 ? 'warning' : 'default',
+              },
+              {
+                key: 'reviewed',
+                label: 'Reviewed in workflow',
+                value: String(summary.reviewedAwaitingFollowUp),
+                hint:
+                  summary.reviewedAwaitingFollowUp > 0
+                    ? 'Threads reviewed but still waiting on follow-through.'
+                    : 'No reviewed threads are waiting on follow-through.',
+              },
+              {
+                key: 'alerts',
+                label: 'Open alerts',
+                value: String(summary.openAlerts),
+                hint:
+                  summary.openAlerts > 0
+                    ? 'Safety queue still contributes to this worklist.'
+                    : 'No open-alert pressure in this view.',
+                tone: summary.openAlerts > 0 ? 'danger' : 'default',
+              },
+            ]}
+          />
           <WorklistFilters
             filters={filters}
             disabled={worklistQuery.isFetching && items.length === 0}

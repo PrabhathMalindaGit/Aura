@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardModuleState } from '../components/dashboard/DashboardModuleState';
+import { ClinicianTruthChips } from '../components/clinician/ClinicianTruthChips';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -232,30 +233,45 @@ function taskActionLabel(item: DashboardFollowUpTaskItem): string {
   return 'Open patient';
 }
 
-function threadDominantBadge(
-  item: DashboardCommunicationOverviewItem,
-): JSX.Element | null {
+function communicationTruthChips(item: DashboardCommunicationOverviewItem) {
+  const chips: Array<{
+    label: string;
+    variant: 'danger' | 'warning' | 'info' | 'neutral';
+    truth: 'server' | 'local';
+  }> = [];
+
   if (item.flaggedBySafety) {
-    return <Badge variant="danger">Safety flagged</Badge>;
+    chips.push({ label: 'Safety flagged', variant: 'danger', truth: 'server' });
   }
 
   if (item.responseDelayed || item.responseState === 'delayed') {
-    return <Badge variant="warning">Response delayed</Badge>;
+    chips.push({ label: 'Response delayed', variant: 'warning', truth: 'server' });
+  } else if (item.reviewedAfterLatestInbound) {
+    chips.push({ label: 'Reviewed', variant: 'info', truth: 'server' });
+  } else if (item.needsResponse) {
+    chips.push({ label: 'Needs response', variant: 'warning', truth: 'server' });
   }
 
-  if (item.reviewedAfterLatestInbound) {
-    return <Badge variant="info">Reviewed</Badge>;
+  if (item.responseDueAt && !(item.responseDelayed || item.responseState === 'delayed')) {
+    chips.push({
+      label: `Due by ${new Date(item.responseDueAt).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`,
+      variant: 'neutral',
+      truth: 'server',
+    });
   }
 
-  if (item.needsResponse) {
-    return <Badge variant="warning">Needs response</Badge>;
+  if ((item.openAlertCount ?? 0) > 0) {
+    chips.push({
+      label: `${item.openAlertCount} open alert${item.openAlertCount === 1 ? '' : 's'}`,
+      variant: 'danger',
+      truth: 'server',
+    });
   }
 
-  if (item.followUpRequested) {
-    return <Badge variant="neutral">Follow-up requested</Badge>;
-  }
-
-  return null;
+  return chips;
 }
 
 function communicationContextLine(item: DashboardCommunicationOverviewItem): string | null {
@@ -905,7 +921,7 @@ export function DashboardHomePage(): JSX.Element {
                     <article key={item.id} className="today-support-item today-support-item--communication" role="listitem">
                       <div className="today-support-item__top">
                         <p className="today-support-item__title">{item.patientName}</p>
-                        {threadDominantBadge(item)}
+                        <ClinicianTruthChips chips={communicationTruthChips(item)} />
                       </div>
                       <p className="today-support-item__note">
                         {item.messagePreview?.trim() || 'Conversation preview unavailable.'}
@@ -921,9 +937,6 @@ export function DashboardHomePage(): JSX.Element {
                           >
                             {formatDashboardRelativeTime(item.messageCreatedAt)}
                           </span>
-                          {item.reviewedAfterLatestInbound ? (
-                            <span className="today-support-item__meta">Reviewed in workflow</span>
-                          ) : null}
                           {item.followUpRequested ? (
                             <span className="today-support-item__meta">Follow-up requested</span>
                           ) : null}

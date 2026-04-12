@@ -1,9 +1,16 @@
+import { ClinicianTruthChips } from '../clinician/ClinicianTruthChips';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { PatientStatusBadge } from '../patients/PatientStatusBadge';
 import type { WorklistRecord } from '../../types/models';
 import { formatDashboardDateTime, formatDashboardRelativeTime } from '../../utils/dashboard';
-import { formatExercisesPct, getWorklistReviewLabel, getWorklistReviewSupport } from '../../utils/worklist';
+import {
+  formatExercisesPct,
+  getWorklistPrimaryAction,
+  getWorklistReviewLabel,
+  getWorklistReviewSupport,
+  getWorklistTruthChips,
+} from '../../utils/worklist';
 import { WorklistPriorityBadge } from './WorklistPriorityBadge';
 import {
   asPainText,
@@ -44,6 +51,8 @@ export function WorklistCardList({
             : followThroughSummary;
         const reviewLabel = getWorklistReviewLabel(item);
         const reviewSupport = getWorklistReviewSupport(item);
+        const truthChips = getWorklistTruthChips(item);
+        const primaryAction = getWorklistPrimaryAction(item);
         const cardToneClass =
           item.latestRiskLevel === 'high'
             ? ' worklist-card--high-risk'
@@ -102,6 +111,10 @@ export function WorklistCardList({
                 <p className={`worklist-card__signal-lead worklist-card__signal-lead--${leadSignal.tone}`}>
                   {leadSignal.label}
                 </p>
+                <ClinicianTruthChips
+                  className="worklist-card__signal-chips"
+                  chips={truthChips}
+                />
                 <p className="worklist-card__signal-summary">
                   {signalSummary.length > 0
                     ? signalSummary.join(' · ')
@@ -165,37 +178,59 @@ export function WorklistCardList({
                 ) : null}
               </dl>
 
-              <div className="worklist-card__actions">
-                <div className="worklist-card__actions-primary">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    fullWidth
-                    onClick={() => onOpenPatient(item.patientId)}
-                  >
-                    Open patient
-                  </Button>
-                </div>
-                {hasCommunicationAction || item.openAlertsCount > 0 || hasAppointment ? (
-                  <div className="worklist-card__actions-secondary">
-                    {hasCommunicationAction ? (
-                      <Button variant="ghost" size="sm" onClick={() => onOpenCommunication(item.patientId)}>
-                        Open communication
-                      </Button>
-                    ) : null}
-                    {item.openAlertsCount > 0 ? (
-                      <Button variant="ghost" size="sm" onClick={() => onOpenAlerts(item.patientId)}>
-                        Open alerts
-                      </Button>
-                    ) : null}
-                    {hasAppointment ? (
-                      <Button variant="ghost" size="sm" onClick={() => onOpenAppointments(item.patientId)}>
-                        Appointments
-                      </Button>
-                    ) : null}
+                <div className="worklist-card__actions">
+                  <div className="worklist-card__actions-primary">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      fullWidth
+                      onClick={() => {
+                        if (primaryAction.kind === 'alerts') {
+                          onOpenAlerts(item.patientId);
+                          return;
+                        }
+
+                        if (primaryAction.kind === 'communication') {
+                          onOpenCommunication(item.patientId);
+                          return;
+                        }
+
+                        if (primaryAction.kind === 'appointments') {
+                          onOpenAppointments(item.patientId);
+                          return;
+                        }
+
+                        onOpenPatient(item.patientId);
+                      }}
+                    >
+                      {primaryAction.label}
+                    </Button>
                   </div>
-                ) : null}
-              </div>
+                  {hasCommunicationAction || item.openAlertsCount > 0 || hasAppointment ? (
+                    <div className="worklist-card__actions-secondary">
+                      {primaryAction.kind !== 'patient' ? (
+                        <Button variant="ghost" size="sm" onClick={() => onOpenPatient(item.patientId)}>
+                          Open patient
+                        </Button>
+                      ) : null}
+                      {hasCommunicationAction && primaryAction.kind !== 'communication' ? (
+                        <Button variant="ghost" size="sm" onClick={() => onOpenCommunication(item.patientId)}>
+                          Open communication
+                        </Button>
+                      ) : null}
+                      {item.openAlertsCount > 0 && primaryAction.kind !== 'alerts' ? (
+                        <Button variant="ghost" size="sm" onClick={() => onOpenAlerts(item.patientId)}>
+                          Open alerts
+                        </Button>
+                      ) : null}
+                      {hasAppointment && primaryAction.kind !== 'appointments' ? (
+                        <Button variant="ghost" size="sm" onClick={() => onOpenAppointments(item.patientId)}>
+                          Open appointments
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
             </div>
           </Card>
         );

@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ClinicianActionBar } from '../components/clinician/ClinicianActionBar';
+import {
+  ClinicianTruthChips,
+  type ClinicianTruthChip,
+} from '../components/clinician/ClinicianTruthChips';
+import { ClinicianDisclosure } from '../components/clinician/ClinicianDisclosure';
+import { ClinicianSummaryStrip } from '../components/clinician/ClinicianSummaryStrip';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ClinicianAvatar } from '../components/ui/ClinicianAvatar';
@@ -61,20 +68,20 @@ function countThreadsByView(
 }
 
 function getThreadMetaSummary(thread: CommunicationThread): string {
-  if (thread.responseDelayed) {
-    return 'Response is delayed past the configured threshold';
+  if (thread.safetyFlagged) {
+    return 'Safety context is active and should stay visible through review';
   }
 
-  if (thread.reviewedAfterLatestInbound) {
-    return 'Durable care-team review is recorded';
+  if (thread.responseDelayed) {
+    return 'Response is delayed past the configured threshold';
   }
 
   if (thread.needsResponse) {
     return 'Waiting on clinician follow-up';
   }
 
-  if (thread.unread) {
-    return 'Not yet opened in this browser';
+  if (thread.reviewedAfterLatestInbound) {
+    return 'Durable care-team review is recorded';
   }
 
   if (thread.latestEventKind === 'clinician-reply') {
@@ -86,6 +93,30 @@ function getThreadMetaSummary(thread: CommunicationThread): string {
   }
 
   return 'Recent patient message in review';
+}
+
+function getThreadTruthChips(thread: CommunicationThread): ClinicianTruthChip[] {
+  const chips: ClinicianTruthChip[] = [];
+
+  if (thread.safetyFlagged) {
+    chips.push({ label: 'Safety flagged', variant: 'danger', truth: 'server' });
+  }
+
+  if (thread.responseDelayed) {
+    chips.push({ label: 'Response delayed', variant: 'warning', truth: 'server' });
+  } else if (thread.needsResponse) {
+    chips.push({ label: 'Needs response', variant: 'warning', truth: 'server' });
+  }
+
+  if (thread.reviewedAfterLatestInbound && !thread.responseDelayed) {
+    chips.push({ label: 'Reviewed', variant: 'info', truth: 'server' });
+  }
+
+  if (thread.followUpRequested) {
+    chips.push({ label: 'Linked follow-up', variant: 'neutral', truth: 'server' });
+  }
+
+  return chips;
 }
 
 function getCommunicationContextSummary(item: DashboardCommunicationOverviewItem | null): string | null {
@@ -116,37 +147,6 @@ function formatCountLabel(count: number, singular: string, plural: string): stri
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function getThreadPriorityBadge(thread: CommunicationThread): {
-  label: string;
-  variant: 'danger' | 'warning' | 'new' | 'neutral';
-} | null {
-  if (thread.safetyFlagged) {
-    return { label: 'Safety flagged', variant: 'danger' };
-  }
-
-  if (thread.responseDelayed) {
-    return { label: 'Response delayed', variant: 'warning' };
-  }
-
-  if (thread.needsResponse) {
-    return { label: 'Needs response', variant: 'warning' };
-  }
-
-  if (thread.reviewedAfterLatestInbound) {
-    return { label: 'Reviewed', variant: 'neutral' };
-  }
-
-  if (thread.unread) {
-    return { label: 'Opened only in this browser', variant: 'new' };
-  }
-
-  if (thread.followUpRequested) {
-    return { label: 'Follow-up requested', variant: 'neutral' };
-  }
-
-  return null;
-}
-
 function getPatientInitials(name: string): string {
   return (
     name
@@ -158,7 +158,7 @@ function getPatientInitials(name: string): string {
   );
 }
 
-function getCommunicationThreadTone(thread: CommunicationThread): 'safety' | 'response' | 'follow-up' | 'unread' | 'reviewed' {
+function getCommunicationThreadTone(thread: CommunicationThread): 'safety' | 'response' | 'follow-up' | 'reviewed' {
   if (thread.safetyFlagged) {
     return 'safety';
   }
@@ -173,10 +173,6 @@ function getCommunicationThreadTone(thread: CommunicationThread): 'safety' | 're
 
   if (thread.followUpRequested) {
     return 'follow-up';
-  }
-
-  if (thread.unread) {
-    return 'unread';
   }
 
   return 'reviewed';
@@ -539,9 +535,12 @@ export function CommunicationPage(): JSX.Element {
     () => ({
       total: allThreads.length,
       needsResponse: allThreads.filter((thread) => thread.needsResponse).length,
+      responseDelayed: allThreads.filter((thread) => thread.responseDelayed).length,
       safetyFlagged: allThreads.filter((thread) => thread.safetyFlagged).length,
+      reviewed: allThreads.filter(
+        (thread) => thread.reviewedAfterLatestInbound && !thread.responseDelayed,
+      ).length,
       followUpRequested: allThreads.filter((thread) => thread.followUpRequested).length,
-      unread: allThreads.filter((thread) => thread.unread).length,
     }),
     [allThreads],
   );
@@ -556,31 +555,145 @@ export function CommunicationPage(): JSX.Element {
           'thread need',
           'threads need',
         )} response review now.`
-      : communicationSummary.needsResponse > 0
+      : communicationSummary.responseDelayed > 0
+        ? `${formatCountLabel(
+            communicationSummary.responseDelayed,
+            'thread is',
+            'threads are',
+          )} beyond the configured response window.`
+        : communicationSummary.needsResponse > 0
         ? `${formatCountLabel(
             communicationSummary.needsResponse,
             'thread needs',
             'threads need',
           )} clinician follow-up now.`
-        : communicationSummary.followUpRequested > 0
+        : communicationSummary.reviewed > 0
+          ? `${formatCountLabel(
+              communicationSummary.reviewed,
+              'thread is',
+              'threads are',
+            )} already reviewed and still visible for workflow follow-through.`
+          : communicationSummary.followUpRequested > 0
           ? `${formatCountLabel(
               communicationSummary.followUpRequested,
               'thread has',
               'threads have',
             )} follow-up requested.`
-          : communicationSummary.unread > 0
-            ? `${formatCountLabel(
-                communicationSummary.unread,
-                'thread is',
-                'threads are',
-              )} still unread in this browser.`
-            : hasThreads
+          : hasThreads
               ? `${formatCountLabel(
                   communicationSummary.total,
                   'thread is',
                   'threads are',
                 )} currently in review.`
               : 'No patient communication is waiting in this workspace.';
+  const communicationSummaryItems = useMemo(
+    () => [
+      {
+        label: 'Needs response',
+        value: String(communicationSummary.needsResponse),
+        note: communicationSummary.needsResponse > 0 ? 'Lead triage queue' : 'Queue is clear',
+        tone: communicationSummary.needsResponse > 0 ? 'warning' : 'neutral',
+      },
+      {
+        label: 'Response delayed',
+        value: String(communicationSummary.responseDelayed),
+        note:
+          communicationSummary.responseDelayed > 0
+            ? 'Past configured response target'
+            : 'No delayed threads',
+        tone: communicationSummary.responseDelayed > 0 ? 'danger' : 'neutral',
+      },
+      {
+        label: 'Safety flagged',
+        value: String(communicationSummary.safetyFlagged),
+        note:
+          communicationSummary.safetyFlagged > 0
+            ? 'Keep alert context visible'
+            : 'No safety-flagged threads',
+        tone: communicationSummary.safetyFlagged > 0 ? 'danger' : 'neutral',
+      },
+      {
+        label: 'Reviewed',
+        value: String(communicationSummary.reviewed),
+        note:
+          communicationSummary.reviewed > 0
+            ? 'Durable review already recorded'
+            : 'No reviewed threads waiting',
+        tone: communicationSummary.reviewed > 0 ? 'success' : 'neutral',
+      },
+    ],
+    [communicationSummary],
+  );
+  const activeThreadSummaryItems = useMemo(() => {
+    if (!activeThread) {
+      return [];
+    }
+
+    const items = [
+      {
+        label: 'Response state',
+        value: activeThread.responseDelayed
+          ? 'Delayed'
+          : activeThread.needsResponse
+            ? 'Needs response'
+            : activeThread.reviewedAfterLatestInbound
+              ? 'Reviewed'
+              : 'In review',
+        note: getThreadMetaSummary(activeThread),
+        tone: activeThread.safetyFlagged
+          ? 'danger'
+          : activeThread.responseDelayed
+            ? 'warning'
+            : activeThread.reviewedAfterLatestInbound
+              ? 'success'
+              : 'neutral',
+      },
+      {
+        label: 'Updated',
+        value: formatDashboardRelativeTime(activeThread.latestEventAt),
+        note: 'Latest patient-visible thread activity',
+        tone: 'neutral',
+      },
+    ];
+
+    if (activeThreadContext?.responseDueAt) {
+      items.push({
+        label: 'Due by',
+        value: formatDashboardDateTime(activeThreadContext.responseDueAt),
+        note: activeThread.responseDelayed ? 'Past target' : 'Configured response target',
+        tone: activeThread.responseDelayed ? 'danger' : 'neutral',
+      });
+    }
+
+    if (activeThreadContext) {
+      items.push({
+        label: 'Risk context',
+        value: activeThreadContext.patientRiskLevel === 'high' ? 'Higher risk' : 'Lower risk',
+        note:
+          typeof activeThreadContext.openAlertCount === 'number'
+            ? `${activeThreadContext.openAlertCount} open alert${
+                activeThreadContext.openAlertCount === 1 ? '' : 's'
+              }`
+            : 'No open alert count available',
+        tone: activeThreadContext.patientRiskLevel === 'high' ? 'warning' : 'neutral',
+      });
+    }
+
+    if (activePatientLinkedTask || activePatientLinkedTaskId) {
+      items.push({
+        label: 'Linked follow-up',
+        value: activePatientLinkedTask
+          ? getClinicianCoordinationLinkedTaskStatusLabel(activePatientLinkedTask.status)
+          : 'Unavailable',
+        note: activePatientLinkedTask
+          ? activePatientLinkedTask.title
+          : getClinicianCoordinationLinkedTaskUnavailableLabel(),
+        tone: activePatientLinkedTask ? 'success' : 'warning',
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [activePatientLinkedTask, activePatientLinkedTaskId, activeThread, activeThreadContext]);
 
   return (
     <Stack className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page communication-page--inbox" gap="5">
@@ -593,21 +706,11 @@ export function CommunicationPage(): JSX.Element {
 
       <section className="inbox-triage-bar" aria-label="Inbox controls">
         <div className="inbox-triage-bar__summary">
-          <div className="inbox-triage-bar__cues" role="list" aria-label="Inbox communication pressure">
-            <span
-              className={`inbox-triage-bar__cue inbox-triage-bar__cue--response${
-                reduceCommunicationAttention ? '' : ' communication-page__status-card--response-hot'
-              }`}
-              data-testid="communication-needs-response-pill"
-              role="listitem"
-            >
-              Needs response {communicationSummary.needsResponse}
-            </span>
-            {communicationSummary.safetyFlagged > 0 ? (
-              <span className="inbox-triage-bar__cue inbox-triage-bar__cue--safety" role="listitem">
-                Safety flagged {communicationSummary.safetyFlagged}
-              </span>
-            ) : null}
+          <div
+            data-testid="communication-needs-response-pill"
+            className={reduceCommunicationAttention ? undefined : 'communication-page__status-card--response-hot'}
+          >
+            <ClinicianSummaryStrip items={communicationSummaryItems} />
           </div>
           <p className="inbox-triage-bar__note">{communicationGuidance}</p>
         </div>
@@ -695,9 +798,9 @@ export function CommunicationPage(): JSX.Element {
               {visibleThreads.map((thread) => {
                 const isSelected = thread.id === activeThread?.id;
                 const threadTone = getCommunicationThreadTone(thread);
-                const primaryBadge = getThreadPriorityBadge(thread);
                 const threadContext = threadContextMap.get(thread.id) ?? null;
                 const threadContextSummary = getCommunicationContextSummary(threadContext);
+                const threadTruthChips = getThreadTruthChips(thread);
 
                 return (
                   <article key={thread.id} className="communication-page__thread-list-item" role="listitem">
@@ -717,7 +820,6 @@ export function CommunicationPage(): JSX.Element {
                           <div className="communication-page__thread-item-top inbox-thread-item__headline">
                             <div className="inbox-thread-item__headline-copy">
                               <strong className="communication-page__thread-name">{thread.patientName}</strong>
-                              {primaryBadge ? <Badge variant={primaryBadge.variant}>{primaryBadge.label}</Badge> : null}
                             </div>
                             <span
                               className="communication-page__thread-time"
@@ -726,6 +828,9 @@ export function CommunicationPage(): JSX.Element {
                               {formatDashboardRelativeTime(thread.latestEventAt)}
                             </span>
                           </div>
+                          {threadTruthChips.length > 0 ? (
+                            <ClinicianTruthChips chips={threadTruthChips} />
+                          ) : null}
                           <div className="inbox-thread-item__meta-line">
                             <span className="communication-page__thread-meta-note">{getThreadMetaSummary(thread)}</span>
                             {thread.validPatientId ? (
@@ -762,13 +867,60 @@ export function CommunicationPage(): JSX.Element {
           ) : activeThread ? (
             <div className="communication-page__timeline-body inbox-response-stage__body">
               <header className="inbox-response-stage__header">
+                <ClinicianActionBar
+                  eyebrow="Active thread"
+                  title={activeThread.patientName}
+                  note={getThreadMetaSummary(activeThread)}
+                  recommendedAction={
+                    activeThread.safetyFlagged && activeThread.validPatientId
+                      ? {
+                          label: 'Open alerts',
+                          onClick: () =>
+                            navigate(
+                              `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
+                            ),
+                        }
+                      : activeThread.validPatientId
+                        ? {
+                            label: 'Open patient',
+                            onClick: () =>
+                              navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`),
+                          }
+                        : undefined
+                  }
+                  secondaryActions={[
+                    activeThread.validPatientId && activeThread.safetyFlagged
+                      ? {
+                          label: 'Open patient',
+                          onClick: () =>
+                            navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`),
+                        }
+                      : null,
+                    activeThread.validPatientId
+                      ? {
+                          label: 'Structured coordination',
+                          onClick: () =>
+                            navigate(
+                              `/patients/${encodeURIComponent(activeThread.patientId)}/communications`,
+                            ),
+                        }
+                      : null,
+                  ].filter((value): value is { label: string; onClick: () => void } => Boolean(value))}
+                  utilityActions={[
+                    {
+                      label: communicationQuery.isFetching ? 'Refreshing...' : 'Refresh',
+                      onClick: () => {
+                        void communicationQuery.refetch();
+                      },
+                      disabled: communicationQuery.isFetching,
+                    },
+                  ]}
+                />
                 <div className="inbox-response-stage__anchor">
                   <span className="inbox-response-stage__avatar" aria-hidden="true">
                     {getPatientInitials(activeThread.patientName)}
                   </span>
                   <div className="inbox-response-stage__copy">
-                    <h2 className="inbox-reading-pane__title">{activeThread.patientName}</h2>
-                    <p className="inbox-response-stage__subtitle">{getThreadMetaSummary(activeThread)}</p>
                     <div className="inbox-response-stage__meta">
                       {activeThread.validPatientId ? (
                         <span className="communication-page__thread-id">ID: {activeThread.patientId}</span>
@@ -780,6 +932,14 @@ export function CommunicationPage(): JSX.Element {
                         Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
                       </span>
                     </div>
+                    <ClinicianTruthChips
+                      chips={[
+                        ...getThreadTruthChips(activeThread),
+                        ...(!activeThread.unread
+                          ? [{ label: 'Opened here', variant: 'neutral', truth: 'local' as const }]
+                          : []),
+                      ]}
+                    />
                     {activeThreadContext ? (
                       <div className="inbox-response-stage__meta">
                         <span>{getCommunicationContextSummary(activeThreadContext)}</span>
@@ -792,41 +952,11 @@ export function CommunicationPage(): JSX.Element {
                     ) : null}
                   </div>
                 </div>
-                <div className="inbox-response-stage__header-side">
-                    <div className="communication-page__timeline-badges inbox-response-stage__badges">
-                      {activeThread.safetyFlagged ? <Badge variant="danger">Safety flagged</Badge> : null}
-                      {activeThread.responseDelayed ? <Badge variant="warning">Response delayed</Badge> : null}
-                      {activeThread.needsResponse ? <Badge variant="warning">Needs response</Badge> : null}
-                      {activeThread.reviewedAfterLatestInbound ? <Badge variant="neutral">Reviewed</Badge> : null}
-                      {activeThread.unread ? <Badge variant="new">Opened only in this browser</Badge> : null}
-                      {activeThread.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                    </div>
-                  {activeThread.validPatientId ? (
-                    <div className="communication-page__timeline-actions inbox-response-stage__actions">
-                      {activeThread.safetyFlagged ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            navigate(
-                              `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
-                            )
-                          }
-                        >
-                          Open alerts
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant={activeThread.safetyFlagged ? 'ghost' : 'secondary'}
-                        size="sm"
-                        onClick={() => navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)}
-                      >
-                        Open patient
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
               </header>
+
+              {activeThreadSummaryItems.length > 0 ? (
+                <ClinicianSummaryStrip items={activeThreadSummaryItems} />
+              ) : null}
 
               <section className="inbox-response-stage__stream">
                 <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
@@ -887,9 +1017,13 @@ export function CommunicationPage(): JSX.Element {
                 </div>
               </section>
 
-              <section className="inbox-composer">
-                <h3 className="inbox-composer__title">Personal reply draft</h3>
-                <div className="communication-page__composer">
+              <ClinicianDisclosure
+                title="Local personal reply draft"
+                note="Local-only drafting stays available, but shared team coordination remains the primary workflow."
+                defaultOpen
+              >
+                <section className="inbox-composer">
+                  <div className="communication-page__composer">
                   <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
                     <label
                       className="form-field communication-authoring-tools__picker"
@@ -944,9 +1078,14 @@ export function CommunicationPage(): JSX.Element {
                         </div>
                       </div>
                     </div>
-                    <p className="communication-page__composer-truth">
-                      Local to this browser for this clinician. Not sent from Aura and not shared with the care team.
-                    </p>
+                    <div className="stack stack--2">
+                      <ClinicianTruthChips
+                        chips={[{ label: 'Local draft', variant: 'neutral', truth: 'local' }]}
+                      />
+                      <p className="communication-page__composer-truth">
+                        Local to this browser for this clinician. Not sent from Aura and not shared with the care team.
+                      </p>
+                    </div>
                   </div>
 
                   <label className="form-field communication-page__composer-field">
@@ -971,8 +1110,9 @@ export function CommunicationPage(): JSX.Element {
                       Save local reply
                     </Button>
                   </div>
-                </div>
-              </section>
+                  </div>
+                </section>
+              </ClinicianDisclosure>
 
               <section className="inbox-support" aria-label="Communication support context">
                 <div className="inbox-support__note">
@@ -1368,61 +1508,57 @@ export function CommunicationPage(): JSX.Element {
                         </form>
 
                         {recentSharedCoordinationNotes.length > 0 ? (
-                          <section
-                            className="inbox-handoff__notes"
-                            aria-label="Recent shared coordination notes"
+                          <ClinicianDisclosure
+                            title="Recent shared note history"
+                            note={`Showing ${recentSharedCoordinationNotes.length} recent ${
+                              recentSharedCoordinationNotes.length === 1 ? 'note' : 'notes'
+                            }.`}
+                            defaultOpen
                           >
-                            <div className="inbox-handoff__form-heading">
-                              <div>
-                                <p className="inbox-handoff__eyebrow">Recent shared notes</p>
-                                <h4 className="inbox-handoff__form-title">
-                                  Shared note history
-                                </h4>
-                              </div>
-                              <span className="inbox-handoff__form-side">
-                                Showing {recentSharedCoordinationNotes.length}{' '}
-                                {recentSharedCoordinationNotes.length === 1 ? 'note' : 'notes'}
-                              </span>
-                            </div>
-                            <div className="inbox-handoff__note-list" role="list">
-                              {recentSharedCoordinationNotes.map((note) => (
-                                <article
-                                  key={note.id}
-                                  className="inbox-handoff__note-item"
-                                  role="listitem"
-                                >
-                                  <div className="inbox-handoff__note-meta">
-                                    <div className="inbox-handoff__note-author">
-                                      <ClinicianAvatar
-                                        identity={{
-                                          displayName: note.createdBy.displayName,
-                                          initials: getClinicianInitials(
-                                            note.createdBy.displayName,
-                                            note.createdBy.clinicianId,
-                                          ),
-                                          photo: null,
-                                        }}
-                                        decorative
-                                        size="sm"
-                                      />
-                                      <div className="inbox-handoff__note-author-copy">
-                                        <strong>{note.createdBy.displayName}</strong>
-                                        <span>Shared coordination note</span>
+                            <section
+                              className="inbox-handoff__notes"
+                              aria-label="Recent shared coordination notes"
+                            >
+                              <div className="inbox-handoff__note-list" role="list">
+                                {recentSharedCoordinationNotes.map((note) => (
+                                  <article
+                                    key={note.id}
+                                    className="inbox-handoff__note-item"
+                                    role="listitem"
+                                  >
+                                    <div className="inbox-handoff__note-meta">
+                                      <div className="inbox-handoff__note-author">
+                                        <ClinicianAvatar
+                                          identity={{
+                                            displayName: note.createdBy.displayName,
+                                            initials: getClinicianInitials(
+                                              note.createdBy.displayName,
+                                              note.createdBy.clinicianId,
+                                            ),
+                                            photo: null,
+                                          }}
+                                          decorative
+                                          size="sm"
+                                        />
+                                        <div className="inbox-handoff__note-author-copy">
+                                          <strong>{note.createdBy.displayName}</strong>
+                                          <span>Shared coordination note</span>
+                                        </div>
                                       </div>
+                                      <time
+                                        className="inbox-handoff__note-time"
+                                        dateTime={note.createdAt}
+                                        title={formatDashboardDateTime(note.createdAt)}
+                                      >
+                                        {formatDashboardRelativeTime(note.createdAt)}
+                                      </time>
                                     </div>
-                                    <time
-                                      className="inbox-handoff__note-time"
-                                      dateTime={note.createdAt}
-                                      title={formatDashboardDateTime(note.createdAt)}
-                                    >
-                                      {formatDashboardRelativeTime(note.createdAt)}
-                                    </time>
-                                  </div>
-                                  <p className="inbox-handoff__note-text">{note.text}</p>
-                                </article>
-                              ))}
-                            </div>
-                          </section>
+                                    <p className="inbox-handoff__note-text">{note.text}</p>
+                                  </article>
+                                ))}
+                              </div>
+                            </section>
+                          </ClinicianDisclosure>
                         ) : null}
                       </>
                     )}

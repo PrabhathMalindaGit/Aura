@@ -712,6 +712,25 @@ export function AlertsPage(): JSX.Element {
     return latest ?? selectedAlert;
   }, [selectedAlert, sourceAlerts]);
 
+  useEffect(() => {
+    if (isMobileLayout) {
+      return;
+    }
+
+    if (visibleAlerts.length === 0) {
+      if (selectedAlert && !sourceAlerts.some((item) => item._id === selectedAlert._id)) {
+        setSelectedAlert(null);
+      }
+      return;
+    }
+
+    if (selectedAlert && visibleAlerts.some((item) => item._id === selectedAlert._id)) {
+      return;
+    }
+
+    setSelectedAlert(visibleAlerts[0] ?? null);
+  }, [isMobileLayout, selectedAlert, sourceAlerts, visibleAlerts]);
+
   const showInitialLoading = alertsQuery.isLoading && sourceAlerts.length === 0;
   const overviewLoading = status === 'open' && alertsQuery.isLoading && sourceAlerts.length === 0;
   const alertKpis = useMemo(
@@ -1098,12 +1117,12 @@ export function AlertsPage(): JSX.Element {
   const safetyDetailTitle = activeAlert
     ? `Reviewing ${activeAlert.patientId}`
     : status === 'open'
-      ? 'Select an alert to review'
+      ? 'First visible alert is ready to review'
       : `Select a ${status} alert to inspect`;
   const safetyDetailSupport = activeAlert
     ? reasonText(activeAlert.reason)
     : status === 'open'
-      ? 'Keep patient context, ownership, and next actions visible while you work the queue.'
+      ? 'The first visible alert is kept in the detail rail automatically until you choose another one.'
       : 'Use the queue to inspect earlier decisions without reopening the whole page.';
   const alertAgingComposition = useMemo(
     () => [

@@ -1267,9 +1267,10 @@ describe('PatientDetailPage', () => {
 
     fetchMock.mockClear();
 
-    const headerRefreshButton = document.querySelector('.patient-detail-actions__refresh') as HTMLButtonElement | null;
-    expect(headerRefreshButton).not.toBeNull();
-    await user.click(headerRefreshButton!);
+    const headerRefreshButton = within(
+      screen.getByLabelText('Recommended clinician actions'),
+    ).getByRole('button', { name: 'Refresh' });
+    await user.click(headerRefreshButton);
 
     await waitFor(() => {
       const refreshUrls = fetchMock.mock.calls.map((call) => String(call[0]));
@@ -1645,7 +1646,7 @@ describe('PatientDetailPage', () => {
       'Please keep tomorrow for now. We will confirm the schedule this afternoon.',
     );
     expect(localReply).toBeInTheDocument();
-    expect(within(communicationTimeline).getByText('Local to this browser')).toBeInTheDocument();
+    expect(within(communicationTimeline).getByText('Local draft')).toBeInTheDocument();
     expect(within(communicationTimeline).getByText('Dr Elena Hall')).toBeInTheDocument();
     expect(within(communicationTimeline).getByText('Lead rehab clinician · Post-op recovery')).toBeInTheDocument();
 

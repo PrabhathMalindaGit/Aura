@@ -10,20 +10,20 @@ const COMMUNICATION_WORKSPACE_STORAGE_PREFIX = 'aura_communication_workspace';
 
 export type CommunicationThreadView =
   | 'all'
-  | 'unread'
   | 'needs-response'
+  | 'response-delayed'
   | 'safety-flagged'
-  | 'follow-up-requested';
+  | 'reviewed';
 
 export const COMMUNICATION_THREAD_VIEW_OPTIONS: Array<{
   id: CommunicationThreadView;
   label: string;
 }> = [
   { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
   { id: 'needs-response', label: 'Needs response' },
+  { id: 'response-delayed', label: 'Response delayed' },
   { id: 'safety-flagged', label: 'Safety flagged' },
-  { id: 'follow-up-requested', label: 'Follow-up requested' },
+  { id: 'reviewed', label: 'Reviewed' },
 ];
 
 export interface CommunicationLocalReply {
@@ -100,6 +100,12 @@ export function parseCommunicationThreadView(
   fallback: CommunicationThreadView = 'all',
 ): CommunicationThreadView {
   const normalized = typeof value === 'string' ? value.trim() : '';
+  if (normalized === 'unread') {
+    return 'all';
+  }
+  if (normalized === 'follow-up-requested') {
+    return 'needs-response';
+  }
   return COMMUNICATION_THREAD_VIEW_OPTIONS.some((option) => option.id === normalized)
     ? (normalized as CommunicationThreadView)
     : fallback;
@@ -603,20 +609,22 @@ export function filterCommunicationThreads(
   threads: CommunicationThread[],
   view: CommunicationThreadView,
 ): CommunicationThread[] {
-  if (view === 'unread') {
-    return threads.filter((thread) => thread.unread);
-  }
-
   if (view === 'needs-response') {
     return threads.filter((thread) => thread.needsResponse);
+  }
+
+  if (view === 'response-delayed') {
+    return threads.filter((thread) => thread.responseDelayed);
   }
 
   if (view === 'safety-flagged') {
     return threads.filter((thread) => thread.safetyFlagged);
   }
 
-  if (view === 'follow-up-requested') {
-    return threads.filter((thread) => thread.followUpRequested);
+  if (view === 'reviewed') {
+    return threads.filter(
+      (thread) => thread.reviewedAfterLatestInbound && !thread.responseDelayed,
+    );
   }
 
   return threads;

@@ -1,4 +1,10 @@
 import { Fragment } from 'react';
+import { ClinicianDisclosure } from '../clinician/ClinicianDisclosure';
+import { ClinicianSummaryStrip } from '../clinician/ClinicianSummaryStrip';
+import {
+  ClinicianTruthChips,
+  type ClinicianTruthChip,
+} from '../clinician/ClinicianTruthChips';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -64,6 +70,28 @@ function buildFallbackTimeline(items: DashboardCommunicationOverviewItem[]): Com
     }));
 }
 
+function buildTimelineTruthChips(event: CommunicationTimelineEvent): ClinicianTruthChip[] {
+  const chips: ClinicianTruthChip[] = [];
+
+  if (event.flaggedBySafety) {
+    chips.push({ label: 'Safety flagged', variant: 'danger', truth: 'server' });
+  }
+
+  if (event.followUpRequested) {
+    chips.push({ label: 'Linked follow-up', variant: 'neutral', truth: 'server' });
+  }
+
+  if (event.reviewedAfterLatestInbound) {
+    chips.push({ label: 'Reviewed', variant: 'info', truth: 'server' });
+  }
+
+  if (event.localOnly) {
+    chips.push({ label: 'Local draft', variant: 'neutral', truth: 'local' });
+  }
+
+  return chips;
+}
+
 export function PatientCommunicationPanel({
   items,
   timeline = [],
@@ -88,8 +116,6 @@ export function PatientCommunicationPanel({
   const clinicianIdentity = useClinicianIdentity();
   const timelineEvents = timeline.length > 0 ? timeline : buildFallbackTimeline(items);
   const showQuickReplyHelpers = replyTemplates.length > 0 || hasSignature;
-  const safetyFlaggedCount = items.filter((item) => item.flaggedBySafety).length;
-  const followUpRequestedCount = items.filter((item) => item.followUpRequested).length;
   const delayedCount = items.filter(
     (item) => item.responseDelayed || item.responseState === 'delayed',
   ).length;
@@ -103,6 +129,32 @@ export function PatientCommunicationPanel({
     (total, item) => total + (item.openAlertCount ?? 0),
     0,
   );
+  const summaryItems = [
+    {
+      label: 'Needs response',
+      value: String(items.length),
+      note: items.length > 0 ? 'Current queue for this patient' : 'No response-needed threads',
+      tone: items.length > 0 ? 'warning' : 'neutral',
+    },
+    {
+      label: 'Delayed',
+      value: String(delayedCount),
+      note: delayedCount > 0 ? 'Past response target' : 'No delayed threads',
+      tone: delayedCount > 0 ? 'danger' : 'neutral',
+    },
+    {
+      label: 'Reviewed',
+      value: String(reviewedCount),
+      note: reviewedCount > 0 ? 'Durable review recorded' : 'No reviewed threads waiting',
+      tone: reviewedCount > 0 ? 'success' : 'neutral',
+    },
+    {
+      label: 'Open alerts',
+      value: String(openAlertCount),
+      note: openAlertCount > 0 ? 'Keep safety context visible' : 'No linked safety alerts',
+      tone: openAlertCount > 0 ? 'danger' : 'neutral',
+    },
+  ] as const;
 
   return (
     <Card
@@ -149,32 +201,7 @@ export function PatientCommunicationPanel({
         />
       ) : (
         <div className="patient-communication-list">
-          <div className="patient-communication-queue-strip" aria-label="Communication review summary">
-            <span className="patient-communication-queue-strip__item">
-              <strong>{items.length}</strong>
-              <span>Needs response</span>
-            </span>
-            <span className="patient-communication-queue-strip__item">
-              <strong>{safetyFlaggedCount}</strong>
-              <span>Safety flagged</span>
-            </span>
-            <span className="patient-communication-queue-strip__item">
-              <strong>{followUpRequestedCount}</strong>
-              <span>Follow-up requested</span>
-            </span>
-            <span className="patient-communication-queue-strip__item">
-              <strong>{delayedCount}</strong>
-              <span>Delayed</span>
-            </span>
-            <span className="patient-communication-queue-strip__item">
-              <strong>{reviewedCount}</strong>
-              <span>Reviewed</span>
-            </span>
-            <span className="patient-communication-queue-strip__item">
-              <strong>{openAlertCount}</strong>
-              <span>Open alerts</span>
-            </span>
-          </div>
+          <ClinicianSummaryStrip items={summaryItems} />
           <div
             className="patient-communication-timeline"
             role="list"
@@ -231,12 +258,14 @@ export function PatientCommunicationPanel({
                         </span>
                       </div>
                       <div className="patient-communication-timeline__badges">
-                        {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
-                        {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                        {event.reviewedAfterLatestInbound ? (
-                          <Badge variant="info">Reviewed</Badge>
-                        ) : null}
-                        {event.localOnly ? <Badge variant="neutral">Local to this browser</Badge> : null}
+                        <Badge variant={event.kind === 'clinician-reply' ? 'success' : 'neutral'}>
+                          {event.kind === 'clinician-reply'
+                            ? event.localOnly
+                              ? 'Local clinician reply'
+                              : 'Clinician reply'
+                            : 'Patient message'}
+                        </Badge>
+                        <ClinicianTruthChips chips={buildTimelineTruthChips(event)} />
                       </div>
                     </div>
                     <p className="patient-communication-timeline__body">{event.preview}</p>
@@ -264,7 +293,12 @@ export function PatientCommunicationPanel({
           ) : null}
 
           {showQuickReply && onQuickReplyChange && onSendQuickReply ? (
-            <div className="patient-communication-quick-reply">
+            <ClinicianDisclosure
+              title="Local quick reply"
+              note="Keeps browser-local drafting available without competing with shared care-team coordination."
+              defaultOpen
+            >
+              <div className="patient-communication-quick-reply">
               {showQuickReplyHelpers ? (
                 <>
                   <div
@@ -340,9 +374,14 @@ export function PatientCommunicationPanel({
                 />
               </label>
               <div className="patient-communication-quick-reply__footer">
-                <p className="patient-communication-quick-reply__footer-copy">
-                  Local draft only. It does not sync or mark the thread reviewed.
-                </p>
+                <div className="stack stack--2">
+                  <ClinicianTruthChips
+                    chips={[{ label: 'Local draft', variant: 'neutral', truth: 'local' }]}
+                  />
+                  <p className="patient-communication-quick-reply__footer-copy">
+                    Local draft only. It does not sync or mark the thread reviewed.
+                  </p>
+                </div>
                 <Button
                   variant="primary"
                   size="sm"
@@ -352,7 +391,8 @@ export function PatientCommunicationPanel({
                   Save local reply
                 </Button>
               </div>
-            </div>
+              </div>
+            </ClinicianDisclosure>
           ) : null}
         </div>
       )}

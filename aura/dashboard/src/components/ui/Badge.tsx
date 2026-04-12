@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 type BadgeVariant =
   | 'default'
   | 'neutral'
+  | 'info'
   | 'success'
   | 'warning'
   | 'danger'

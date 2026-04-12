@@ -334,20 +334,12 @@ describe('AlertsPage queue flow', () => {
     await user.click(screen.getByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`));
     await user.click(await screen.findByRole('button', { name: 'Acknowledge alert' }));
 
-    const outcomePanel = await screen.findByTestId('alerts-triage-outcome');
-    expect(within(outcomePanel).getByText('Alert acknowledged')).toBeInTheDocument();
-    expect(outcomePanel).toHaveTextContent(
-      'Alert for patient-42 moved out of Open and is now visible in Acknowledged.',
-    );
-    expect(outcomePanel).toHaveTextContent('Open triage still needs review in this queue.');
-    expect(screen.getByRole('tab', { name: 'Open' })).toHaveAttribute('aria-selected', 'true');
-
-    await user.click(within(outcomePanel).getByRole('button', { name: 'View acknowledged' }));
-
-    expect(await screen.findByRole('tab', { name: 'Acknowledged' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: 'Open' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.queryByTestId('alerts-triage-outcome')).not.toBeInTheDocument();
+      expect(screen.getByLabelText(`Alert ${secondOpenAlert._id} for patient ${secondOpenAlert.patientId}`)).toBeInTheDocument();
+      expect(within(screen.getByRole('dialog', { name: 'Alert' })).getByText('Patient patient-77')).toBeInTheDocument();
+    });
   });
 
   it('shows resolved triage continuity when open triage becomes clear', async () => {
@@ -426,9 +418,9 @@ describe('AlertsPage queue flow', () => {
     await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
     await user.click(screen.getByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`));
     await user.click(await screen.findByRole('button', { name: 'Acknowledge alert' }));
-    expect(await screen.findByTestId('alerts-triage-outcome')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Alert' })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('alerts-triage-outcome')).not.toBeInTheDocument();
+      expect(within(screen.getByRole('dialog', { name: 'Alert' })).getByText(`Patient ${secondOpenAlert.patientId}`)).toBeInTheDocument();
     });
 
     const secondRow = await screen.findByLabelText(
@@ -520,7 +512,7 @@ describe('AlertsPage queue flow', () => {
     await user.click(screen.getByRole('button', { name: 'Close alert drawer' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Seen')).toBeInTheDocument();
+      expect(screen.getAllByText('Seen').length).toBeGreaterThan(0);
     });
 
     const stored = window.localStorage.getItem(getSeenStorageKey('clinician-1'));
@@ -704,7 +696,7 @@ describe('AlertsPage queue flow', () => {
 
     await screen.findByLabelText(`Alert ${acknowledgedAlert._id} for patient ${acknowledgedAlert.patientId}`);
     expect(screen.queryByLabelText('Unseen alert')).not.toBeInTheDocument();
-    expect(screen.getByText('Seen')).toBeInTheDocument();
+    expect(screen.getAllByText('Seen').length).toBeGreaterThan(0);
   });
 
   it('polling is paused when document.hidden is true', async () => {
@@ -902,10 +894,14 @@ describe('AlertsPage queue flow', () => {
     });
 
     renderAlertsPage();
-    await screen.findByLabelText(`Alert ${baseAlert._id} for patient ${baseAlert.patientId}`);
+    const rowLabel = `Alert ${baseAlert._id} for patient ${baseAlert.patientId}`;
+    await screen.findByLabelText(rowLabel);
+    await screen.findByRole('dialog', { name: 'Alert' });
 
-    expect(screen.getByRole('button', { name: 'Assign to me' })).toBeInTheDocument();
-    expect(screen.getByText('Unassigned')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('dialog', { name: 'Alert' })).getByRole('button', { name: 'Assign to me' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Unassigned').length).toBeGreaterThan(0);
   });
 
   it('assigned-to-other disables acknowledge/resolve and shows take over', async () => {
@@ -930,17 +926,15 @@ describe('AlertsPage queue flow', () => {
 
     const rowLabel = `Alert ${assignedElsewhere._id} for patient ${assignedElsewhere.patientId}`;
     await screen.findByLabelText(rowLabel);
+    await user.click(screen.getByLabelText(rowLabel));
+    const alertDialog = await screen.findByRole('dialog', { name: 'Alert' });
 
-    expect(screen.getByRole('button', { name: 'Take over' })).toBeInTheDocument();
+    expect(within(alertDialog).getByRole('button', { name: 'Take over' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ack' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Resolve' })).toBeDisabled();
-
-    await user.click(screen.getByLabelText(rowLabel));
-    await screen.findByRole('dialog', { name: 'Alert' });
-
-    expect(screen.getByRole('button', { name: 'Acknowledge alert' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Resolve alert' })).toBeDisabled();
-    expect(screen.getByText('Assigned to Dr Patel')).toBeInTheDocument();
+    expect(within(alertDialog).getByRole('button', { name: 'Acknowledge alert' })).toBeDisabled();
+    expect(within(alertDialog).getByRole('button', { name: 'Resolve alert' })).toBeDisabled();
+    expect(within(alertDialog).getByText('Assigned to Dr Patel')).toBeInTheDocument();
   });
 
   it('confirm take over transfers assignment to current clinician', async () => {
@@ -964,13 +958,14 @@ describe('AlertsPage queue flow', () => {
     renderAlertsPage();
 
     await screen.findByLabelText(`Alert ${assignedElsewhere._id} for patient ${assignedElsewhere.patientId}`);
-    await user.click(screen.getByRole('button', { name: 'Take over' }));
+    const alertDialog = await screen.findByRole('dialog', { name: 'Alert' });
+    await user.click(within(alertDialog).getByRole('button', { name: 'Take over' }));
     const takeoverDialog = await screen.findByRole('alertdialog', { name: 'Take over this alert?' });
 
     await user.click(within(takeoverDialog).getByRole('button', { name: 'Take over' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Assigned to you')).toBeInTheDocument();
+      expect(within(screen.getByRole('dialog', { name: 'Alert' })).getByText('Assigned to you')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Ack' })).toBeEnabled();
       expect(screen.getByRole('button', { name: 'Resolve' })).toBeEnabled();
     });

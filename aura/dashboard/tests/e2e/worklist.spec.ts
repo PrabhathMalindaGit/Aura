@@ -7,14 +7,15 @@ test('worklist page loads operational rows and routes safely into alerts', async
   await page.goto('/worklist');
 
   await expect(page).toHaveURL(/\/worklist$/);
-  await expect(page.getByRole('heading', { name: 'Queue' })).toBeVisible();
   await expect(page.getByText('High pain escalation')).toBeVisible();
   await expect(page.getByText('Missed daily check-ins')).toBeVisible();
 
   await page.getByRole('button', { name: 'High risk' }).click();
-  await expect(page.getByTestId('worklist-row-p1')).toBeVisible();
-  await expect(page.getByTestId('worklist-row-p2')).toHaveCount(0);
+  const prioritizedPatient = page.locator('[data-testid="worklist-row-p1"], [data-testid="worklist-card-p1"]');
+  const secondaryPatient = page.locator('[data-testid="worklist-row-p2"], [data-testid="worklist-card-p2"]');
+  await expect(prioritizedPatient).toBeVisible();
+  await expect(secondaryPatient).toHaveCount(0);
 
-  await page.getByTestId('worklist-row-p1').getByRole('button', { name: 'Alerts' }).click();
+  await prioritizedPatient.getByRole('button', { name: 'Open alerts' }).click();
   await expect(page).toHaveURL(/\/alerts(\?|$)/);
 });

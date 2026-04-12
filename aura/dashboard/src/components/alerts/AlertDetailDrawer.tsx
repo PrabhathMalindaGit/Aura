@@ -204,6 +204,9 @@ export function AlertDetailDrawer({
   const assignmentBlocked = Boolean(
     effectiveAlert?.assignedTo && effectiveAlert.assignedTo !== clinicianId,
   );
+  const agedOpen =
+    effectiveAlert?.status === 'open' &&
+    Date.parse(effectiveAlert.createdAt) <= Date.now() - 24 * 60 * 60 * 1000;
 
   const acknowledgeDisabled =
     !effectiveAlert || effectiveAlert.status !== 'open' || mutationPending || assignmentBlocked;
@@ -397,6 +400,18 @@ export function AlertDetailDrawer({
         </AlertBanner>
       ) : null}
 
+      {agedOpen ? (
+        <AlertBanner variant="warning" title="Open alert is aging">
+          This alert has been open for more than 24 hours. Keep ownership and resolution context visible while you triage.
+        </AlertBanner>
+      ) : null}
+
+      {effectiveAlert.notificationStatus === 'failed' ? (
+        <AlertBanner variant="warning" title="Notification delivery failed">
+          Outreach delivery failed for this alert. Review notification attempts before closing the safety workflow.
+        </AlertBanner>
+      ) : null}
+
       {alertContextQuery.error ? (
         <AlertBanner variant="warning" title="Could not load extended context">
           {toUserMessage(asAppError(alertContextQuery.error))}
@@ -414,6 +429,12 @@ export function AlertDetailDrawer({
         fetchDisabled={alertContextQuery.isFetching}
       />
 
+      <NotificationPanel
+        alert={effectiveAlert}
+        busy={retryNotificationMutation.isPending}
+        onRetry={handleRetryNotification}
+      />
+
       <AlertTimeline events={timeline} loading={alertContextQuery.isFetching && timeline.length === 0} />
 
       <RiskOverrideForm
@@ -421,12 +442,6 @@ export function AlertDetailDrawer({
         saving={overridePending}
         onSave={(payload) => onSaveRiskOverride(effectiveAlert, payload)}
         onClear={() => onClearRiskOverride(effectiveAlert)}
-      />
-
-      <NotificationPanel
-        alert={effectiveAlert}
-        busy={retryNotificationMutation.isPending}
-        onRetry={handleRetryNotification}
       />
     </div>
   ) : open ? (

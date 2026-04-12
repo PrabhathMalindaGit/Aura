@@ -44,10 +44,10 @@ export type ClinicianDefaultPatientsPreset =
 
 export type ClinicianDefaultCommunicationFilter =
   | 'all'
-  | 'unread'
   | 'needs-response'
+  | 'response-delayed'
   | 'safety-flagged'
-  | 'follow-up-requested';
+  | 'reviewed';
 
 export interface ClinicianWorkingHours {
   enabledDays: ClinicianWorkingDayToken[];
@@ -201,10 +201,10 @@ const VALID_PATIENTS_PRESETS = new Set<ClinicianDefaultPatientsPreset>([
 ]);
 const VALID_COMMUNICATION_FILTERS = new Set<ClinicianDefaultCommunicationFilter>([
   'all',
-  'unread',
   'needs-response',
+  'response-delayed',
   'safety-flagged',
-  'follow-up-requested',
+  'reviewed',
 ]);
 const VALID_NOTIFICATION_CUE_MODES = new Set<ClinicianNotificationCueMode>([
   'default',

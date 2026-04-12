@@ -1,4 +1,5 @@
 import type { PatientStatus, WorklistRecord, WorklistSortOption } from '../types/models';
+import type { ClinicianTruthChip } from '../components/clinician/ClinicianTruthChips';
 
 export type WorklistStatusFilter = 'all' | PatientStatus;
 
@@ -103,6 +104,84 @@ export function getWorklistReviewSupport(item: WorklistRecord): string {
   }
 
   return 'Monitor recovery progress and recent operational context.';
+}
+
+export type WorklistPrimaryActionKind =
+  | 'patient'
+  | 'communication'
+  | 'alerts'
+  | 'appointments';
+
+export function getWorklistPrimaryAction(item: WorklistRecord): {
+  kind: WorklistPrimaryActionKind;
+  label: string;
+} {
+  if (item.openAlertsCount > 0) {
+    return { kind: 'alerts', label: 'Open alerts' };
+  }
+
+  if (item.communicationNeedsResponse) {
+    return { kind: 'communication', label: 'Open communication' };
+  }
+
+  if (
+    item.nextAppointmentAt &&
+    item.activeTaskCount === 0 &&
+    !item.missedCheckins.flag &&
+    (item.proms?.dueCount ?? 0) === 0
+  ) {
+    return { kind: 'appointments', label: 'Open appointments' };
+  }
+
+  return { kind: 'patient', label: 'Open patient' };
+}
+
+export function getWorklistTruthChips(item: WorklistRecord): ClinicianTruthChip[] {
+  const chips: ClinicianTruthChip[] = [];
+
+  if (item.communicationSummary?.responseDelayed || item.communicationSummary?.delayedResponse) {
+    chips.push({
+      label: 'Response delayed',
+      variant: 'warning',
+      truth: 'server',
+    });
+  } else if (item.communicationSummary?.reviewedAfterLatestInbound) {
+    chips.push({
+      label: 'Reviewed',
+      variant: 'info',
+      truth: 'server',
+    });
+  }
+
+  if ((item.communicationSummary?.flaggedBySafetyCount ?? 0) > 0) {
+    chips.push({
+      label: 'Safety flagged',
+      variant: 'danger',
+      truth: 'server',
+    });
+  }
+
+  if (item.communicationSummary?.responseDueAt) {
+    const dueAt = new Date(item.communicationSummary.responseDueAt);
+    chips.push({
+      label: `Due by ${dueAt.toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`,
+      variant: 'neutral',
+      truth: 'server',
+    });
+  }
+
+  if (item.openAlertsCount > 0) {
+    chips.push({
+      label: `${item.openAlertsCount} open alert${item.openAlertsCount === 1 ? '' : 's'}`,
+      variant: 'danger',
+      truth: 'server',
+    });
+  }
+
+  return chips;
 }
 
 export function worklistPriorityTone(item: WorklistRecord): 'risk-high' | 'warning' | 'neutral' {

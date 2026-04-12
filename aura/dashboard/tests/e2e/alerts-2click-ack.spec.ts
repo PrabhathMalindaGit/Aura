@@ -9,15 +9,15 @@ test('A clinician can acknowledge a new open alert in exactly 2 clicks', async (
   await page.goto('/alerts');
   await page.waitForLoadState('networkidle');
 
-  await expect(page.getByTestId('alert-row-a1')).toBeVisible();
+  await expect(page.getByTestId('alert-open-a1')).toBeVisible();
 
-  await clicks.clickByTestId('alert-row-a1');
+  await clicks.clickByTestId('alert-open-a1');
   await expect(page.getByTestId('alert-drawer')).toBeVisible();
 
   await clicks.clickByTestId('alert-acknowledge');
 
   await expect.poll(() => tracker.patchStatusCalls.length).toBe(1);
-  await expect(page.getByTestId('alert-row-a1')).toHaveCount(0);
+  await expect(page.getByTestId('alert-open-a1')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'All clear' })).toBeVisible();
 
   expect(clicks.getCount()).toBe(2);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ClinicianTimelineList } from '../clinician/ClinicianTimelineList';
 import type { TimelineEvent } from '../../types/models';
 import { Skeleton } from '../ui/Skeleton';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
@@ -77,53 +78,37 @@ export function AlertTimeline({ events, loading }: AlertTimelineProps): JSX.Elem
     <section className="drawer-section" aria-label="Timeline">
       <h3>Timeline</h3>
       {events?.length ? (
-        <ol className="timeline" aria-label="Alert care timeline">
-          {events.map((event) => {
+        <ClinicianTimelineList
+          items={events.map((event) => {
             const eventKey = `${event.type}-${event.at}-${event.label}`;
             const expanded = expandedEventMap[eventKey] ?? false;
             const detail = event.detail ?? '';
             const truncated = truncateText(detail, 160);
             const showToggle = Boolean(detail && truncated.truncated);
 
-            return (
-              <li key={eventKey} className="timeline__item">
-                <span
-                  className={`timeline__icon timeline__icon--${event.status ?? 'ok'}`}
-                  aria-hidden="true"
-                >
-                  {iconForEvent(event)}
-                </span>
-                <div className="timeline__content">
-                  <div className="timeline__header">
-                    <strong>{event.label}</strong>
-                    <time dateTime={event.at} title={formatExactTime(event.at)}>
-                      {formatRelativeTime(event.at)}
-                    </time>
-                  </div>
-                  {detail ? (
-                    <p className="muted-text">
-                      {expanded ? detail : truncated.text}
-                    </p>
-                  ) : null}
-                  {showToggle ? (
-                    <button
-                      type="button"
-                      className="timeline__toggle"
-                      onClick={() =>
+            return {
+              id: eventKey,
+              title: event.label,
+              timestampLabel: formatRelativeTime(event.at),
+              timestampTitle: formatExactTime(event.at),
+              tone:
+                event.status === 'fail' ? 'danger' : event.status === 'warn' ? 'warning' : 'default',
+              detail: expanded ? detail : truncated.text,
+              detailToggle:
+                showToggle
+                  ? {
+                      label: expanded ? 'Show less' : 'Show more',
+                      onClick: () =>
                         setExpandedEventMap((current) => ({
                           ...current,
                           [eventKey]: !expanded,
-                        }))
-                      }
-                    >
-                      {expanded ? 'Show less' : 'Show more'}
-                    </button>
-                  ) : null}
-                </div>
-              </li>
-            );
+                        })),
+                    }
+                  : undefined,
+              icon: iconForEvent(event),
+            };
           })}
-        </ol>
+        />
       ) : (
         <div className="drawer-placeholder">
           <p>No timeline events available yet.</p>

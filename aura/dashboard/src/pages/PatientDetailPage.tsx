@@ -17,6 +17,8 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Tabs } from '../components/ui/Tabs';
 import { Section } from '../components/ui/Section';
+import { ClinicianActionBar } from '../components/clinician/ClinicianActionBar';
+import { ClinicianSummaryStrip } from '../components/clinician/ClinicianSummaryStrip';
 import { ExportCsvModal } from '../components/export/ExportCsvModal';
 import { DayDetailPanel } from '../components/patients/DayDetailPanel';
 import { PatientAppointmentsPanel } from '../components/patients/PatientAppointmentsPanel';
@@ -2503,6 +2505,83 @@ export function PatientDetailPage(): JSX.Element {
         : latestExerciseSession?.planTitle ?? 'No upcoming appointment or recent session is visible',
     },
   ];
+  const patientWorkspaceSummaryItems = [
+    {
+      label: 'Threshold summary',
+      value: patientThresholds
+        ? `Pain >= ${patientThresholds.painHighThreshold}`
+        : 'Default thresholds',
+      note: patientThresholds
+        ? `Response ${patientThresholds.responseDelayHours}h · safety ${patientThresholds.safetyFlaggedResponseDelayHours}h`
+        : 'Using current server defaults',
+      tone: patientThresholds ? 'warning' : 'neutral',
+    },
+    {
+      label: 'Latest check-in',
+      value: trendSummary.lastCheckinDate
+        ? formatDashboardRelativeTime(trendSummary.lastCheckinDate)
+        : 'No recent check-in',
+      note: trendSummary.lastCheckinDate
+        ? 'Freshest patient-reported update'
+        : 'No patient update in this window',
+      tone: trendSummary.lastCheckinDate ? 'neutral' : 'warning',
+    },
+    {
+      label: 'Safety state',
+      value:
+        openAlertCount > 0
+          ? `${openAlertCount} open alert${openAlertCount === 1 ? '' : 's'}`
+          : 'Queue clear',
+      note: latestOpenAlertReason ?? 'No active safety review',
+      tone: openAlertCount > 0 ? 'danger' : 'success',
+    },
+    {
+      label: 'Communication truth',
+      value: latestCommunicationItem
+        ? latestCommunicationItem.responseDelayed || latestCommunicationItem.responseState === 'delayed'
+          ? 'Response delayed'
+          : latestCommunicationItem.reviewedAfterLatestInbound
+            ? 'Reviewed'
+            : latestCommunicationItem.flaggedBySafety
+              ? 'Safety flagged'
+              : 'Needs response'
+        : 'No open thread',
+      note:
+        latestCommunicationItem?.messagePreview?.trim() ||
+        'No patient communication follow-through is active right now.',
+      tone: latestCommunicationItem?.flaggedBySafety
+        ? 'danger'
+        : latestCommunicationItem?.responseDelayed || latestCommunicationItem?.responseState === 'delayed'
+          ? 'warning'
+          : latestCommunicationItem?.reviewedAfterLatestInbound
+            ? 'success'
+            : latestCommunicationItem
+              ? 'warning'
+              : 'neutral',
+    },
+    {
+      label: 'Plan status',
+      value: patientPlan ? `Version ${patientPlan.version}` : 'No plan assigned',
+      note: patientPlan
+        ? `${patientPlan.items.length} exercise${
+            patientPlan.items.length === 1 ? '' : 's'
+          } · updated ${formatDashboardRelativeTime(patientPlan.updatedAt)}`
+        : 'Exercise plan needs initial setup',
+      tone: patientPlan ? 'neutral' : 'warning',
+    },
+  ];
+  const leadRecommendedAction = recommendedActions[0] ?? null;
+  const secondaryRecommendedActions = recommendedActions.slice(1, 3);
+  const patientTopUtilityActions = [
+    {
+      label: 'Refresh',
+      onClick: handleRefreshOverview,
+    },
+    {
+      label: 'Export CSV',
+      onClick: openPatientExportModal,
+    },
+  ];
   const historyWindowItems: Array<{ label: string; value: string; note: string }> = [
     {
       label: 'Last check-in',
@@ -2760,37 +2839,41 @@ export function PatientDetailPage(): JSX.Element {
           </div>
 
           <section className="patient-detail-cockpit-header__actions" aria-label="Top patient actions">
-            <p className="patient-detail-cockpit-header__eyebrow">Top actions</p>
-            <div className="patient-detail-actions">
-              <Button
-                className="patient-detail-actions__worklist"
-                variant="ghost"
-                onClick={() => {
-                  navigate('/worklist');
-                }}
-              >
-                Open worklist
-              </Button>
-              <Button
-                className="patient-detail-actions__refresh"
-                variant="secondary"
-                onClick={handleRefreshOverview}
-              >
-                Refresh
-              </Button>
-              <Button className="patient-detail-actions__export" variant="secondary" onClick={openPatientExportModal}>
-                Export CSV
-              </Button>
-              <Button
-                className="patient-detail-actions__plan"
-                variant="secondary"
-                onClick={() => {
-                  navigate(`/patients/${patientId}/plan`);
-                }}
-              >
-                Exercise plan
-              </Button>
-            </div>
+            <ClinicianActionBar
+              eyebrow="Top actions"
+              title={leadRecommendedAction?.title ?? 'Patient review actions'}
+              note={
+                leadRecommendedAction?.description ??
+                'Use the current patient priorities to choose the next clinical action.'
+              }
+              recommendedAction={
+                leadRecommendedAction
+                  ? {
+                      label: leadRecommendedAction.actionLabel,
+                      onClick: () => handleOperationalAction(leadRecommendedAction.actionKey),
+                    }
+                  : undefined
+              }
+              secondaryActions={secondaryRecommendedActions.map((action) => ({
+                label: action.actionLabel,
+                onClick: () => handleOperationalAction(action.actionKey),
+              }))}
+              utilityActions={[
+                {
+                  label: 'Open worklist',
+                  onClick: () => {
+                    navigate('/worklist');
+                  },
+                },
+                {
+                  label: 'Exercise plan',
+                  onClick: () => {
+                    navigate(`/patients/${patientId}/plan`);
+                  },
+                },
+                ...patientTopUtilityActions,
+              ]}
+            />
           </section>
         </div>
 
@@ -2806,6 +2889,7 @@ export function PatientDetailPage(): JSX.Element {
             </article>
           ))}
         </div>
+        <ClinicianSummaryStrip items={patientWorkspaceSummaryItems} />
       </section>
 
       {patientDetailNotices.length > 0 ? (

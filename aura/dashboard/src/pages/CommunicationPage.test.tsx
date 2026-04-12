@@ -369,29 +369,32 @@ afterEach(() => {
     );
   });
 
-  it('keeps unread threads unread through filter changes until the thread becomes active', async () => {
+  it('keeps browser-local opened state secondary while server-truth filters drive the queue', async () => {
     const user = userEvent.setup();
     renderCommunicationPage();
 
     const averyThread = await screen.findByRole('button', { name: /Avery Chen/ });
     expect(within(averyThread).getByText('Needs response')).toBeInTheDocument();
+    await user.click(averyThread);
 
     await user.click(
       within(screen.getByRole('group', { name: 'Communication filters' })).getByRole('button', {
-        name: /Unread/i,
+        name: /Safety flagged/i,
       }),
     );
 
-    expect(screen.queryByRole('button', { name: /Jordan Lee/ })).not.toBeInTheDocument();
-    const unreadThread = screen.getByRole('button', { name: /Avery Chen/ });
-    expect(screen.getByText('Selected thread is outside this view')).toBeInTheDocument();
-
-    await user.click(unreadThread);
+    expect(
+      within(screen.getByRole('group', { name: 'Communication filters' })).getByRole('button', {
+        name: /Safety flagged/i,
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Avery Chen/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Jordan Lee/ })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.queryByText('Selected thread is outside this view')).not.toBeInTheDocument();
+      expect(screen.getByText('Opened here')).toBeInTheDocument();
       expect(
-        within(screen.getByRole('region', { name: 'Active communication review' })).queryByText('Unread'),
+        within(screen.getByRole('region', { name: 'Active communication review' })).queryByText('Reviewed'),
       ).not.toBeInTheDocument();
     });
   });

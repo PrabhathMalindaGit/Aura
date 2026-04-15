@@ -91,6 +91,7 @@ vi.mock("react-native", async () => {
     StyleSheet: {
       create: <T extends Record<string, unknown>>(styles: T) => styles,
     },
+    Switch: (props: Record<string, unknown>) => ReactModule.createElement("mock-switch", props),
     Text: ({
       children,
       ...props

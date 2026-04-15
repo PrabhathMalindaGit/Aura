@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -33,7 +34,6 @@ import { CheckinFlowShell } from "@/src/components/checkin/CheckinFlowShell";
 import { CheckinReviewCard } from "@/src/components/checkin/CheckinReviewCard";
 import { CheckinSubmissionRecoveryCard } from "@/src/components/checkin/CheckinSubmissionRecoveryCard";
 import { CheckinStepCard } from "@/src/components/checkin/CheckinStepCard";
-import { NeedHelpPrompt } from "@/src/components/checkin/NeedHelpPrompt";
 import { SymptomChipGroup } from "@/src/components/checkin/SymptomChipGroup";
 import {
   type CheckinValidationField,
@@ -89,10 +89,14 @@ import {
   FIVE_POINT_DIFFICULTY_LABELS,
   FIVE_POINT_RECOVERY_LABELS,
   FIVE_POINT_SUPPORT_LABELS,
+  HELP_LEVEL_LABELS,
   MEDICATION_REASON_OPTIONS,
   MEDICATION_STATUS_LABELS,
   hasMeaningfulCheckinDraft,
+  helpLevelLabel,
   medicationStatusLabel,
+  SAFETY_STATE_LABELS,
+  safetyStateLabel,
   scaleLabel,
   summarizePrimaryBodyMap,
   SYMPTOM_FLAG_LABELS,
@@ -1075,6 +1079,110 @@ export default function CheckinScreen() {
     return parts.join(" ");
   }, [adherence.medicationStatus, bodyMap, pain, recovery.exercisePercent, support.helpLevel, support.wantsExtraSupport, symptomFlags]);
 
+  const dailyContextSummary = useMemo(() => {
+    const parts: string[] = [];
+
+    if (dailySignals.sleepHours !== null) {
+      parts.push(`${dailySignals.sleepHours.toFixed(1)} hours asleep`);
+    }
+
+    if (dailySignals.sleepQuality !== null) {
+      parts.push(`Sleep quality ${scaleLabel(dailySignals.sleepQuality, FIVE_POINT_RECOVERY_LABELS).toLowerCase()}`);
+    }
+
+    if (dailySignals.sleepDisturbances !== null) {
+      parts.push(
+        `${dailySignals.sleepDisturbances} night disturbance${
+          dailySignals.sleepDisturbances === 1 ? "" : "s"
+        }`,
+      );
+    }
+
+    if (dailySignals.hydrationLevel !== null) {
+      parts.push(`Hydration ${scaleLabel(dailySignals.hydrationLevel, FIVE_POINT_SUPPORT_LABELS).toLowerCase()}`);
+    }
+
+    if (dailySignals.energyLevel !== null) {
+      parts.push(`Energy ${scaleLabel(dailySignals.energyLevel, FIVE_POINT_SUPPORT_LABELS).toLowerCase()}`);
+    }
+
+    return parts.length > 0 ? parts.join(" · ") : "Not added";
+  }, [dailySignals]);
+
+  const reviewRows = useMemo(
+    () => [
+      {
+        key: "mood",
+        label: "Mood",
+        value: scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS),
+      },
+      {
+        key: "stress",
+        label: "Stress",
+        value:
+          support.stressLevel === null
+            ? "Not set"
+            : scaleLabel(support.stressLevel, FIVE_POINT_SUPPORT_LABELS),
+      },
+      {
+        key: "recovery",
+        label: "Recovery",
+        value: `${recovery.exercisePercent}% complete · ${scaleLabel(
+          recovery.difficultyLevel,
+          FIVE_POINT_DIFFICULTY_LABELS,
+        )} difficulty`,
+      },
+      {
+        key: "medication",
+        label: "Medication",
+        value: medicationStatusLabel(adherence.medicationStatus),
+      },
+      {
+        key: "context",
+        label: "Daily context",
+        value: dailyContextSummary,
+      },
+      {
+        key: "support",
+        label: "Support request",
+        value:
+          support.helpLevel === null
+            ? HELP_LEVEL_LABELS.none
+            : helpLevelLabel(support.helpLevel),
+      },
+      {
+        key: "safety",
+        label: "Safety",
+        value:
+          support.safetyState === null
+            ? SAFETY_STATE_LABELS.safe
+            : safetyStateLabel(support.safetyState),
+      },
+      {
+        key: "extra-support",
+        label: "Extra support",
+        value: support.wantsExtraSupport ? "Requested" : "Not requested",
+      },
+      {
+        key: "body-map",
+        label: "Body areas",
+        value: summarizePrimaryBodyMap(bodyMap),
+      },
+    ],
+    [
+      adherence.medicationStatus,
+      bodyMap,
+      dailyContextSummary,
+      recovery.difficultyLevel,
+      recovery.exercisePercent,
+      support.helpLevel,
+      support.mood,
+      support.safetyState,
+      support.stressLevel,
+      support.wantsExtraSupport,
+    ],
+  );
+
   const submissionRecovery = useMemo(() => {
     const lastError = checkinError.lastError;
     if (!lastError) {
@@ -1181,6 +1289,22 @@ export default function CheckinScreen() {
       },
     }));
   };
+
+  const activeBodyRegionDetail = useMemo(() => {
+    const region = bodyMap.primaryRegion ?? bodyMap.selectedRegions[0] ?? null;
+    if (!region) {
+      return null;
+    }
+
+    return {
+      region,
+      selection: bodyMap.selections[region] ?? {
+        intensity: pain > 0 ? pain : 5,
+        type: "ache" as BodyMapPainType,
+      },
+      additionalCount: Math.max(0, bodyMap.selectedRegions.length - 1),
+    };
+  }, [bodyMap, pain]);
 
   const handleSubmit = async () => {
     if (isSubmitting) {
@@ -1301,6 +1425,7 @@ export default function CheckinScreen() {
 
   const renderSymptomsStep = () => (
     <CheckinStepCard
+      compact
       title="How your body feels today"
       description="Start with pain, then add any symptoms and body areas that need attention."
       icon="checkin"
@@ -1330,6 +1455,16 @@ export default function CheckinScreen() {
       <CheckinFieldBlock
         title="Other symptoms"
         description="Choose any symptoms that stood out today."
+        compact
+        accessory={
+          symptomFlags.length > 0 ? (
+            <StatusPill
+              label={`${symptomFlags.length} selected`}
+              variant="info"
+              accessible={false}
+            />
+          ) : null
+        }
       >
         <SymptomChipGroup
           options={CHECKIN_SYMPTOM_FLAGS.map((flag) => ({
@@ -1347,6 +1482,18 @@ export default function CheckinScreen() {
       <CheckinFieldBlock
         title="Body areas"
         description="Tap the body map to mark where symptoms feel most bothersome."
+        compact
+        accessory={
+          bodyMap.selectedRegions.length > 0 ? (
+            <StatusPill
+              label={`${bodyMap.selectedRegions.length} area${
+                bodyMap.selectedRegions.length === 1 ? "" : "s"
+              }`}
+              variant="info"
+              accessible={false}
+            />
+          ) : null
+        }
       >
         <BodyMapSelector
           value={bodyMap}
@@ -1354,106 +1501,95 @@ export default function CheckinScreen() {
           onSetPrimaryRegion={handleSetPrimaryRegion}
         />
 
-        {bodyMap.selectedRegions.length > 0 ? (
+        {activeBodyRegionDetail ? (
           <View style={styles.regionDetailStack}>
-            {bodyMap.selectedRegions.map((region) => {
-              const selection = bodyMap.selections[region] ?? {
-                intensity: pain > 0 ? pain : 5,
-                type: "ache" as BodyMapPainType,
-              };
-              const isPrimary = bodyMap.primaryRegion === region;
-              return (
-                <Card
-                  key={`region-${region}`}
-                  variant="outlined"
-                  padding={tokens.spacing.lg}
-                  style={styles.regionDetailCard}
-                >
-                  <View style={styles.regionCardStack}>
-                    <View style={styles.regionCardHeader}>
-                      <View style={styles.regionHeaderCopy}>
-                        <Text style={styles.fieldLabel}>{regionLabel(region)}</Text>
-                        <Text style={styles.helperText}>
-                          {isPrimary ? "Most bothersome area" : "Additional area"}
-                        </Text>
-                      </View>
-                      <View style={styles.regionHeaderActions}>
-                        {isPrimary ? (
-                          <StatusPill label="Primary" variant="success" accessible={false} />
-                        ) : (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Mark ${regionLabel(region)} as the primary area`}
-                            onPress={() => handleSetPrimaryRegion(region)}
-                            style={({ pressed }) => [
-                              styles.inlineTextButton,
-                              pressed ? styles.inlineTextButtonPressed : null,
-                            ]}
-                          >
-                            <Text style={styles.inlineTextButtonText}>Make primary</Text>
-                          </Pressable>
-                        )}
+            <Card
+              key={`region-${activeBodyRegionDetail.region}`}
+              variant="outlined"
+              padding={tokens.spacing.lg}
+              style={styles.regionDetailCard}
+            >
+              <View style={styles.regionCardStack}>
+                <View style={styles.regionCardHeader}>
+                  <View style={styles.regionHeaderCopy}>
+                    <Text style={styles.fieldLabel}>
+                      {regionLabel(activeBodyRegionDetail.region)}
+                    </Text>
+                    <Text style={styles.helperText}>
+                      {activeBodyRegionDetail.additionalCount > 0
+                        ? `${activeBodyRegionDetail.additionalCount} other selected area${
+                            activeBodyRegionDetail.additionalCount === 1 ? "" : "s"
+                          } stay summarized above. Tap another selected region to bring it forward.`
+                        : "Edit the most bothersome area here."}
+                    </Text>
+                  </View>
+                  <View style={styles.regionHeaderActions}>
+                    <StatusPill label="Primary" variant="success" accessible={false} />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${regionLabel(activeBodyRegionDetail.region)}`}
+                      onPress={() => handleToggleRegion(activeBodyRegionDetail.region)}
+                      style={({ pressed }) => [
+                        styles.clearOptionalButton,
+                        pressed ? styles.clearOptionalButtonPressed : null,
+                      ]}
+                    >
+                      <Text style={styles.clearOptionalButtonText}>Remove</Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <Stepper
+                  label="Intensity"
+                  value={activeBodyRegionDetail.selection.intensity}
+                  min={0}
+                  max={10}
+                  step={1}
+                  leftHint="Mild"
+                  rightHint="Severe"
+                  valueFormatter={(value) => `${value}/10`}
+                  onChange={(value) =>
+                    updateBodyMapSelection(activeBodyRegionDetail.region, { intensity: value })
+                  }
+                />
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Symptom type</Text>
+                  <View style={styles.chipRow}>
+                    {BODY_MAP_PAIN_TYPES.map((type) => {
+                      const selected = activeBodyRegionDetail.selection.type === type;
+                      return (
                         <Pressable
+                          key={`${activeBodyRegionDetail.region}-${type}`}
                           accessibilityRole="button"
-                          accessibilityLabel={`Remove ${regionLabel(region)}`}
-                          onPress={() => handleToggleRegion(region)}
+                          accessibilityLabel={`Set ${regionLabel(
+                            activeBodyRegionDetail.region,
+                          )} type ${painTypeLabel(type)}`}
+                          accessibilityState={{ selected }}
+                          onPress={() =>
+                            updateBodyMapSelection(activeBodyRegionDetail.region, { type })
+                          }
                           style={({ pressed }) => [
-                            styles.clearOptionalButton,
-                            pressed ? styles.clearOptionalButtonPressed : null,
+                            styles.choiceChip,
+                            selected ? styles.choiceChipSelected : null,
+                            pressed ? styles.choiceChipPressed : null,
                           ]}
                         >
-                          <Text style={styles.clearOptionalButtonText}>Remove</Text>
+                          <Text
+                            style={[
+                              styles.choiceChipText,
+                              selected ? styles.choiceChipTextSelected : null,
+                            ]}
+                          >
+                            {painTypeLabel(type)}
+                          </Text>
                         </Pressable>
-                      </View>
-                    </View>
-
-                    <Stepper
-                      label="Intensity"
-                      value={selection.intensity}
-                      min={0}
-                      max={10}
-                      step={1}
-                      leftHint="Mild"
-                      rightHint="Severe"
-                      valueFormatter={(value) => `${value}/10`}
-                      onChange={(value) => updateBodyMapSelection(region, { intensity: value })}
-                    />
-
-                    <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Symptom type</Text>
-                      <View style={styles.chipRow}>
-                        {BODY_MAP_PAIN_TYPES.map((type) => {
-                          const selected = selection.type === type;
-                          return (
-                            <Pressable
-                              key={`${region}-${type}`}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Set ${regionLabel(region)} type ${painTypeLabel(type)}`}
-                              accessibilityState={{ selected }}
-                              onPress={() => updateBodyMapSelection(region, { type })}
-                              style={({ pressed }) => [
-                                styles.choiceChip,
-                                selected ? styles.choiceChipSelected : null,
-                                pressed ? styles.choiceChipPressed : null,
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.choiceChipText,
-                                  selected ? styles.choiceChipTextSelected : null,
-                                ]}
-                              >
-                                {painTypeLabel(type)}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
+                      );
+                    })}
                   </View>
-                </Card>
-              );
-            })}
+                </View>
+              </View>
+            </Card>
           </View>
         ) : null}
       </CheckinFieldBlock>
@@ -1468,50 +1604,59 @@ export default function CheckinScreen() {
       icon="exercise"
       tone="primary"
     >
-      <CheckinFieldBlock
-        title="Exercise completion"
-        description="Estimate how much of today’s plan you were able to do."
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.primaryGroupCard}
       >
-        <Stepper
-          label="Exercises completed"
-          value={recovery.exercisePercent}
-          min={0}
-          max={100}
-          step={10}
-          leftHint="None"
-          rightHint="All planned"
-          helperText="Use 10% steps for a quick estimate."
-          valueFormatter={(value) => `${value}%`}
-          onChange={(value) => {
-            setNotice(null);
-            setRecovery((current) => ({ ...current, exercisePercent: value }));
-          }}
-        />
-      </CheckinFieldBlock>
+        <View style={styles.groupStack}>
+          <CheckinFieldBlock
+            title="Exercise completion"
+            description="Estimate how much of today’s plan you were able to do."
+            compact
+          >
+            <Stepper
+              label="Exercises completed"
+              value={recovery.exercisePercent}
+              min={0}
+              max={100}
+              step={10}
+              leftHint="None"
+              rightHint="All planned"
+              helperText="Use 10% steps for a quick estimate."
+              valueFormatter={(value) => `${value}%`}
+              onChange={(value) => {
+                setNotice(null);
+                setRecovery((current) => ({ ...current, exercisePercent: value }));
+              }}
+            />
+          </CheckinFieldBlock>
 
-      <CheckinFieldBlock
-        title="How rehab felt"
-        description="Start with the main effort rating for today’s plan."
-        compact
-      >
-        <View style={styles.metricStackCompact}>
-          {renderFivePointChips({
-            label: "Rehab difficulty",
-            value: recovery.difficultyLevel,
-            onChange: (value) => {
-              setNotice(null);
-              setRecovery((current) => ({ ...current, difficultyLevel: value }));
-            },
-            onClear: () => {
-              setNotice(null);
-              setRecovery((current) => ({ ...current, difficultyLevel: null }));
-            },
-            helperText: "1 is very easy and 5 is very hard.",
-            options: FIVE_POINT_DIFFICULTY_LABELS,
-            styles,
-          })}
+          <CheckinFieldBlock
+            title="How rehab felt"
+            description="Start with the main effort rating for today’s plan."
+            compact
+          >
+            <View style={styles.metricStackCompact}>
+              {renderFivePointChips({
+                label: "Rehab difficulty",
+                value: recovery.difficultyLevel,
+                onChange: (value) => {
+                  setNotice(null);
+                  setRecovery((current) => ({ ...current, difficultyLevel: value }));
+                },
+                onClear: () => {
+                  setNotice(null);
+                  setRecovery((current) => ({ ...current, difficultyLevel: null }));
+                },
+                helperText: "1 is very easy and 5 is very hard.",
+                options: FIVE_POINT_DIFFICULTY_LABELS,
+                styles,
+              })}
+            </View>
+          </CheckinFieldBlock>
         </View>
-      </CheckinFieldBlock>
+      </Card>
 
       <Card
         variant="outlined"
@@ -1665,253 +1810,321 @@ export default function CheckinScreen() {
 
   const renderSupportStep = () => (
     <CheckinStepCard
+      compact
       title="Mood, context, and support"
       description="Share how you feel today and whether you need extra help."
       icon="coping"
       tone="success"
     >
-      <CheckinFieldBlock
-        title="Mood"
-        description="Choose the number that best matches your mood today."
-        errorText={
-          activeStep === 2 && validationState?.field === "mood"
-            ? validationState.message
-            : null
-        }
-        fieldId="mood"
-        onMeasureField={(fieldId, y) =>
-          registerValidationField(fieldId as CheckinValidationField, y)
-        }
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.primaryGroupCard}
       >
-        {renderFixedFiveChoiceControl({
-          value: support.mood,
-          onChange: (value) => {
-            setNotice(null);
-            setSupport((current) => ({ ...current, mood: value }));
-          },
-          helperText: "1 is very low and 5 is very strong.",
-          options: FIVE_POINT_RECOVERY_LABELS,
-          styles,
-        })}
-      </CheckinFieldBlock>
-
-      <OptionalStepper
-        label="Stress or overwhelm"
-        value={support.stressLevel}
-        min={1}
-        max={5}
-        step={1}
-        valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
-        onChange={(value) => {
-          setNotice(null);
-          setSupport((current) => ({ ...current, stressLevel: value }));
-        }}
-        clearLabel="Clear stress"
-      />
-
-      <CheckinFieldBlock
-        title="Daily context"
-        description="Add extra sleep, hydration, and energy detail when it helps explain your day."
-        accessory={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={shouldShowDailyContext ? "Hide daily context details" : "Add daily context details"}
-            onPress={() => setShowDailyContext((current) => !current)}
-            style={({ pressed }) => [
-              styles.inlineTextButton,
-              pressed ? styles.inlineTextButtonPressed : null,
-            ]}
+        <View style={styles.groupStack}>
+          <CheckinFieldBlock
+            title="Mood"
+            description="Choose the number that best matches your mood today."
+            compact
+            errorText={
+              activeStep === 2 && validationState?.field === "mood"
+                ? validationState.message
+                : null
+            }
+            fieldId="mood"
+            onMeasureField={(fieldId, y) =>
+              registerValidationField(fieldId as CheckinValidationField, y)
+            }
           >
-            <Text style={styles.inlineTextButtonText}>
-              {shouldShowDailyContext ? "Hide details" : "Add details"}
-            </Text>
-          </Pressable>
-        }
+            {renderFixedFiveChoiceControl({
+              value: support.mood,
+              onChange: (value) => {
+                setNotice(null);
+                setSupport((current) => ({ ...current, mood: value }));
+              },
+              helperText: "1 is very low and 5 is very strong.",
+              options: FIVE_POINT_RECOVERY_LABELS,
+              styles,
+            })}
+          </CheckinFieldBlock>
+
+          <OptionalStepper
+            label="Stress or overwhelm"
+            value={support.stressLevel}
+            min={1}
+            max={5}
+            step={1}
+            valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
+            onChange={(value) => {
+              setNotice(null);
+              setSupport((current) => ({ ...current, stressLevel: value }));
+            }}
+            clearLabel="Clear stress"
+          />
+        </View>
+      </Card>
+
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.secondaryGroupCard}
       >
-        {shouldShowDailyContext ? (
-          <View style={styles.metricStack}>
-            <OptionalStepper
-              label="Hours slept"
-              value={dailySignals.sleepHours}
-              min={0}
-              max={16}
-              step={0.5}
-              leftHint="Very little"
-              rightHint="A full night"
-              valueFormatter={(value) => `${value.toFixed(1)} hours`}
-              onChange={(value) => {
-                setNotice(null);
-                setDailySignals((current) => ({ ...current, sleepHours: value }));
-              }}
-              clearLabel="Clear hours"
-            />
+        <View style={styles.groupStack}>
+          <CheckinFieldBlock
+            title="Daily context"
+            description="Add extra sleep, hydration, and energy detail when it helps explain your day."
+            compact
+            accessory={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  shouldShowDailyContext
+                    ? "Hide daily context details"
+                    : "Add daily context details"
+                }
+                onPress={() => setShowDailyContext((current) => !current)}
+                style={({ pressed }) => [
+                  styles.inlineTextButton,
+                  pressed ? styles.inlineTextButtonPressed : null,
+                ]}
+              >
+                <Text style={styles.inlineTextButtonText}>
+                  {shouldShowDailyContext ? "Hide details" : "Add details"}
+                </Text>
+              </Pressable>
+            }
+          >
+            {shouldShowDailyContext ? (
+              <View style={styles.metricStackCompact}>
+                <OptionalStepper
+                  label="Hours slept"
+                  value={dailySignals.sleepHours}
+                  min={0}
+                  max={16}
+                  step={0.5}
+                  leftHint="Very little"
+                  rightHint="A full night"
+                  valueFormatter={(value) => `${value.toFixed(1)} hours`}
+                  onChange={(value) => {
+                    setNotice(null);
+                    setDailySignals((current) => ({ ...current, sleepHours: value }));
+                  }}
+                  clearLabel="Clear hours"
+                />
 
-            <OptionalStepper
-              label="Sleep quality"
-              value={dailySignals.sleepQuality}
-              min={1}
-              max={5}
-              step={1}
-              valueFormatter={(value) => scaleLabel(value, FIVE_POINT_RECOVERY_LABELS)}
-              onChange={(value) => {
-                setNotice(null);
-                setDailySignals((current) => ({ ...current, sleepQuality: value }));
-              }}
-              clearLabel="Clear quality"
-            />
+                <OptionalStepper
+                  label="Sleep quality"
+                  value={dailySignals.sleepQuality}
+                  min={1}
+                  max={5}
+                  step={1}
+                  valueFormatter={(value) => scaleLabel(value, FIVE_POINT_RECOVERY_LABELS)}
+                  onChange={(value) => {
+                    setNotice(null);
+                    setDailySignals((current) => ({ ...current, sleepQuality: value }));
+                  }}
+                  clearLabel="Clear quality"
+                />
 
-            <OptionalStepper
-              label="Night disturbances"
-              value={dailySignals.sleepDisturbances}
-              min={0}
-              max={5}
-              step={1}
-              valueFormatter={(value) => `${value}`}
-              onChange={(value) => {
-                setNotice(null);
-                setDailySignals((current) => ({ ...current, sleepDisturbances: value }));
-              }}
-              clearLabel="Clear disturbances"
-            />
+                <OptionalStepper
+                  label="Night disturbances"
+                  value={dailySignals.sleepDisturbances}
+                  min={0}
+                  max={5}
+                  step={1}
+                  valueFormatter={(value) => `${value}`}
+                  onChange={(value) => {
+                    setNotice(null);
+                    setDailySignals((current) => ({
+                      ...current,
+                      sleepDisturbances: value,
+                    }));
+                  }}
+                  clearLabel="Clear disturbances"
+                />
 
-            <OptionalStepper
-              label="Hydration"
-              value={dailySignals.hydrationLevel}
-              min={1}
-              max={5}
-              step={1}
-              valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
-              onChange={(value) => {
-                setNotice(null);
-                setDailySignals((current) => ({ ...current, hydrationLevel: value }));
-              }}
-              clearLabel="Clear hydration"
-            />
+                <OptionalStepper
+                  label="Hydration"
+                  value={dailySignals.hydrationLevel}
+                  min={1}
+                  max={5}
+                  step={1}
+                  valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
+                  onChange={(value) => {
+                    setNotice(null);
+                    setDailySignals((current) => ({ ...current, hydrationLevel: value }));
+                  }}
+                  clearLabel="Clear hydration"
+                />
 
-            <OptionalStepper
-              label="Energy and readiness"
-              value={dailySignals.energyLevel}
-              min={1}
-              max={5}
-              step={1}
-              valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
-              onChange={(value) => {
+                <OptionalStepper
+                  label="Energy and readiness"
+                  value={dailySignals.energyLevel}
+                  min={1}
+                  max={5}
+                  step={1}
+                  valueFormatter={(value) => scaleLabel(value, FIVE_POINT_SUPPORT_LABELS)}
+                  onChange={(value) => {
+                    setNotice(null);
+                    setDailySignals((current) => ({ ...current, energyLevel: value }));
+                  }}
+                  clearLabel="Clear energy"
+                />
+              </View>
+            ) : (
+              <Text style={styles.helperText}>
+                These extra details are optional and can be added when they help tell the
+                story of today.
+              </Text>
+            )}
+          </CheckinFieldBlock>
+
+          <CheckinFieldBlock
+            title="Notes"
+            description="Add anything you want your clinician to review today."
+            compact
+          >
+            <TextInput
+              value={notes}
+              onChangeText={(value) => {
                 setNotice(null);
-                setDailySignals((current) => ({ ...current, energyLevel: value }));
+                setNotes(value);
               }}
-              clearLabel="Clear energy"
+              multiline
+              numberOfLines={5}
+              maxLength={1200}
+              placeholder="Anything else your care team should know today?"
+              style={styles.notesInput}
+              textAlignVertical="top"
+              accessibilityLabel="Extra concerns or notes"
+            />
+            <Text style={styles.helperText}>
+              Notes can still help your care team spot issues that need follow-up.
+            </Text>
+          </CheckinFieldBlock>
+        </View>
+      </Card>
+
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.primaryGroupCard}
+      >
+        <CheckinFieldBlock
+          title="Support need"
+          description="Tell us if you want a follow-up or need urgent help today."
+          compact
+        >
+          <SegmentedControl
+            value={support.helpLevel ?? "none"}
+            onChange={(value: "none" | "follow_up" | "urgent") => {
+              setNotice(null);
+              setSupport((current) => ({ ...current, helpLevel: value }));
+            }}
+            options={[
+              { value: "none", label: HELP_LEVEL_LABELS.none },
+              { value: "follow_up", label: HELP_LEVEL_LABELS.follow_up },
+              { value: "urgent", label: HELP_LEVEL_LABELS.urgent },
+            ]}
+            allowWrap
+            tone="accent"
+            accessibilityLabel="Support request"
+          />
+        </CheckinFieldBlock>
+      </Card>
+
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.safetyGroupCard}
+      >
+        <View style={styles.groupStack}>
+          <CheckinFieldBlock
+            title="Safety"
+            description="If you feel unsafe, choose that here and submit your check-in so we can route help appropriately."
+            compact
+          >
+            <SegmentedControl
+              value={support.safetyState ?? "safe"}
+              onChange={(value: "safe" | "unsure" | "unsafe") => {
+                setNotice(null);
+                setSupport((current) => ({ ...current, safetyState: value }));
+              }}
+              options={[
+                { value: "safe", label: SAFETY_STATE_LABELS.safe },
+                { value: "unsure", label: SAFETY_STATE_LABELS.unsure },
+                { value: "unsafe", label: SAFETY_STATE_LABELS.unsafe },
+              ]}
+              allowWrap
+              tone="primary"
+              accessibilityLabel="Current safety state"
+            />
+          </CheckinFieldBlock>
+
+          <View style={styles.supportSwitchRow}>
+            <View style={styles.supportSwitchCopy}>
+              <Text style={styles.supportSwitchTitle}>Extra support today</Text>
+              <Text style={styles.supportSwitchDescription}>
+                Use this if you would like a little more encouragement or practical support
+                without needing urgent help.
+              </Text>
+            </View>
+            <Switch
+              value={support.wantsExtraSupport}
+              onValueChange={(value) => {
+                setNotice(null);
+                setSupport((current) => ({ ...current, wantsExtraSupport: value }));
+              }}
             />
           </View>
-        ) : (
-          <Text style={styles.helperText}>
-            These extra details are optional and can be added when they help tell the story of today.
-          </Text>
-        )}
-      </CheckinFieldBlock>
-
-      <CheckinFieldBlock
-        title="Notes"
-        description="Add anything you want your clinician to review today."
-      >
-        <TextInput
-          value={notes}
-          onChangeText={(value) => {
-            setNotice(null);
-            setNotes(value);
-          }}
-          multiline
-          numberOfLines={5}
-          maxLength={1200}
-          placeholder="Anything else your care team should know today?"
-          style={styles.notesInput}
-          textAlignVertical="top"
-          accessibilityLabel="Extra concerns or notes"
-        />
-        <Text style={styles.helperText}>
-          Notes can still help your care team spot issues that need follow-up.
-        </Text>
-      </CheckinFieldBlock>
-
-      <CheckinFieldBlock
-        title="Support today"
-        description="Use this final prompt to tell us whether you need support or urgent help."
-      >
-        <NeedHelpPrompt
-          helpLevel={support.helpLevel}
-          safetyState={support.safetyState}
-          wantsExtraSupport={support.wantsExtraSupport}
-          onHelpLevelChange={(value) => {
-            setNotice(null);
-            setSupport((current) => ({ ...current, helpLevel: value }));
-          }}
-          onSafetyStateChange={(value) => {
-            setNotice(null);
-            setSupport((current) => ({ ...current, safetyState: value }));
-          }}
-          onToggleExtraSupport={(value) => {
-            setNotice(null);
-            setSupport((current) => ({ ...current, wantsExtraSupport: value }));
-          }}
-        />
-      </CheckinFieldBlock>
+        </View>
+      </Card>
     </CheckinStepCard>
   );
 
   const renderReviewStep = () => (
     <CheckinStepCard
+      compact
       title="Final review"
       description="Take a final look before you submit."
       icon="success"
       tone="success"
     >
-      {(support.helpLevel === "urgent" || support.safetyState === "unsafe") ? (
-        <Banner
-          variant="warning"
-          title="Immediate follow-up may be triggered"
-          message="Urgent help requests or feeling unsafe use the same safety routing already in place."
-        />
-      ) : null}
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.reviewSummaryCard}
+      >
+        <View style={styles.groupStack}>
+          {(support.helpLevel === "urgent" || support.safetyState === "unsafe") ? (
+            <View style={styles.reviewAlertBlock}>
+              <StatusPill
+                label="Immediate follow-up may be triggered"
+                variant="warning"
+                accessible={false}
+              />
+              <Text style={styles.helperText}>
+                Urgent help requests or feeling unsafe use the same safety routing already
+                in place.
+              </Text>
+            </View>
+          ) : null}
 
-      <CheckinReviewCard
-        summary={reviewSummary}
-        chips={reviewChips}
-        notesPreview={notes.trim() ? notes.trim() : undefined}
-      />
+          <CheckinReviewCard
+            summary={reviewSummary}
+            chips={reviewChips}
+            notesPreview={notes.trim() ? notes.trim() : undefined}
+          />
+        </View>
+      </Card>
 
-      <View style={styles.reviewGrid}>
-        <View style={styles.reviewGridItem}>
-          <Text style={styles.reviewLabel}>Mood</Text>
-          <Text style={styles.reviewValue}>{scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS)}</Text>
-        </View>
-        <View style={styles.reviewGridItem}>
-          <Text style={styles.reviewLabel}>Recovery</Text>
-          <Text style={styles.reviewValue}>
-            {`${recovery.exercisePercent}% complete · ${scaleLabel(
-              recovery.difficultyLevel,
-              FIVE_POINT_DIFFICULTY_LABELS,
-            )} difficulty`}
-          </Text>
-        </View>
-        <View style={styles.reviewGridItem}>
-          <Text style={styles.reviewLabel}>Medication</Text>
-          <Text style={styles.reviewValue}>{medicationStatusLabel(adherence.medicationStatus)}</Text>
-        </View>
-        <View style={styles.reviewGridItem}>
-          <Text style={styles.reviewLabel}>Support</Text>
-          <Text style={styles.reviewValue}>
-            {support.helpLevel === "urgent"
-              ? "Urgent help requested"
-              : support.helpLevel === "follow_up"
-                ? "Follow-up requested"
-                : support.wantsExtraSupport
-                  ? "Extra support requested"
-                  : "No extra support requested"}
-          </Text>
-        </View>
-        <View style={styles.reviewGridItem}>
-          <Text style={styles.reviewLabel}>Body map</Text>
-          <Text style={styles.reviewValue}>{summarizePrimaryBodyMap(bodyMap)}</Text>
-        </View>
+      <View style={styles.reviewRowList}>
+        {reviewRows.map((row) => (
+          <View key={row.key} style={styles.reviewGridItem}>
+            <Text style={styles.reviewLabel}>{row.label}</Text>
+            <Text style={styles.reviewValue}>{row.value}</Text>
+          </View>
+        ))}
       </View>
     </CheckinStepCard>
   );
@@ -2564,9 +2777,24 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     metricStackCompact: {
       gap: tokens.spacing.md,
     },
+    groupStack: {
+      gap: tokens.spacing.md,
+    },
+    primaryGroupCard: {
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.border,
+    },
+    secondaryGroupCard: {
+      backgroundColor: tokens.colors.surfaceSubtle,
+      borderColor: tokens.colors.border,
+    },
     recoveryDisclosureCard: {
       gap: tokens.spacing.md,
       backgroundColor: tokens.colors.surfaceSubtle,
+      borderColor: tokens.colors.border,
+    },
+    safetyGroupCard: {
+      backgroundColor: tokens.colors.warningSoft,
       borderColor: tokens.colors.border,
     },
     regionDetailStack: {
@@ -2615,7 +2843,43 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.caption.lineHeight,
       fontWeight: tokens.typography.weights.semibold,
     },
-    reviewGrid: {
+    supportSwitchRow: {
+      minHeight: 64,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.md,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+      backgroundColor: tokens.colors.surface,
+    },
+    supportSwitchCopy: {
+      flex: 1,
+      gap: 2,
+      marginRight: tokens.spacing.sm,
+    },
+    supportSwitchTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    supportSwitchDescription: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    reviewSummaryCard: {
+      backgroundColor: tokens.colors.surfaceElevated,
+      borderColor: tokens.colors.border,
+    },
+    reviewAlertBlock: {
+      gap: tokens.spacing.xs,
+    },
+    reviewRowList: {
       gap: tokens.spacing.sm,
     },
     reviewGridItem: {

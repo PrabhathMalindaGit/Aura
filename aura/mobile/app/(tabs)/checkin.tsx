@@ -1932,71 +1932,90 @@ export default function CheckinScreen() {
     return renderReviewStep();
   };
 
-  const shellHelperContent = (
-    <>
-      <TrustCues
-        status={trustStatus}
-        offlineMode="onlineOnly"
-        lastUpdatedLabel={checkinsRefresh.label}
-        lastUpdatedAt={checkinsRefresh.lastRefreshedAt}
-        showLastUpdated
-        showPending
-        showSavedLocalHint
-        style={styles.statusStrip}
-      />
+  const showExpandedDetailAction =
+    adaptationDecision?.mode === "shortened" &&
+    (!shouldShowRecoveryDetails || !shouldShowDailyContext);
+  const shellFooterSpacerHeight = tokens.spacing.xxxl * 2 + tokens.spacing.sm;
 
-      {submissionRecovery ? (
-        <CheckinSubmissionRecoveryCard
-          testID="checkin-submission-recovery"
-          title={submissionRecovery.title}
-          message={submissionRecovery.message}
-          detail={submissionRecovery.detail}
-          primaryActionLabel={
-            submissionRecovery.primaryActionLabel && !isOffline
-              ? submissionRecovery.primaryActionLabel
-              : undefined
-          }
-          onPrimaryAction={
-            submissionRecovery.primaryActionLabel && !isOffline
-              ? () => {
-                  void handleSubmit();
-                }
-              : undefined
-          }
-          secondaryActionLabel={submissionRecovery.secondaryActionLabel}
-          onSecondaryAction={() => {
-            void checkinError.clear();
-            setNotice(null);
-          }}
-          statusLabel={submissionRecovery.statusLabel}
-        />
-      ) : checkinError.lastError ? (
-        <LastFailedAttempt
-          value={checkinError.label}
-          title={checkinError.lastError.title}
-          message={checkinError.lastError.message}
-          onClear={checkinError.clear}
-          compact
-        />
-      ) : null}
+  const shellHelperContent =
+    adaptationMessage ||
+    showExpandedDetailAction ||
+    submissionRecovery ||
+    checkinError.lastError ||
+    helperNotice ? (
+      <View style={styles.shellHelperStack}>
+        {adaptationMessage || showExpandedDetailAction ? (
+          <View style={styles.shellHelperIntro}>
+            {adaptationMessage ? (
+              <Text style={styles.heroAdaptationNote}>{adaptationMessage}</Text>
+            ) : null}
+            {showExpandedDetailAction ? (
+              <View style={styles.shellHelperAction}>
+                <SecondaryButton
+                  label="Add more detail"
+                  onPress={() => {
+                    setNotice(null);
+                    setShowRecoveryDetails(true);
+                    setShowDailyContext(true);
+                  }}
+                />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
-      {helperNotice ? (
-        <Banner
-          variant={helperNotice.variant}
-          title={helperNotice.title}
-          message={helperNotice.message}
-          actionLabel={helperNotice.retryable && !isOffline ? "Try again" : undefined}
-          onAction={
-            helperNotice.retryable && !isOffline
-              ? () => {
-                  void handleSubmit();
-                }
-              : undefined
-          }
-        />
-      ) : null}
-    </>
-  );
+        {submissionRecovery ? (
+          <CheckinSubmissionRecoveryCard
+            testID="checkin-submission-recovery"
+            title={submissionRecovery.title}
+            message={submissionRecovery.message}
+            detail={submissionRecovery.detail}
+            primaryActionLabel={
+              submissionRecovery.primaryActionLabel && !isOffline
+                ? submissionRecovery.primaryActionLabel
+                : undefined
+            }
+            onPrimaryAction={
+              submissionRecovery.primaryActionLabel && !isOffline
+                ? () => {
+                    void handleSubmit();
+                  }
+                : undefined
+            }
+            secondaryActionLabel={submissionRecovery.secondaryActionLabel}
+            onSecondaryAction={() => {
+              void checkinError.clear();
+              setNotice(null);
+            }}
+            statusLabel={submissionRecovery.statusLabel}
+          />
+        ) : checkinError.lastError ? (
+          <LastFailedAttempt
+            value={checkinError.label}
+            title={checkinError.lastError.title}
+            message={checkinError.lastError.message}
+            onClear={checkinError.clear}
+            compact
+          />
+        ) : null}
+
+        {helperNotice ? (
+          <Banner
+            variant={helperNotice.variant}
+            title={helperNotice.title}
+            message={helperNotice.message}
+            actionLabel={helperNotice.retryable && !isOffline ? "Try again" : undefined}
+            onAction={
+              helperNotice.retryable && !isOffline
+                ? () => {
+                    void handleSubmit();
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+      </View>
+    ) : null;
 
   const footerContent = (
     <View style={styles.footerInner}>
@@ -2134,9 +2153,24 @@ export default function CheckinScreen() {
                 <StatusPill label={friendlyDate} variant="info" accessible={false} />
                 <StatusPill label="Read-only" variant="neutral" accessible={false} />
               </View>
+              <TrustCues
+                status={trustStatus}
+                offlineMode="onlineOnly"
+                lastUpdatedLabel={checkinsRefresh.label}
+                lastUpdatedAt={checkinsRefresh.lastRefreshedAt}
+                showLastUpdated
+                showPending
+                showSavedLocalHint
+              />
             </View>
           }
-          helperContent={<Banner variant="info" title={careModeNotice.title} message={careModeNotice.message} />}
+          helperContent={
+            <Banner
+              variant="info"
+              title={careModeNotice.title}
+              message={careModeNotice.message}
+            />
+          }
           steps={CHECKIN_STEPS}
           activeStep={0}
           onSelectStep={() => undefined}
@@ -2150,7 +2184,7 @@ export default function CheckinScreen() {
               />
             </View>
           }
-          footerSpacerHeight={132}
+          footerSpacerHeight={shellFooterSpacerHeight}
         >
           <EmptyState
             title="Check-ins are not active right now"
@@ -2245,20 +2279,15 @@ export default function CheckinScreen() {
                   <StatusPill label="Extra detail today" variant="warning" accessible={false} />
                 ) : null}
               </View>
-              {adaptationMessage ? (
-                <Text style={styles.heroAdaptationNote}>{adaptationMessage}</Text>
-              ) : null}
-              {adaptationDecision?.mode === "shortened" &&
-              (!shouldShowRecoveryDetails || !shouldShowDailyContext) ? (
-                <SecondaryButton
-                  label="Add more detail"
-                  onPress={() => {
-                    setNotice(null);
-                    setShowRecoveryDetails(true);
-                    setShowDailyContext(true);
-                  }}
-                />
-              ) : null}
+              <TrustCues
+                status={trustStatus}
+                offlineMode="onlineOnly"
+                lastUpdatedLabel={checkinsRefresh.label}
+                lastUpdatedAt={checkinsRefresh.lastRefreshedAt}
+                showLastUpdated
+                showPending
+                showSavedLocalHint
+              />
             </View>
           }
           helperContent={shellHelperContent}
@@ -2269,8 +2298,7 @@ export default function CheckinScreen() {
             setActiveStep(index);
           }}
           footer={footerContent}
-          footerSpacerHeight={160}
-          scrollContentStyle={styles.container}
+          footerSpacerHeight={shellFooterSpacerHeight}
           scrollViewRef={scrollViewRef}
         >
           {renderCurrentStep()}
@@ -2293,28 +2321,27 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     loadingStack: {
       gap: tokens.spacing.md,
     },
-    container: {
-      gap: tokens.spacing.lg,
-    },
     heroMetaRow: {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
     },
     heroStatusStack: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     heroAdaptationNote: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
     },
-    statusStrip: {
-      flexDirection: "row",
-      flexWrap: "wrap",
+    shellHelperStack: {
       gap: tokens.spacing.sm,
-      marginTop: tokens.spacing.xs,
-      marginBottom: 0,
+    },
+    shellHelperIntro: {
+      gap: tokens.spacing.sm,
+    },
+    shellHelperAction: {
+      alignSelf: "flex-start",
     },
     sectionStack: {
       gap: tokens.spacing.md,
@@ -2613,7 +2640,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.medium,
     },
     footerInner: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     footerHint: {
       color: tokens.colors.danger,

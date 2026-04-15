@@ -1,4 +1,4 @@
-import React, { useMemo, type ReactNode, type RefObject } from "react";
+import React, { useMemo, useState, type ReactNode, type RefObject } from "react";
 import { ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { GlassPanel } from "@/src/components/GlassPanel";
@@ -41,13 +41,22 @@ export function CheckinFlowShell({
   activeStep,
   onSelectStep,
   footer,
-  footerSpacerHeight = 164,
+  footerSpacerHeight = 0,
   scrollContentStyle,
   scrollViewRef,
   children,
 }: CheckinFlowShellProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
+  const [measuredFooterHeight, setMeasuredFooterHeight] = useState(0);
+  const resolvedFooterSpacerHeight = footer
+    ? Math.max(
+        footerSpacerHeight,
+        measuredFooterHeight > 0
+          ? measuredFooterHeight + tokens.spacing.sm
+          : tokens.spacing.xxxl + tokens.spacing.xxxl + tokens.spacing.sm,
+      )
+    : tokens.spacing.xxxl;
 
   return (
     <View style={styles.flex}>
@@ -57,7 +66,7 @@ export function CheckinFlowShell({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: footer ? footerSpacerHeight : tokens.spacing.xxxl },
+          { paddingBottom: resolvedFooterSpacerHeight },
           scrollContentStyle,
         ]}
       >
@@ -89,7 +98,17 @@ export function CheckinFlowShell({
       </ScrollView>
 
       {footer ? (
-        <View style={styles.footerWrap}>
+        <View
+          style={styles.footerWrap}
+          onLayout={({ nativeEvent }) => {
+            const nextHeight = Math.ceil(nativeEvent.layout.height);
+            Promise.resolve().then(() => {
+              setMeasuredFooterHeight((current) =>
+                current === nextHeight ? current : nextHeight
+              );
+            });
+          }}
+        >
           <GlassPanel
             fallbackVariant="surface"
             fallbackOpacity={0.92}
@@ -110,10 +129,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flex: 1,
     },
     scrollContent: {
-      gap: tokens.spacing.lg,
+      gap: tokens.spacing.md,
     },
     headerBody: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     currentStepTitle: {
       color: tokens.colors.text,
@@ -127,7 +146,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
     },
     statusWrap: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     helperWrap: {
       gap: tokens.spacing.sm,
@@ -137,7 +156,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       left: 0,
       right: 0,
       bottom: 0,
-      paddingTop: tokens.spacing.sm,
+      paddingTop: tokens.spacing.xs,
       paddingBottom: tokens.spacing.sm,
     },
     footerPanel: {

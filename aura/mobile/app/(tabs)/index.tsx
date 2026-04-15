@@ -1019,263 +1019,89 @@ export default function HomeScreen() {
       scroll
       auditLabel="TodayScreen"
       contentContainerStyle={styles.container}
-      banner={<TrustBanner status={trustStatus} />}
+      containerStyle={styles.screenContent}
+      banner={
+        trustStatus.kind === "ok" ? undefined : (
+          <View style={styles.bannerBlock}>
+            <TrustBanner status={trustStatus} />
+          </View>
+        )
+      }
     >
-      {/* Header area */}
-      <HeroHeader
-        title="Today"
-        subtitle={friendlyDate}
-        left={
-          <Avatar
-            size={44}
-            name={patientLabel}
-            photoUrl={patientPhotoUri ?? undefined}
-            ring={trustStatus.kind === "ok" ? "ok" : "attention"}
-          />
-        }
-        rightActions={[
-          {
-            icon: "safety",
-            onPress: () => {
-              router.push("/safety" as never);
-            },
-            accessibilityLabel: "Open Safety support",
-            tone: "success",
-          },
-          {
-            icon: "bell",
-            onPress: () => {
-              router.push("/reminders" as never);
-            },
-            accessibilityLabel: "Open reminders",
-            tone: unreadReminderCount > 0 ? "accent" : "muted",
-          },
-          {
-            icon: "tasks",
-            onPress: () => {
-              router.push("/tasks" as never);
-            },
-            accessibilityLabel: "Open Tasks",
-            tone: activeTaskCount > 0 ? "accent" : "muted",
-          },
-        ]}
-      >
-        <Text style={styles.heroSupportText}>{headerSupportText}</Text>
-      </HeroHeader>
-
-      {/* Status strip */}
-      <TrustCues
-        status={trustStatus}
-        showLastUpdated={false}
-        showPending
-        showSavedLocalHint
-        extraPills={[
-          {
-            label: `Last check-in: ${lastCheckinLabel}`,
-            variant: checkinSummary.completedToday
-              ? "success"
-              : checkinSummary.lastDateISO
-                ? "info"
-                : "neutral",
-          },
-        ]}
-        style={styles.statusStrip}
-      />
-
-      {careModeNotice ? (
-        <Banner
-          variant={careMode === "independent" ? "info" : "warning"}
-          title={careModeNotice.title}
-          message={careModeNotice.message}
-        />
-      ) : null}
-
-      {recoveryNudge ? (
-        <TipCard
-          tone={recoveryNudgeTone}
-          leading={{
-            type: "icon",
-            icon: recoveryNudge.kind === "weekly_summary_ready" ? "weekly" : "insights",
-            tone:
-              recoveryNudgeTone === "warning"
-                ? "warning"
-                : recoveryNudgeTone === "success"
-                  ? "success"
-                  : "primary",
-          }}
-          title={recoveryNudge.title}
-          text={recoveryNudge.message}
-          chips={[recoveryNudge.evidenceWindow]}
-          actions={[
+      <View style={styles.topStack}>
+        {/* Header area */}
+        <HeroHeader
+          title="Today"
+          subtitle={friendlyDate}
+          variant="compact"
+          left={
+            <Avatar
+              size={44}
+              name={patientLabel}
+              photoUrl={patientPhotoUri ?? undefined}
+              ring={trustStatus.kind === "ok" ? "ok" : "attention"}
+            />
+          }
+          rightActions={[
             {
-              label:
-                recoveryNudge.kind === "weekly_summary_ready"
-                  ? "Open weekly report"
-                  : recoveryNudge.kind === "improving_trend" ||
-                      recoveryNudge.kind === "worsening_trend"
-                    ? "View progress"
-                    : checkinAvailable
-                      ? "Open check-in"
-                      : "Review progress",
+              icon: "safety",
               onPress: () => {
-                if (recoveryNudge.kind === "weekly_summary_ready") {
-                  router.push("/weekly-report" as never);
-                  return;
-                }
-                if (
-                  recoveryNudge.kind === "improving_trend" ||
-                  recoveryNudge.kind === "worsening_trend"
-                ) {
-                  router.push("/(tabs)/progress" as never);
-                  return;
-                }
-                router.push(
-                  (checkinAvailable ? "/(tabs)/checkin" : "/(tabs)/progress") as never,
-                );
+                router.push("/safety" as never);
               },
+              accessibilityLabel: "Open Safety support",
+              tone: "success",
+            },
+            {
+              icon: "bell",
+              onPress: () => {
+                router.push("/reminders" as never);
+              },
+              accessibilityLabel: "Open reminders",
+              tone: unreadReminderCount > 0 ? "accent" : "muted",
+            },
+            {
+              icon: "tasks",
+              onPress: () => {
+                router.push("/tasks" as never);
+              },
+              accessibilityLabel: "Open Tasks",
+              tone: activeTaskCount > 0 ? "accent" : "muted",
             },
           ]}
-        />
-      ) : null}
-
-      {primaryReminder ? (
-        <Section
-          title="Needs your attention"
-          subtitle={`${reminders.length} update${reminders.length === 1 ? "" : "s"} ready to review.`}
-          left={
-            <View accessible={false} importantForAccessibility="no-hide-descendants">
-              <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />
-            </View>
-          }
-          right={<UnreadBadge count={unreadReminderCount} compactLabel />}
         >
-          <TipCard
-            tone={reminderToneToTipTone(primaryReminder.tone)}
-            leading={{
-              type: "icon",
-              icon: primaryReminder.primaryActionIcon,
-              tone: primaryReminder.tone === "warning" ? "warning" : "primary",
-            }}
-            title={primaryReminder.title}
-            text={primaryReminder.message}
-            chips={attentionChips}
-            actions={[
-              {
-                label: primaryReminder.primaryActionLabel,
-                onPress: () => {
-                  void handleOpenReminder(primaryReminder);
-                },
-              },
-              {
-                label:
-                  unreadReminderCount > 0
-                    ? "Open reminders"
-                    : activeTaskCount > 0
-                      ? "View tasks"
-                      : "Open details",
-                kind: "secondary",
-                onPress: () => {
-                  if (activeTaskCount > 0 && unreadReminderCount === 0) {
-                    router.push("/tasks" as never);
-                    return;
-                  }
-                  router.push("/reminders" as never);
-                },
-              },
-            ]}
-          />
-        </Section>
-      ) : null}
+          <Text style={styles.heroSupportText}>{headerSupportText}</Text>
+        </HeroHeader>
 
-      <Section
-        title="Recovery signals"
-        subtitle="A quick view of recent check-ins."
-        left={
-          <View accessible={false} importantForAccessibility="no-hide-descendants">
-            <DomainIcon
-              icon="insights"
-              size={18}
-              tone="muted"
-              accessibilityLabel="Recovery signals icon"
-            />
-          </View>
-        }
-      >
-        <View style={styles.trackerGrid}>
-          <View style={styles.trackerCell}>
-            <TrackerTile
-              icon="checkin"
-              label="Pain"
-              value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
-              delta="Last 7 check-ins"
-              tone="warning"
-              micro={
-                painSeries.length >= 2
-                  ? { type: "sparkline", values: painSeries, tone: "warning" }
-                  : { type: "dots", values: [0, 0, 0] }
-              }
-              onPress={() => {
-                router.push("/(tabs)/progress" as never);
-              }}
-            />
-          </View>
-          <View style={styles.trackerCell}>
-            <TrackerTile
-              icon="checkin"
-              label="Mood"
-              value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
-              delta="Last 7 check-ins"
-              tone="success"
-              micro={
-                moodSeries.length >= 2
-                  ? { type: "sparkline", values: moodSeries, tone: "success" }
-                  : { type: "dots", values: [0, 0, 0] }
-              }
-              onPress={() => {
-                router.push("/(tabs)/progress" as never);
-              }}
-            />
-          </View>
-          <View style={styles.trackerCell}>
-            <TrackerTile
-              icon="exercise"
-              label="Adherence"
-              value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
-              delta="Exercises"
-              tone="accent"
-              micro={
-                adherenceSeries.length >= 2
-                  ? { type: "bars", values: adherenceSeries }
-                  : { type: "dots", values: [0, 0, 0] }
-              }
-              onPress={() => {
-                router.push("/(tabs)/progress" as never);
-              }}
-            />
-          </View>
-          <View style={styles.trackerCell}>
-            <TrackerTile
-              icon="meds"
-              label="Medication"
-              value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
-              delta="Taken"
-              tone="primary"
-              micro={
-                medsPct !== null
-                  ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
-                  : { type: "dots", values: [0, 0, 0] }
-              }
-              onPress={() => {
-                router.push("/(tabs)/progress" as never);
-              }}
-            />
-          </View>
-        </View>
-      </Section>
+        <TrustCues
+          status={trustStatus}
+          showLastUpdated={false}
+          showPending
+          showSavedLocalHint
+          extraPills={[
+            {
+              label: `Last check-in: ${lastCheckinLabel}`,
+              variant: checkinSummary.completedToday
+                ? "success"
+                : checkinSummary.lastDateISO
+                  ? "info"
+                  : "neutral",
+            },
+          ]}
+          style={styles.statusStrip}
+        />
+
+        {careModeNotice ? (
+          <Banner
+            variant={careMode === "independent" ? "info" : "warning"}
+            title={careModeNotice.title}
+            message={careModeNotice.message}
+          />
+        ) : null}
+      </View>
 
       <Card
-        padding={tokens.spacing.xl}
-        style={styles.checkinCard}
+        padding={tokens.spacing.lg}
+        style={[styles.checkinCard, styles.sectionBlock]}
         accessibilityLabel="Today’s check-in"
       >
         <View style={styles.checkinHeaderRow}>
@@ -1356,6 +1182,199 @@ export default function HomeScreen() {
           </View>
         )}
       </Card>
+
+      {recoveryNudge ? (
+        <View style={styles.sectionBlock}>
+          <TipCard
+            tone={recoveryNudgeTone}
+            leading={{
+              type: "icon",
+              icon: recoveryNudge.kind === "weekly_summary_ready" ? "weekly" : "insights",
+              tone:
+                recoveryNudgeTone === "warning"
+                  ? "warning"
+                  : recoveryNudgeTone === "success"
+                    ? "success"
+                    : "primary",
+            }}
+            title={recoveryNudge.title}
+            text={recoveryNudge.message}
+            chips={[recoveryNudge.evidenceWindow]}
+            actions={[
+              {
+                label:
+                  recoveryNudge.kind === "weekly_summary_ready"
+                    ? "Open weekly report"
+                    : recoveryNudge.kind === "improving_trend" ||
+                        recoveryNudge.kind === "worsening_trend"
+                      ? "View progress"
+                      : checkinAvailable
+                        ? "Open check-in"
+                        : "Review progress",
+                onPress: () => {
+                  if (recoveryNudge.kind === "weekly_summary_ready") {
+                    router.push("/weekly-report" as never);
+                    return;
+                  }
+                  if (
+                    recoveryNudge.kind === "improving_trend" ||
+                    recoveryNudge.kind === "worsening_trend"
+                  ) {
+                    router.push("/(tabs)/progress" as never);
+                    return;
+                  }
+                  router.push(
+                    (checkinAvailable ? "/(tabs)/checkin" : "/(tabs)/progress") as never,
+                  );
+                },
+              },
+            ]}
+          />
+        </View>
+      ) : null}
+
+      {primaryReminder ? (
+        <Section
+          title="Needs your attention"
+          subtitle={`${reminders.length} update${reminders.length === 1 ? "" : "s"} ready to review.`}
+          left={
+            <View accessible={false} importantForAccessibility="no-hide-descendants">
+              <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />
+            </View>
+          }
+          right={<UnreadBadge count={unreadReminderCount} compactLabel />}
+        >
+          <TipCard
+            tone={reminderToneToTipTone(primaryReminder.tone)}
+            leading={{
+              type: "icon",
+              icon: primaryReminder.primaryActionIcon,
+              tone: primaryReminder.tone === "warning" ? "warning" : "primary",
+            }}
+            title={primaryReminder.title}
+            text={primaryReminder.message}
+            chips={attentionChips}
+            actions={[
+              {
+                label: primaryReminder.primaryActionLabel,
+                onPress: () => {
+                  void handleOpenReminder(primaryReminder);
+                },
+              },
+              {
+                label:
+                  unreadReminderCount > 0
+                    ? "Open reminders"
+                    : activeTaskCount > 0
+                      ? "View tasks"
+                      : "Open details",
+                kind: "secondary",
+                onPress: () => {
+                  if (activeTaskCount > 0 && unreadReminderCount === 0) {
+                    router.push("/tasks" as never);
+                    return;
+                  }
+                  router.push("/reminders" as never);
+                },
+              },
+            ]}
+          />
+        </Section>
+      ) : null}
+
+      <Section
+        title="Recovery signals"
+        subtitle="A quick view of recent check-ins."
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="insights"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Recovery signals icon"
+            />
+          </View>
+        }
+      >
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerRow}>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="checkin"
+                label="Pain"
+                value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
+                delta="Last 7 check-ins"
+                tone="warning"
+                micro={
+                  painSeries.length >= 2
+                    ? { type: "sparkline", values: painSeries, tone: "warning" }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="checkin"
+                label="Mood"
+                value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
+                delta="Last 7 check-ins"
+                tone="success"
+                micro={
+                  moodSeries.length >= 2
+                    ? { type: "sparkline", values: moodSeries, tone: "success" }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+          </View>
+          <View style={styles.trackerRow}>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="exercise"
+                label="Adherence"
+                value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
+                delta="Exercises"
+                tone="accent"
+                micro={
+                  adherenceSeries.length >= 2
+                    ? { type: "bars", values: adherenceSeries }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="meds"
+                label="Medication"
+                value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
+                delta="Taken"
+                tone="primary"
+                micro={
+                  medsPct !== null
+                    ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </Section>
 
       {/* Secondary card: Today plan */}
       <Section
@@ -1520,9 +1539,10 @@ export default function HomeScreen() {
       </Section>
 
       {/* Two-column row */}
-      <View style={styles.twoColumnRow}>
+      <View style={[styles.twoColumnRow, styles.sectionBlock]}>
         <View style={styles.twoColumnCell}>
           <MediaCard
+            style={styles.twoColumnCard}
             variant="compact"
             leading={{ type: "icon", icon: "weekly", tone: "primary" }}
             title="Weekly report"
@@ -1559,6 +1579,7 @@ export default function HomeScreen() {
 
         <View style={styles.twoColumnCell}>
           <MediaCard
+            style={styles.twoColumnCard}
             variant="compact"
             leading={{ type: "icon", icon: "appointments", tone: "primary" }}
             title="Next appointment"
@@ -1580,26 +1601,28 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <TipCard
-        tone="safety"
-        leading={{ type: "icon", icon: "safety", tone: "success" }}
-        title="Safety Plan"
-        text={
-          careMode === "active"
-            ? "If symptoms change quickly or you feel unsafe, your safety plan is ready at any time."
-            : "If symptoms change quickly or you feel unsafe, your safety plan is still available. Routine clinician monitoring may no longer be active."
-        }
-        chips={["Always available"]}
-        actions={[
-          {
-            label: "Open Safety Plan",
-            kind: "secondary",
-            onPress: () => {
-              router.push("/safety" as never);
+      <View style={styles.sectionBlock}>
+        <TipCard
+          tone="safety"
+          leading={{ type: "icon", icon: "safety", tone: "success" }}
+          title="Safety Plan"
+          text={
+            careMode === "active"
+              ? "If symptoms change quickly or you feel unsafe, your safety plan is ready at any time."
+              : "If symptoms change quickly or you feel unsafe, your safety plan is still available. Routine clinician monitoring may no longer be active."
+          }
+          chips={["Always available"]}
+          actions={[
+            {
+              label: "Open Safety Plan",
+              kind: "secondary",
+              onPress: () => {
+                router.push("/safety" as never);
+              },
             },
-          },
-        ]}
-      />
+          ]}
+        />
+      </View>
 
       {isDashboardLoading ? (
         <Text style={styles.loadingFootnote}>Loading latest dashboard data…</Text>
@@ -1611,8 +1634,20 @@ export default function HomeScreen() {
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     container: {
-      gap: tokens.spacing.xl,
       paddingBottom: tokens.spacing.xxl,
+    },
+    screenContent: {
+      gap: 0,
+    },
+    topStack: {
+      gap: tokens.spacing.md,
+      marginBottom: tokens.spacing.xl,
+    },
+    bannerBlock: {
+      marginBottom: tokens.spacing.md,
+    },
+    sectionBlock: {
+      marginBottom: tokens.spacing.xl,
     },
     statusStrip: {
       flexDirection: "row",
@@ -1626,12 +1661,14 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       maxWidth: 320,
     },
     trackerGrid: {
+      gap: tokens.spacing.md,
+    },
+    trackerRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
       gap: tokens.spacing.md,
     },
     trackerCell: {
-      width: "48%",
+      flex: 1,
       minWidth: 0,
     },
     checkinCard: {
@@ -1642,8 +1679,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "flex-start",
-      gap: tokens.spacing.md,
-      marginBottom: tokens.spacing.lg,
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.md,
     },
     checkinCopy: {
       flex: 1,
@@ -1666,7 +1703,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
       justifyContent: "space-between",
       gap: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.xs,
     },
     checkinMetaLabel: {
       color: tokens.colors.textMuted,
@@ -1681,7 +1718,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     actionStack: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     bodyText: {
       color: tokens.colors.textMuted,
@@ -1701,6 +1738,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     twoColumnCell: {
       flex: 1,
       minWidth: 0,
+    },
+    twoColumnCard: {
+      flex: 1,
     },
     skeletonStack: {
       gap: tokens.spacing.sm,

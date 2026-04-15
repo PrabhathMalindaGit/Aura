@@ -103,7 +103,7 @@ export function CheckinStepNavigator({
 function createStyles(tokens: ReturnType<typeof useTokens>) {
   return StyleSheet.create({
     wrap: {
-      paddingVertical: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.xs,
     },
     row: {
       flexDirection: "row",
@@ -129,7 +129,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     item: {
       alignItems: "center",
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
       paddingHorizontal: tokens.spacing.xs,
     },
     itemPressed: {

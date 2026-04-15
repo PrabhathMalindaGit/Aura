@@ -1,6 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useMemo, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { Avatar, type AvatarRingVariant } from "@/src/components/Avatar";
 import { Card } from "@/src/components/Card";
@@ -68,6 +68,7 @@ export type MediaCardProps = {
   actions?: MediaCardAction[];
   variant?: "default" | "emphasis" | "compact";
   testID?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
 function resolveChipStyle(
@@ -133,6 +134,7 @@ export function MediaCard({
   actions = [],
   variant = "default",
   testID,
+  style,
 }: MediaCardProps) {
   const tokens = useTokens();
   const reduceMotion = useReducedMotion();
@@ -318,7 +320,7 @@ export function MediaCard({
     return (
       <Card
         padding={0}
-        style={cardStyle}
+        style={[cardStyle, style]}
         accessibilityLabel={`${title}${subtitle ? `. ${subtitle}` : ""}`}
       >
         <View style={styles.contentWrap}>
@@ -347,7 +349,7 @@ export function MediaCard({
   }
 
   return (
-    <View testID={testID}>
+    <View testID={testID} style={style}>
       <Card
         padding={resolvedPadding}
         style={cardStyle}

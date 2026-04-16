@@ -35547,16 +35547,27 @@ button.dashboard-summary-strip__item:hover {
   color: hsl(var(--muted-foreground) / 0.84);
 }
 
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-planner-console {
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.92rem 0.96rem;
+  border: 1px solid hsl(var(--border) / 0.64);
+  border-radius: calc(var(--radius-xl) + 0.18rem);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.996), hsl(var(--muted) / 0.04)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.018), transparent 84%);
+}
+
 .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.8rem 1rem;
   align-items: center;
-  padding: 0.88rem 0.96rem;
-  border: 1px solid hsl(var(--border) / 0.68);
+  padding: 0.82rem 0.9rem;
+  border: 1px solid hsl(var(--border) / 0.62);
   border-radius: calc(var(--radius-xl) + 0.1rem);
   background:
-    linear-gradient(180deg, hsl(var(--background) / 0.78), hsl(var(--background) / 0.68)),
+    linear-gradient(180deg, hsl(var(--background) / 0.74), hsl(var(--background) / 0.66)),
     linear-gradient(140deg, hsl(var(--primary) / 0.016), transparent 84%);
 }
 
@@ -35599,7 +35610,7 @@ button.dashboard-summary-strip__item:hover {
 
 .dashboard-page-shell--appointments.appointments-page--schedule .schedule-planner-surface {
   display: grid;
-  gap: 0.82rem;
+  gap: 0.76rem;
 }
 
 .dashboard-page-shell--appointments.appointments-page--schedule .appointments-schedule-context {
@@ -35655,8 +35666,8 @@ button.dashboard-summary-strip__item:hover {
 
 .dashboard-page-shell--appointments.appointments-page--schedule .schedule-follow-through__grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 0.88rem;
+  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
+  gap: 0.82rem;
   align-items: start;
 }
 
@@ -35680,6 +35691,20 @@ button.dashboard-summary-strip__item:hover {
 
 .dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane__fact {
   background: hsl(var(--background) / 0.7);
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-request-stage,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-capacity-stage,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-capacity-stage__detail,
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-capacity-stage__publish {
+  display: grid;
+  gap: 0.78rem;
+  min-width: 0;
+}
+
+.dashboard-page-shell--appointments.appointments-page--schedule .schedule-capacity-stage__publish {
+  padding-top: 0.2rem;
+  border-top: 1px solid hsl(var(--border) / 0.46);
 }
 
 .dashboard-page-shell--appointments.appointments-page--schedule .appointments-request-outcome,
@@ -35728,7 +35753,7 @@ button.dashboard-summary-strip__item:hover {
 }
 
 .dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer {
-  gap: 0.88rem;
+  gap: 0.78rem;
 }
 
 .dashboard-page-shell--appointments.appointments-page--schedule .appointments-composer__context {
@@ -35793,6 +35818,16 @@ button.dashboard-summary-strip__item:hover {
   background: transparent;
 }
 
+.dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-planner-console {
+  border-color: hsl(var(--border) / 0.46);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.9), hsl(var(--card) / 0.82)),
+    linear-gradient(140deg, hsl(var(--primary) / 0.06), transparent 84%);
+  box-shadow:
+    0 22px 38px hsl(224 48% 4% / 0.18),
+    inset 0 1px 0 hsl(0 0% 100% / 0.04);
+}
+
 .dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar,
 .dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-pane,
 .dark .dashboard-page-shell--appointments.appointments-page--schedule .schedule-board-surface--planner,
@@ -35855,6 +35890,10 @@ button.dashboard-summary-strip__item:hover {
 @media (max-width: 720px) {
   .dashboard-page-shell--appointments.appointments-page--schedule .appointments-page-header {
     padding: 0.95rem 1rem 0;
+  }
+
+  .dashboard-page-shell--appointments.appointments-page--schedule .schedule-planner-console {
+    padding: 0.84rem 0.88rem;
   }
 
   .dashboard-page-shell--appointments.appointments-page--schedule .schedule-control-bar,
@@ -43138,6 +43177,27 @@ a {
   gap: 0.9rem;
 }
 
+.communication-page--inbox .inbox-response-stage__body {
+  gap: 0.78rem;
+}
+
+.communication-page--inbox .inbox-response-stage__hero,
+.communication-page--inbox .inbox-response-stage__workspace,
+.communication-page--inbox .inbox-response-stage__main,
+.communication-page--inbox .inbox-response-stage__support-column {
+  display: grid;
+  gap: 0.78rem;
+  min-width: 0;
+}
+
+.communication-page--inbox .inbox-response-stage__workspace {
+  align-items: start;
+}
+
+.communication-page--inbox .inbox-response-stage__support-column {
+  align-content: start;
+}
+
 .communication-page--inbox .inbox-triage-bar__note,
 .communication-page--inbox .inbox-support__text,
 .communication-page--inbox .inbox-support__subtext,
@@ -43381,11 +43441,11 @@ a {
 
 .communication-page--inbox .inbox-response-stage__stream {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.78rem;
 }
 
 .communication-page--inbox .communication-page__timeline-list {
-  gap: 0.78rem;
+  gap: 0.72rem;
 }
 
 .communication-page--inbox .communication-page__timeline-event {
@@ -43394,8 +43454,8 @@ a {
 }
 
 .communication-page--inbox .inbox-composer {
-  gap: 0.85rem;
-  padding-top: 0.85rem;
+  gap: 0.72rem;
+  padding-top: 0.72rem;
   border: 0;
   border-top: 1px solid hsl(var(--border) / 0.24);
   border-radius: 0;
@@ -43407,30 +43467,31 @@ a {
 }
 
 .communication-page--inbox .communication-authoring-tools {
-  padding: 0.95rem 1rem;
+  padding: 0.82rem 0.9rem;
   border-radius: 20px;
   box-shadow: none;
 }
 
 .communication-page--inbox .inbox-composer__truth-strip {
-  align-items: stretch;
-  justify-content: space-between;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.72rem;
 }
 
 .communication-page--inbox .communication-page__composer-identity {
-  flex: 0 1 19rem;
+  flex: 0 1 18rem;
 }
 
 .communication-page--inbox .communication-page__composer-truth {
   flex: 1 1 16rem;
   margin: 0;
   max-width: none;
-  padding: 0.8rem 0.95rem;
+  padding: 0.72rem 0.84rem;
   border-radius: 18px;
 }
 
 .communication-page--inbox .communication-page__composer-field textarea {
-  min-height: 9.5rem;
+  min-height: 8.25rem;
 }
 
 .communication-page--inbox .communication-page__composer-footer {
@@ -43442,14 +43503,15 @@ a {
 }
 
 .communication-page--inbox .inbox-support {
-  padding-top: 0.85rem;
-  border-top: 1px solid hsl(var(--border) / 0.24);
+  gap: 0.72rem;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .communication-page--inbox .inbox-support__note {
   display: grid;
   gap: 0.35rem;
-  padding: 0.85rem 0.95rem;
+  padding: 0.78rem 0.88rem;
   border: 1px solid hsl(var(--border) / 0.28);
   border-radius: 20px;
   background: hsl(var(--background) / 0.58);
@@ -43464,6 +43526,7 @@ a {
 }
 
 .communication-page--inbox .inbox-handoff {
+  gap: 0.72rem;
   border-radius: 22px;
   box-shadow: none;
   align-content: start;
@@ -43485,6 +43548,13 @@ a {
 
 .communication-page--inbox .inbox-composer {
   border-top-color: hsl(var(--primary) / 0.16);
+}
+
+@media (min-width: 1500px) {
+  .communication-page--inbox .inbox-response-stage__workspace {
+    grid-template-columns: minmax(0, 1.34fr) minmax(19rem, 0.88fr);
+    gap: 0.88rem;
+  }
 }
 
 .dark .communication-page--inbox .inbox-triage-bar,

@@ -331,7 +331,10 @@ export function CommunicationPage(): JSX.Element {
   const activePatientCoordinationQuery = usePatientCoordination(activePatientId);
   const activePatientCoordination = activePatientCoordinationQuery.data ?? null;
   const activePatientCurrentHandoff = activePatientCoordination?.currentHandoff ?? null;
-  const activePatientCoordinationNotes = activePatientCoordination?.noteHistory ?? [];
+  const activePatientCoordinationNotes = useMemo(
+    () => activePatientCoordination?.noteHistory ?? [],
+    [activePatientCoordination],
+  );
   const activePatientLinkedTask = activePatientCurrentHandoff?.linkedTask ?? null;
   const activePatientLinkedTaskId = activePatientCurrentHandoff?.linkedTaskId ?? '';
   const latestSharedCoordinationActivity = useMemo(
@@ -866,270 +869,276 @@ export function CommunicationPage(): JSX.Element {
             </div>
           ) : activeThread ? (
             <div className="communication-page__timeline-body inbox-response-stage__body">
-              <header className="inbox-response-stage__header">
-                <ClinicianActionBar
-                  eyebrow="Active thread"
-                  title={activeThread.patientName}
-                  note={getThreadMetaSummary(activeThread)}
-                  recommendedAction={
-                    activeThread.safetyFlagged && activeThread.validPatientId
-                      ? {
-                          label: 'Open alerts',
-                          onClick: () =>
-                            navigate(
-                              `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
-                            ),
-                        }
-                      : activeThread.validPatientId
+              <div className="inbox-response-stage__hero">
+                <header className="inbox-response-stage__header">
+                  <ClinicianActionBar
+                    eyebrow="Active thread"
+                    title={activeThread.patientName}
+                    note={getThreadMetaSummary(activeThread)}
+                    recommendedAction={
+                      activeThread.safetyFlagged && activeThread.validPatientId
+                        ? {
+                            label: 'Open alerts',
+                            onClick: () =>
+                              navigate(
+                                `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
+                              ),
+                          }
+                        : activeThread.validPatientId
+                          ? {
+                              label: 'Open patient',
+                              onClick: () =>
+                                navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`),
+                            }
+                          : undefined
+                    }
+                    secondaryActions={[
+                      activeThread.validPatientId && activeThread.safetyFlagged
                         ? {
                             label: 'Open patient',
                             onClick: () =>
                               navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`),
                           }
-                        : undefined
-                  }
-                  secondaryActions={[
-                    activeThread.validPatientId && activeThread.safetyFlagged
-                      ? {
-                          label: 'Open patient',
-                          onClick: () =>
-                            navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`),
-                        }
-                      : null,
-                    activeThread.validPatientId
-                      ? {
-                          label: 'Structured coordination',
-                          onClick: () =>
-                            navigate(
-                              `/patients/${encodeURIComponent(activeThread.patientId)}/communications`,
-                            ),
-                        }
-                      : null,
-                  ].filter((value): value is { label: string; onClick: () => void } => Boolean(value))}
-                  utilityActions={[
-                    {
-                      label: communicationQuery.isFetching ? 'Refreshing...' : 'Refresh',
-                      onClick: () => {
-                        void communicationQuery.refetch();
+                        : null,
+                      activeThread.validPatientId
+                        ? {
+                            label: 'Structured coordination',
+                            onClick: () =>
+                              navigate(
+                                `/patients/${encodeURIComponent(activeThread.patientId)}/communications`,
+                              ),
+                          }
+                        : null,
+                    ].filter((value): value is { label: string; onClick: () => void } => Boolean(value))}
+                    utilityActions={[
+                      {
+                        label: communicationQuery.isFetching ? 'Refreshing...' : 'Refresh',
+                        onClick: () => {
+                          void communicationQuery.refetch();
+                        },
+                        disabled: communicationQuery.isFetching,
                       },
-                      disabled: communicationQuery.isFetching,
-                    },
-                  ]}
-                />
-                <div className="inbox-response-stage__anchor">
-                  <span className="inbox-response-stage__avatar" aria-hidden="true">
-                    {getPatientInitials(activeThread.patientName)}
-                  </span>
-                  <div className="inbox-response-stage__copy">
-                    <div className="inbox-response-stage__meta">
-                      {activeThread.validPatientId ? (
-                        <span className="communication-page__thread-id">ID: {activeThread.patientId}</span>
-                      ) : null}
-                      <span
-                        className="inbox-response-stage__updated"
-                        title={formatDashboardDateTime(activeThread.latestEventAt)}
-                      >
-                        Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
-                      </span>
-                    </div>
-                    <ClinicianTruthChips
-                      chips={[
-                        ...getThreadTruthChips(activeThread),
-                        ...(!activeThread.unread
-                          ? [{ label: 'Opened here', variant: 'neutral', truth: 'local' as const }]
-                          : []),
-                      ]}
-                    />
-                    {activeThreadContext ? (
+                    ]}
+                  />
+                  <div className="inbox-response-stage__anchor">
+                    <span className="inbox-response-stage__avatar" aria-hidden="true">
+                      {getPatientInitials(activeThread.patientName)}
+                    </span>
+                    <div className="inbox-response-stage__copy">
                       <div className="inbox-response-stage__meta">
-                        <span>{getCommunicationContextSummary(activeThreadContext)}</span>
-                        {activeThreadContext.lastCheckinAt ? (
-                          <span>
-                            Last check-in {formatDashboardRelativeTime(activeThreadContext.lastCheckinAt)}
-                          </span>
+                        {activeThread.validPatientId ? (
+                          <span className="communication-page__thread-id">ID: {activeThread.patientId}</span>
                         ) : null}
+                        <span
+                          className="inbox-response-stage__updated"
+                          title={formatDashboardDateTime(activeThread.latestEventAt)}
+                        >
+                          Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
+                        </span>
                       </div>
-                    ) : null}
-                  </div>
-                </div>
-              </header>
-
-              {activeThreadSummaryItems.length > 0 ? (
-                <ClinicianSummaryStrip items={activeThreadSummaryItems} />
-              ) : null}
-
-              <section className="inbox-response-stage__stream">
-                <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
-                  {activeThread.timeline.map((event) => {
-                    const eventTypeBadge = getEventTypeBadge(event);
-
-                    return (
-                      <article
-                        key={event.id}
-                        className={`communication-page__timeline-event communication-page__timeline-event--${
-                          event.kind === 'clinician-reply' ? 'clinician' : 'patient'
-                        }`}
-                        role="listitem"
-                      >
-                        <div className="communication-page__timeline-event-head">
-                          <div className="communication-page__timeline-event-copy">
-                            {event.kind === 'clinician-reply' ? (
-                              <div className="communication-page__timeline-event-author">
-                                <ClinicianAvatar
-                                  identity={{
-                                    displayName: event.senderLabel,
-                                    initials: getClinicianInitials(event.senderLabel),
-                                    photo: null,
-                                  }}
-                                  decorative
-                                  size="sm"
-                                />
-                                <div className="communication-page__timeline-event-author-copy">
-                                  <strong>{event.senderLabel}</strong>
-                                  {event.senderSecondaryLabel ? (
-                                    <span className="communication-page__timeline-event-secondary">
-                                      {event.senderSecondaryLabel}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ) : (
-                              <strong>{event.senderLabel}</strong>
-                            )}
-                            <span
-                              className="communication-page__timeline-event-time"
-                              title={formatDashboardDateTime(event.occurredAt)}
-                            >
-                              {formatDashboardRelativeTime(event.occurredAt)}
-                            </span>
-                          </div>
-                          <div className="communication-page__timeline-event-badges">
-                            <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
-                            {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
-                            {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
-                            {event.localOnly ? <Badge variant="default">Local</Badge> : null}
-                          </div>
-                        </div>
-                        <p className="communication-page__timeline-event-preview">{event.preview}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <ClinicianDisclosure
-                title="Local personal reply draft"
-                note="Local-only drafting stays available, but shared team coordination remains the primary workflow."
-                defaultOpen
-              >
-                <section className="inbox-composer">
-                  <div className="communication-page__composer">
-                  <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
-                    <label
-                      className="form-field communication-authoring-tools__picker"
-                      htmlFor="communication-reply-template-picker"
-                    >
-                      <span>Quick reply template</span>
-                      <select
-                        id="communication-reply-template-picker"
-                        value={selectedTemplateId}
-                        onChange={(event) => setSelectedTemplateId(event.target.value)}
-                        aria-label="Quick reply template"
-                        disabled={communicationAuthoring.templates.length === 0}
-                      >
-                        {communicationAuthoring.templates.length === 0 ? (
-                          <option value="">No saved templates in Settings</option>
-                        ) : null}
-                        {communicationAuthoring.templates.map((template) => (
-                          <option key={template.id} value={template.id}>
-                            {template.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="communication-authoring-tools__actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleInsertTemplate}
-                        disabled={!selectedTemplate}
-                      >
-                        Insert template
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleInsertSignature}
-                        disabled={!communicationAuthoring.hasSignature}
-                      >
-                        Insert signature
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="inbox-composer__truth-strip">
-                    <div className="communication-page__composer-identity" aria-label="Local clinician identity">
-                      <span className="communication-page__composer-identity-label">Local clinician identity</span>
-                      <div className="communication-page__composer-identity-card">
-                        <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
-                        <div className="communication-page__composer-identity-copy">
-                          <strong>{clinicianIdentity.displayName}</strong>
-                          {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="stack stack--2">
                       <ClinicianTruthChips
-                        chips={[{ label: 'Local draft', variant: 'neutral', truth: 'local' }]}
+                        chips={[
+                          ...getThreadTruthChips(activeThread),
+                          ...(!activeThread.unread
+                            ? [{ label: 'Opened here', variant: 'neutral', truth: 'local' as const }]
+                            : []),
+                        ]}
                       />
-                      <p className="communication-page__composer-truth">
-                        Local to this browser for this clinician. Not sent from Aura and not shared with the care team.
+                      {activeThreadContext ? (
+                        <div className="inbox-response-stage__meta">
+                          <span>{getCommunicationContextSummary(activeThreadContext)}</span>
+                          {activeThreadContext.lastCheckinAt ? (
+                            <span>
+                              Last check-in {formatDashboardRelativeTime(activeThreadContext.lastCheckinAt)}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </header>
+
+                {activeThreadSummaryItems.length > 0 ? (
+                  <ClinicianSummaryStrip items={activeThreadSummaryItems} />
+                ) : null}
+              </div>
+
+              <div className="inbox-response-stage__workspace">
+                <div className="inbox-response-stage__main">
+                  <section className="inbox-response-stage__stream">
+                    <div className="communication-page__timeline-list" role="list" aria-label="Patient communication timeline">
+                      {activeThread.timeline.map((event) => {
+                        const eventTypeBadge = getEventTypeBadge(event);
+
+                        return (
+                          <article
+                            key={event.id}
+                            className={`communication-page__timeline-event communication-page__timeline-event--${
+                              event.kind === 'clinician-reply' ? 'clinician' : 'patient'
+                            }`}
+                            role="listitem"
+                          >
+                            <div className="communication-page__timeline-event-head">
+                              <div className="communication-page__timeline-event-copy">
+                                {event.kind === 'clinician-reply' ? (
+                                  <div className="communication-page__timeline-event-author">
+                                    <ClinicianAvatar
+                                      identity={{
+                                        displayName: event.senderLabel,
+                                        initials: getClinicianInitials(event.senderLabel),
+                                        photo: null,
+                                      }}
+                                      decorative
+                                      size="sm"
+                                    />
+                                    <div className="communication-page__timeline-event-author-copy">
+                                      <strong>{event.senderLabel}</strong>
+                                      {event.senderSecondaryLabel ? (
+                                        <span className="communication-page__timeline-event-secondary">
+                                          {event.senderSecondaryLabel}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <strong>{event.senderLabel}</strong>
+                                )}
+                                <span
+                                  className="communication-page__timeline-event-time"
+                                  title={formatDashboardDateTime(event.occurredAt)}
+                                >
+                                  {formatDashboardRelativeTime(event.occurredAt)}
+                                </span>
+                              </div>
+                              <div className="communication-page__timeline-event-badges">
+                                <Badge variant={eventTypeBadge.variant}>{eventTypeBadge.label}</Badge>
+                                {event.flaggedBySafety ? <Badge variant="danger">Safety flagged</Badge> : null}
+                                {event.followUpRequested ? <Badge variant="neutral">Follow-up requested</Badge> : null}
+                                {event.localOnly ? <Badge variant="default">Local</Badge> : null}
+                              </div>
+                            </div>
+                            <p className="communication-page__timeline-event-preview">{event.preview}</p>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <ClinicianDisclosure
+                    title="Local personal reply draft"
+                    note="Local-only drafting stays available, but shared team coordination remains the primary workflow."
+                    defaultOpen
+                  >
+                    <section className="inbox-composer">
+                      <div className="communication-page__composer">
+                        <div className="communication-authoring-tools" role="group" aria-label="Reply helpers">
+                          <label
+                            className="form-field communication-authoring-tools__picker"
+                            htmlFor="communication-reply-template-picker"
+                          >
+                            <span>Quick reply template</span>
+                            <select
+                              id="communication-reply-template-picker"
+                              value={selectedTemplateId}
+                              onChange={(event) => setSelectedTemplateId(event.target.value)}
+                              aria-label="Quick reply template"
+                              disabled={communicationAuthoring.templates.length === 0}
+                            >
+                              {communicationAuthoring.templates.length === 0 ? (
+                                <option value="">No saved templates in Settings</option>
+                              ) : null}
+                              {communicationAuthoring.templates.map((template) => (
+                                <option key={template.id} value={template.id}>
+                                  {template.title}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="communication-authoring-tools__actions">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleInsertTemplate}
+                              disabled={!selectedTemplate}
+                            >
+                              Insert template
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleInsertSignature}
+                              disabled={!communicationAuthoring.hasSignature}
+                            >
+                              Insert signature
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="inbox-composer__truth-strip">
+                          <div className="communication-page__composer-identity" aria-label="Local clinician identity">
+                            <span className="communication-page__composer-identity-label">Local clinician identity</span>
+                            <div className="communication-page__composer-identity-card">
+                              <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                              <div className="communication-page__composer-identity-copy">
+                                <strong>{clinicianIdentity.displayName}</strong>
+                                {clinicianIdentity.secondaryLine ? <span>{clinicianIdentity.secondaryLine}</span> : null}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="stack stack--2">
+                            <ClinicianTruthChips
+                              chips={[{ label: 'Local draft', variant: 'neutral', truth: 'local' }]}
+                            />
+                            <p className="communication-page__composer-truth">
+                              Local to this browser for this clinician. Not sent from Aura and not shared with the care team.
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="form-field communication-page__composer-field">
+                          <span>Personal reply draft</span>
+                          <textarea
+                            value={draftReply}
+                            onChange={(event) => {
+                              setDraftReply(event.target.value);
+                            }}
+                            rows={4}
+                            placeholder="Add a calm clinician follow-up note for this patient thread."
+                            disabled={!activeThread.validPatientId}
+                          />
+                        </label>
+                        <div className="communication-page__composer-footer">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={handleSendReply}
+                            disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
+                          >
+                            Save local reply
+                          </Button>
+                        </div>
+                      </div>
+                    </section>
+                  </ClinicianDisclosure>
+                </div>
+
+                <div className="inbox-response-stage__support-column">
+                  <section className="inbox-support" aria-label="Communication support context">
+                    <div className="inbox-support__note">
+                      <p className="inbox-support__text">
+                        This timeline is limited to patient communication plus local clinician replies saved in this browser.
+                      </p>
+                      <p className="inbox-support__subtext">
+                        Shared coordination below is team-visible Aura context and never appears as a message bubble or sent history in this timeline.
                       </p>
                     </div>
-                  </div>
 
-                  <label className="form-field communication-page__composer-field">
-                    <span>Personal reply draft</span>
-                    <textarea
-                      value={draftReply}
-                      onChange={(event) => {
-                        setDraftReply(event.target.value);
-                      }}
-                      rows={4}
-                      placeholder="Add a calm clinician follow-up note for this patient thread."
-                      disabled={!activeThread.validPatientId}
-                    />
-                  </label>
-                  <div className="communication-page__composer-footer">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleSendReply}
-                      disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
-                    >
-                      Save local reply
-                    </Button>
-                  </div>
-                  </div>
-                </section>
-              </ClinicianDisclosure>
-
-              <section className="inbox-support" aria-label="Communication support context">
-                <div className="inbox-support__note">
-                  <p className="inbox-support__text">
-                    This timeline is limited to patient communication plus local clinician replies saved in this browser.
-                  </p>
-                  <p className="inbox-support__subtext">
-                    Shared coordination below is team-visible Aura context and never appears as a message bubble or sent history in this timeline.
-                  </p>
-                </div>
-
-                {activeThread?.validPatientId ? (
-                  <section
-                    className="inbox-handoff"
-                    aria-label="Shared clinician coordination"
-                    data-testid="communication-shared-coordination"
-                  >
+                    {activeThread?.validPatientId ? (
+                      <section
+                        className="inbox-handoff"
+                        aria-label="Shared clinician coordination"
+                        data-testid="communication-shared-coordination"
+                      >
                     <div className="inbox-handoff__header">
                       <div className="inbox-handoff__copy">
                         <div className="inbox-handoff__head">
@@ -1562,9 +1571,11 @@ export function CommunicationPage(): JSX.Element {
                         ) : null}
                       </>
                     )}
+                      </section>
+                    ) : null}
                   </section>
-                ) : null}
-              </section>
+                </div>
+              </div>
             </div>
           ) : activeThreadMissingFromView ? (
             <div className="inbox-response-stage__state">

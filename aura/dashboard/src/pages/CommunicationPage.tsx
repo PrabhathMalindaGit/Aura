@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ClinicianTruthChips,
@@ -12,6 +12,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Section } from '../components/ui/Section';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Stack } from '../components/ui/Stack';
+import { Tabs } from '../components/ui/Tabs';
 import { useCommunicationAuthoring } from '../hooks/useCommunicationAuthoring';
 import { useClinicianIdentity } from '../hooks/useClinicianIdentity';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
@@ -54,8 +55,29 @@ import { toUserMessage } from '../utils/errors';
 import { truncateText } from '../utils/text';
 import type { DashboardCommunicationOverviewItem } from '../types/models';
 
+type CommunicationLayoutMode = 'wide' | 'medium' | 'narrow';
+type CommunicationSupportView = 'shared' | 'workflow' | 'reference';
+
+const COMMUNICATION_SUPPORT_TABS = [
+  { id: 'shared', label: 'Shared coordination' },
+  { id: 'workflow', label: 'Workflow context' },
+  { id: 'reference', label: 'Reference / help' },
+] as const satisfies ReadonlyArray<{ id: CommunicationSupportView; label: string }>;
+
 function normalizePatientId(value: string | null): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function getCommunicationLayoutMode(width: number): CommunicationLayoutMode {
+  if (width >= 1312) {
+    return 'wide';
+  }
+
+  if (width >= 960) {
+    return 'medium';
+  }
+
+  return 'narrow';
 }
 
 function countThreadsByView(
@@ -117,28 +139,30 @@ function getThreadTruthChips(thread: CommunicationThread): ClinicianTruthChip[] 
   return chips;
 }
 
-function getCommunicationContextSummary(item: DashboardCommunicationOverviewItem | null): string | null {
-  if (!item) {
-    return null;
-  }
-
+function getQueueMetaLine(
+  thread: CommunicationThread,
+  item: DashboardCommunicationOverviewItem | null,
+): string {
   const parts = [
-    item.patientRiskLevel === 'high' ? 'Higher risk context' : 'Lower risk context',
-    typeof item.openAlertCount === 'number'
+    thread.safetyFlagged
+      ? 'Safety flagged'
+      : thread.responseDelayed
+        ? 'Response delayed'
+        : thread.needsResponse
+          ? 'Needs response'
+          : thread.reviewedAfterLatestInbound
+            ? 'Reviewed'
+            : thread.followUpRequested
+              ? 'Follow-up requested'
+              : null,
+    item?.patientRiskLevel === 'high' ? 'Higher risk' : null,
+    typeof item?.openAlertCount === 'number' && item.openAlertCount > 0
       ? `${item.openAlertCount} open alert${item.openAlertCount === 1 ? '' : 's'}`
       : null,
-    item.lastPainScore !== undefined ? `Last pain ${item.lastPainScore}/10` : null,
-    item.reviewedAfterLatestInbound && item.lastReviewedAt
-      ? `Reviewed ${formatDashboardRelativeTime(item.lastReviewedAt)}`
-      : null,
-    (item.responseDelayed === true || item.responseState === 'delayed')
-      ? `Response delayed past ${item.responseDelayHours ?? 'configured'}h`
-      : item.responseDelayHours
-        ? `Response target ${item.responseDelayHours}h`
-        : null,
+    item?.lastPainScore !== undefined ? `Pain ${item.lastPainScore}/10` : null,
   ].filter(Boolean);
 
-  return parts.length > 0 ? parts.join(' · ') : null;
+  return parts.length > 0 ? parts.slice(0, 2).join(' · ') : getThreadMetaSummary(thread);
 }
 
 function formatCountLabel(count: number, singular: string, plural: string): string {
@@ -226,6 +250,22 @@ function getTimelineEventMetaNote(event: CommunicationThread['timeline'][number]
   return null;
 }
 
+function getTimelineEventContinuation(
+  currentEvent: CommunicationThread['timeline'][number],
+  previousEvent: CommunicationThread['timeline'][number] | undefined,
+): boolean {
+  if (!previousEvent) {
+    return false;
+  }
+
+  return (
+    previousEvent.kind === currentEvent.kind &&
+    previousEvent.senderLabel === currentEvent.senderLabel &&
+    previousEvent.senderSecondaryLabel === currentEvent.senderSecondaryLabel &&
+    previousEvent.localOnly === currentEvent.localOnly
+  );
+}
+
 export function CommunicationPage(): JSX.Element {
   const navigate = useNavigate();
   const clinicianIdentity = useClinicianIdentity();
@@ -233,6 +273,7 @@ export function CommunicationPage(): JSX.Element {
   const notificationPreferences = useNotificationPreferences();
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
   const [searchParams, setSearchParams] = useSearchParams();
+  const workspaceLayoutRef = useRef<HTMLElement | null>(null);
   const [localState, setLocalState] = useState(() => readCommunicationWorkspaceLocalState(communicationScopeKey));
   const [draftReply, setDraftReply] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -241,6 +282,8 @@ export function CommunicationPage(): JSX.Element {
   const [sharedNoteError, setSharedNoteError] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedThreadView, setSelectedThreadView] = useState<CommunicationThreadView | null>(null);
+  const [layoutMode, setLayoutMode] = useState<CommunicationLayoutMode>('wide');
+  const [activeSupportView, setActiveSupportView] = useState<CommunicationSupportView>('shared');
   const hasInitializedSelectionRef = useRef(false);
   const draftSessionInitializationRef = useRef<Record<string, true>>({});
   const communicationAuthoringRef = useRef(communicationAuthoring);
@@ -274,6 +317,50 @@ export function CommunicationPage(): JSX.Element {
     () => findCommunicationThreadByPatientId(allThreads, requestedPatientId),
     [allThreads, requestedPatientId],
   );
+
+  useLayoutEffect(() => {
+    const element = workspaceLayoutRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const updateLayoutMode = (nextWidth: number): void => {
+      const normalizedWidth = Number.isFinite(nextWidth) ? Math.round(nextWidth) : 0;
+
+      if (normalizedWidth <= 0) {
+        return;
+      }
+
+      setLayoutMode((currentMode) => {
+        const nextMode = getCommunicationLayoutMode(normalizedWidth);
+        return currentMode === nextMode ? currentMode : nextMode;
+      });
+    };
+
+    const measure = (): void => {
+      updateLayoutMode(element.getBoundingClientRect().width);
+    };
+
+    measure();
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (typeof window.ResizeObserver !== 'function') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+
+    const observer = new window.ResizeObserver((entries) => {
+      const entry = entries.find((candidate) => candidate.target === element) ?? entries[0];
+      updateLayoutMode(entry?.contentRect.width ?? element.getBoundingClientRect().width);
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     communicationAuthoringRef.current = communicationAuthoring;
@@ -437,6 +524,7 @@ export function CommunicationPage(): JSX.Element {
     setSharedNoteDraft('');
     setSharedNoteNotice(null);
     setSharedNoteError(null);
+    setActiveSupportView('shared');
   }, [activePatientId]);
 
   const selectedTemplate = useMemo(
@@ -673,42 +761,51 @@ export function CommunicationPage(): JSX.Element {
         note: 'Latest patient-visible thread activity',
         tone: 'neutral',
       },
+      {
+        label: 'Latest source',
+        value: activeThread.latestEventKind === 'clinician-reply' ? 'Local clinician reply' : 'Patient message',
+        note: 'Most recent entry in this review lane',
+        tone: 'neutral',
+      },
+      ...(activeThread.latestInboundAt
+        ? [
+            {
+              label: 'Latest inbound',
+              value: formatDashboardRelativeTime(activeThread.latestInboundAt),
+              note: 'Most recent inbound patient message',
+              tone: 'neutral' as const,
+            },
+          ]
+        : []),
     ];
 
-    if (activeThreadContext?.responseDueAt) {
-      items.push({
-        label: 'Due by',
-        value: formatDashboardDateTime(activeThreadContext.responseDueAt),
-        note: activeThread.responseDelayed ? 'Past target' : 'Configured response target',
-        tone: activeThread.responseDelayed ? 'danger' : 'neutral',
-      });
-    }
-
-    if (activeThreadContext) {
-      items.push({
-        label: 'Risk context',
-        value: activeThreadContext.patientRiskLevel === 'high' ? 'Higher risk' : 'Lower risk',
-        note:
-          typeof activeThreadContext.openAlertCount === 'number'
-            ? `${activeThreadContext.openAlertCount} open alert${
-                activeThreadContext.openAlertCount === 1 ? '' : 's'
-              }`
-            : 'No open alert count available',
-        tone: activeThreadContext.patientRiskLevel === 'high' ? 'warning' : 'neutral',
-      });
-    }
-
-    if (activeThreadContext?.lastCheckinAt) {
-      items.push({
-        label: 'Last check-in',
-        value: formatDashboardRelativeTime(activeThreadContext.lastCheckinAt),
-        note: 'Most recent patient check-in context',
-        tone: 'neutral',
-      });
-    }
-
     return items.slice(0, 4);
-  }, [activeThread, activeThreadContext]);
+  }, [activeThread]);
+  const activeThreadContextStripItems = useMemo(() => {
+    if (!activeThreadContext) {
+      return [];
+    }
+
+    return [
+      activeThreadContext.patientRiskLevel === 'high' ? 'Higher risk' : 'Lower risk',
+      typeof activeThreadContext.openAlertCount === 'number'
+        ? `${activeThreadContext.openAlertCount} open alert${
+            activeThreadContext.openAlertCount === 1 ? '' : 's'
+          }`
+        : null,
+      activeThreadContext.lastCheckinAt
+        ? `Check-in ${formatDashboardRelativeTime(activeThreadContext.lastCheckinAt)}`
+        : null,
+      activeThreadContext.lastPainScore !== undefined
+        ? `Pain ${activeThreadContext.lastPainScore}/10`
+        : null,
+      activeThreadContext.responseDueAt
+        ? `Due ${formatDashboardRelativeTime(activeThreadContext.responseDueAt)}`
+        : activeThreadContext.responseDelayHours
+          ? `Target ${activeThreadContext.responseDelayHours}h`
+          : null,
+    ].filter((item): item is string => Boolean(item));
+  }, [activeThreadContext]);
   const activeThreadTruthChips = useMemo<ClinicianTruthChip[]>(() => {
     if (!activeThread) {
       return [];
@@ -726,15 +823,482 @@ export function CommunicationPage(): JSX.Element {
     [activeThreadTruthChips],
   );
   const activeThreadPatientId = activeThread?.validPatientId ? activeThread.patientId : '';
-  const hasSupportRail = activeThreadPatientId.length > 0;
+  const hasSupportContext = activeThreadPatientId.length > 0;
+  const showWideSupportRail = hasSupportContext && layoutMode === 'wide';
+  const showMediumSupportTabs = hasSupportContext && layoutMode === 'medium';
+  const showNarrowSupportStack = hasSupportContext && layoutMode === 'narrow';
+
+  function renderSharedCoordinationPanel(showPanelHeader: boolean): JSX.Element {
+    return (
+      <section
+        className="inbox-support-group inbox-support-group--shared"
+        aria-label="Shared clinician coordination"
+        data-testid="communication-shared-coordination"
+        role="region"
+      >
+        {showPanelHeader ? (
+          <div className="inbox-support-group__header">
+            <div className="inbox-support-group__copy">
+              <p className="inbox-support-group__eyebrow">Shared coordination</p>
+              <h3 className="inbox-support-group__title">Shared care-team coordination</h3>
+              <p className="inbox-support__text">
+                Team-visible context stays separate from the patient timeline and your local draft.
+              </p>
+            </div>
+            <div className="inbox-handoff__actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() =>
+                  navigate(
+                    `/patients/${encodeURIComponent(activeThreadPatientId)}/communications`,
+                  )
+                }
+              >
+                Open structured coordination in Patient Detail
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {activePatientCoordinationQuery.isLoading &&
+        activePatientCoordinationQuery.data === undefined ? (
+          <div className="inbox-handoff__loading" aria-label="Shared coordination loading">
+            <Skeleton height={18} />
+            <Skeleton height={72} />
+            <Skeleton height={120} />
+          </div>
+        ) : activePatientCoordinationQuery.isError && activePatientCoordination === null ? (
+          <>
+            <div className="inbox-handoff__state inbox-handoff__state--error">
+              <p className="inbox-handoff__summary">
+                {toUserMessage(activePatientCoordinationQuery.error)}
+              </p>
+              <p className="inbox-handoff__note">
+                Personal reply drafts stay local to this browser while shared coordination reloads.
+              </p>
+            </div>
+            <div className="inbox-handoff__actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  void activePatientCoordinationQuery.refetch();
+                }}
+              >
+                Retry
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <section
+              className="inbox-handoff__snapshot"
+              aria-label="Current shared coordination snapshot"
+            >
+              <div className="inbox-handoff__head">
+                <p className="inbox-handoff__eyebrow">
+                  {activePatientCurrentHandoff
+                    ? 'Current shared handoff'
+                    : 'No current shared handoff'}
+                </p>
+              </div>
+              {activePatientCurrentHandoff?.summary ? (
+                <p className="inbox-handoff__summary">{activePatientCurrentHandoff.summary}</p>
+              ) : (
+                <p className="inbox-handoff__summary">No current shared handoff saved.</p>
+              )}
+              <p className="inbox-handoff__note">
+                {activePatientCurrentHandoff
+                  ? 'Read-only here. Use Patient Detail for structured handoff edits.'
+                  : latestSharedCoordinationActivity
+                    ? 'No shared handoff is saved yet. The latest team-visible activity still appears below.'
+                    : 'Add the first shared note below if the care team needs patient-scoped context now.'}
+              </p>
+              <dl className="communication-page__handoff-facts">
+                {activePatientCurrentHandoff ? (
+                  <>
+                    <div>
+                      <dt>Next step</dt>
+                      <dd>
+                        {getClinicianCoordinationNextStepLabel(
+                          activePatientCurrentHandoff.nextStep,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Follow-up owner</dt>
+                      <dd>
+                        {getClinicianCoordinationFollowUpOwnerLabel(
+                          activePatientCurrentHandoff.followUpOwner,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Updated by</dt>
+                      <dd>{activePatientCurrentHandoff.updatedBy.displayName}</dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd>
+                        <span
+                          title={formatDashboardDateTime(activePatientCurrentHandoff.updatedAt)}
+                        >
+                          {formatDashboardDateTime(activePatientCurrentHandoff.updatedAt)}
+                        </span>
+                      </dd>
+                    </div>
+                  </>
+                ) : null}
+              </dl>
+            </section>
+
+            <form className="inbox-handoff__note-form" onSubmit={handleAddSharedNote}>
+              <div className="inbox-handoff__form-heading">
+                <div>
+                  <p className="inbox-handoff__eyebrow">Shared note</p>
+                  <h4 className="inbox-handoff__form-title">Add care-team coordination context</h4>
+                </div>
+                <span className="inbox-handoff__form-side">Shared in Aura</span>
+              </div>
+              <label className="form-field">
+                <span>Add shared coordination note</span>
+                <textarea
+                  rows={3}
+                  value={sharedNoteDraft}
+                  disabled={appendSharedCoordinationNoteMutation.isPending}
+                  onChange={(event) => {
+                    setSharedNoteDraft(event.target.value);
+                    setSharedNoteNotice(null);
+                    setSharedNoteError(null);
+                  }}
+                  placeholder="Add a short shared coordination note for the care team."
+                />
+              </label>
+              {sharedNoteError ? (
+                <p className="inbox-handoff__feedback inbox-handoff__feedback--error" role="alert">
+                  {sharedNoteError}
+                </p>
+              ) : null}
+              {sharedNoteNotice ? (
+                <p className="inbox-handoff__feedback inbox-handoff__feedback--success" role="status">
+                  {sharedNoteNotice}
+                </p>
+              ) : null}
+              <div className="inbox-handoff__form-footer">
+                <p className="inbox-handoff__form-note">
+                  Adds to shared coordination history in Aura. It does not send a patient message or change your personal reply draft.
+                </p>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={
+                    appendSharedCoordinationNoteMutation.isPending ||
+                    sharedNoteDraft.trim().length === 0
+                  }
+                >
+                  {appendSharedCoordinationNoteMutation.isPending
+                    ? 'Adding...'
+                    : 'Add shared note'}
+                </Button>
+              </div>
+            </form>
+
+            {recentSharedCoordinationNotes.length > 0 ? (
+              <ClinicianDisclosure
+                title="Recent shared note history"
+                summary={`Showing ${recentSharedCoordinationNotes.length} recent ${
+                  recentSharedCoordinationNotes.length === 1 ? 'note' : 'notes'
+                }.`}
+                defaultOpen
+              >
+                <section
+                  className="inbox-handoff__notes"
+                  aria-label="Recent shared coordination notes"
+                >
+                  <div className="inbox-handoff__note-list" role="list">
+                    {recentSharedCoordinationNotes.map((note) => (
+                      <article
+                        key={note.id}
+                        className="inbox-handoff__note-item"
+                        role="listitem"
+                      >
+                        <div className="inbox-handoff__note-meta">
+                          <div className="inbox-handoff__note-author">
+                            <ClinicianAvatar
+                              identity={{
+                                displayName: note.createdBy.displayName,
+                                initials: getClinicianInitials(
+                                  note.createdBy.displayName,
+                                  note.createdBy.clinicianId,
+                                ),
+                                photo: null,
+                              }}
+                              decorative
+                              size="sm"
+                            />
+                            <div className="inbox-handoff__note-author-copy">
+                              <strong>{note.createdBy.displayName}</strong>
+                              <span>Shared coordination note</span>
+                            </div>
+                          </div>
+                          <time
+                            className="inbox-handoff__note-time"
+                            dateTime={note.createdAt}
+                            title={formatDashboardDateTime(note.createdAt)}
+                          >
+                            {formatDashboardRelativeTime(note.createdAt)}
+                          </time>
+                        </div>
+                        <p className="inbox-handoff__note-text">{note.text}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </ClinicianDisclosure>
+            ) : null}
+          </>
+        )}
+      </section>
+    );
+  }
+
+  function renderWorkflowContextPanel(showPanelHeader: boolean): JSX.Element {
+    return (
+      <section className="inbox-support-group inbox-support-group--workflow" aria-label="Workflow context">
+        {showPanelHeader ? (
+          <div className="inbox-support-group__copy">
+            <p className="inbox-support-group__eyebrow">Workflow context</p>
+            <h3 className="inbox-support-group__title">Workflow context</h3>
+            <p className="inbox-support__subtext">
+              Read-only workflow references stay visible here without changing your local draft.
+            </p>
+          </div>
+        ) : null}
+
+        {!(
+          activePatientCoordinationQuery.isLoading &&
+          activePatientCoordinationQuery.data === undefined
+        ) ? (
+          <>
+            <section className="inbox-handoff__activity" aria-label="Linked follow-through task">
+              <div className="inbox-handoff__form-heading">
+                <div>
+                  <p className="inbox-handoff__eyebrow">Linked follow-through task</p>
+                  <h4 className="inbox-handoff__form-title">Existing workflow object</h4>
+                </div>
+                <span className="inbox-handoff__form-side">
+                  {activePatientLinkedTaskId
+                    ? activePatientLinkedTask
+                      ? 'Linked task on file'
+                      : getClinicianCoordinationLinkedTaskUnavailableLabel()
+                    : getClinicianCoordinationLinkedTaskEmptyLabel()}
+                </span>
+              </div>
+              {activePatientLinkedTaskId ? (
+                activePatientLinkedTask ? (
+                  <article className="inbox-handoff__note-item inbox-handoff__note-item--activity">
+                    <div className="inbox-handoff__note-meta">
+                      <div className="inbox-handoff__note-author-copy">
+                        <strong>{activePatientLinkedTask.title}</strong>
+                        <span>
+                          Existing follow-through task reference only. Shared coordination does not create or complete this task.
+                        </span>
+                      </div>
+                      <div className="inbox-handoff__activity-meta">
+                        <span className="inbox-handoff__note-time">
+                          {getClinicianCoordinationLinkedTaskStatusLabel(
+                            activePatientLinkedTask.status,
+                          )}
+                        </span>
+                        <span
+                          className="inbox-handoff__note-time"
+                          title={formatDashboardDateTime(
+                            activePatientLinkedTask.dueAt ?? activePatientLinkedTask.updatedAt,
+                          )}
+                        >
+                          {activePatientLinkedTask.dueAt
+                            ? `Due ${formatDashboardRelativeTime(activePatientLinkedTask.dueAt)}`
+                            : `Updated ${formatDashboardRelativeTime(
+                                activePatientLinkedTask.updatedAt,
+                              )}`}
+                        </span>
+                      </div>
+                    </div>
+                    <dl className="communication-page__handoff-facts">
+                      <div>
+                        <dt>Status</dt>
+                        <dd>
+                          {getClinicianCoordinationLinkedTaskStatusLabel(
+                            activePatientLinkedTask.status,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Priority</dt>
+                        <dd>
+                          {getClinicianCoordinationLinkedTaskStatusLabel(
+                            activePatientLinkedTask.priority,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Assignee</dt>
+                        <dd>
+                          {getClinicianCoordinationLinkedTaskAssigneeLabel(
+                            activePatientLinkedTask.assignedTo,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Due</dt>
+                        <dd>
+                          {activePatientLinkedTask.dueAt
+                            ? formatDashboardDateTime(activePatientLinkedTask.dueAt)
+                            : 'Not set'}
+                        </dd>
+                      </div>
+                      {getClinicianCoordinationLinkedTaskSourceLabel(activePatientLinkedTask) ? (
+                        <div>
+                          <dt>Source</dt>
+                          <dd>
+                            {getClinicianCoordinationLinkedTaskSourceLabel(
+                              activePatientLinkedTask,
+                            )}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                  </article>
+                ) : (
+                  <div className="inbox-handoff__empty-state">
+                    <p className="inbox-handoff__summary">
+                      {getClinicianCoordinationLinkedTaskUnavailableLabel()}
+                    </p>
+                    <p className="inbox-handoff__note">
+                      This handoff still points to a task id, but Aura cannot resolve that task right now.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <div className="inbox-handoff__empty-state">
+                  <p className="inbox-handoff__summary">
+                    {getClinicianCoordinationLinkedTaskEmptyLabel()}
+                  </p>
+                  <p className="inbox-handoff__note">
+                    If the care team needs an explicit workflow reference, link one from Patient Detail.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section
+              className="inbox-handoff__activity"
+              aria-label="Latest shared coordination activity"
+            >
+              <div className="inbox-handoff__form-heading">
+                <div>
+                  <p className="inbox-handoff__eyebrow">Latest shared activity</p>
+                  <h4 className="inbox-handoff__form-title">Most recent team-visible update</h4>
+                </div>
+                <span className="inbox-handoff__form-side">
+                  {latestSharedCoordinationActivity
+                    ? latestSharedCoordinationActivity.label
+                    : 'No shared activity yet'}
+                </span>
+              </div>
+              {latestSharedCoordinationActivity ? (
+                <article className="inbox-handoff__note-item inbox-handoff__note-item--activity">
+                  <div className="inbox-handoff__note-meta">
+                    <div className="inbox-handoff__note-author">
+                      <ClinicianAvatar
+                        identity={{
+                          displayName: latestSharedCoordinationActivity.author.displayName,
+                          initials: getClinicianInitials(
+                            latestSharedCoordinationActivity.author.displayName,
+                            latestSharedCoordinationActivity.author.clinicianId,
+                          ),
+                          photo: null,
+                        }}
+                        decorative
+                        size="sm"
+                      />
+                      <div className="inbox-handoff__note-author-copy">
+                        <strong>{latestSharedCoordinationActivity.author.displayName}</strong>
+                        <span>{latestSharedCoordinationActivity.label}</span>
+                      </div>
+                    </div>
+                    <div className="inbox-handoff__activity-meta">
+                      <time
+                        className="inbox-handoff__note-time"
+                        dateTime={latestSharedCoordinationActivity.timestamp}
+                        title={formatDashboardDateTime(latestSharedCoordinationActivity.timestamp)}
+                      >
+                        {formatDashboardDateTime(latestSharedCoordinationActivity.timestamp)}
+                      </time>
+                      <span className="inbox-handoff__note-time">
+                        {latestSharedCoordinationActivity.kind === 'handoff' ? 'Updated' : 'Added'}{' '}
+                        {formatDashboardRelativeTime(latestSharedCoordinationActivity.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="inbox-handoff__note-text">
+                    {truncateText(
+                      latestSharedCoordinationActivity.text || 'No summary saved.',
+                      180,
+                    ).text}
+                  </p>
+                </article>
+              ) : (
+                <div className="inbox-handoff__empty-state">
+                  <p className="inbox-handoff__summary">No shared activity yet.</p>
+                  <p className="inbox-handoff__note">
+                    Shared activity appears here after the care team saves a handoff or appends a note.
+                  </p>
+                </div>
+              )}
+            </section>
+          </>
+        ) : null}
+      </section>
+    );
+  }
+
+  function renderReferencePanel(showPanelHeader: boolean): JSX.Element {
+    return (
+      <section
+        className="inbox-support-group inbox-support-group--reference"
+        aria-label="Reference and help context"
+      >
+        <div className="inbox-support-group__copy">
+          {showPanelHeader ? (
+            <>
+              <p className="inbox-support-group__eyebrow">Reference / help</p>
+              <h3 className="inbox-support-group__title">Reference / help context</h3>
+            </>
+          ) : null}
+          <p className="inbox-support__text">
+            This timeline is limited to patient communication plus local clinician replies saved in this browser.
+          </p>
+          <p className="inbox-support__subtext">
+            Shared coordination is team-visible Aura context and never appears as a sent message in this timeline.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <Stack className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page communication-page--inbox" gap="5">
+    <Stack
+      className="page-stack dashboard-page-shell dashboard-page-shell--communication communication-page communication-page--inbox"
+      gap="5"
+    >
       <Section
         className="dashboard-page-header dashboard-page-header--communication communication-page__header"
         eyebrow="Clinician follow-up"
         title="Inbox"
-        subtitle="Review patient communication that needs clinician follow-up, keep local drafts separate, and reference shared coordination."
+        subtitle="Review patient threads that need follow-up, keep local drafts private, and reference shared coordination."
       />
 
       <section className="inbox-triage-bar" aria-label="Inbox controls">
@@ -803,10 +1367,13 @@ export function CommunicationPage(): JSX.Element {
       </section>
 
       <section
-        className={`inbox-workspace${hasSupportRail ? '' : ' inbox-workspace--no-support'}`}
+        ref={workspaceLayoutRef}
+        className="inbox-workspace"
         aria-label="Inbox response workspace"
+        data-layout-mode={layoutMode}
+        data-testid="communication-workspace"
       >
-        <aside className="inbox-thread-rail" aria-label="Communication queue">
+        <aside className="inbox-thread-rail" aria-label="Communication queue" data-testid="communication-queue-rail">
           <header className="inbox-thread-rail__header">
             <div className="inbox-panel__copy">
               <h2 className="inbox-panel__title">Communication queue</h2>
@@ -819,9 +1386,9 @@ export function CommunicationPage(): JSX.Element {
               className="communication-page__thread-skeletons inbox-thread-rail__state"
               aria-label="Communication queue loading placeholder"
             >
-              <Skeleton height={92} />
-              <Skeleton height={92} />
-              <Skeleton height={92} />
+              <Skeleton height={88} />
+              <Skeleton height={88} />
+              <Skeleton height={88} />
             </div>
           ) : communicationQuery.error && !hasThreads ? (
             <div className="communication-page__inline-state inbox-thread-rail__state" role="status">
@@ -862,12 +1429,14 @@ export function CommunicationPage(): JSX.Element {
                 const isSelected = thread.id === activeThread?.id;
                 const threadTone = getCommunicationThreadTone(thread);
                 const threadContext = threadContextMap.get(thread.id) ?? null;
-                const threadContextSummary = getCommunicationContextSummary(threadContext);
                 const threadTruthChips = getThreadTruthChips(thread).slice(0, 2);
-                const queueMetaLine = threadContextSummary ?? getThreadMetaSummary(thread);
 
                 return (
-                  <article key={thread.id} className="communication-page__thread-list-item" role="listitem">
+                  <article
+                    key={thread.id}
+                    className="communication-page__thread-list-item inbox-thread-item-row"
+                    role="listitem"
+                  >
                     <button
                       type="button"
                       className={`communication-page__thread-item inbox-thread-item${
@@ -889,18 +1458,22 @@ export function CommunicationPage(): JSX.Element {
                               className="communication-page__thread-time"
                               title={formatDashboardDateTime(thread.latestEventAt)}
                             >
-                              {formatDashboardDateTime(thread.latestEventAt)}
+                              {formatDashboardRelativeTime(thread.latestEventAt)}
                             </span>
                           </div>
                           {threadTruthChips.length > 0 ? (
                             <ClinicianTruthChips chips={threadTruthChips} />
                           ) : null}
                           <div className="inbox-thread-item__meta-line">
-                            <span className="communication-page__thread-meta-note">{queueMetaLine}</span>
+                            <span className="communication-page__thread-meta-note">
+                              {getQueueMetaLine(thread, threadContext)}
+                            </span>
                           </div>
                         </div>
                       </div>
-                      <p className="communication-page__thread-preview">{thread.latestEventPreview}</p>
+                      <p className="communication-page__thread-preview">
+                        {truncateText(thread.latestEventPreview, 124).text}
+                      </p>
                     </button>
                   </article>
                 );
@@ -910,797 +1483,451 @@ export function CommunicationPage(): JSX.Element {
         </aside>
 
         <section
-          className={`inbox-response-stage${
-            activeThreadTone ? ` inbox-response-stage--${activeThreadTone}` : ''
-          }`}
-          aria-label="Active communication review"
+          className={`inbox-detail-workspace${
+            activeThreadTone ? ` inbox-detail-workspace--${activeThreadTone}` : ''
+          }${hasSupportContext ? '' : ' inbox-detail-workspace--no-support'}`}
+          data-layout-mode={layoutMode}
+          data-testid="communication-detail-workspace"
         >
-          {communicationQuery.isLoading && !hasThreads ? (
-            <div
-              className="communication-page__timeline-skeletons inbox-response-stage__state"
-              aria-label="Communication timeline loading placeholder"
-            >
-              <Skeleton height={88} />
-              <Skeleton height={88} />
-            </div>
-          ) : activeThread ? (
-            <div className="communication-page__timeline-body inbox-response-stage__body">
-              <section className="inbox-active-summary" aria-label="Active thread summary">
-                <div className="inbox-active-summary__header">
-                  <div className="inbox-active-summary__identity">
-                    <span className="inbox-response-stage__avatar" aria-hidden="true">
-                      {getPatientInitials(activeThread.patientName)}
-                    </span>
-                    <div className="inbox-active-summary__copy">
-                      <p className="inbox-triage-strip__eyebrow">Active thread</p>
-                      <h2 className="inbox-active-summary__title">{activeThread.patientName}</h2>
-                      <p className="inbox-active-summary__note">{getThreadMetaSummary(activeThread)}</p>
-                    </div>
-                  </div>
-
-                  <div className="inbox-active-summary__actions">
-                    {activeThread.validPatientId && activeThread.safetyFlagged ? (
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          navigate(
-                            `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
-                          )
-                        }
-                      >
-                        Open alerts
-                      </Button>
-                    ) : activeThread.validPatientId ? (
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)
-                        }
-                      >
-                        Open patient
-                      </Button>
-                    ) : null}
-
-                    {activeThread.validPatientId && activeThread.safetyFlagged ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)
-                        }
-                      >
-                        Open patient
-                      </Button>
-                    ) : null}
-
-                    {activeThread.validPatientId ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          navigate(
-                            `/patients/${encodeURIComponent(activeThread.patientId)}/communications`,
-                          )
-                        }
-                      >
-                        Structured coordination
-                      </Button>
-                    ) : null}
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        void communicationQuery.refetch();
-                      }}
-                      disabled={communicationQuery.isFetching}
-                    >
-                      {communicationQuery.isFetching ? 'Refreshing...' : 'Refresh'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="inbox-active-summary__meta">
-                  {activeThread.validPatientId ? (
-                    <span className="communication-page__thread-id">ID: {activeThread.patientId}</span>
-                  ) : null}
-                  <span
-                    className="inbox-response-stage__updated"
-                    title={formatDashboardDateTime(activeThread.latestEventAt)}
-                  >
-                    Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
-                  </span>
-                  {activeThreadContext ? (
-                    <span>{getCommunicationContextSummary(activeThreadContext)}</span>
-                  ) : null}
-                </div>
-
-                {activeThreadVisibleTruthChips.length > 0 ? (
-                  <ClinicianTruthChips chips={activeThreadVisibleTruthChips} />
-                ) : null}
-
-                {activeThreadSummaryFacts.length > 0 ? (
-                  <dl className="inbox-active-summary__facts">
-                    {activeThreadSummaryFacts.map((item) => (
-                      <div
-                        key={item.label}
-                        className={`inbox-active-summary__fact-row inbox-active-summary__fact-row--${
-                          item.tone ?? 'neutral'
-                        }`}
-                      >
-                        <dt>{item.label}</dt>
-                        <div className="inbox-active-summary__fact-copy">
-                          <dd>{item.value}</dd>
-                          <p>{item.note}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </dl>
-                ) : null}
-              </section>
-
-              <section className="inbox-timeline-panel">
-                <div className="inbox-lane-section__header">
-                  <div className="inbox-lane-section__copy">
-                    <p className="inbox-triage-strip__eyebrow">Main review lane</p>
-                    <h3 className="inbox-lane-section__title">Timeline</h3>
-                  </div>
-                </div>
-
-                <div
-                  className="communication-page__timeline-list"
-                  role="list"
-                  aria-label="Patient communication timeline"
-                >
-                  {activeThread.timeline.map((event) => {
-                    const eventBadges = getTimelineEventBadges(event);
-                    const eventMetaNote = getTimelineEventMetaNote(event);
-
-                    return (
-                      <article
-                        key={event.id}
-                        className={`communication-page__timeline-event communication-page__timeline-event--${
-                          event.kind === 'clinician-reply' ? 'clinician' : 'patient'
-                        }`}
-                        role="listitem"
-                      >
-                        <div className="communication-page__timeline-event-head">
-                          <div className="communication-page__timeline-event-copy">
-                            {event.kind === 'clinician-reply' ? (
-                              <div className="communication-page__timeline-event-author">
-                                <ClinicianAvatar
-                                  identity={{
-                                    displayName: event.senderLabel,
-                                    initials: getClinicianInitials(event.senderLabel),
-                                    photo: null,
-                                  }}
-                                  decorative
-                                  size="sm"
-                                />
-                                <div className="communication-page__timeline-event-author-copy">
-                                  <strong>{event.senderLabel}</strong>
-                                  {event.senderSecondaryLabel ? (
-                                    <span className="communication-page__timeline-event-secondary">
-                                      {event.senderSecondaryLabel}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            ) : (
-                              <strong>{event.senderLabel}</strong>
-                            )}
-                            <div className="communication-page__timeline-event-meta">
-                              <span
-                                className="communication-page__timeline-event-time"
-                                title={formatDashboardDateTime(event.occurredAt)}
-                              >
-                                {formatDashboardRelativeTime(event.occurredAt)}
-                              </span>
-                              {eventMetaNote ? (
-                                <span className="communication-page__timeline-event-secondary">
-                                  {eventMetaNote}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                          {eventBadges.length > 0 ? (
-                            <div className="communication-page__timeline-event-badges">
-                              {eventBadges.map((badge) => (
-                                <Badge key={`${event.id}-${badge.label}`} variant={badge.variant}>
-                                  {badge.label}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                        <p className="communication-page__timeline-event-preview">{event.preview}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <ClinicianDisclosure
-                title="Local personal reply draft"
-                summary="Local to this browser for this clinician. Not sent from Aura and not shared with the care team."
-                defaultOpen
+          <section
+            className="inbox-detail-main inbox-response-stage"
+            aria-label="Active communication review"
+            data-testid="communication-detail-main"
+          >
+            {communicationQuery.isLoading && !hasThreads ? (
+              <div
+                className="communication-page__timeline-skeletons inbox-response-stage__state"
+                aria-label="Communication timeline loading placeholder"
               >
-                <section className="inbox-draft-panel">
-                  <div className="communication-page__composer">
-                    <div
-                      className="communication-authoring-tools inbox-draft-panel__toolbar"
-                      role="group"
-                      aria-label="Reply helpers"
-                    >
-                      <label
-                        className="form-field communication-authoring-tools__picker"
-                        htmlFor="communication-reply-template-picker"
-                      >
-                        <span>Quick reply template</span>
-                        <select
-                          id="communication-reply-template-picker"
-                          value={selectedTemplateId}
-                          onChange={(event) => setSelectedTemplateId(event.target.value)}
-                          aria-label="Quick reply template"
-                          disabled={communicationAuthoring.templates.length === 0}
+                <Skeleton height={88} />
+                <Skeleton height={88} />
+              </div>
+            ) : activeThread ? (
+              <>
+                <section
+                  className="inbox-active-summary"
+                  aria-label="Active thread summary"
+                  data-testid="communication-active-summary"
+                >
+                  <div className="inbox-active-summary__header">
+                    <div className="inbox-active-summary__identity">
+                      <span className="inbox-response-stage__avatar" aria-hidden="true">
+                        {getPatientInitials(activeThread.patientName)}
+                      </span>
+                      <div className="inbox-active-summary__copy">
+                        <p className="inbox-triage-strip__eyebrow">Active thread</p>
+                        <h2 className="inbox-active-summary__title">{activeThread.patientName}</h2>
+                        <p className="inbox-active-summary__note">{getThreadMetaSummary(activeThread)}</p>
+                      </div>
+                    </div>
+
+                    <div className="inbox-active-summary__actions">
+                      {activeThread.validPatientId && activeThread.safetyFlagged ? (
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            navigate(
+                              `/alerts?patientId=${encodeURIComponent(activeThread.patientId)}&source=chat`,
+                            )
+                          }
                         >
-                          {communicationAuthoring.templates.length === 0 ? (
-                            <option value="">No saved templates in Settings</option>
-                          ) : null}
-                          {communicationAuthoring.templates.map((template) => (
-                            <option key={template.id} value={template.id}>
-                              {template.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="communication-authoring-tools__actions">
+                          Open alerts
+                        </Button>
+                      ) : activeThread.validPatientId ? (
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)
+                          }
+                        >
+                          Open patient
+                        </Button>
+                      ) : null}
+
+                      {activeThread.validPatientId && activeThread.safetyFlagged ? (
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={handleInsertTemplate}
-                          disabled={!selectedTemplate}
+                          onClick={() =>
+                            navigate(`/patients/${encodeURIComponent(activeThread.patientId)}`)
+                          }
                         >
-                          Insert template
+                          Open patient
                         </Button>
+                      ) : null}
+
+                      {activeThread.validPatientId ? (
                         <Button
-                          variant="ghost"
+                          variant="secondary"
                           size="sm"
-                          onClick={handleInsertSignature}
-                          disabled={!communicationAuthoring.hasSignature}
+                          onClick={() =>
+                            navigate(
+                              `/patients/${encodeURIComponent(activeThread.patientId)}/communications`,
+                            )
+                          }
                         >
-                          Insert signature
+                          Structured coordination
                         </Button>
-                      </div>
-                    </div>
+                      ) : null}
 
-                    <div className="inbox-draft-panel__identity">
-                      <div
-                        className="communication-page__composer-identity"
-                        aria-label="Local clinician identity"
-                      >
-                        <span className="communication-page__composer-identity-label">
-                          Local clinician identity
-                        </span>
-                        <div className="communication-page__composer-identity-card">
-                          <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
-                          <div className="communication-page__composer-identity-copy">
-                            <strong>{clinicianIdentity.displayName}</strong>
-                            {clinicianIdentity.secondaryLine ? (
-                              <span>{clinicianIdentity.secondaryLine}</span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="inbox-draft-panel__truth">
-                        <ClinicianTruthChips
-                          chips={[{ label: 'Local draft', variant: 'neutral', truth: 'local' }]}
-                        />
-                      </div>
-                    </div>
-
-                    <label className="form-field communication-page__composer-field inbox-draft-panel__field">
-                      <span>Personal reply draft</span>
-                      <textarea
-                        value={draftReply}
-                        onChange={(event) => {
-                          setDraftReply(event.target.value);
-                        }}
-                        rows={4}
-                        placeholder="Add a calm clinician follow-up note for this patient thread."
-                        disabled={!activeThread.validPatientId}
-                      />
-                    </label>
-                    <div className="communication-page__composer-footer">
                       <Button
-                        variant="primary"
+                        variant="ghost"
                         size="sm"
-                        onClick={handleSendReply}
-                        disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
+                        onClick={() => {
+                          void communicationQuery.refetch();
+                        }}
+                        disabled={communicationQuery.isFetching}
                       >
-                        Save local reply
+                        {communicationQuery.isFetching ? 'Refreshing...' : 'Refresh'}
                       </Button>
                     </div>
+                  </div>
+
+                  <div className="inbox-active-summary__meta">
+                    {activeThread.validPatientId ? (
+                      <span className="communication-page__thread-id">ID: {activeThread.patientId}</span>
+                    ) : null}
+                    <span
+                      className="inbox-response-stage__updated"
+                      title={formatDashboardDateTime(activeThread.latestEventAt)}
+                    >
+                      Updated {formatDashboardRelativeTime(activeThread.latestEventAt)}
+                    </span>
+                  </div>
+
+                  {activeThreadVisibleTruthChips.length > 0 ? (
+                    <ClinicianTruthChips chips={activeThreadVisibleTruthChips} />
+                  ) : null}
+
+                  {activeThreadContextStripItems.length > 0 ? (
+                    <div className="inbox-active-summary__context-strip" aria-label="Clinical context strip">
+                      {activeThreadContextStripItems.map((item) => (
+                        <span key={item} className="inbox-active-summary__context-item">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {activeThreadSummaryFacts.length > 0 ? (
+                    <dl className="inbox-active-summary__facts">
+                      {activeThreadSummaryFacts.map((item) => (
+                        <div
+                          key={item.label}
+                          className={`inbox-active-summary__fact-row inbox-active-summary__fact-row--${
+                            item.tone ?? 'neutral'
+                          }`}
+                        >
+                          <dt>{item.label}</dt>
+                          <div className="inbox-active-summary__fact-copy">
+                            <dd>{item.value}</dd>
+                            <p>{item.note}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                </section>
+
+                <section className="inbox-timeline-panel" data-testid="communication-timeline-panel">
+                  <div className="inbox-lane-section__header">
+                    <div className="inbox-lane-section__copy">
+                      <p className="inbox-triage-strip__eyebrow">Main review lane</p>
+                      <h3 className="inbox-lane-section__title">Timeline</h3>
+                    </div>
+                  </div>
+
+                  <div
+                    className="communication-page__timeline-list"
+                    role="list"
+                    aria-label="Patient communication timeline"
+                  >
+                    {activeThread.timeline.map((event, index) => {
+                      const isContinuation = getTimelineEventContinuation(
+                        event,
+                        activeThread.timeline[index - 1],
+                      );
+                      const eventBadges = getTimelineEventBadges(event);
+                      const visibleBadges = isContinuation ? eventBadges.slice(1) : eventBadges;
+                      const eventMetaNote = getTimelineEventMetaNote(event);
+
+                      return (
+                        <article
+                          key={event.id}
+                          className={`communication-page__timeline-event communication-page__timeline-event--${
+                            event.kind === 'clinician-reply' ? 'clinician' : 'patient'
+                          }${isContinuation ? ' communication-page__timeline-event--continuation' : ''}`}
+                          role="listitem"
+                        >
+                          <div className="communication-page__timeline-event-head">
+                            <div className="communication-page__timeline-event-copy">
+                              {!isContinuation ? (
+                                event.kind === 'clinician-reply' ? (
+                                  <div className="communication-page__timeline-event-author">
+                                    <ClinicianAvatar
+                                      identity={{
+                                        displayName: event.senderLabel,
+                                        initials: getClinicianInitials(event.senderLabel),
+                                        photo: null,
+                                      }}
+                                      decorative
+                                      size="sm"
+                                    />
+                                    <div className="communication-page__timeline-event-author-copy">
+                                      <strong>{event.senderLabel}</strong>
+                                      {event.senderSecondaryLabel ? (
+                                        <span className="communication-page__timeline-event-secondary">
+                                          {event.senderSecondaryLabel}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <strong>{event.senderLabel}</strong>
+                                )
+                              ) : (
+                                <span className="communication-page__timeline-event-secondary communication-page__timeline-event-secondary--continuation">
+                                  Continuation
+                                </span>
+                              )}
+                              <div className="communication-page__timeline-event-meta">
+                                <span
+                                  className="communication-page__timeline-event-time"
+                                  title={formatDashboardDateTime(event.occurredAt)}
+                                >
+                                  {formatDashboardRelativeTime(event.occurredAt)}
+                                </span>
+                                {eventMetaNote ? (
+                                  <span className="communication-page__timeline-event-secondary">
+                                    {eventMetaNote}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            {visibleBadges.length > 0 ? (
+                              <div className="communication-page__timeline-event-badges">
+                                {visibleBadges.map((badge) => (
+                                  <Badge key={`${event.id}-${badge.label}`} variant={badge.variant}>
+                                    {badge.label}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                          <p className="communication-page__timeline-event-preview">{event.preview}</p>
+                        </article>
+                      );
+                    })}
                   </div>
                 </section>
-              </ClinicianDisclosure>
-            </div>
-          ) : activeThreadMissingFromView ? (
-            <div className="inbox-response-stage__state">
-              <EmptyState
-                title="Selected thread is outside this view"
-                description="Choose a thread from the filtered list to continue communication review."
-                tone="warning"
-              />
-            </div>
-          ) : hasThreads ? (
-            <div className="inbox-response-stage__state">
-              <EmptyState
-                title="Select a patient thread"
-                description="Open a communication thread from the list to review the current patient timeline."
-                tone="neutral"
-              />
-            </div>
-          ) : (
-            <div className="inbox-response-stage__state">
-              <EmptyState
-                title="No communication timeline available"
-                description="Patient communication will appear here when the dashboard has message review context to show."
-                tone="neutral"
-              />
-            </div>
-          )}
-        </section>
 
-        {hasSupportRail ? (
-          <aside
-            className="inbox-support-rail inbox-support"
-            aria-label="Shared clinician coordination"
-            data-testid="communication-shared-coordination"
-          >
-            <section className="inbox-support-group inbox-support-group--shared">
-              <div className="inbox-support-group__header">
-                <div className="inbox-support-group__copy">
-                  <p className="inbox-support-group__eyebrow">Shared coordination</p>
-                  <h3 className="inbox-support-group__title">Shared care-team coordination</h3>
-                  <p className="inbox-support__text">
-                    Shared in Aura for the care team across clinician sessions and devices. It stays separate from personal reply drafts and the patient message timeline.
-                  </p>
-                </div>
-                <div className="inbox-handoff__actions">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      navigate(
-                        `/patients/${encodeURIComponent(activeThreadPatientId)}/communications`,
-                      )
-                    }
-                  >
-                    Open structured coordination in Patient Detail
-                  </Button>
-                </div>
-              </div>
-
-              {activePatientCoordinationQuery.isLoading &&
-              activePatientCoordinationQuery.data === undefined ? (
-                <div className="inbox-handoff__loading" aria-label="Shared coordination loading">
-                  <Skeleton height={18} />
-                  <Skeleton height={72} />
-                  <Skeleton height={120} />
-                </div>
-              ) : activePatientCoordinationQuery.isError &&
-                activePatientCoordination === null ? (
-                <>
-                  <div className="inbox-handoff__state inbox-handoff__state--error">
-                    <p className="inbox-handoff__summary">
-                      {toUserMessage(activePatientCoordinationQuery.error)}
-                    </p>
-                    <p className="inbox-handoff__note">
-                      Personal reply drafts stay local to this browser while shared coordination reloads.
-                    </p>
-                  </div>
-                  <div className="inbox-handoff__actions">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        void activePatientCoordinationQuery.refetch();
-                      }}
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <section
-                    className="inbox-handoff__snapshot"
-                    aria-label="Current shared coordination snapshot"
-                  >
-                    <div className="inbox-handoff__head">
-                      <p className="inbox-handoff__eyebrow">
-                        {activePatientCurrentHandoff
-                          ? 'Current shared handoff'
-                          : 'No current shared handoff'}
-                      </p>
-                    </div>
-                    {activePatientCurrentHandoff?.summary ? (
-                      <p className="inbox-handoff__summary">{activePatientCurrentHandoff.summary}</p>
-                    ) : (
-                      <p className="inbox-handoff__summary">No current shared handoff saved.</p>
-                    )}
-                    <p className="inbox-handoff__note">
-                      {activePatientCurrentHandoff
-                        ? 'Read-only here. Use Patient Detail for structured handoff editing.'
-                        : latestSharedCoordinationActivity
-                          ? 'No current shared handoff is saved. The latest shared activity still stays visible below.'
-                          : 'Add the first shared note below if the care team needs patient-scoped context now.'}
-                    </p>
-                    <dl className="communication-page__handoff-facts">
-                      {activePatientCurrentHandoff ? (
-                        <>
-                          <div>
-                            <dt>Next step</dt>
-                            <dd>
-                              {getClinicianCoordinationNextStepLabel(
-                                activePatientCurrentHandoff.nextStep,
-                              )}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>Follow-up owner</dt>
-                            <dd>
-                              {getClinicianCoordinationFollowUpOwnerLabel(
-                                activePatientCurrentHandoff.followUpOwner,
-                              )}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>Updated by</dt>
-                            <dd>{activePatientCurrentHandoff.updatedBy.displayName}</dd>
-                          </div>
-                          <div>
-                            <dt>Updated</dt>
-                            <dd>
-                              <span
-                                title={formatDashboardDateTime(activePatientCurrentHandoff.updatedAt)}
-                              >
-                                {formatDashboardDateTime(activePatientCurrentHandoff.updatedAt)}
-                              </span>
-                            </dd>
-                          </div>
-                        </>
-                      ) : null}
-                    </dl>
-                  </section>
-
-                  <form className="inbox-handoff__note-form" onSubmit={handleAddSharedNote}>
-                    <div className="inbox-handoff__form-heading">
-                      <div>
-                        <p className="inbox-handoff__eyebrow">Shared note</p>
-                        <h4 className="inbox-handoff__form-title">
-                          Add care-team coordination context
-                        </h4>
+                <ClinicianDisclosure
+                  title="Local personal reply draft"
+                  summary="Private to this browser and clinician. Not sent from Aura and not shared with the care team."
+                  defaultOpen
+                >
+                  <section className="inbox-draft-panel" data-testid="communication-draft-panel">
+                    <div className="communication-page__composer">
+                      <div
+                        className="communication-authoring-tools inbox-draft-panel__toolbar"
+                        role="group"
+                        aria-label="Reply helpers"
+                      >
+                        <label
+                          className="form-field communication-authoring-tools__picker"
+                          htmlFor="communication-reply-template-picker"
+                        >
+                          <span>Quick reply template</span>
+                          <select
+                            id="communication-reply-template-picker"
+                            value={selectedTemplateId}
+                            onChange={(event) => setSelectedTemplateId(event.target.value)}
+                            aria-label="Quick reply template"
+                            disabled={communicationAuthoring.templates.length === 0}
+                          >
+                            {communicationAuthoring.templates.length === 0 ? (
+                              <option value="">No saved templates in Settings</option>
+                            ) : null}
+                            {communicationAuthoring.templates.map((template) => (
+                              <option key={template.id} value={template.id}>
+                                {template.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="communication-authoring-tools__actions">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleInsertTemplate}
+                            disabled={!selectedTemplate}
+                          >
+                            Insert template
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleInsertSignature}
+                            disabled={!communicationAuthoring.hasSignature}
+                          >
+                            Insert signature
+                          </Button>
+                        </div>
                       </div>
-                      <span className="inbox-handoff__form-side">Shared in Aura</span>
-                    </div>
-                    <label className="form-field">
-                      <span>Add shared coordination note</span>
-                      <textarea
-                        rows={3}
-                        value={sharedNoteDraft}
-                        disabled={appendSharedCoordinationNoteMutation.isPending}
-                        onChange={(event) => {
-                          setSharedNoteDraft(event.target.value);
-                          setSharedNoteNotice(null);
-                          setSharedNoteError(null);
-                        }}
-                        placeholder="Add a short shared coordination note for the care team."
-                      />
-                    </label>
-                    {sharedNoteError ? (
-                      <p className="inbox-handoff__feedback inbox-handoff__feedback--error" role="alert">
-                        {sharedNoteError}
-                      </p>
-                    ) : null}
-                    {sharedNoteNotice ? (
-                      <p
-                        className="inbox-handoff__feedback inbox-handoff__feedback--success"
-                        role="status"
-                      >
-                        {sharedNoteNotice}
-                      </p>
-                    ) : null}
-                    <div className="inbox-handoff__form-footer">
-                      <p className="inbox-handoff__form-note">
-                        Adds to shared coordination history in Aura. It does not send a patient message or change your personal reply draft.
-                      </p>
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        size="sm"
-                        disabled={
-                          appendSharedCoordinationNoteMutation.isPending ||
-                          sharedNoteDraft.trim().length === 0
-                        }
-                      >
-                        {appendSharedCoordinationNoteMutation.isPending
-                          ? 'Adding...'
-                          : 'Add shared note'}
-                      </Button>
-                    </div>
-                  </form>
 
-                  {recentSharedCoordinationNotes.length > 0 ? (
+                      <div className="inbox-draft-panel__identity">
+                        <div
+                          className="communication-page__composer-identity"
+                          aria-label="Local clinician identity"
+                        >
+                          <span className="communication-page__composer-identity-label">
+                            Local clinician identity
+                          </span>
+                          <div className="communication-page__composer-identity-card">
+                            <ClinicianAvatar identity={clinicianIdentity} decorative size="sm" />
+                            <div className="communication-page__composer-identity-copy">
+                              <strong>{clinicianIdentity.displayName}</strong>
+                              {clinicianIdentity.secondaryLine ? (
+                                <span>{clinicianIdentity.secondaryLine}</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="inbox-draft-panel__truth">
+                          <ClinicianTruthChips
+                            chips={[{ label: 'Local draft', variant: 'neutral', truth: 'local' }]}
+                          />
+                        </div>
+                      </div>
+
+                      <label className="form-field communication-page__composer-field inbox-draft-panel__field">
+                        <span>Personal reply draft</span>
+                        <textarea
+                          value={draftReply}
+                          onChange={(event) => {
+                            setDraftReply(event.target.value);
+                          }}
+                          rows={4}
+                          placeholder="Add a calm clinician follow-up note for this patient thread."
+                          disabled={!activeThread.validPatientId}
+                        />
+                      </label>
+                      <div className="communication-page__composer-footer">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={handleSendReply}
+                          disabled={!activeThread.validPatientId || draftReply.trim().length === 0}
+                        >
+                          Save local reply
+                        </Button>
+                      </div>
+                    </div>
+                  </section>
+                </ClinicianDisclosure>
+
+                {showMediumSupportTabs ? (
+                  <section
+                    className="inbox-support-tabs"
+                    aria-label="Support context panels"
+                    data-testid="communication-support-tabs"
+                  >
+                    <div className="inbox-support-tabs__header">
+                      <p className="inbox-triage-strip__eyebrow">Support context</p>
+                      <p className="inbox-support-tabs__note">
+                        Team-visible context stays separate from the main review lane.
+                      </p>
+                    </div>
+                    <Tabs
+                      tabs={[...COMMUNICATION_SUPPORT_TABS]}
+                      value={activeSupportView}
+                      onValueChange={(nextId) =>
+                        setActiveSupportView(nextId as CommunicationSupportView)
+                      }
+                      getTabTestId={(id) => `communication-support-tab-${id}`}
+                    />
+                    <section
+                      className="inbox-support-tabs__panel"
+                      data-testid={`communication-support-tabpanel-${activeSupportView}`}
+                      role="tabpanel"
+                      aria-label={`${COMMUNICATION_SUPPORT_TABS.find((tab) => tab.id === activeSupportView)?.label ?? 'Support'} panel`}
+                    >
+                      {activeSupportView === 'shared'
+                        ? renderSharedCoordinationPanel(true)
+                        : activeSupportView === 'workflow'
+                          ? renderWorkflowContextPanel(true)
+                          : renderReferencePanel(true)}
+                    </section>
+                  </section>
+                ) : null}
+
+                {showNarrowSupportStack ? (
+                  <section
+                    className="inbox-support-stack"
+                    aria-label="Support context"
+                    data-testid="communication-support-disclosures"
+                  >
                     <ClinicianDisclosure
-                      title="Recent shared note history"
-                      summary={`Showing ${recentSharedCoordinationNotes.length} recent ${
-                        recentSharedCoordinationNotes.length === 1 ? 'note' : 'notes'
-                      }.`}
+                      title="Shared care-team coordination"
+                      summary="Team-visible context stays separate from your local draft."
                       defaultOpen
                     >
-                      <section
-                        className="inbox-handoff__notes"
-                        aria-label="Recent shared coordination notes"
-                      >
-                        <div className="inbox-handoff__note-list" role="list">
-                          {recentSharedCoordinationNotes.map((note) => (
-                            <article
-                              key={note.id}
-                              className="inbox-handoff__note-item"
-                              role="listitem"
-                            >
-                              <div className="inbox-handoff__note-meta">
-                                <div className="inbox-handoff__note-author">
-                                  <ClinicianAvatar
-                                    identity={{
-                                      displayName: note.createdBy.displayName,
-                                      initials: getClinicianInitials(
-                                        note.createdBy.displayName,
-                                        note.createdBy.clinicianId,
-                                      ),
-                                      photo: null,
-                                    }}
-                                    decorative
-                                    size="sm"
-                                  />
-                                  <div className="inbox-handoff__note-author-copy">
-                                    <strong>{note.createdBy.displayName}</strong>
-                                    <span>Shared coordination note</span>
-                                  </div>
-                                </div>
-                                <time
-                                  className="inbox-handoff__note-time"
-                                  dateTime={note.createdAt}
-                                  title={formatDashboardDateTime(note.createdAt)}
-                                >
-                                  {formatDashboardRelativeTime(note.createdAt)}
-                                </time>
-                              </div>
-                              <p className="inbox-handoff__note-text">{note.text}</p>
-                            </article>
-                          ))}
-                        </div>
-                      </section>
+                      {renderSharedCoordinationPanel(true)}
                     </ClinicianDisclosure>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            <section className="inbox-support-group inbox-support-group--workflow" aria-label="Workflow context">
-              <div className="inbox-support-group__copy">
-                <p className="inbox-support-group__eyebrow">Workflow context</p>
-                <h3 className="inbox-support-group__title">Workflow context</h3>
-                <p className="inbox-support__subtext">
-                  Read-only workflow references stay visible here without changing your local draft.
-                </p>
+                    <ClinicianDisclosure
+                      title="Workflow context"
+                      summary="Read-only workflow references stay separate from your local draft."
+                    >
+                      {renderWorkflowContextPanel(true)}
+                    </ClinicianDisclosure>
+                    <ClinicianDisclosure
+                      title="Reference / help context"
+                      summary="Use this to keep timeline and shared coordination boundaries clear."
+                    >
+                      {renderReferencePanel(true)}
+                    </ClinicianDisclosure>
+                  </section>
+                ) : null}
+              </>
+            ) : activeThreadMissingFromView ? (
+              <div className="inbox-response-stage__state">
+                <EmptyState
+                  title="Selected thread is outside this view"
+                  description="Choose a thread from the filtered list to continue communication review."
+                  tone="warning"
+                />
               </div>
+            ) : hasThreads ? (
+              <div className="inbox-response-stage__state">
+                <EmptyState
+                  title="Select a patient thread"
+                  description="Open a communication thread from the list to review the current patient timeline."
+                  tone="neutral"
+                />
+              </div>
+            ) : (
+              <div className="inbox-response-stage__state">
+                <EmptyState
+                  title="No communication timeline available"
+                  description="Patient communication will appear here when the dashboard has message review context to show."
+                  tone="neutral"
+                />
+              </div>
+            )}
+          </section>
 
-              {!(
-                activePatientCoordinationQuery.isLoading &&
-                activePatientCoordinationQuery.data === undefined
-              ) ? (
-                <>
-                  <section className="inbox-handoff__activity" aria-label="Linked follow-through task">
-                    <div className="inbox-handoff__form-heading">
-                      <div>
-                        <p className="inbox-handoff__eyebrow">Linked follow-through task</p>
-                        <h4 className="inbox-handoff__form-title">Existing workflow object</h4>
-                      </div>
-                      <span className="inbox-handoff__form-side">
-                        {activePatientLinkedTaskId
-                          ? activePatientLinkedTask
-                            ? 'Linked task on file'
-                            : getClinicianCoordinationLinkedTaskUnavailableLabel()
-                          : getClinicianCoordinationLinkedTaskEmptyLabel()}
-                      </span>
-                    </div>
-                    {activePatientLinkedTaskId ? (
-                      activePatientLinkedTask ? (
-                        <article className="inbox-handoff__note-item inbox-handoff__note-item--activity">
-                          <div className="inbox-handoff__note-meta">
-                            <div className="inbox-handoff__note-author-copy">
-                              <strong>{activePatientLinkedTask.title}</strong>
-                              <span>
-                                Existing follow-through task reference only. Shared coordination does not create or complete this task.
-                              </span>
-                            </div>
-                            <div className="inbox-handoff__activity-meta">
-                              <span className="inbox-handoff__note-time">
-                                {getClinicianCoordinationLinkedTaskStatusLabel(
-                                  activePatientLinkedTask.status,
-                                )}
-                              </span>
-                              <span
-                                className="inbox-handoff__note-time"
-                                title={formatDashboardDateTime(
-                                  activePatientLinkedTask.dueAt ?? activePatientLinkedTask.updatedAt,
-                                )}
-                              >
-                                {activePatientLinkedTask.dueAt
-                                  ? `Due ${formatDashboardRelativeTime(activePatientLinkedTask.dueAt)}`
-                                  : `Updated ${formatDashboardRelativeTime(
-                                      activePatientLinkedTask.updatedAt,
-                                    )}`}
-                              </span>
-                            </div>
-                          </div>
-                          <dl className="communication-page__handoff-facts">
-                            <div>
-                              <dt>Status</dt>
-                              <dd>
-                                {getClinicianCoordinationLinkedTaskStatusLabel(
-                                  activePatientLinkedTask.status,
-                                )}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Priority</dt>
-                              <dd>
-                                {getClinicianCoordinationLinkedTaskStatusLabel(
-                                  activePatientLinkedTask.priority,
-                                )}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Assignee</dt>
-                              <dd>
-                                {getClinicianCoordinationLinkedTaskAssigneeLabel(
-                                  activePatientLinkedTask.assignedTo,
-                                )}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Due</dt>
-                              <dd>
-                                {activePatientLinkedTask.dueAt
-                                  ? formatDashboardDateTime(activePatientLinkedTask.dueAt)
-                                  : 'Not set'}
-                              </dd>
-                            </div>
-                            {getClinicianCoordinationLinkedTaskSourceLabel(activePatientLinkedTask) ? (
-                              <div>
-                                <dt>Source</dt>
-                                <dd>
-                                  {getClinicianCoordinationLinkedTaskSourceLabel(
-                                    activePatientLinkedTask,
-                                  )}
-                                </dd>
-                              </div>
-                            ) : null}
-                          </dl>
-                        </article>
-                      ) : (
-                        <div className="inbox-handoff__empty-state">
-                          <p className="inbox-handoff__summary">
-                            {getClinicianCoordinationLinkedTaskUnavailableLabel()}
-                          </p>
-                          <p className="inbox-handoff__note">
-                            This handoff still points to a task id, but Aura cannot resolve that task right now.
-                          </p>
-                        </div>
-                      )
-                    ) : (
-                      <div className="inbox-handoff__empty-state">
-                        <p className="inbox-handoff__summary">
-                          {getClinicianCoordinationLinkedTaskEmptyLabel()}
-                        </p>
-                        <p className="inbox-handoff__note">
-                          If the care team needs an explicit workflow reference, link one from Patient Detail.
-                        </p>
-                      </div>
-                    )}
-                  </section>
-
-                  <section
-                    className="inbox-handoff__activity"
-                    aria-label="Latest shared coordination activity"
-                  >
-                    <div className="inbox-handoff__form-heading">
-                      <div>
-                        <p className="inbox-handoff__eyebrow">Latest shared activity</p>
-                        <h4 className="inbox-handoff__form-title">Most recent team-visible update</h4>
-                      </div>
-                      <span className="inbox-handoff__form-side">
-                        {latestSharedCoordinationActivity
-                          ? latestSharedCoordinationActivity.label
-                          : 'No shared activity yet'}
-                      </span>
-                    </div>
-                    {latestSharedCoordinationActivity ? (
-                      <article className="inbox-handoff__note-item inbox-handoff__note-item--activity">
-                        <div className="inbox-handoff__note-meta">
-                          <div className="inbox-handoff__note-author">
-                            <ClinicianAvatar
-                              identity={{
-                                displayName: latestSharedCoordinationActivity.author.displayName,
-                                initials: getClinicianInitials(
-                                  latestSharedCoordinationActivity.author.displayName,
-                                  latestSharedCoordinationActivity.author.clinicianId,
-                                ),
-                                photo: null,
-                              }}
-                              decorative
-                              size="sm"
-                            />
-                            <div className="inbox-handoff__note-author-copy">
-                              <strong>{latestSharedCoordinationActivity.author.displayName}</strong>
-                              <span>{latestSharedCoordinationActivity.label}</span>
-                            </div>
-                          </div>
-                          <div className="inbox-handoff__activity-meta">
-                            <time
-                              className="inbox-handoff__note-time"
-                              dateTime={latestSharedCoordinationActivity.timestamp}
-                              title={formatDashboardDateTime(latestSharedCoordinationActivity.timestamp)}
-                            >
-                              {formatDashboardDateTime(latestSharedCoordinationActivity.timestamp)}
-                            </time>
-                            <span className="inbox-handoff__note-time">
-                              {latestSharedCoordinationActivity.kind === 'handoff' ? 'Updated' : 'Added'}{' '}
-                              {formatDashboardRelativeTime(latestSharedCoordinationActivity.timestamp)}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="inbox-handoff__note-text">
-                          {truncateText(
-                            latestSharedCoordinationActivity.text || 'No summary saved.',
-                            180,
-                          ).text}
-                        </p>
-                      </article>
-                    ) : (
-                      <div className="inbox-handoff__empty-state">
-                        <p className="inbox-handoff__summary">No shared activity yet.</p>
-                        <p className="inbox-handoff__note">
-                          Shared activity appears here after the care team saves a handoff or appends a note.
-                        </p>
-                      </div>
-                    )}
-                  </section>
-                </>
-              ) : null}
-            </section>
-
-            <section
-              className="inbox-support-group inbox-support-group--reference"
-              aria-label="Reference and help context"
+          {showWideSupportRail ? (
+            <aside
+              className="inbox-detail-support-rail inbox-support"
+              aria-label="Support context rail"
+              data-testid="communication-support-rail"
             >
-              <div className="inbox-support-group__copy">
-                <p className="inbox-support-group__eyebrow">Reference / help</p>
-                <h3 className="inbox-support-group__title">Reference / help context</h3>
-                <p className="inbox-support__text">
-                  This timeline is limited to patient communication plus local clinician replies saved in this browser.
-                </p>
-                <p className="inbox-support__subtext">
-                  Shared coordination below is team-visible Aura context and never appears as a message bubble or sent history in this timeline.
-                </p>
-              </div>
-            </section>
-          </aside>
-        ) : null}
+              {renderSharedCoordinationPanel(true)}
+              {renderWorkflowContextPanel(true)}
+              {renderReferencePanel(true)}
+            </aside>
+          ) : null}
+        </section>
       </section>
     </Stack>
   );

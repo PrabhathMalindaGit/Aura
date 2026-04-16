@@ -17,6 +17,13 @@ import {
 } from '../services/patientHandoffWorkspace';
 import type { ClinicianCoordinationRecord } from '../types/models';
 
+type ResizeObserverCallbackMock = (
+  entries: ResizeObserverEntry[],
+  observer: ResizeObserver,
+) => void;
+
+const resizeObserverCallbacks = new Map<Element, Set<ResizeObserverCallbackMock>>();
+
 function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
@@ -27,6 +34,76 @@ function createQueryClient(): QueryClient {
         retry: false,
       },
     },
+  });
+}
+
+function installWindowResizeObserverMock(): void {
+  class ResizeObserverMock {
+    private readonly callback: ResizeObserverCallbackMock;
+    private readonly observedElements = new Set<Element>();
+
+    constructor(callback: ResizeObserverCallbackMock) {
+      this.callback = callback;
+    }
+
+    observe(target: Element): void {
+      this.observedElements.add(target);
+      const callbacks = resizeObserverCallbacks.get(target) ?? new Set<ResizeObserverCallbackMock>();
+      callbacks.add(this.callback);
+      resizeObserverCallbacks.set(target, callbacks);
+    }
+
+    unobserve(target: Element): void {
+      this.observedElements.delete(target);
+      const callbacks = resizeObserverCallbacks.get(target);
+
+      if (!callbacks) {
+        return;
+      }
+
+      callbacks.delete(this.callback);
+
+      if (callbacks.size === 0) {
+        resizeObserverCallbacks.delete(target);
+      }
+    }
+
+    disconnect(): void {
+      this.observedElements.forEach((target) => this.unobserve(target));
+    }
+  }
+
+  resizeObserverCallbacks.clear();
+
+  Object.defineProperty(window, 'ResizeObserver', {
+    configurable: true,
+    writable: true,
+    value: ResizeObserverMock,
+  });
+}
+
+function createResizeObserverEntry(target: Element, width: number): ResizeObserverEntry {
+  return {
+    target,
+    contentRect: {
+      width,
+      height: 0,
+      x: 0,
+      y: 0,
+      top: 0,
+      right: width,
+      bottom: 0,
+      left: 0,
+      toJSON: () => ({}),
+    } as DOMRectReadOnly,
+  } as ResizeObserverEntry;
+}
+
+function triggerResizeObserver(target: Element, width: number): void {
+  const callbacks = resizeObserverCallbacks.get(target);
+
+  callbacks?.forEach((callback) => {
+    callback([createResizeObserverEntry(target, width)], {} as ResizeObserver);
   });
 }
 
@@ -96,6 +173,40 @@ function renderCommunicationPageWithSettings(initialEntry: string = '/communicat
       </QueryClientProvider>
     </>,
   );
+}
+
+function resizeCommunicationWorkspace(width: number): HTMLElement {
+  const workspace = screen.getByTestId('communication-workspace');
+  triggerResizeObserver(workspace, width);
+  return workspace;
+}
+
+async function setCommunicationWorkspaceLayout(
+  width: number,
+  expectedMode: 'wide' | 'medium' | 'narrow',
+): Promise<HTMLElement> {
+  const workspace = resizeCommunicationWorkspace(width);
+  await waitFor(() => {
+    expect(workspace).toHaveAttribute('data-layout-mode', expectedMode);
+  });
+  return workspace;
+}
+
+async function getWideSupportPanels(): Promise<{
+  supportRail: HTMLElement;
+  sharedCoordination: HTMLElement;
+  workflowContext: HTMLElement;
+}> {
+  const supportRail = await screen.findByTestId('communication-support-rail');
+  const workflowContext = await within(supportRail).findByRole('region', {
+    name: 'Workflow context',
+  });
+
+  return {
+    supportRail,
+    sharedCoordination: within(supportRail).getByTestId('communication-shared-coordination'),
+    workflowContext,
+  };
 }
 
 function AlertsWorkspaceRoute(): JSX.Element {
@@ -278,6 +389,7 @@ function installCommunicationFetchMock(options: {
 describe('CommunicationPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    installWindowResizeObserverMock();
     window.localStorage.clear();
     window.sessionStorage.clear();
     clearClinicianProfileForTests();
@@ -295,6 +407,7 @@ describe('CommunicationPage', () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  resizeObserverCallbacks.clear();
   cleanup();
 });
 
@@ -319,9 +432,9 @@ afterEach(() => {
         'Pain is much worse after exercise today.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/Higher risk context/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Higher risk/i)[0]).toBeInTheDocument();
     expect(screen.getAllByText(/2 open alerts/i)[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/Response delayed past 8h/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Target 8h/i)[0]).toBeInTheDocument();
     expect(
       screen.getByText(
         'This timeline is limited to patient communication plus local clinician replies saved in this browser.',
@@ -450,7 +563,7 @@ afterEach(() => {
     expect(screen.getAllByText('Lead rehab clinician · Post-op recovery').length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        'Local to this browser for this clinician. Not sent from Aura and not shared with the care team.',
+        'Private to this browser and clinician. Not sent from Aura and not shared with the care team.',
       ),
     ).toBeInTheDocument();
 
@@ -645,6 +758,116 @@ afterEach(() => {
     ).toBeInTheDocument();
   });
 
+  it('uses the wide master-detail layout with support nested inside the detail workspace', async () => {
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    const workspace = await setCommunicationWorkspaceLayout(1440, 'wide');
+
+    const queueRail = screen.getByTestId('communication-queue-rail');
+    const detailWorkspace = screen.getByTestId('communication-detail-workspace');
+    const supportRail = screen.getByTestId('communication-support-rail');
+
+    expect(queueRail.parentElement).toBe(workspace);
+    expect(detailWorkspace.parentElement).toBe(workspace);
+    expect(supportRail.parentElement).toBe(detailWorkspace);
+    expect(Array.from(workspace.children)).toEqual([queueRail, detailWorkspace]);
+  });
+
+  it('uses inline support tabs in medium mode while keeping the queue visible', async () => {
+    const user = userEvent.setup();
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    await setCommunicationWorkspaceLayout(1180, 'medium');
+
+    expect(screen.getByTestId('communication-queue-rail')).toBeInTheDocument();
+    expect(screen.getByTestId('communication-detail-workspace')).toBeInTheDocument();
+    expect(screen.getByTestId('communication-support-tabs')).toBeInTheDocument();
+    expect(screen.queryByTestId('communication-support-rail')).not.toBeInTheDocument();
+    expect(screen.getByTestId('communication-support-tabpanel-shared')).toBeInTheDocument();
+    expect(screen.queryByTestId('communication-support-tabpanel-workflow')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('communication-support-tab-workflow'));
+
+    expect(await screen.findByTestId('communication-support-tabpanel-workflow')).toBeInTheDocument();
+    expect(screen.queryByTestId('communication-support-tabpanel-shared')).not.toBeInTheDocument();
+  });
+
+  it('stacks queue, summary, timeline, draft, and support disclosures in narrow mode order', async () => {
+    renderCommunicationPage('/communication?patientId=patient-1');
+
+    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    await setCommunicationWorkspaceLayout(768, 'narrow');
+
+    const queueRail = screen.getByTestId('communication-queue-rail');
+    const summary = screen.getByTestId('communication-active-summary');
+    const timeline = screen.getByTestId('communication-timeline-panel');
+    const draft = screen.getByTestId('communication-draft-panel');
+    const disclosures = screen.getByTestId('communication-support-disclosures');
+
+    expect(screen.queryByTestId('communication-support-tabs')).not.toBeInTheDocument();
+    expect(
+      queueRail.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      summary.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      timeline.compareDocumentPosition(draft) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      draft.compareDocumentPosition(disclosures) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('does not reset the selected thread or local/shared drafts when layout mode changes', async () => {
+    const user = userEvent.setup();
+    renderCommunicationPage();
+
+    await user.click(await screen.findByRole('button', { name: /Avery Chen/ }));
+
+    await setCommunicationWorkspaceLayout(1180, 'medium');
+
+    const draftField = (await screen.findByRole('textbox', {
+      name: 'Personal reply draft',
+    })) as HTMLTextAreaElement;
+    const sharedNoteField = (await screen.findByLabelText(
+      'Add shared coordination note',
+    )) as HTMLTextAreaElement;
+
+    await user.type(draftField, 'Local draft survives layout changes.');
+    await user.type(sharedNoteField, 'Shared note draft survives layout changes.');
+
+    await setCommunicationWorkspaceLayout(768, 'narrow');
+
+    expect(
+      within(screen.getByTestId('communication-active-summary')).getByRole('heading', {
+        name: 'Avery Chen',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue(
+      'Local draft survives layout changes.',
+    );
+    expect(screen.getByLabelText('Add shared coordination note')).toHaveValue(
+      'Shared note draft survives layout changes.',
+    );
+
+    await setCommunicationWorkspaceLayout(1440, 'wide');
+
+    expect(
+      within(screen.getByTestId('communication-active-summary')).getByRole('heading', {
+        name: 'Avery Chen',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue(
+      'Local draft survives layout changes.',
+    );
+    expect(screen.getByLabelText('Add shared coordination note')).toHaveValue(
+      'Shared note draft survives layout changes.',
+    );
+  });
+
   it('shows safety-aware alerts continuity only for safety-flagged threads', async () => {
     const user = userEvent.setup();
     renderCommunicationPage('/communication?patientId=patient-1');
@@ -725,8 +948,8 @@ afterEach(() => {
     const user = userEvent.setup();
 
     renderCommunicationPage('/communication?patientId=patient-1');
-
-    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    await setCommunicationWorkspaceLayout(1440, 'wide');
+    const { sharedCoordination: coordinationContext, workflowContext } = await getWideSupportPanels();
     expect(coordinationContext).toHaveAccessibleName('Shared clinician coordination');
     expect(
       await within(coordinationContext).findByText(
@@ -742,12 +965,12 @@ afterEach(() => {
       await within(coordinationContext).findByLabelText('Add shared coordination note'),
     ).toBeInTheDocument();
     expect(
-      within(coordinationContext).getByRole('region', { name: 'Latest shared coordination activity' }),
+      within(workflowContext).getByRole('region', { name: 'Latest shared coordination activity' }),
     ).toBeInTheDocument();
     expect((await within(coordinationContext).findAllByText('Dr Elena Hall')).length).toBeGreaterThan(0);
     expect(
       within(coordinationContext).getByText(
-        'Shared in Aura for the care team across clinician sessions and devices. It stays separate from personal reply drafts and the patient message timeline.',
+        'Team-visible context stays separate from the patient timeline and your local draft.',
       ),
     ).toBeInTheDocument();
 
@@ -800,12 +1023,13 @@ afterEach(() => {
     const user = userEvent.setup();
 
     renderCommunicationPage('/communication?patientId=patient-1');
+    await setCommunicationWorkspaceLayout(1440, 'wide');
 
     const replyField = await screen.findByRole('textbox', { name: 'Personal reply draft' });
     await user.type(replyField, 'Keep this local draft unchanged while viewing the linked task.');
 
-    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    const linkedTaskRegion = within(coordinationContext).getByRole('region', {
+    const { workflowContext } = await getWideSupportPanels();
+    const linkedTaskRegion = within(workflowContext).getByRole('region', {
       name: 'Linked follow-through task',
     });
 
@@ -889,12 +1113,12 @@ afterEach(() => {
     });
 
     renderCommunicationPage('/communication?patientId=patient-2');
-
-    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    await setCommunicationWorkspaceLayout(1440, 'wide');
+    const { sharedCoordination: coordinationContext, workflowContext } = await getWideSupportPanels();
     const snapshot = await within(coordinationContext).findByRole('region', {
       name: 'Current shared coordination snapshot',
     });
-    const latestActivity = await within(coordinationContext).findByRole('region', {
+    const latestActivity = await within(workflowContext).findByRole('region', {
       name: 'Latest shared coordination activity',
     });
     const recentNotes = await within(coordinationContext).findByRole('region', {
@@ -918,11 +1142,11 @@ afterEach(() => {
 
   it('shows a neutral shared coordination empty state when no shared record exists', async () => {
     renderCommunicationPage('/communication?patientId=patient-1');
-
-    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    await setCommunicationWorkspaceLayout(1440, 'wide');
+    const { sharedCoordination: coordinationContext, workflowContext } = await getWideSupportPanels();
     expect(await within(coordinationContext).findByText('No current shared handoff saved.')).toBeInTheDocument();
     expect(
-      within(coordinationContext).getByRole('region', { name: 'Linked follow-through task' }),
+      within(workflowContext).getByRole('region', { name: 'Linked follow-through task' }),
     ).toHaveTextContent('No follow-through task linked');
     expect(
       await within(coordinationContext).findByLabelText('Add shared coordination note'),
@@ -933,7 +1157,7 @@ afterEach(() => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(coordinationContext).getByRole('region', { name: 'Latest shared coordination activity' }),
+      within(workflowContext).getByRole('region', { name: 'Latest shared coordination activity' }),
     ).toHaveTextContent('No shared activity yet');
   });
 
@@ -984,9 +1208,9 @@ afterEach(() => {
     });
 
     renderCommunicationPage('/communication?patientId=patient-1');
-
-    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
-    const linkedTaskRegion = await within(coordinationContext).findByRole('region', {
+    await setCommunicationWorkspaceLayout(1440, 'wide');
+    const { workflowContext } = await getWideSupportPanels();
+    const linkedTaskRegion = await within(workflowContext).findByRole('region', {
       name: 'Linked follow-through task',
     });
 
@@ -1084,17 +1308,17 @@ afterEach(() => {
     const user = userEvent.setup();
 
     renderCommunicationPage('/communication?patientId=patient-1');
-
-    const coordinationContext = await screen.findByTestId('communication-shared-coordination');
+    await setCommunicationWorkspaceLayout(1440, 'wide');
+    const { sharedCoordination: coordinationContext, workflowContext } = await getWideSupportPanels();
     expect(await within(coordinationContext).findByText('Patient one shared handoff.')).toBeInTheDocument();
-    expect(await within(coordinationContext).findByText('Patient one linked task')).toBeInTheDocument();
+    expect(await within(workflowContext).findByText('Patient one linked task')).toBeInTheDocument();
 
     await user.click(await screen.findByRole('button', { name: /Avery Chen/ }));
 
     expect(await within(coordinationContext).findByText('Patient two shared handoff.')).toBeInTheDocument();
-    expect(await within(coordinationContext).findByText('Patient two linked task')).toBeInTheDocument();
+    expect(await within(workflowContext).findByText('Patient two linked task')).toBeInTheDocument();
     expect(within(coordinationContext).queryByText('Patient one shared handoff.')).not.toBeInTheDocument();
-    expect(within(coordinationContext).queryByText('Patient one linked task')).not.toBeInTheDocument();
+    expect(within(workflowContext).queryByText('Patient one linked task')).not.toBeInTheDocument();
   });
 
   it('does not let browser-local handoff storage drive inbox shared context', async () => {

@@ -713,91 +713,175 @@ export function DashboardHomePage(): JSX.Element {
       </section>
 
       <div className="today-layout">
-        <section className="today-main-surface" aria-label="Urgent review surface">
-          <header className="today-surface__header">
-            <h2 className="today-surface__title">Open next</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                navigate('/worklist');
-              }}
-            >
-              Open queue
-            </Button>
-          </header>
+        <div className="today-main-column">
+          <section className="today-main-surface" aria-label="Urgent review surface">
+            <header className="today-surface__header">
+              <h2 className="today-surface__title">Open next</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  navigate('/worklist');
+                }}
+              >
+                Open queue
+              </Button>
+            </header>
 
-          {priorityQueueQuery.isLoading && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
-            <div className="today-main-surface__state" aria-label="Urgent review loading placeholder">
-              <Skeleton height={96} />
-              <Skeleton height={96} />
-              <Skeleton height={96} />
-            </div>
-          ) : priorityQueueQuery.error && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
-            <DashboardModuleState
-              mode="error"
-              title="Unable to load the urgent review surface"
-              description="The live queue could not be loaded."
-              onRetry={() => {
-                void priorityQueueQuery.refetch();
-              }}
-              retrying={priorityQueueQuery.isFetching}
-            />
-          ) : (priorityQueueQuery.data?.length ?? 0) === 0 ? (
-            <EmptyState
-              title="Nothing urgent right now"
-              description="High-priority alerts, missed check-ins, appointment exceptions, and follow-up items will appear here."
-              tone="success"
-            />
-          ) : (
-            <div className="today-priority-list" role="list" aria-label="Urgent review items">
-              {(priorityQueueQuery.data ?? []).slice(0, 5).map((item) => (
-                <article key={item.id} className="today-priority-item" role="listitem">
-                  <div className="today-priority-item__header">
-                    <div className="today-priority-item__lead">
-                      <p className="today-priority-item__patient">{resolvePatientLabel(item.patientId)}</p>
-                      <p className="today-priority-item__kind">{priorityKindLabel(item.itemType)}</p>
-                    </div>
-                    <div className="today-priority-item__state">
+            {priorityQueueQuery.isLoading && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
+              <div className="today-main-surface__state" aria-label="Urgent review loading placeholder">
+                <Skeleton height={96} />
+                <Skeleton height={96} />
+                <Skeleton height={96} />
+              </div>
+            ) : priorityQueueQuery.error && (priorityQueueQuery.data?.length ?? 0) === 0 ? (
+              <DashboardModuleState
+                mode="error"
+                title="Unable to load the urgent review surface"
+                description="The live queue could not be loaded."
+                onRetry={() => {
+                  void priorityQueueQuery.refetch();
+                }}
+                retrying={priorityQueueQuery.isFetching}
+              />
+            ) : (priorityQueueQuery.data?.length ?? 0) === 0 ? (
+              <EmptyState
+                title="Nothing urgent right now"
+                description="High-priority alerts, missed check-ins, appointment exceptions, and follow-up items will appear here."
+                tone="success"
+              />
+            ) : (
+              <div className="today-priority-list" role="list" aria-label="Urgent review items">
+                {(priorityQueueQuery.data ?? []).slice(0, 5).map((item) => (
+                  <article key={item.id} className="today-priority-item" role="listitem">
+                    <div className="today-priority-item__header">
+                      <div className="today-priority-item__lead">
+                        <p className="today-priority-item__patient">{resolvePatientLabel(item.patientId)}</p>
+                        <p className="today-priority-item__kind">{priorityKindLabel(item.itemType)}</p>
+                      </div>
                       <Badge variant={priorityBadgeVariant(item.priority)}>
                         {humanizeDashboardLabel(item.priority)}
                       </Badge>
+                    </div>
+                    <div className="today-priority-item__body">
+                      <h3 className="today-priority-item__title">{item.title}</h3>
+                      <p className="today-priority-item__reason">
+                        {item.subtitle?.trim() ||
+                          (item.dueAt
+                            ? `Action is due ${formatDashboardRelativeTime(item.dueAt)}.`
+                            : `${humanizeDashboardLabel(item.source)} review is still waiting.`)}
+                      </p>
+                    </div>
+                    <div className="today-priority-item__support">
                       <span
                         className="today-priority-item__time"
                         title={item.dueAt ? formatDashboardDateTime(item.dueAt) : formatDashboardDateTime(item.createdAt)}
                       >
                         {priorityFreshnessLabel(item)}
                       </span>
+                      <span className="today-priority-item__footnote">
+                        {typeof item.meta?.responseState === 'string'
+                          ? `${String(item.meta.responseState)} · ${
+                              item.meta?.openAlertCount ?? 0
+                            } open alert${item.meta?.openAlertCount === 1 ? '' : 's'}`
+                          : item.dueAt
+                            ? `Due ${formatDashboardDateTime(item.dueAt)}`
+                            : `Opened ${formatDashboardDateTime(item.createdAt)}`}
+                      </span>
                     </div>
+                    <div className="today-priority-item__actions">
+                      <Button size="sm" onClick={() => openPriorityItem(item)}>
+                        {priorityActionLabel(item)}
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="today-context" aria-label="Operational context">
+            <header className="today-context__header">
+              <h2 className="today-context__title">Operational context</h2>
+            </header>
+
+            <div className="today-context__grid">
+              <article className="today-context-card">
+                <p className="today-context-card__eyebrow">Safety workload</p>
+                <h3 className="today-context-card__title">Safety pressure</h3>
+                <div className="today-context-card__facts" aria-label="Safety workload facts">
+                  <span>{summaryQuery.data?.openAlertsCount ?? 0} open alerts</span>
+                  <span>{summaryQuery.data?.assignedToMeAlertsCount ?? 0} assigned to me</span>
+                  <span>{recentSafetyEventCount} recent feed events</span>
+                </div>
+                {safetyEventsQuery.isLoading && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
+                  <div className="today-context-card__state" aria-label="Safety pressure loading placeholder">
+                    <Skeleton height={62} />
+                    <Skeleton height={62} />
                   </div>
-                  <div className="today-priority-item__body">
-                    <h3 className="today-priority-item__title">{item.title}</h3>
-                    <p className="today-priority-item__reason">
-                      {item.subtitle?.trim() ||
-                        (item.dueAt
-                          ? `Action is due ${formatDashboardRelativeTime(item.dueAt)}.`
-                          : `${humanizeDashboardLabel(item.source)} review is still waiting.`)}
-                    </p>
+                ) : safetyEventsQuery.error && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
+                  <DashboardModuleState
+                    mode="error"
+                    title="Unable to load recent safety activity"
+                    description="The live safety feed could not be loaded."
+                    onRetry={() => {
+                      void safetyEventsQuery.refetch();
+                    }}
+                    retrying={safetyEventsQuery.isFetching}
+                  />
+                ) : (safetyEventsQuery.data?.length ?? 0) === 0 ? (
+                  <div className="today-context-feed__empty">
+                    <p className="today-context-feed__empty-title">No recent safety activity</p>
+                    <p className="today-context-card__note">{safetyContextNote}</p>
                   </div>
-                  <div className="today-priority-item__footer">
-                    <span className="today-priority-item__footnote">
-                      {typeof item.meta?.responseState === 'string'
-                        ? `${String(item.meta.responseState)} · ${
-                            item.meta?.openAlertCount ?? 0
-                          } open alert${item.meta?.openAlertCount === 1 ? '' : 's'}`
-                        : item.dueAt
-                          ? `Due ${formatDashboardDateTime(item.dueAt)}`
-                          : `Opened ${formatDashboardDateTime(item.createdAt)}`}
-                    </span>
-                    <Button size="sm" onClick={() => openPriorityItem(item)}>
-                      {priorityActionLabel(item)}
-                    </Button>
+                ) : (
+                  <div className="today-context-feed" role="list" aria-label="Recent safety activity">
+                    {(safetyEventsQuery.data ?? []).slice(0, 2).map((item) => (
+                      <article key={item.id} className="today-context-feed__item" role="listitem">
+                        <div className="today-context-feed__top">
+                          <div>
+                            <p className="today-context-feed__patient">{resolvePatientLabel(item.patientId)}</p>
+                            <p className="today-context-feed__time" title={formatDashboardDateTime(item.createdAt)}>
+                              {formatDashboardRelativeTime(item.createdAt)}
+                            </p>
+                          </div>
+                          {safetyBadge(item)}
+                        </div>
+                        <p className="today-context-feed__summary">{item.summary}</p>
+                      </article>
+                    ))}
                   </div>
-                </article>
-              ))}
+                )}
+              </article>
+
+              <article className="today-context-card">
+                <p className="today-context-card__eyebrow">Review backlog</p>
+                <h3 className="today-context-card__title">Clinical review backlog</h3>
+                <div className="today-context-card__facts" aria-label="Review backlog facts">
+                  <span>{pendingInsightsCount} pending insights</span>
+                  <span>{highPriorityInsightsCount} high priority</span>
+                  <span>{safetyCategoryInsightsCount} safety category</span>
+                </div>
+                <p className="today-context-card__note">{reviewBacklogNote}</p>
+              </article>
+
+              <article className="today-context-card">
+                <p className="today-context-card__eyebrow">Capacity outlook</p>
+                <h3 className="today-context-card__title">Scheduling balance</h3>
+                <div className="today-context-card__facts" aria-label="Scheduling balance facts">
+                  <span>{pendingAppointmentRequestsCount} pending requests</span>
+                  <span>{availableSlotsCount} open slots</span>
+                  <span>
+                    {nextOpenSlot
+                      ? `Next ${formatDashboardTimeRange(nextOpenSlot.startsAt, nextOpenSlot.endsAt)}`
+                      : 'No open slot yet'}
+                  </span>
+                </div>
+                <p className="today-context-card__note">{schedulingFootnote}</p>
+              </article>
             </div>
-          )}
-        </section>
+          </section>
+        </div>
 
         <aside className="today-support-rail" aria-label="Supporting rail">
           <div className="today-support-rail__shell">
@@ -1021,88 +1105,6 @@ export function DashboardHomePage(): JSX.Element {
           </div>
         </aside>
       </div>
-
-      <section className="today-context" aria-label="Operational context">
-        <header className="today-context__header">
-          <h2 className="today-context__title">Operational context</h2>
-        </header>
-
-        <div className="today-context__grid">
-          <article className="today-context-card">
-            <p className="today-context-card__eyebrow">Safety workload</p>
-            <h3 className="today-context-card__title">Safety pressure</h3>
-            <div className="today-context-card__facts" aria-label="Safety workload facts">
-              <span>{summaryQuery.data?.openAlertsCount ?? 0} open alerts</span>
-              <span>{summaryQuery.data?.assignedToMeAlertsCount ?? 0} assigned to me</span>
-              <span>{recentSafetyEventCount} recent feed events</span>
-            </div>
-            {safetyEventsQuery.isLoading && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
-              <div className="today-context-card__state" aria-label="Safety pressure loading placeholder">
-                <Skeleton height={62} />
-                <Skeleton height={62} />
-              </div>
-            ) : safetyEventsQuery.error && (safetyEventsQuery.data?.length ?? 0) === 0 ? (
-              <DashboardModuleState
-                mode="error"
-                title="Unable to load recent safety activity"
-                description="The live safety feed could not be loaded."
-                onRetry={() => {
-                  void safetyEventsQuery.refetch();
-                }}
-                retrying={safetyEventsQuery.isFetching}
-              />
-            ) : (safetyEventsQuery.data?.length ?? 0) === 0 ? (
-              <div className="today-context-feed__empty">
-                <p className="today-context-feed__empty-title">No recent safety activity</p>
-                <p className="today-context-card__note">{safetyContextNote}</p>
-              </div>
-            ) : (
-              <div className="today-context-feed" role="list" aria-label="Recent safety activity">
-                {(safetyEventsQuery.data ?? []).slice(0, 2).map((item) => (
-                  <article key={item.id} className="today-context-feed__item" role="listitem">
-                    <div className="today-context-feed__top">
-                      <div>
-                        <p className="today-context-feed__patient">{resolvePatientLabel(item.patientId)}</p>
-                        <p className="today-context-feed__time" title={formatDashboardDateTime(item.createdAt)}>
-                          {formatDashboardRelativeTime(item.createdAt)}
-                        </p>
-                      </div>
-                      {safetyBadge(item)}
-                    </div>
-                    <p className="today-context-feed__summary">{item.summary}</p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </article>
-
-          <article className="today-context-card">
-            <p className="today-context-card__eyebrow">Review backlog</p>
-            <h3 className="today-context-card__title">Clinical review backlog</h3>
-            <div className="today-context-card__facts" aria-label="Review backlog facts">
-              <span>{pendingInsightsCount} pending insights</span>
-              <span>{highPriorityInsightsCount} high priority</span>
-              <span>{safetyCategoryInsightsCount} safety category</span>
-            </div>
-            <p className="today-context-card__note">{reviewBacklogNote}</p>
-          </article>
-
-          <article className="today-context-card">
-            <p className="today-context-card__eyebrow">Capacity outlook</p>
-            <h3 className="today-context-card__title">Scheduling balance</h3>
-            <div className="today-context-card__facts" aria-label="Scheduling balance facts">
-              <span>{pendingAppointmentRequestsCount} pending requests</span>
-              <span>{availableSlotsCount} open slots</span>
-              <span>
-                {nextOpenSlot
-                  ? `Next ${formatDashboardTimeRange(nextOpenSlot.startsAt, nextOpenSlot.endsAt)}`
-                  : 'No open slot yet'}
-              </span>
-            </div>
-            <p className="today-context-card__note">{schedulingFootnote}</p>
-          </article>
-        </div>
-      </section>
     </Stack>
   );
 }

@@ -321,99 +321,104 @@ export function WorklistPage(): JSX.Element {
         </div>
 
         <div className="worklist-console__toolbar">
-          <ClinicianSummaryStrip
-            className="worklist-console__summary-strip"
-            ariaLabel="Queue truth summary"
-            items={[
-              {
-                key: 'high-risk',
-                label: 'High risk',
-                value: String(summary.highRisk),
-                hint: summary.highRisk > 0 ? 'Patients with the strongest risk pressure in this view.' : 'No high-risk patients in this view.',
-                tone: summary.highRisk > 0 ? 'danger' : 'default',
-              },
-              {
-                key: 'delayed-response',
-                label: 'Response delayed',
-                value: String(summary.delayedResponse),
-                hint:
-                  summary.delayedResponse > 0
-                    ? 'Server-backed delayed response pressure is active.'
-                    : 'No delayed communication in this view.',
-                tone: summary.delayedResponse > 0 ? 'warning' : 'default',
-              },
-              {
-                key: 'reviewed',
-                label: 'Reviewed in workflow',
-                value: String(summary.reviewedAwaitingFollowUp),
-                hint:
-                  summary.reviewedAwaitingFollowUp > 0
-                    ? 'Threads reviewed but still waiting on follow-through.'
-                    : 'No reviewed threads are waiting on follow-through.',
-              },
-              {
-                key: 'alerts',
-                label: 'Open alerts',
-                value: String(summary.openAlerts),
-                hint:
-                  summary.openAlerts > 0
-                    ? 'Safety queue still contributes to this worklist.'
-                    : 'No open-alert pressure in this view.',
-                tone: summary.openAlerts > 0 ? 'danger' : 'default',
-              },
-            ]}
-          />
-          <WorklistFilters
-            filters={filters}
-            disabled={worklistQuery.isFetching && items.length === 0}
-            onSearchChange={(search) => {
-              searchPersistenceEnabledRef.current = true;
-              setFilters((current) => ({ ...current, search }));
-            }}
-            onToggleFilter={(key) =>
-              setFilters((current) => {
-                const next = {
-                  ...current,
-                  [key]: !current[key],
-                  search: savedFiltersRef.current.search,
-                };
-                persistWorklistState(next);
-                return {
-                  ...current,
-                  [key]: !current[key],
-                };
-              })
-            }
-            onStatusChange={(status) =>
-              setFilters((current) => {
-                const next = {
-                  ...current,
-                  status,
-                  search: savedFiltersRef.current.search,
-                };
-                persistWorklistState(next);
-                return {
-                  ...current,
-                  status,
-                };
-              })
-            }
-            onSortChange={(sort) =>
-              setFilters((current) => {
-                const next = {
-                  ...current,
-                  sort,
-                  search: savedFiltersRef.current.search,
-                };
-                persistWorklistState(next);
-                return {
-                  ...current,
-                  sort,
-                };
-              })
-            }
-            onReset={clearSavedWorklistState}
-          />
+          <div className="worklist-console__control-band" role="group" aria-label="Queue filters and summary">
+            <ClinicianSummaryStrip
+              className="worklist-console__summary-strip"
+              ariaLabel="Queue truth summary"
+              items={[
+                {
+                  key: 'high-risk',
+                  label: 'High risk',
+                  value: String(summary.highRisk),
+                  hint:
+                    summary.highRisk > 0
+                      ? 'Patients with the strongest risk pressure in this view.'
+                      : 'No high-risk patients in this view.',
+                  tone: summary.highRisk > 0 ? 'danger' : 'default',
+                },
+                {
+                  key: 'delayed-response',
+                  label: 'Response delayed',
+                  value: String(summary.delayedResponse),
+                  hint:
+                    summary.delayedResponse > 0
+                      ? 'Server-backed delayed response pressure is active.'
+                      : 'No delayed communication in this view.',
+                  tone: summary.delayedResponse > 0 ? 'warning' : 'default',
+                },
+                {
+                  key: 'reviewed',
+                  label: 'Reviewed in workflow',
+                  value: String(summary.reviewedAwaitingFollowUp),
+                  hint:
+                    summary.reviewedAwaitingFollowUp > 0
+                      ? 'Threads reviewed but still waiting on follow-through.'
+                      : 'No reviewed threads are waiting on follow-through.',
+                },
+                {
+                  key: 'alerts',
+                  label: 'Open alerts',
+                  value: String(summary.openAlerts),
+                  hint:
+                    summary.openAlerts > 0
+                      ? 'Safety queue still contributes to this worklist.'
+                      : 'No open-alert pressure in this view.',
+                  tone: summary.openAlerts > 0 ? 'danger' : 'default',
+                },
+              ]}
+            />
+            <WorklistFilters
+              filters={filters}
+              disabled={worklistQuery.isFetching && items.length === 0}
+              onSearchChange={(search) => {
+                searchPersistenceEnabledRef.current = true;
+                setFilters((current) => ({ ...current, search }));
+              }}
+              onToggleFilter={(key) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    [key]: !current[key],
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistWorklistState(next);
+                  return {
+                    ...current,
+                    [key]: !current[key],
+                  };
+                })
+              }
+              onStatusChange={(status) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    status,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistWorklistState(next);
+                  return {
+                    ...current,
+                    status,
+                  };
+                })
+              }
+              onSortChange={(sort) =>
+                setFilters((current) => {
+                  const next = {
+                    ...current,
+                    sort,
+                    search: savedFiltersRef.current.search,
+                  };
+                  persistWorklistState(next);
+                  return {
+                    ...current,
+                    sort,
+                  };
+                })
+              }
+              onReset={clearSavedWorklistState}
+            />
+          </div>
         </div>
 
         <div className="worklist-console__surface">

@@ -53,6 +53,85 @@ export function WorklistCardList({
         const reviewSupport = getWorklistReviewSupport(item);
         const truthChips = getWorklistTruthChips(item);
         const primaryAction = getWorklistPrimaryAction(item);
+        const secondaryActions: Array<{
+          key: string;
+          label: string;
+          onClick: () => void;
+        }> = [];
+
+        if (primaryAction.kind !== 'patient') {
+          secondaryActions.push({
+            key: 'patient',
+            label: 'Open patient',
+            onClick: () => onOpenPatient(item.patientId),
+          });
+        }
+
+        if (hasCommunicationAction && primaryAction.kind !== 'communication') {
+          secondaryActions.push({
+            key: 'communication',
+            label: 'Open communication',
+            onClick: () => onOpenCommunication(item.patientId),
+          });
+        }
+
+        if (item.openAlertsCount > 0 && primaryAction.kind !== 'alerts') {
+          secondaryActions.push({
+            key: 'alerts',
+            label: 'Open alerts',
+            onClick: () => onOpenAlerts(item.patientId),
+          });
+        }
+
+        if (hasAppointment && primaryAction.kind !== 'appointments') {
+          secondaryActions.push({
+            key: 'appointments',
+            label: 'Appointments',
+            onClick: () => onOpenAppointments(item.patientId),
+          });
+        }
+
+        const signalSupportLabel = `${
+          item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'
+        } · ${
+          item.communicationNeedsResponse
+            ? item.communicationSummary?.responseDelayed ||
+              item.communicationSummary?.delayedResponse
+              ? `Response delayed (${item.communicationSummary.responseAgeHours ?? '—'}h)`
+              : item.communicationSummary?.reviewedAfterLatestInbound
+                ? 'Reviewed and awaiting follow-up'
+                : item.communicationSummary?.responseDelayHours
+                  ? `Response target ${item.communicationSummary.responseDelayHours}h`
+                  : 'Response requested'
+            : 'No response delay'
+        }`;
+        const activityMetrics = [
+          { key: 'pain', label: 'Pain', value: asPainText(item.lastPainScore) },
+          {
+            key: 'exercises',
+            label: 'Exercises',
+            value: formatExercisesPct(item.adherenceSummary.exercisesPct),
+          },
+          {
+            key: 'medication',
+            label: 'Medication',
+            value:
+              typeof item.adherenceSummary.medicationTaken === 'boolean'
+                ? item.adherenceSummary.medicationTaken
+                  ? 'Taken'
+                  : 'Missed'
+                : '—',
+          },
+          ...(item.thresholdSummary
+            ? [
+                {
+                  key: 'threshold',
+                  label: 'Pain threshold',
+                  value: `${item.thresholdSummary.painHighThreshold}/10`,
+                },
+              ]
+            : []),
+        ];
         const cardToneClass =
           item.latestRiskLevel === 'high'
             ? ' worklist-card--high-risk'
@@ -93,12 +172,6 @@ export function WorklistCardList({
                 </div>
                 <div className="worklist-card__header-side">
                   <WorklistPriorityBadge className="worklist-card__priority" item={item} />
-                  <p
-                    className="worklist-card__updated"
-                    title={formatDashboardDateTime(item.updatedAt)}
-                  >
-                    Updated {formatDashboardRelativeTime(item.updatedAt)}
-                  </p>
                 </div>
               </div>
 
@@ -108,129 +181,98 @@ export function WorklistCardList({
               </div>
 
               <div className="worklist-card__signals">
-                <p className={`worklist-card__signal-lead worklist-card__signal-lead--${leadSignal.tone}`}>
-                  {leadSignal.label}
-                </p>
-                <ClinicianTruthChips
-                  className="worklist-card__signal-chips"
-                  chips={truthChips}
-                />
-                <p className="worklist-card__signal-summary">
-                  {signalSummary.length > 0
-                    ? signalSummary.join(' · ')
-                    : followThroughSummary.length > 0
-                      ? 'Follow-through still pending.'
-                      : 'No linked follow-through right now.'}
-                </p>
-                <p className="worklist-card__signal-support">
-                  {item.latestRiskLevel === 'high' ? 'High risk' : 'Lower risk'}
-                  {' · '}
-                  {item.communicationNeedsResponse
-                    ? item.communicationSummary?.responseDelayed || item.communicationSummary?.delayedResponse
-                      ? `Response delayed (${item.communicationSummary.responseAgeHours ?? '—'}h)`
-                      : item.communicationSummary?.reviewedAfterLatestInbound
-                        ? 'Reviewed and awaiting follow-up'
-                      : item.communicationSummary?.responseDelayHours
-                        ? `Response target ${item.communicationSummary.responseDelayHours}h`
-                        : 'Response requested'
-                    : 'No response delay'}
-                </p>
+                <div className="worklist-card__signal-group worklist-card__signal-group--primary">
+                  <p className={`worklist-card__signal-lead worklist-card__signal-lead--${leadSignal.tone}`}>
+                    {leadSignal.label}
+                  </p>
+                  {truthChips.length > 0 ? (
+                    <ClinicianTruthChips
+                      className="worklist-card__signal-chips"
+                      chips={truthChips}
+                    />
+                  ) : null}
+                </div>
+                <div className="worklist-card__signal-meta">
+                  <p className="worklist-card__signal-summary">
+                    {signalSummary.length > 0
+                      ? signalSummary.join(' · ')
+                      : followThroughSummary.length > 0
+                        ? 'Follow-through still pending.'
+                        : 'No linked follow-through right now.'}
+                  </p>
+                  <p className="worklist-card__signal-support">{signalSupportLabel}</p>
+                </div>
               </div>
 
               <dl className="worklist-card__activity">
                 <div className="worklist-card__activity-highlights">
-                  <dt>Last check-in</dt>
-                  <dd title={formatDashboardDateTime(item.lastCheckinAt)}>
-                    {formatDashboardRelativeTime(item.lastCheckinAt)}
-                  </dd>
+                  <div className="worklist-card__activity-line">
+                    <dt>Last check-in</dt>
+                    <dd title={formatDashboardDateTime(item.lastCheckinAt)}>
+                      {formatDashboardRelativeTime(item.lastCheckinAt)}
+                    </dd>
+                  </div>
+                  <div className="worklist-card__activity-line">
+                    <dt>Updated</dt>
+                    <dd title={formatDashboardDateTime(item.updatedAt)}>
+                      {formatDashboardRelativeTime(item.updatedAt)}
+                    </dd>
+                  </div>
                 </div>
                 {hasAppointment ? (
                   <div className="worklist-card__activity-highlights">
-                    <dt>Next appointment</dt>
-                    <dd title={formatDashboardDateTime(item.nextAppointmentAt)}>
-                      {formatDashboardDateTime(item.nextAppointmentAt)}
-                    </dd>
+                    <div className="worklist-card__activity-line">
+                      <dt>Next appointment</dt>
+                      <dd title={formatDashboardDateTime(item.nextAppointmentAt)}>
+                        {formatDashboardDateTime(item.nextAppointmentAt)}
+                      </dd>
+                    </div>
                   </div>
                 ) : null}
-                <div className="worklist-card__activity-stat">
-                  <dt>Pain</dt>
-                  <dd>{asPainText(item.lastPainScore)}</dd>
-                </div>
-                <div className="worklist-card__activity-stat">
-                  <dt>Exercises</dt>
-                  <dd>{formatExercisesPct(item.adherenceSummary.exercisesPct)}</dd>
-                </div>
-                <div className="worklist-card__activity-stat">
-                  <dt>Medication</dt>
-                  <dd>
-                    {typeof item.adherenceSummary.medicationTaken === 'boolean'
-                      ? item.adherenceSummary.medicationTaken
-                        ? 'Taken'
-                        : 'Missed'
-                      : '—'}
-                  </dd>
-                </div>
-                {item.thresholdSummary ? (
-                  <div className="worklist-card__activity-stat">
-                    <dt>Pain threshold</dt>
-                    <dd>{item.thresholdSummary.painHighThreshold}/10</dd>
+                {activityMetrics.map((metric) => (
+                  <div key={metric.key} className="worklist-card__activity-stat">
+                    <dt>{metric.label}</dt>
+                    <dd>{metric.value}</dd>
                   </div>
-                ) : null}
+                ))}
               </dl>
 
-                <div className="worklist-card__actions">
-                  <div className="worklist-card__actions-primary">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      fullWidth
-                      onClick={() => {
-                        if (primaryAction.kind === 'alerts') {
-                          onOpenAlerts(item.patientId);
-                          return;
-                        }
+              <div className="worklist-card__actions">
+                <div className="worklist-card__actions-primary">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => {
+                      if (primaryAction.kind === 'alerts') {
+                        onOpenAlerts(item.patientId);
+                        return;
+                      }
 
-                        if (primaryAction.kind === 'communication') {
-                          onOpenCommunication(item.patientId);
-                          return;
-                        }
+                      if (primaryAction.kind === 'communication') {
+                        onOpenCommunication(item.patientId);
+                        return;
+                      }
 
-                        if (primaryAction.kind === 'appointments') {
-                          onOpenAppointments(item.patientId);
-                          return;
-                        }
+                      if (primaryAction.kind === 'appointments') {
+                        onOpenAppointments(item.patientId);
+                        return;
+                      }
 
-                        onOpenPatient(item.patientId);
-                      }}
-                    >
-                      {primaryAction.label}
-                    </Button>
-                  </div>
-                  {hasCommunicationAction || item.openAlertsCount > 0 || hasAppointment ? (
-                    <div className="worklist-card__actions-secondary">
-                      {primaryAction.kind !== 'patient' ? (
-                        <Button variant="ghost" size="sm" onClick={() => onOpenPatient(item.patientId)}>
-                          Open patient
-                        </Button>
-                      ) : null}
-                      {hasCommunicationAction && primaryAction.kind !== 'communication' ? (
-                        <Button variant="ghost" size="sm" onClick={() => onOpenCommunication(item.patientId)}>
-                          Open communication
-                        </Button>
-                      ) : null}
-                      {item.openAlertsCount > 0 && primaryAction.kind !== 'alerts' ? (
-                        <Button variant="ghost" size="sm" onClick={() => onOpenAlerts(item.patientId)}>
-                          Open alerts
-                        </Button>
-                      ) : null}
-                      {hasAppointment && primaryAction.kind !== 'appointments' ? (
-                        <Button variant="ghost" size="sm" onClick={() => onOpenAppointments(item.patientId)}>
-                          Open appointments
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
+                      onOpenPatient(item.patientId);
+                    }}
+                  >
+                    {primaryAction.label}
+                  </Button>
                 </div>
+                <div className="worklist-card__actions-secondary">
+                  {secondaryActions.map((action) => (
+                    <Button key={action.key} variant="ghost" size="sm" onClick={action.onClick}>
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
         );

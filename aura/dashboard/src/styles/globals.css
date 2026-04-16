@@ -41538,6 +41538,10 @@ a {
   justify-content: flex-start;
 }
 
+.patient-detail-page {
+  gap: 0.96rem;
+}
+
 .patient-detail-page .patient-detail-cockpit-header,
 .patient-detail-page .patient-detail-priority-context,
 .patient-detail-page .patient-detail-workspace {
@@ -41551,8 +41555,8 @@ a {
 
 .patient-detail-page .patient-detail-cockpit-header {
   display: grid;
-  gap: 0.9rem;
-  padding: 1rem 1.05rem;
+  gap: 0.82rem;
+  padding: 0.96rem 1.05rem;
 }
 
 .patient-detail-page .patient-detail-cockpit-header__utility-row,
@@ -41568,14 +41572,14 @@ a {
 .patient-detail-page .patient-detail-cockpit-header__utility-row {
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 0.8rem;
+  padding-bottom: 0.72rem;
   border-bottom: 1px solid hsl(var(--border) / 0.24);
 }
 
 .patient-detail-page .patient-detail-cockpit-header__identity-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
+  gap: 0.92rem;
   align-items: start;
 }
 
@@ -41706,14 +41710,14 @@ a {
 }
 
 .patient-detail-page .patient-detail-cockpit-layout {
-  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.78fr);
-  gap: 0.82rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(19rem, 0.9fr);
+  gap: 0.76rem;
   align-items: start;
 }
 
 .patient-detail-page .patient-detail-priority-context {
-  gap: 0.74rem;
-  padding: 0.94rem 1rem;
+  gap: 0.68rem;
+  padding: 0.9rem 0.96rem;
 }
 
 .patient-detail-page .patient-detail-priority-context--stacked {
@@ -41791,16 +41795,38 @@ a {
 }
 
 .patient-detail-page .patient-detail-workspace {
-  padding: 1rem 1.05rem;
-  gap: 1rem;
+  padding: 0.96rem 1.05rem;
+  gap: 0.92rem;
 }
 
 .patient-detail-page .patient-detail-workspace__nav {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 0.8rem;
-  padding-bottom: 0.9rem;
+  gap: 0.72rem;
+  padding-bottom: 0.82rem;
   border-bottom: 1px solid hsl(var(--border) / 0.24);
+}
+
+.patient-detail-page .patient-detail-workspace__bridge {
+  padding: 0.74rem 0.82rem;
+  border: 1px solid hsl(var(--border) / 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, hsl(var(--background) / 0.74), hsl(var(--muted) / 0.03)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.025), transparent 90%);
+}
+
+.patient-detail-page .patient-detail-workspace__bridge .clinician-summary-strip {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 0.52rem;
+}
+
+.patient-detail-page .patient-detail-workspace__bridge .clinician-summary-strip__item {
+  padding: 0.72rem 0.78rem;
+  border-radius: 16px;
+  border-color: hsl(var(--border) / 0.2);
+  background: hsl(var(--background) / 0.54);
+  box-shadow: none;
 }
 
 .patient-detail-page .patient-detail-workspace__tab {
@@ -41824,7 +41850,7 @@ a {
 }
 
 .patient-detail-page .patient-detail-workspace__panel {
-  gap: 0.88rem;
+  gap: 0.82rem;
 }
 
 .patient-detail-page .patient-detail-workspace__panel-support,
@@ -41859,8 +41885,8 @@ a {
 
 .patient-detail-page .patient-detail-review-window-summary {
   display: grid;
-  gap: 0.52rem;
-  padding: 0.74rem 0.82rem;
+  gap: 0.48rem;
+  padding: 0.7rem 0.78rem;
   border: 1px solid hsl(var(--border) / 0.18);
   border-radius: 20px;
   background:
@@ -41933,12 +41959,26 @@ a {
 }
 
 .patient-detail-page .patient-detail-workspace__panel-header {
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.72fr);
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.68fr);
   align-items: end;
-  gap: 0.8rem;
+  gap: 0.68rem;
 }
 
 .patient-detail-page .patient-detail-workspace__lead {
+  display: grid;
+  gap: 0.34rem;
+  min-width: 0;
+}
+
+.patient-detail-page .patient-detail-overview-bands {
+  display: grid;
+  gap: 0.96rem;
+}
+
+.patient-detail-page .patient-detail-overview-band,
+.patient-detail-page .patient-detail-overview-band__full {
+  display: grid;
+  gap: 0.72rem;
   min-width: 0;
 }
 
@@ -41947,13 +41987,13 @@ a {
 .patient-detail-page .patient-detail-tab-grid--history-support {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.82rem;
+  gap: 0.76rem;
 }
 
 .patient-detail-page .patient-detail-tab-grid--communications {
   display: grid;
   grid-template-columns: minmax(0, 1.24fr) minmax(0, 0.9fr);
-  gap: 0.82rem;
+  gap: 0.76rem;
   align-items: start;
 }
 
@@ -42263,6 +42303,18 @@ a {
 .dark .patient-detail-workspace__tab {
   border-color: hsl(var(--border) / 0.38);
   background: hsl(var(--background) / 0.22);
+}
+
+.dark .patient-detail-workspace__bridge {
+  border-color: hsl(var(--border) / 0.34);
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.78)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.08), transparent 88%);
+}
+
+.dark .patient-detail-workspace__bridge .clinician-summary-strip__item {
+  border-color: hsl(var(--border) / 0.34);
+  background: hsl(var(--background) / 0.2);
 }
 
 .dark .patient-detail-workspace__tab--active {
@@ -45521,13 +45573,19 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1.34fr) minmax(16rem, 0.66fr);
   gap: clamp(0.9rem, 1.2vw, 1.1rem);
-  align-items: start;
+  align-items: stretch;
+}
+
+.login-page .login-access-grid__main {
+  display: grid;
+  min-width: 0;
 }
 
 .login-page .login-card.auth-surface-card.login-card--editorial {
   justify-self: stretch;
   width: 100%;
   max-width: none;
+  min-height: 100%;
   border-radius: 28px;
   border-color: hsl(var(--border) / 0.52);
   background:
@@ -45559,7 +45617,12 @@ a {
 }
 
 .login-page .login-card__stack {
-  gap: 0.82rem;
+  gap: 0.74rem;
+}
+
+.login-page .login-card__editor {
+  display: grid;
+  gap: 0.72rem;
 }
 
 .login-page .login-context {
@@ -45610,7 +45673,7 @@ a {
 }
 
 .login-page .login-form {
-  gap: 0.82rem;
+  gap: 0.74rem;
 }
 
 .login-page .login-field {
@@ -45652,8 +45715,8 @@ a {
 
 .login-page .login-actions {
   align-items: flex-start;
-  padding-top: 0.1rem;
-  gap: 0.7rem;
+  padding-top: 0;
+  gap: 0.62rem;
 }
 
 .login-page .login-actions .btn {
@@ -45663,12 +45726,15 @@ a {
 .login-page .login-access-trust {
   display: grid;
   gap: 0.72rem;
-  align-self: start;
+  align-self: stretch;
+  min-width: 0;
 }
 
 .login-page .login-access-trust__panel {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.54rem;
+  min-height: 100%;
+  align-content: start;
   padding: 0.95rem 1rem;
   border: 1px solid hsl(var(--border) / 0.34);
   border-radius: 24px;
@@ -45959,7 +46025,7 @@ a {
 
 .patient-detail-page .patient-detail-notices {
   display: grid;
-  gap: 0.72rem;
+  gap: 0.62rem;
 }
 
 .patient-detail-page .patient-detail-notice {
@@ -47144,7 +47210,7 @@ a {
 .settings-page--workspace-phase4 .settings-workspace-main,
 .settings-page--workspace-phase4 .settings-workspace-support {
   display: grid;
-  gap: 1rem;
+  gap: 0.9rem;
   align-content: start;
 }
 
@@ -47241,11 +47307,45 @@ a {
   gap: 0.85rem;
 }
 
+.settings-page--workspace-phase4 .settings-card-footer {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.settings-page--workspace-phase4 .settings-card-footer .settings-actions {
+  justify-content: flex-start;
+}
+
 .settings-page--workspace-phase4 .settings-support-panel,
 .settings-page--workspace-phase4 .settings-maintenance-zone {
   display: grid;
   gap: 0.9rem;
   padding: 1rem;
+}
+
+.settings-page--workspace-phase4 .settings-support-cluster {
+  display: grid;
+  gap: 0.95rem;
+  padding: 1rem;
+  border: 1px solid hsl(var(--border) / 0.32);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.965), hsl(var(--muted) / 0.035)),
+    linear-gradient(145deg, hsl(var(--primary) / 0.01), transparent 88%);
+  box-shadow: none;
+}
+
+.settings-page--workspace-phase4 .settings-support-cluster .settings-support-panel,
+.settings-page--workspace-phase4 .settings-support-cluster .settings-maintenance-zone {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.settings-page--workspace-phase4 .settings-support-cluster .settings-maintenance-zone {
+  padding-top: 0.95rem;
+  border-top: 1px solid hsl(var(--border) / 0.22);
 }
 
 .settings-page--workspace-phase4 .settings-support-panel__intro,
@@ -47338,7 +47438,7 @@ a {
 
 .settings-page--workspace-phase4 .settings-admin-zone__actions--support {
   grid-template-columns: 1fr;
-  gap: 0.72rem;
+  gap: 0.68rem;
 }
 
 .settings-page--workspace-phase4 .settings-admin-action {
@@ -47361,7 +47461,8 @@ a {
 .dark .settings-page--workspace-phase4 .settings-group-card--primary,
 .dark .settings-page--workspace-phase4 .settings-workspace-support .settings-group-card,
 .dark .settings-page--workspace-phase4 .settings-support-panel,
-.dark .settings-page--workspace-phase4 .settings-maintenance-zone {
+.dark .settings-page--workspace-phase4 .settings-maintenance-zone,
+.dark .settings-page--workspace-phase4 .settings-support-cluster {
   border-color: hsl(var(--border) / 0.42);
 }
 
@@ -47375,6 +47476,7 @@ a {
 .dark .settings-page--workspace-phase4 .settings-workspace-support .settings-group-card,
 .dark .settings-page--workspace-phase4 .settings-support-panel,
 .dark .settings-page--workspace-phase4 .settings-maintenance-zone,
+.dark .settings-page--workspace-phase4 .settings-support-cluster,
 .dark .settings-page--workspace-phase4 .settings-control-bar__control,
 .dark .settings-page--workspace-phase4 .settings-profile-summary--reference,
 .dark .settings-page--workspace-phase4 .settings-profile-photo,
@@ -47383,6 +47485,11 @@ a {
 .dark .settings-page--workspace-phase4 .settings-admin-action {
   background: hsl(var(--background) / 0.22);
   border-color: hsl(var(--border) / 0.34);
+}
+
+.dark .settings-page--workspace-phase4 .settings-support-cluster .settings-support-panel,
+.dark .settings-page--workspace-phase4 .settings-support-cluster .settings-maintenance-zone {
+  background: none;
 }
 
 .dark .settings-page--workspace-phase4 .settings-control-bar__pill {
@@ -47422,7 +47529,8 @@ a {
   .settings-page--workspace-phase4 .settings-group-card--primary,
   .settings-page--workspace-phase4 .settings-workspace-support .settings-group-card,
   .settings-page--workspace-phase4 .settings-support-panel,
-  .settings-page--workspace-phase4 .settings-maintenance-zone {
+  .settings-page--workspace-phase4 .settings-maintenance-zone,
+  .settings-page--workspace-phase4 .settings-support-cluster {
     border-radius: 24px;
   }
 }

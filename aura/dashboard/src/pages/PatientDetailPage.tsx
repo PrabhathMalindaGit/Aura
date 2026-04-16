@@ -2829,6 +2829,23 @@ export function PatientDetailPage(): JSX.Element {
   const renderPriorityContextBody = (): JSX.Element => (
     <>
       <section
+        className="patient-detail-focus-card"
+        aria-label="Current review focus"
+        data-testid="patient-detail-current-context"
+      >
+        <p className="patient-detail-focus-card__eyebrow">Current review focus</p>
+        <h2 className="patient-detail-focus-card__title">{currentContextTitle}</h2>
+        <p className="patient-detail-focus-card__text">{currentContextBody}</p>
+        {entryReviewHint ? (
+          <p className="patient-detail-focus-card__hint" data-testid="patient-detail-entry-hint">
+            {entryReviewHint}
+          </p>
+        ) : null}
+      </section>
+
+      <div id="patient-detail-alerts-panel">{renderRecentAlertsPanel()}</div>
+
+      <section
         id="patient-summary-section"
         className="patient-detail-context-section patient-detail-context-section--snapshot"
         aria-label="Priority patient snapshot"
@@ -2846,23 +2863,6 @@ export function PatientDetailPage(): JSX.Element {
           </div>
         </div>
         <PatientSummaryCards metrics={trendSummary} openAlertCount={openAlertCount} />
-      </section>
-
-      <div id="patient-detail-alerts-panel">{renderRecentAlertsPanel()}</div>
-
-      <section
-        className="patient-detail-focus-card"
-        aria-label="Current review focus"
-        data-testid="patient-detail-current-context"
-      >
-        <p className="patient-detail-focus-card__eyebrow">Current review focus</p>
-        <h2 className="patient-detail-focus-card__title">{currentContextTitle}</h2>
-        <p className="patient-detail-focus-card__text">{currentContextBody}</p>
-        {entryReviewHint ? (
-          <p className="patient-detail-focus-card__hint" data-testid="patient-detail-entry-hint">
-            {entryReviewHint}
-          </p>
-        ) : null}
       </section>
 
       {renderPriorityHandoffSummary()}
@@ -2999,7 +2999,6 @@ export function PatientDetailPage(): JSX.Element {
             </article>
           ))}
         </div>
-        <ClinicianSummaryStrip items={patientWorkspaceSummaryItems} />
       </section>
 
       {patientDetailNotices.length > 0 ? (
@@ -3076,6 +3075,10 @@ export function PatientDetailPage(): JSX.Element {
             </div>
           </div>
 
+          <section className="patient-detail-workspace__bridge" aria-label="Patient workspace bridge">
+            <ClinicianSummaryStrip items={patientWorkspaceSummaryItems} />
+          </section>
+
           {activeWorkspaceTab === 'overview' ? (
             <section
               id="patient-detail-workspace-panel-overview"
@@ -3135,11 +3138,13 @@ export function PatientDetailPage(): JSX.Element {
                 </section>
               </section>
 
-              <div className="patient-detail-overview-grid">
-                <Card
+              <div className="patient-detail-overview-bands">
+                <div className="patient-detail-overview-band patient-detail-overview-band--operational">
+                  <div className="patient-detail-overview-grid">
+                    <Card
                   className="patient-detail-panel patient-detail-panel--overview"
                   title="Follow-through digest"
-                >
+                    >
                   <p className="patient-detail-panel__support-meta">
                     Keep this lane short: what still needs response, completion, or follow-up today.
                   </p>
@@ -3203,12 +3208,12 @@ export function PatientDetailPage(): JSX.Element {
                       </p>
                     </article>
                   </div>
-                </Card>
+                    </Card>
 
-                <Card
+                    <Card
                   className="patient-detail-panel patient-detail-panel--overview"
                   title="Guidance digest"
-                >
+                    >
                   <p className="patient-detail-panel__support-meta">
                     Review only the guidance and questionnaires that could change the next clinical decision.
                   </p>
@@ -3269,9 +3274,53 @@ export function PatientDetailPage(): JSX.Element {
                       </p>
                     </article>
                   </div>
-                </Card>
+                    </Card>
+                  </div>
 
-                <Card
+                  <div className="patient-detail-overview-band__full">
+                    <Card
+                      className="patient-detail-panel patient-detail-panel--overview"
+                      title="Recent safety context"
+                    >
+                      <p className="patient-detail-panel__support-meta">
+                        Confirm the trigger-to-resolution chain before changing outreach, thresholds, or plan intensity.
+                      </p>
+                      {patientSafetyEventsQuery.isLoading && recentSafetyEvents.length === 0 ? (
+                        <div className="patient-detail-skeleton-grid" aria-label="Safety context loading placeholder">
+                          <Skeleton height={52} />
+                          <Skeleton height={52} />
+                        </div>
+                      ) : recentSafetyEvents.length === 0 ? (
+                        <EmptyState
+                          title="No recent safety events"
+                          description="New alerts, notification attempts, and clinician actions will appear here."
+                          tone="success"
+                        />
+                      ) : (
+                        <div className="patient-detail-digest-list">
+                          {recentSafetyEvents.map((event) => (
+                            <article key={event.id} className="patient-detail-digest-item">
+                              <div className="patient-detail-digest-item__meta">
+                                <span className="patient-detail-digest-item__label">{event.eventType}</span>
+                                <strong className="patient-detail-digest-item__value">{event.summary}</strong>
+                              </div>
+                              <p className="patient-detail-digest-item__text">
+                                {formatDashboardDateTime(event.occurredAt)}
+                                {event.actor?.name || event.actor?.clinicianId
+                                  ? ` · ${event.actor?.name ?? event.actor?.clinicianId}`
+                                  : ''}
+                              </p>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </div>
+
+                <div className="patient-detail-overview-band patient-detail-overview-band--configuration">
+                  <div className="patient-detail-overview-grid">
+                    <Card
                   className="patient-detail-panel patient-detail-panel--overview"
                   title="Plan and thresholds"
                   action={
@@ -3624,12 +3673,16 @@ export function PatientDetailPage(): JSX.Element {
                       </div>
                     </div>
                   ) : null}
-                </Card>
+                    </Card>
+                  </div>
+                </div>
 
-                <Card
+                <div className="patient-detail-overview-band patient-detail-overview-band--administrative">
+                  <div className="patient-detail-overview-grid">
+                    <Card
                   className="patient-detail-panel patient-detail-panel--overview"
                   title="Caregiver access"
-                >
+                    >
                   <p className="patient-detail-panel__support-meta">
                     Patient-controlled caregiver access stays read-only. Review who can currently see summaries before changing plan intensity or discharge status.
                   </p>
@@ -3864,46 +3917,9 @@ export function PatientDetailPage(): JSX.Element {
                       </label>
                     </div>
                   )}
-                </Card>
-
-
-                <Card
-                  className="patient-detail-panel patient-detail-panel--overview"
-                  title="Recent safety context"
-                >
-                  <p className="patient-detail-panel__support-meta">
-                    Confirm the trigger-to-resolution chain before changing outreach, thresholds, or plan intensity.
-                  </p>
-                  {patientSafetyEventsQuery.isLoading && recentSafetyEvents.length === 0 ? (
-                    <div className="patient-detail-skeleton-grid" aria-label="Safety context loading placeholder">
-                      <Skeleton height={52} />
-                      <Skeleton height={52} />
-                    </div>
-                  ) : recentSafetyEvents.length === 0 ? (
-                    <EmptyState
-                      title="No recent safety events"
-                      description="New alerts, notification attempts, and clinician actions will appear here."
-                      tone="success"
-                    />
-                  ) : (
-                    <div className="patient-detail-digest-list">
-                      {recentSafetyEvents.map((event) => (
-                        <article key={event.id} className="patient-detail-digest-item">
-                          <div className="patient-detail-digest-item__meta">
-                            <span className="patient-detail-digest-item__label">{event.eventType}</span>
-                            <strong className="patient-detail-digest-item__value">{event.summary}</strong>
-                          </div>
-                          <p className="patient-detail-digest-item__text">
-                            {formatDashboardDateTime(event.occurredAt)}
-                            {event.actor?.name || event.actor?.clinicianId
-                              ? ` · ${event.actor?.name ?? event.actor?.clinicianId}`
-                              : ''}
-                          </p>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </Card>
+                    </Card>
+                  </div>
+                </div>
               </div>
             </section>
           ) : null}

@@ -1734,117 +1734,122 @@ export function SettingsPage(): JSX.Element {
             ) : null}
           </Card>
 
-          <section className="settings-support-panel" aria-label="Workspace scope and reference">
-            <div className="settings-support-panel__intro">
-              <p className="settings-support-panel__eyebrow">Reference context</p>
-              <h3 className="settings-support-panel__title">Scope and workspace references</h3>
-              <p className="settings-support-panel__text">
-                Keep shared-shell defaults and immediate browser protection scope visible without
-                interrupting configuration work.
-              </p>
-            </div>
+          <section
+            className="settings-support-cluster"
+            aria-label="Workspace references and maintenance"
+          >
+            <section className="settings-support-panel" aria-label="Workspace scope and reference">
+              <div className="settings-support-panel__intro">
+                <p className="settings-support-panel__eyebrow">Reference context</p>
+                <h3 className="settings-support-panel__title">Scope and workspace references</h3>
+                <p className="settings-support-panel__text">
+                  Keep shared-shell defaults and immediate browser protection scope visible without
+                  interrupting configuration work.
+                </p>
+              </div>
 
-            <section className="settings-display-context" aria-label="Workspace display alignment">
-              <article
-                className="settings-display-context__item"
-                aria-label="Offline warning banner setting status"
-              >
-                <div>
-                  <p className="settings-display-context__label">Shared shell state</p>
-                  <strong>Offline warning banner</strong>
-                  <p className="settings-display-context__text">
-                    Warning display follows the live connection state in Aura&apos;s shared shell for
-                    this browser.
-                  </p>
-                </div>
-                <span className="setting-item__status-note">Shared shell default</span>
-              </article>
+              <section className="settings-display-context" aria-label="Workspace display alignment">
+                <article
+                  className="settings-display-context__item"
+                  aria-label="Offline warning banner setting status"
+                >
+                  <div>
+                    <p className="settings-display-context__label">Shared shell state</p>
+                    <strong>Offline warning banner</strong>
+                    <p className="settings-display-context__text">
+                      Warning display follows the live connection state in Aura&apos;s shared shell for
+                      this browser.
+                    </p>
+                  </div>
+                  <span className="setting-item__status-note">Shared shell default</span>
+                </article>
 
-              <article
-                className="settings-display-context__item"
-                aria-label="Compact table density setting status"
-              >
-                <div>
-                  <p className="settings-display-context__label">Workspace density</p>
-                  <strong>Compact table mode</strong>
-                  <p className="settings-display-context__text">
-                    Table density currently follows Aura Clinician&apos;s shared workspace default in
-                    this browser.
+                <article
+                  className="settings-display-context__item"
+                  aria-label="Compact table density setting status"
+                >
+                  <div>
+                    <p className="settings-display-context__label">Workspace density</p>
+                    <strong>Compact table mode</strong>
+                    <p className="settings-display-context__text">
+                      Table density currently follows Aura Clinician&apos;s shared workspace default in
+                      this browser.
+                    </p>
+                  </div>
+                  <span className="setting-item__status-note">Shared workspace default</span>
+                </article>
+              </section>
+
+              <div className="settings-support-notes" aria-label="Local protection notes">
+                <article className="settings-support-note">
+                  <p className="settings-support-note__label">Current session timing</p>
+                  <p className="settings-support-note__value">{sessionSummaryLabel}</p>
+                  <p className="settings-support-note__text">
+                    Auto-logout timing updates the current browser session manager right away.
                   </p>
-                </div>
-                <span className="setting-item__status-note">Shared workspace default</span>
-              </article>
+                </article>
+
+                <article className="settings-support-note">
+                  <p className="settings-support-note__label">Warning ladder</p>
+                  <p className="settings-support-note__value">{timeoutWarningLabel}</p>
+                  <p className="settings-support-note__text">
+                    Quiet hours reduce secondary emphasis only and never remove core alert visibility.
+                  </p>
+                </article>
+              </div>
+
+              <AlertBanner
+                className="settings-guidance-banner"
+                variant="info"
+                title="Local workspace guidance"
+              >
+                Settings on this page are browser-backed. They change how this clinician workspace
+                behaves on this device, but they do not publish shared product-wide preferences.
+              </AlertBanner>
             </section>
 
-            <div className="settings-support-notes" aria-label="Local protection notes">
-              <article className="settings-support-note">
-                <p className="settings-support-note__label">Current session timing</p>
-                <p className="settings-support-note__value">{sessionSummaryLabel}</p>
-                <p className="settings-support-note__text">
-                  Auto-logout timing updates the current browser session manager right away.
+            <section className="settings-maintenance-zone" aria-label="Restore and maintenance actions">
+              <div className="settings-maintenance-zone__intro">
+                <p className="settings-support-panel__eyebrow">Maintenance</p>
+                <h3 className="settings-support-panel__title">Lower-priority resets</h3>
+                <p className="settings-support-panel__text">
+                  Keep resets available without letting them compete with day-to-day workspace
+                  changes.
                 </p>
-              </article>
+              </div>
 
-              <article className="settings-support-note">
-                <p className="settings-support-note__label">Warning ladder</p>
-                <p className="settings-support-note__value">{timeoutWarningLabel}</p>
-                <p className="settings-support-note__text">
-                  Quiet hours reduce secondary emphasis only and never remove core alert visibility.
-                </p>
-              </article>
-            </div>
+              <div className="settings-admin-zone__actions settings-admin-zone__actions--support">
+                <article className="settings-admin-action">
+                  <div className="settings-admin-action__copy">
+                    <p className="settings-admin-action__eyebrow">Profile draft</p>
+                    <h4 className="settings-admin-action__title">
+                      Restore workspace profile defaults
+                    </h4>
+                    <p className="settings-admin-action__text">
+                      Reset the editable profile form to Aura&apos;s local defaults. The saved browser
+                      profile does not change until you save again.
+                    </p>
+                  </div>
+                  <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
+                    Restore defaults
+                  </Button>
+                </article>
 
-            <AlertBanner
-              className="settings-guidance-banner"
-              variant="info"
-              title="Local workspace guidance"
-            >
-              Settings on this page are browser-backed. They change how this clinician workspace
-              behaves on this device, but they do not publish shared product-wide preferences.
-            </AlertBanner>
-          </section>
-
-          <section className="settings-maintenance-zone" aria-label="Restore and maintenance actions">
-            <div className="settings-maintenance-zone__intro">
-              <p className="settings-support-panel__eyebrow">Maintenance</p>
-              <h3 className="settings-support-panel__title">Lower-priority resets</h3>
-              <p className="settings-support-panel__text">
-                Keep resets available without letting them compete with day-to-day workspace
-                changes.
-              </p>
-            </div>
-
-            <div className="settings-admin-zone__actions settings-admin-zone__actions--support">
-              <article className="settings-admin-action">
-                <div className="settings-admin-action__copy">
-                  <p className="settings-admin-action__eyebrow">Profile draft</p>
-                  <h4 className="settings-admin-action__title">
-                    Restore workspace profile defaults
-                  </h4>
-                  <p className="settings-admin-action__text">
-                    Reset the editable profile form to Aura&apos;s local defaults. The saved browser
-                    profile does not change until you save again.
-                  </p>
-                </div>
-                <Button variant="ghost" onClick={handleRestoreProfileDefaults}>
-                  Restore defaults
-                </Button>
-              </article>
-
-              <article className="settings-admin-action settings-admin-action--protection">
-                <div className="settings-admin-action__copy">
-                  <p className="settings-admin-action__eyebrow">Session protection</p>
-                  <h4 className="settings-admin-action__title">Restore session defaults</h4>
-                  <p className="settings-admin-action__text">
-                    Return this browser&apos;s idle and absolute session timing to the default
-                    protection policy.
-                  </p>
-                </div>
-                <Button variant="secondary" onClick={handleRestoreSessionDefaults}>
-                  Restore session defaults
-                </Button>
-              </article>
-            </div>
+                <article className="settings-admin-action settings-admin-action--protection">
+                  <div className="settings-admin-action__copy">
+                    <p className="settings-admin-action__eyebrow">Session protection</p>
+                    <h4 className="settings-admin-action__title">Restore session defaults</h4>
+                    <p className="settings-admin-action__text">
+                      Return this browser&apos;s idle and absolute session timing to the default
+                      protection policy.
+                    </p>
+                  </div>
+                  <Button variant="secondary" onClick={handleRestoreSessionDefaults}>
+                    Restore session defaults
+                  </Button>
+                </article>
+              </div>
+            </section>
           </section>
         </aside>
       </section>

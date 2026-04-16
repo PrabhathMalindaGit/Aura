@@ -171,110 +171,114 @@ export function ClinicianLoginPage(): JSX.Element {
           </header>
 
           <div className="login-access-grid">
-            <Card
-              className="login-card auth-surface-card login-card--editorial"
-              title={
-                <span className="login-card__title-shell">
-                  <span className="login-card__title">Sign in to continue</span>
-                </span>
-              }
-            >
-              <div className="page-stack login-card__stack">
-                <section className="login-context" aria-live="polite">
-                  <div className="login-context__summary">
-                    <span className="login-context__state">{reasonLabel(state.reason)}</span>
-                    <p className="login-context__summary-copy">
-                      {state.reason === 'expired'
-                        ? 'Re-enter to continue clinician review.'
-                        : state.reason === 'signedOut'
-                          ? 'Access has been closed for this session.'
-                          : 'Protected access is required.'}
-                    </p>
-                  </div>
-                  <p className="login-context__message">{reasonMessage(state.reason)}</p>
-                </section>
-
-                {error ? (
-                  <AlertBanner className="login-error-banner" variant="error" title="Sign-in failed">
-                    {error}
-                  </AlertBanner>
-                ) : null}
-
-                <form className="login-form" onSubmit={(event) => void handleSubmit(event)}>
-                  <label className="login-field" htmlFor="login-email">
-                    <span>Email</span>
-                    <input
-                      id="login-email"
-                      type="email"
-                      value={email}
-                      autoComplete="username"
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="clinician@example.com"
-                      required
-                    />
-                  </label>
-
-                  <div className="login-field login-field--password">
-                    <div className="login-field__header">
-                      <label htmlFor="login-password">Password</label>
-                      <button
-                        type="button"
-                        className="login-field__toggle"
-                        onClick={() => setShowPassword((current) => !current)}
-                        aria-controls="login-password"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                    <input
-                      id="login-password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      autoComplete="current-password"
-                      onChange={(event) => setPassword(event.target.value)}
-                      placeholder="••••••••"
-                      required
-                    />
-                  </div>
-
-                  <div className="login-form__support">
-                    <button
-                      type="button"
-                      className="login-form__link"
-                      aria-expanded={forgotPasswordHelpOpen}
-                      onClick={() => setForgotPasswordHelpOpen((current) => !current)}
-                    >
-                      Forgot password?
-                    </button>
-                    {forgotPasswordHelpOpen ? (
-                      <p className="login-form__help" role="note">
-                        Password recovery is handled outside this dashboard right now. Use your clinic
-                        administrator&apos;s recovery process before trying again.
+            <div className="login-access-grid__main">
+              <Card
+                className="login-card auth-surface-card login-card--editorial"
+                title={
+                  <span className="login-card__title-shell">
+                    <span className="login-card__title">Sign in to continue</span>
+                  </span>
+                }
+              >
+                <div className="page-stack login-card__stack">
+                  <section className="login-context" aria-live="polite">
+                    <div className="login-context__summary">
+                      <span className="login-context__state">{reasonLabel(state.reason)}</span>
+                      <p className="login-context__summary-copy">
+                        {state.reason === 'expired'
+                          ? 'Re-enter to continue clinician review.'
+                          : state.reason === 'signedOut'
+                            ? 'Access has been closed for this session.'
+                            : 'Protected access is required.'}
                       </p>
-                    ) : null}
-                  </div>
+                    </div>
+                    <p className="login-context__message">{reasonMessage(state.reason)}</p>
+                  </section>
 
-                  <div className="inline-actions login-actions">
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? 'Signing in...' : 'Sign in'}
-                    </Button>
-                    {showDemoCredentials ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => {
-                          setEmail(DEMO_EMAIL);
-                          setPassword(DEMO_PASSWORD);
-                        }}
-                      >
-                        Use local demo credentials
-                      </Button>
+                  <div className="login-card__editor">
+                    {error ? (
+                      <AlertBanner className="login-error-banner" variant="error" title="Sign-in failed">
+                        {error}
+                      </AlertBanner>
                     ) : null}
+
+                    <form className="login-form" onSubmit={(event) => void handleSubmit(event)}>
+                      <label className="login-field" htmlFor="login-email">
+                        <span>Email</span>
+                        <input
+                          id="login-email"
+                          type="email"
+                          value={email}
+                          autoComplete="username"
+                          onChange={(event) => setEmail(event.target.value)}
+                          placeholder="clinician@example.com"
+                          required
+                        />
+                      </label>
+
+                      <div className="login-field login-field--password">
+                        <div className="login-field__header">
+                          <label htmlFor="login-password">Password</label>
+                          <button
+                            type="button"
+                            className="login-field__toggle"
+                            onClick={() => setShowPassword((current) => !current)}
+                            aria-controls="login-password"
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showPassword ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                        <input
+                          id="login-password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          autoComplete="current-password"
+                          onChange={(event) => setPassword(event.target.value)}
+                          placeholder="••••••••"
+                          required
+                        />
+                      </div>
+
+                      <div className="login-form__support">
+                        <button
+                          type="button"
+                          className="login-form__link"
+                          aria-expanded={forgotPasswordHelpOpen}
+                          onClick={() => setForgotPasswordHelpOpen((current) => !current)}
+                        >
+                          Forgot password?
+                        </button>
+                        {forgotPasswordHelpOpen ? (
+                          <p className="login-form__help" role="note">
+                            Password recovery is handled outside this dashboard right now. Use your clinic
+                            administrator&apos;s recovery process before trying again.
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="inline-actions login-actions">
+                        <Button type="submit" disabled={isSubmitting}>
+                          {isSubmitting ? 'Signing in...' : 'Sign in'}
+                        </Button>
+                        {showDemoCredentials ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => {
+                              setEmail(DEMO_EMAIL);
+                              setPassword(DEMO_PASSWORD);
+                            }}
+                          >
+                            Use local demo credentials
+                          </Button>
+                        ) : null}
+                      </div>
+                    </form>
                   </div>
-                </form>
-              </div>
-            </Card>
+                </div>
+              </Card>
+            </div>
 
             <aside className="login-access-trust" aria-label="Access context">
               <div className="login-access-trust__panel">

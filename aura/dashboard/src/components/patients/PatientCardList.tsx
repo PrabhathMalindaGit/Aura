@@ -48,6 +48,12 @@ export function PatientCardList({
               : status === 'discharged'
                 ? 'Discharged reference'
                 : 'Stable review';
+        const actionSupportLabel =
+          hasOpenAlertCount || missedCheckin
+            ? 'Open review now'
+            : status === 'discharged'
+              ? 'Open summary'
+              : 'Open patient context';
         const initials = displayName
           .split(/\s+/)
           .filter(Boolean)
@@ -116,6 +122,20 @@ export function PatientCardList({
               </div>
 
               <div className="patients-card-list__actions">
+                <div className="patients-card-list__actions-primary">
+                  <div className="patients-card-list__actions-copy">
+                    <span className="patients-card-list__action-label">Next step</span>
+                    <span className="patients-card-list__action-note">{actionSupportLabel}</span>
+                  </div>
+                  <Button
+                    className="patients-card-list__view"
+                    variant="secondary"
+                    fullWidth
+                    onClick={() => onOpenPatient(patient.id)}
+                  >
+                    Open review
+                  </Button>
+                </div>
                 <div className="patients-card-list__actions-secondary">
                   <Button
                     className="patients-card-list__compare"
@@ -128,25 +148,6 @@ export function PatientCardList({
                     } ${displayName} ${isSelectedForCompare ? 'from' : 'to'} compare`}
                   >
                     {isSelectedForCompare ? 'Remove from compare' : 'Add to compare'}
-                  </Button>
-                </div>
-                <div className="patients-card-list__actions-primary">
-                  <div className="patients-card-list__actions-copy">
-                    <span className="patients-card-list__action-note">
-                      {hasOpenAlertCount || missedCheckin
-                        ? 'Open review now'
-                        : status === 'discharged'
-                          ? 'Open summary'
-                          : 'Open patient context'}
-                    </span>
-                  </div>
-                  <Button
-                    className="patients-card-list__view"
-                    variant="secondary"
-                    fullWidth
-                    onClick={() => onOpenPatient(patient.id)}
-                  >
-                    Open review
                   </Button>
                 </div>
               </div>

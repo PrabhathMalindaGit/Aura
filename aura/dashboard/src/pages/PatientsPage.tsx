@@ -463,59 +463,63 @@ export function PatientsPage(): JSX.Element {
 
       <section className="roster-surface" aria-label="Roster workspace">
         <div className="roster-control-bar">
-          <PatientsFiltersBar
-            filters={filters}
-            presets={presetButtons}
-            onSearchChange={(search) => {
-              searchPersistenceEnabledRef.current = true;
-              setFilters((current) => ({ ...current, search }));
-            }}
-            onStatusChange={(status) => applyNonSearchFilters({ status })}
-            onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
-              applyNonSearchFilters({ hasOpenAlertsOnly })
-            }
-            onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
-              applyNonSearchFilters({ missedCheckinsOnly })
-            }
-            onRecentlyActiveChange={(recentlyActive) => applyNonSearchFilters({ recentlyActive })}
-            onSortChange={(sort) => applyNonSearchFilters({ sort })}
-            onReset={clearSavedPatientsState}
-          />
+          <div className="roster-control-bar__stack">
+            <PatientsFiltersBar
+              filters={filters}
+              presets={presetButtons}
+              onSearchChange={(search) => {
+                searchPersistenceEnabledRef.current = true;
+                setFilters((current) => ({ ...current, search }));
+              }}
+              onStatusChange={(status) => applyNonSearchFilters({ status })}
+              onHasOpenAlertsOnlyChange={(hasOpenAlertsOnly) =>
+                applyNonSearchFilters({ hasOpenAlertsOnly })
+              }
+              onMissedCheckinsOnlyChange={(missedCheckinsOnly) =>
+                applyNonSearchFilters({ missedCheckinsOnly })
+              }
+              onRecentlyActiveChange={(recentlyActive) => applyNonSearchFilters({ recentlyActive })}
+              onSortChange={(sort) => applyNonSearchFilters({ sort })}
+              onReset={clearSavedPatientsState}
+            />
 
-          {comparePatients.length > 0 ? (
-            <div
-              className="patients-compare-tray patients-compare-tray--inline"
-              role="group"
-              aria-label="Patients selected for compare"
-            >
-              <div className="patients-compare-tray__summary" aria-live="polite">
-                <span className="patients-compare-tray__count">{comparePatients.length} selected</span>
-                <div className="patients-compare-tray__chips">
-                  {comparePreviewPatients.map((patient) => (
-                    <span key={patient.id} className="patients-compare-tray__chip">
-                      {getPatientDisplayName(patient)}
-                    </span>
-                  ))}
+            {comparePatients.length > 0 ? (
+              <div className="roster-control-bar__compare">
+                <div
+                  className="patients-compare-tray patients-compare-tray--inline"
+                  role="group"
+                  aria-label="Patients selected for compare"
+                >
+                  <div className="patients-compare-tray__summary" aria-live="polite">
+                    <span className="patients-compare-tray__count">{comparePatients.length} selected</span>
+                    <div className="patients-compare-tray__chips">
+                      {comparePreviewPatients.map((patient) => (
+                        <span key={patient.id} className="patients-compare-tray__chip">
+                          {getPatientDisplayName(patient)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="patients-compare-tray__actions">
+                    <Button variant="ghost" size="sm" onClick={clearComparePatients}>
+                      Clear
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={openCompareMode}
+                      disabled={comparePatients.length < 2}
+                      aria-label={`Compare ${comparePatients.length} selected patient${
+                        comparePatients.length === 1 ? '' : 's'
+                      }`}
+                    >
+                      Compare selected ({comparePatients.length})
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="patients-compare-tray__actions">
-                <Button variant="ghost" size="sm" onClick={clearComparePatients}>
-                  Clear
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={openCompareMode}
-                  disabled={comparePatients.length < 2}
-                  aria-label={`Compare ${comparePatients.length} selected patient${
-                    comparePatients.length === 1 ? '' : 's'
-                  }`}
-                >
-                  Compare selected ({comparePatients.length})
-                </Button>
-              </div>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
         <div className="roster-results">

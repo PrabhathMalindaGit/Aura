@@ -169,12 +169,14 @@ export function PatientsTable({
                     >
                       {formatRelativeDate(patient.lastCheckinAt)}
                     </time>
-                    <span className="patients-table__checkin-detail">{formatDateTime(patient.lastCheckinAt)}</span>
-                    {missedCheckin ? (
-                      <Badge className="patients-table__missed-badge" variant="warning" icon>
-                        Missed check-in
-                      </Badge>
-                    ) : null}
+                    <div className="patients-table__checkin-meta">
+                      <span className="patients-table__checkin-detail">{formatDateTime(patient.lastCheckinAt)}</span>
+                      {missedCheckin ? (
+                        <Badge className="patients-table__missed-badge" variant="warning" icon>
+                          Missed check-in
+                        </Badge>
+                      ) : null}
+                    </div>
                   </div>
                 </td>
                 <td className="patients-table__cell patients-table__cell--signals">
@@ -195,6 +197,7 @@ export function PatientsTable({
                     onClick={(event) => event.stopPropagation()}
                   >
                     <div className="patients-table__actions-copy">
+                      <span className="patients-table__action-label">Next step</span>
                       <span className="patients-table__action-note">{actionSupportLabel}</span>
                     </div>
                     <Button

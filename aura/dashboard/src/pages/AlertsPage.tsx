@@ -1269,103 +1269,105 @@ export function AlertsPage(): JSX.Element {
 
       <div className="safety-layout">
         <section className="safety-queue-surface" aria-label="Safety triage workspace">
-          <header className="safety-queue-surface__header">
-            <div className="safety-queue-surface__intro">
-              {openedFromChat ? (
-                <p className="alerts-chat-origin-note" data-testid="alerts-chat-origin-note">
-                  {chatOriginPatientId
-                    ? `Opened from patient communication for ${chatOriginPatientId}. Keep alert review anchored to this patient context.`
-                    : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
-                </p>
-              ) : null}
-              <p className="safety-queue-surface__eyebrow">{statusViewLabel}</p>
-              <h3 className="safety-queue-surface__title">Alert list</h3>
-              <p className="safety-queue-surface__text">{queueFollowThroughText}</p>
-            </div>
-            <div className="safety-queue-surface__meta" aria-live="polite">
-              <span className="safety-queue-surface__meta-pill">{queueCountLabel}</span>
-              {isMobileLayout ? (
-                <Button
-                  className="safety-queue-surface__export"
-                  variant="secondary"
-                  size="sm"
-                  onClick={openAlertsExportModal}
-                >
-                  Export CSV
-                </Button>
-              ) : null}
-            </div>
-          </header>
+          <div className="safety-queue-surface__console">
+            <header className="safety-queue-surface__header">
+              <div className="safety-queue-surface__intro">
+                {openedFromChat ? (
+                  <p className="alerts-chat-origin-note" data-testid="alerts-chat-origin-note">
+                    {chatOriginPatientId
+                      ? `Opened from patient communication for ${chatOriginPatientId}. Keep alert review anchored to this patient context.`
+                      : 'Opened from patient communication. Keep alert review anchored to the current patient context.'}
+                  </p>
+                ) : null}
+                <p className="safety-queue-surface__eyebrow">{statusViewLabel}</p>
+                <h3 className="safety-queue-surface__title">Alert list</h3>
+                <p className="safety-queue-surface__text">{queueFollowThroughText}</p>
+              </div>
+              <div className="safety-queue-surface__meta" aria-live="polite">
+                <span className="safety-queue-surface__meta-pill">{queueCountLabel}</span>
+                {isMobileLayout ? (
+                  <Button
+                    className="safety-queue-surface__export"
+                    variant="secondary"
+                    size="sm"
+                    onClick={openAlertsExportModal}
+                  >
+                    Export CSV
+                  </Button>
+                ) : null}
+              </div>
+            </header>
 
-          <div className="safety-queue-surface__controls">
-            <FiltersBar
-              status={status}
-              searchValue={searchValue}
-              sourceFilter={sourceFilter}
-              timeRange={timeRange}
-              sortOrder={sortOrder}
-              unseenOnly={unseenOnly}
-              unseenCount={unseenCount}
-              assignedToMeOnly={assignedToMeOnly}
-              unassignedOnly={unassignedOnly}
-              overriddenOnly={overriddenOnly}
-              refreshing={alertsQuery.isFetching}
-              onSearchValueChange={(value) => {
-                searchPersistenceEnabledRef.current = true;
-                setSearchValue(value);
-              }}
-              onSourceFilterChange={(value) => {
-                setSourceFilter(value);
-                persistAlertsWorkspaceState({ sourceFilter: value }, { persistSearch: false });
-              }}
-              onTimeRangeChange={(value) => {
-                setTimeRange(value);
-                persistAlertsWorkspaceState({ timeRange: value }, { persistSearch: false });
-              }}
-              onSortOrderChange={(value) => {
-                setSortOrder(value);
-                persistAlertsWorkspaceState({ sortOrder: value }, { persistSearch: false });
-              }}
-              onUnseenOnlyChange={(value) => {
-                setUnseenOnly(value);
-                persistAlertsWorkspaceState({ unseenOnly: value }, { persistSearch: false });
-              }}
-              onAssignedToMeOnlyChange={(value) => {
-                setAssignedToMeOnly(value);
-                const nextUnassignedOnly = value ? false : unassignedOnly;
-                if (value) {
-                  setUnassignedOnly(false);
-                }
-                persistAlertsWorkspaceState(
-                  {
-                    assignedToMeOnly: value,
-                    unassignedOnly: nextUnassignedOnly,
-                  },
-                  { persistSearch: false },
-                );
-              }}
-              onUnassignedOnlyChange={(value) => {
-                setUnassignedOnly(value);
-                const nextAssignedToMeOnly = value ? false : assignedToMeOnly;
-                if (value) {
-                  setAssignedToMeOnly(false);
-                }
-                persistAlertsWorkspaceState(
-                  {
-                    assignedToMeOnly: nextAssignedToMeOnly,
-                    unassignedOnly: value,
-                  },
-                  { persistSearch: false },
-                );
-              }}
-              onOverriddenOnlyChange={(value) => {
-                setOverriddenOnly(value);
-                persistAlertsWorkspaceState({ overriddenOnly: value }, { persistSearch: false });
-              }}
-              onRefresh={() => {
-                void alertsQuery.refetch();
-              }}
-            />
+            <div className="safety-queue-surface__controls">
+              <FiltersBar
+                status={status}
+                searchValue={searchValue}
+                sourceFilter={sourceFilter}
+                timeRange={timeRange}
+                sortOrder={sortOrder}
+                unseenOnly={unseenOnly}
+                unseenCount={unseenCount}
+                assignedToMeOnly={assignedToMeOnly}
+                unassignedOnly={unassignedOnly}
+                overriddenOnly={overriddenOnly}
+                refreshing={alertsQuery.isFetching}
+                onSearchValueChange={(value) => {
+                  searchPersistenceEnabledRef.current = true;
+                  setSearchValue(value);
+                }}
+                onSourceFilterChange={(value) => {
+                  setSourceFilter(value);
+                  persistAlertsWorkspaceState({ sourceFilter: value }, { persistSearch: false });
+                }}
+                onTimeRangeChange={(value) => {
+                  setTimeRange(value);
+                  persistAlertsWorkspaceState({ timeRange: value }, { persistSearch: false });
+                }}
+                onSortOrderChange={(value) => {
+                  setSortOrder(value);
+                  persistAlertsWorkspaceState({ sortOrder: value }, { persistSearch: false });
+                }}
+                onUnseenOnlyChange={(value) => {
+                  setUnseenOnly(value);
+                  persistAlertsWorkspaceState({ unseenOnly: value }, { persistSearch: false });
+                }}
+                onAssignedToMeOnlyChange={(value) => {
+                  setAssignedToMeOnly(value);
+                  const nextUnassignedOnly = value ? false : unassignedOnly;
+                  if (value) {
+                    setUnassignedOnly(false);
+                  }
+                  persistAlertsWorkspaceState(
+                    {
+                      assignedToMeOnly: value,
+                      unassignedOnly: nextUnassignedOnly,
+                    },
+                    { persistSearch: false },
+                  );
+                }}
+                onUnassignedOnlyChange={(value) => {
+                  setUnassignedOnly(value);
+                  const nextAssignedToMeOnly = value ? false : assignedToMeOnly;
+                  if (value) {
+                    setAssignedToMeOnly(false);
+                  }
+                  persistAlertsWorkspaceState(
+                    {
+                      assignedToMeOnly: nextAssignedToMeOnly,
+                      unassignedOnly: value,
+                    },
+                    { persistSearch: false },
+                  );
+                }}
+                onOverriddenOnlyChange={(value) => {
+                  setOverriddenOnly(value);
+                  persistAlertsWorkspaceState({ overriddenOnly: value }, { persistSearch: false });
+                }}
+                onRefresh={() => {
+                  void alertsQuery.refetch();
+                }}
+              />
+            </div>
           </div>
 
           <div className="safety-queue-surface__results">
@@ -1534,70 +1536,72 @@ export function AlertsPage(): JSX.Element {
               </div>
             </section>
 
-            {status === 'open' && lastTriageOutcome && !activeAlert ? (
-              <div
-                className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status} alerts-triage-outcome--side`}
-                data-testid="alerts-triage-outcome"
-                role="status"
-                aria-live="polite"
-              >
-                <div className="alerts-triage-outcome__copy">
-                  <p className="alerts-triage-outcome__eyebrow">Latest triage</p>
-                  <strong className="alerts-triage-outcome__title">{triageOutcomeTitle}</strong>
-                  <p className="alerts-triage-outcome__text">
-                    Alert for {lastTriageOutcome.patientId} moved out of Open and is now visible in{' '}
-                    {triageOutcomeDestinationLabel}.
-                  </p>
-                  <p className="alerts-triage-outcome__next">{triageOutcomeFollowThrough}</p>
+            <div className="safety-detail-rail__body">
+              {status === 'open' && lastTriageOutcome && !activeAlert ? (
+                <div
+                  className={`alerts-triage-outcome alerts-triage-outcome--${lastTriageOutcome.status} alerts-triage-outcome--side`}
+                  data-testid="alerts-triage-outcome"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="alerts-triage-outcome__copy">
+                    <p className="alerts-triage-outcome__eyebrow">Latest triage</p>
+                    <strong className="alerts-triage-outcome__title">{triageOutcomeTitle}</strong>
+                    <p className="alerts-triage-outcome__text">
+                      Alert for {lastTriageOutcome.patientId} moved out of Open and is now visible in{' '}
+                      {triageOutcomeDestinationLabel}.
+                    </p>
+                    <p className="alerts-triage-outcome__next">{triageOutcomeFollowThrough}</p>
+                  </div>
+                  <div className="alerts-triage-outcome__actions">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        handleStatusChange(lastTriageOutcome.status);
+                      }}
+                    >
+                      {lastTriageOutcome.status === 'resolved' ? 'View resolved' : 'View acknowledged'}
+                    </Button>
+                  </div>
                 </div>
-                <div className="alerts-triage-outcome__actions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      handleStatusChange(lastTriageOutcome.status);
-                    }}
-                  >
-                    {lastTriageOutcome.status === 'resolved' ? 'View resolved' : 'View acknowledged'}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
+              ) : null}
 
-            {activeAlert ? (
-              <AlertDetailDrawer
-                presentation="inline"
-                open={Boolean(activeAlert)}
-                alert={activeAlert}
-                mutationPending={updateAlertMutation.isPending}
-                assignmentPending={assignments.assignmentBusy}
-                overridePending={overrides.overrideBusy}
-                clinicianId={clinicianId}
-                seen={activeAlertSeen}
-                returnFocusRef={drawerFocusReturnRef}
-                onOpenPatient={openPatientFromAlert}
-                onClose={() => setSelectedAlert(null)}
-                onAssignToMe={handleAssignToMe}
-                onTakeOver={handleTakeOver}
-                onUnassign={handleUnassign}
-                onSaveRiskOverride={handleSaveRiskOverride}
-                onClearRiskOverride={handleClearRiskOverride}
-                onAcknowledge={(alert) => {
-                  void handleStatusUpdate('acknowledged', alert);
-                }}
-                onResolve={(alert) => {
-                  void handleStatusUpdate('resolved', alert);
-                }}
-              />
-            ) : (
-              <section className="safety-detail-empty" role="status" aria-live="polite" aria-label="Alert detail">
-                <p className="safety-detail-empty__eyebrow">Persistent detail</p>
-                <h3 className="safety-detail-empty__title">No alert selected</h3>
-                <p className="safety-detail-empty__text">
-                  Choose an alert from the list to keep patient context, ownership, and action controls visible beside the queue.
-                </p>
-              </section>
-            )}
+              {activeAlert ? (
+                <AlertDetailDrawer
+                  presentation="inline"
+                  open={Boolean(activeAlert)}
+                  alert={activeAlert}
+                  mutationPending={updateAlertMutation.isPending}
+                  assignmentPending={assignments.assignmentBusy}
+                  overridePending={overrides.overrideBusy}
+                  clinicianId={clinicianId}
+                  seen={activeAlertSeen}
+                  returnFocusRef={drawerFocusReturnRef}
+                  onOpenPatient={openPatientFromAlert}
+                  onClose={() => setSelectedAlert(null)}
+                  onAssignToMe={handleAssignToMe}
+                  onTakeOver={handleTakeOver}
+                  onUnassign={handleUnassign}
+                  onSaveRiskOverride={handleSaveRiskOverride}
+                  onClearRiskOverride={handleClearRiskOverride}
+                  onAcknowledge={(alert) => {
+                    void handleStatusUpdate('acknowledged', alert);
+                  }}
+                  onResolve={(alert) => {
+                    void handleStatusUpdate('resolved', alert);
+                  }}
+                />
+              ) : (
+                <section className="safety-detail-empty" role="status" aria-live="polite" aria-label="Alert detail">
+                  <p className="safety-detail-empty__eyebrow">Persistent detail</p>
+                  <h3 className="safety-detail-empty__title">No alert selected</h3>
+                  <p className="safety-detail-empty__text">
+                    Choose an alert from the list to keep patient context, ownership, and action controls visible beside the queue.
+                  </p>
+                </section>
+              )}
+            </div>
           </aside>
         ) : null}
       </div>

@@ -393,56 +393,70 @@ export function AlertDetailDrawer({
         </div>
       </section>
 
-      {assignmentBlocked ? (
-        <AlertBanner variant="warning" title="Action blocked by assignment">
-          Assigned to {effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}. Take over to enable
-          acknowledge and resolve.
-        </AlertBanner>
+      {assignmentBlocked || agedOpen || effectiveAlert.notificationStatus === 'failed' || alertContextQuery.error || uiNotice ? (
+        <div className="alerts-detail-panel__notice-band">
+          {assignmentBlocked ? (
+            <AlertBanner variant="warning" title="Action blocked by assignment">
+              Assigned to {effectiveAlert.assignedToName ?? effectiveAlert.assignedTo}. Take over to enable
+              acknowledge and resolve.
+            </AlertBanner>
+          ) : null}
+
+          {agedOpen ? (
+            <AlertBanner variant="warning" title="Open alert is aging">
+              This alert has been open for more than 24 hours. Keep ownership and resolution context visible while you triage.
+            </AlertBanner>
+          ) : null}
+
+          {effectiveAlert.notificationStatus === 'failed' ? (
+            <AlertBanner variant="warning" title="Notification delivery failed">
+              Outreach delivery failed for this alert. Review notification attempts before closing the safety workflow.
+            </AlertBanner>
+          ) : null}
+
+          {alertContextQuery.error ? (
+            <AlertBanner variant="warning" title="Could not load extended context">
+              {toUserMessage(asAppError(alertContextQuery.error))}
+            </AlertBanner>
+          ) : null}
+
+          {uiNotice ? (
+            <AlertBanner variant="info" title="Action note">
+              {uiNotice}
+            </AlertBanner>
+          ) : null}
+        </div>
       ) : null}
 
-      {agedOpen ? (
-        <AlertBanner variant="warning" title="Open alert is aging">
-          This alert has been open for more than 24 hours. Keep ownership and resolution context visible while you triage.
-        </AlertBanner>
-      ) : null}
+      <div className="alerts-detail-panel__operational">
+        <TriggeringEventPanel
+          event={alertContextQuery.data?.triggeringEvent}
+          loading={alertContextQuery.isFetching}
+          onFetchDetails={() => {
+            void alertContextQuery.refetch();
+          }}
+          fetchDisabled={alertContextQuery.isFetching}
+        />
 
-      {effectiveAlert.notificationStatus === 'failed' ? (
-        <AlertBanner variant="warning" title="Notification delivery failed">
-          Outreach delivery failed for this alert. Review notification attempts before closing the safety workflow.
-        </AlertBanner>
-      ) : null}
+        <NotificationPanel
+          alert={effectiveAlert}
+          busy={retryNotificationMutation.isPending}
+          onRetry={handleRetryNotification}
+        />
+      </div>
 
-      {alertContextQuery.error ? (
-        <AlertBanner variant="warning" title="Could not load extended context">
-          {toUserMessage(asAppError(alertContextQuery.error))}
-        </AlertBanner>
-      ) : null}
+      <div className="alerts-detail-panel__timeline-zone">
+        <AlertTimeline events={timeline} loading={alertContextQuery.isFetching && timeline.length === 0} />
+      </div>
 
-      {uiNotice ? <AlertBanner variant="info" title="Action note">{uiNotice}</AlertBanner> : null}
-
-      <TriggeringEventPanel
-        event={alertContextQuery.data?.triggeringEvent}
-        loading={alertContextQuery.isFetching}
-        onFetchDetails={() => {
-          void alertContextQuery.refetch();
-        }}
-        fetchDisabled={alertContextQuery.isFetching}
-      />
-
-      <NotificationPanel
-        alert={effectiveAlert}
-        busy={retryNotificationMutation.isPending}
-        onRetry={handleRetryNotification}
-      />
-
-      <AlertTimeline events={timeline} loading={alertContextQuery.isFetching && timeline.length === 0} />
-
-      <RiskOverrideForm
-        alert={effectiveAlert}
-        saving={overridePending}
-        onSave={(payload) => onSaveRiskOverride(effectiveAlert, payload)}
-        onClear={() => onClearRiskOverride(effectiveAlert)}
-      />
+      <div className="alerts-detail-panel__override-zone">
+        <RiskOverrideForm
+          alert={effectiveAlert}
+          saving={overridePending}
+          onSave={(payload) => onSaveRiskOverride(effectiveAlert, payload)}
+          onClear={() => onClearRiskOverride(effectiveAlert)}
+        />
+      </div>
     </div>
   ) : open ? (
     <div className="drawer-stack" aria-label="Alert detail loading">

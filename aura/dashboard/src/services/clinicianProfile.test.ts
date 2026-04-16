@@ -6,6 +6,7 @@ import {
   CLINICIAN_COMMUNICATION_AUTHORING_LIMITS,
   MAX_CLINICIAN_PROFILE_PHOTO_BYTES,
   clearClinicianProfileForTests,
+  getActiveClinicianProfileScopeId,
   getClinicianProfile,
   getClinicianProfileStorageKey,
   setClinicianProfile,
@@ -16,19 +17,20 @@ function toBase64Url(value: string): string {
   return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function buildToken(input: { sub: string; name?: string; exp?: number }): string {
+function buildToken(input: { sub: string; name?: string; email?: string; exp?: number }): string {
   const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = toBase64Url(
     JSON.stringify({
       sub: input.sub,
       name: input.name,
+      email: input.email,
       exp: input.exp ?? Math.floor(Date.now() / 1000) + 60 * 60,
     }),
   );
   return `${header}.${payload}.signature`;
 }
 
-function setActiveToken(input: { sub: string; name?: string }): void {
+function setActiveToken(input: { sub: string; name?: string; email?: string }): void {
   window.localStorage.setItem('aura_access_token', buildToken(input));
 }
 
@@ -106,6 +108,47 @@ describe('clinicianProfile', () => {
     const restoredFirst = getClinicianProfile();
     expect(restoredFirst.displayName).toBe('Clinician A Saved');
     expect(restoredFirst.clinicianId).toBe('clinician-a-local');
+  });
+
+  it('migrates legacy subject-scoped profiles to a stable email-scoped key', () => {
+    setActiveToken({
+      sub: 'auth-clinician-email-subject',
+      name: 'Dr Stable',
+      email: 'clinician1@example.com',
+    });
+    const seededFallback = getClinicianProfile();
+    window.localStorage.removeItem(getClinicianProfileStorageKey('email:clinician1@example.com'));
+
+    window.localStorage.setItem(
+      getClinicianProfileStorageKey('auth-clinician-email-subject'),
+      JSON.stringify({
+        version: 2,
+        authScopeId: 'auth-clinician-email-subject',
+        updatedAt: new Date().toISOString(),
+        profile: {
+          ...seededFallback,
+          displayName: 'Dr Stable Saved',
+          clinicianId: 'stable-local-id',
+          photo: {
+            dataUrl: 'data:image/png;base64,abc123',
+            mimeType: 'image/png',
+            fileName: 'avatar.png',
+            sizeBytes: 128,
+          },
+        },
+      }),
+    );
+
+    const restored = getClinicianProfile();
+    const activeScopeId = getActiveClinicianProfileScopeId();
+
+    expect(activeScopeId).toBe('email:clinician1@example.com');
+    expect(restored.displayName).toBe('Dr Stable Saved');
+    expect(restored.clinicianId).toBe('stable-local-id');
+    expect(restored.photo?.fileName).toBe('avatar.png');
+    expect(
+      window.localStorage.getItem(getClinicianProfileStorageKey('email:clinician1@example.com')),
+    ).toContain('"displayName":"Dr Stable Saved"');
   });
 
   it('falls back safely when scoped storage is malformed', () => {

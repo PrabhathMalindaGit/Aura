@@ -119,6 +119,7 @@ interface StoredClinicianProfileRecord {
 interface AuthClinicianIdentity {
   scopeId: string;
   displayName?: string;
+  email?: string;
 }
 
 export interface SaveClinicianProfileResult {
@@ -170,6 +171,7 @@ const DEFAULT_NOTIFICATION_CUE_MODE: ClinicianNotificationCueMode = 'default';
 const DEFAULT_QUIET_HOURS_START = '22:00';
 const DEFAULT_QUIET_HOURS_END = '07:00';
 const PROFILE_CHANGE_EVENT = 'aura:clinician-profile-change';
+const CLINICIAN_EMAIL_SCOPE_PREFIX = 'email:';
 const TOKEN_STORAGE_KEYS = ['aura_access_token', 'aura_auth_token', 'clinicianToken'];
 const VALID_AVAILABILITY_STATUSES = new Set<ClinicianAvailabilityStatus>([
   'available',
@@ -584,6 +586,15 @@ function decodeTokenSection(section: string): unknown {
   }
 }
 
+function normalizeEmailScopeValue(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized || undefined;
+}
+
 function getAuthenticatedClinicianIdentity(): AuthClinicianIdentity | null {
   const token = getStoredClinicianToken();
   if (!token) {
@@ -595,7 +606,9 @@ function getAuthenticatedClinicianIdentity(): AuthClinicianIdentity | null {
     return null;
   }
 
-  const payload = decodeTokenSection(sections[1]) as { sub?: unknown; name?: unknown } | undefined;
+  const payload = decodeTokenSection(sections[1]) as
+    | { sub?: unknown; name?: unknown; email?: unknown }
+    | undefined;
   const scopeId = trimToUndefined(payload?.sub);
   if (!scopeId) {
     return null;
@@ -604,7 +617,19 @@ function getAuthenticatedClinicianIdentity(): AuthClinicianIdentity | null {
   return {
     scopeId,
     displayName: trimToUndefined(payload?.name),
+    email: normalizeEmailScopeValue(payload?.email),
   };
+}
+
+function getPrimaryClinicianProfileScopeId(identity: AuthClinicianIdentity): string {
+  return identity.email
+    ? `${CLINICIAN_EMAIL_SCOPE_PREFIX}${identity.email}`
+    : identity.scopeId;
+}
+
+function getLegacyClinicianProfileScopeIds(identity: AuthClinicianIdentity): string[] {
+  const primaryScopeId = getPrimaryClinicianProfileScopeId(identity);
+  return identity.scopeId !== primaryScopeId ? [identity.scopeId] : [];
 }
 
 function readLegacyClinicianIdentity(): { clinicianId?: string; displayName?: string } {
@@ -793,7 +818,8 @@ export function getClinicianProfileStorageKey(authScopeId: string): string {
 }
 
 export function getActiveClinicianProfileScopeId(): string | null {
-  return getAuthenticatedClinicianIdentity()?.scopeId ?? null;
+  const identity = getAuthenticatedClinicianIdentity();
+  return identity ? getPrimaryClinicianProfileScopeId(identity) : null;
 }
 
 export function getDefaultClinicianProfile(): ClinicianProfile {
@@ -812,20 +838,34 @@ export function getClinicianProfile(): ClinicianProfile {
     return fallback;
   }
 
+  const activeScopeId = getPrimaryClinicianProfileScopeId(identity);
+
   try {
-    const raw = window.localStorage.getItem(getClinicianProfileStorageKey(identity.scopeId));
-    if (raw) {
-      const parsed = normalizeStoredRecord(JSON.parse(raw), identity.scopeId, fallback);
-      if (parsed) {
-        syncLegacyOutputs(parsed.profile);
-        return parsed.profile;
+    const scopeIdsToCheck = [activeScopeId, ...getLegacyClinicianProfileScopeIds(identity)];
+
+    for (const scopeId of scopeIdsToCheck) {
+      const raw = window.localStorage.getItem(getClinicianProfileStorageKey(scopeId));
+      if (!raw) {
+        continue;
       }
+
+      const parsed = normalizeStoredRecord(JSON.parse(raw), scopeId, fallback);
+      if (!parsed) {
+        continue;
+      }
+
+      if (scopeId !== activeScopeId) {
+        persistProfileRecord(activeScopeId, parsed.profile);
+      }
+
+      syncLegacyOutputs(parsed.profile);
+      return parsed.profile;
     }
   } catch {
     // Fall through to seeding below.
   }
 
-  if (persistProfileRecord(identity.scopeId, fallback)) {
+  if (persistProfileRecord(activeScopeId, fallback)) {
     syncLegacyOutputs(fallback);
   }
 
@@ -844,7 +884,8 @@ export function setClinicianProfile(profile: ClinicianProfile): SaveClinicianPro
     };
   }
 
-  const saved = persistProfileRecord(identity.scopeId, normalized);
+  const activeScopeId = getPrimaryClinicianProfileScopeId(identity);
+  const saved = persistProfileRecord(activeScopeId, normalized);
   if (saved) {
     syncLegacyOutputs(normalized);
     emitClinicianProfileChange(normalized);
@@ -864,12 +905,19 @@ export function subscribeClinicianProfile(
   }
 
   const onStorage = (event: StorageEvent): void => {
-    const activeScopeId = getActiveClinicianProfileScopeId();
+    const identity = getAuthenticatedClinicianIdentity();
+    const activeScopeId = identity ? getPrimaryClinicianProfileScopeId(identity) : null;
     const activeKey = activeScopeId ? getClinicianProfileStorageKey(activeScopeId) : null;
+    const legacyKeys = identity
+      ? getLegacyClinicianProfileScopeIds(identity).map((scopeId) =>
+          getClinicianProfileStorageKey(scopeId),
+        )
+      : [];
 
     if (
       event.key &&
       event.key !== activeKey &&
+      !legacyKeys.includes(event.key) &&
       event.key !== CLINICIAN_ID_STORAGE_KEY &&
       event.key !== CLINICIAN_NAME_STORAGE_KEY &&
       !TOKEN_STORAGE_KEYS.includes(event.key)

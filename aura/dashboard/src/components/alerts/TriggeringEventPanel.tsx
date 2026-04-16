@@ -5,17 +5,87 @@ import { Skeleton } from '../ui/Skeleton';
 import { formatExactTime, formatRelativeTime } from '../../utils/time';
 import { truncateText } from '../../utils/text';
 
+const MISSING_TRIGGERING_EVENT_TEXT = 'No triggering event details available';
+
+interface LegacyChatMessageWindowItem {
+  id?: string;
+  createdAt?: string;
+  role?: string;
+  text?: unknown;
+}
+
+interface LegacyChatEvent {
+  type: 'chat';
+  messageWindow?: LegacyChatMessageWindowItem[];
+}
+
+type TriggeringEventView = TriggeringEvent | LegacyChatEvent;
+
 interface TriggeringEventPanelProps {
-  event: TriggeringEvent | undefined;
+  event: TriggeringEventView | undefined;
   loading: boolean;
   onFetchDetails: () => void;
   fetchDisabled?: boolean;
+  sourceId?: string;
 }
 
 interface ExpandableTextProps {
   text: string;
   maxLength?: number;
   className?: string;
+}
+
+function toUsableText(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function resolveContextText(value: unknown): string {
+  return toUsableText(value) ?? MISSING_TRIGGERING_EVENT_TEXT;
+}
+
+function resolveChatMessageText(event: Extract<TriggeringEventView, { type: 'chat' }>, sourceId?: string): string {
+  const directText = 'text' in event ? toUsableText(event.text) : undefined;
+  if (directText) {
+    return directText;
+  }
+
+  const messageWindow =
+    'messageWindow' in event && Array.isArray(event.messageWindow) ? event.messageWindow : undefined;
+
+  if (messageWindow?.length) {
+    const sourceMessage =
+      sourceId
+        ? messageWindow.find((message) => message.id === sourceId && toUsableText(message.text))
+        : undefined;
+    const sourceMessageText = sourceMessage ? toUsableText(sourceMessage.text) : undefined;
+    if (sourceMessageText) {
+      return sourceMessageText;
+    }
+
+    const firstUserMessage = messageWindow.find(
+      (message) => message.role === 'user' && toUsableText(message.text),
+    );
+    const firstUserMessageText = firstUserMessage ? toUsableText(firstUserMessage.text) : undefined;
+    if (firstUserMessageText) {
+      return firstUserMessageText;
+    }
+
+    const firstMessageWithText = messageWindow.find((message) => toUsableText(message.text));
+    const firstMessageText = firstMessageWithText ? toUsableText(firstMessageWithText.text) : undefined;
+    if (firstMessageText) {
+      return firstMessageText;
+    }
+  }
+
+  return MISSING_TRIGGERING_EVENT_TEXT;
+}
+
+function getContextMessageKey(
+  message: { createdAt: string; text?: unknown },
+  index: number,
+  prefix: string,
+): string {
+  return `${prefix}-${message.createdAt}-${resolveContextText(message.text).slice(0, 12)}-${index}`;
 }
 
 function ExpandableText({ text, maxLength = 220, className }: ExpandableTextProps): JSX.Element {
@@ -72,36 +142,45 @@ function renderCheckin(event: Extract<TriggeringEvent, { type: 'checkin' }>): JS
   );
 }
 
-function renderChat(event: Extract<TriggeringEvent, { type: 'chat' }>): JSX.Element {
+function renderChat(
+  event: Extract<TriggeringEventView, { type: 'chat' }>,
+  sourceId?: string,
+): JSX.Element {
+  const beforeMessages = 'context' in event ? event.context?.before ?? [] : [];
+  const afterMessages = 'context' in event ? event.context?.after ?? [] : [];
+  const triggerText = resolveChatMessageText(event, sourceId);
+
   return (
     <div className="triggering-event__card">
       <h4>Triggering message</h4>
-      <p className="triggering-event__timestamp" title={formatExactTime(event.createdAt)}>
-        {formatRelativeTime(event.createdAt)}
-      </p>
-      <ExpandableText text={event.text} maxLength={260} className="triggering-event__message" />
-      {event.context?.before?.length || event.context?.after?.length ? (
+      {'createdAt' in event && event.createdAt ? (
+        <p className="triggering-event__timestamp" title={formatExactTime(event.createdAt)}>
+          {formatRelativeTime(event.createdAt)}
+        </p>
+      ) : null}
+      <ExpandableText text={triggerText} maxLength={260} className="triggering-event__message" />
+      {beforeMessages.length || afterMessages.length ? (
         <div className="triggering-event__context">
           <strong>Conversation context</strong>
-          {event.context.before?.length ? (
+          {beforeMessages.length ? (
             <div className="triggering-event__context-block">
               <span>Before</span>
               <ul>
-                {event.context.before.slice(-3).map((message) => (
-                  <li key={`${message.createdAt}-${message.text.slice(0, 12)}`}>
-                    <ExpandableText text={message.text} maxLength={160} />
+                {beforeMessages.slice(-3).map((message, index) => (
+                  <li key={getContextMessageKey(message, index, 'before')}>
+                    <ExpandableText text={resolveContextText(message.text)} maxLength={160} />
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
-          {event.context.after?.length ? (
+          {afterMessages.length ? (
             <div className="triggering-event__context-block">
               <span>After</span>
               <ul>
-                {event.context.after.slice(0, 3).map((message) => (
-                  <li key={`${message.createdAt}-${message.text.slice(0, 12)}`}>
-                    <ExpandableText text={message.text} maxLength={160} />
+                {afterMessages.slice(0, 3).map((message, index) => (
+                  <li key={getContextMessageKey(message, index, 'after')}>
+                    <ExpandableText text={resolveContextText(message.text)} maxLength={160} />
                   </li>
                 ))}
               </ul>
@@ -118,6 +197,7 @@ export function TriggeringEventPanel({
   loading,
   onFetchDetails,
   fetchDisabled = false,
+  sourceId,
 }: TriggeringEventPanelProps): JSX.Element {
   if (loading) {
     return (
@@ -135,7 +215,7 @@ export function TriggeringEventPanel({
     <section className="drawer-section" aria-label="Triggering event">
       <h3>Triggering event</h3>
       {event?.type === 'checkin' ? renderCheckin(event) : null}
-      {event?.type === 'chat' ? renderChat(event) : null}
+      {event?.type === 'chat' ? renderChat(event, sourceId) : null}
       {!event ? (
         <div className="drawer-placeholder">
           <p>Triggering event not available yet.</p>

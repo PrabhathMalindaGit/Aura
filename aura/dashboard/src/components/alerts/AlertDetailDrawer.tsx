@@ -436,6 +436,7 @@ export function AlertDetailDrawer({
             void alertContextQuery.refetch();
           }}
           fetchDisabled={alertContextQuery.isFetching}
+          sourceId={effectiveAlert?.source.sourceId}
         />
 
         <NotificationPanel

@@ -3,16 +3,18 @@ export interface TruncateResult {
   truncated: boolean;
 }
 
-export function truncateText(value: string, maxLength: number): TruncateResult {
-  if (value.length <= maxLength) {
+export function truncateText(value: unknown, maxLength: number): TruncateResult {
+  const text = typeof value === 'string' ? value : '';
+
+  if (text.length <= maxLength) {
     return {
-      text: value,
+      text,
       truncated: false,
     };
   }
 
   return {
-    text: `${value.slice(0, maxLength - 1)}…`,
+    text: `${text.slice(0, maxLength - 1)}…`,
     truncated: true,
   };
 }

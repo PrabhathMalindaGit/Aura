@@ -272,6 +272,7 @@ export default function SafetyScreen() {
       <Section
         title="Calming tools"
         subtitle="Use one if you need a moment before reaching out or while you wait for support."
+        right={<StatusPill label="2 tools" variant="neutral" />}
         card
       >
         <View style={styles.actionGrid}>
@@ -307,6 +308,7 @@ export default function SafetyScreen() {
       <Section
         title="Support options"
         subtitle="Use these when you want another person with you or more direct guidance."
+        right={<StatusPill label="3 options" variant="neutral" />}
         card
       >
         {isOffline ? (
@@ -407,7 +409,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       justifyContent: "center",
     },
     container: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
       paddingBottom: tokens.spacing.xl,
     },
     headerPills: {
@@ -465,21 +467,20 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     actionGrid: {
       flexDirection: "row",
-      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     actionTileWrap: {
-      width: "48%",
+      flex: 1,
       minWidth: 0,
     },
     stack: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     supportNote: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-      marginTop: tokens.spacing.xs,
+      marginTop: tokens.spacing.sm,
     },
     planCard: {
       borderRadius: tokens.radius.lg,
@@ -487,7 +488,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderColor: tokens.colors.border,
       backgroundColor: tokens.colors.surfaceElevated,
       paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
+      paddingVertical: tokens.spacing.md,
       gap: tokens.spacing.xs,
     },
     planRow: {
@@ -502,7 +503,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
     },
     footerPanel: {
-      marginTop: tokens.spacing.sm,
+      marginTop: tokens.spacing.xs,
       borderRadius: tokens.radius.lg,
     },
     footerCopy: {

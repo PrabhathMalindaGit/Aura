@@ -277,6 +277,13 @@ export default function TasksScreen() {
   }, [communicationCount, dueTodayCount, nextTask]);
 
   const visibleTasks = mode === "active" ? activeTasks : completedTasks;
+  const listTasks = useMemo(
+    () =>
+      mode === "active" && nextTask
+        ? activeTasks.filter((task) => task.id !== nextTask.id)
+        : visibleTasks,
+    [activeTasks, mode, nextTask, visibleTasks],
+  );
 
   const handleTaskAction = useCallback(
     (task: PatientTaskItem) => {
@@ -391,27 +398,6 @@ export default function TasksScreen() {
             <StatusPill label={`${dueTodayCount} due now`} variant={dueTodayCount > 0 ? "warning" : "neutral"} />
             <StatusPill label={`${communicationCount} reply request${communicationCount === 1 ? "" : "s"}`} variant={communicationCount > 0 ? "info" : "neutral"} />
           </View>
-          <Card variant="outlined" style={styles.storyCard}>
-            <View style={styles.storyCopy}>
-              <Text style={styles.storyEyebrow}>Do next</Text>
-              <Text style={styles.storyTitle}>{workflowStory.title}</Text>
-              <Text style={styles.storyText}>{workflowStory.body}</Text>
-            </View>
-            <View style={styles.storyFacts}>
-              <View style={styles.storyFact}>
-                <Text style={styles.storyFactLabel}>Next task</Text>
-                <Text style={styles.storyFactValue}>{nextTask ? nextTask.title : "Nothing waiting"}</Text>
-              </View>
-              <View style={styles.storyFact}>
-                <Text style={styles.storyFactLabel}>Due now</Text>
-                <Text style={styles.storyFactValue}>{dueTodayCount > 0 ? `${dueTodayCount} task${dueTodayCount === 1 ? "" : "s"}` : "All clear"}</Text>
-              </View>
-              <View style={styles.storyFact}>
-                <Text style={styles.storyFactLabel}>Completed</Text>
-                <Text style={styles.storyFactValue}>{completedTasks.length > 0 ? `${completedTasks.length} handled` : "Nothing logged yet"}</Text>
-              </View>
-            </View>
-          </Card>
         </HeroHeader>
       }
     >
@@ -449,11 +435,44 @@ export default function TasksScreen() {
         ) : null}
       </View>
 
+      <Card variant="outlined" style={styles.storyCard}>
+        <View style={styles.storyCopy}>
+          <Text style={styles.storyEyebrow}>Today’s follow-through</Text>
+          <Text style={styles.storyTitle}>{workflowStory.title}</Text>
+          <Text style={styles.storyText}>{workflowStory.body}</Text>
+        </View>
+      </Card>
+
+      {nextTask ? (
+        <TaskCard
+          testID="tasks-hero-card"
+          task={nextTask}
+          onPressAction={() => {
+            handleTaskAction(nextTask);
+          }}
+          onPressComplete={
+            nextTask.patientCompletable
+              ? () => {
+                  void handleCompleteTask(nextTask);
+                }
+              : undefined
+          }
+          completing={completingTaskId === nextTask.id}
+        />
+      ) : (
+        <Card variant="outlined" style={styles.heroEmptyCard}>
+          <Text style={styles.storyEyebrow}>Next task</Text>
+          <Text style={styles.heroEmptyTitle}>Nothing is waiting right now</Text>
+          <Text style={styles.heroEmptyText}>
+            New follow-up steps will appear here when your care team asks you to review, reply, or complete something next.
+          </Text>
+        </Card>
+      )}
+
       <Section
-        title="Do next"
-        subtitle="Start with active follow-up steps, then switch to done items when you want a quick record of what is already handled."
+        title="Task list"
+        subtitle="Switch between active and done items without losing the same list rhythm."
         left={<DomainIcon icon="checkin" tone="muted" accessibilityLabel="Tasks icon" />}
-        card
       >
         <SegmentedControl
           value={mode}
@@ -465,51 +484,62 @@ export default function TasksScreen() {
           ]}
         />
 
-        {isLoading ? (
-          <View style={styles.loadingState}>
-            <SkeletonBlock width="100%" height={104} radius={16} />
-            <SkeletonBlock width="100%" height={104} radius={16} />
-          </View>
-        ) : visibleTasks.length === 0 ? (
-          <EmptyState
-            variant="compact"
-            illustrationKey={mode === "active" ? "today" : "progress"}
-            title={mode === "active" ? "Nothing needs your attention right now" : "No completed steps yet"}
-            description={
-              mode === "active"
-                ? "New follow-up steps will appear here when your care team asks you to do something next."
-                : "Completed steps will collect here so you can see what has already been handled."
-            }
-            ctaLabel={mode === "active" ? "Open chat" : undefined}
-            onCtaPress={
-              mode === "active"
-                ? () => {
-                    router.push({ pathname: "/(tabs)/chat", params: { focusComposer: "1" } } as never);
+        <Card variant="outlined" style={styles.listSurface}>
+          {isLoading ? (
+            <View style={styles.loadingState}>
+              <SkeletonBlock width="100%" height={104} radius={16} />
+              <SkeletonBlock width="100%" height={104} radius={16} />
+            </View>
+          ) : listTasks.length === 0 ? (
+            <EmptyState
+              variant="compact"
+              illustrationKey={mode === "active" ? "today" : "progress"}
+              title={
+                mode === "active"
+                  ? nextTask
+                    ? "That is the only active task right now"
+                    : "Nothing needs your attention right now"
+                  : "No completed steps yet"
+              }
+              description={
+                mode === "active"
+                  ? nextTask
+                    ? "Use the hero task above to handle the next step. Additional active items will appear below when there is more to do."
+                    : "New follow-up steps will appear here when your care team asks you to do something next."
+                  : "Completed steps will collect here so you can see what has already been handled."
+              }
+              ctaLabel={mode === "active" && !nextTask ? "Open chat" : undefined}
+              onCtaPress={
+                mode === "active" && !nextTask
+                  ? () => {
+                      router.push({ pathname: "/(tabs)/chat", params: { focusComposer: "1" } } as never);
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <View style={styles.listStack}>
+              {listTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  compact
+                  completing={completingTaskId === task.id}
+                  onPressAction={() => {
+                    handleTaskAction(task);
+                  }}
+                  onPressComplete={
+                    task.patientCompletable
+                      ? () => {
+                          void handleCompleteTask(task);
+                        }
+                      : undefined
                   }
-                : undefined
-            }
-          />
-        ) : (
-          <View style={styles.listStack}>
-            {visibleTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                completing={completingTaskId === task.id}
-                onPressAction={() => {
-                  handleTaskAction(task);
-                }}
-                onPressComplete={
-                  task.patientCompletable
-                    ? () => {
-                        void handleCompleteTask(task);
-                      }
-                    : undefined
-                }
-              />
-            ))}
-          </View>
-        )}
+                />
+              ))}
+            </View>
+          )}
+        </Card>
       </Section>
 
       <Section
@@ -541,7 +571,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.xs,
     },
     storyCard: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     storyCopy: {
       gap: tokens.spacing.xs,
@@ -565,37 +595,24 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
     },
-    storyFacts: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.sm,
+    heroEmptyCard: {
+      gap: tokens.spacing.xs,
     },
-    storyFact: {
-      flexGrow: 1,
-      minWidth: 108,
-      borderWidth: 1,
-      borderColor: tokens.colors.border,
-      borderRadius: tokens.radius.md,
-      backgroundColor: tokens.colors.surfaceElevated,
-      paddingHorizontal: tokens.spacing.md,
-      paddingVertical: tokens.spacing.sm,
-      gap: 2,
-    },
-    storyFactLabel: {
-      color: tokens.colors.textMuted,
-      fontSize: tokens.typography.caption.fontSize,
-      lineHeight: tokens.typography.caption.lineHeight,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-      fontWeight: tokens.typography.weights.medium,
-    },
-    storyFactValue: {
+    heroEmptyTitle: {
       color: tokens.colors.text,
+      fontSize: tokens.typography.section.fontSize,
+      lineHeight: tokens.typography.section.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    heroEmptyText: {
+      color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
-      fontWeight: tokens.typography.weights.medium,
     },
     metaArea: {
+      gap: tokens.spacing.sm,
+    },
+    listSurface: {
       gap: tokens.spacing.sm,
     },
     loadingState: {

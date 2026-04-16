@@ -443,74 +443,6 @@ export default function ExercisePlanScreen() {
           <Text style={styles.storyText}>{planUiState.description}</Text>
         </Card>
 
-        <View style={styles.trackerGrid}>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="exercise"
-              label="Exercises"
-              value={`${items.length}`}
-              delta={planUiState.restDay ? "Rest day" : "Today"}
-              tone="accent"
-              micro={{ type: "dots", values: [items.length, 0, 0, 0, 0, 0, 0] }}
-            />
-          </View>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="weekly"
-              label="Estimated time"
-              value={estimatedMinutes !== null ? `${estimatedMinutes} min` : "—"}
-              delta="Approx"
-              tone="primary"
-              micro={{ type: "dots", values: [estimatedMinutes ?? 0, 1, 2, 3, 4, 5, 6] }}
-            />
-          </View>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="insights"
-              label="Difficulty"
-              value={intensityLabel}
-              delta="Plan intensity"
-              tone="warning"
-              micro={{ type: "dots", values: [intensityLabel === "Hard" ? 3 : intensityLabel === "Moderate" ? 2 : intensityLabel === "Easy" ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
-            />
-          </View>
-          <View style={styles.trackerTileWrap}>
-            <TrackerTile
-              icon="progress"
-              label="Plan state"
-              value={planUiState.statusLabel}
-              delta={source === "live" ? "Live" : source === "cache" ? "Saved" : "Ready"}
-              tone={
-                planUiState.kind === "complete"
-                  ? "success"
-                  : planUiState.kind === "in_progress"
-                    ? "primary"
-                    : source === "cache"
-                      ? "warning"
-                      : "muted"
-              }
-              micro={{
-                type: "dots",
-                values: [
-                  planUiState.kind === "complete"
-                    ? 3
-                    : planUiState.kind === "in_progress"
-                      ? 2
-                      : planUiState.kind === "assigned"
-                        ? 1
-                        : 0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                  0,
-                ],
-              }}
-            />
-          </View>
-        </View>
-
         <MediaCard
           leading={{ type: "icon", icon: "exercise", tone: "accent" }}
           title={
@@ -606,6 +538,82 @@ export default function ExercisePlanScreen() {
           ]}
         />
 
+        <View style={styles.metricsStack}>
+          <View style={styles.metricRow}>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="exercise"
+                label="Exercises"
+                value={`${items.length}`}
+                delta={planUiState.restDay ? "Rest day" : "Today"}
+                tone="accent"
+                micro={{ type: "dots", values: [items.length, 0, 0, 0, 0, 0, 0] }}
+              />
+            </View>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="weekly"
+                label="Estimated time"
+                value={estimatedMinutes !== null ? `${estimatedMinutes} min` : "—"}
+                delta="Approx"
+                tone="primary"
+                micro={{ type: "dots", values: [estimatedMinutes ?? 0, 1, 2, 3, 4, 5, 6] }}
+              />
+            </View>
+          </View>
+          <View style={styles.metricRow}>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="insights"
+                label="Difficulty"
+                value={intensityLabel}
+                delta="Plan intensity"
+                tone="warning"
+                micro={{ type: "dots", values: [intensityLabel === "Hard" ? 3 : intensityLabel === "Moderate" ? 2 : intensityLabel === "Easy" ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+              />
+            </View>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="progress"
+                label="Plan state"
+                value={planUiState.statusLabel}
+                delta={source === "live" ? "Live" : source === "cache" ? "Saved" : "Ready"}
+                tone={
+                  planUiState.kind === "complete"
+                    ? "success"
+                    : planUiState.kind === "in_progress"
+                      ? "primary"
+                      : source === "cache"
+                        ? "warning"
+                        : "muted"
+                }
+                micro={{
+                  type: "dots",
+                  values: [
+                    planUiState.kind === "complete"
+                      ? 3
+                      : planUiState.kind === "in_progress"
+                        ? 2
+                        : planUiState.kind === "assigned"
+                          ? 1
+                          : 0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                  ],
+                }}
+              />
+            </View>
+          </View>
+        </View>
+
         {plan ? (
           <Text style={styles.metaText}>
             {dayLabel ? `${dayLabel} · ` : ""}
@@ -648,8 +656,9 @@ export default function ExercisePlanScreen() {
     styles.storyEyebrow,
     styles.storyText,
     styles.storyTitle,
-    styles.trackerGrid,
-    styles.trackerTileWrap,
+    styles.metricsStack,
+    styles.metricRow,
+    styles.metricCell,
     tokens.spacing.md,
   ]);
 
@@ -761,26 +770,37 @@ export default function ExercisePlanScreen() {
           )
         }
         renderItem={({ item }) => {
+          const doseLabel = formatDose(item);
           const chips = [
-            ...(formatDose(item) ? [{ text: formatDose(item), tone: "muted" as const }] : []),
-            ...(item.intensity ? [{ text: item.intensity, tone: "info" as const }] : []),
+            ...(item.intensity
+              ? [
+                  {
+                    text: `${item.intensity.charAt(0).toUpperCase()}${item.intensity.slice(1)}`,
+                    tone: "info" as const,
+                  },
+                ]
+              : []),
             ...(item.contraindications?.length
               ? [{ text: `Caution ${item.contraindications.length}`, tone: "warning" as const }]
               : []),
+            ...(item.videoUrl ? [{ text: "Video guide", tone: "muted" as const }] : []),
           ].slice(0, 3);
+          const subtitleParts = [
+            doseLabel,
+            item.instructions,
+            item.contraindications?.length
+              ? `${item.contraindications.length} caution${item.contraindications.length === 1 ? "" : "s"} noted`
+              : null,
+          ].filter((value): value is string => Boolean(value));
 
           return (
             <MediaCard
-              variant="default"
+              variant="compact"
               leading={{ type: "icon", icon: "exercise", tone: "accent" }}
-              title={`${item.order}. ${item.name}`}
-              subtitle={
-                item.contraindications?.length
-                  ? `${item.instructions} Caution: ${item.contraindications.join(", ")}.`
-                  : item.instructions
-              }
+              title={item.name}
+              subtitle={subtitleParts.join(" · ")}
               chips={chips}
-              maxChips={4}
+              maxChips={3}
               statusPill={
                 item.order === 1 ? { text: "Start here", tone: "info" } : { text: `Step ${item.order}`, tone: "neutral" }
               }
@@ -824,8 +844,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingBottom: tokens.spacing.xxxl,
     },
     listHeader: {
-      gap: tokens.spacing.md,
-      marginBottom: tokens.spacing.md,
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.sm,
     },
     headerPills: {
       flexDirection: "row",
@@ -888,13 +908,15 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.caption.lineHeight,
       color: tokens.colors.textMuted,
     },
-    trackerGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.md,
+    metricsStack: {
+      gap: tokens.spacing.sm,
     },
-    trackerTileWrap: {
-      width: "48%",
+    metricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    metricCell: {
+      flex: 1,
       minWidth: 0,
     },
     diagToggle: {

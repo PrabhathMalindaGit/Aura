@@ -958,31 +958,32 @@ export default function ProgressScreen() {
           style={styles.trustCueRow}
         />
 
-        <Card variant="outlined" style={styles.storyCard}>
-          <View style={styles.storyCopy}>
-            <Text style={styles.storyEyebrow}>Trend story</Text>
-            <Text style={styles.storyTitle}>{progressStory.title}</Text>
-            <Text style={styles.storyText}>{progressStory.body}</Text>
+        <Card variant="outlined" style={styles.reviewCard}>
+          <View style={styles.reviewHeader}>
+            <View style={styles.reviewCopy}>
+              <Text style={styles.reviewEyebrow}>Review window</Text>
+              <Text style={styles.reviewTitle}>Everything below follows this time frame</Text>
+            </View>
+            <StatusPill label={`${rangeDays} days`} variant="info" />
           </View>
 
-          <View style={styles.storyFactsRow}>
-            <View style={styles.storyFact}>
-              <Text style={styles.storyFactLabel}>Latest check-in</Text>
-              <Text style={styles.storyFactValue}>
-                {latestCheckin ? formatDateTitle(latestCheckin) : "Not logged yet"}
-              </Text>
-            </View>
-            <View style={styles.storyFact}>
-              <Text style={styles.storyFactLabel}>Entries in view</Text>
-              <Text style={styles.storyFactValue}>{filteredItems.length || 0}</Text>
-            </View>
-            <View style={styles.storyFact}>
-              <Text style={styles.storyFactLabel}>Support requested</Text>
-              <Text style={styles.storyFactValue}>
-                {supportRequestsInRange > 0 ? `${supportRequestsInRange} time${supportRequestsInRange === 1 ? "" : "s"}` : "None"}
-              </Text>
-            </View>
-          </View>
+          <SegmentedControl
+            testID="progress-range-selector"
+            value={String(rangeDays) as "7" | "30" | "90"}
+            options={[
+              { value: "7", label: "7d" },
+              { value: "30", label: "30d" },
+              { value: "90", label: "90d" },
+            ]}
+            onChange={(value) => setRangeDays(Number(value) as RangeDays)}
+            accessibilityLabel="Progress range selector"
+            tone="primary"
+          />
+
+          <Text style={styles.rangeHelp}>
+            Signals, trend stories, and recent history below reflect {filteredItems.length || 0} check-in
+            {filteredItems.length === 1 ? "" : "s"} from the last {rangeDays} days.
+          </Text>
         </Card>
       </HeroHeader>
 
@@ -1026,32 +1027,34 @@ export default function ProgressScreen() {
         </Card>
       ) : null}
 
-      <Section
-        title="Review window"
-        subtitle="Choose the period you want to review."
-        right={<StatusPill label={`${rangeDays} days`} variant="info" />}
-        card
-      >
-        <SegmentedControl
-          testID="progress-range-selector"
-          value={String(rangeDays) as "7" | "30" | "90"}
-          options={[
-            { value: "7", label: "7d" },
-            { value: "30", label: "30d" },
-            { value: "90", label: "90d" },
-          ]}
-          onChange={(value) => setRangeDays(Number(value) as RangeDays)}
-          accessibilityLabel="Progress range selector"
-          tone="primary"
-        />
-        <Text style={styles.rangeHelp}>
-          Short windows highlight recent change. Longer windows show steadier recovery patterns.
-        </Text>
-      </Section>
+      <Card variant="outlined" style={styles.storyCard}>
+        <View style={styles.storyCopy}>
+          <Text style={styles.storyEyebrow}>Trend story · last {rangeDays} days</Text>
+          <Text style={styles.storyTitle}>{progressStory.title}</Text>
+          <Text style={styles.storyText}>{progressStory.body}</Text>
+        </View>
+
+        <View style={styles.storyFactsRow}>
+          <View style={styles.storyFact}>
+            <Text style={styles.storyFactLabel}>Latest check-in</Text>
+            <Text style={styles.storyFactValue}>
+              {latestCheckin ? formatDateTitle(latestCheckin) : "Not logged yet"}
+            </Text>
+          </View>
+          <View style={styles.storyFact}>
+            <Text style={styles.storyFactLabel}>Support requested</Text>
+            <Text style={styles.storyFactValue}>
+              {supportRequestsInRange > 0
+                ? `${supportRequestsInRange} time${supportRequestsInRange === 1 ? "" : "s"}`
+                : "None"}
+            </Text>
+          </View>
+        </View>
+      </Card>
 
       <Section
         title="Current signals"
-        subtitle="Start here for the clearest recent measures in this review window."
+        subtitle="Start here for the clearest recent measures inside this review window."
         card
       >
         {isLoading && items.length === 0 ? (
@@ -1086,8 +1089,9 @@ export default function ProgressScreen() {
 
       <Section
         title="Trend story"
-        subtitle="Specific changes across this review window."
+        subtitle="How pain, mood, and adherence moved during this review window."
         card
+        right={<StatusPill label={`Last ${rangeDays} days`} variant="neutral" />}
       >
         <View testID="progress-trend-list" style={styles.trendList}>
           {trendItems.map((trend) => {
@@ -1237,7 +1241,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     listHeader: {
-      gap: tokens.spacing.lg,
+      gap: tokens.spacing.md,
     },
     headerPillRow: {
       flexDirection: "row",
@@ -1247,8 +1251,36 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     trustCueRow: {
       marginTop: tokens.spacing.xs,
     },
+    reviewCard: {
+      gap: tokens.spacing.sm,
+      backgroundColor: tokens.colors.surface,
+    },
+    reviewHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    reviewCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    reviewEyebrow: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      fontWeight: tokens.typography.weights.medium,
+    },
+    reviewTitle: {
+      color: tokens.colors.text,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
     storyCard: {
-      gap: tokens.spacing.lg,
+      gap: tokens.spacing.md,
       backgroundColor: tokens.colors.surface,
     },
     storyCopy: {
@@ -1275,12 +1307,11 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     storyFactsRow: {
       flexDirection: "row",
-      flexWrap: "wrap",
       gap: tokens.spacing.sm,
     },
     storyFact: {
-      flexGrow: 1,
-      minWidth: 96,
+      flex: 1,
+      minWidth: 0,
       borderWidth: 1,
       borderColor: tokens.colors.border,
       borderRadius: tokens.radius.md,
@@ -1331,7 +1362,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     historyHeader: {
       gap: tokens.spacing.xs,
-      marginTop: tokens.spacing.xs,
     },
     historyEyebrow: {
       color: tokens.colors.textMuted,
@@ -1353,7 +1383,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       lineHeight: tokens.typography.body.lineHeight,
     },
     listContent: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
       paddingBottom: tokens.spacing.xl,
     },
     weekHeader: {
@@ -1369,10 +1399,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       letterSpacing: 0.6,
     },
     historyRowWrap: {
-      marginBottom: tokens.spacing.xs,
+      marginBottom: 0,
     },
     emptyLoadingWrap: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     historySkeleton: {
       borderRadius: tokens.radius.md,

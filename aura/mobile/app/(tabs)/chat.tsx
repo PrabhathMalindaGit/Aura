@@ -723,6 +723,45 @@ export default function ChatScreen() {
     return taskPromptSummary;
   }, [focusComposerAction, patientCommunicationSummary, taskPromptSummary]);
   const contextNotice = localAttempt ? null : notice;
+  const hasHeaderContext =
+    Boolean(careModeNotice) ||
+    Boolean(showingOfflineCache && !isOffline) ||
+    Boolean(contextNotice) ||
+    Boolean(chatLoadLastError);
+  const threadLead = useMemo(() => {
+    if (promptSummary) {
+      return (
+        <WorkflowMessageCard
+          compact
+          title={promptSummary.title}
+          text={promptSummary.text}
+          chips={promptSummary.chips}
+          tone={promptSummary.tone}
+          statusLabel={promptSummary.statusLabel}
+          actionLabel={promptSummary.actionLabel}
+          onAction={promptSummary.action}
+        />
+      );
+    }
+
+    if (messagesAvailable) {
+      return (
+        <Banner
+          variant="info"
+          title="You can still message here"
+          message="Your care team conversation stays available even when there is no open prompt."
+        />
+      );
+    }
+
+    return (
+      <Banner
+        variant="info"
+        title="Conversation history stays available"
+        message="Earlier messages remain here even when routine messaging is no longer active for this care status."
+      />
+    );
+  }, [messagesAvailable, promptSummary]);
   const messageShortcuts = useMemo(
     () =>
       quickActions.map((action) => ({
@@ -1399,7 +1438,8 @@ export default function ChatScreen() {
             </View>
           }
           contextContent={
-            <>
+            hasHeaderContext ? (
+              <View style={styles.contextBand}>
               {careModeNotice ? (
                 <Banner
                   variant="info"
@@ -1407,25 +1447,6 @@ export default function ChatScreen() {
                   message={careModeNotice.message}
                 />
               ) : null}
-
-              {promptSummary ? (
-                <WorkflowMessageCard
-                  compact
-                  title={promptSummary.title}
-                  text={promptSummary.text}
-                  chips={promptSummary.chips}
-                  tone={promptSummary.tone}
-                  statusLabel={promptSummary.statusLabel}
-                  actionLabel={promptSummary.actionLabel}
-                  onAction={promptSummary.action}
-                />
-              ) : (
-                <Banner
-                  variant="info"
-                  title="You can still message here"
-                  message="Your care team conversation stays available even when there is no open prompt."
-                />
-              )}
 
               {showingOfflineCache && !isOffline ? (
                 <Banner
@@ -1455,7 +1476,8 @@ export default function ChatScreen() {
                   compact
                 />
               ) : null}
-            </>
+              </View>
+            ) : null
           }
           shortcuts={messageShortcuts}
           composer={
@@ -1551,6 +1573,7 @@ export default function ChatScreen() {
         >
           <Card padding={0} style={styles.conversationCard}>
             <View style={styles.listWrapper}>
+              {threadLead ? <View style={styles.threadLeadWrap}>{threadLead}</View> : null}
               {isLoading && messages.length === 0 ? (
                 <View style={styles.loadingList}>
                   <View style={styles.rowAssistant}>
@@ -1653,6 +1676,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flexWrap: "wrap",
       gap: tokens.spacing.xs,
     },
+    contextBand: {
+      gap: tokens.spacing.sm,
+    },
     conversationCard: {
       flex: 1,
       backgroundColor: tokens.colors.surfaceSubtle,
@@ -1662,6 +1688,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     listWrapper: {
       flex: 1,
       minHeight: 0,
+    },
+    threadLeadWrap: {
+      paddingHorizontal: tokens.spacing.lg,
+      paddingTop: tokens.spacing.sm,
     },
     loadingList: {
       flex: 1,
@@ -1674,13 +1704,13 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     messageList: {
       paddingHorizontal: tokens.spacing.lg,
-      paddingTop: tokens.spacing.md,
+      paddingTop: tokens.spacing.sm,
       paddingBottom: tokens.spacing.xl,
       gap: tokens.spacing.xs,
     },
     emptyStateContent: {
       padding: tokens.spacing.lg,
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     emptyTips: {
       gap: tokens.spacing.sm,

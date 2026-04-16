@@ -1002,37 +1002,43 @@ export default function SettingsScreen() {
           </SettingsGroup>
         </Section>
 
-        <Section title="Account actions" subtitle="Session control for this device.">
-          <Card variant="outlined" style={styles.logoutCard}>
-            <View style={styles.logoutCopy}>
-              <Text style={styles.logoutTitle}>Log out of this device</Text>
-              <Text style={styles.logoutText}>
-                You’ll need your access code to sign in again.
-              </Text>
+        <Section
+          title="Account actions"
+          subtitle="Separated from day-to-day settings so session changes are easier to review."
+        >
+          <SettingsGroup tone="danger" style={styles.logoutGroup}>
+            <View style={styles.logoutPanel}>
+              <View style={styles.logoutCopy}>
+                <Text style={styles.logoutEyebrow}>Session control</Text>
+                <Text style={styles.logoutTitle}>Log out of this device</Text>
+                <Text style={styles.logoutText}>
+                  You’ll need your access code to sign in again.
+                </Text>
+              </View>
+
+              {logoutError ? (
+                <Banner variant="warning" title="Logout failed" message={logoutError} />
+              ) : null}
+
+              <Pressable
+                testID="settings-logout-button"
+                accessibilityRole="button"
+                accessibilityLabel={isSigningOut ? "Logging out" : "Log out"}
+                accessibilityState={{ disabled: isSigningOut, busy: isSigningOut || undefined }}
+                disabled={isSigningOut}
+                onPress={confirmSignOut}
+                style={({ pressed }) => [
+                  styles.logoutButton,
+                  isSigningOut ? styles.logoutButtonDisabled : null,
+                  pressed && !isSigningOut ? getPressFeedbackStyle(reduceMotion, 0.92) : null,
+                ]}
+              >
+                <Text style={styles.logoutButtonLabel}>
+                  {isSigningOut ? "Signing out…" : "Log out"}
+                </Text>
+              </Pressable>
             </View>
-
-            {logoutError ? (
-              <Banner variant="warning" title="Logout failed" message={logoutError} />
-            ) : null}
-
-            <Pressable
-              testID="settings-logout-button"
-              accessibilityRole="button"
-              accessibilityLabel={isSigningOut ? "Logging out" : "Log out"}
-              accessibilityState={{ disabled: isSigningOut, busy: isSigningOut || undefined }}
-              disabled={isSigningOut}
-              onPress={confirmSignOut}
-              style={({ pressed }) => [
-                styles.logoutButton,
-                isSigningOut ? styles.logoutButtonDisabled : null,
-                pressed && !isSigningOut ? getPressFeedbackStyle(reduceMotion, 0.92) : null,
-              ]}
-            >
-              <Text style={styles.logoutButtonLabel}>
-                {isSigningOut ? "Signing out…" : "Log out"}
-              </Text>
-            </Pressable>
-          </Card>
+          </SettingsGroup>
         </Section>
 
         {isDeveloperModeVisible ? (
@@ -1254,7 +1260,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       paddingBottom: tokens.spacing.xl,
     },
     shell: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
     },
     headerCard: {
       gap: tokens.spacing.xs,
@@ -1281,7 +1287,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     timeCard: {
       gap: tokens.spacing.md,
-      marginTop: tokens.spacing.sm,
+      marginTop: tokens.spacing.xs,
     },
     timeCardHeader: {
       flexDirection: "row",
@@ -1329,13 +1335,24 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.text,
       backgroundColor: tokens.colors.surface,
     },
-    logoutCard: {
+    logoutGroup: {
+      marginTop: tokens.spacing.xs,
+    },
+    logoutPanel: {
       gap: tokens.spacing.md,
-      backgroundColor: tokens.colors.dangerTextOn,
-      borderColor: tokens.colors.danger,
+      paddingHorizontal: tokens.spacing.lg,
+      paddingVertical: tokens.spacing.lg,
     },
     logoutCopy: {
       gap: tokens.spacing.xs,
+    },
+    logoutEyebrow: {
+      color: tokens.colors.danger,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+      textTransform: "uppercase",
+      letterSpacing: 0.4,
     },
     logoutTitle: {
       color: tokens.colors.text,
@@ -1368,7 +1385,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontWeight: tokens.typography.weights.semibold,
     },
     devPanelCard: {
-      marginTop: tokens.spacing.sm,
+      marginTop: tokens.spacing.xs,
       backgroundColor: tokens.colors.surfaceSubtle,
     },
     devPanel: {

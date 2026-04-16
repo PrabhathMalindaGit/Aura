@@ -108,8 +108,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       flex: 1,
     },
     topArea: {
-      gap: tokens.spacing.md,
-      marginBottom: tokens.spacing.sm,
+      gap: tokens.spacing.sm,
+      marginBottom: tokens.spacing.xs,
     },
     statusWrap: {
       gap: tokens.spacing.sm,
@@ -118,7 +118,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.sm,
     },
     shortcutsWrap: {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.xs,
+      paddingTop: tokens.spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: tokens.colors.border,
     },
     shortcutsLabel: {
       color: tokens.colors.textMuted,
@@ -160,7 +163,8 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       minHeight: 0,
     },
     composerWrap: {
-      paddingTop: tokens.spacing.sm,
+      paddingTop: tokens.spacing.md,
+      marginTop: tokens.spacing.xs,
       borderTopWidth: 1,
       borderTopColor: tokens.colors.border,
     },

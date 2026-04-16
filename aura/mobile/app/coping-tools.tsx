@@ -6,9 +6,12 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Avatar } from "@/src/components/Avatar";
 import { Banner } from "@/src/components/Banner";
 import { Card } from "@/src/components/Card";
+import { DomainIcon } from "@/src/components/IconSet";
 import { HeroHeader } from "@/src/components/HeroHeader";
 import { MediaCard } from "@/src/components/MediaCard";
+import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
+import { Section } from "@/src/components/Section";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
 import { useAuth } from "@/src/state/auth";
@@ -84,7 +87,12 @@ export default function CopingToolsScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  const toolCards = [
+  const mostRecentUsageAt = [usage.breathing.lastUsedAt, usage.grounding.lastUsedAt]
+    .filter((value): value is number => typeof value === "number")
+    .sort((left, right) => left - right)
+    .at(-1) ?? null;
+
+  const calmingTools = [
     {
       key: "breathing",
       title: "Breathing",
@@ -100,22 +108,6 @@ export default function CopingToolsScreen() {
       chips: [{ text: `Used ${usage.grounding.count}`, tone: "muted" as const }],
       onPress: () => router.push("/grounding"),
       icon: "coping" as const,
-    },
-    {
-      key: "chat",
-      title: "Chat",
-      subtitle: "Ask for support",
-      chips: [{ text: "Assistant", tone: "info" as const }],
-      onPress: () => router.push("/(tabs)/chat"),
-      icon: "chat" as const,
-    },
-    {
-      key: "safety",
-      title: "Safety support",
-      subtitle: "Reach your support steps",
-      chips: [{ text: "Quick access", tone: "warning" as const }],
-      onPress: () => router.push("/safety"),
-      icon: "safety" as const,
     },
   ];
 
@@ -142,109 +134,117 @@ export default function CopingToolsScreen() {
             <Text style={styles.storyMetricValue}>{usage.grounding.count}</Text>
             <Text style={styles.storyMetricLabel}>Grounding sessions</Text>
           </View>
-          <View style={styles.storyMetric}>
-            <Text style={styles.storyMetricValue}>
-              {usage.breathing.lastUsedAt || usage.grounding.lastUsedAt ? "Used recently" : "Ready"}
-            </Text>
-            <Text style={styles.storyMetricLabel}>Support status</Text>
+        </View>
+        <Text style={styles.storyStatusText}>
+          {mostRecentUsageAt
+            ? `Last support used ${formatLastUsed(mostRecentUsageAt)}.`
+            : "Your coping tools are ready whenever you need them."}
+        </Text>
+      </Card>
+
+      <Section
+        title="Recent support"
+        subtitle="See what you have used most recently before choosing the next support step."
+        card
+      >
+        <View style={styles.metricStack}>
+          <View style={styles.metricRow}>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="coping"
+                label="Breathing count"
+                value={`${usage.breathing.count}`}
+                delta="Total sessions"
+                tone="accent"
+                micro={{ type: "ring", progress: clamp01(usage.breathing.count / 7) }}
+              />
+            </View>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="coping"
+                label="Grounding count"
+                value={`${usage.grounding.count}`}
+                delta="Total sessions"
+                tone="primary"
+                micro={{ type: "dots", values: [usage.grounding.count, 0, 0, 0, 0, 0, 0] }}
+              />
+            </View>
+          </View>
+          <View style={styles.metricRow}>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="weekly"
+                label="Last breathing"
+                value={formatLastUsed(usage.breathing.lastUsedAt)}
+                delta="Recent usage"
+                tone="muted"
+                micro={{ type: "dots", values: [usage.breathing.lastUsedAt ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+              />
+            </View>
+            <View style={styles.metricCell}>
+              <TrackerTile
+                variant="compact"
+                icon="weekly"
+                label="Last grounding"
+                value={formatLastUsed(usage.grounding.lastUsedAt)}
+                delta="Recent usage"
+                tone="muted"
+                micro={{ type: "dots", values: [usage.grounding.lastUsedAt ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
+              />
+            </View>
           </View>
         </View>
-      </Card>
+      </Section>
 
-      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
-        <Text style={styles.sectionEyebrow}>Quick support</Text>
-        <Text style={styles.sectionTitle}>Choose the next calming step</Text>
-        <Text style={styles.sectionBody}>
-          Start with a short breathing or grounding tool, then move to chat or the Safety screen if
-          you need more support.
-        </Text>
-      </Card>
+      <Section
+        title="Calming tools"
+        subtitle="Start with one short reset, then move into a support option if you need more help."
+        right={<StatusPill label="2 tools" variant="neutral" accessible={false} />}
+        card
+      >
+        <View style={styles.toolRow}>
+          {calmingTools.map((card) => (
+            <View key={card.key} style={styles.toolCell}>
+              <MediaCard
+                variant="compact"
+                leading={{ type: "icon", icon: card.icon, tone: "accent" }}
+                title={card.title}
+                subtitle={card.subtitle}
+                chips={card.chips}
+                onPress={card.onPress}
+              />
+            </View>
+          ))}
+        </View>
+      </Section>
 
-      <MediaCard
-        leading={{ type: "icon", icon: "coping", tone: "accent" }}
-        title="Support is ready"
-        subtitle="Pick one tool. Your progress is saved locally."
-        chips={[
-          { text: "Offline ready", tone: "success" },
-          { text: "2–5 min", tone: "muted" },
-        ]}
-      />
-
-      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
-        <Text style={styles.sectionEyebrow}>Usage</Text>
-        <Text style={styles.sectionTitle}>Recent support activity</Text>
-        <Text style={styles.sectionBody}>
-          Use these quick summaries to see what you’ve leaned on most recently, then continue with
-          the tool that feels helpful now.
-        </Text>
-      </Card>
-
-      <View style={styles.trackerGrid}>
-        <View style={styles.trackerTileWrap}>
-          <TrackerTile
-            icon="coping"
-            label="Breathing count"
-            value={`${usage.breathing.count}`}
-            delta="Total sessions"
-            tone="accent"
-            micro={{ type: "ring", progress: clamp01(usage.breathing.count / 7) }}
+      <Section
+        title="Support options"
+        subtitle="Use these when you want a direct support path instead of another calming exercise."
+        card
+      >
+        <View style={styles.supportList}>
+          <Row
+            title="Message care team"
+            subtitle="Ask for support in Messages."
+            leftIcon={<DomainIcon icon="chat" tone="accent" accessibilityLabel="Message care team icon" />}
+            onPress={() => {
+              router.push("/(tabs)/chat");
+            }}
+          />
+          <Row
+            title="Safety support"
+            subtitle="Open guided support steps and quick next actions."
+            leftIcon={<DomainIcon icon="safety" tone="warning" accessibilityLabel="Safety support icon" />}
+            onPress={() => {
+              router.push("/safety");
+            }}
           />
         </View>
-        <View style={styles.trackerTileWrap}>
-          <TrackerTile
-            icon="coping"
-            label="Grounding count"
-            value={`${usage.grounding.count}`}
-            delta="Total sessions"
-            tone="primary"
-            micro={{ type: "dots", values: [usage.grounding.count, 0, 0, 0, 0, 0, 0] }}
-          />
-        </View>
-        <View style={styles.trackerTileWrap}>
-          <TrackerTile
-            icon="weekly"
-            label="Last breathing"
-            value={formatLastUsed(usage.breathing.lastUsedAt)}
-            delta="Recent usage"
-            tone="muted"
-            micro={{ type: "dots", values: [usage.breathing.lastUsedAt ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
-          />
-        </View>
-        <View style={styles.trackerTileWrap}>
-          <TrackerTile
-            icon="weekly"
-            label="Last grounding"
-            value={formatLastUsed(usage.grounding.lastUsedAt)}
-            delta="Recent usage"
-            tone="muted"
-            micro={{ type: "dots", values: [usage.grounding.lastUsedAt ? 1 : 0, 0, 0, 0, 0, 0, 0] }}
-          />
-        </View>
-      </View>
-
-      <Card variant="outlined" padding={tokens.spacing.md} style={styles.sectionIntro}>
-        <Text style={styles.sectionEyebrow}>Tools</Text>
-        <Text style={styles.sectionTitle}>Open the right support path</Text>
-        <Text style={styles.sectionBody}>
-          Each option below supports a different kind of reset, from a short breathing pause to a
-          faster route into Safety support.
-        </Text>
-      </Card>
-
-      <View style={styles.toolGrid}>
-        {toolCards.map((card) => (
-          <View key={card.key} style={styles.toolCardWrap}>
-            <MediaCard
-              variant="compact"
-              leading={{ type: "icon", icon: card.icon, tone: card.key === "safety" ? "warning" : "accent" }}
-              title={card.title}
-              subtitle={card.subtitle}
-              chips={card.chips}
-              onPress={card.onPress}
-            />
-          </View>
-        ))}
-      </View>
+      </Section>
 
       <Banner
         variant="warning"
@@ -329,7 +329,7 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       gap: tokens.spacing.md,
     },
     storyCard: {
-      gap: tokens.spacing.md,
+      gap: tokens.spacing.sm,
     },
     storyHeader: {
       flexDirection: "row",
@@ -386,6 +386,33 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
     },
+    storyStatusText: {
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
+    },
+    metricStack: {
+      gap: tokens.spacing.sm,
+    },
+    metricRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    metricCell: {
+      flex: 1,
+      minWidth: 0,
+    },
+    toolRow: {
+      flexDirection: "row",
+      gap: tokens.spacing.sm,
+    },
+    toolCell: {
+      flex: 1,
+      minWidth: 0,
+    },
+    supportList: {
+      gap: tokens.spacing.xs,
+    },
     sectionIntro: {
       gap: tokens.spacing.xs,
     },
@@ -407,24 +434,6 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
       lineHeight: tokens.typography.caption.lineHeight,
-    },
-    trackerGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.md,
-    },
-    trackerTileWrap: {
-      width: "48%",
-      minWidth: 0,
-    },
-    toolGrid: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: tokens.spacing.md,
-    },
-    toolCardWrap: {
-      width: "48%",
-      minWidth: 0,
     },
   });
 }

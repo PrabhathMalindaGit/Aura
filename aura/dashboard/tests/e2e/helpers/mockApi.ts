@@ -2,12 +2,26 @@ import type { Page, Route } from '@playwright/test';
 import type {
   AlertItem,
   AlertStatus,
+  CaregiverAccessItem,
+  CheckinAdaptationDecision,
+  CheckinAdaptationHistoryEntry,
   ClinicianCoordinationRecord,
   DashboardCommunicationOverview,
+  ExercisePlan,
+  ExerciseSessionListItem,
+  InsightItem,
+  PatientRecoverySupportConfig,
+  PatientThresholdConfig,
+  PromDueCard,
+  PromHistoryRow,
+  RehabPayload,
+  SafetyAuditEntry,
+  SymptomPhotoItem,
   TrendPointRaw,
 } from '../../../src/types/models';
 import {
   FIXTURE_ACK_ALERT,
+  FIXTURE_ALERT_ID,
   FIXTURE_ALERTS_BY_STATUS,
   FIXTURE_DASHBOARD_APPOINTMENTS,
   FIXTURE_DASHBOARD_COMMUNICATION,
@@ -19,6 +33,7 @@ import {
   FIXTURE_PATIENT_APPOINTMENT_REQUESTS,
   FIXTURE_PATIENT_TASKS,
   FIXTURE_PATIENTS,
+  FIXTURE_PATIENT_ID,
   FIXTURE_RESOLVED_ALERT,
   FIXTURE_TRENDS_14,
   FIXTURE_TRENDS_30,
@@ -54,6 +69,217 @@ interface MockState {
   communicationOverview: DashboardCommunicationOverview;
   coordinationByPatient: Record<string, ClinicianCoordinationRecord | null>;
 }
+
+const DEFAULT_REHAB: RehabPayload = {
+  currentKey: 'strength-control',
+  phases: [
+    {
+      key: 'pain-calm',
+      title: 'Pain calm',
+      description: 'Reduce pain and restore daily rhythm.',
+      order: 1,
+      status: 'done',
+      startedAt: '2026-04-14T07:00:00.000Z',
+      completedAt: '2026-04-15T07:00:00.000Z',
+    },
+    {
+      key: 'strength-control',
+      title: 'Strength & Control',
+      description: 'Progress tolerance and confidence.',
+      order: 2,
+      status: 'current',
+      startedAt: '2026-04-16T07:00:00.000Z',
+      completedAt: null,
+    },
+  ],
+  updatedAt: '2026-04-17T08:30:00.000Z',
+  updatedBy: {
+    clinicianId: 'clinician-1',
+    name: 'Clinician One',
+  },
+};
+
+const DEFAULT_PROM_DUE: PromDueCard[] = [
+  {
+    id: 'prom-due-1',
+    templateKey: 'AURA_RECOVERY_5',
+    title: 'Aura Recovery 5',
+    dueAt: '2026-04-17T12:00:00.000Z',
+    status: 'due',
+  },
+];
+
+const DEFAULT_PROM_HISTORY: PromHistoryRow[] = [
+  {
+    id: 'prom-history-1',
+    templateKey: 'AURA_RECOVERY_5',
+    title: 'Aura Recovery 5',
+    completedAt: '2026-04-16T10:00:00.000Z',
+    score: {
+      normalized: 61,
+      bandKey: 'amber',
+      bandLabel: 'Amber',
+    },
+  },
+];
+
+const DEFAULT_PENDING_INSIGHTS: InsightItem[] = [
+  {
+    id: 'insight-1',
+    patientId: FIXTURE_PATIENT_ID,
+    status: 'pending',
+    title: 'Pain trend worsened',
+    message: 'Pain scores are rising again in the recent window.',
+    category: 'symptoms',
+    confidence: 'high',
+    priority: 90,
+    windowDays: 14,
+    createdAt: '2026-04-17T08:35:00.000Z',
+  },
+];
+
+const DEFAULT_APPROVED_INSIGHTS: InsightItem[] = [
+  {
+    id: 'insight-2',
+    patientId: FIXTURE_PATIENT_ID,
+    status: 'approved',
+    title: 'Adherence stabilized',
+    message: 'Exercise completion recovered over the last few check-ins.',
+    category: 'adherence',
+    confidence: 'medium',
+    priority: 60,
+    windowDays: 14,
+    createdAt: '2026-04-16T08:35:00.000Z',
+    reviewedAt: '2026-04-16T09:00:00.000Z',
+  },
+];
+
+const DEFAULT_EXERCISE_PLAN: ExercisePlan = {
+  title: 'Recovery plan',
+  timezone: 'UTC',
+  daysOfWeek: [1, 3, 5],
+  version: 3,
+  updatedAt: '2026-04-17T08:20:00.000Z',
+  updatedBy: {
+    clinicianId: 'clinician-1',
+    name: 'Clinician One',
+  },
+  items: [
+    {
+      key: 'bridge',
+      name: 'Bridge',
+      instructions: 'Lift hips with control and lower slowly.',
+      sets: 3,
+      reps: 8,
+      intensity: 'moderate',
+      order: 1,
+    },
+  ],
+};
+
+const DEFAULT_THRESHOLDS: PatientThresholdConfig = {
+  patientId: FIXTURE_PATIENT_ID,
+  painHighThreshold: 7,
+  missedCheckinDays: 2,
+  responseDelayHours: 8,
+  safetyFlaggedResponseDelayHours: 2,
+  version: 1,
+  configured: true,
+  updatedAt: '2026-04-17T08:15:00.000Z',
+};
+
+const DEFAULT_RECOVERY_SUPPORT: PatientRecoverySupportConfig = {
+  patientId: FIXTURE_PATIENT_ID,
+  checkinMode: 'adaptive',
+  nudgesEnabled: true,
+  rationale: 'Escalate when pain and missed check-ins rise together.',
+  temporaryForceFullUntil: null,
+  version: 1,
+  configured: true,
+  updatedAt: '2026-04-17T08:10:00.000Z',
+};
+
+const DEFAULT_ADAPTATION_DECISION: CheckinAdaptationDecision = {
+  patientId: FIXTURE_PATIENT_ID,
+  date: '2026-04-17',
+  mode: 'expanded',
+  decisionSource: 'adaptive_expanded',
+  reasonCodes: ['high_pain'],
+  reasonDetails: [
+    {
+      code: 'high_pain',
+      label: 'High pain',
+      category: 'safety',
+    },
+  ],
+  clinicianSummary: 'Expanded check-in remains active because pain is high.',
+  explanation: 'The full recovery context remains visible while symptoms are elevated.',
+  configVersion: 1,
+  thresholdVersion: 1,
+  generatedAt: '2026-04-17T08:10:00.000Z',
+  optionalSections: {
+    recovery: true,
+    support: true,
+    dailyContext: true,
+  },
+};
+
+const DEFAULT_ADAPTATION_HISTORY: CheckinAdaptationHistoryEntry[] = [
+  {
+    id: 'adaptation-1',
+    recordedAt: '2026-04-17T08:10:00.000Z',
+    surface: 'patient_checkin',
+    decision: DEFAULT_ADAPTATION_DECISION,
+  },
+];
+
+const DEFAULT_CAREGIVER_ACCESS: CaregiverAccessItem[] = [
+  {
+    inviteId: 'caregiver-1',
+    relationship: 'Spouse',
+    caregiverName: 'Morgan Moss',
+    codeHint: 'MM-42',
+    createdAt: '2026-04-16T09:30:00.000Z',
+    expiresAt: '2026-04-18T09:30:00.000Z',
+  },
+];
+
+const DEFAULT_SAFETY_EVENTS: SafetyAuditEntry[] = [
+  {
+    id: 'safety-1',
+    patientId: FIXTURE_PATIENT_ID,
+    alertId: FIXTURE_ALERT_ID,
+    eventType: 'manual_review',
+    summary: 'Safety review opened from the worklist.',
+    occurredAt: '2026-04-17T08:05:00.000Z',
+    actor: {
+      clinicianId: 'clinician-1',
+      name: 'Clinician One',
+    },
+  },
+];
+
+const DEFAULT_EXERCISE_SESSIONS: ExerciseSessionListItem[] = [
+  {
+    id: 'session-1',
+    startedAt: '2026-04-17T07:00:00.000Z',
+    durationSeconds: 720,
+    exerciseCount: 4,
+    completedCount: 3,
+    avgPainDuring: 5,
+    planTitle: 'Recovery plan',
+  },
+];
+
+const DEFAULT_PHOTOS: SymptomPhotoItem[] = [
+  {
+    id: 'photo-1',
+    date: '2026-04-17',
+    kind: 'swelling',
+    notePreview: 'Left knee swelling.',
+    createdAt: '2026-04-17T08:00:00.000Z',
+  },
+];
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -205,6 +431,11 @@ export async function installMockApi(
     const method = request.method();
     const url = parseRequestUrl(request.url());
     const pathname = url.pathname;
+
+    if (!startsWithPath(pathname, '/clinician/')) {
+      await route.fallback();
+      return;
+    }
 
     tracker.requestLog.push({ method, pathname });
 
@@ -419,6 +650,194 @@ export async function installMockApi(
         from: fromIso,
         to: nowIso,
         trends,
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/checkins') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        checkins: deepClone(FIXTURE_TRENDS_14),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/hydration/range') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        from: '2026-04-11',
+        to: '2026-04-17',
+        targetMl: 2000,
+        days: [
+          { date: '2026-04-16', totalMl: 1850, metTarget: false },
+          { date: '2026-04-17', totalMl: 2100, metTarget: true },
+        ],
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/nutrition/range') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        from: '2026-04-11',
+        to: '2026-04-17',
+        days: [
+          {
+            date: '2026-04-16',
+            entry: {
+              id: 'nutrition-1',
+              date: '2026-04-16',
+              protein: 'ok',
+              fruitVegServings: 4,
+              antiInflammatoryFocus: true,
+              mealRegularity: 'mostly',
+              createdAt: '2026-04-16T08:00:00.000Z',
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/wearables/summary') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        source: 'mock',
+        from: '2026-04-11',
+        to: '2026-04-17',
+        trackedDays: 4,
+        avgSteps: 5230,
+        avgActiveMinutes: 34,
+        avgRestingHr: 68,
+        totalSteps: 20920,
+        totalActiveMinutes: 136,
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/wearables/daily') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        source: 'mock',
+        from: '2026-04-11',
+        to: '2026-04-17',
+        days: [
+          { date: '2026-04-16', steps: 4800, activeMinutes: 28, restingHr: 69 },
+          { date: '2026-04-17', steps: 5660, activeMinutes: 40, restingHr: 67 },
+        ],
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/medications/adherence') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        from: '2026-04-11',
+        to: '2026-04-17',
+        days: [
+          { date: '2026-04-16', taken: 2, skipped: 0, totalScheduled: 2 },
+          { date: '2026-04-17', taken: 1, skipped: 1, totalScheduled: 2 },
+        ],
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/photos') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        items: deepClone(DEFAULT_PHOTOS),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/rehab-phases') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        rehab: deepClone(DEFAULT_REHAB),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/proms') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        due: deepClone(DEFAULT_PROM_DUE),
+        completed: deepClone(DEFAULT_PROM_HISTORY),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/exercise-plan') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        plan: deepClone(DEFAULT_EXERCISE_PLAN),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/thresholds') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        thresholds: deepClone(DEFAULT_THRESHOLDS),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/recovery-support') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        recoverySupport: deepClone(DEFAULT_RECOVERY_SUPPORT),
+        adaptationDecision: deepClone(DEFAULT_ADAPTATION_DECISION),
+        adaptationHistory: deepClone(DEFAULT_ADAPTATION_HISTORY),
+        recoveryNudge: null,
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/caregiver-access') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        items: deepClone(DEFAULT_CAREGIVER_ACCESS),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/safety-events') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        items: deepClone(DEFAULT_SAFETY_EVENTS),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/insights') && method === 'GET') {
+      const status = url.searchParams.get('status');
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        items: deepClone(status === 'approved' ? DEFAULT_APPROVED_INSIGHTS : DEFAULT_PENDING_INSIGHTS),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/exercise-sessions') && method === 'GET') {
+      await fulfillJson(route, 200, {
+        ok: true,
+        patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
+        sessions: deepClone(DEFAULT_EXERCISE_SESSIONS),
       });
       return;
     }

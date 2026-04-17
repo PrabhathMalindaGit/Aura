@@ -111,7 +111,10 @@ export function DashboardV2Shell(): JSX.Element {
   const clinicianIdentity = useClinicianIdentity();
   const workspacePreferences = useClinicianWorkspacePreferences();
   const routeId = resolveDashboardV2RouteId(pathname);
-  const routeOwnsContextRail = routeId === 'worklist' || routeId === 'communication';
+  const routeOwnsContextRail =
+    routeId === 'worklist' ||
+    routeId === 'communication' ||
+    routeId === 'patient-workspace';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
 

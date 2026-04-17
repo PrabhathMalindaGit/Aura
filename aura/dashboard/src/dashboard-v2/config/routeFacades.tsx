@@ -4,7 +4,7 @@ import {
   type DashboardV2RouteId,
 } from './migrationGates';
 import { AnalyticsFoundation } from '../modules/analytics';
-import { PatientWorkspaceFoundation } from '../modules/patient-workspace';
+import { PatientWorkspaceRoute } from '../modules/patient-workspace';
 import { TasksFollowUpFoundation } from '../modules/tasks-follow-up';
 import { WorkspaceSettingsFoundation } from '../modules/settings';
 
@@ -94,11 +94,15 @@ export function CommunicationRouteFacade(): JSX.Element {
   );
 }
 
-export const PatientWorkspaceRouteFacade = createRouteFacade(
-  'patient-workspace',
-  PatientDetailPage,
-  PatientWorkspaceFoundation,
-);
+export function PatientWorkspaceRouteFacade(): JSX.Element {
+  return (
+    <RouteFacade
+      routeId="patient-workspace"
+      legacy={<PatientDetailPage />}
+      v2={<PatientWorkspaceRoute />}
+    />
+  );
+}
 
 export function AlertsRouteFacade(): JSX.Element {
   return (

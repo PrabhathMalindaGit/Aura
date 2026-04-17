@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '../../utils/cn';
 import { DASHBOARD_V2_MAIN_ID, DASHBOARD_V2_RAIL_ID } from '../foundation/a11y';
 import { DashboardV2SkipLinks } from './SkipLinks';
 
@@ -33,18 +34,25 @@ export function DashboardV2ShellFrame({
               </div>
             ) : null}
           </header>
-          <div className="dashboard-v2-shell__workspace">
+          <div
+            className={cn(
+              'dashboard-v2-shell__workspace',
+              contextualRail && 'dashboard-v2-shell__workspace--with-rail',
+            )}
+          >
             <main className="dashboard-v2-shell__main" id={DASHBOARD_V2_MAIN_ID} tabIndex={-1}>
               {children}
             </main>
-            <aside
-              className="dashboard-v2-shell__rail"
-              id={DASHBOARD_V2_RAIL_ID}
-              role="complementary"
-              aria-label="Contextual governance rail"
-            >
-              {contextualRail}
-            </aside>
+            {contextualRail ? (
+              <aside
+                className="dashboard-v2-shell__rail"
+                id={DASHBOARD_V2_RAIL_ID}
+                role="complementary"
+                aria-label="Contextual governance rail"
+              >
+                {contextualRail}
+              </aside>
+            ) : null}
           </div>
           <footer className="dashboard-v2-shell__footer" role="contentinfo">
             {footer}

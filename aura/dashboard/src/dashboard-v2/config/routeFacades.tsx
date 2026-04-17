@@ -1,12 +1,4 @@
-import type { ComponentType, ReactNode } from 'react';
-import { AlertsPage } from '../../pages/AlertsPage';
-import { AppointmentsPage } from '../../pages/AppointmentsPage';
-import { CommunicationPage } from '../../pages/CommunicationPage';
-import { DashboardHomePage } from '../../pages/DashboardHomePage';
-import { InsightsQueuePage } from '../../pages/InsightsQueuePage';
-import { PatientDetailPage } from '../../pages/PatientDetailPage';
-import { SettingsPage } from '../../pages/SettingsPage';
-import { WorklistPage } from '../../pages/WorklistPage';
+import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
 import {
   isDashboardV2RouteEnabled,
   type DashboardV2RouteId,
@@ -16,7 +8,31 @@ import { InboxFoundation } from '../modules/inbox';
 import { PatientWorkspaceFoundation } from '../modules/patient-workspace';
 import { TasksFollowUpFoundation } from '../modules/tasks-follow-up';
 import { WorkspaceSettingsFoundation } from '../modules/settings';
-import { TriageQueueFoundation } from '../modules/triage-queue';
+
+function lazyNamedComponent<TModule extends Record<string, unknown>, TKey extends keyof TModule & string>(
+  loader: () => Promise<TModule>,
+  key: TKey,
+): ComponentType {
+  return lazy(async () => {
+    const module = await loader();
+    return {
+      default: module[key] as ComponentType,
+    };
+  });
+}
+
+const AlertsPage = lazyNamedComponent(() => import('../../pages/AlertsPage'), 'AlertsPage');
+const AppointmentsPage = lazyNamedComponent(() => import('../../pages/AppointmentsPage'), 'AppointmentsPage');
+const CommunicationPage = lazyNamedComponent(() => import('../../pages/CommunicationPage'), 'CommunicationPage');
+const DashboardHomePage = lazyNamedComponent(() => import('../../pages/DashboardHomePage'), 'DashboardHomePage');
+const InsightsQueuePage = lazyNamedComponent(() => import('../../pages/InsightsQueuePage'), 'InsightsQueuePage');
+const PatientDetailPage = lazyNamedComponent(() => import('../../pages/PatientDetailPage'), 'PatientDetailPage');
+const SettingsPage = lazyNamedComponent(() => import('../../pages/SettingsPage'), 'SettingsPage');
+const WorklistPage = lazyNamedComponent(() => import('../../pages/WorklistPage'), 'WorklistPage');
+const TriageQueueRoute = lazyNamedComponent(
+  () => import('../modules/triage-queue'),
+  'TriageQueueRoute',
+);
 
 interface RouteFacadeProps {
   legacy: ReactNode;
@@ -25,7 +41,11 @@ interface RouteFacadeProps {
 }
 
 function RouteFacade({ legacy, v2, routeId }: RouteFacadeProps): JSX.Element {
-  return isDashboardV2RouteEnabled(routeId) ? <>{v2}</> : <>{legacy}</>;
+  return (
+    <Suspense fallback={null}>
+      {isDashboardV2RouteEnabled(routeId) ? <>{v2}</> : <>{legacy}</>}
+    </Suspense>
+  );
 }
 
 function createRouteFacade(
@@ -54,11 +74,15 @@ export const DashboardRouteFacade = createRouteFacade(
   AnalyticsFoundation,
 );
 
-export const WorklistRouteFacade = createRouteFacade(
-  'worklist',
-  WorklistPage,
-  TriageQueueFoundation,
-);
+export function WorklistRouteFacade(): JSX.Element {
+  return (
+    <RouteFacade
+      routeId="worklist"
+      legacy={<WorklistPage />}
+      v2={<TriageQueueRoute />}
+    />
+  );
+}
 
 export const CommunicationRouteFacade = createRouteFacade(
   'communication',

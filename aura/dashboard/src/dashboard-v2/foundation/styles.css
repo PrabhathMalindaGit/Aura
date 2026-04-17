@@ -792,6 +792,10 @@
 .dashboard-v2-shell__workspace {
   display: grid;
   gap: var(--v2-space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dashboard-v2-shell__workspace--with-rail {
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
 }
 

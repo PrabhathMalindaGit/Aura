@@ -23,6 +23,7 @@ export function DashboardV2Input({
   description,
   errorMessage,
   labelHidden = false,
+  isDisabled = false,
   isInvalid = Boolean(errorMessage),
   ...props
 }: DashboardV2InputProps): JSX.Element {
@@ -35,6 +36,7 @@ export function DashboardV2Input({
       aria-describedby={
         [description ? descriptionId : null, errorMessage ? errorId : null].filter(Boolean).join(' ') || undefined
       }
+      isDisabled={isDisabled}
       isInvalid={isInvalid}
     >
       <Label className={cn('v2-field__label', labelHidden && 'v2-visually-hidden')}>{label}</Label>

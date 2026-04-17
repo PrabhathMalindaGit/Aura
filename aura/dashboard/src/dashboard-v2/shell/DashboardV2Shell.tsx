@@ -111,6 +111,7 @@ export function DashboardV2Shell(): JSX.Element {
   const clinicianIdentity = useClinicianIdentity();
   const workspacePreferences = useClinicianWorkspacePreferences();
   const routeId = resolveDashboardV2RouteId(pathname);
+  const routeOwnsContextRail = routeId === 'worklist';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
 
@@ -266,7 +267,7 @@ export function DashboardV2Shell(): JSX.Element {
           <span className="dashboard-v2-shell__timestamp">
             Updated {formatLastUpdated(connection.lastSuccessAt)}
           </span>
-          {useRailDrawer ? (
+          {useRailDrawer && !routeOwnsContextRail ? (
             <DashboardV2Button
               tone="secondary"
               size="sm"
@@ -302,6 +303,7 @@ export function DashboardV2Shell(): JSX.Element {
       isNarrowViewport,
       nowMs,
       routeDescription,
+      routeOwnsContextRail,
       routeTitle,
       setContextRailOpen,
       setNavDrawerOpen,
@@ -325,14 +327,16 @@ export function DashboardV2Shell(): JSX.Element {
     </form>
   );
 
-  const contextRail = (
-    <DashboardV2ContextRailPanel
-      title="Context rail foundation"
-      description="Right-side governance, provenance, and explanation surfaces are staged here for later route migrations."
-    >
-      <DashboardV2GovernancePanel onOpenExplanation={() => setExplanationOpen(true)} />
-    </DashboardV2ContextRailPanel>
-  );
+  const contextRail = routeOwnsContextRail
+    ? null
+    : (
+        <DashboardV2ContextRailPanel
+          title="Context rail foundation"
+          description="Right-side governance, provenance, and explanation surfaces are staged here for later route migrations."
+        >
+          <DashboardV2GovernancePanel onOpenExplanation={() => setExplanationOpen(true)} />
+        </DashboardV2ContextRailPanel>
+      );
 
   const footer = (
     <DashboardV2Text tone="muted">
@@ -374,20 +378,24 @@ export function DashboardV2Shell(): JSX.Element {
         />
       </DashboardV2Drawer>
 
-      <DashboardV2Drawer
-        open={contextRailOpen}
-        onOpenChange={setContextRailOpen}
-        title="Context rail"
-        description="Governance, provenance, and explanation scaffolding"
-        placement="bottom"
-      >
-        {contextRail}
-      </DashboardV2Drawer>
+      {contextRail ? (
+        <DashboardV2Drawer
+          open={contextRailOpen}
+          onOpenChange={setContextRailOpen}
+          title="Context rail"
+          description="Governance, provenance, and explanation scaffolding"
+          placement="bottom"
+        >
+          {contextRail}
+        </DashboardV2Drawer>
+      ) : null}
 
-      <DashboardV2ExplanationDrawer
-        open={explanationOpen}
-        onOpenChange={setExplanationOpen}
-      />
+      {contextRail ? (
+        <DashboardV2ExplanationDrawer
+          open={explanationOpen}
+          onOpenChange={setExplanationOpen}
+        />
+      ) : null}
 
       <SessionTimeoutModal
         open={Boolean(sessionWarning)}

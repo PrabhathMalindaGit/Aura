@@ -1,0 +1,133 @@
+import { AlertTriangle, RefreshCcw } from 'lucide-react';
+import type { WorklistFilters as WorklistFiltersState } from '../../../../utils/worklist';
+import type { TriageQueueRowVm } from '../../../adapters/worklist';
+import { DashboardV2Button } from '../../../primitives/Button';
+import { DashboardV2Surface } from '../../../primitives/Surface';
+import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
+import { QueueFilters } from './QueueFilters';
+import { QueueList } from './QueueList';
+
+interface QueuePaneProps {
+  filters: WorklistFiltersState;
+  activeFilterCount: number;
+  disabled?: boolean;
+  isVeryNarrow: boolean;
+  rows: TriageQueueRowVm[];
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+  onSearchChange: (value: string) => void;
+  onToggleFilter: (
+    key:
+      | 'highRiskOnly'
+      | 'hasOpenAlerts'
+      | 'needsResponse'
+      | 'missedCheckins'
+      | 'needsPromReview'
+      | 'assignedToMe',
+  ) => void;
+  onStatusChange: (value: WorklistFiltersState['status']) => void;
+  onSortChange: (value: WorklistFiltersState['sort']) => void;
+  onReset: () => void;
+  loading: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
+  statusTitle?: string;
+  statusDescription?: string;
+  onRetry?: () => void;
+  queueRef?: React.RefObject<HTMLDivElement | null>;
+  onQueueScroll?: (scrollTop: number) => void;
+}
+
+export function QueuePane({
+  filters,
+  activeFilterCount,
+  disabled = false,
+  isVeryNarrow,
+  rows,
+  selectedKey,
+  onSelect,
+  onSearchChange,
+  onToggleFilter,
+  onStatusChange,
+  onSortChange,
+  onReset,
+  loading,
+  emptyTitle,
+  emptyDescription,
+  emptyActionLabel,
+  onEmptyAction,
+  statusTitle,
+  statusDescription,
+  onRetry,
+  queueRef,
+  onQueueScroll,
+}: QueuePaneProps): JSX.Element {
+  return (
+    <DashboardV2Surface className="triage-queue-pane" tone="base">
+      <div className="triage-queue-pane__header">
+        <div>
+          <DashboardV2Text tone="label">Scan the queue</DashboardV2Text>
+          <DashboardV2Heading as="h2">Patients in review</DashboardV2Heading>
+        </div>
+      </div>
+
+      <div className="triage-queue-pane__filters">
+        <QueueFilters
+          filters={filters}
+          activeFilterCount={activeFilterCount}
+          disabled={disabled}
+          isVeryNarrow={isVeryNarrow}
+          onSearchChange={onSearchChange}
+          onToggleFilter={onToggleFilter}
+          onStatusChange={onStatusChange}
+          onSortChange={onSortChange}
+          onReset={onReset}
+        />
+      </div>
+
+      <div
+        ref={queueRef}
+        className="triage-queue-pane__body"
+        onScroll={(event) => onQueueScroll?.(event.currentTarget.scrollTop)}
+      >
+        {loading ? (
+          <div className="triage-queue-pane__skeleton" aria-label="Queue loading placeholder">
+            <div className="triage-skeleton triage-skeleton--row" />
+            <div className="triage-skeleton triage-skeleton--row" />
+            <div className="triage-skeleton triage-skeleton--row" />
+          </div>
+        ) : statusTitle ? (
+          <DashboardV2Surface className="triage-queue-pane__empty" tone="muted">
+            <AlertTriangle size={18} />
+            <DashboardV2Heading as="h3">{statusTitle}</DashboardV2Heading>
+            {statusDescription ? <DashboardV2Text tone="muted">{statusDescription}</DashboardV2Text> : null}
+            {onRetry ? (
+              <DashboardV2Button
+                tone="secondary"
+                size="sm"
+                onPress={onRetry}
+                leadingIcon={<RefreshCcw size={16} />}
+              >
+                Retry
+              </DashboardV2Button>
+            ) : null}
+          </DashboardV2Surface>
+        ) : rows.length === 0 ? (
+          <DashboardV2Surface className="triage-queue-pane__empty" tone="muted">
+            <DashboardV2Heading as="h3">{emptyTitle ?? 'No patients in this view'}</DashboardV2Heading>
+            {emptyDescription ? <DashboardV2Text tone="muted">{emptyDescription}</DashboardV2Text> : null}
+            {onEmptyAction && emptyActionLabel ? (
+              <DashboardV2Button tone="secondary" size="sm" onPress={onEmptyAction}>
+                {emptyActionLabel}
+              </DashboardV2Button>
+            ) : null}
+          </DashboardV2Surface>
+        ) : (
+          <QueueList rows={rows} selectedKey={selectedKey} onSelect={onSelect} />
+        )}
+      </div>
+    </DashboardV2Surface>
+  );
+}

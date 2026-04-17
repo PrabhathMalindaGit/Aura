@@ -5,8 +5,8 @@
   --bp-lg: 1200px;
 
   /* Typography */
-  --font-sans: 'IBM Plex Sans', 'Segoe UI', 'Helvetica Neue', sans-serif;
-  --font-heading: 'Source Serif 4', Georgia, serif;
+  --font-sans: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-heading: 'Outfit', 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   --text-xs: clamp(11.5px, 0.88vw, 12.5px);
   --text-sm: clamp(13.5px, 1vw, 14.5px);
@@ -58,10 +58,10 @@
   --radius-xl: 26px;
   --radius-2xl: 34px;
 
-  /* Elevation (exactly 3 levels: background, card, popover) */
-  --shadow-1: 0 10px 28px hsl(204 24% 18% / 0.05);
-  --shadow-2: 0 16px 40px hsl(204 24% 16% / 0.08);
-  --shadow-3: 0 24px 56px hsl(204 26% 12% / 0.12);
+  /* Elevation */
+  --shadow-1: 0 4px 24px hsl(204 24% 18% / 0.04);
+  --shadow-2: 0 12px 32px hsl(204 24% 16% / 0.06);
+  --shadow-3: 0 20px 48px hsl(204 26% 12% / 0.08);
 
   /* Semantic color tokens (HSL triplets only) */
   --background: 40 27% 95%;
@@ -122,16 +122,18 @@
   --chart-height-desktop: var(--chart-h-desktop);
   --chart-height: var(--chart-height-mobile);
 
-  --gradient-page: radial-gradient(circle at top left, hsl(var(--primary) / 0.08), transparent 32%),
-    radial-gradient(circle at 88% 6%, hsl(var(--warning) / 0.08), transparent 20%),
-    linear-gradient(180deg, hsl(38 24% 97%), hsl(var(--background)) 46%, hsl(40 20% 92%));
-  --gradient-shell: linear-gradient(180deg, hsl(var(--card) / 0.96), hsl(var(--background) / 0.9));
-  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card)), hsl(42 20% 96%));
-  --gradient-surface-lilac: linear-gradient(180deg, hsl(var(--card)), hsl(42 20% 96%));
+  --gradient-page: 
+    radial-gradient(circle at top left, hsl(190 70% 96%), transparent 40%),
+    radial-gradient(circle at 88% 6%, hsl(20 80% 96%), transparent 30%),
+    linear-gradient(180deg, hsl(38 24% 97%), hsl(190 30% 98%));
+  --gradient-shell: linear-gradient(180deg, hsl(var(--card) / 0.7), hsl(var(--background) / 0.8));
+  --gradient-card-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.4));
+  --gradient-surface-soft: linear-gradient(180deg, hsl(var(--card)), hsl(200 40% 98%));
+  --gradient-surface-lilac: linear-gradient(180deg, hsl(var(--card)), hsl(230 40% 98%));
   --gradient-primary: linear-gradient(
     135deg,
-    hsl(var(--primary) / 0.16),
-    hsl(var(--primary) / 0.04)
+    hsl(190 60% 40%),
+    hsl(190 60% 30%)
   );
   --gradient-risk-high: linear-gradient(
     135deg,
@@ -167,15 +169,15 @@
   --focus-outline: 0 0 0 2px hsl(var(--ring-offset)), 0 0 0 4px hsl(var(--ring) / 0.22);
 
   /* Glassmorphism surface tokens */
-  --glass-blur-desktop: 0px;
-  --glass-blur-mobile: 0px;
+  --glass-blur-desktop: 16px;
+  --glass-blur-mobile: 8px;
   --glass-blur: var(--glass-blur-desktop);
-  --glass-alpha-card: 1;
-  --glass-alpha-popover: 1;
-  --glass-alpha-overlay: 0.22;
-  --glass-border-alpha: 0.7;
-  --glass-border-alpha-strong: 0.82;
-  --glass-highlight-alpha: 0;
+  --glass-alpha-card: 0.85;
+  --glass-alpha-popover: 0.9;
+  --glass-alpha-overlay: 0.15;
+  --glass-border-alpha: 0.3;
+  --glass-border-alpha-strong: 0.5;
+  --glass-highlight-alpha: 0.4;
 
   /* Legacy aliases for existing class styles */
   --color-bg: hsl(var(--background));

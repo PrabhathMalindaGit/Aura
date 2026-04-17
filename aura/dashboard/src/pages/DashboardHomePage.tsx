@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardModuleState } from '../components/dashboard/DashboardModuleState';
 import { ClinicianTruthChips } from '../components/clinician/ClinicianTruthChips';
+import heroBg from '../assets/hero-bg.png';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -662,6 +663,116 @@ export function DashboardHomePage(): JSX.Element {
       className="page-stack dashboard-page-shell dashboard-page-shell--home dashboard-home-page dashboard-home-page--today"
       gap="5"
     >
+      <style>{`
+        .bento-grid-layout {
+          display: grid;
+          gap: var(--space-4);
+          grid-template-columns: 1fr;
+          max-width: 1400px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        @media (min-width: 1024px) {
+          .bento-grid-layout {
+            grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+            align-items: start;
+          }
+        }
+        .bento-hero-banner {
+          position: relative;
+          background-color: var(--secondary);
+          background-image: linear-gradient(135deg, hsl(190 60% 40% / 0.8) 0%, hsl(230 40% 30% / 0.9) 100%), url(${heroBg});
+          background-size: cover;
+          background-position: center;
+          border-radius: var(--radius-2xl);
+          padding: 60px var(--space-6) var(--space-8);
+          box-shadow: var(--shadow-2);
+          overflow: hidden;
+          margin-bottom: var(--space-4);
+        }
+        .bento-hero-banner::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(20,40,60,0.5), transparent);
+          z-index: 0;
+        }
+        .bento-hero-banner > * {
+          position: relative;
+          z-index: 1;
+        }
+        .bento-hero-banner .today-brief__title {
+          font-family: var(--font-heading);
+          color: white;
+          font-size: clamp(32px, 4vw, 48px);
+          margin-bottom: var(--space-2);
+          text-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .bento-hero-banner .today-brief__copy {
+          color: rgba(255,255,255,0.9);
+          font-size: var(--text-lg);
+          max-width: 500px;
+          margin-bottom: var(--space-5);
+        }
+        .today-brief__facts {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: var(--space-3);
+          margin-top: var(--space-2);
+        }
+        .bento-glass-fact {
+          background: rgba(0, 0, 0, 0.25);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: var(--radius-xl);
+          padding: var(--space-4);
+          text-align: left;
+          color: white;
+          transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s;
+        }
+        .bento-glass-fact:hover {
+          transform: translateY(-4px);
+          background: rgba(0, 0, 0, 0.35);
+        }
+        .bento-glass-fact .today-brief__fact-value {
+          font-family: var(--font-heading);
+          font-size: var(--text-display);
+          display: block;
+          margin: 4px 0;
+        }
+        .bento-glass-fact .today-brief__fact-label {
+          font-weight: 600;
+          opacity: 0.9;
+        }
+        .bento-card-surface {
+          background: rgba(255, 255, 255, 0.4);
+          backdrop-filter: blur(24px) saturate(1.8);
+          -webkit-backdrop-filter: blur(24px) saturate(1.8);
+          border: 1px solid rgba(255, 255, 255, 0.6);
+          border-radius: var(--radius-2xl);
+          padding: var(--space-6);
+          box-shadow: 0 12px 32px rgba(30, 40, 60, 0.08), inset 0 1px 0 rgba(255,255,255,1);
+          transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.3s;
+        }
+        .dark .bento-card-surface {
+          background: rgba(20, 25, 35, 0.5);
+          border-color: rgba(255, 255, 255, 0.1);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .bento-card-surface:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 40px rgba(30, 40, 60, 0.12);
+        }
+        .dark .bento-card-surface:hover {
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+        }
+        .today-surface__header {
+          margin-bottom: var(--space-4);
+          padding-bottom: var(--space-3);
+          border-bottom: 1px solid rgba(150, 150, 150, 0.2);
+        }
+      `}</style>
       <Section
         className="dashboard-page-header dashboard-page-header--home dashboard-home-page__header"
         eyebrow={`Shift brief for ${clinicianFirstName}`}
@@ -680,16 +791,18 @@ export function DashboardHomePage(): JSX.Element {
         }
       />
 
-      <section className="today-brief" aria-label="Shift brief">
+      <section className="bento-hero-banner today-brief" aria-label="Shift brief">
         <div className="today-brief__lead">
-          <p className="today-brief__title">{attentionLead.title}</p>
+          <h1 className="today-brief__title">{attentionLead.title}</h1>
           <p className="today-brief__copy">{attentionLead.copy}</p>
           <div className="today-brief__actions">
             <Button
               className="today-brief__cta"
+              variant="secondary"
               onClick={() => {
                 navigate(attentionLead.actionPath);
               }}
+              style={{ fontWeight: 'bold' }}
             >
               {attentionLead.actionLabel}
             </Button>
@@ -701,20 +814,20 @@ export function DashboardHomePage(): JSX.Element {
             <button
               key={fact.key}
               type="button"
-              className={`today-brief__fact today-brief__fact--${fact.tone}`}
+              className={`today-brief__fact bento-glass-fact`}
               onClick={fact.onSelect}
             >
               <span className="today-brief__fact-label">{fact.label}</span>
               <strong className="today-brief__fact-value">{fact.value}</strong>
-              <span className="today-brief__fact-detail">{fact.detail}</span>
+              <span className="today-brief__fact-detail" style={{ opacity: 0.8, fontSize: '0.9em' }}>{fact.detail}</span>
             </button>
           ))}
         </div>
       </section>
 
-      <div className="today-layout">
+      <div className="today-layout bento-grid-layout">
         <div className="today-main-column">
-          <section className="today-main-surface" aria-label="Urgent review surface">
+          <section className="today-main-surface glass-card" aria-label="Urgent review surface" style={{ padding: 'var(--space-5)', border: 'none' }}>
             <header className="today-surface__header">
               <h2 className="today-surface__title">Open next</h2>
               <Button
@@ -749,6 +862,7 @@ export function DashboardHomePage(): JSX.Element {
                 title="Nothing urgent right now"
                 description="High-priority alerts, missed check-ins, appointment exceptions, and follow-up items will appear here."
                 tone="success"
+                image="/src/assets/empty-state.png"
               />
             ) : (
               <div className="today-priority-list" role="list" aria-label="Urgent review items">
@@ -883,15 +997,15 @@ export function DashboardHomePage(): JSX.Element {
           </section>
         </div>
 
-        <aside className="today-support-rail" aria-label="Supporting rail">
+        <aside className="today-support-rail" aria-label="Supporting rail" style={{ display: 'grid', gap: 'var(--space-4)' }}>
           <div className="today-support-rail__shell">
             <h2 className="visually-hidden">Supporting context</h2>
 
-            <section className="today-support-section">
-              <header className="today-support-section__header">
+            <section className="today-support-section bento-card-surface">
+              <header className="today-support-section__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
                 <div className="today-support-section__heading">
-                  <p className="today-support-section__eyebrow">Schedule snapshot</p>
-                  <h3 className="today-support-section__title">Due today</h3>
+                  <p className="today-support-section__eyebrow" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)' }}>Schedule snapshot</p>
+                  <h3 className="today-support-section__title" style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Due today</h3>
                 </div>
                 <Button
                   variant="ghost"
@@ -957,15 +1071,16 @@ export function DashboardHomePage(): JSX.Element {
             </section>
 
             <section
-              className={`today-support-section dashboard-home-communication-overview${
+              className={`today-support-section bento-card-surface dashboard-home-communication-overview${
                 reduceCommunicationOverviewAttention ? ' dashboard-home-communication-overview--reduced' : ''
               }`}
               data-testid="dashboard-home-communication-overview"
+              style={{ marginTop: 'var(--space-4)' }}
             >
-              <header className="today-support-section__header">
+              <header className="today-support-section__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
                 <div className="today-support-section__heading">
-                  <p className="today-support-section__eyebrow">Inbox</p>
-                  <h3 className="today-support-section__title">Inbox needing response</h3>
+                  <p className="today-support-section__eyebrow" style={{ fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted-foreground)' }}>Inbox</p>
+                  <h3 className="today-support-section__title" style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Inbox needing response</h3>
                 </div>
                 <Button
                   variant="ghost"

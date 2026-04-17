@@ -4,6 +4,7 @@ import {
   type DashboardV2RouteId,
 } from './migrationGates';
 import { AnalyticsFoundation } from '../modules/analytics';
+import { AlertsRoute } from '../modules/alerts';
 import { PatientWorkspaceRoute } from '../modules/patient-workspace';
 import { TasksFollowUpFoundation } from '../modules/tasks-follow-up';
 import { WorkspaceSettingsFoundation } from '../modules/settings';
@@ -109,14 +110,7 @@ export function AlertsRouteFacade(): JSX.Element {
     <RouteFacade
       routeId="alerts"
       legacy={<AlertsPage />}
-      v2={
-        <TasksFollowUpFoundation
-          title="Governance surface foundation"
-          description="Alert review remains on the legacy surface while the v2 governance rail and trust scaffolding are prepared."
-        >
-          <AlertsPage />
-        </TasksFollowUpFoundation>
-      }
+      v2={<AlertsRoute />}
     />
   );
 }

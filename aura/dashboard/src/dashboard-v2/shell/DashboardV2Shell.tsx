@@ -114,7 +114,8 @@ export function DashboardV2Shell(): JSX.Element {
   const routeOwnsContextRail =
     routeId === 'worklist' ||
     routeId === 'communication' ||
-    routeId === 'patient-workspace';
+    routeId === 'patient-workspace' ||
+    routeId === 'alerts';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
 

@@ -47,6 +47,7 @@ interface MockApiOptions {
   scenario?: MockScenario;
   communicationOverview?: DashboardCommunicationOverview;
   coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
+  alertsByStatus?: Record<AlertStatus, AlertItem[]>;
 }
 
 interface PatchCall {
@@ -331,7 +332,7 @@ const DEFAULT_COORDINATION_BY_PATIENT: Record<string, ClinicianCoordinationRecor
 
 function createInitialState(options: MockApiOptions = {}): MockState {
   return {
-    alertsByStatus: deepClone(FIXTURE_ALERTS_BY_STATUS),
+    alertsByStatus: deepClone(options.alertsByStatus ?? FIXTURE_ALERTS_BY_STATUS),
     trendsByDays: {
       14: deepClone(FIXTURE_TRENDS_14),
       30: deepClone(FIXTURE_TRENDS_30),
@@ -400,6 +401,118 @@ function updateAlertStatusInState(
 
   state.alertsByStatus[nextStatus] = [updatedAlert, ...state.alertsByStatus[nextStatus]];
   return updatedAlert;
+}
+
+function replaceAlertInState(state: MockState, updatedAlert: AlertItem): AlertItem {
+  const statuses: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
+  for (const status of statuses) {
+    state.alertsByStatus[status] = state.alertsByStatus[status].map((alert) =>
+      alert._id === updatedAlert._id ? updatedAlert : alert,
+    );
+  }
+
+  return updatedAlert;
+}
+
+function updateAlertAssignmentInState(
+  state: MockState,
+  id: string,
+  payload: {
+    assignedTo?: string | null;
+    assignedToName?: string;
+    force?: boolean;
+  },
+): AlertItem | undefined {
+  void payload.force;
+
+  const alert = findAlertById(state, id);
+  if (!alert) {
+    return undefined;
+  }
+
+  const nowIso = new Date('2026-02-22T10:10:00.000Z').toISOString();
+  const updatedAlert: AlertItem = {
+    ...alert,
+    assignedTo: payload.assignedTo ?? undefined,
+    assignedToName: payload.assignedTo ? payload.assignedToName ?? payload.assignedTo : undefined,
+    assignedAt: payload.assignedTo ? nowIso : undefined,
+    assignmentSource: payload.assignedTo ? 'manual' : undefined,
+    updatedAt: nowIso,
+  };
+
+  return replaceAlertInState(state, updatedAlert);
+}
+
+function updateAlertRiskOverrideInState(
+  state: MockState,
+  id: string,
+  payload: {
+    riskFinal: string;
+    overrideReason?: string;
+    overriddenBy?: string;
+    overriddenByName?: string;
+  },
+): AlertItem | undefined {
+  const alert = findAlertById(state, id);
+  if (!alert) {
+    return undefined;
+  }
+
+  const nowIso = new Date('2026-02-22T10:15:00.000Z').toISOString();
+  const updatedAlert: AlertItem = {
+    ...alert,
+    riskAuto: alert.riskAuto ?? alert.risk,
+    riskFinal: payload.riskFinal,
+    overrideReason: payload.overrideReason ?? 'Confirmed auto risk.',
+    overriddenAt: nowIso,
+    overriddenBy: payload.overriddenBy ?? 'clinician-1',
+    overriddenByName: payload.overriddenByName ?? 'Clinician One',
+    updatedAt: nowIso,
+  };
+
+  return replaceAlertInState(state, updatedAlert);
+}
+
+function clearAlertRiskOverrideInState(
+  state: MockState,
+  id: string,
+): AlertItem | undefined {
+  const alert = findAlertById(state, id);
+  if (!alert) {
+    return undefined;
+  }
+
+  const updatedAlert: AlertItem = {
+    ...alert,
+    riskFinal: undefined,
+    overrideReason: undefined,
+    overriddenAt: undefined,
+    overriddenBy: undefined,
+    overriddenByName: undefined,
+  };
+
+  return replaceAlertInState(state, updatedAlert);
+}
+
+function retryNotificationInState(
+  state: MockState,
+  id: string,
+): AlertItem | undefined {
+  const alert = findAlertById(state, id);
+  if (!alert) {
+    return undefined;
+  }
+
+  const nowIso = new Date('2026-02-22T10:20:00.000Z').toISOString();
+  const updatedAlert: AlertItem = {
+    ...alert,
+    notificationStatus: 'unknown',
+    notificationAttemptedAt: nowIso,
+    notificationRetryCount: (alert.notificationRetryCount ?? 0) + 1,
+    updatedAt: nowIso,
+  };
+
+  return replaceAlertInState(state, updatedAlert);
 }
 
 async function fulfillJson(route: Route, status: number, payload: unknown): Promise<void> {
@@ -878,6 +991,94 @@ export async function installMockApi(
           mood: 3,
           createdAt: alert.createdAt,
         },
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/alerts/') && pathname.endsWith('/assignment') && method === 'PATCH') {
+      const id = pathname.split('/')[3];
+      const payload = request.postDataJSON() as {
+        assignedTo?: string | null;
+        assignedToName?: string;
+        force?: boolean;
+      } | null;
+      if (!id) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const updatedAlert = updateAlertAssignmentInState(state, id, payload ?? {});
+      if (!updatedAlert) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, { ok: true, alert: deepClone(updatedAlert) });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/alerts/') && pathname.endsWith('/risk-override') && method === 'PATCH') {
+      const id = pathname.split('/')[3];
+      const payload = request.postDataJSON() as {
+        riskFinal?: string;
+        overrideReason?: string;
+        overriddenBy?: string;
+        overriddenByName?: string;
+      } | null;
+      if (!id || !payload?.riskFinal) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const updatedAlert = updateAlertRiskOverrideInState(state, id, payload as {
+        riskFinal: string;
+        overrideReason?: string;
+        overriddenBy?: string;
+        overriddenByName?: string;
+      });
+      if (!updatedAlert) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, { ok: true, alert: deepClone(updatedAlert) });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/alerts/') && pathname.endsWith('/risk-override') && method === 'DELETE') {
+      const id = pathname.split('/')[3];
+      if (!id) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const updatedAlert = clearAlertRiskOverrideInState(state, id);
+      if (!updatedAlert) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, { ok: true, alert: deepClone(updatedAlert) });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/alerts/') && pathname.endsWith('/retry-notification') && method === 'POST') {
+      const id = pathname.split('/')[3];
+      if (!id) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const updatedAlert = retryNotificationInState(state, id);
+      if (!updatedAlert) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, {
+        ok: true,
+        status: 'queued',
+        alert: deepClone(updatedAlert),
       });
       return;
     }

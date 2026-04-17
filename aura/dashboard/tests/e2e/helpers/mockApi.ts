@@ -1,5 +1,11 @@
 import type { Page, Route } from '@playwright/test';
-import type { AlertItem, AlertStatus, TrendPointRaw } from '../../../src/types/models';
+import type {
+  AlertItem,
+  AlertStatus,
+  ClinicianCoordinationRecord,
+  DashboardCommunicationOverview,
+  TrendPointRaw,
+} from '../../../src/types/models';
 import {
   FIXTURE_ACK_ALERT,
   FIXTURE_ALERTS_BY_STATUS,
@@ -24,6 +30,8 @@ export type MockScenario = 'default' | 'ackSuccess' | 'ackFail' | 'offline';
 
 interface MockApiOptions {
   scenario?: MockScenario;
+  communicationOverview?: DashboardCommunicationOverview;
+  coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
 }
 
 interface PatchCall {
@@ -43,13 +51,59 @@ interface MockState {
   tasks: typeof FIXTURE_PATIENT_TASKS;
   worklistItems: typeof FIXTURE_WORKLIST_ITEMS;
   appointmentRequests: typeof FIXTURE_PATIENT_APPOINTMENT_REQUESTS;
+  communicationOverview: DashboardCommunicationOverview;
+  coordinationByPatient: Record<string, ClinicianCoordinationRecord | null>;
 }
 
 function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function createInitialState(): MockState {
+const DEFAULT_COORDINATION_BY_PATIENT: Record<string, ClinicianCoordinationRecord | null> = {
+  p1: {
+    patientId: 'p1',
+    currentHandoff: {
+      summary: 'Shared coordination summary for Patient P1.',
+      nextStep: 'plan',
+      followUpOwner: {
+        kind: 'clinician',
+        clinicianId: 'clinician-1',
+        displayName: 'Clinician One',
+      },
+      linkedTaskId: 'task-1',
+      linkedTask: {
+        id: 'task-1',
+        title: 'Check medication adherence',
+        type: 'follow_up',
+        priority: 'high',
+        status: 'open',
+        dueAt: FIXTURE_PATIENT_TASKS[0]?.dueAt ?? null,
+        assignedTo: 'clinician-1',
+        updatedAt: FIXTURE_PATIENT_TASKS[0]?.updatedAt ?? new Date().toISOString(),
+      },
+      updatedBy: {
+        clinicianId: 'clinician-1',
+        displayName: 'Clinician One',
+      },
+      updatedAt: FIXTURE_PATIENT_TASKS[0]?.updatedAt ?? new Date().toISOString(),
+    },
+    noteHistory: [
+      {
+        id: 'coord-note-1',
+        text: 'Shared coordination note for Patient P1.',
+        createdBy: {
+          clinicianId: 'clinician-1',
+          displayName: 'Clinician One',
+        },
+        createdAt: FIXTURE_PATIENT_TASKS[0]?.updatedAt ?? new Date().toISOString(),
+      },
+    ],
+    createdAt: FIXTURE_PATIENT_TASKS[0]?.createdAt ?? new Date().toISOString(),
+    updatedAt: FIXTURE_PATIENT_TASKS[0]?.updatedAt ?? new Date().toISOString(),
+  },
+};
+
+function createInitialState(options: MockApiOptions = {}): MockState {
   return {
     alertsByStatus: deepClone(FIXTURE_ALERTS_BY_STATUS),
     trendsByDays: {
@@ -59,6 +113,8 @@ function createInitialState(): MockState {
     tasks: deepClone(FIXTURE_PATIENT_TASKS),
     worklistItems: deepClone(FIXTURE_WORKLIST_ITEMS),
     appointmentRequests: deepClone(FIXTURE_PATIENT_APPOINTMENT_REQUESTS),
+    communicationOverview: deepClone(options.communicationOverview ?? FIXTURE_DASHBOARD_COMMUNICATION),
+    coordinationByPatient: deepClone(options.coordinationByPatient ?? DEFAULT_COORDINATION_BY_PATIENT),
   };
 }
 
@@ -133,7 +189,7 @@ export async function installMockApi(
   options: MockApiOptions = {},
 ): Promise<MockApiTracker> {
   const scenario = options.scenario ?? 'default';
-  const state = createInitialState();
+  const state = createInitialState(options);
   const tracker: MockApiTracker = {
     patchStatusCalls: [],
     trendDaysCalls: [],
@@ -188,7 +244,62 @@ export async function installMockApi(
     }
 
     if (isPath(pathname, '/clinician/dashboard/communication-overview') && method === 'GET') {
-      await fulfillJson(route, 200, { ok: true, overview: deepClone(FIXTURE_DASHBOARD_COMMUNICATION) });
+      await fulfillJson(route, 200, { ok: true, overview: deepClone(state.communicationOverview) });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/coordination') && method === 'GET') {
+      const patientId = pathname.split('/')[3];
+      if (!patientId) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      await fulfillJson(route, 200, {
+        ok: true,
+        coordination: deepClone(state.coordinationByPatient[patientId] ?? null),
+      });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/coordination/notes') && method === 'POST') {
+      const patientId = pathname.split('/')[3];
+      const payload = request.postDataJSON() as { text?: string } | null;
+      const noteText = payload?.text?.trim();
+
+      if (!patientId || !noteText) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const nowIso = new Date('2026-04-17T09:30:00.000Z').toISOString();
+      const currentRecord = state.coordinationByPatient[patientId] ?? null;
+      const nextRecord: ClinicianCoordinationRecord = {
+        patientId,
+        currentHandoff: currentRecord?.currentHandoff ?? null,
+        noteHistory: [
+          {
+            id: `coord-note-${patientId}-${currentRecord?.noteHistory.length ?? 0}`,
+            text: noteText,
+            createdBy: {
+              clinicianId: 'clinician-1',
+              displayName: 'Clinician One',
+            },
+            createdAt: nowIso,
+          },
+          ...(currentRecord?.noteHistory ?? []),
+        ],
+        createdAt: currentRecord?.createdAt ?? nowIso,
+        updatedAt: nowIso,
+      };
+
+      state.coordinationByPatient[patientId] = nextRecord;
+      await fulfillJson(route, 201, { ok: true, coordination: deepClone(nextRecord) });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/patients/') && pathname.endsWith('/communication/events') && method === 'POST') {
+      await fulfillJson(route, 201, { ok: true });
       return;
     }
 

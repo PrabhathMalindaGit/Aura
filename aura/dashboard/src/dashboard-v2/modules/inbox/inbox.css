@@ -1,0 +1,479 @@
+.v2-inbox-route {
+  display: grid;
+  gap: var(--v2-space-4);
+}
+
+.v2-inbox-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-4) var(--v2-space-5);
+}
+
+.v2-inbox-banner--warning {
+  border-color: hsl(var(--v2-warning) / 0.24);
+  background: hsl(var(--v2-warning-soft));
+}
+
+.v2-inbox-status-bar {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: var(--v2-space-5);
+}
+
+.v2-inbox-status-bar__copy {
+  display: grid;
+  gap: var(--v2-space-1);
+}
+
+.v2-inbox-status-bar__facts,
+.v2-inbox-status-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+}
+
+.v2-inbox-status-bar__pill,
+.v2-inbox-filter-bar__count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.1rem 0.7rem;
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: 999px;
+  background: hsl(var(--v2-surface));
+  color: hsl(var(--v2-text-muted));
+  font-size: var(--v2-font-size-caption);
+  font-variant-numeric: var(--v2-numerals);
+}
+
+.v2-inbox-workbench {
+  display: grid;
+  gap: var(--v2-space-4);
+  min-height: 0;
+}
+
+.v2-inbox-workbench--with-queue.v2-inbox-workbench--with-rail {
+  grid-template-columns: minmax(22.5rem, 23.75rem) minmax(0, 1fr) 20rem;
+}
+
+.v2-inbox-workbench--with-queue.v2-inbox-workbench--without-rail {
+  grid-template-columns: minmax(20rem, 21.25rem) minmax(0, 1fr);
+}
+
+.v2-inbox-workbench__queue,
+.v2-inbox-workbench__workspace,
+.v2-inbox-workbench__rail {
+  min-width: 0;
+}
+
+.v2-inbox-queue-pane,
+.v2-inbox-support-rail {
+  position: sticky;
+  top: var(--v2-space-4);
+}
+
+.v2-inbox-queue-pane {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: var(--v2-space-4);
+}
+
+.v2-inbox-queue-pane__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-queue-pane__copy {
+  display: grid;
+  gap: var(--v2-space-1);
+}
+
+.v2-inbox-queue-pane__body {
+  min-height: 0;
+  max-height: min(72vh, 48rem);
+  overflow: auto;
+  padding-right: var(--v2-space-1);
+}
+
+.v2-inbox-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+}
+
+.v2-inbox-filter-bar--compact {
+  display: grid;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-filter-bar__compact-facts {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.v2-inbox-thread-list {
+  display: grid;
+  gap: var(--v2-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v2-inbox-thread-row {
+  display: grid;
+  gap: var(--v2-space-3);
+  width: 100%;
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border));
+  border-left-width: 4px;
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-surface-muted));
+  color: hsl(var(--v2-text));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--v2-motion-fast) var(--v2-ease-standard),
+    background-color var(--v2-motion-fast) var(--v2-ease-standard),
+    box-shadow var(--v2-motion-fast) var(--v2-ease-standard);
+}
+
+.v2-inbox-thread-row:hover {
+  border-color: hsl(var(--v2-border-strong));
+  background: hsl(var(--v2-surface));
+}
+
+.v2-inbox-thread-row--critical {
+  border-left-color: hsl(var(--v2-critical));
+}
+
+.v2-inbox-thread-row--warning {
+  border-left-color: hsl(var(--v2-warning));
+}
+
+.v2-inbox-thread-row--info {
+  border-left-color: hsl(var(--v2-info));
+}
+
+.v2-inbox-thread-row--success {
+  border-left-color: hsl(var(--v2-success));
+}
+
+.v2-inbox-thread-row--neutral,
+.v2-inbox-thread-row--patient,
+.v2-inbox-thread-row--clinician,
+.v2-inbox-thread-row--unknown {
+  border-left-color: hsl(var(--v2-border-strong));
+}
+
+.v2-inbox-thread-row--selected {
+  border-color: hsl(var(--v2-info) / 0.45);
+  background: hsl(var(--v2-surface-elevated));
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--v2-info) / 0.18),
+    var(--v2-shadow-sm);
+}
+
+.v2-inbox-thread-row__topline,
+.v2-inbox-thread-row__identity,
+.v2-inbox-thread-row__supporting,
+.v2-inbox-workspace__summary-actions,
+.v2-inbox-workspace__summary-facts,
+.v2-inbox-timeline__event-badges,
+.v2-inbox-support-card__badges,
+.v2-inbox-support-card__actions,
+.v2-inbox-draft-panel__toolbar-actions,
+.v2-inbox-draft-panel__actions,
+.v2-inbox-shared-note-form__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+}
+
+.v2-inbox-thread-row__topline {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.v2-inbox-thread-row__identity {
+  align-items: center;
+}
+
+.v2-inbox-thread-row__name {
+  font-size: var(--v2-font-size-body-strong);
+}
+
+.v2-inbox-thread-row__time,
+.v2-inbox-timeline__event-meta,
+.v2-inbox-shared-note-history__meta,
+.v2-inbox-workspace__summary-copy,
+.v2-inbox-workspace__summary-metric .v2-text--strong,
+.v2-inbox-support-card .v2-metadata-list__value {
+  font-variant-numeric: var(--v2-numerals);
+}
+
+.v2-inbox-thread-row__time {
+  color: hsl(var(--v2-text-muted));
+  font-size: var(--v2-font-size-caption);
+}
+
+.v2-inbox-queue-pane__state,
+.v2-inbox-workspace__idle {
+  display: grid;
+  justify-items: start;
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-5);
+}
+
+.v2-inbox-queue-pane__skeleton,
+.v2-inbox-workspace__skeleton,
+.v2-inbox-support-card__loading {
+  display: grid;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-skeleton {
+  border-radius: var(--v2-radius-md);
+  background:
+    linear-gradient(
+      90deg,
+      hsl(var(--v2-surface-muted)) 0%,
+      hsl(var(--v2-bg-subtle)) 50%,
+      hsl(var(--v2-surface-muted)) 100%
+    );
+  background-size: 200% 100%;
+  animation: inbox-skeleton-shimmer 1.5s infinite linear;
+}
+
+.v2-inbox-skeleton--thread {
+  min-height: 8rem;
+}
+
+.v2-inbox-skeleton--header {
+  min-height: 8rem;
+}
+
+.v2-inbox-skeleton--panel {
+  min-height: 12rem;
+}
+
+.v2-inbox-workspace {
+  display: grid;
+  gap: var(--v2-space-4);
+}
+
+.v2-inbox-workspace__header {
+  position: sticky;
+  top: var(--v2-space-4);
+  z-index: 1;
+}
+
+.v2-inbox-workspace__summary {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: var(--v2-space-5);
+}
+
+.v2-inbox-workspace__summary-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-workspace__summary-copy {
+  display: grid;
+  gap: var(--v2-space-1);
+}
+
+.v2-inbox-workspace__summary-metadata {
+  display: grid;
+  gap: var(--v2-space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.v2-inbox-workspace__summary-metric {
+  display: grid;
+  gap: var(--v2-space-1);
+  padding: var(--v2-space-3);
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface-muted));
+}
+
+.v2-inbox-workspace__body {
+  display: grid;
+  gap: var(--v2-space-4);
+}
+
+.v2-inbox-section-heading {
+  display: grid;
+  gap: var(--v2-space-1);
+}
+
+.v2-inbox-timeline,
+.v2-inbox-draft-panel,
+.v2-inbox-support-card {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: var(--v2-space-5);
+  scroll-margin-top: 15rem;
+}
+
+.v2-inbox-timeline__list,
+.v2-inbox-shared-note-history__list,
+.v2-inbox-support-rail {
+  display: grid;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-timeline__event {
+  display: grid;
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface-muted));
+}
+
+.v2-inbox-timeline__event--patient {
+  border-left: 4px solid hsl(var(--v2-info));
+}
+
+.v2-inbox-timeline__event--clinician {
+  border-left: 4px solid hsl(var(--v2-success));
+}
+
+.v2-inbox-timeline__event--continuation {
+  background: hsl(var(--v2-surface));
+}
+
+.v2-inbox-timeline__event-head,
+.v2-inbox-shared-note-history__meta,
+.v2-inbox-draft-panel__identity {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-timeline__event-copy,
+.v2-inbox-draft-panel__identity,
+.v2-inbox-draft-panel__toolbar,
+.v2-inbox-support-snapshot,
+.v2-inbox-shared-note-form {
+  display: grid;
+  gap: var(--v2-space-3);
+}
+
+.v2-inbox-timeline__event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+  color: hsl(var(--v2-text-muted));
+  font-size: var(--v2-font-size-caption);
+}
+
+.v2-inbox-draft-panel__toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.v2-inbox-shared-note-form__footer {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.v2-inbox-draft-panel__actions .v2-button,
+.v2-inbox-shared-note-form__footer .v2-button {
+  scroll-margin-top: 15rem;
+}
+
+.v2-inbox-shared-note-history__item {
+  display: grid;
+  gap: var(--v2-space-2);
+  padding: var(--v2-space-3);
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface-muted));
+}
+
+.v2-inbox-support-card__error {
+  display: grid;
+  gap: var(--v2-space-2);
+  padding: var(--v2-space-4);
+}
+
+@media (max-width: 1279px) {
+  .v2-inbox-workbench--with-queue.v2-inbox-workbench--without-rail {
+    grid-template-columns: minmax(20rem, 21.25rem) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1023px) {
+  .v2-inbox-status-bar,
+  .v2-inbox-banner,
+  .v2-inbox-queue-pane,
+  .v2-inbox-workspace__summary,
+  .v2-inbox-timeline,
+  .v2-inbox-draft-panel,
+  .v2-inbox-support-card {
+    padding: var(--v2-space-4);
+  }
+
+  .v2-inbox-queue-pane,
+  .v2-inbox-support-rail,
+  .v2-inbox-workspace__header {
+    position: static;
+  }
+
+  .v2-inbox-workbench--with-queue.v2-inbox-workbench--without-rail,
+  .v2-inbox-workbench--with-queue.v2-inbox-workbench--with-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-inbox-workspace__summary-metadata {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 599px) {
+  .v2-inbox-status-bar__facts,
+  .v2-inbox-status-bar__actions,
+  .v2-inbox-workspace__summary-topline,
+  .v2-inbox-workspace__summary-actions,
+  .v2-inbox-thread-row__topline,
+  .v2-inbox-draft-panel__toolbar,
+  .v2-inbox-shared-note-form__footer {
+    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+  }
+
+  .v2-inbox-workspace__summary-metadata {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-inbox-queue-pane__body {
+    max-height: none;
+  }
+}
+
+@keyframes inbox-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-inbox-thread-row,
+  .v2-inbox-skeleton {
+    animation: none;
+    transition: none;
+  }
+}

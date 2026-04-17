@@ -4,7 +4,6 @@ import {
   type DashboardV2RouteId,
 } from './migrationGates';
 import { AnalyticsFoundation } from '../modules/analytics';
-import { InboxFoundation } from '../modules/inbox';
 import { PatientWorkspaceFoundation } from '../modules/patient-workspace';
 import { TasksFollowUpFoundation } from '../modules/tasks-follow-up';
 import { WorkspaceSettingsFoundation } from '../modules/settings';
@@ -26,6 +25,7 @@ const AppointmentsPage = lazyNamedComponent(() => import('../../pages/Appointmen
 const CommunicationPage = lazyNamedComponent(() => import('../../pages/CommunicationPage'), 'CommunicationPage');
 const DashboardHomePage = lazyNamedComponent(() => import('../../pages/DashboardHomePage'), 'DashboardHomePage');
 const InsightsQueuePage = lazyNamedComponent(() => import('../../pages/InsightsQueuePage'), 'InsightsQueuePage');
+const InboxRoute = lazyNamedComponent(() => import('../modules/inbox'), 'InboxRoute');
 const PatientDetailPage = lazyNamedComponent(() => import('../../pages/PatientDetailPage'), 'PatientDetailPage');
 const SettingsPage = lazyNamedComponent(() => import('../../pages/SettingsPage'), 'SettingsPage');
 const WorklistPage = lazyNamedComponent(() => import('../../pages/WorklistPage'), 'WorklistPage');
@@ -84,11 +84,15 @@ export function WorklistRouteFacade(): JSX.Element {
   );
 }
 
-export const CommunicationRouteFacade = createRouteFacade(
-  'communication',
-  CommunicationPage,
-  InboxFoundation,
-);
+export function CommunicationRouteFacade(): JSX.Element {
+  return (
+    <RouteFacade
+      routeId="communication"
+      legacy={<CommunicationPage />}
+      v2={<InboxRoute />}
+    />
+  );
+}
 
 export const PatientWorkspaceRouteFacade = createRouteFacade(
   'patient-workspace',

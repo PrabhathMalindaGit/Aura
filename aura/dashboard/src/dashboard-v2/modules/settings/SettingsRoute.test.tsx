@@ -22,6 +22,7 @@ import {
 import { getThemeStorageKey } from "../../../services/theme";
 import { SettingsRouteFacade } from "../../config/routeFacades";
 import {
+  getDefaultDashboardV2Gates,
   resetDashboardV2GatesForTests,
   writeDashboardV2Gates,
 } from "../../config/migrationGates";
@@ -77,6 +78,18 @@ function renderSettingsRoute(): ReturnType<typeof render> {
   );
 }
 
+function setSettingsGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
+  writeDashboardV2Gates({
+    ...defaults,
+    routes: {
+      ...defaults.routes,
+      settings: enabled,
+    },
+  });
+}
+
 describe("SettingsRouteFacade", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -94,21 +107,9 @@ describe("SettingsRouteFacade", () => {
     resetDashboardV2GatesForTests();
   });
 
-  it("keeps the legacy settings route available when the settings gate is off", async () => {
+  it("keeps the legacy settings route available when the route is explicitly rolled back", async () => {
     signInAs({ sub: "auth-settings-legacy", name: "Dr Legacy" });
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
-      },
-    });
+    setSettingsGate(false);
 
     renderSettingsRoute();
 
@@ -118,21 +119,8 @@ describe("SettingsRouteFacade", () => {
     expect(screen.queryByTestId("v2-settings-route")).not.toBeInTheDocument();
   });
 
-  it("renders the gated v2 settings route with grouped primary and secondary sections", () => {
+  it("renders the v2 settings route by default with grouped primary and secondary sections", () => {
     signInAs({ sub: "auth-settings-v2", name: "Dr Rivera" });
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: true,
-      },
-    });
 
     renderSettingsRoute();
 
@@ -173,19 +161,6 @@ describe("SettingsRouteFacade", () => {
 
   it("preserves save-based profile, communication, and notification behavior", async () => {
     signInAs({ sub: "auth-settings-save", name: "Dr Hall" });
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: true,
-      },
-    });
     const user = userEvent.setup();
 
     renderSettingsRoute();
@@ -251,19 +226,6 @@ describe("SettingsRouteFacade", () => {
   });
 
   it("keeps immediate controls local and conservative, including Unknown handling", async () => {
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: true,
-      },
-    });
     const user = userEvent.setup();
     installViewportMock(560);
 

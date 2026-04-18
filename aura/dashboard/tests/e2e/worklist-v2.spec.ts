@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { installMockApi } from './helpers/mockApi';
 
-test('gated worklist v2 restores the active case after routing out and back', async ({ page }) => {
+test('worklist v2 restores the active case after routing out and back by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
   page.on('pageerror', (error) => {
@@ -15,25 +15,6 @@ test('gated worklist v2 restores the active case after routing out and back', as
   });
 
   await installMockApi(page);
-
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'aura_dashboard_v2_gates',
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: false,
-          worklist: true,
-          communication: false,
-          'patient-workspace': false,
-          alerts: false,
-          insights: false,
-          appointments: false,
-          settings: false,
-        },
-      }),
-    );
-  });
 
   await page.goto('/worklist');
   expect(runtimeIssues, runtimeIssues.join('\n')).toEqual([]);

@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearDashboardV2Gates,
+  getDefaultDashboardV2Gates,
   isDashboardV2RouteEnabled,
   readDashboardV2Gates,
   resolveDashboardV2RouteId,
@@ -11,20 +12,21 @@ import {
 describe('dashboard v2 migration gates', () => {
   afterEach(() => {
     clearDashboardV2Gates();
+    vi.unstubAllEnvs();
   });
 
-  it('defaults all shell and route gates to false', () => {
+  it('defaults the completed dashboard routes to v2 while leaving the shell baseline off', () => {
     expect(readDashboardV2Gates()).toEqual({
       shell: false,
       routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
+        dashboard: true,
+        worklist: true,
+        communication: true,
+        'patient-workspace': true,
+        alerts: true,
+        insights: true,
+        appointments: true,
+        settings: true,
       },
     });
   });
@@ -35,23 +37,45 @@ describe('dashboard v2 migration gates', () => {
     expect(resolveDashboardV2RouteId('/patients/p1/plan')).toBeNull();
   });
 
-  it('enables the v2 shell only for gated target routes', () => {
+  it('supports explicit false local overrides while leaving other completed routes on v2', () => {
+    const defaults = getDefaultDashboardV2Gates();
+
     writeDashboardV2Gates({
-      shell: false,
+      ...defaults,
       routes: {
-        dashboard: false,
-        worklist: true,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
+        ...defaults.routes,
+        worklist: false,
       },
     });
 
-    expect(isDashboardV2RouteEnabled('worklist')).toBe(true);
-    expect(shouldUseDashboardV2Shell('/worklist')).toBe(true);
+    expect(isDashboardV2RouteEnabled('worklist')).toBe(false);
+    expect(isDashboardV2RouteEnabled('dashboard')).toBe(true);
+    expect(shouldUseDashboardV2Shell('/worklist')).toBe(false);
     expect(shouldUseDashboardV2Shell('/patients/p1/plan')).toBe(false);
+  });
+
+  it('supports explicit false env overrides for completed routes', () => {
+    vi.stubEnv('VITE_AURA_DASHBOARD_V2_ROUTES', '!dashboard,communication=false');
+
+    expect(readDashboardV2Gates().routes.dashboard).toBe(false);
+    expect(readDashboardV2Gates().routes.communication).toBe(false);
+    expect(readDashboardV2Gates().routes.alerts).toBe(true);
+    expect(shouldUseDashboardV2Shell('/dashboard')).toBe(false);
+  });
+
+  it('prefers local overrides over env overrides', () => {
+    const defaults = getDefaultDashboardV2Gates();
+    vi.stubEnv('VITE_AURA_DASHBOARD_V2_ROUTES', '!dashboard');
+
+    writeDashboardV2Gates({
+      ...defaults,
+      routes: {
+        ...defaults.routes,
+        dashboard: true,
+      },
+    });
+
+    expect(readDashboardV2Gates().routes.dashboard).toBe(true);
+    expect(shouldUseDashboardV2Shell('/dashboard')).toBe(true);
   });
 });

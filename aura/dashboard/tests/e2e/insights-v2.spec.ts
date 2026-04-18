@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { installMockApi } from './helpers/mockApi';
 
-test('gated insights v2 preserves review continuity across lifecycle, patient routing, and responsive support behavior', async ({ page }) => {
+test('insights v2 preserves review continuity across lifecycle, patient routing, and responsive support behavior by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
   page.on('pageerror', (error) => {
@@ -21,25 +21,6 @@ test('gated insights v2 preserves review continuity across lifecycle, patient ro
   });
 
   await installMockApi(page);
-
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'aura_dashboard_v2_gates',
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: false,
-          worklist: false,
-          communication: false,
-          'patient-workspace': false,
-          alerts: false,
-          insights: true,
-          appointments: false,
-          settings: false,
-        },
-      }),
-    );
-  });
 
   await page.goto('/insights');
   expect(runtimeIssues, runtimeIssues.join('\n')).toEqual([]);

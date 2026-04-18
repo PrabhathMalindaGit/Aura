@@ -19,7 +19,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createJsonResponse, installMatchMediaMock, installResizeObserverMock } from '../../../test/mocks';
 import type { AppointmentRequestItem, AppointmentSlot, PatientSummary } from '../../../types/models';
 import { AppointmentsRouteFacade } from '../../config/routeFacades';
-import { resetDashboardV2GatesForTests, writeDashboardV2Gates } from '../../config/migrationGates';
+import {
+  getDefaultDashboardV2Gates,
+  resetDashboardV2GatesForTests,
+  writeDashboardV2Gates,
+} from '../../config/migrationGates';
 import { resetAppointmentsUiStore } from '../../state/useAppointmentsUiStore';
 
 interface PublishBehavior {
@@ -256,6 +260,18 @@ function renderAppointmentsRoute(): void {
   );
 }
 
+function setAppointmentsGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
+  writeDashboardV2Gates({
+    ...defaults,
+    routes: {
+      ...defaults.routes,
+      appointments: enabled,
+    },
+  });
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   installResizeObserverMock();
@@ -271,8 +287,9 @@ afterEach(() => {
 });
 
 describe('AppointmentsRoute', () => {
-  it('falls back to the legacy scheduling page while the route gate is off', async () => {
+  it('falls back to the legacy scheduling page when the route is explicitly rolled back', async () => {
     installAppointmentsFetchMock();
+    setAppointmentsGate(false);
 
     renderAppointmentsRoute();
 
@@ -282,21 +299,8 @@ describe('AppointmentsRoute', () => {
     expect(screen.queryByTestId('v2-appointments-route')).not.toBeInTheDocument();
   });
 
-  it('renders the gated v2 route, auto-selects the first request, and preserves patient routing', async () => {
+  it('renders the v2 route by default, auto-selects the first request, and preserves patient routing', async () => {
     installAppointmentsFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: false,
-        appointments: true,
-        settings: false,
-      },
-    });
 
     renderAppointmentsRoute();
 
@@ -313,19 +317,6 @@ describe('AppointmentsRoute', () => {
   it('keeps publishing secondary on medium layouts and shows publish outcomes without implying booking truth', async () => {
     installViewportMock(1180);
     installAppointmentsFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: false,
-        appointments: true,
-        settings: false,
-      },
-    });
 
     renderAppointmentsRoute();
 
@@ -350,19 +341,6 @@ describe('AppointmentsRoute', () => {
   it('stays request-first on narrow layouts until a clinician selects a request', async () => {
     installViewportMock(900);
     installAppointmentsFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: false,
-        appointments: true,
-        settings: false,
-      },
-    });
 
     renderAppointmentsRoute();
 

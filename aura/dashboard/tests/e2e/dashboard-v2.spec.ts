@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { installMockApi } from "./helpers/mockApi";
 
-test("gated dashboard v2 stays overview-first and routes into the right downstream workbenches", async ({
+test("dashboard v2 stays overview-first and routes into the right downstream workbenches by default", async ({
   page,
 }) => {
   const runtimeIssues: string[] = [];
@@ -23,25 +23,6 @@ test("gated dashboard v2 stays overview-first and routes into the right downstre
   });
 
   await installMockApi(page);
-
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      "aura_dashboard_v2_gates",
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: true,
-          worklist: false,
-          communication: false,
-          "patient-workspace": false,
-          alerts: false,
-          insights: false,
-          appointments: false,
-          settings: false,
-        },
-      }),
-    );
-  });
 
   await page.goto("/dashboard");
   expect(runtimeIssues, runtimeIssues.join("\n")).toEqual([]);

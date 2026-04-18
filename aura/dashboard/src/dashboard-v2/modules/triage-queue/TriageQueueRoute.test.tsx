@@ -18,7 +18,11 @@ import {
 } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorklistRouteFacade } from '../../config/routeFacades';
-import { resetDashboardV2GatesForTests, writeDashboardV2Gates } from '../../config/migrationGates';
+import {
+  getDefaultDashboardV2Gates,
+  resetDashboardV2GatesForTests,
+  writeDashboardV2Gates,
+} from '../../config/migrationGates';
 import { resetTriageQueueUiStore } from '../../state/useTriageQueueUiStore';
 import type { WorklistRecord } from '../../../types/models';
 import {
@@ -210,18 +214,14 @@ function installWorklistFetchMock(itemsSeed: WorklistRecord[] = WORKLIST_ITEMS):
   return { requests };
 }
 
-function enableWorklistV2(): void {
+function setWorklistGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
   writeDashboardV2Gates({
-    shell: false,
+    ...defaults,
     routes: {
-      dashboard: false,
-      worklist: true,
-      communication: false,
-      'patient-workspace': false,
-      alerts: false,
-      insights: false,
-      appointments: false,
-      settings: false,
+      ...defaults.routes,
+      worklist: enabled,
     },
   });
 }
@@ -246,7 +246,8 @@ describe('TriageQueueRoute', () => {
     resetTriageQueueUiStore();
   });
 
-  it('keeps the legacy worklist as the default fallback when the gate is off', async () => {
+  it('falls back to the legacy worklist when the route is explicitly rolled back', async () => {
+    setWorklistGate(false);
     installWorklistFetchMock();
 
     renderWorklistRoute();
@@ -256,8 +257,7 @@ describe('TriageQueueRoute', () => {
     expect(await screen.findByTestId('worklist-row-p1', undefined, asyncQueryTimeout)).toBeInTheDocument();
   });
 
-  it('renders the v2 triage route behind the gate and keeps row selection in-route', async () => {
-    enableWorklistV2();
+  it('renders the v2 triage route by default and keeps row selection in-route', async () => {
     installWorklistFetchMock();
 
     renderWorklistRoute();
@@ -277,7 +277,6 @@ describe('TriageQueueRoute', () => {
   });
 
   it('preserves query semantics for v2 filters', async () => {
-    enableWorklistV2();
     const { requests } = installWorklistFetchMock();
 
     renderWorklistRoute();
@@ -294,7 +293,6 @@ describe('TriageQueueRoute', () => {
   });
 
   it('preserves CTA destinations and shows Unknown governance metadata conservatively', async () => {
-    enableWorklistV2();
     installWorklistFetchMock();
 
     renderWorklistRoute();
@@ -314,8 +312,7 @@ describe('TriageQueueRoute', () => {
     expect(screen.getByTestId('patient-detail-route-state')).toHaveTextContent('"returnTo":"/worklist"');
   });
 
-  it('restores the selected case across remounts while the v2 gate stays enabled', async () => {
-    enableWorklistV2();
+  it('restores the selected case across remounts while the v2 route stays active by default', async () => {
     installWorklistFetchMock();
 
     renderWorklistRoute();
@@ -346,7 +343,6 @@ describe('TriageQueueRoute', () => {
 
       return false;
     });
-    enableWorklistV2();
     installWorklistFetchMock();
 
     renderWorklistRoute();

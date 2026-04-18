@@ -36,6 +36,31 @@ Copy `.env.local.example` to `.env.local` and adjust if needed:
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
+## Dashboard V2 cutover
+
+Aura Dashboard V2 is now the default for:
+
+- `/dashboard`
+- `/worklist`
+- `/communication`
+- `/patients/:patientId`
+- `/alerts`
+- `/insights`
+- `/appointments`
+- `/settings`
+
+Legacy implementations still remain in repo behind the route facades as rollback.
+
+- Temporary env rollback: use `VITE_AURA_DASHBOARD_V2_ROUTES` with explicit false overrides such as `!dashboard,!settings`
+- Temporary browser rollback: set `aura_dashboard_v2_gates` in localStorage with explicit per-route booleans
+- No backend or API truth changed in the cutover
+
+Deferred cleanup remains separate:
+
+- legacy deletion
+- bundle-size cleanup
+- minor existing lint-warning cleanup
+
 ## Live Smoke (real backend)
 
 1. Start backend at `http://localhost:3000`.

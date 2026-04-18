@@ -30,6 +30,7 @@ import type {
 } from "../../../types/models";
 import { DashboardRouteFacade } from "../../config/routeFacades";
 import {
+  getDefaultDashboardV2Gates,
   resetDashboardV2GatesForTests,
   writeDashboardV2Gates,
 } from "../../config/migrationGates";
@@ -301,6 +302,18 @@ function renderDashboardRoute(): void {
   );
 }
 
+function setDashboardGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
+  writeDashboardV2Gates({
+    ...defaults,
+    routes: {
+      ...defaults.routes,
+      dashboard: enabled,
+    },
+  });
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   installResizeObserverMock();
@@ -315,8 +328,9 @@ afterEach(() => {
 });
 
 describe("DashboardRoute", () => {
-  it("falls back to the legacy dashboard while the route gate is off", async () => {
+  it("falls back to the legacy dashboard when the route is explicitly rolled back", async () => {
     installDashboardFetchMock();
+    setDashboardGate(false);
 
     renderDashboardRoute();
 
@@ -329,21 +343,8 @@ describe("DashboardRoute", () => {
     expect(screen.queryByTestId("v2-dashboard-route")).not.toBeInTheDocument();
   });
 
-  it("renders the gated v2 route, keeps the overview hierarchy, and preserves onward routing", async () => {
+  it("renders the v2 route by default, keeps the overview hierarchy, and preserves onward routing", async () => {
     installDashboardFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: true,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
-      },
-    });
 
     renderDashboardRoute();
 
@@ -411,19 +412,6 @@ describe("DashboardRoute", () => {
         ],
       },
     });
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: true,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
-      },
-    });
 
     renderDashboardRoute();
 
@@ -456,19 +444,6 @@ describe("DashboardRoute", () => {
   it("keeps narrow data context readable without turning the route into stacked action tiles", async () => {
     installViewportMock(560);
     installDashboardFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: true,
-        worklist: false,
-        communication: false,
-        "patient-workspace": false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
-      },
-    });
 
     renderDashboardRoute();
 

@@ -7,6 +7,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PatientWorkspaceRouteFacade } from '../../config/routeFacades';
 import {
+  getDefaultDashboardV2Gates,
   resetDashboardV2GatesForTests,
   writeDashboardV2Gates,
 } from '../../config/migrationGates';
@@ -369,18 +370,14 @@ function renderPatientWorkspace(initialEntry: string): void {
   );
 }
 
-function enablePatientWorkspaceV2(): void {
+function setPatientWorkspaceGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
   writeDashboardV2Gates({
-    shell: false,
+    ...defaults,
     routes: {
-      dashboard: false,
-      worklist: false,
-      communication: false,
-      'patient-workspace': true,
-      alerts: false,
-      insights: false,
-      appointments: false,
-      settings: false,
+      ...defaults.routes,
+      'patient-workspace': enabled,
     },
   });
 }
@@ -404,15 +401,15 @@ describe('PatientWorkspaceRoute', () => {
     resetDashboardV2GatesForTests();
   });
 
-  it('keeps the legacy patient detail route as the default fallback when the gate is off', async () => {
+  it('falls back to the legacy patient detail route when the workspace is explicitly rolled back', async () => {
+    setPatientWorkspaceGate(false);
     renderPatientWorkspace('/patients/patient-1');
 
     expect(await screen.findByTestId('legacy-patient-detail')).toBeInTheDocument();
     expect(screen.queryByTestId('v2-patient-workspace-route')).not.toBeInTheDocument();
   });
 
-  it('renders the gated v2 patient workspace for the overview alias and keeps the inline rail on wide layouts', async () => {
-    enablePatientWorkspaceV2();
+  it('renders the v2 patient workspace by default for the overview alias and keeps the inline rail on wide layouts', async () => {
 
     renderPatientWorkspace('/patients/patient-1?days=30');
 
@@ -424,7 +421,6 @@ describe('PatientWorkspaceRoute', () => {
   });
 
   it('keeps the patient header stable while switching between real subroutes', async () => {
-    enablePatientWorkspaceV2();
     const user = userEvent.setup();
 
     renderPatientWorkspace('/patients/patient-1/communications');
@@ -440,7 +436,6 @@ describe('PatientWorkspaceRoute', () => {
   });
 
   it('moves support context into a drawer on medium layouts', async () => {
-    enablePatientWorkspaceV2();
     const user = userEvent.setup();
     installMatchMediaMock((query) => query.includes('(max-width: 1279px)') && !query.includes('(max-width: 1023px)'));
 
@@ -456,7 +451,6 @@ describe('PatientWorkspaceRoute', () => {
   });
 
   it('keeps the compressed narrow shell and the history pane for direct deep links', async () => {
-    enablePatientWorkspaceV2();
     installMatchMediaMock((query) => query.includes('(max-width: 1279px)') || query.includes('(max-width: 1023px)'));
 
     renderPatientWorkspace('/patients/patient-1/history');

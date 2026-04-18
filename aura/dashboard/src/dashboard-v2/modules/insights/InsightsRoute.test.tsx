@@ -20,7 +20,11 @@ import { createJsonResponse, installMatchMediaMock, installResizeObserverMock } 
 import { getWorkspaceStateStorageKey } from '../../../services/workspaceState';
 import type { InsightItem, PatientSummary } from '../../../types/models';
 import { InsightsRouteFacade } from '../../config/routeFacades';
-import { resetDashboardV2GatesForTests, writeDashboardV2Gates } from '../../config/migrationGates';
+import {
+  getDefaultDashboardV2Gates,
+  resetDashboardV2GatesForTests,
+  writeDashboardV2Gates,
+} from '../../config/migrationGates';
 import { resetInsightsUiStore } from '../../state/useInsightsUiStore';
 
 const PENDING_ITEMS: InsightItem[] = [
@@ -224,6 +228,18 @@ function renderInsightsRoute(): void {
   );
 }
 
+function setInsightsGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
+  writeDashboardV2Gates({
+    ...defaults,
+    routes: {
+      ...defaults.routes,
+      insights: enabled,
+    },
+  });
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
   installResizeObserverMock();
@@ -239,8 +255,9 @@ afterEach(() => {
 });
 
 describe('InsightsRoute', () => {
-  it('falls back to the legacy queue while the route gate is off', async () => {
+  it('falls back to the legacy queue when the route is explicitly rolled back', async () => {
     installInsightsFetchMock();
+    setInsightsGate(false);
 
     renderInsightsRoute();
 
@@ -248,21 +265,8 @@ describe('InsightsRoute', () => {
     expect(screen.queryByTestId('v2-insights-route')).not.toBeInTheDocument();
   });
 
-  it('renders the gated v2 route, preserves patient routing, and keeps lifecycle context conservative', async () => {
+  it('renders the v2 route by default, preserves patient routing, and keeps lifecycle context conservative', async () => {
     installInsightsFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: true,
-        appointments: false,
-        settings: false,
-      },
-    });
 
     renderInsightsRoute();
 
@@ -292,19 +296,6 @@ describe('InsightsRoute', () => {
 
   it('keeps batch review queue-scoped and preserves partial failure truth', async () => {
     installInsightsFetchMock({ failReviewIds: ['insight-low-2'] });
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: true,
-        appointments: false,
-        settings: false,
-      },
-    });
 
     renderInsightsRoute();
 
@@ -329,19 +320,6 @@ describe('InsightsRoute', () => {
   it('stays queue-first on narrow widths until a clinician selects an item', async () => {
     installViewportMock(900);
     installInsightsFetchMock();
-    writeDashboardV2Gates({
-      shell: false,
-      routes: {
-        dashboard: false,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: true,
-        appointments: false,
-        settings: false,
-      },
-    });
 
     renderInsightsRoute();
 

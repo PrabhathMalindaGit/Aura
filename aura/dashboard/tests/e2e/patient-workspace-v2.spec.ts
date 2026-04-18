@@ -33,7 +33,7 @@ const PATIENT_WORKSPACE_COMMUNICATION_OVERVIEW: DashboardCommunicationOverview =
   ],
 };
 
-test('gated patient workspace v2 preserves patient context, local quick reply, and shared coordination separation', async ({ page }) => {
+test('patient workspace v2 preserves patient context, local quick reply, and shared coordination separation by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
   page.on('pageerror', (error) => {
@@ -51,23 +51,6 @@ test('gated patient workspace v2 preserves patient context, local quick reply, a
   });
 
   await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'aura_dashboard_v2_gates',
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: false,
-          worklist: false,
-          communication: false,
-          'patient-workspace': true,
-          alerts: false,
-          insights: false,
-          appointments: false,
-          settings: false,
-        },
-      }),
-    );
-
     if (window.location.pathname === '/patients/p1') {
       const currentState =
         window.history.state && typeof window.history.state === 'object' ? window.history.state : {};

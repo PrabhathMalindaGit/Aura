@@ -99,7 +99,7 @@ const COORDINATION_BY_PATIENT: Record<string, ClinicianCoordinationRecord | null
   p2: null,
 };
 
-test('gated communication v2 restores the selected thread after routing out and back', async ({ page }) => {
+test('communication v2 restores the selected thread after routing out and back by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
   page.on('pageerror', (error) => {
@@ -115,25 +115,6 @@ test('gated communication v2 restores the selected thread after routing out and 
   await installMockApi(page, {
     communicationOverview: COMMUNICATION_OVERVIEW,
     coordinationByPatient: COORDINATION_BY_PATIENT,
-  });
-
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'aura_dashboard_v2_gates',
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: false,
-          worklist: false,
-          communication: true,
-          'patient-workspace': false,
-          alerts: false,
-          insights: false,
-          appointments: false,
-          settings: false,
-        },
-      }),
-    );
   });
 
   await page.goto('/communication?view=needs-response');

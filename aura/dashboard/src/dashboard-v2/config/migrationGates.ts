@@ -13,6 +13,11 @@ export interface DashboardV2Gates {
   routes: Record<DashboardV2RouteId, boolean>;
 }
 
+interface DashboardV2GateOverrides {
+  shell?: boolean;
+  routes?: Partial<Record<DashboardV2RouteId, boolean>>;
+}
+
 export const DASHBOARD_V2_ROUTE_IDS: DashboardV2RouteId[] = [
   'dashboard',
   'worklist',
@@ -27,14 +32,14 @@ export const DASHBOARD_V2_ROUTE_IDS: DashboardV2RouteId[] = [
 export const DASHBOARD_V2_GATES_STORAGE_KEY = 'aura_dashboard_v2_gates';
 
 const DEFAULT_ROUTES: Record<DashboardV2RouteId, boolean> = {
-  dashboard: false,
-  worklist: false,
-  communication: false,
-  'patient-workspace': false,
-  alerts: false,
-  insights: false,
-  appointments: false,
-  settings: false,
+  dashboard: true,
+  worklist: true,
+  communication: true,
+  'patient-workspace': true,
+  alerts: true,
+  insights: true,
+  appointments: true,
+  settings: true,
 };
 
 const PATIENT_WORKSPACE_ROUTE_PATTERN =
@@ -48,13 +53,13 @@ function isRouteId(value: unknown): value is DashboardV2RouteId {
   return typeof value === 'string' && DASHBOARD_V2_ROUTE_IDS.includes(value as DashboardV2RouteId);
 }
 
-function toBoolean(value: unknown): boolean {
-  return value === true;
+function isExplicitBoolean(value: unknown): value is boolean {
+  return value === true || value === false;
 }
 
 function normalizeRoutes(
   value: unknown,
-  fallback: Record<DashboardV2RouteId, boolean> = DEFAULT_ROUTES,
+  fallback: Record<DashboardV2RouteId, boolean>,
 ): Record<DashboardV2RouteId, boolean> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ...fallback };
@@ -63,59 +68,138 @@ function normalizeRoutes(
   const candidate = value as Partial<Record<DashboardV2RouteId, unknown>>;
 
   return DASHBOARD_V2_ROUTE_IDS.reduce<Record<DashboardV2RouteId, boolean>>((accumulator, routeId) => {
-    accumulator[routeId] = toBoolean(candidate[routeId]);
+    accumulator[routeId] = isExplicitBoolean(candidate[routeId])
+      ? candidate[routeId]
+      : fallback[routeId];
     return accumulator;
   }, { ...fallback });
 }
 
-function normalizeGates(value: unknown): DashboardV2Gates {
+function normalizeRouteOverrides(value: unknown): Partial<Record<DashboardV2RouteId, boolean>> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {
-      shell: false,
-      routes: { ...DEFAULT_ROUTES },
-    };
+    return {};
   }
 
-  const candidate = value as Partial<DashboardV2Gates>;
+  const candidate = value as Partial<Record<DashboardV2RouteId, unknown>>;
 
-  return {
-    shell: toBoolean(candidate.shell),
-    routes: normalizeRoutes(candidate.routes),
-  };
+  return DASHBOARD_V2_ROUTE_IDS.reduce<Partial<Record<DashboardV2RouteId, boolean>>>(
+    (accumulator, routeId) => {
+      if (isExplicitBoolean(candidate[routeId])) {
+        accumulator[routeId] = candidate[routeId];
+      }
+
+      return accumulator;
+    },
+    {},
+  );
 }
 
-function parseEnvEnabledRoutes(value: unknown): DashboardV2RouteId[] {
+function normalizeGateOverrides(value: unknown): DashboardV2GateOverrides {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const candidate = value as Partial<Record<keyof DashboardV2Gates, unknown>>;
+  const routes = normalizeRouteOverrides(candidate.routes);
+  const overrides: DashboardV2GateOverrides = {};
+
+  if (isExplicitBoolean(candidate.shell)) {
+    overrides.shell = candidate.shell;
+  }
+
+  if (Object.keys(routes).length > 0) {
+    overrides.routes = routes;
+  }
+
+  return overrides;
+}
+
+function parseEnvBoolean(value: unknown): boolean | undefined {
   if (typeof value !== 'string') {
-    return [];
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === 'true') {
+    return true;
+  }
+
+  if (normalized === 'false') {
+    return false;
+  }
+
+  return undefined;
+}
+
+function parseEnvRouteOverrides(value: unknown): Partial<Record<DashboardV2RouteId, boolean>> {
+  if (typeof value !== 'string') {
+    return {};
   }
 
   return value
     .split(',')
     .map((token) => token.trim())
-    .filter((token): token is DashboardV2RouteId => isRouteId(token));
-}
+    .reduce<Partial<Record<DashboardV2RouteId, boolean>>>((accumulator, token) => {
+      if (!token) {
+        return accumulator;
+      }
 
-function readEnvGates(): DashboardV2Gates {
-  const enabledRoutes = parseEnvEnabledRoutes(import.meta.env['VITE_AURA_DASHBOARD_V2_ROUTES']);
-  const shell = import.meta.env['VITE_AURA_DASHBOARD_V2_SHELL'] === 'true';
-  const routes = enabledRoutes.reduce<Record<DashboardV2RouteId, boolean>>((accumulator, routeId) => {
-    accumulator[routeId] = true;
-    return accumulator;
-  }, { ...DEFAULT_ROUTES });
+      let rawRouteId = token;
+      let override: boolean | undefined;
 
-  return {
-    shell,
-    routes,
-  };
-}
+      if (token.startsWith('!') || token.startsWith('-')) {
+        rawRouteId = token.slice(1).trim();
+        override = false;
+      } else {
+        const [candidateRouteId, candidateValue] = token.split('=');
+        if (candidateValue !== undefined) {
+          rawRouteId = candidateRouteId.trim();
+          override = parseEnvBoolean(candidateValue);
+        } else {
+          override = true;
+        }
+      }
 
-function mergeGates(left: DashboardV2Gates, right: DashboardV2Gates): DashboardV2Gates {
-  return {
-    shell: left.shell || right.shell,
-    routes: DASHBOARD_V2_ROUTE_IDS.reduce<Record<DashboardV2RouteId, boolean>>((accumulator, routeId) => {
-      accumulator[routeId] = left.routes[routeId] || right.routes[routeId];
+      if (override === undefined || !isRouteId(rawRouteId)) {
+        return accumulator;
+      }
+
+      accumulator[rawRouteId] = override;
       return accumulator;
-    }, { ...DEFAULT_ROUTES }),
+    }, {});
+}
+
+function readEnvGateOverrides(): DashboardV2GateOverrides {
+  const shell = parseEnvBoolean(import.meta.env['VITE_AURA_DASHBOARD_V2_SHELL']);
+  const routes = parseEnvRouteOverrides(import.meta.env['VITE_AURA_DASHBOARD_V2_ROUTES']);
+  const overrides: DashboardV2GateOverrides = {};
+
+  if (shell !== undefined) {
+    overrides.shell = shell;
+  }
+
+  if (Object.keys(routes).length > 0) {
+    overrides.routes = routes;
+  }
+
+  return overrides;
+}
+
+function resolveGates(
+  defaults: DashboardV2Gates,
+  envOverrides: DashboardV2GateOverrides,
+  localOverrides: DashboardV2GateOverrides,
+): DashboardV2Gates {
+  return {
+    shell: localOverrides.shell ?? envOverrides.shell ?? defaults.shell,
+    routes: DASHBOARD_V2_ROUTE_IDS.reduce<Record<DashboardV2RouteId, boolean>>((accumulator, routeId) => {
+      accumulator[routeId] =
+        localOverrides.routes?.[routeId] ??
+        envOverrides.routes?.[routeId] ??
+        defaults.routes[routeId];
+      return accumulator;
+    }, { ...defaults.routes }),
   };
 }
 
@@ -127,27 +211,31 @@ export function getDefaultDashboardV2Gates(): DashboardV2Gates {
 }
 
 export function readDashboardV2Gates(): DashboardV2Gates {
-  const envGates = readEnvGates();
+  const defaults = getDefaultDashboardV2Gates();
+  const envOverrides = readEnvGateOverrides();
 
   if (!isBrowser()) {
-    return envGates;
+    return resolveGates(defaults, envOverrides, {});
   }
 
   try {
     const raw = window.localStorage.getItem(DASHBOARD_V2_GATES_STORAGE_KEY);
     if (!raw) {
-      return envGates;
+      return resolveGates(defaults, envOverrides, {});
     }
 
-    const storedGates = normalizeGates(JSON.parse(raw));
-    return mergeGates(envGates, storedGates);
+    const storedOverrides = normalizeGateOverrides(JSON.parse(raw));
+    return resolveGates(defaults, envOverrides, storedOverrides);
   } catch {
-    return envGates;
+    return resolveGates(defaults, envOverrides, {});
   }
 }
 
 export function writeDashboardV2Gates(gates: DashboardV2Gates): DashboardV2Gates {
-  const normalized = normalizeGates(gates);
+  const normalized = {
+    shell: isExplicitBoolean(gates.shell) ? gates.shell : false,
+    routes: normalizeRoutes(gates.routes, getDefaultDashboardV2Gates().routes),
+  };
 
   if (!isBrowser()) {
     return normalized;

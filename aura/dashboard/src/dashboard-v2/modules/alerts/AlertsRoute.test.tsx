@@ -18,6 +18,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertsRouteFacade } from '../../config/routeFacades';
 import {
+  getDefaultDashboardV2Gates,
   resetDashboardV2GatesForTests,
   writeDashboardV2Gates,
 } from '../../config/migrationGates';
@@ -345,18 +346,14 @@ function installAlertsFetchMock(): void {
   });
 }
 
-function enableAlertsV2(): void {
+function setAlertsGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
   writeDashboardV2Gates({
-    shell: false,
+    ...defaults,
     routes: {
-      dashboard: false,
-      worklist: false,
-      communication: false,
-      'patient-workspace': false,
-      alerts: true,
-      insights: false,
-      appointments: false,
-      settings: false,
+      ...defaults.routes,
+      alerts: enabled,
     },
   });
 }
@@ -380,15 +377,15 @@ describe('AlertsRoute', () => {
     resetAlertsUiStore();
   });
 
-  it('keeps the legacy alerts page as the default fallback when the gate is off', async () => {
+  it('falls back to the legacy alerts page when the route is explicitly rolled back', async () => {
+    setAlertsGate(false);
     renderAlertsRoute();
 
     expect(await screen.findByText('Safety triage', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.queryByTestId('v2-alerts-route')).not.toBeInTheDocument();
   });
 
-  it('renders the gated v2 alerts route and keeps selection in-route', async () => {
-    enableAlertsV2();
+  it('renders the v2 alerts route by default and keeps selection in-route', async () => {
     const user = userEvent.setup();
 
     renderAlertsRoute();
@@ -406,7 +403,6 @@ describe('AlertsRoute', () => {
   });
 
   it('preserves patient navigation semantics and shows Unknown when metadata is absent', async () => {
-    enableAlertsV2();
     const user = userEvent.setup();
 
     renderAlertsRoute('/alerts?search=patient-2');
@@ -423,7 +419,6 @@ describe('AlertsRoute', () => {
   });
 
   it('shows the governance drawer on medium layouts', async () => {
-    enableAlertsV2();
     installMatchMediaMock((query) => query.includes('max-width: 1279px'));
     const user = userEvent.setup();
 
@@ -437,7 +432,6 @@ describe('AlertsRoute', () => {
   });
 
   it('stays queue-first on narrow layouts until a clinician selects an alert', async () => {
-    enableAlertsV2();
     installMatchMediaMock(
       (query) => query.includes('max-width: 1023px') || query.includes('max-width: 1279px'),
     );

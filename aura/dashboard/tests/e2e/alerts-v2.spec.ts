@@ -47,7 +47,7 @@ const SECONDARY_ALERT: AlertItem = {
   updatedAt: recentIso(3),
 };
 
-test('gated alerts v2 preserves queue context while supporting alert governance actions', async ({ page }) => {
+test('alerts v2 preserves queue context while supporting alert governance actions by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
   page.on('pageerror', (error) => {
@@ -72,25 +72,6 @@ test('gated alerts v2 preserves queue context while supporting alert governance 
       acknowledged: [],
       resolved: [],
     },
-  });
-
-  await page.addInitScript(() => {
-    window.localStorage.setItem(
-      'aura_dashboard_v2_gates',
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: false,
-          worklist: false,
-          communication: false,
-          'patient-workspace': false,
-          alerts: true,
-          insights: false,
-          appointments: false,
-          settings: false,
-        },
-      }),
-    );
   });
 
   await page.goto('/alerts');

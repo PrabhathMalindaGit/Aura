@@ -18,6 +18,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommunicationRouteFacade } from '../../config/routeFacades';
 import {
+  getDefaultDashboardV2Gates,
   resetDashboardV2GatesForTests,
   writeDashboardV2Gates,
 } from '../../config/migrationGates';
@@ -226,18 +227,14 @@ function installCommunicationFetchMock(): void {
   });
 }
 
-function enableCommunicationV2(): void {
+function setCommunicationGate(enabled: boolean): void {
+  const defaults = getDefaultDashboardV2Gates();
+
   writeDashboardV2Gates({
-    shell: false,
+    ...defaults,
     routes: {
-      dashboard: false,
-      worklist: false,
-      communication: true,
-      'patient-workspace': false,
-      alerts: false,
-      insights: false,
-      appointments: false,
-      settings: false,
+      ...defaults.routes,
+      communication: enabled,
     },
   });
 }
@@ -260,7 +257,8 @@ describe('InboxRoute', () => {
     resetInboxUiStore();
   });
 
-  it('keeps the legacy communication route as the default fallback when the gate is off', async () => {
+  it('falls back to the legacy communication route when the route is explicitly rolled back', async () => {
+    setCommunicationGate(false);
     renderCommunicationRoute();
 
     expect(await screen.findByRole('heading', { name: 'Inbox' }, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
@@ -268,8 +266,7 @@ describe('InboxRoute', () => {
     expect(await screen.findByText('Communication queue', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
   });
 
-  it('renders the v2 inbox route behind the gate and keeps row selection in-route', async () => {
-    enableCommunicationV2();
+  it('renders the v2 inbox route by default and keeps row selection in-route', async () => {
     const user = userEvent.setup();
 
     renderCommunicationRoute();
@@ -291,7 +288,6 @@ describe('InboxRoute', () => {
   });
 
   it('preserves CTA destinations and shows Unknown when metadata is absent', async () => {
-    enableCommunicationV2();
     const user = userEvent.setup();
 
     renderCommunicationRoute();
@@ -311,7 +307,6 @@ describe('InboxRoute', () => {
   });
 
   it('keeps the local draft separate from shared coordination authoring', async () => {
-    enableCommunicationV2();
     const user = userEvent.setup();
 
     renderCommunicationRoute();
@@ -332,7 +327,6 @@ describe('InboxRoute', () => {
   });
 
   it('stays queue-first on narrow layouts until the clinician selects a thread', async () => {
-    enableCommunicationV2();
     installMatchMediaMock(
       (query) => query.includes('max-width: 1023px') || query.includes('max-width: 1279px'),
     );

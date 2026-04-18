@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { installMockApi } from "./helpers/mockApi";
 
-test("gated settings v2 keeps grouped preferences calm while preserving local save and immediate behaviors", async ({
+test("settings v2 keeps grouped preferences calm while preserving local save and immediate behaviors by default", async ({
   page,
 }) => {
   const runtimeIssues: string[] = [];
@@ -36,22 +36,6 @@ test("gated settings v2 keeps grouped preferences calm while preserving local sa
     )}.signature`;
 
     window.localStorage.setItem("aura_access_token", token);
-    window.localStorage.setItem(
-      "aura_dashboard_v2_gates",
-      JSON.stringify({
-        shell: false,
-        routes: {
-          dashboard: false,
-          worklist: false,
-          communication: false,
-          "patient-workspace": false,
-          alerts: false,
-          insights: false,
-          appointments: false,
-          settings: true,
-        },
-      }),
-    );
   });
 
   await page.goto("/settings");

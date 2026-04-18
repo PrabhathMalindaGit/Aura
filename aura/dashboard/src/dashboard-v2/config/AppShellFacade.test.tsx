@@ -2,7 +2,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppShellFacade } from './AppShellFacade';
-import { clearDashboardV2Gates, writeDashboardV2Gates } from './migrationGates';
+import {
+  clearDashboardV2Gates,
+  getDefaultDashboardV2Gates,
+  writeDashboardV2Gates,
+} from './migrationGates';
 
 vi.mock('../../app/AppShell', () => ({
   AppShell: () => <div data-testid="legacy-shell">legacy shell</div>,
@@ -17,28 +21,24 @@ describe('AppShellFacade', () => {
     clearDashboardV2Gates();
   });
 
-  it('renders the legacy shell when no v2 route gate is enabled', () => {
+  it('renders the v2 shell by default on completed routes', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <AppShellFacade />
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId('legacy-shell')).toBeInTheDocument();
+    expect(screen.getByTestId('v2-shell')).toBeInTheDocument();
   });
 
-  it('renders the v2 shell when the current route is enabled', () => {
+  it('renders the legacy shell when a completed route is explicitly rolled back', () => {
+    const defaults = getDefaultDashboardV2Gates();
+
     writeDashboardV2Gates({
-      shell: false,
+      ...defaults,
       routes: {
-        dashboard: true,
-        worklist: false,
-        communication: false,
-        'patient-workspace': false,
-        alerts: false,
-        insights: false,
-        appointments: false,
-        settings: false,
+        ...defaults.routes,
+        dashboard: false,
       },
     });
 
@@ -48,6 +48,16 @@ describe('AppShellFacade', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByTestId('v2-shell')).toBeInTheDocument();
+    expect(screen.getByTestId('legacy-shell')).toBeInTheDocument();
+  });
+
+  it('keeps legacy shell behavior on out-of-scope routes', () => {
+    render(
+      <MemoryRouter initialEntries={['/patients']}>
+        <AppShellFacade />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('legacy-shell')).toBeInTheDocument();
   });
 });

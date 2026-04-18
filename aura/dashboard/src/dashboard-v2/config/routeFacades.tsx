@@ -8,7 +8,7 @@ import { AlertsRoute } from "../modules/alerts";
 import { AppointmentsRoute } from "../modules/appointments";
 import { InsightsRoute } from "../modules/insights";
 import { PatientWorkspaceRoute } from "../modules/patient-workspace";
-import { WorkspaceSettingsFoundation } from "../modules/settings";
+import { SettingsRoute } from "../modules/settings";
 
 function lazyNamedComponent<
   TModule extends Record<string, unknown>,
@@ -75,26 +75,6 @@ function RouteFacade({ legacy, v2, routeId }: RouteFacadeProps): JSX.Element {
       {isDashboardV2RouteEnabled(routeId) ? <>{v2}</> : <>{legacy}</>}
     </Suspense>
   );
-}
-
-function createRouteFacade(
-  routeId: DashboardV2RouteId,
-  LegacyComponent: ComponentType,
-  V2Component: ComponentType<{ children: ReactNode }>,
-): ComponentType {
-  return function DashboardV2RouteFacade(): JSX.Element {
-    return (
-      <RouteFacade
-        routeId={routeId}
-        legacy={<LegacyComponent />}
-        v2={
-          <V2Component>
-            <LegacyComponent />
-          </V2Component>
-        }
-      />
-    );
-  };
 }
 
 export function DashboardRouteFacade(): JSX.Element {
@@ -167,8 +147,12 @@ export function AppointmentsRouteFacade(): JSX.Element {
   );
 }
 
-export const SettingsRouteFacade = createRouteFacade(
-  "settings",
-  SettingsPage,
-  WorkspaceSettingsFoundation,
-);
+export function SettingsRouteFacade(): JSX.Element {
+  return (
+    <RouteFacade
+      routeId="settings"
+      legacy={<SettingsPage />}
+      v2={<SettingsRoute />}
+    />
+  );
+}

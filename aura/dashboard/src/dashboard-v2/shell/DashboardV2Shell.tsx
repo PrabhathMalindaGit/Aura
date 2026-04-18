@@ -115,7 +115,9 @@ export function DashboardV2Shell(): JSX.Element {
     routeId === 'worklist' ||
     routeId === 'communication' ||
     routeId === 'patient-workspace' ||
-    routeId === 'alerts';
+    routeId === 'alerts' ||
+    routeId === 'insights' ||
+    routeId === 'appointments';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
 

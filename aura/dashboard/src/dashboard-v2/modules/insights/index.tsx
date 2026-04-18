@@ -1,0 +1,1 @@
+export { InsightsRoute } from './InsightsRoute';

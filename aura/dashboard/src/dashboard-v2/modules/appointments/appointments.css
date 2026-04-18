@@ -1,0 +1,260 @@
+.v2-appointments-route {
+  display: grid;
+  gap: var(--v2-space-4);
+}
+
+.v2-appointments-status-bar,
+.v2-appointments-status-bar__views,
+.v2-appointments-status-bar__facts,
+.v2-appointments-status-bar__actions,
+.v2-appointments-request-pane__header,
+.v2-appointment-request-row__topline,
+.v2-appointment-request-row__meta,
+.v2-appointment-review-header__actions,
+.v2-appointments-planner-workspace__toolbar,
+.v2-appointment-capacity-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+}
+
+.v2-appointments-status-bar {
+  align-items: flex-start;
+  padding: var(--v2-space-5);
+}
+
+.v2-appointments-status-bar__copy,
+.v2-appointments-request-pane__header > div:first-child,
+.v2-appointment-request-row__identity,
+.v2-appointment-request-row__copy,
+.v2-appointment-request-row__timing,
+.v2-appointment-review-header__copy,
+.v2-appointments-planner-workspace__section-header,
+.v2-appointments-governance-rail__facts,
+.v2-appointments-planner-workspace__slots,
+.v2-appointments-planner-workspace__body,
+.v2-appointment-publish-panel__header,
+.v2-appointment-publish-panel__form,
+.v2-appointments-planner-workspace__idle,
+.v2-appointments-governance-rail,
+.v2-appointment-capacity-panel__header {
+  display: grid;
+  gap: var(--v2-space-1);
+}
+
+.v2-appointments-status-bar__copy {
+  flex: 1 1 20rem;
+}
+
+.v2-appointments-status-bar__pill,
+.v2-appointment-review-header__pill,
+.v2-appointment-publish-panel__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.15rem 0.7rem;
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: 999px;
+  background: hsl(var(--v2-surface-muted));
+  color: hsl(var(--v2-text-muted));
+  font-size: var(--v2-font-size-caption);
+  font-weight: var(--v2-font-weight-semibold);
+}
+
+.v2-follow-up-workbench.v2-appointments-workbench.v2-follow-up-workbench--with-lane.v2-follow-up-workbench--with-rail {
+  grid-template-columns: 20rem minmax(47.5rem, 1fr) 22.5rem;
+  align-items: start;
+}
+
+.v2-follow-up-workbench.v2-appointments-workbench.v2-follow-up-workbench--with-lane.v2-follow-up-workbench--without-rail {
+  grid-template-columns: 18.75rem minmax(0, 1fr);
+  align-items: start;
+}
+
+.v2-appointments-request-pane,
+.v2-appointments-planner-workspace,
+.v2-appointments-governance-rail {
+  display: grid;
+  gap: var(--v2-space-4);
+}
+
+.v2-appointments-request-pane,
+.v2-appointment-publish-panel,
+.v2-appointments-planner-workspace__section,
+.v2-appointments-governance-rail__intro,
+.v2-appointments-governance-rail__section,
+.v2-appointments-planner-workspace__notice,
+.v2-appointment-capacity-panel {
+  padding: var(--v2-space-5);
+}
+
+.v2-appointments-request-pane__body {
+  display: grid;
+  gap: var(--v2-space-3);
+  max-height: min(72vh, 58rem);
+  overflow: auto;
+  padding-right: var(--v2-space-1);
+}
+
+.v2-appointments-request-pane__list,
+.v2-appointments-governance-rail__facts,
+.v2-appointments-planner-workspace__days,
+.v2-appointment-capacity-panel__list {
+  display: grid;
+  gap: var(--v2-space-3);
+}
+
+.v2-appointment-request-row {
+  display: grid;
+  gap: var(--v2-space-3);
+  width: 100%;
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border));
+  border-left-width: 4px;
+  border-left-color: hsl(var(--v2-info));
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface-muted));
+  color: hsl(var(--v2-text));
+  text-align: left;
+  transition:
+    border-color var(--v2-motion-fast) var(--v2-ease-standard),
+    background-color var(--v2-motion-fast) var(--v2-ease-standard),
+    box-shadow var(--v2-motion-fast) var(--v2-ease-standard);
+}
+
+.v2-appointment-request-row:hover {
+  border-color: hsl(var(--v2-border-strong));
+  box-shadow: var(--v2-shadow-sm);
+}
+
+.v2-appointment-request-row:focus-visible {
+  outline: none;
+  box-shadow: var(--v2-focus-ring);
+}
+
+.v2-appointment-request-row--selected {
+  border-color: hsl(var(--v2-info) / 0.28);
+  background: hsl(var(--v2-surface));
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--v2-info) / 0.12),
+    var(--v2-shadow-sm);
+}
+
+.v2-appointment-request-row__body,
+.v2-appointment-review-header__facts,
+.v2-appointment-capacity-panel__item,
+.v2-appointments-planner-workspace__day {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+  justify-content: space-between;
+}
+
+.v2-appointment-request-row__name,
+.v2-appointment-request-row__schedule {
+  display: block;
+}
+
+.v2-appointment-request-row__name {
+  font-size: 1rem;
+  font-weight: var(--v2-font-weight-semibold);
+}
+
+.v2-appointment-request-row__schedule {
+  line-height: var(--v2-line-height-tight);
+}
+
+.v2-appointments-planner-workspace__days--week {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.v2-appointments-planner-workspace__days--day {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.v2-appointments-planner-workspace__day,
+.v2-appointment-capacity-panel__item,
+.v2-appointments-governance-rail__fact,
+.v2-appointments-planner-workspace__slot,
+.v2-appointments-planner-workspace__context,
+.v2-appointments-planner-workspace__empty,
+.v2-appointment-publish-panel__outcome,
+.v2-appointment-publish-panel__error,
+.v2-appointments-request-pane__empty {
+  padding: var(--v2-space-3);
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface-muted));
+}
+
+.v2-appointments-planner-workspace__day--today {
+  border-color: hsl(var(--v2-info) / 0.3);
+}
+
+.v2-appointments-planner-workspace__day--selected {
+  box-shadow: inset 0 0 0 1px hsl(var(--v2-info) / 0.15);
+}
+
+.v2-appointments-planner-workspace__slot--success {
+  border-left: 3px solid hsl(var(--v2-success));
+}
+
+.v2-appointments-planner-workspace__slot--unknown {
+  border-left: 3px solid hsl(var(--v2-border-strong));
+}
+
+.v2-appointments-skeleton {
+  border-radius: var(--v2-radius-md);
+  background:
+    linear-gradient(
+      90deg,
+      hsl(var(--v2-surface-muted)) 0%,
+      hsl(var(--v2-surface)) 50%,
+      hsl(var(--v2-surface-muted)) 100%
+    );
+  background-size: 200% 100%;
+  animation: v2-appointments-shimmer 1.3s linear infinite;
+}
+
+.v2-appointments-skeleton--row {
+  min-height: 7rem;
+}
+
+@keyframes v2-appointments-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 1279px) {
+  .v2-follow-up-workbench.v2-appointments-workbench.v2-follow-up-workbench--with-lane.v2-follow-up-workbench--without-rail {
+    grid-template-columns: 18.75rem minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 899px) {
+  .v2-appointments-planner-workspace__days--week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 599px) {
+  .v2-appointments-status-bar,
+  .v2-appointments-request-pane,
+  .v2-appointment-publish-panel,
+  .v2-appointments-planner-workspace__section,
+  .v2-appointment-capacity-panel,
+  .v2-appointments-governance-rail__intro,
+  .v2-appointments-governance-rail__section,
+  .v2-appointments-planner-workspace__notice {
+    padding: var(--v2-space-4);
+  }
+
+  .v2-appointments-planner-workspace__days--week {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

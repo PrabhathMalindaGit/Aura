@@ -2,6 +2,8 @@ import type { Page, Route } from '@playwright/test';
 import type {
   AlertItem,
   AlertStatus,
+  AppointmentRequestItem,
+  AppointmentSlot,
   CaregiverAccessItem,
   CheckinAdaptationDecision,
   CheckinAdaptationHistoryEntry,
@@ -18,6 +20,7 @@ import type {
   SafetyAuditEntry,
   SymptomPhotoItem,
   TrendPointRaw,
+  InsightStatus,
 } from '../../../src/types/models';
 import {
   FIXTURE_ACK_ALERT,
@@ -48,6 +51,9 @@ interface MockApiOptions {
   communicationOverview?: DashboardCommunicationOverview;
   coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
   alertsByStatus?: Record<AlertStatus, AlertItem[]>;
+  insightsByStatus?: Record<InsightStatus, InsightItem[]>;
+  appointmentRequests?: AppointmentRequestItem[];
+  appointmentSlots?: AppointmentSlot[];
 }
 
 interface PatchCall {
@@ -63,10 +69,12 @@ export interface MockApiTracker {
 
 interface MockState {
   alertsByStatus: Record<AlertStatus, AlertItem[]>;
+  insightsByStatus: Record<InsightStatus, InsightItem[]>;
   trendsByDays: Record<14 | 30, TrendPointRaw[]>;
   tasks: typeof FIXTURE_PATIENT_TASKS;
   worklistItems: typeof FIXTURE_WORKLIST_ITEMS;
   appointmentRequests: typeof FIXTURE_PATIENT_APPOINTMENT_REQUESTS;
+  appointmentSlots: AppointmentSlot[];
   communicationOverview: DashboardCommunicationOverview;
   coordinationByPatient: Record<string, ClinicianCoordinationRecord | null>;
 }
@@ -152,6 +160,44 @@ const DEFAULT_APPROVED_INSIGHTS: InsightItem[] = [
     windowDays: 14,
     createdAt: '2026-04-16T08:35:00.000Z',
     reviewedAt: '2026-04-16T09:00:00.000Z',
+  },
+];
+
+const DEFAULT_REJECTED_INSIGHTS: InsightItem[] = [
+  {
+    id: 'insight-3',
+    patientId: FIXTURE_PATIENT_ID,
+    status: 'rejected',
+    title: 'Medication reminder review rejected',
+    message: 'The current follow-up record already covers medication review for this window.',
+    category: 'medications',
+    confidence: 'low',
+    priority: 10,
+    windowDays: 7,
+    createdAt: '2026-04-15T08:35:00.000Z',
+    reviewedAt: '2026-04-15T09:10:00.000Z',
+  },
+];
+
+const DEFAULT_APPOINTMENT_SLOTS: AppointmentSlot[] = [
+  {
+    slotId: 'slot-1',
+    clinicianName: 'Clinician One',
+    startsAt: FIXTURE_PATIENT_APPOINTMENT_REQUESTS[0]?.startsAt ?? '2026-04-18T13:00:00.000Z',
+    endsAt: FIXTURE_PATIENT_APPOINTMENT_REQUESTS[0]?.endsAt ?? '2026-04-18T13:30:00.000Z',
+    modality: FIXTURE_PATIENT_APPOINTMENT_REQUESTS[0]?.modality ?? 'video',
+    status: 'available',
+    meetingLink: 'https://meet.example.com/review-slot-1',
+    createdAt: '2026-04-17T08:40:00.000Z',
+  },
+  {
+    slotId: 'slot-closed-1',
+    clinicianName: 'Clinician One',
+    startsAt: '2026-04-19T09:00:00.000Z',
+    endsAt: '2026-04-19T09:30:00.000Z',
+    modality: 'video',
+    status: 'closed',
+    createdAt: '2026-04-17T08:50:00.000Z',
   },
 ];
 
@@ -333,13 +379,32 @@ const DEFAULT_COORDINATION_BY_PATIENT: Record<string, ClinicianCoordinationRecor
 function createInitialState(options: MockApiOptions = {}): MockState {
   return {
     alertsByStatus: deepClone(options.alertsByStatus ?? FIXTURE_ALERTS_BY_STATUS),
+    insightsByStatus: deepClone(
+      options.insightsByStatus ?? {
+        pending: [...DEFAULT_PENDING_INSIGHTS, {
+          id: 'insight-4',
+          patientId: FIXTURE_PATIENT_ID,
+          status: 'pending',
+          title: 'Routine recovery summary follow-up',
+          message: 'A lighter-touch follow-up could confirm the current recovery trend.',
+          category: 'recovery',
+          confidence: 'low',
+          priority: 1,
+          windowDays: 14,
+          createdAt: '2026-04-17T09:05:00.000Z',
+        }],
+        approved: DEFAULT_APPROVED_INSIGHTS,
+        rejected: DEFAULT_REJECTED_INSIGHTS,
+      },
+    ),
     trendsByDays: {
       14: deepClone(FIXTURE_TRENDS_14),
       30: deepClone(FIXTURE_TRENDS_30),
     },
     tasks: deepClone(FIXTURE_PATIENT_TASKS),
     worklistItems: deepClone(FIXTURE_WORKLIST_ITEMS),
-    appointmentRequests: deepClone(FIXTURE_PATIENT_APPOINTMENT_REQUESTS),
+    appointmentRequests: deepClone(options.appointmentRequests ?? FIXTURE_PATIENT_APPOINTMENT_REQUESTS),
+    appointmentSlots: deepClone(options.appointmentSlots ?? DEFAULT_APPOINTMENT_SLOTS),
     communicationOverview: deepClone(options.communicationOverview ?? FIXTURE_DASHBOARD_COMMUNICATION),
     coordinationByPatient: deepClone(options.coordinationByPatient ?? DEFAULT_COORDINATION_BY_PATIENT),
   };
@@ -513,6 +578,77 @@ function retryNotificationInState(
   };
 
   return replaceAlertInState(state, updatedAlert);
+}
+
+function reviewInsightInState(
+  state: MockState,
+  id: string,
+  status: 'approved' | 'rejected',
+): InsightItem | undefined {
+  const source = state.insightsByStatus.pending.find((item) => item.id === id);
+  if (!source) {
+    return undefined;
+  }
+
+  const reviewedAt = new Date('2026-04-18T08:35:00.000Z').toISOString();
+  const reviewedItem: InsightItem = {
+    ...source,
+    status,
+    reviewedAt,
+  };
+
+  state.insightsByStatus.pending = state.insightsByStatus.pending.filter((item) => item.id !== id);
+  state.insightsByStatus.approved = state.insightsByStatus.approved.filter((item) => item.id !== id);
+  state.insightsByStatus.rejected = state.insightsByStatus.rejected.filter((item) => item.id !== id);
+  state.insightsByStatus[status] = [reviewedItem, ...state.insightsByStatus[status]];
+
+  return reviewedItem;
+}
+
+function reviewAppointmentRequestInState(
+  state: MockState,
+  requestId: string,
+  status: 'approved' | 'rejected',
+): AppointmentRequestItem | undefined {
+  const source = state.appointmentRequests.find((item) => item.requestId === requestId);
+  if (!source) {
+    return undefined;
+  }
+
+  const reviewedAt = new Date('2026-04-18T08:45:00.000Z').toISOString();
+  const reviewedItem: AppointmentRequestItem = {
+    ...source,
+    status,
+    reviewedAt,
+    updatedAt: reviewedAt,
+  };
+
+  state.appointmentRequests = [
+    reviewedItem,
+    ...state.appointmentRequests.filter((item) => item.requestId !== requestId),
+  ];
+
+  return reviewedItem;
+}
+
+function createAppointmentSlotInState(
+  state: MockState,
+  payload: { startsAt?: string; endsAt?: string; meetingLink?: string },
+): AppointmentSlot {
+  const createdAt = new Date('2026-04-18T08:50:00.000Z').toISOString();
+  const slot: AppointmentSlot = {
+    slotId: `slot-created-${state.appointmentSlots.length + 1}`,
+    clinicianName: 'Clinician One',
+    startsAt: payload.startsAt ?? createdAt,
+    endsAt: payload.endsAt ?? createdAt,
+    modality: 'video',
+    meetingLink: payload.meetingLink,
+    status: 'available',
+    createdAt,
+  };
+
+  state.appointmentSlots = [slot, ...state.appointmentSlots];
+  return slot;
 }
 
 async function fulfillJson(route: Route, status: number, payload: unknown): Promise<void> {
@@ -745,6 +881,82 @@ export async function installMockApi(
       }
 
       await fulfillJson(route, 200, { ok: true, items });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/appointments/requests/') && method === 'PATCH') {
+      const requestId = pathname.split('/')[4];
+      const payload = request.postDataJSON() as { status?: 'approved' | 'rejected' } | null;
+      if (!requestId || !payload?.status) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const reviewedItem = reviewAppointmentRequestInState(state, requestId, payload.status);
+      if (!reviewedItem) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, { ok: true, item: deepClone(reviewedItem) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/appointments/slots') && method === 'GET') {
+      let items = deepClone(state.appointmentSlots);
+      const status = url.searchParams.get('status');
+      const from = url.searchParams.get('from');
+      const to = url.searchParams.get('to');
+
+      if (status) {
+        items = items.filter((item) => (item.status ?? 'available') === status);
+      }
+      if (from) {
+        const fromTime = Date.parse(from);
+        items = items.filter((item) => Date.parse(item.startsAt) >= fromTime);
+      }
+      if (to) {
+        const toTime = Date.parse(to);
+        items = items.filter((item) => Date.parse(item.startsAt) < toTime);
+      }
+
+      await fulfillJson(route, 200, { ok: true, items });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/appointments/slots') && method === 'POST') {
+      const payload = (request.postDataJSON() as {
+        startsAt?: string;
+        endsAt?: string;
+        meetingLink?: string;
+      } | null) ?? {};
+      const createdSlot = createAppointmentSlotInState(state, payload);
+      await fulfillJson(route, 201, { ok: true, slot: deepClone(createdSlot) });
+      return;
+    }
+
+    if (isPath(pathname, '/clinician/insights') && method === 'GET') {
+      const status = (url.searchParams.get('status') ?? 'pending') as InsightStatus;
+      const items = deepClone(state.insightsByStatus[status] ?? []);
+      await fulfillJson(route, 200, { ok: true, items });
+      return;
+    }
+
+    if (startsWithPath(pathname, '/clinician/insights/') && method === 'PATCH') {
+      const insightId = pathname.split('/')[3];
+      const payload = request.postDataJSON() as { status?: 'approved' | 'rejected' } | null;
+      if (!insightId || !payload?.status) {
+        await fulfillJson(route, 400, { ok: false, error: 'VALIDATION_ERROR' });
+        return;
+      }
+
+      const reviewedInsight = reviewInsightInState(state, insightId, payload.status);
+      if (!reviewedInsight) {
+        await fulfillJson(route, 404, { ok: false, error: 'NOT_FOUND' });
+        return;
+      }
+
+      await fulfillJson(route, 200, { ok: true, item: deepClone(reviewedInsight) });
       return;
     }
 

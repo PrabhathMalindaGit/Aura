@@ -5,8 +5,9 @@ import {
 } from './migrationGates';
 import { AnalyticsFoundation } from '../modules/analytics';
 import { AlertsRoute } from '../modules/alerts';
+import { AppointmentsRoute } from '../modules/appointments';
+import { InsightsRoute } from '../modules/insights';
 import { PatientWorkspaceRoute } from '../modules/patient-workspace';
-import { TasksFollowUpFoundation } from '../modules/tasks-follow-up';
 import { WorkspaceSettingsFoundation } from '../modules/settings';
 
 function lazyNamedComponent<TModule extends Record<string, unknown>, TKey extends keyof TModule & string>(
@@ -120,14 +121,7 @@ export function InsightsRouteFacade(): JSX.Element {
     <RouteFacade
       routeId="insights"
       legacy={<InsightsQueuePage />}
-      v2={
-        <TasksFollowUpFoundation
-          title="Tasks and follow-up foundation"
-          description="Guidance queue semantics remain intact while the v2 follow-up module foundation is staged."
-        >
-          <InsightsQueuePage />
-        </TasksFollowUpFoundation>
-      }
+      v2={<InsightsRoute />}
     />
   );
 }
@@ -137,14 +131,7 @@ export function AppointmentsRouteFacade(): JSX.Element {
     <RouteFacade
       routeId="appointments"
       legacy={<AppointmentsPage />}
-      v2={
-        <TasksFollowUpFoundation
-          title="Follow-up scheduling foundation"
-          description="Scheduling workflows remain unchanged while the v2 follow-up shell and patterns are staged."
-        >
-          <AppointmentsPage />
-        </TasksFollowUpFoundation>
-      }
+      v2={<AppointmentsRoute />}
     />
   );
 }

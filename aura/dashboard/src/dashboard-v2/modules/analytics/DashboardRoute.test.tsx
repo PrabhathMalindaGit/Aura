@@ -1,0 +1,484 @@
+/* @vitest-environment jsdom */
+
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  cleanup,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createJsonResponse,
+  installMatchMediaMock,
+  installResizeObserverMock,
+} from "../../../test/mocks";
+import type {
+  AppointmentRequestItem,
+  AppointmentSlot,
+  DashboardCommunicationOverview,
+  DashboardFollowUpTaskItem,
+  DashboardPriorityQueueItem,
+  DashboardSafetyEvent,
+  DashboardSummary,
+  DashboardTodayAppointmentItem,
+  InsightItem,
+  PatientSummary,
+} from "../../../types/models";
+import { DashboardRouteFacade } from "../../config/routeFacades";
+import {
+  resetDashboardV2GatesForTests,
+  writeDashboardV2Gates,
+} from "../../config/migrationGates";
+
+const SUMMARY: DashboardSummary = {
+  openAlertsCount: 1,
+  assignedToMeAlertsCount: 1,
+  pendingInsightsCount: 2,
+  todayAppointmentsCount: 1,
+  missedCheckinsCount: 1,
+  openFollowUpTasksCount: 1,
+  messagesNeedingResponseCount: 1,
+};
+
+const PRIORITY_QUEUE: DashboardPriorityQueueItem[] = [
+  {
+    id: "queue-alert-1",
+    itemType: "alert",
+    patientId: "patient-1",
+    title: "Assigned high-risk alert",
+    subtitle: "Pain escalation requires review",
+    priority: "high",
+    status: "open",
+    source: "checkin",
+    createdAt: "2026-04-18T08:00:00.000Z",
+    linkedEntityId: "alert-1",
+    linkedEntityType: "alert",
+  },
+];
+
+const SAFETY_EVENTS: DashboardSafetyEvent[] = [
+  {
+    id: "event-1",
+    type: "NOTIFICATION_SENT",
+    patientId: "patient-1",
+    alertId: "alert-1",
+    createdAt: "2026-04-18T08:05:00.000Z",
+    summary: "Telegram escalation sent successfully.",
+    alertStatus: "open",
+  },
+];
+
+const TODAY_APPOINTMENTS: DashboardTodayAppointmentItem[] = [
+  {
+    id: "appointment-1",
+    patientId: "patient-1",
+    clinicianId: "clinician-1",
+    startsAt: "2026-04-18T13:00:00.000Z",
+    endsAt: "2026-04-18T13:30:00.000Z",
+    status: "awaiting_confirmation",
+    requestStatus: "pending",
+    modality: "video",
+    note: "Waiting for patient confirmation.",
+    updatedAt: "2026-04-18T08:10:00.000Z",
+  },
+];
+
+const FOLLOW_UP_TASKS: DashboardFollowUpTaskItem[] = [
+  {
+    id: "task-1",
+    patientId: "patient-1",
+    title: "Review safety escalation",
+    priority: "urgent",
+    status: "open",
+    dueAt: "2026-04-18T12:00:00.000Z",
+    type: "safety_review",
+    linkedAlertId: "alert-1",
+    updatedAt: "2026-04-18T08:11:00.000Z",
+  },
+];
+
+const COMMUNICATION_OVERVIEW: DashboardCommunicationOverview = {
+  counts: {
+    needsResponseCount: 1,
+    flaggedBySafetyCount: 1,
+    followUpRequestedCount: 1,
+  },
+  items: [
+    {
+      id: "communication-1",
+      patientId: "patient-1",
+      patientName: "Jordan Lee",
+      needsResponse: true,
+      flaggedBySafety: true,
+      followUpRequested: true,
+      linkedTaskId: "task-1",
+      messageCreatedAt: "2026-04-18T08:15:00.000Z",
+      messagePreview: "Pain is much worse after exercise today.",
+      reviewedAfterLatestInbound: true,
+      lastReviewedAt: "2026-04-18T08:20:00.000Z",
+    },
+  ],
+};
+
+const PENDING_INSIGHTS: InsightItem[] = [
+  {
+    id: "insight-1",
+    patientId: "patient-1",
+    status: "pending",
+    title: "Pain trend worsened",
+    message: "Pain scores are rising again in the recent window.",
+    category: "symptoms",
+    confidence: "high",
+    priority: 90,
+    windowDays: 14,
+    createdAt: "2026-04-18T08:35:00.000Z",
+  },
+];
+
+const APPOINTMENT_REQUESTS: AppointmentRequestItem[] = [
+  {
+    requestId: "request-1",
+    slotId: "slot-1",
+    patientId: "patient-1",
+    status: "pending",
+    workflowStatus: "awaiting_confirmation",
+    note: "Review demand before publishing more time.",
+    startsAt: "2026-04-18T09:00:00.000Z",
+    endsAt: "2026-04-18T09:30:00.000Z",
+    modality: "video",
+    createdAt: "2026-04-18T08:00:00.000Z",
+    updatedAt: "2026-04-18T08:00:00.000Z",
+  },
+  {
+    requestId: "request-2",
+    slotId: "slot-2",
+    patientId: "patient-2",
+    status: "pending",
+    workflowStatus: "awaiting_confirmation",
+    note: "Needs the next available afternoon slot.",
+    startsAt: "2026-04-19T09:00:00.000Z",
+    endsAt: "2026-04-19T09:30:00.000Z",
+    modality: "video",
+    createdAt: "2026-04-18T08:05:00.000Z",
+    updatedAt: "2026-04-18T08:05:00.000Z",
+  },
+];
+
+const AVAILABLE_SLOTS: AppointmentSlot[] = [
+  {
+    slotId: "slot-1",
+    clinicianName: "Clinician One",
+    startsAt: "2026-04-18T11:00:00.000Z",
+    endsAt: "2026-04-18T11:30:00.000Z",
+    modality: "video",
+    status: "available",
+    meetingLink: "https://meet.example.com/open-capacity",
+    createdAt: "2026-04-18T08:12:00.000Z",
+  },
+];
+
+const PATIENTS: PatientSummary[] = [
+  {
+    id: "patient-1",
+    displayName: "Jordan Lee",
+    status: "active",
+  },
+  {
+    id: "patient-2",
+    displayName: "Avery Chen",
+    status: "active",
+  },
+];
+
+function createQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function installViewportMock(width: number): void {
+  installMatchMediaMock((query) => {
+    const maxMatch = query.match(/max-width:\s*(\d+)px/);
+    if (maxMatch) {
+      return width <= Number(maxMatch[1]);
+    }
+
+    const minMatch = query.match(/min-width:\s*(\d+)px/);
+    if (minMatch) {
+      return width >= Number(minMatch[1]);
+    }
+
+    return false;
+  });
+}
+
+function installDashboardFetchMock(
+  options: {
+    safetyEvents?: DashboardSafetyEvent[];
+    communicationOverview?: DashboardCommunicationOverview;
+  } = {},
+): void {
+  const safetyEvents = options.safetyEvents ?? SAFETY_EVENTS;
+  const communicationOverview =
+    options.communicationOverview ?? COMMUNICATION_OVERVIEW;
+
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = new URL(String(input), "http://localhost");
+
+    if (url.pathname === "/clinician/dashboard/summary") {
+      return createJsonResponse({ ok: true, summary: SUMMARY });
+    }
+
+    if (url.pathname === "/clinician/dashboard/priority-queue") {
+      return createJsonResponse({ ok: true, items: PRIORITY_QUEUE });
+    }
+
+    if (url.pathname === "/clinician/dashboard/recent-safety-events") {
+      return createJsonResponse({ ok: true, items: safetyEvents });
+    }
+
+    if (url.pathname === "/clinician/dashboard/today-appointments") {
+      return createJsonResponse({ ok: true, items: TODAY_APPOINTMENTS });
+    }
+
+    if (url.pathname === "/clinician/dashboard/follow-up-tasks") {
+      return createJsonResponse({ ok: true, items: FOLLOW_UP_TASKS });
+    }
+
+    if (url.pathname === "/clinician/dashboard/communication-overview") {
+      return createJsonResponse({ ok: true, overview: communicationOverview });
+    }
+
+    if (url.pathname === "/clinician/patients") {
+      return createJsonResponse({ ok: true, patients: PATIENTS });
+    }
+
+    if (url.pathname === "/clinician/appointments/slots") {
+      return createJsonResponse({ ok: true, items: AVAILABLE_SLOTS });
+    }
+
+    if (url.pathname === "/clinician/appointments/requests") {
+      return createJsonResponse({ ok: true, items: APPOINTMENT_REQUESTS });
+    }
+
+    if (url.pathname === "/clinician/insights") {
+      return createJsonResponse({ ok: true, items: PENDING_INSIGHTS });
+    }
+
+    return createJsonResponse({ ok: true });
+  });
+}
+
+function LocationEcho(): JSX.Element {
+  const location = useLocation();
+  return <div>{`${location.pathname}${location.search}`}</div>;
+}
+
+function renderDashboardRoute(): void {
+  const queryClient = createQueryClient();
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/dashboard"]}>
+        <Routes>
+          <Route path="/dashboard" element={<DashboardRouteFacade />} />
+          <Route path="/alerts" element={<LocationEcho />} />
+          <Route path="/communication" element={<LocationEcho />} />
+          <Route path="/worklist" element={<LocationEcho />} />
+          <Route path="/appointments" element={<LocationEcho />} />
+          <Route path="/insights" element={<LocationEcho />} />
+          <Route path="/patients/:patientId" element={<LocationEcho />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  installResizeObserverMock();
+  installViewportMock(1440);
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+  resetDashboardV2GatesForTests();
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+describe("DashboardRoute", () => {
+  it("falls back to the legacy dashboard while the route gate is off", async () => {
+    installDashboardFetchMock();
+
+    renderDashboardRoute();
+
+    expect(
+      await screen.findByRole("heading", { name: "Today" }, { timeout: 5_000 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Open next" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("v2-dashboard-route")).not.toBeInTheDocument();
+  });
+
+  it("renders the gated v2 route, keeps the overview hierarchy, and preserves onward routing", async () => {
+    installDashboardFetchMock();
+    writeDashboardV2Gates({
+      shell: false,
+      routes: {
+        dashboard: true,
+        worklist: false,
+        communication: false,
+        "patient-workspace": false,
+        alerts: false,
+        insights: false,
+        appointments: false,
+        settings: false,
+      },
+    });
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    await screen.findByTestId("v2-dashboard-metric-alerts");
+    expect(screen.getByTestId("v2-dashboard-status-bar")).toHaveTextContent(
+      "Service analytics",
+    );
+    expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
+      "Open alerts",
+    );
+    expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
+      "Messages needing response",
+    );
+    expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
+      "Open follow-up tasks",
+    );
+    expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
+      "Pending insights",
+    );
+    expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
+      "Today’s appointments",
+    );
+    expect(screen.queryByText("Assigned to me alerts")).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(screen.getByTestId("v2-dashboard-attention-panel")).getByRole(
+        "button",
+        { name: "Open alerts" },
+      ),
+    );
+    expect(await screen.findByText("/alerts")).toBeInTheDocument();
+  });
+
+  it("stays read-only, renders conservative Unknown states, and preserves patient-linked routing", async () => {
+    installDashboardFetchMock({
+      safetyEvents: [
+        {
+          id: "event-unknown",
+          type: "MANUAL_REVIEW",
+          patientId: "patient-1",
+          createdAt: "2026-04-18T08:25:00.000Z",
+          summary: "Manual review moved into the safety feed.",
+        },
+      ],
+      communicationOverview: {
+        counts: {
+          needsResponseCount: 1,
+          flaggedBySafetyCount: 0,
+          followUpRequestedCount: 0,
+        },
+        items: [
+          {
+            id: "communication-reviewed",
+            patientId: "patient-1",
+            patientName: "Jordan Lee",
+            needsResponse: false,
+            flaggedBySafety: false,
+            followUpRequested: false,
+            messageCreatedAt: "2026-04-18T08:30:00.000Z",
+            messagePreview: "Clinician reviewed the latest thread.",
+            reviewedAfterLatestInbound: true,
+            lastReviewedAt: "2026-04-18T08:35:00.000Z",
+          },
+        ],
+      },
+    });
+    writeDashboardV2Gates({
+      shell: false,
+      routes: {
+        dashboard: true,
+        worklist: false,
+        communication: false,
+        "patient-workspace": false,
+        alerts: false,
+        insights: false,
+        appointments: false,
+        settings: false,
+      },
+    });
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    const communicationItem = await screen.findByTestId(
+      "v2-dashboard-communication-item-communication-reviewed",
+    );
+    expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+    expect(
+      within(communicationItem).getByText(/Reviewed .* by Unknown/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Reply received|AI-authored|Owned by AI/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Acknowledge|Resolve|Assign to me|Take over|Unassign|Publish/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    const safetyItem = await screen.findByTestId(
+      "v2-dashboard-safety-item-event-unknown",
+    );
+    await userEvent.click(
+      within(safetyItem).getByRole("button", { name: "Jordan Lee" }),
+    );
+    expect(await screen.findByText("/patients/patient-1")).toBeInTheDocument();
+  });
+
+  it("keeps narrow data context readable without turning the route into stacked action tiles", async () => {
+    installViewportMock(560);
+    installDashboardFetchMock();
+    writeDashboardV2Gates({
+      shell: false,
+      routes: {
+        dashboard: true,
+        worklist: false,
+        communication: false,
+        "patient-workspace": false,
+        alerts: false,
+        insights: false,
+        appointments: false,
+        settings: false,
+      },
+    });
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Coverage note/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Trust note/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("v2-dashboard-summary-strip")).toBeVisible();
+  });
+});

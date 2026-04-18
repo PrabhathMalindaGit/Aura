@@ -378,12 +378,11 @@ describe('SettingsPage clinician profile workspace', () => {
 
   it('caps saved communication templates at the configured local limit', async () => {
     signInAs({ sub: 'auth-clinician-template-cap', name: 'Dr Template Cap' });
-    const user = userEvent.setup();
 
     render(<SettingsPage />);
 
     for (let index = 0; index < CLINICIAN_COMMUNICATION_AUTHORING_LIMITS.templates; index += 1) {
-      await user.click(screen.getByRole('button', { name: 'Add template' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add template' }));
     }
 
     expect(screen.getByRole('button', { name: 'Add template' })).toBeDisabled();

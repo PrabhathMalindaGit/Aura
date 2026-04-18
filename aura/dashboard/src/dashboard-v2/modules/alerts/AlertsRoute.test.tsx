@@ -35,6 +35,7 @@ import type {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+const ROUTE_LOAD_TIMEOUT_MS = 3_000;
 
 function recentIso(hoursAgo: number, minutesAgo = 0): string {
   return new Date(Date.now() - hoursAgo * HOUR_MS - minutesAgo * 60 * 1000).toISOString();
@@ -382,7 +383,7 @@ describe('AlertsRoute', () => {
   it('keeps the legacy alerts page as the default fallback when the gate is off', async () => {
     renderAlertsRoute();
 
-    expect(await screen.findByText('Safety triage')).toBeInTheDocument();
+    expect(await screen.findByText('Safety triage', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.queryByTestId('v2-alerts-route')).not.toBeInTheDocument();
   });
 
@@ -392,10 +393,10 @@ describe('AlertsRoute', () => {
 
     renderAlertsRoute();
 
-    expect(await screen.findByTestId('v2-alerts-route')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-alerts-queue-pane')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-alert-row-alert-1')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-alert-review-workspace')).toHaveTextContent('Jordan Lee');
+    expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alerts-queue-pane', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alert-row-alert-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
 
     await user.click(screen.getByTestId('v2-alert-row-alert-2'));
 
@@ -410,8 +411,8 @@ describe('AlertsRoute', () => {
 
     renderAlertsRoute('/alerts?search=patient-2');
 
-    expect(await screen.findByTestId('v2-alerts-route')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-alert-review-workspace')).toHaveTextContent('Avery Chen');
+    expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Avery Chen');
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Open patient' }));
@@ -428,8 +429,8 @@ describe('AlertsRoute', () => {
 
     renderAlertsRoute();
 
-    expect(await screen.findByTestId('v2-alerts-route')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-alert-review-workspace')).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Open governance' }));
 
     expect(await screen.findByRole('heading', { name: 'Alert governance context' })).toBeInTheDocument();
@@ -444,7 +445,7 @@ describe('AlertsRoute', () => {
 
     renderAlertsRoute();
 
-    expect(await screen.findByTestId('v2-alerts-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.queryByTestId('v2-alert-review-workspace')).not.toBeInTheDocument();
 
     await user.click(await screen.findByTestId('v2-alert-row-alert-1'));

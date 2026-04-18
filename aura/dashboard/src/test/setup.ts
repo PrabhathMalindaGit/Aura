@@ -4,6 +4,7 @@ import { cleanup } from '@testing-library/react';
 import { installMatchMediaMock, installResizeObserverMock } from './mocks';
 
 beforeEach(() => {
+  vi.useRealTimers();
   installMatchMediaMock();
   installResizeObserverMock();
 
@@ -18,5 +19,12 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    window.history.replaceState(null, '', '/');
+  }
 });

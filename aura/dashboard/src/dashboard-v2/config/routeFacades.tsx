@@ -1,19 +1,19 @@
-import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
+import { Suspense, lazy, type ComponentType, type ReactNode } from "react";
 import {
   isDashboardV2RouteEnabled,
   type DashboardV2RouteId,
-} from './migrationGates';
-import { AnalyticsFoundation } from '../modules/analytics';
-import { AlertsRoute } from '../modules/alerts';
-import { AppointmentsRoute } from '../modules/appointments';
-import { InsightsRoute } from '../modules/insights';
-import { PatientWorkspaceRoute } from '../modules/patient-workspace';
-import { WorkspaceSettingsFoundation } from '../modules/settings';
+} from "./migrationGates";
+import { DashboardRoute } from "../modules/analytics";
+import { AlertsRoute } from "../modules/alerts";
+import { AppointmentsRoute } from "../modules/appointments";
+import { InsightsRoute } from "../modules/insights";
+import { PatientWorkspaceRoute } from "../modules/patient-workspace";
+import { WorkspaceSettingsFoundation } from "../modules/settings";
 
-function lazyNamedComponent<TModule extends Record<string, unknown>, TKey extends keyof TModule & string>(
-  loader: () => Promise<TModule>,
-  key: TKey,
-): ComponentType {
+function lazyNamedComponent<
+  TModule extends Record<string, unknown>,
+  TKey extends keyof TModule & string,
+>(loader: () => Promise<TModule>, key: TKey): ComponentType {
   return lazy(async () => {
     const module = await loader();
     return {
@@ -22,18 +22,45 @@ function lazyNamedComponent<TModule extends Record<string, unknown>, TKey extend
   });
 }
 
-const AlertsPage = lazyNamedComponent(() => import('../../pages/AlertsPage'), 'AlertsPage');
-const AppointmentsPage = lazyNamedComponent(() => import('../../pages/AppointmentsPage'), 'AppointmentsPage');
-const CommunicationPage = lazyNamedComponent(() => import('../../pages/CommunicationPage'), 'CommunicationPage');
-const DashboardHomePage = lazyNamedComponent(() => import('../../pages/DashboardHomePage'), 'DashboardHomePage');
-const InsightsQueuePage = lazyNamedComponent(() => import('../../pages/InsightsQueuePage'), 'InsightsQueuePage');
-const InboxRoute = lazyNamedComponent(() => import('../modules/inbox'), 'InboxRoute');
-const PatientDetailPage = lazyNamedComponent(() => import('../../pages/PatientDetailPage'), 'PatientDetailPage');
-const SettingsPage = lazyNamedComponent(() => import('../../pages/SettingsPage'), 'SettingsPage');
-const WorklistPage = lazyNamedComponent(() => import('../../pages/WorklistPage'), 'WorklistPage');
+const AlertsPage = lazyNamedComponent(
+  () => import("../../pages/AlertsPage"),
+  "AlertsPage",
+);
+const AppointmentsPage = lazyNamedComponent(
+  () => import("../../pages/AppointmentsPage"),
+  "AppointmentsPage",
+);
+const CommunicationPage = lazyNamedComponent(
+  () => import("../../pages/CommunicationPage"),
+  "CommunicationPage",
+);
+const DashboardHomePage = lazyNamedComponent(
+  () => import("../../pages/DashboardHomePage"),
+  "DashboardHomePage",
+);
+const InsightsQueuePage = lazyNamedComponent(
+  () => import("../../pages/InsightsQueuePage"),
+  "InsightsQueuePage",
+);
+const InboxRoute = lazyNamedComponent(
+  () => import("../modules/inbox"),
+  "InboxRoute",
+);
+const PatientDetailPage = lazyNamedComponent(
+  () => import("../../pages/PatientDetailPage"),
+  "PatientDetailPage",
+);
+const SettingsPage = lazyNamedComponent(
+  () => import("../../pages/SettingsPage"),
+  "SettingsPage",
+);
+const WorklistPage = lazyNamedComponent(
+  () => import("../../pages/WorklistPage"),
+  "WorklistPage",
+);
 const TriageQueueRoute = lazyNamedComponent(
-  () => import('../modules/triage-queue'),
-  'TriageQueueRoute',
+  () => import("../modules/triage-queue"),
+  "TriageQueueRoute",
 );
 
 interface RouteFacadeProps {
@@ -70,11 +97,15 @@ function createRouteFacade(
   };
 }
 
-export const DashboardRouteFacade = createRouteFacade(
-  'dashboard',
-  DashboardHomePage,
-  AnalyticsFoundation,
-);
+export function DashboardRouteFacade(): JSX.Element {
+  return (
+    <RouteFacade
+      routeId="dashboard"
+      legacy={<DashboardHomePage />}
+      v2={<DashboardRoute />}
+    />
+  );
+}
 
 export function WorklistRouteFacade(): JSX.Element {
   return (
@@ -137,7 +168,7 @@ export function AppointmentsRouteFacade(): JSX.Element {
 }
 
 export const SettingsRouteFacade = createRouteFacade(
-  'settings',
+  "settings",
   SettingsPage,
   WorkspaceSettingsFoundation,
 );

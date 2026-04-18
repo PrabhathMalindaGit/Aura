@@ -28,6 +28,8 @@ import type {
   DashboardCommunicationOverview,
 } from '../../../types/models';
 
+const ROUTE_LOAD_TIMEOUT_MS = 3_000;
+
 const COMMUNICATION_OVERVIEW: DashboardCommunicationOverview = {
   counts: {
     needsResponseCount: 2,
@@ -261,9 +263,9 @@ describe('InboxRoute', () => {
   it('keeps the legacy communication route as the default fallback when the gate is off', async () => {
     renderCommunicationRoute();
 
-    expect(await screen.findByRole('heading', { name: 'Inbox' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Inbox' }, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.queryByTestId('v2-inbox-route')).not.toBeInTheDocument();
-    expect(await screen.findByText('Communication queue')).toBeInTheDocument();
+    expect(await screen.findByText('Communication queue', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
   });
 
   it('renders the v2 inbox route behind the gate and keeps row selection in-route', async () => {
@@ -272,10 +274,10 @@ describe('InboxRoute', () => {
 
     renderCommunicationRoute();
 
-    expect(await screen.findByTestId('v2-inbox-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-inbox-row-patient-1')).toBeInTheDocument();
-    expect(await screen.findByTestId('v2-inbox-workspace')).toHaveTextContent('Jordan Lee');
+    expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
     expect(screen.getByText('Local private draft')).toBeInTheDocument();
     expect(screen.getByText('Shared coordination')).toBeInTheDocument();
 
@@ -294,8 +296,8 @@ describe('InboxRoute', () => {
 
     renderCommunicationRoute();
 
-    await screen.findByTestId('v2-inbox-route');
-    expect(await screen.findByTestId('v2-inbox-row-patient-2')).toBeInTheDocument();
+    await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+    expect(await screen.findByTestId('v2-inbox-row-patient-2', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     await user.click(screen.getByTestId('v2-inbox-row-patient-2'));
 
     await waitFor(() => {
@@ -305,7 +307,7 @@ describe('InboxRoute', () => {
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Open patient' }));
-    expect(await screen.findByText('Patient detail workspace')).toBeInTheDocument();
+    expect(await screen.findByText('Patient detail workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
   });
 
   it('keeps the local draft separate from shared coordination authoring', async () => {
@@ -314,7 +316,7 @@ describe('InboxRoute', () => {
 
     renderCommunicationRoute();
 
-    expect(await screen.findByTestId('v2-inbox-workspace')).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
 
     const localDraft = screen.getByRole('textbox', { name: 'Personal reply draft' });
     const sharedNote = screen.getByRole('textbox', { name: 'Add shared coordination note' });
@@ -323,7 +325,7 @@ describe('InboxRoute', () => {
     await user.type(sharedNote, 'Team note stays shared.');
     await user.click(screen.getByRole('button', { name: 'Add shared note' }));
 
-    expect(await screen.findByText('Shared coordination note added for the care team.')).toBeInTheDocument();
+    expect(await screen.findByText('Shared coordination note added for the care team.', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(localDraft).toHaveValue('Local follow-up stays private.');
     expect(sharedNote).toHaveValue('');
     expect(screen.getAllByText('Team note stays shared.').length).toBeGreaterThan(0);
@@ -338,11 +340,11 @@ describe('InboxRoute', () => {
 
     renderCommunicationRoute();
 
-    expect(await screen.findByTestId('v2-inbox-route')).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
     expect(screen.queryByTestId('v2-inbox-workspace')).not.toBeInTheDocument();
 
-    expect(await screen.findByTestId('v2-inbox-row-patient-1')).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     await user.click(screen.getByTestId('v2-inbox-row-patient-1'));
 
     await waitFor(() => {

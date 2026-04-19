@@ -3,6 +3,7 @@ import { DashboardModuleState } from "../../../../components/dashboard/Dashboard
 import type { DashboardOperationalLoadRowVm } from "../../../adapters/dashboard";
 import { DashboardV2ChartFrame } from "../../../charts/ChartFrame";
 import { DashboardV2Text } from "../../../primitives/Text";
+import { DashboardDirectionalCue } from "./DashboardDirectionalCue";
 
 interface DashboardOperationalLoadSectionProps {
   rows: DashboardOperationalLoadRowVm[];
@@ -46,6 +47,14 @@ function operationalToneLabel(tone: DashboardOperationalLoadRowVm["tone"]): stri
   return "Live";
 }
 
+function operationalCueLevel(row: DashboardOperationalLoadRowVm): number {
+  if (row.value <= 0) {
+    return 1;
+  }
+
+  return Math.min(4, Math.max(1, Math.round(row.barPercent / 25)));
+}
+
 export function DashboardOperationalLoadSection({
   rows,
   loading,
@@ -83,7 +92,7 @@ export function DashboardOperationalLoadSection({
               <button
                 key={row.key}
                 type="button"
-                className="v2-dashboard-operational-row"
+                className={`v2-dashboard-operational-row v2-dashboard-operational-row--${row.tone}`}
                 role="listitem"
                 data-testid={`v2-dashboard-load-row-${row.key}`}
                 onClick={() => onOpenRoute(row.path)}
@@ -107,9 +116,16 @@ export function DashboardOperationalLoadSection({
                         </DashboardV2Text>
                       </div>
                       <div className="v2-dashboard-operational-row__summary">
-                        <strong className="v2-dashboard-operational-row__value">
-                          {row.displayValue}
-                        </strong>
+                        <div className="v2-dashboard-operational-row__metric">
+                          <strong className="v2-dashboard-operational-row__value">
+                            {row.displayValue}
+                          </strong>
+                          <DashboardDirectionalCue
+                            tone={row.tone}
+                            intensity={operationalCueLevel(row)}
+                            label={`${row.label} directional cue`}
+                          />
+                        </div>
                         <DashboardV2Text tone="caption">
                           {operationalToneLabel(row.tone)}
                         </DashboardV2Text>

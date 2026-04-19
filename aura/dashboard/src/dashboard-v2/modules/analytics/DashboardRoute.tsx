@@ -51,6 +51,8 @@ export function DashboardRoute(): JSX.Element {
             items={viewModel.scheduleItems}
             nextOpenSlotValue={viewModel.nextOpenSlotValue}
             schedulingFootnote={viewModel.schedulingFootnote}
+            pendingRequestCount={viewModel.schedulePendingRequestCount}
+            availableSlotsCount={viewModel.scheduleAvailableSlotsCount}
             loading={viewModel.scheduleLoading}
             error={viewModel.scheduleError}
             isRefreshing={viewModel.isRefreshing}

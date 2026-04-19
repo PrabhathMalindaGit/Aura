@@ -18,7 +18,6 @@ export function DashboardDataContextPanel({
       data-testid="v2-dashboard-data-context"
     >
       <header className="v2-dashboard-data-context__header">
-        <DashboardV2Text tone="label">Context</DashboardV2Text>
         <DashboardV2Heading as="h2">Freshness &amp; scope</DashboardV2Heading>
       </header>
 

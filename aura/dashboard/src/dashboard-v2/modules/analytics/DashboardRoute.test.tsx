@@ -224,11 +224,18 @@ function installDashboardFetchMock(
   options: {
     safetyEvents?: DashboardSafetyEvent[];
     communicationOverview?: DashboardCommunicationOverview;
+    appointments?: DashboardTodayAppointmentItem[];
+    appointmentRequests?: AppointmentRequestItem[];
+    availableSlots?: AppointmentSlot[];
   } = {},
 ): void {
   const safetyEvents = options.safetyEvents ?? SAFETY_EVENTS;
   const communicationOverview =
     options.communicationOverview ?? COMMUNICATION_OVERVIEW;
+  const appointments = options.appointments ?? TODAY_APPOINTMENTS;
+  const appointmentRequests =
+    options.appointmentRequests ?? APPOINTMENT_REQUESTS;
+  const availableSlots = options.availableSlots ?? AVAILABLE_SLOTS;
 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const url = new URL(String(input), "http://localhost");
@@ -246,7 +253,7 @@ function installDashboardFetchMock(
     }
 
     if (url.pathname === "/clinician/dashboard/today-appointments") {
-      return createJsonResponse({ ok: true, items: TODAY_APPOINTMENTS });
+      return createJsonResponse({ ok: true, items: appointments });
     }
 
     if (url.pathname === "/clinician/dashboard/follow-up-tasks") {
@@ -262,11 +269,11 @@ function installDashboardFetchMock(
     }
 
     if (url.pathname === "/clinician/appointments/slots") {
-      return createJsonResponse({ ok: true, items: AVAILABLE_SLOTS });
+      return createJsonResponse({ ok: true, items: availableSlots });
     }
 
     if (url.pathname === "/clinician/appointments/requests") {
-      return createJsonResponse({ ok: true, items: APPOINTMENT_REQUESTS });
+      return createJsonResponse({ ok: true, items: appointmentRequests });
     }
 
     if (url.pathname === "/clinician/insights") {
@@ -383,6 +390,7 @@ describe("DashboardRoute", () => {
     expect(
       screen.queryByText(/Short lists, not secondary workbenches/i),
     ).not.toBeInTheDocument();
+    expect(screen.getAllByText("Open alerts").length).toBeGreaterThan(0);
 
     await userEvent.click(
       within(screen.getByTestId("v2-dashboard-attention-panel")).getByRole(
@@ -469,6 +477,7 @@ describe("DashboardRoute", () => {
     expect(screen.getByTestId("location-echo")).not.toHaveTextContent(
       '"pathname":"/patients"',
     );
+
   });
 
   it("keeps narrow data context readable without turning the route into stacked action tiles", async () => {
@@ -494,5 +503,69 @@ describe("DashboardRoute", () => {
       screen.queryByText(/This overview reflects visible requests and open slots/i),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toBeVisible();
+  });
+
+  it("preserves thread routing from communication rows", async () => {
+    installDashboardFetchMock({
+      communicationOverview: {
+        counts: {
+          needsResponseCount: 1,
+          flaggedBySafetyCount: 0,
+          followUpRequestedCount: 0,
+        },
+        items: [
+          {
+            id: "communication-thread-route",
+            patientId: "patient-1",
+            patientName: "Jordan Lee",
+            needsResponse: true,
+            flaggedBySafety: false,
+            followUpRequested: false,
+            messageCreatedAt: "2026-04-18T08:30:00.000Z",
+            messagePreview: "A quick routing check for the thread action.",
+          },
+        ],
+      },
+    });
+
+    renderDashboardRoute();
+
+    const communicationItem = await screen.findByTestId(
+      "v2-dashboard-communication-item-communication-thread-route",
+    );
+    await userEvent.click(
+      within(communicationItem).getByRole("button", { name: "Open thread" }),
+    );
+
+    expect(await screen.findByTestId("location-echo")).toHaveTextContent(
+      '"pathname":"/communication"',
+    );
+    expect(screen.getByTestId("location-echo")).toHaveTextContent(
+      '"search":"?patientId=patient-1"',
+    );
+  });
+
+  it("renders intentional clear states when signal and schedule pressure are empty", async () => {
+    installDashboardFetchMock({
+      safetyEvents: [],
+      communicationOverview: {
+        counts: {
+          needsResponseCount: 0,
+          flaggedBySafetyCount: 0,
+          followUpRequestedCount: 0,
+        },
+        items: [],
+      },
+      appointments: [],
+      appointmentRequests: [],
+      availableSlots: [],
+    });
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(await screen.findByText("All caught up for today")).toBeVisible();
+    expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
+    expect(await screen.findByText("No replies are waiting")).toBeVisible();
   });
 });

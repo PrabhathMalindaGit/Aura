@@ -74,6 +74,7 @@ export interface DashboardScheduleItemVm {
   id: string;
   patientId: string;
   patientLabel: string;
+  patientInitials: string;
   timeRangeLabel: string;
   statusLabel: string;
   statusTone: DashboardSurfaceTone;
@@ -85,6 +86,7 @@ export interface DashboardSafetySignalVm {
   id: string;
   patientId: string;
   patientLabel: string;
+  patientInitials: string;
   summary: string;
   eventLabel: string;
   eventTimeLabel: string;
@@ -103,6 +105,7 @@ export interface DashboardCommunicationSignalVm {
   id: string;
   patientId: string;
   patientLabel: string;
+  patientInitials: string;
   preview: string;
   messageAgeLabel: string;
   messageAgeTitle: string;
@@ -202,6 +205,36 @@ function pluralize(
 
 function detailOrUnknown(value: string | null | undefined): string {
   return value?.trim() ? value : "Unknown";
+}
+
+function compactCountLabel(
+  value: number | null | undefined,
+  singular: string,
+  plural: string = `${singular}s`,
+): string {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "Unknown";
+  }
+
+  return `${value} ${value === 1 ? singular : plural}`;
+}
+
+function buildPatientInitials(label: string): string {
+  const parts = label
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[^A-Za-z0-9]/g, ""))
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "PT";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
 }
 
 function toneFromCount(
@@ -346,23 +379,41 @@ function communicationChips(
     });
   }
 
-  return chips.slice(0, 2);
+  const tonePriority: Record<DashboardSurfaceTone, number> = {
+    critical: 4,
+    warning: 3,
+    info: 2,
+    success: 1,
+    neutral: 0,
+  };
+
+  return [...chips]
+    .sort((left, right) => {
+      const toneDifference =
+        tonePriority[right.tone] - tonePriority[left.tone];
+      if (toneDifference !== 0) {
+        return toneDifference;
+      }
+
+      return left.label.localeCompare(right.label);
+    })
+    .slice(0, 2);
 }
 
 function communicationContextLine(
   item: DashboardCommunicationOverviewItem,
 ): string | null {
   const parts = [
-    item.patientRiskLevel === "high" ? "Higher risk context" : null,
+    item.patientRiskLevel === "high" ? "Higher risk" : null,
     typeof item.openAlertCount === "number"
       ? `${item.openAlertCount} open alert${item.openAlertCount === 1 ? "" : "s"}`
       : null,
     item.responseDelayed || item.responseState === "delayed"
-      ? `Response delayed past ${item.responseDelayHours ?? "configured"}h`
+      ? `Delayed past ${item.responseDelayHours ?? "configured"}h`
       : item.responseDueAt
-        ? `Response target ${formatDashboardRelativeTime(item.responseDueAt)}`
+        ? `Target ${formatDashboardRelativeTime(item.responseDueAt)}`
         : item.responseDelayHours
-          ? `Response target ${item.responseDelayHours}h`
+          ? `Target ${item.responseDelayHours}h`
           : null,
     item.followUpRequested && !item.reviewedAfterLatestInbound
       ? "Follow-up requested"
@@ -411,7 +462,7 @@ export function buildDashboardStatusBar({
   return {
     title: "Today",
     guidanceLine:
-      "Scan the leading lane, then move into the destination route only when you need detail.",
+      "Lead with the top lane, then open detail only when needed.",
     facts: [
       {
         key: "window",
@@ -444,7 +495,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(openAlertsCount, "open alert")} are leading the day right now.`,
       actionLabel: "Open alerts",
       actionPath: "/alerts",
-      note: "Start in alerts, then come back here.",
+      note: "Start in alerts. Return here after the first pass.",
     };
   }
 
@@ -523,7 +574,7 @@ export function buildDashboardSummaryStrip({
       value: formatCountValue(openAlertsCount),
       detail: detailOrUnknown(
         typeof assignedToMeAlertsCount === "number"
-          ? `${pluralize(assignedToMeAlertsCount, "assigned alert")}`
+          ? compactCountLabel(assignedToMeAlertsCount, "assigned", "assigned")
           : null,
       ),
       path: "/alerts",
@@ -538,7 +589,11 @@ export function buildDashboardSummaryStrip({
       value: formatCountValue(messagesNeedingResponseCount),
       detail: detailOrUnknown(
         typeof flaggedBySafetyCount === "number"
-          ? `${pluralize(flaggedBySafetyCount, "safety-flagged thread", "safety-flagged threads")}`
+          ? compactCountLabel(
+              flaggedBySafetyCount,
+              "safety flagged",
+              "safety flagged",
+            )
           : null,
       ),
       path: "/communication",
@@ -554,8 +609,8 @@ export function buildDashboardSummaryStrip({
       value: formatCountValue(openFollowUpTasksCount),
       detail: detailOrUnknown(
         tasksDueTodayCount > 0
-          ? `${pluralize(tasksDueTodayCount, "task")} due today`
-          : "Clear today",
+          ? compactCountLabel(tasksDueTodayCount, "due today", "due today")
+          : "All caught up",
       ),
       path: "/worklist",
       tone: toneFromCount(openFollowUpTasksCount ?? 0, {
@@ -569,9 +624,13 @@ export function buildDashboardSummaryStrip({
       label: "Pending insights",
       value: formatCountValue(pendingInsightsCount),
       detail: detailOrUnknown(
-        typeof pendingInsightsCount === "number"
-          ? `${pluralize(highPriorityInsightsCount, "high-priority item")}`
-          : null,
+        typeof pendingInsightsCount === "number" && pendingInsightsCount === 0
+          ? "No pending insights"
+          : compactCountLabel(
+              highPriorityInsightsCount,
+              "high-priority",
+              "high-priority",
+            ),
       ),
       path: "/insights",
       tone: toneFromCount(pendingInsightsCount ?? 0, {
@@ -586,7 +645,13 @@ export function buildDashboardSummaryStrip({
       value: formatCountValue(todayAppointmentsCount),
       detail: detailOrUnknown(
         typeof pendingAppointmentRequestsCount === "number"
-          ? `${pluralize(pendingAppointmentRequestsCount, "pending request")}`
+          ? pendingAppointmentRequestsCount > 0
+            ? compactCountLabel(
+                pendingAppointmentRequestsCount,
+                "request pending",
+                "requests pending",
+              )
+            : "No active requests"
           : null,
       ),
       path: "/appointments",
@@ -617,7 +682,7 @@ export function buildDashboardOperationalLoad({
       key: "alerts",
       label: "Alerts",
       value: summary?.openAlertsCount ?? 0,
-      detail: `${pluralize(summary?.assignedToMeAlertsCount ?? 0, "alert")} assigned to me · ${pluralize(recentSafetyEventCount, "recent feed event")}`,
+      detail: `${compactCountLabel(summary?.assignedToMeAlertsCount ?? 0, "assigned", "assigned")} · ${compactCountLabel(recentSafetyEventCount, "feed event")}`,
       path: "/alerts",
       tone: toneFromCount(summary?.openAlertsCount ?? 0, {
         criticalAt: 1,
@@ -628,7 +693,14 @@ export function buildDashboardOperationalLoad({
       key: "communication",
       label: "Communication",
       value: messagesNeedingResponseCount,
-      detail: `${pluralize(flaggedBySafetyCount, "safety-flagged thread", "safety-flagged threads")} visible`,
+      detail:
+        flaggedBySafetyCount > 0
+          ? compactCountLabel(
+              flaggedBySafetyCount,
+              "safety flagged",
+              "safety flagged",
+            )
+          : "No flagged threads",
       path: "/communication",
       tone: toneFromCount(messagesNeedingResponseCount, {
         criticalAt: 3,
@@ -640,7 +712,7 @@ export function buildDashboardOperationalLoad({
       key: "worklist",
       label: "Follow-up queue",
       value: openFollowUpTasksCount,
-      detail: `${pluralize(tasksDueTodayCount, "task")} due today · ${pluralize(missedCheckinsCount, "missed check-in")}`,
+      detail: `${compactCountLabel(tasksDueTodayCount, "due today", "due today")} · ${compactCountLabel(missedCheckinsCount, "missed check-in")}`,
       path: "/worklist",
       tone: toneFromCount(openFollowUpTasksCount, {
         criticalAt: 4,
@@ -652,7 +724,10 @@ export function buildDashboardOperationalLoad({
       key: "insights",
       label: "Insights",
       value: pendingInsightsCount,
-      detail: `${pluralize(highPriorityInsightsCount, "high-priority item")} visible`,
+      detail:
+        pendingInsightsCount > 0
+          ? `${compactCountLabel(highPriorityInsightsCount, "high-priority")} visible`
+          : "All caught up",
       path: "/insights",
       tone: toneFromCount(pendingInsightsCount, {
         criticalAt: 4,
@@ -665,9 +740,11 @@ export function buildDashboardOperationalLoad({
       label: "Scheduling",
       value: pendingAppointmentRequestsCount,
       detail:
-        availableSlotsCount > 0
-          ? `${pluralize(availableSlotsCount, "open slot")} visible`
-          : "No visible open capacity",
+        pendingAppointmentRequestsCount > 0
+          ? `${compactCountLabel(pendingAppointmentRequestsCount, "request")} · ${compactCountLabel(availableSlotsCount, "open slot")}`
+          : availableSlotsCount > 0
+            ? `${compactCountLabel(availableSlotsCount, "open slot")} visible`
+            : "No active scheduling pressure",
       path: "/appointments",
       tone:
         pendingAppointmentRequestsCount > availableSlotsCount
@@ -730,6 +807,9 @@ export function buildDashboardSchedule({
     id: item.id,
     patientId: item.patientId,
     patientLabel: patientLabels.get(item.patientId) ?? item.patientId,
+    patientInitials: buildPatientInitials(
+      patientLabels.get(item.patientId) ?? item.patientId,
+    ),
     timeRangeLabel: formatDashboardTimeRange(item.startsAt, item.endsAt),
     statusLabel: humanizeDashboardLabel(item.status),
     statusTone: appointmentStatusTone(item.status),
@@ -761,6 +841,9 @@ export function buildDashboardSignals({
         id: item.id,
         patientId: item.patientId,
         patientLabel: patientLabels.get(item.patientId) ?? item.patientId,
+        patientInitials: buildPatientInitials(
+          patientLabels.get(item.patientId) ?? item.patientId,
+        ),
         summary: item.summary,
         eventLabel: humanizeDashboardLabel(item.type),
         eventTimeLabel: formatDashboardRelativeTime(item.createdAt),
@@ -773,6 +856,9 @@ export function buildDashboardSignals({
       id: item.id,
       patientId: item.patientId,
       patientLabel: item.patientName?.trim() || item.patientId,
+      patientInitials: buildPatientInitials(
+        item.patientName?.trim() || item.patientId,
+      ),
       preview:
         item.messagePreview?.trim() || "Conversation preview unavailable.",
       messageAgeLabel: formatDashboardRelativeTime(item.messageCreatedAt),
@@ -792,19 +878,18 @@ export function buildDashboardDataContext({
 }: DashboardDataContextInput): DashboardDataContextVm {
   return {
     metadata: [
-      { label: "Last route refresh", value: updatedLabel },
-      { label: "Scheduling window", value: schedulingRangeLabel },
+      { label: "Updated", value: updatedLabel },
+      { label: "Window", value: schedulingRangeLabel },
       {
         label: "Urgent sample",
         value: priorityQueueSampleLabel ?? "Unknown",
       },
       {
-        label: "Next visible slot",
+        label: "Open slot",
         value: nextOpenSlotLabel ?? "No visible open capacity",
       },
     ],
-    coverageSummary:
-      "Live dashboard feeds and the next 7 days of visible scheduling.",
+    coverageSummary: "Live feeds and the next 7 days of visible scheduling.",
     coverageDetail:
       "This page reflects the current dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
     trustSummary:

@@ -34,13 +34,19 @@
 .v2-dashboard-attention,
 .v2-dashboard-summary-strip__header,
 .v2-dashboard-summary-card__topline,
+.v2-dashboard-summary-card__label-stack,
 .v2-dashboard-operational-row,
 .v2-dashboard-operational-row__topline,
+.v2-dashboard-operational-row__metric,
 .v2-dashboard-schedule__header,
+.v2-dashboard-schedule__capacity-topline,
+.v2-dashboard-schedule__capacity-legend,
+.v2-dashboard-schedule__patient,
 .v2-dashboard-schedule__item-topline,
 .v2-dashboard-schedule__item-footer,
 .v2-dashboard-signals__header,
 .v2-dashboard-signals__panel-header,
+.v2-dashboard-signals__patient,
 .v2-dashboard-signals__item-topline,
 .v2-dashboard-signals__item-footer,
 .v2-dashboard-signals__chips {
@@ -63,6 +69,7 @@
 .v2-dashboard-operational-row__copy,
 .v2-dashboard-schedule,
 .v2-dashboard-schedule__facts,
+.v2-dashboard-schedule__capacity-shell,
 .v2-dashboard-schedule__timeline-shell,
 .v2-dashboard-schedule__list,
 .v2-dashboard-signals,
@@ -205,7 +212,7 @@
 
 .v2-dashboard-summary-card {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.62rem;
   padding: 1rem 1rem 0.95rem;
   border: 0;
   border-inline-start: 1px solid hsl(var(--v2-border));
@@ -218,6 +225,18 @@
     background-color var(--v2-motion-fast) var(--v2-ease-standard);
 }
 
+.v2-dashboard-summary-card--critical {
+  box-shadow: inset 0 2px 0 hsl(var(--v2-critical) / 0.8);
+}
+
+.v2-dashboard-summary-card--warning {
+  box-shadow: inset 0 2px 0 hsl(var(--v2-warning) / 0.78);
+}
+
+.v2-dashboard-summary-card--success {
+  box-shadow: inset 0 2px 0 hsl(var(--v2-success) / 0.75);
+}
+
 .v2-dashboard-summary-card:first-child {
   border-inline-start: 0;
 }
@@ -228,6 +247,22 @@
 
 .v2-dashboard-operational-row:hover {
   background: hsl(var(--v2-surface-muted) / 0.72);
+}
+
+.v2-dashboard-summary-card:hover .v2-dashboard-summary-card__action,
+.v2-dashboard-operational-row:hover .v2-dashboard-operational-row__action {
+  border-color: hsl(var(--v2-info) / 0.18);
+  background: hsl(var(--v2-info-soft));
+  color: hsl(var(--v2-info));
+}
+
+.v2-dashboard-summary-card__topline {
+  align-items: start;
+  justify-content: space-between;
+}
+
+.v2-dashboard-summary-card__label-stack {
+  gap: 0.15rem;
 }
 
 .v2-dashboard-summary-card:focus-visible,
@@ -272,14 +307,23 @@
   letter-spacing: -0.03em;
 }
 
+.v2-dashboard-summary-card__detail {
+  max-width: 18ch;
+}
+
 .v2-dashboard-summary-card__action {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: hsl(var(--v2-text-muted));
+  width: fit-content;
+  padding: 0.35rem 0.72rem;
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: 999px;
+  background: hsl(var(--v2-surface) / 0.85);
+  color: hsl(var(--v2-text));
   font-size: var(--v2-font-size-caption);
   font-weight: var(--v2-font-weight-semibold);
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
 }
 
 .v2-dashboard-route__overview-grid {
@@ -328,6 +372,14 @@
   background: transparent;
   color: hsl(var(--v2-text));
   text-align: left;
+}
+
+.v2-dashboard-operational-row--critical {
+  background: hsl(var(--v2-critical-soft) / 0.24);
+}
+
+.v2-dashboard-operational-row--warning {
+  background: hsl(var(--v2-warning-soft) / 0.22);
 }
 
 .v2-dashboard-operational-row:first-child {
@@ -394,6 +446,11 @@
   text-align: right;
 }
 
+.v2-dashboard-operational-row__metric {
+  align-items: center;
+  justify-content: end;
+}
+
 .v2-dashboard-operational-row__value {
   font-size: var(--v2-font-size-metric-headline);
   line-height: 1;
@@ -404,7 +461,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: hsl(var(--v2-text-muted));
+  padding: 0.35rem 0.72rem;
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: 999px;
+  background: hsl(var(--v2-surface) / 0.88);
+  color: hsl(var(--v2-text));
   font-size: var(--v2-font-size-caption);
   font-weight: var(--v2-font-weight-semibold);
   white-space: nowrap;
@@ -430,6 +491,79 @@
   border: 1px solid hsl(var(--v2-border));
   border-radius: calc(var(--v2-radius-md) - 1px);
   background: hsl(var(--v2-surface-muted) / 0.42);
+}
+
+.v2-dashboard-schedule__capacity-shell {
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: calc(var(--v2-radius-md) - 1px);
+  background: hsl(var(--v2-surface-muted) / 0.36);
+}
+
+.v2-dashboard-schedule__capacity-topline {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.v2-dashboard-schedule__capacity-gauge {
+  position: relative;
+  height: 0.72rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--v2-surface));
+}
+
+.v2-dashboard-schedule__capacity-gauge--empty {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      hsl(var(--v2-border) / 0.45) 0 0.55rem,
+      transparent 0.55rem 0.9rem
+    ),
+    hsl(var(--v2-surface));
+}
+
+.v2-dashboard-schedule__capacity-fill {
+  position: absolute;
+  inset-block: 0;
+  border-radius: 999px;
+}
+
+.v2-dashboard-schedule__capacity-fill--pending {
+  left: 0;
+  background: hsl(var(--v2-warning));
+}
+
+.v2-dashboard-schedule__capacity-fill--available {
+  background: hsl(var(--v2-success));
+}
+
+.v2-dashboard-schedule__capacity-legend {
+  align-items: center;
+  justify-content: space-between;
+  color: hsl(var(--v2-text-muted));
+  font-size: var(--v2-font-size-caption);
+}
+
+.v2-dashboard-schedule__capacity-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.v2-dashboard-schedule__capacity-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+}
+
+.v2-dashboard-schedule__capacity-dot--pending {
+  background: hsl(var(--v2-warning));
+}
+
+.v2-dashboard-schedule__capacity-dot--available {
+  background: hsl(var(--v2-success));
 }
 
 .v2-dashboard-schedule__timeline-shell {
@@ -520,7 +654,7 @@
 
 .v2-dashboard-schedule__item {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.55rem;
   padding: 0.95rem 1rem;
   border: 0;
   border-top: 1px solid hsl(var(--v2-border));
@@ -548,6 +682,102 @@
   color: hsl(var(--v2-info));
 }
 
+.v2-dashboard-row-button {
+  min-width: 7.4rem;
+}
+
+.v2-dashboard-patient-anchor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid hsl(var(--v2-border));
+  border-radius: 999px;
+  background: hsl(var(--v2-surface-muted) / 0.75);
+  color: hsl(var(--v2-text-muted));
+  font-size: 0.72rem;
+  font-weight: var(--v2-font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.v2-dashboard-patient-anchor--critical {
+  border-color: hsl(var(--v2-critical) / 0.2);
+  background: hsl(var(--v2-critical-soft));
+  color: hsl(var(--v2-critical));
+}
+
+.v2-dashboard-patient-anchor--warning {
+  border-color: hsl(var(--v2-warning) / 0.2);
+  background: hsl(var(--v2-warning-soft));
+  color: hsl(var(--v2-warning));
+}
+
+.v2-dashboard-patient-anchor--success {
+  border-color: hsl(var(--v2-success) / 0.2);
+  background: hsl(var(--v2-success-soft));
+  color: hsl(var(--v2-success));
+}
+
+.v2-dashboard-directional-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: hsl(var(--v2-text-muted));
+}
+
+.v2-dashboard-directional-cue__spark {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0.14rem;
+  align-items: end;
+  height: 0.95rem;
+}
+
+.v2-dashboard-directional-cue__bar {
+  width: 0.16rem;
+  border-radius: 999px;
+  background: hsl(var(--v2-border));
+  opacity: 0.4;
+}
+
+.v2-dashboard-directional-cue__bar:nth-child(1) {
+  height: 0.32rem;
+}
+
+.v2-dashboard-directional-cue__bar:nth-child(2) {
+  height: 0.5rem;
+}
+
+.v2-dashboard-directional-cue__bar:nth-child(3) {
+  height: 0.7rem;
+}
+
+.v2-dashboard-directional-cue__bar:nth-child(4) {
+  height: 0.92rem;
+}
+
+.v2-dashboard-directional-cue__bar--active {
+  opacity: 1;
+}
+
+.v2-dashboard-directional-cue--critical .v2-dashboard-directional-cue__bar--active {
+  background: hsl(var(--v2-critical));
+}
+
+.v2-dashboard-directional-cue--warning .v2-dashboard-directional-cue__bar--active {
+  background: hsl(var(--v2-warning));
+}
+
+.v2-dashboard-directional-cue--success .v2-dashboard-directional-cue__bar--active {
+  background: hsl(var(--v2-success));
+}
+
+.v2-dashboard-directional-cue--neutral .v2-dashboard-directional-cue__bar--active,
+.v2-dashboard-directional-cue--info .v2-dashboard-directional-cue__bar--active {
+  background: hsl(var(--v2-info));
+}
+
 .v2-dashboard-schedule__disclosure .v2-disclosure__trigger {
   padding: 0.1rem 0;
 }
@@ -569,13 +799,39 @@
 }
 
 .v2-dashboard-signals__item {
+  position: relative;
   display: grid;
-  gap: 0.45rem;
-  padding: 0.95rem 0;
+  gap: 0.55rem;
+  padding: 1.05rem 0.15rem 1.05rem 0.75rem;
   border: 0;
   border-top: 1px solid hsl(var(--v2-border));
   border-radius: 0;
   background: transparent;
+}
+
+.v2-dashboard-signals__item::before {
+  content: "";
+  position: absolute;
+  inset: 1.05rem auto 1.05rem 0;
+  width: 0.18rem;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.v2-dashboard-signals__item--critical {
+  background: hsl(var(--v2-critical-soft) / 0.18);
+}
+
+.v2-dashboard-signals__item--critical::before {
+  background: hsl(var(--v2-critical));
+}
+
+.v2-dashboard-signals__item--warning {
+  background: hsl(var(--v2-warning-soft) / 0.15);
+}
+
+.v2-dashboard-signals__item--warning::before {
+  background: hsl(var(--v2-warning));
 }
 
 .v2-dashboard-signals__item:first-child {
@@ -587,6 +843,13 @@
   justify-content: space-between;
 }
 
+.v2-dashboard-signals__patient,
+.v2-dashboard-schedule__patient {
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
 .v2-dashboard-signals__item-footer {
   align-items: center;
   justify-content: space-between;
@@ -595,6 +858,10 @@
 .v2-dashboard-signals__chips {
   justify-content: flex-end;
   gap: 0.35rem;
+}
+
+.v2-dashboard-signals__meta {
+  max-width: 46ch;
 }
 
 .v2-dashboard-data-context__header {
@@ -640,6 +907,7 @@
 .dark .v2-dashboard-summary-card,
 .dark .v2-dashboard-operational-row,
 .dark .v2-dashboard-schedule__fact,
+.dark .v2-dashboard-schedule__capacity-shell,
 .dark .v2-dashboard-schedule__item,
 .dark .v2-dashboard-schedule__quiet-state,
 .dark .v2-dashboard-signals__item,
@@ -653,6 +921,7 @@
 .dark .v2-dashboard-attention__note,
 .dark .v2-dashboard-summary-card__action,
 .dark .v2-dashboard-operational-row__action,
+.dark .v2-dashboard-directional-cue,
 .dark .v2-dashboard-link-button:hover {
   color: hsl(var(--v2-text));
 }
@@ -662,6 +931,7 @@
 .dark .v2-dashboard-summary-card__action,
 .dark .v2-dashboard-operational-row__action,
 .dark .v2-dashboard-schedule__timeline-scale,
+.dark .v2-dashboard-schedule__capacity-legend,
 .dark .v2-dashboard-data-context .v2-disclosure__summary,
 .dark .v2-dashboard-schedule__disclosure .v2-disclosure__summary {
   color: hsl(var(--v2-text-muted));
@@ -669,6 +939,32 @@
 
 .dark .v2-dashboard-attention {
   box-shadow: none;
+}
+
+.dark .v2-dashboard-operational-row--critical {
+  background: hsl(var(--v2-critical-soft) / 0.22);
+}
+
+.dark .v2-dashboard-operational-row--warning {
+  background: hsl(var(--v2-warning-soft) / 0.18);
+}
+
+.dark .v2-dashboard-signals__item--critical {
+  background: hsl(var(--v2-critical-soft) / 0.2);
+}
+
+.dark .v2-dashboard-signals__item--warning {
+  background: hsl(var(--v2-warning-soft) / 0.18);
+}
+
+.dark .v2-dashboard-patient-anchor {
+  background: hsl(var(--v2-bg-subtle) / 0.95);
+  border-color: hsl(var(--v2-border) / 0.9);
+}
+
+.dark .v2-dashboard-summary-card:hover .v2-dashboard-summary-card__action,
+.dark .v2-dashboard-operational-row:hover .v2-dashboard-operational-row__action {
+  color: hsl(var(--v2-info));
 }
 
 @container (max-width: 78rem) {
@@ -718,6 +1014,18 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .v2-dashboard-schedule__capacity-topline,
+  .v2-dashboard-schedule__capacity-legend,
+  .v2-dashboard-signals__item-topline,
+  .v2-dashboard-signals__item-footer {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .v2-dashboard-signals__chips {
+    justify-content: flex-start;
+  }
+
   .v2-dashboard-operational-row {
     align-items: start;
   }
@@ -757,6 +1065,12 @@
 
   .v2-dashboard-status-bar__fact {
     min-width: 0;
+  }
+
+  .v2-dashboard-summary-card__action,
+  .v2-dashboard-operational-row__action {
+    width: 100%;
+    justify-content: center;
   }
 
   .v2-dashboard-schedule__timeline {

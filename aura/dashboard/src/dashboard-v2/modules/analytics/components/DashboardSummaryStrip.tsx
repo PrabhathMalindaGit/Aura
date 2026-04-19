@@ -3,6 +3,7 @@ import { DashboardModuleState } from "../../../../components/dashboard/Dashboard
 import type { DashboardSummaryMetricVm } from "../../../adapters/dashboard";
 import { DashboardV2Surface } from "../../../primitives/Surface";
 import { DashboardV2Heading, DashboardV2Text } from "../../../primitives/Text";
+import { DashboardDirectionalCue } from "./DashboardDirectionalCue";
 
 interface DashboardSummaryStripProps {
   metrics: DashboardSummaryMetricVm[];
@@ -44,6 +45,31 @@ function summaryActionLabel(path: string): string {
     default:
       return "Open route";
   }
+}
+
+function summaryCueLevel(metric: DashboardSummaryMetricVm): number {
+  const numericValue = Number(metric.value);
+  if (!Number.isFinite(numericValue)) {
+    return 2;
+  }
+
+  if (numericValue <= 0) {
+    return 1;
+  }
+
+  if (metric.tone === "critical") {
+    return 4;
+  }
+
+  if (metric.tone === "warning") {
+    return 3;
+  }
+
+  if (metric.tone === "success") {
+    return 1;
+  }
+
+  return Math.min(3, Math.max(2, numericValue));
 }
 
 export function DashboardSummaryStrip({
@@ -95,19 +121,31 @@ export function DashboardSummaryStrip({
               onClick={() => onOpenRoute(metric.path)}
             >
               <div className="v2-dashboard-summary-card__topline">
-                <DashboardV2Text tone="label">{metric.label}</DashboardV2Text>
-                <span className="v2-dashboard-summary-card__state">
-                  <span
-                    className={`v2-dashboard-summary-card__state-dot v2-dashboard-summary-card__state-dot--${metric.tone}`}
-                    aria-hidden="true"
-                  />
-                  <span>{summaryStateLabel(metric.tone)}</span>
-                </span>
+                <div className="v2-dashboard-summary-card__label-stack">
+                  <DashboardV2Text tone="label">{metric.label}</DashboardV2Text>
+                  <span className="v2-dashboard-summary-card__state">
+                    <span
+                      className={`v2-dashboard-summary-card__state-dot v2-dashboard-summary-card__state-dot--${metric.tone}`}
+                      aria-hidden="true"
+                    />
+                    <span>{summaryStateLabel(metric.tone)}</span>
+                  </span>
+                </div>
+                <DashboardDirectionalCue
+                  tone={metric.tone}
+                  intensity={summaryCueLevel(metric)}
+                  label={`${metric.label} directional cue`}
+                />
               </div>
               <strong className="v2-dashboard-summary-card__value">
                 {metric.value}
               </strong>
-              <DashboardV2Text tone="muted">{metric.detail}</DashboardV2Text>
+              <DashboardV2Text
+                tone="muted"
+                className="v2-dashboard-summary-card__detail"
+              >
+                {metric.detail}
+              </DashboardV2Text>
               <span className="v2-dashboard-summary-card__action">
                 <ArrowUpRight size={14} />
                 <span>{summaryActionLabel(metric.path)}</span>

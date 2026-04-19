@@ -339,6 +339,8 @@ describe("useDashboardViewModel", () => {
     expect(result.current.priorityQueuePressureNote).toContain(
       "urgent item",
     );
+    expect(result.current.schedulePendingRequestCount).toBe(2);
+    expect(result.current.scheduleAvailableSlotsCount).toBe(1);
   });
 
   it("renders supported missing metadata as Unknown without inventing reply or AI ownership truth", async () => {
@@ -385,9 +387,11 @@ describe("useDashboardViewModel", () => {
     });
 
     expect(result.current.safetySignals[0]?.statusLabel).toBe("Unknown");
+    expect(result.current.safetySignals[0]?.patientInitials).toBe("JL");
     expect(result.current.communicationSignals[0]?.reviewLine).toContain(
       "Unknown",
     );
+    expect(result.current.communicationSignals[0]?.patientInitials).toBe("JL");
     expect(result.current.communicationSignals[0]?.reviewLine).not.toContain(
       "Reply received",
     );
@@ -410,6 +414,7 @@ describe("useDashboardViewModel", () => {
       expect(result.current.scheduleItems.length).toBeGreaterThan(0);
     });
 
+    expect(result.current.scheduleItems[0]?.patientInitials).toBe("JL");
     result.current.openPatient("patient-1");
 
     expect(mockNavigate).toHaveBeenCalledWith("/patients/patient-1", {

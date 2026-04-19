@@ -112,6 +112,8 @@ export interface UseDashboardViewModelResult {
   priorityQueuePressureNote: string;
   schedulingFootnote: string;
   nextOpenSlotValue: string;
+  schedulePendingRequestCount: number;
+  scheduleAvailableSlotsCount: number;
   summaryLoading: boolean;
   summaryError: boolean;
   operationalLoading: boolean;
@@ -469,6 +471,8 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
     priorityQueuePressureNote,
     schedulingFootnote: scheduleVm.schedulingFootnote,
     nextOpenSlotValue: scheduleVm.nextOpenSlotValue,
+    schedulePendingRequestCount: pendingAppointmentRequestsCount,
+    scheduleAvailableSlotsCount: availableSlotsCount,
     summaryLoading,
     summaryError,
     operationalLoading,

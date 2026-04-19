@@ -7,6 +7,7 @@ import { DashboardV2Badge } from "../../../primitives/Badge";
 import { DashboardV2Button } from "../../../primitives/Button";
 import { DashboardV2Surface } from "../../../primitives/Surface";
 import { DashboardV2Heading, DashboardV2Text } from "../../../primitives/Text";
+import { DashboardPatientAnchor } from "./DashboardPatientAnchor";
 
 interface DashboardSignalsSectionProps {
   safetyItems: DashboardSafetySignalVm[];
@@ -19,6 +20,24 @@ interface DashboardSignalsSectionProps {
   onOpenInbox: () => void;
   onOpenPatient: (patientId: string) => void;
   onOpenThread: (patientId: string) => void;
+}
+
+function communicationRowTone(
+  item: DashboardCommunicationSignalVm,
+): "critical" | "warning" | "success" | "neutral" {
+  if (item.chips.some((chip) => chip.tone === "critical")) {
+    return "critical";
+  }
+
+  if (item.chips.some((chip) => chip.tone === "warning")) {
+    return "warning";
+  }
+
+  if (item.chips.some((chip) => chip.tone === "info")) {
+    return "success";
+  }
+
+  return "neutral";
 }
 
 export function DashboardSignalsSection({
@@ -81,18 +100,32 @@ export function DashboardSignalsSection({
                 {safetyItems.map((item) => (
                   <article
                     key={item.id}
-                    className="v2-dashboard-signals__item"
+                    className={`v2-dashboard-signals__item v2-dashboard-signals__item--${item.statusTone}`}
                     role="listitem"
                     data-testid={`v2-dashboard-safety-item-${item.id}`}
                   >
                     <div className="v2-dashboard-signals__item-topline">
-                      <button
-                        type="button"
-                        className="v2-dashboard-link-button"
-                        onClick={() => onOpenPatient(item.patientId)}
-                      >
-                        {item.patientLabel}
-                      </button>
+                      <div className="v2-dashboard-signals__patient">
+                        <DashboardPatientAnchor
+                          patientLabel={item.patientLabel}
+                          tone={
+                            item.statusTone === "critical"
+                              ? "critical"
+                              : item.statusTone === "warning"
+                                ? "warning"
+                                : item.statusTone === "success"
+                                  ? "success"
+                                  : "neutral"
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="v2-dashboard-link-button"
+                          onClick={() => onOpenPatient(item.patientId)}
+                        >
+                          {item.patientLabel}
+                        </button>
+                      </div>
                       <DashboardV2Badge
                         tone={
                           item.statusTone === "critical"
@@ -121,8 +154,9 @@ export function DashboardSignalsSection({
                         {item.eventTimeLabel}
                       </DashboardV2Text>
                       <DashboardV2Button
-                        tone="ghost"
+                        tone="secondary"
                         size="sm"
+                        className="v2-dashboard-row-button"
                         onPress={() => onOpenPatient(item.patientId)}
                       >
                         Open patient
@@ -134,11 +168,10 @@ export function DashboardSignalsSection({
             ) : (
               <div className="v2-dashboard-signals__empty">
                 <DashboardV2Text tone="strong">
-                  No recent safety activity
+                  Nothing new in safety feed
                 </DashboardV2Text>
                 <DashboardV2Text tone="muted">
-                  Recent movement from the live safety feed will appear here
-                  when it matters.
+                  Recent safety movement will surface here when it matters.
                 </DashboardV2Text>
               </div>
             )}
@@ -162,18 +195,24 @@ export function DashboardSignalsSection({
                 {communicationItems.map((item) => (
                   <article
                     key={item.id}
-                    className="v2-dashboard-signals__item"
+                    className={`v2-dashboard-signals__item v2-dashboard-signals__item--${communicationRowTone(item)}`}
                     role="listitem"
                     data-testid={`v2-dashboard-communication-item-${item.id}`}
                   >
                     <div className="v2-dashboard-signals__item-topline">
-                      <button
-                        type="button"
-                        className="v2-dashboard-link-button"
-                        onClick={() => onOpenPatient(item.patientId)}
-                      >
-                        {item.patientLabel}
-                      </button>
+                      <div className="v2-dashboard-signals__patient">
+                        <DashboardPatientAnchor
+                          patientLabel={item.patientLabel}
+                          tone={communicationRowTone(item)}
+                        />
+                        <button
+                          type="button"
+                          className="v2-dashboard-link-button"
+                          onClick={() => onOpenPatient(item.patientId)}
+                        >
+                          {item.patientLabel}
+                        </button>
+                      </div>
                       <div className="v2-dashboard-signals__chips">
                         {item.chips.map((chip) => (
                           <DashboardV2Badge
@@ -197,11 +236,11 @@ export function DashboardSignalsSection({
                       {item.preview}
                     </DashboardV2Text>
                     {item.contextLine ? (
-                      <DashboardV2Text tone="muted">
+                      <DashboardV2Text tone="muted" className="v2-dashboard-signals__meta">
                         {item.contextLine}
                       </DashboardV2Text>
                     ) : item.reviewLine ? (
-                      <DashboardV2Text tone="muted">
+                      <DashboardV2Text tone="muted" className="v2-dashboard-signals__meta">
                         {item.reviewLine}
                       </DashboardV2Text>
                     ) : null}
@@ -213,8 +252,9 @@ export function DashboardSignalsSection({
                         {item.messageAgeLabel}
                       </DashboardV2Text>
                       <DashboardV2Button
-                        tone="ghost"
+                        tone="secondary"
                         size="sm"
+                        className="v2-dashboard-row-button"
                         onPress={() => onOpenThread(item.patientId)}
                       >
                         Open thread
@@ -226,11 +266,10 @@ export function DashboardSignalsSection({
             ) : (
               <div className="v2-dashboard-signals__empty">
                 <DashboardV2Text tone="strong">
-                  No communication is waiting
+                  No replies are waiting
                 </DashboardV2Text>
                 <DashboardV2Text tone="muted">
-                  Patient threads needing clinician response will appear here
-                  when inbox pressure rises.
+                  Threads needing follow-through will surface here when pressure builds.
                 </DashboardV2Text>
               </div>
             )}

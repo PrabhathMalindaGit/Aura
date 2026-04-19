@@ -9,12 +9,15 @@ import { DashboardV2Badge } from "../../../primitives/Badge";
 import { DashboardV2Button } from "../../../primitives/Button";
 import { DashboardV2Disclosure } from "../../../primitives/Disclosure";
 import { DashboardV2Text } from "../../../primitives/Text";
+import { DashboardPatientAnchor } from "./DashboardPatientAnchor";
 
 interface DashboardScheduleSectionProps {
   timeline: DashboardScheduleTimelineBlockVm[];
   items: DashboardScheduleItemVm[];
   nextOpenSlotValue: string;
   schedulingFootnote: string;
+  pendingRequestCount: number;
+  availableSlotsCount: number;
   loading: boolean;
   error: boolean;
   isRefreshing: boolean;
@@ -28,6 +31,8 @@ export function DashboardScheduleSection({
   items,
   nextOpenSlotValue,
   schedulingFootnote,
+  pendingRequestCount,
+  availableSlotsCount,
   loading,
   error,
   isRefreshing,
@@ -35,6 +40,27 @@ export function DashboardScheduleSection({
   onOpenSchedule,
   onOpenPatient,
 }: DashboardScheduleSectionProps): JSX.Element {
+  const totalCapacityUnits = Math.max(
+    pendingRequestCount + availableSlotsCount,
+    1,
+  );
+  const pendingShare =
+    pendingRequestCount + availableSlotsCount > 0
+      ? (pendingRequestCount / totalCapacityUnits) * 100
+      : 0;
+  const availableShare =
+    pendingRequestCount + availableSlotsCount > 0
+      ? (availableSlotsCount / totalCapacityUnits) * 100
+      : 0;
+  const capacityStateLabel =
+    pendingRequestCount === 0 && availableSlotsCount === 0
+      ? "No active scheduling pressure"
+      : pendingRequestCount > availableSlotsCount
+        ? "Demand is ahead of visible capacity"
+        : availableSlotsCount > 0
+          ? "Visible capacity is covering demand"
+          : "Published capacity has not opened yet";
+
   return (
     <DashboardV2ChartFrame
       title="Today & capacity"
@@ -48,7 +74,7 @@ export function DashboardScheduleSection({
           <DashboardV2Text tone="caption">
             Next visible slot {nextOpenSlotValue}
           </DashboardV2Text>
-          <DashboardV2Button tone="ghost" size="sm" onPress={onOpenSchedule}>
+          <DashboardV2Button tone="secondary" size="sm" onPress={onOpenSchedule}>
             Open schedule
           </DashboardV2Button>
         </div>
@@ -79,6 +105,51 @@ export function DashboardScheduleSection({
                 <DashboardV2Text tone="strong">
                   {schedulingFootnote}
                 </DashboardV2Text>
+              </div>
+            </div>
+
+            <div className="v2-dashboard-schedule__capacity-shell">
+              <div className="v2-dashboard-schedule__capacity-topline">
+                <DashboardV2Text tone="label">Visible balance</DashboardV2Text>
+                <DashboardV2Text tone="caption">
+                  {capacityStateLabel}
+                </DashboardV2Text>
+              </div>
+              <div
+                className={`v2-dashboard-schedule__capacity-gauge ${
+                  pendingRequestCount === 0 && availableSlotsCount === 0
+                    ? "v2-dashboard-schedule__capacity-gauge--empty"
+                    : ""
+                }`}
+                aria-label={capacityStateLabel}
+              >
+                <span
+                  className="v2-dashboard-schedule__capacity-fill v2-dashboard-schedule__capacity-fill--pending"
+                  style={{ width: `${pendingShare}%` }}
+                />
+                <span
+                  className="v2-dashboard-schedule__capacity-fill v2-dashboard-schedule__capacity-fill--available"
+                  style={{
+                    left: `${pendingShare}%`,
+                    width: `${availableShare}%`,
+                  }}
+                />
+              </div>
+              <div className="v2-dashboard-schedule__capacity-legend">
+                <span className="v2-dashboard-schedule__capacity-token">
+                  <span
+                    className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--pending"
+                    aria-hidden="true"
+                  />
+                  <span>{pendingRequestCount} requests</span>
+                </span>
+                <span className="v2-dashboard-schedule__capacity-token">
+                  <span
+                    className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--available"
+                    aria-hidden="true"
+                  />
+                  <span>{availableSlotsCount} open slots</span>
+                </span>
               </div>
             </div>
 
@@ -121,7 +192,7 @@ export function DashboardScheduleSection({
                   <div className="v2-dashboard-schedule__empty">
                     <CalendarClock size={16} />
                     <DashboardV2Text tone="muted">
-                      No appointments are visible in today’s current agenda.
+                      No visits are visible in today’s current agenda.
                     </DashboardV2Text>
                   </div>
                 )}
@@ -138,13 +209,27 @@ export function DashboardScheduleSection({
                     data-testid={`v2-dashboard-schedule-item-${item.id}`}
                   >
                     <div className="v2-dashboard-schedule__item-topline">
-                      <button
-                        type="button"
-                        className="v2-dashboard-link-button"
-                        onClick={() => onOpenPatient(item.patientId)}
-                      >
-                        {item.patientLabel}
-                      </button>
+                      <div className="v2-dashboard-schedule__patient">
+                        <DashboardPatientAnchor
+                          patientLabel={item.patientLabel}
+                          tone={
+                            item.statusTone === "critical"
+                              ? "critical"
+                              : item.statusTone === "warning"
+                                ? "warning"
+                                : item.statusTone === "success"
+                                  ? "success"
+                                  : "neutral"
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="v2-dashboard-link-button"
+                          onClick={() => onOpenPatient(item.patientId)}
+                        >
+                          {item.patientLabel}
+                        </button>
+                      </div>
                       <DashboardV2Badge
                         tone={
                           item.statusTone === "critical"
@@ -168,8 +253,9 @@ export function DashboardScheduleSection({
                         {item.updatedLabel}
                       </DashboardV2Text>
                       <DashboardV2Button
-                        tone="ghost"
+                        tone="secondary"
                         size="sm"
+                        className="v2-dashboard-row-button"
                         onPress={() => onOpenPatient(item.patientId)}
                       >
                         Open patient
@@ -180,10 +266,10 @@ export function DashboardScheduleSection({
               ) : (
                 <div className="v2-dashboard-schedule__quiet-state">
                   <DashboardV2Text tone="strong">
-                    No visits are active today
+                    All caught up for today
                   </DashboardV2Text>
                   <DashboardV2Text tone="muted">
-                    Visible request pressure and open capacity still appear here.
+                    No active visits are visible, and capacity still stays in view.
                   </DashboardV2Text>
                 </div>
               )}

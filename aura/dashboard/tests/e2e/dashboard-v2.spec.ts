@@ -60,8 +60,12 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await expect(safetyItem).toBeVisible();
   await safetyItem.getByRole("button", { name: "Patient P1" }).click();
   await expect(page).toHaveURL(/\/patients\/p1$/);
-
-  await page.goBack();
+  await expect(page.getByTestId("v2-patient-workspace-route")).toBeVisible();
+  await expect(page.getByTestId("v2-patient-return-link")).toContainText(
+    "Return to Dashboard",
+  );
+  await expect(page.getByText("Opened from Dashboard")).toBeVisible();
+  await page.getByTestId("v2-patient-return-link").click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.setViewportSize({ width: 560, height: 900 });

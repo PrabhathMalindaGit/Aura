@@ -1,4 +1,5 @@
 export const SAFE_PATIENT_ENTRY_RETURN_PATHS = [
+  '/dashboard',
   '/worklist',
   '/alerts',
   '/patients',
@@ -6,7 +7,14 @@ export const SAFE_PATIENT_ENTRY_RETURN_PATHS = [
   '/appointments',
 ] as const;
 
-const PATIENT_ENTRY_SOURCES = ['worklist', 'alerts', 'patients', 'insights', 'appointments'] as const;
+const PATIENT_ENTRY_SOURCES = [
+  'dashboard',
+  'worklist',
+  'alerts',
+  'patients',
+  'insights',
+  'appointments',
+] as const;
 const PATIENT_ENTRY_FOCI = ['workflow', 'alerts', 'roster', 'insights', 'appointments'] as const;
 
 const ALERTS_RETURN_QUERY_KEYS = new Set(['search', 'patientId']);
@@ -173,6 +181,10 @@ export function readPatientEntryContextFromState(
 }
 
 export function formatPatientEntrySourceCue(source: PatientEntrySource): string {
+  if (source === 'dashboard') {
+    return 'Opened from Dashboard';
+  }
+
   if (source === 'alerts') {
     return 'Opened from Alerts';
   }
@@ -193,6 +205,10 @@ export function formatPatientEntrySourceCue(source: PatientEntrySource): string 
 }
 
 export function formatPatientEntryReturnLabel(source: PatientEntrySource): string {
+  if (source === 'dashboard') {
+    return 'Return to Dashboard';
+  }
+
   if (source === 'alerts') {
     return 'Return to Alerts';
   }
@@ -213,6 +229,10 @@ export function formatPatientEntryReturnLabel(source: PatientEntrySource): strin
 }
 
 export function formatPatientEntryReviewHint(source: PatientEntrySource): string {
+  if (source === 'dashboard') {
+    return 'Service analytics review.';
+  }
+
   if (source === 'alerts') {
     return 'Alert follow-through.';
   }

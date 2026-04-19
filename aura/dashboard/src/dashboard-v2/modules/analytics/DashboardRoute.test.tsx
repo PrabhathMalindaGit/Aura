@@ -279,7 +279,15 @@ function installDashboardFetchMock(
 
 function LocationEcho(): JSX.Element {
   const location = useLocation();
-  return <div>{`${location.pathname}${location.search}`}</div>;
+  return (
+    <div data-testid="location-echo">
+      {JSON.stringify({
+        pathname: location.pathname,
+        search: location.search,
+        state: location.state,
+      })}
+    </div>
+  );
 }
 
 function renderDashboardRoute(): void {
@@ -376,7 +384,9 @@ describe("DashboardRoute", () => {
         { name: "Open alerts" },
       ),
     );
-    expect(await screen.findByText("/alerts")).toBeInTheDocument();
+    expect(await screen.findByTestId("location-echo")).toHaveTextContent(
+      '"pathname":"/alerts"',
+    );
   });
 
   it("stays read-only, renders conservative Unknown states, and preserves patient-linked routing", async () => {
@@ -438,7 +448,21 @@ describe("DashboardRoute", () => {
     await userEvent.click(
       within(safetyItem).getByRole("button", { name: "Jordan Lee" }),
     );
-    expect(await screen.findByText("/patients/patient-1")).toBeInTheDocument();
+    expect(await screen.findByTestId("location-echo")).toHaveTextContent(
+      '"pathname":"/patients/patient-1"',
+    );
+    expect(screen.getByTestId("location-echo")).toHaveTextContent(
+      '"source":"dashboard"',
+    );
+    expect(screen.getByTestId("location-echo")).toHaveTextContent(
+      '"returnTo":"/dashboard"',
+    );
+    expect(screen.getByTestId("location-echo")).not.toHaveTextContent(
+      "/patients/patient-1/plan",
+    );
+    expect(screen.getByTestId("location-echo")).not.toHaveTextContent(
+      '"pathname":"/patients"',
+    );
   });
 
   it("keeps narrow data context readable without turning the route into stacked action tiles", async () => {

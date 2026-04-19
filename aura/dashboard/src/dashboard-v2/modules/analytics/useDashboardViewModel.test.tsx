@@ -20,6 +20,19 @@ import type {
 } from "../../../types/models";
 import { useDashboardViewModel } from "./useDashboardViewModel";
 
+const mockNavigate = vi.hoisted(() => vi.fn());
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>(
+    "react-router-dom",
+  );
+
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
 const SUMMARY: DashboardSummary = {
   openAlertsCount: 2,
   assignedToMeAlertsCount: 1,
@@ -282,6 +295,7 @@ function createWrapper(): ({
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockNavigate.mockReset();
 });
 
 afterEach(() => {
@@ -383,5 +397,30 @@ describe("useDashboardViewModel", () => {
     expect(result.current.dataContext.trustSummary).not.toMatch(
       /AI-authored|Owned by/i,
     );
+  });
+
+  it("opens patient-linked dashboard rows into the v2 patient workspace with dashboard entry context", async () => {
+    installDashboardFetchMock();
+
+    const { result } = renderHook(() => useDashboardViewModel(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.scheduleItems.length).toBeGreaterThan(0);
+    });
+
+    result.current.openPatient("patient-1");
+
+    expect(mockNavigate).toHaveBeenCalledWith("/patients/patient-1", {
+      state: {
+        patientEntryContext: {
+          patientId: "patient-1",
+          source: "dashboard",
+          focus: "workflow",
+          returnTo: "/dashboard",
+        },
+      },
+    });
   });
 });

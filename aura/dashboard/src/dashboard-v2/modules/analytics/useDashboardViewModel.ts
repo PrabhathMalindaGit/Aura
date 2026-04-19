@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   buildDashboardAttention,
   buildDashboardDataContext,
@@ -37,6 +37,10 @@ import {
 } from "../../../services/clinicianApi";
 import type { AppointmentSlot } from "../../../types/models";
 import { formatDashboardTimeRange } from "../../../utils/dashboard";
+import {
+  buildPatientEntryReturnTo,
+  createPatientEntryState,
+} from "../../../utils/patientEntryContext";
 
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
@@ -125,6 +129,7 @@ export interface UseDashboardViewModelResult {
 
 export function useDashboardViewModel(): UseDashboardViewModelResult {
   const navigate = useNavigate();
+  const location = useLocation();
   const summaryQuery = useDashboardSummary();
   const priorityQueueQuery = useDashboardPriorityQueue(7);
   const safetyEventsQuery = useDashboardRecentSafetyEvents(6);
@@ -197,9 +202,21 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
 
   const openPatient = useCallback(
     (patientId: string) => {
-      navigate(`/patients/${encodeURIComponent(patientId)}`);
+      const normalizedPatientId = patientId.trim();
+      if (!normalizedPatientId) {
+        return;
+      }
+
+      navigate(`/patients/${encodeURIComponent(normalizedPatientId)}`, {
+        state: createPatientEntryState({
+          patientId: normalizedPatientId,
+          source: "dashboard",
+          focus: "workflow",
+          returnTo: buildPatientEntryReturnTo(location.pathname, location.search),
+        }),
+      });
     },
-    [navigate],
+    [location.pathname, location.search, navigate],
   );
 
   const openThread = useCallback(

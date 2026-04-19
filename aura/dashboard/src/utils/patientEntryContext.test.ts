@@ -48,7 +48,24 @@ describe('patientEntryContext', () => {
     expect(readPatientEntryContextFromState(state, 'patient-42')?.returnTo).toBe('/patients');
   });
 
+  it('preserves dashboard returns as a supported patient-entry path', () => {
+    const state = createPatientEntryState({
+      patientId: 'patient-42',
+      source: 'dashboard',
+      focus: 'workflow',
+      returnTo: '/dashboard',
+    });
+
+    expect(readPatientEntryContextFromState(state, 'patient-42')).toEqual({
+      patientId: 'patient-42',
+      source: 'dashboard',
+      focus: 'workflow',
+      returnTo: '/dashboard',
+    });
+  });
+
   it('preserves only already-supported safe search on alerts and patients', () => {
+    expect(buildPatientEntryReturnTo('/dashboard')).toBe('/dashboard');
     expect(buildPatientEntryReturnTo('/alerts', '?patientId=patient-42')).toBe(
       '/alerts?patientId=patient-42',
     );

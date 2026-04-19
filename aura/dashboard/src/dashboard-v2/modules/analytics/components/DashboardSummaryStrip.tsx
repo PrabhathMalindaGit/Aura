@@ -1,7 +1,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { DashboardModuleState } from "../../../../components/dashboard/DashboardModuleState";
 import type { DashboardSummaryMetricVm } from "../../../adapters/dashboard";
-import { DashboardV2Badge } from "../../../primitives/Badge";
+import { DashboardV2Surface } from "../../../primitives/Surface";
 import { DashboardV2Heading, DashboardV2Text } from "../../../primitives/Text";
 
 interface DashboardSummaryStripProps {
@@ -13,6 +13,39 @@ interface DashboardSummaryStripProps {
   onOpenRoute: (path: string) => void;
 }
 
+function summaryStateLabel(tone: DashboardSummaryMetricVm["tone"]): string {
+  if (tone === "critical") {
+    return "Immediate";
+  }
+
+  if (tone === "warning") {
+    return "Building";
+  }
+
+  if (tone === "success") {
+    return "Steady";
+  }
+
+  return "Visible";
+}
+
+function summaryActionLabel(path: string): string {
+  switch (path) {
+    case "/alerts":
+      return "Open alerts";
+    case "/communication":
+      return "Open inbox";
+    case "/worklist":
+      return "Open queue";
+    case "/insights":
+      return "Open insights";
+    case "/appointments":
+      return "Open schedule";
+    default:
+      return "Open route";
+  }
+}
+
 export function DashboardSummaryStrip({
   metrics,
   loading,
@@ -22,16 +55,23 @@ export function DashboardSummaryStrip({
   onOpenRoute,
 }: DashboardSummaryStripProps): JSX.Element {
   return (
-    <section
+    <DashboardV2Surface
+      as="section"
       className="v2-dashboard-summary-strip"
       aria-labelledby="v2-dashboard-summary-strip-title"
       data-testid="v2-dashboard-summary-strip"
     >
       <div className="v2-dashboard-summary-strip__header">
-        <DashboardV2Text tone="label">Current service state</DashboardV2Text>
-        <DashboardV2Heading as="h2" id="v2-dashboard-summary-strip-title">
-          Overview at a glance
-        </DashboardV2Heading>
+        <div className="v2-dashboard-summary-strip__header-copy">
+          <DashboardV2Text tone="label">Overview strip</DashboardV2Text>
+          <DashboardV2Heading as="h2" id="v2-dashboard-summary-strip-title">
+            At a glance
+          </DashboardV2Heading>
+        </div>
+        <DashboardV2Text tone="muted" className="v2-dashboard-summary-strip__header-note">
+          Safety, inbox, follow-up, insights, and schedule stay visible without
+          competing for attention.
+        </DashboardV2Text>
       </div>
 
       {loading ? (
@@ -60,38 +100,26 @@ export function DashboardSummaryStrip({
             >
               <div className="v2-dashboard-summary-card__topline">
                 <DashboardV2Text tone="label">{metric.label}</DashboardV2Text>
-                <DashboardV2Badge
-                  tone={
-                    metric.tone === "critical"
-                      ? "critical"
-                      : metric.tone === "warning"
-                        ? "warning"
-                        : metric.tone === "success"
-                          ? "success"
-                          : "neutral"
-                  }
-                >
-                  {metric.tone === "critical"
-                    ? "Live"
-                    : metric.tone === "warning"
-                      ? "Watch"
-                      : metric.tone === "success"
-                        ? "Steady"
-                        : "Route"}
-                </DashboardV2Badge>
+                <span className="v2-dashboard-summary-card__state">
+                  <span
+                    className={`v2-dashboard-summary-card__state-dot v2-dashboard-summary-card__state-dot--${metric.tone}`}
+                    aria-hidden="true"
+                  />
+                  <span>{summaryStateLabel(metric.tone)}</span>
+                </span>
               </div>
               <strong className="v2-dashboard-summary-card__value">
                 {metric.value}
               </strong>
               <DashboardV2Text tone="muted">{metric.detail}</DashboardV2Text>
-              <span className="v2-dashboard-summary-card__route">
+              <span className="v2-dashboard-summary-card__action">
                 <ArrowUpRight size={14} />
-                <span>{metric.path}</span>
+                <span>{summaryActionLabel(metric.path)}</span>
               </span>
             </button>
           ))}
         </div>
       )}
-    </section>
+    </DashboardV2Surface>
   );
 }

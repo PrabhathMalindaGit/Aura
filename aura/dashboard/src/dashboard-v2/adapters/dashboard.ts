@@ -130,7 +130,6 @@ interface DashboardAttentionInput {
 }
 
 interface DashboardStatusBarInput {
-  updatedLabel: string;
   schedulingRangeLabel: string;
   priorityQueueCount: number;
   leadKindLabel: string | null;
@@ -403,7 +402,6 @@ function priorityTone(priority: DashboardItemPriority): DashboardSurfaceTone {
 }
 
 export function buildDashboardStatusBar({
-  updatedLabel,
   schedulingRangeLabel,
   priorityQueueCount,
   leadKindLabel,
@@ -411,13 +409,8 @@ export function buildDashboardStatusBar({
   return {
     title: "Today",
     guidanceLine:
-      "A calm service overview for current demand, operational balance, and the next route that needs clinician attention.",
+      "Scan the lanes, confirm what leads, and move into the right route only when more detail is needed.",
     facts: [
-      {
-        key: "updated",
-        label: "Updated",
-        value: updatedLabel,
-      },
       {
         key: "window",
         label: "Scheduling window",
@@ -425,7 +418,7 @@ export function buildDashboardStatusBar({
       },
       {
         key: "priority",
-        label: "Urgent review sample",
+        label: "Urgent sample",
         value: leadKindLabel
           ? `${priorityQueueCount} in ${leadKindLabel.toLowerCase()}`
           : `${priorityQueueCount} visible`,
@@ -445,33 +438,33 @@ export function buildDashboardAttention({
   if (openAlertsCount > 0) {
     return {
       tone: "critical",
-      title: "Safety review leads the shift",
-      copy: `${pluralize(openAlertsCount, "open alert")} are setting the first pass today.`,
+      title: "Safety review needs the first pass",
+      copy: `${pluralize(openAlertsCount, "open alert")} are leading the day right now.`,
       actionLabel: "Open alerts",
       actionPath: "/alerts",
-      note: "Use the governance-first review workbench for acknowledgment, resolution, and override decisions.",
+      note: "Start in Safety, then return here once the live alert lane is under control.",
     };
   }
 
   if (messagesNeedingResponseCount > 0) {
     return {
       tone: "warning",
-      title: "Response pressure leads the shift",
-      copy: `${pluralize(messagesNeedingResponseCount, "patient thread")} need clinician response right now.`,
+      title: "Response pressure is building",
+      copy: `${pluralize(messagesNeedingResponseCount, "patient thread")} need a clinician response right now.`,
       actionLabel: "Open inbox",
       actionPath: "/communication",
-      note: "Route into communication for thread-level review rather than resolving messages here.",
+      note: "Use Inbox for thread-level review, follow-through, and patient reply context.",
     };
   }
 
   if (tasksDueTodayCount > 0 || missedCheckinsCount > 0) {
     return {
       tone: "info",
-      title: "Follow-through leads the shift",
-      copy: "Due work and missed check-ins need the first deliberate pass.",
+      title: "Follow-through is setting the pace",
+      copy: "Due work and missed check-ins need a deliberate first pass.",
       actionLabel: "Open queue",
       actionPath: "/worklist",
-      note: "The worklist remains the place to clear due follow-up and recovery tasks.",
+      note: "Use Queue to clear due follow-up and recovery tasks without working them from this page.",
     };
   }
 
@@ -482,7 +475,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(todayAppointmentsCount, "visit")} are active today and worth confirming early.`,
       actionLabel: "Open schedule",
       actionPath: "/appointments",
-      note: "Use appointments for request review, scheduling changes, and publish decisions.",
+      note: "Use Schedule for request review, scheduling changes, and capacity decisions.",
     };
   }
 
@@ -493,7 +486,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(pendingInsightsCount, "review item")} are waiting once live operational work is clear.`,
       actionLabel: "Open insights",
       actionPath: "/insights",
-      note: "Insights remain a follow-up review surface, not the acute-review home.",
+      note: "Use Insights after the live operational lanes are steady again.",
     };
   }
 
@@ -503,7 +496,7 @@ export function buildDashboardAttention({
     copy: "No urgent pressure is leading right now. Confirm the operational lanes and keep the day moving.",
     actionLabel: "Open queue",
     actionPath: "/worklist",
-    note: "Detailed patient work still belongs in the route built for it.",
+    note: "Keep this page as the overview and move into the right destination route when something starts to build.",
   };
 }
 
@@ -797,21 +790,21 @@ export function buildDashboardDataContext({
 }: DashboardDataContextInput): DashboardDataContextVm {
   return {
     metadata: [
-      { label: "Updated", value: updatedLabel },
+      { label: "Last route refresh", value: updatedLabel },
       { label: "Scheduling window", value: schedulingRangeLabel },
       {
-        label: "Urgent review sample",
+        label: "Urgent sample",
         value: priorityQueueSampleLabel ?? "Unknown",
       },
       {
-        label: "Next visible open slot",
+        label: "Next visible slot",
         value: nextOpenSlotLabel ?? "No visible open capacity",
       },
     ],
     coverageSummary:
-      "Counts reflect current dashboard summary data, current service feeds, and the next 7 days of visible scheduling.",
+      "This page reflects the current dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
     trustSummary:
-      "This route intentionally omits unsupported ownership, AI provenance, and historical trend claims. Detailed review stays on the destination workbench.",
+      "This overview does not claim confirmed ownership, AI authorship, or unsupported historical certainty. Detailed review stays in the destination route.",
   };
 }
 
@@ -848,15 +841,15 @@ export function buildPriorityQueuePressureNote(
   items: DashboardPriorityQueueItem[],
 ): string {
   if (items.length === 0) {
-    return "No urgent review sample is currently visible.";
+    return "No urgent review sample is visible right now.";
   }
 
   const highPriorityCount = items.filter(
     (item) => priorityTone(item.priority) === "critical",
   ).length;
   if (highPriorityCount > 0) {
-    return `${pluralize(highPriorityCount, "urgent or high-priority item")} are visible in the current urgent review sample.`;
+    return `${pluralize(highPriorityCount, "urgent or high-priority item")} are visible in the current urgent sample.`;
   }
 
-  return `${pluralize(items.length, "routed item")} are visible in the current urgent review sample.`;
+  return `${pluralize(items.length, "routed item")} are visible in the current urgent sample.`;
 }

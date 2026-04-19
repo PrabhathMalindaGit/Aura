@@ -359,7 +359,7 @@ describe("DashboardRoute", () => {
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     await screen.findByTestId("v2-dashboard-metric-alerts");
     expect(screen.getByTestId("v2-dashboard-status-bar")).toHaveTextContent(
-      "Service analytics",
+      "Operations overview",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
       "Open alerts",
@@ -377,6 +377,12 @@ describe("DashboardRoute", () => {
       "Today’s appointments",
     );
     expect(screen.queryByText("Assigned to me alerts")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/foundation|phase 1|migration|staged/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Short lists, not secondary workbenches/i),
+    ).not.toBeInTheDocument();
 
     await userEvent.click(
       within(screen.getByTestId("v2-dashboard-attention-panel")).getByRole(
@@ -473,10 +479,10 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /Coverage note/i }),
+      screen.getByRole("button", { name: /What stays in destination routes/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Trust note/i }),
+      screen.getByRole("button", { name: /Current scope/i }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toBeVisible();
   });

@@ -1,4 +1,3 @@
-import { ArrowUpRight } from "lucide-react";
 import { CalendarClock } from "lucide-react";
 import { DashboardModuleState } from "../../../../components/dashboard/DashboardModuleState";
 import type {
@@ -19,7 +18,6 @@ interface DashboardScheduleSectionProps {
   loading: boolean;
   error: boolean;
   isRefreshing: boolean;
-  isVeryNarrow: boolean;
   onRefresh: () => void;
   onOpenSchedule: () => void;
   onOpenPatient: (patientId: string) => void;
@@ -33,7 +31,6 @@ export function DashboardScheduleSection({
   loading,
   error,
   isRefreshing,
-  isVeryNarrow,
   onRefresh,
   onOpenSchedule,
   onOpenPatient,
@@ -49,7 +46,9 @@ export function DashboardScheduleSection({
         data-testid="v2-dashboard-schedule-section"
       >
         <div className="v2-dashboard-schedule__header">
-          <DashboardV2Text tone="label">Scheduling overview</DashboardV2Text>
+          <DashboardV2Text tone="muted">
+            Visible visits and open capacity for the next route change.
+          </DashboardV2Text>
           <DashboardV2Button tone="ghost" size="sm" onPress={onOpenSchedule}>
             Open schedule
           </DashboardV2Button>
@@ -171,10 +170,13 @@ export function DashboardScheduleSection({
                       <DashboardV2Text tone="caption">
                         {item.updatedLabel}
                       </DashboardV2Text>
-                      <span className="v2-dashboard-schedule__item-route">
-                        <ArrowUpRight size={14} />
-                        <span>Patient workspace</span>
-                      </span>
+                      <DashboardV2Button
+                        tone="ghost"
+                        size="sm"
+                        onPress={() => onOpenPatient(item.patientId)}
+                      >
+                        Open patient
+                      </DashboardV2Button>
                     </div>
                   </article>
                 ))
@@ -192,14 +194,14 @@ export function DashboardScheduleSection({
             </div>
 
             <DashboardV2Disclosure
-              title="Capacity note"
+              title="How to read capacity"
               summary={schedulingFootnote}
-              defaultExpanded={!isVeryNarrow}
+              defaultExpanded={false}
               className="v2-dashboard-schedule__disclosure"
             >
               <DashboardV2Text tone="muted">
-                Capacity wording stays conservative here. The dashboard reflects
-                current request and slot truth, not booked visits or guaranteed
+                This overview reflects visible requests and open slots in the
+                next 7 days. It does not imply confirmed booking or guaranteed
                 coverage.
               </DashboardV2Text>
             </DashboardV2Disclosure>

@@ -48330,6 +48330,148 @@ a {
   }
 }
 
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar {
+  gap: 0.8rem;
+  padding: 12px 18px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, hsl(var(--surface-base) / 0.992), hsl(var(--background) / 0.96)),
+    linear-gradient(135deg, hsl(var(--primary) / 0.018), transparent 44%);
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__left {
+  gap: 0.65rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__title-group {
+  gap: 0.12rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__eyebrow {
+  font-size: 0.64rem;
+  letter-spacing: 0.13em;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__route-label {
+  font-size: 0.86rem;
+  color: hsl(var(--foreground) / 0.72);
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__search {
+  min-height: 2.65rem;
+  padding-inline: 0.85rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__utility-cluster {
+  min-height: 2.35rem;
+  gap: 0.15rem;
+  padding: 0.2rem 0.28rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__datetime,
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__updated {
+  padding-inline: 0.45rem;
+  font-size: 0.73rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__identity-entry,
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__signout.btn {
+  min-height: 2.35rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__identity-entry {
+  gap: 0.55rem;
+  padding: 0.24rem 0.65rem 0.24rem 0.34rem;
+}
+
+.app-shell--page-dashboard[data-route-header-owner='page'] .topbar__identity-role {
+  font-size: 0.7rem;
+}
+
+.app-shell--page-dashboard .sidebar {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.97), hsl(var(--background) / 0.92));
+  box-shadow: var(--shadow-2), inset 0 1px 0 hsl(var(--foreground) / 0.03);
+}
+
+.app-shell--page-dashboard .sidebar__brand-mark {
+  background:
+    radial-gradient(circle at top left, hsl(var(--primary) / 0.12), transparent 62%),
+    linear-gradient(145deg, hsl(var(--card)), hsl(var(--surface-emphasized)));
+  color: hsl(var(--foreground));
+  box-shadow: inset 0 1px 0 hsl(var(--card) / 0.7);
+}
+
+.app-shell--page-dashboard .sidebar-item {
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--page-dashboard .sidebar-item:hover {
+  background: hsl(var(--surface-emphasized) / 0.66);
+  border-color: hsl(var(--rule-soft) / 0.96);
+  box-shadow: none;
+  transform: none;
+}
+
+.app-shell--page-dashboard .sidebar-item--active {
+  background: hsl(var(--surface-emphasized) / 0.84);
+  border-color: hsl(var(--rule-soft) / 0.96);
+  box-shadow: none;
+}
+
+.app-shell--page-dashboard .sidebar-item__icon {
+  color: hsl(var(--muted-foreground));
+}
+
+.app-shell--page-dashboard .sidebar-item--active .sidebar-item__icon {
+  color: hsl(var(--primary));
+}
+
+.app-shell--page-dashboard .sidebar--icon .sidebar__header {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}
+
+.app-shell--page-dashboard .sidebar--icon .sidebar__brand {
+  min-height: 0;
+}
+
+.app-shell--page-dashboard .sidebar--icon .sidebar__toggle {
+  position: static;
+}
+
+.dark .app-shell--page-dashboard[data-route-header-owner='page'] .topbar,
+.dark .app-shell--page-dashboard .sidebar {
+  background:
+    linear-gradient(180deg, hsl(var(--card) / 0.95), hsl(var(--background) / 0.98));
+  box-shadow: inset 0 1px 0 hsl(var(--foreground) / 0.05);
+}
+
+.dark .app-shell--page-dashboard .sidebar__brand-mark {
+  background:
+    linear-gradient(145deg, hsl(206 20% 26%), hsl(210 18% 20%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: none;
+}
+
+.dark .app-shell--page-dashboard .sidebar-item:hover {
+  background: hsl(var(--muted) / 0.72);
+  border-color: hsl(var(--border) / 0.5);
+}
+
+.dark .app-shell--page-dashboard .sidebar-item--active {
+  background: hsl(var(--muted) / 0.86);
+  border-color: hsl(var(--border) / 0.56);
+}
+
+@media (max-width: 1080px) {
+  .app-shell--page-dashboard[data-route-header-owner='page'] .topbar__identity-role {
+    display: none;
+  }
+}
+
 /* Today refinement: shift brief hierarchy */
 
 .dashboard-home-page--today {

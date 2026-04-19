@@ -1,4 +1,3 @@
-import { useMediaQuery } from "../../../hooks/useMediaQuery";
 import { DashboardAttentionPanel } from "./components/DashboardAttentionPanel";
 import { DashboardDataContextPanel } from "./components/DashboardDataContextPanel";
 import { DashboardOperationalLoadSection } from "./components/DashboardOperationalLoadSection";
@@ -9,10 +8,7 @@ import { DashboardSummaryStrip } from "./components/DashboardSummaryStrip";
 import { useDashboardViewModel } from "./useDashboardViewModel";
 import "./analytics.css";
 
-const VERY_NARROW_LAYOUT_QUERY = "(max-width: 599px)";
-
 export function DashboardRoute(): JSX.Element {
-  const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const viewModel = useDashboardViewModel();
 
   return (
@@ -38,7 +34,7 @@ export function DashboardRoute(): JSX.Element {
       />
 
       <div className="v2-dashboard-route__overview-grid">
-        <div className="v2-dashboard-route__main-column">
+        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--operational">
           <DashboardOperationalLoadSection
             rows={viewModel.operationalLoadRows}
             note={viewModel.priorityQueuePressureNote}
@@ -48,7 +44,24 @@ export function DashboardRoute(): JSX.Element {
             onRefresh={viewModel.onRefresh}
             onOpenRoute={viewModel.navigateTo}
           />
+        </div>
 
+        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--schedule">
+          <DashboardScheduleSection
+            timeline={viewModel.scheduleTimeline}
+            items={viewModel.scheduleItems}
+            nextOpenSlotValue={viewModel.nextOpenSlotValue}
+            schedulingFootnote={viewModel.schedulingFootnote}
+            loading={viewModel.scheduleLoading}
+            error={viewModel.scheduleError}
+            isRefreshing={viewModel.isRefreshing}
+            onRefresh={viewModel.onRefresh}
+            onOpenSchedule={() => viewModel.navigateTo("/appointments")}
+            onOpenPatient={viewModel.openPatient}
+          />
+        </div>
+
+        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--signals">
           <DashboardSignalsSection
             safetyItems={viewModel.safetySignals}
             communicationItems={viewModel.communicationSignals}
@@ -63,25 +76,10 @@ export function DashboardRoute(): JSX.Element {
           />
         </div>
 
-        <div className="v2-dashboard-route__secondary-column">
-          <DashboardScheduleSection
-            timeline={viewModel.scheduleTimeline}
-            items={viewModel.scheduleItems}
-            nextOpenSlotValue={viewModel.nextOpenSlotValue}
-            schedulingFootnote={viewModel.schedulingFootnote}
-            loading={viewModel.scheduleLoading}
-            error={viewModel.scheduleError}
-            isRefreshing={viewModel.isRefreshing}
-            isVeryNarrow={isVeryNarrow}
-            onRefresh={viewModel.onRefresh}
-            onOpenSchedule={() => viewModel.navigateTo("/appointments")}
-            onOpenPatient={viewModel.openPatient}
-          />
-
+        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--context">
           <DashboardDataContextPanel
             dataContext={viewModel.dataContext}
             priorityQueuePressureNote={viewModel.priorityQueuePressureNote}
-            isVeryNarrow={isVeryNarrow}
           />
         </div>
       </div>

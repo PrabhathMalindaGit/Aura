@@ -331,7 +331,6 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   );
 
   const statusBar = buildDashboardStatusBar({
-    updatedLabel: updatedAtLabel,
     schedulingRangeLabel: schedulingRange.label,
     priorityQueueCount: priorityQueueQuery.data?.length ?? 0,
     leadKindLabel: buildLeadKindLabel(priorityQueueQuery.data ?? []),

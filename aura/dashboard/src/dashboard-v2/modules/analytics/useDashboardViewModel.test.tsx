@@ -392,10 +392,10 @@ describe("useDashboardViewModel", () => {
       "Reply received",
     );
     expect(result.current.dataContext.trustSummary).toMatch(
-      /unsupported ownership, AI provenance/i,
+      /confirmed ownership, AI authorship/i,
     );
     expect(result.current.dataContext.trustSummary).not.toMatch(
-      /AI-authored|Owned by/i,
+      /Owned by AI|guaranteed coverage/i,
     );
   });
 

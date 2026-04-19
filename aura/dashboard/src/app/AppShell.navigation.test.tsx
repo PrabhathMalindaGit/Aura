@@ -233,6 +233,12 @@ describe('AppShell navigation', () => {
 
     const activeLink = screen.getByRole('link', { name: 'Today' });
     expect(activeLink).toHaveClass('sidebar-item--active');
+    expect(screen.getByText('Today', { selector: '.topbar__route-label' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('searchbox', {
+        name: 'Quick open: page, patient ID, or alert ID',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('redirects the shell index route to the saved preferred landing when present', async () => {

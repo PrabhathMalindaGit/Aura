@@ -1,4 +1,3 @@
-import { ArrowUpRight } from "lucide-react";
 import { DashboardModuleState } from "../../../../components/dashboard/DashboardModuleState";
 import type {
   DashboardCommunicationSignalVm,
@@ -43,8 +42,12 @@ export function DashboardSignalsSection({
         <div>
           <DashboardV2Text tone="label">Signals to watch</DashboardV2Text>
           <DashboardV2Heading as="h2">
-            Short lists, not secondary workbenches
+            Recent movement worth a second look
           </DashboardV2Heading>
+          <DashboardV2Text tone="muted">
+            Safety activity and inbox pressure stay short here so the next
+            action is easy to spot.
+          </DashboardV2Text>
         </div>
       </header>
 
@@ -126,10 +129,13 @@ export function DashboardSignalsSection({
                       >
                         {item.eventTimeLabel}
                       </DashboardV2Text>
-                      <span className="v2-dashboard-signals__route-label">
-                        <ArrowUpRight size={14} />
-                        <span>Patient workspace</span>
-                      </span>
+                      <DashboardV2Button
+                        tone="ghost"
+                        size="sm"
+                        onPress={() => onOpenPatient(item.patientId)}
+                      >
+                        Open patient
+                      </DashboardV2Button>
                     </div>
                   </article>
                 ))}
@@ -222,7 +228,7 @@ export function DashboardSignalsSection({
                         {item.messageAgeLabel}
                       </DashboardV2Text>
                       <DashboardV2Button
-                        tone="secondary"
+                        tone="ghost"
                         size="sm"
                         onPress={() => onOpenThread(item.patientId)}
                       >

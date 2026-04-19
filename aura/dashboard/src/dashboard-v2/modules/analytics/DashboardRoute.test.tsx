@@ -304,7 +304,15 @@ function renderDashboardRoute(initialEntry: string = "/dashboard"): void {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/dashboard" element={<DashboardRouteFacade />} />
+          <Route
+            path="/dashboard"
+            element={
+              <>
+                <DashboardRouteFacade />
+                <LocationEcho />
+              </>
+            }
+          />
           <Route path="/alerts" element={<LocationEcho />} />
           <Route path="/communication" element={<LocationEcho />} />
           <Route path="/worklist" element={<LocationEcho />} />
@@ -617,5 +625,72 @@ describe("DashboardRoute", () => {
     expect(screen.getByTestId("location-echo")).not.toHaveTextContent(
       '"search":"?patientId=p-demo-01"',
     );
+  });
+
+  it("renders demo tools only when dashboard demo capability is enabled", async () => {
+    installDashboardFetchMock();
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(
+      screen.queryByTestId("v2-dashboard-demo-tools"),
+    ).not.toBeInTheDocument();
+
+    cleanup();
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    installDashboardFetchMock();
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(screen.getByTestId("v2-dashboard-demo-tools")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Real mode" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("switches dashboard scenarios through the URL query param and clears back to real mode", async () => {
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    installDashboardFetchMock();
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(screen.queryByTestId("v2-dashboard-demo-indicator")).not.toBeInTheDocument();
+    expect(screen.getByTestId("location-echo")).toHaveTextContent(
+      '"pathname":"/dashboard"',
+    );
+    expect(screen.getByTestId("location-echo")).toHaveTextContent('"search":""');
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Urgent safety day" }),
+    );
+
+    expect(await screen.findByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
+      "Demo mode",
+    );
+    expect(screen.getByTestId("location-echo")).toHaveTextContent(
+      '"search":"?dashboardDemo=urgentSafetyDay"',
+    );
+    expect(screen.getByRole("button", { name: "Urgent safety day" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "Real mode" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Synthetic presentation dataset · Urgent safety day")).toBeVisible();
+    expect(screen.getAllByText("Patient One").length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Real mode" }));
+
+    expect(screen.queryByTestId("v2-dashboard-demo-indicator")).not.toBeInTheDocument();
+    expect(screen.getByTestId("location-echo")).toHaveTextContent('"search":""');
+    expect(screen.getByRole("button", { name: "Real mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(window.localStorage.length).toBe(0);
   });
 });

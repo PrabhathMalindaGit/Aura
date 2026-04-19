@@ -23,8 +23,15 @@ import {
   type DashboardStatusBarVm,
   type DashboardSummaryMetricVm,
 } from "../../adapters/dashboard";
-import { resolveDashboardDemoMode } from "./demo/dashboardDemoMode";
-import { getDashboardDemoScenario } from "./demo/dashboardDemoScenarios";
+import {
+  isDashboardDemoCapabilityEnabled,
+  resolveDashboardDemoMode,
+} from "./demo/dashboardDemoMode";
+import {
+  DASHBOARD_DEMO_SCENARIO_IDS,
+  getDashboardDemoScenario,
+  type DashboardDemoScenarioId,
+} from "./demo/dashboardDemoScenarios";
 import {
   listAppointmentRequests,
   listAppointmentSlots,
@@ -131,11 +138,22 @@ export interface UseDashboardViewModelResult {
   openThread: (patientId?: string) => void;
   guardPatientActions: boolean;
   guardThreadActions: boolean;
+  demoTools: {
+    visible: boolean;
+    selectedScenarioId: DashboardDemoScenarioId | null;
+    scenarios: Array<{
+      id: DashboardDemoScenarioId;
+      label: string;
+    }>;
+    selectScenario: (scenarioId: DashboardDemoScenarioId) => void;
+    selectRealMode: () => void;
+  };
 }
 
 export function useDashboardViewModel(): UseDashboardViewModelResult {
   const navigate = useNavigate();
   const location = useLocation();
+  const demoCapabilityEnabled = isDashboardDemoCapabilityEnabled();
   const demoMode = useMemo(
     () => resolveDashboardDemoMode(location.search),
     [location.search],
@@ -324,6 +342,28 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
       navigate(path);
     },
     [navigate],
+  );
+
+  const updateDashboardDemoScenario = useCallback(
+    (scenarioId: DashboardDemoScenarioId | null) => {
+      const params = new URLSearchParams(location.search);
+
+      if (scenarioId) {
+        params.set("dashboardDemo", scenarioId);
+      } else {
+        params.delete("dashboardDemo");
+      }
+
+      const nextSearch = params.toString();
+      navigate(
+        {
+          pathname: location.pathname,
+          search: nextSearch ? `?${nextSearch}` : "",
+        },
+        { replace: true },
+      );
+    },
+    [location.pathname, location.search, navigate],
   );
 
   const onRefresh = useCallback(() => {
@@ -562,6 +602,14 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
       !safetyEventsQuery.data &&
       Boolean(communicationQuery.error) &&
       !communicationQuery.data;
+  const demoToolsScenarios = useMemo(
+    () =>
+      DASHBOARD_DEMO_SCENARIO_IDS.map((scenarioId) => ({
+        id: scenarioId,
+        label: getDashboardDemoScenario(scenarioId).label,
+      })),
+    [],
+  );
 
   return {
     statusBar,
@@ -593,5 +641,12 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
     openThread,
     guardPatientActions: isDemoMode,
     guardThreadActions: isDemoMode,
+    demoTools: {
+      visible: demoCapabilityEnabled,
+      selectedScenarioId: demoMode.scenarioId,
+      scenarios: demoToolsScenarios,
+      selectScenario: updateDashboardDemoScenario,
+      selectRealMode: () => updateDashboardDemoScenario(null),
+    },
   };
 }

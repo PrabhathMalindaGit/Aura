@@ -1,5 +1,6 @@
 import { DashboardAttentionPanel } from "./components/DashboardAttentionPanel";
 import { DashboardDataContextPanel } from "./components/DashboardDataContextPanel";
+import { DashboardDemoTools } from "./components/DashboardDemoTools";
 import { DashboardOperationalLoadSection } from "./components/DashboardOperationalLoadSection";
 import { DashboardScheduleSection } from "./components/DashboardScheduleSection";
 import { DashboardSignalsSection } from "./components/DashboardSignalsSection";
@@ -16,6 +17,15 @@ export function DashboardRoute(): JSX.Element {
       <DashboardStatusBar
         statusBar={viewModel.statusBar}
       />
+
+      {viewModel.demoTools.visible ? (
+        <DashboardDemoTools
+          selectedScenarioId={viewModel.demoTools.selectedScenarioId}
+          scenarios={viewModel.demoTools.scenarios}
+          onSelectScenario={viewModel.demoTools.selectScenario}
+          onSelectRealMode={viewModel.demoTools.selectRealMode}
+        />
+      ) : null}
 
       <DashboardAttentionPanel
         attention={viewModel.attention}

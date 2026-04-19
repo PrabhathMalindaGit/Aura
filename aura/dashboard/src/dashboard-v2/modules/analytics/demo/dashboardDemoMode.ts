@@ -22,6 +22,10 @@ function readDashboardDemoCapability(): boolean {
   );
 }
 
+export function isDashboardDemoCapabilityEnabled(): boolean {
+  return readDashboardDemoCapability();
+}
+
 export function resolveDashboardDemoMode(search: string): DashboardDemoModeState {
   if (!readDashboardDemoCapability()) {
     return {

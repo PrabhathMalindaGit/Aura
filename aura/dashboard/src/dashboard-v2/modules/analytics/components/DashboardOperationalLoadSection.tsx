@@ -106,35 +106,36 @@ export function DashboardOperationalLoadSection({
                     aria-hidden="true"
                   />
                   <div className="v2-dashboard-operational-row__copy">
-                    <div className="v2-dashboard-operational-row__topline">
-                      <div>
-                        <strong className="v2-dashboard-operational-row__label">
-                          {row.label}
-                        </strong>
-                        <DashboardV2Text tone="muted">
-                          {row.detail}
-                        </DashboardV2Text>
-                      </div>
-                      <div className="v2-dashboard-operational-row__summary">
-                        <div className="v2-dashboard-operational-row__metric">
-                          <strong className="v2-dashboard-operational-row__value">
-                            {row.displayValue}
-                          </strong>
-                          <DashboardDirectionalCue
-                            tone={row.tone}
-                            intensity={operationalCueLevel(row)}
-                            label={`${row.label} directional cue`}
-                          />
-                        </div>
-                        <DashboardV2Text
-                          tone="caption"
-                          className="v2-dashboard-operational-row__state"
-                        >
-                          {operationalToneLabel(row.tone)}
-                        </DashboardV2Text>
-                      </div>
-                    </div>
+                    <strong className="v2-dashboard-operational-row__label">
+                      {row.label}
+                    </strong>
+                    {row.detail ? (
+                      <DashboardV2Text
+                        tone="muted"
+                        className="v2-dashboard-operational-row__detail"
+                      >
+                        {row.detail}
+                      </DashboardV2Text>
+                    ) : null}
                   </div>
+                </div>
+                <div className="v2-dashboard-operational-row__summary">
+                  <div className="v2-dashboard-operational-row__metric">
+                    <strong className="v2-dashboard-operational-row__value">
+                      {row.displayValue}
+                    </strong>
+                    <DashboardDirectionalCue
+                      tone={row.tone}
+                      intensity={operationalCueLevel(row)}
+                      label={`${row.label} directional cue`}
+                    />
+                  </div>
+                  <DashboardV2Text
+                    tone="caption"
+                    className="v2-dashboard-operational-row__state"
+                  >
+                    {operationalToneLabel(row.tone)}
+                  </DashboardV2Text>
                 </div>
                 <span className="v2-dashboard-operational-row__action">
                   <ArrowUpRight size={14} />

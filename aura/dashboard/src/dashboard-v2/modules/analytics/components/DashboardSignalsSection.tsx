@@ -129,11 +129,11 @@ export function DashboardSignalsSection({
                       <DashboardV2Badge
                         tone={
                           item.statusTone === "critical"
-                            ? "critical"
+                            ? "safety"
                             : item.statusTone === "warning"
-                              ? "warning"
+                              ? "priority"
                               : item.statusTone === "success"
-                                ? "success"
+                                ? "clear"
                                 : "unknown"
                         }
                       >
@@ -219,9 +219,11 @@ export function DashboardSignalsSection({
                             key={chip.key}
                             tone={
                               chip.tone === "critical"
-                                ? "critical"
+                                ? "safety"
                                 : chip.tone === "warning"
-                                  ? "warning"
+                                  ? chip.key === "delay"
+                                    ? "delayed"
+                                    : "priority"
                                   : chip.tone === "info"
                                     ? "info"
                                     : "neutral"

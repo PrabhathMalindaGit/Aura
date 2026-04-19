@@ -23,9 +23,14 @@ export function DashboardAttentionPanel({
         <DashboardV2Text tone="label">Attention now</DashboardV2Text>
         <DashboardV2Heading as="h2">{attention.title}</DashboardV2Heading>
         <DashboardV2Text tone="strong">{attention.copy}</DashboardV2Text>
-        <DashboardV2Text tone="muted" className="v2-dashboard-attention__note">
-          {attention.note}
-        </DashboardV2Text>
+        {attention.note ? (
+          <DashboardV2Text
+            tone="muted"
+            className="v2-dashboard-attention__note"
+          >
+            {attention.note}
+          </DashboardV2Text>
+        ) : null}
       </div>
 
       <div className="v2-dashboard-attention__actions">

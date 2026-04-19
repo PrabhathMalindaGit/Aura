@@ -15,8 +15,6 @@ export function DashboardRoute(): JSX.Element {
     <div className="v2-dashboard-route" data-testid="v2-dashboard-route">
       <DashboardStatusBar
         statusBar={viewModel.statusBar}
-        isRefreshing={viewModel.isRefreshing}
-        onRefresh={viewModel.onRefresh}
       />
 
       <DashboardAttentionPanel

@@ -36,7 +36,7 @@ export interface DashboardAttentionVm {
   copy: string;
   actionLabel: string;
   actionPath: string;
-  note: string;
+  note: string | null;
 }
 
 export interface DashboardSummaryMetricVm {
@@ -203,8 +203,8 @@ function pluralize(
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
-function detailOrUnknown(value: string | null | undefined): string {
-  return value?.trim() ? value : "Unknown";
+function optionalDetail(value: string | null | undefined): string {
+  return value?.trim() ? value : "";
 }
 
 function compactCountLabel(
@@ -302,18 +302,18 @@ function appointmentSummary(item: DashboardTodayAppointmentItem): string {
   }
 
   if (item.status === "awaiting_confirmation") {
-    return "Waiting for patient confirmation.";
+    return "Awaiting confirmation.";
   }
 
   if (item.status === "reschedule_requested") {
-    return "Reschedule review is waiting.";
+    return "Reschedule requested.";
   }
 
   if (item.status === "missed") {
     return "Missed visit needs follow-through.";
   }
 
-  return "Visit is currently scheduled.";
+  return "Visit is scheduled.";
 }
 
 function safetyStatusVm(item: DashboardSafetyEvent): {
@@ -461,8 +461,7 @@ export function buildDashboardStatusBar({
 }: DashboardStatusBarInput): DashboardStatusBarVm {
   return {
     title: "Today",
-    guidanceLine:
-      "Lead with the top lane, then open detail only when needed.",
+    guidanceLine: "Live operational summary",
     facts: [
       {
         key: "window",
@@ -495,7 +494,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(openAlertsCount, "open alert")} are leading the day right now.`,
       actionLabel: "Open alerts",
       actionPath: "/alerts",
-      note: "Start in alerts, then return here once the first pass is clear.",
+      note: "Begin with the live safety lane.",
     };
   }
 
@@ -506,7 +505,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(messagesNeedingResponseCount, "patient thread")} need a clinician response right now.`,
       actionLabel: "Open inbox",
       actionPath: "/communication",
-      note: "Start in inbox while response pressure is still visible.",
+      note: "Open inbox while response pressure is still visible.",
     };
   }
 
@@ -514,10 +513,10 @@ export function buildDashboardAttention({
     return {
       tone: "info",
       title: "Follow-through is setting the pace",
-      copy: "Due work and missed check-ins need a deliberate first pass.",
+      copy: "Due work and missed check-ins need an early pass.",
       actionLabel: "Open queue",
       actionPath: "/worklist",
-      note: "Use the queue once live alerts and inbox pressure are stable.",
+      note: "Move into queue review once live lanes settle.",
     };
   }
 
@@ -528,7 +527,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(todayAppointmentsCount, "visit")} are active today and worth confirming early.`,
       actionLabel: "Open schedule",
       actionPath: "/appointments",
-      note: "Use schedule for request pressure and visible capacity.",
+      note: "Schedule holds visible capacity and request pressure.",
     };
   }
 
@@ -536,20 +535,20 @@ export function buildDashboardAttention({
     return {
       tone: "neutral",
       title: "Immediate pressure is steady",
-      copy: `${pluralize(pendingInsightsCount, "review item")} are waiting once live operational work is clear.`,
+      copy: `${pluralize(pendingInsightsCount, "review item")} are waiting after live operational work is clear.`,
       actionLabel: "Open insights",
       actionPath: "/insights",
-      note: "Open insights after the live lanes settle.",
+      note: null,
     };
   }
 
   return {
     tone: "success",
     title: "The shift is steady",
-    copy: "No urgent pressure is leading right now. Confirm the operational lanes and keep the day moving.",
+    copy: "No urgent lane is leading right now. Confirm the overview and keep the day moving.",
     actionLabel: "Open queue",
     actionPath: "/worklist",
-    note: "Stay here for the overview, then step into the right route when pressure builds.",
+    note: null,
   };
 }
 
@@ -572,8 +571,9 @@ export function buildDashboardSummaryStrip({
       key: "alerts",
       label: "Open alerts",
       value: formatCountValue(openAlertsCount),
-      detail: detailOrUnknown(
-        typeof assignedToMeAlertsCount === "number"
+      detail: optionalDetail(
+        typeof assignedToMeAlertsCount === "number" &&
+          assignedToMeAlertsCount > 0
           ? compactCountLabel(assignedToMeAlertsCount, "assigned", "assigned")
           : null,
       ),
@@ -587,8 +587,9 @@ export function buildDashboardSummaryStrip({
       key: "communication",
       label: "Messages needing response",
       value: formatCountValue(messagesNeedingResponseCount),
-      detail: detailOrUnknown(
-        typeof flaggedBySafetyCount === "number"
+      detail: optionalDetail(
+        typeof flaggedBySafetyCount === "number" &&
+          flaggedBySafetyCount > 0
           ? compactCountLabel(
               flaggedBySafetyCount,
               "flagged",
@@ -607,10 +608,10 @@ export function buildDashboardSummaryStrip({
       key: "tasks",
       label: "Open follow-up tasks",
       value: formatCountValue(openFollowUpTasksCount),
-      detail: detailOrUnknown(
+      detail: optionalDetail(
         tasksDueTodayCount > 0
           ? compactCountLabel(tasksDueTodayCount, "due today", "due today")
-          : "All caught up",
+          : null,
       ),
       path: "/worklist",
       tone: toneFromCount(openFollowUpTasksCount ?? 0, {
@@ -623,14 +624,14 @@ export function buildDashboardSummaryStrip({
       key: "insights",
       label: "Pending insights",
       value: formatCountValue(pendingInsightsCount),
-      detail: detailOrUnknown(
-        typeof pendingInsightsCount === "number" && pendingInsightsCount === 0
-          ? "No pending insights"
-          : compactCountLabel(
+      detail: optionalDetail(
+        highPriorityInsightsCount > 0
+          ? compactCountLabel(
               highPriorityInsightsCount,
               "high-priority",
               "high-priority",
-            ),
+            )
+          : null,
       ),
       path: "/insights",
       tone: toneFromCount(pendingInsightsCount ?? 0, {
@@ -643,7 +644,7 @@ export function buildDashboardSummaryStrip({
       key: "appointments",
       label: "Today’s appointments",
       value: formatCountValue(todayAppointmentsCount),
-      detail: detailOrUnknown(
+      detail: optionalDetail(
         typeof pendingAppointmentRequestsCount === "number"
           ? pendingAppointmentRequestsCount > 0
             ? compactCountLabel(
@@ -651,7 +652,7 @@ export function buildDashboardSummaryStrip({
                 "request pending",
                 "requests pending",
               )
-            : "No active requests"
+            : null
           : null,
       ),
       path: "/appointments",
@@ -682,7 +683,20 @@ export function buildDashboardOperationalLoad({
       key: "alerts",
       label: "Alerts",
       value: summary?.openAlertsCount ?? 0,
-      detail: `${compactCountLabel(summary?.assignedToMeAlertsCount ?? 0, "assigned", "assigned")} · ${compactCountLabel(recentSafetyEventCount, "feed event")}`,
+      detail: [
+        (summary?.assignedToMeAlertsCount ?? 0) > 0
+          ? compactCountLabel(
+              summary?.assignedToMeAlertsCount ?? 0,
+              "assigned",
+              "assigned",
+            )
+          : null,
+        recentSafetyEventCount > 0
+          ? compactCountLabel(recentSafetyEventCount, "recent event")
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       path: "/alerts",
       tone: toneFromCount(summary?.openAlertsCount ?? 0, {
         criticalAt: 1,
@@ -700,7 +714,7 @@ export function buildDashboardOperationalLoad({
               "flagged",
               "flagged",
             )
-          : "No flagged threads",
+          : "",
       path: "/communication",
       tone: toneFromCount(messagesNeedingResponseCount, {
         criticalAt: 3,
@@ -712,7 +726,16 @@ export function buildDashboardOperationalLoad({
       key: "worklist",
       label: "Follow-up queue",
       value: openFollowUpTasksCount,
-      detail: `${compactCountLabel(tasksDueTodayCount, "due today", "due today")} · ${compactCountLabel(missedCheckinsCount, "missed check-in")}`,
+      detail: [
+        tasksDueTodayCount > 0
+          ? compactCountLabel(tasksDueTodayCount, "due today", "due today")
+          : null,
+        missedCheckinsCount > 0
+          ? compactCountLabel(missedCheckinsCount, "missed check-in")
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       path: "/worklist",
       tone: toneFromCount(openFollowUpTasksCount, {
         criticalAt: 4,
@@ -727,7 +750,7 @@ export function buildDashboardOperationalLoad({
       detail:
         pendingInsightsCount > 0
           ? `${compactCountLabel(highPriorityInsightsCount, "high-priority")} visible`
-          : "All caught up",
+          : "",
       path: "/insights",
       tone: toneFromCount(pendingInsightsCount, {
         criticalAt: 4,
@@ -744,7 +767,7 @@ export function buildDashboardOperationalLoad({
           ? `${compactCountLabel(pendingAppointmentRequestsCount, "request")} · ${compactCountLabel(availableSlotsCount, "open slot")}`
           : availableSlotsCount > 0
             ? `${compactCountLabel(availableSlotsCount, "open slot")} visible`
-            : "No active scheduling pressure",
+            : "",
       path: "/appointments",
       tone:
         pendingAppointmentRequestsCount > availableSlotsCount
@@ -892,8 +915,7 @@ export function buildDashboardDataContext({
     coverageSummary: "Live feeds and the next 7 days of visible scheduling.",
     coverageDetail:
       "This page reflects the dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
-    trustSummary:
-      "Overview only. Detailed review stays in destination routes.",
+    trustSummary: "Overview only. Detailed review stays in destination routes.",
     trustDetail:
       "This overview does not claim confirmed ownership, AI authorship, or unsupported historical certainty. Detailed review stays in destination routes.",
   };

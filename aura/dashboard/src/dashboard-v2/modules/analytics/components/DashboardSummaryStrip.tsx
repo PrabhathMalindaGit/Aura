@@ -17,6 +17,10 @@ interface DashboardSummaryStripProps {
   onOpenRoute: (path: string) => void;
 }
 
+function metricDetail(detail: string): string | null {
+  return detail.trim() ? detail : null;
+}
+
 function summaryStateLabel(tone: DashboardSummaryMetricVm["tone"]): string {
   if (tone === "critical") {
     return "Rising";
@@ -75,6 +79,35 @@ function summaryCueLevel(metric: DashboardSummaryMetricVm): number {
   return Math.min(3, Math.max(2, numericValue));
 }
 
+function summaryMetricTone(
+  metric: DashboardSummaryMetricVm,
+): "critical" | "warning" | "success" | "neutral" {
+  if (metric.tone === "critical") {
+    return "critical";
+  }
+
+  if (metric.tone === "warning") {
+    return "warning";
+  }
+
+  if (metric.tone === "success") {
+    return "success";
+  }
+
+  return "neutral";
+}
+
+function summaryCueClassName(metric: DashboardSummaryMetricVm): string {
+  return [
+    "v2-dashboard-summary-card__cue",
+    metric.key === "alerts" ||
+    metric.key === "communication" ||
+    metric.key === "tasks"
+      ? "v2-dashboard-summary-card__cue--prominent"
+      : "v2-dashboard-summary-card__cue--subtle",
+  ].join(" ");
+}
+
 export function DashboardSummaryStrip({
   metrics,
   loading,
@@ -112,8 +145,8 @@ export function DashboardSummaryStrip({
               className={`v2-dashboard-summary-card v2-dashboard-summary-card--${metric.tone}`}
               label={metric.label}
               value={metric.value}
-              detail={metric.detail}
-              tone={metric.tone === "critical" ? "critical" : metric.tone === "warning" ? "warning" : metric.tone === "success" ? "success" : "neutral"}
+              detail={metricDetail(metric.detail)}
+              tone={summaryMetricTone(metric)}
               state={
                 <span className="v2-dashboard-summary-card__state">
                   <span
@@ -128,7 +161,7 @@ export function DashboardSummaryStrip({
                   tone={metric.tone}
                   intensity={summaryCueLevel(metric)}
                   label={`${metric.label} directional cue`}
-                  className="v2-dashboard-summary-card__cue"
+                  className={summaryCueClassName(metric)}
                 />
               }
               action={

@@ -109,8 +109,11 @@ export function DashboardScheduleSection({
                 <strong>{nextOpenSlotValue}</strong>
               </div>
               <div className="v2-dashboard-schedule__fact">
-                <DashboardV2Text tone="label">Capacity</DashboardV2Text>
-                <DashboardV2Text tone="strong">
+                <DashboardV2Text tone="label">Capacity read</DashboardV2Text>
+                <DashboardV2Text
+                  tone="strong"
+                  className="v2-dashboard-schedule__fact-value"
+                >
                   {schedulingFootnote}
                 </DashboardV2Text>
               </div>
@@ -252,11 +255,11 @@ export function DashboardScheduleSection({
                       <DashboardV2Badge
                         tone={
                           item.statusTone === "critical"
-                            ? "critical"
+                            ? "delayed"
                             : item.statusTone === "warning"
-                              ? "warning"
+                              ? "priority"
                               : item.statusTone === "success"
-                                ? "success"
+                                ? "clear"
                                 : "neutral"
                         }
                       >
@@ -286,9 +289,6 @@ export function DashboardScheduleSection({
                 <div className="v2-dashboard-schedule__quiet-state">
                   <DashboardV2Text tone="strong">
                     All caught up for today
-                  </DashboardV2Text>
-                  <DashboardV2Text tone="muted">
-                    No active visits are visible, and open capacity still stays in view.
                   </DashboardV2Text>
                 </div>
               )}

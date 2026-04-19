@@ -18,7 +18,7 @@ export function DashboardDataContextPanel({
     <DashboardV2ClinicianSupportRail
       className="v2-dashboard-data-context"
       tone="elevated"
-      eyebrow="Freshness"
+      eyebrow="Support"
       title="Freshness & scope"
       data-testid="v2-dashboard-data-context"
     >
@@ -26,7 +26,7 @@ export function DashboardDataContextPanel({
         <DashboardV2MetadataList items={dataContext.metadata} />
       </DashboardV2ClinicianSupportGroup>
 
-      <DashboardV2ClinicianSupportGroup title="How to read this" tone="base">
+      <DashboardV2ClinicianSupportGroup title="Reference" tone="muted">
         <DashboardV2Disclosure
           title="What’s included"
           summary={dataContext.coverageSummary}

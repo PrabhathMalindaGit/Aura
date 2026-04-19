@@ -16,7 +16,7 @@ interface DashboardSummaryStripProps {
 
 function summaryStateLabel(tone: DashboardSummaryMetricVm["tone"]): string {
   if (tone === "critical") {
-    return "Now";
+    return "Rising";
   }
 
   if (tone === "warning") {
@@ -27,7 +27,7 @@ function summaryStateLabel(tone: DashboardSummaryMetricVm["tone"]): string {
     return "Clear";
   }
 
-  return "Live";
+  return "Steady";
 }
 
 function summaryActionLabel(path: string): string {
@@ -123,6 +123,8 @@ export function DashboardSummaryStrip({
               <div className="v2-dashboard-summary-card__topline">
                 <div className="v2-dashboard-summary-card__label-stack">
                   <DashboardV2Text tone="label">{metric.label}</DashboardV2Text>
+                </div>
+                <div className="v2-dashboard-summary-card__signal">
                   <span className="v2-dashboard-summary-card__state">
                     <span
                       className={`v2-dashboard-summary-card__state-dot v2-dashboard-summary-card__state-dot--${metric.tone}`}
@@ -130,12 +132,13 @@ export function DashboardSummaryStrip({
                     />
                     <span>{summaryStateLabel(metric.tone)}</span>
                   </span>
+                  <DashboardDirectionalCue
+                    tone={metric.tone}
+                    intensity={summaryCueLevel(metric)}
+                    label={`${metric.label} directional cue`}
+                    className="v2-dashboard-summary-card__cue"
+                  />
                 </div>
-                <DashboardDirectionalCue
-                  tone={metric.tone}
-                  intensity={summaryCueLevel(metric)}
-                  label={`${metric.label} directional cue`}
-                />
               </div>
               <strong className="v2-dashboard-summary-card__value">
                 {metric.value}

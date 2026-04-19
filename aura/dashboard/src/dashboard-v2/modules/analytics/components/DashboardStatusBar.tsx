@@ -23,34 +23,36 @@ export function DashboardStatusBar({
     >
       <div className="v2-dashboard-status-bar__title-row">
         <div className="v2-dashboard-status-bar__copy">
+          <DashboardV2Text tone="label">Operations overview</DashboardV2Text>
           <DashboardV2Heading as="h1">{statusBar.title}</DashboardV2Heading>
+          <DashboardV2Text
+            tone="muted"
+            className="v2-dashboard-status-bar__guidance"
+          >
+            {statusBar.guidanceLine}
+          </DashboardV2Text>
         </div>
 
-        <DashboardV2Button
-          tone="ghost"
-          size="sm"
-          onPress={onRefresh}
-          leadingIcon={<RefreshCcw size={16} />}
-        >
-          {isRefreshing ? "Refreshing..." : "Refresh"}
-        </DashboardV2Button>
-      </div>
-
-      <div className="v2-dashboard-status-bar__detail-row">
-        <DashboardV2Text tone="muted" className="v2-dashboard-status-bar__guidance">
-          {statusBar.guidanceLine}
-        </DashboardV2Text>
-
-        <div className="v2-dashboard-status-bar__facts" aria-live="polite">
-          {statusBar.facts.map((fact) => (
-            <span key={fact.key} className="v2-dashboard-status-bar__fact">
-              <span className="v2-dashboard-status-bar__fact-label">
-                <Activity size={12} />
-                <span>{fact.label}</span>
+        <div className="v2-dashboard-status-bar__fact-strip">
+          <div className="v2-dashboard-status-bar__facts" aria-live="polite">
+            {statusBar.facts.map((fact) => (
+              <span key={fact.key} className="v2-dashboard-status-bar__fact">
+                <span className="v2-dashboard-status-bar__fact-label">
+                  <Activity size={12} />
+                  <span>{fact.label}</span>
+                </span>
+                <strong>{fact.value}</strong>
               </span>
-              <strong>{fact.value}</strong>
-            </span>
-          ))}
+            ))}
+          </div>
+          <DashboardV2Button
+            tone="ghost"
+            size="sm"
+            onPress={onRefresh}
+            leadingIcon={<RefreshCcw size={16} />}
+          >
+            {isRefreshing ? "Refreshing..." : "Refresh"}
+          </DashboardV2Button>
         </div>
       </div>
     </DashboardV2Surface>

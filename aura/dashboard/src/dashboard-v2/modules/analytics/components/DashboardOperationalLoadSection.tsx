@@ -33,7 +33,7 @@ function operationalActionLabel(path: string): string {
 
 function operationalToneLabel(tone: DashboardOperationalLoadRowVm["tone"]): string {
   if (tone === "critical") {
-    return "Now";
+    return "Rising";
   }
 
   if (tone === "warning") {
@@ -44,7 +44,7 @@ function operationalToneLabel(tone: DashboardOperationalLoadRowVm["tone"]): stri
     return "Clear";
   }
 
-  return "Live";
+  return "Steady";
 }
 
 function operationalCueLevel(row: DashboardOperationalLoadRowVm): number {
@@ -126,7 +126,10 @@ export function DashboardOperationalLoadSection({
                             label={`${row.label} directional cue`}
                           />
                         </div>
-                        <DashboardV2Text tone="caption">
+                        <DashboardV2Text
+                          tone="caption"
+                          className="v2-dashboard-operational-row__state"
+                        >
                           {operationalToneLabel(row.tone)}
                         </DashboardV2Text>
                       </div>

@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 interface DashboardPatientAnchorProps {
   patientLabel: string;
   tone?: "critical" | "warning" | "success" | "neutral";
@@ -21,6 +23,15 @@ function patientInitials(label: string): string {
   return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
 }
 
+function patientAnchorHue(label: string): number {
+  const palette = [206, 192, 174, 228, 158, 244];
+  const hash = [...label].reduce((value, character) => {
+    return value + character.charCodeAt(0);
+  }, 0);
+
+  return palette[hash % palette.length] ?? palette[0];
+}
+
 export function DashboardPatientAnchor({
   patientLabel,
   tone = "neutral",
@@ -30,6 +41,13 @@ export function DashboardPatientAnchor({
       className={`v2-dashboard-patient-anchor v2-dashboard-patient-anchor--${tone}`}
       aria-hidden="true"
       title={patientLabel}
+      style={
+        {
+          "--v2-dashboard-patient-anchor-hue": String(
+            patientAnchorHue(patientLabel),
+          ),
+        } as CSSProperties
+      }
     >
       {patientInitials(patientLabel)}
     </span>

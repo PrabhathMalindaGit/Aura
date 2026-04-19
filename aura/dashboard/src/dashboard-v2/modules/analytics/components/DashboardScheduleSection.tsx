@@ -56,10 +56,18 @@ export function DashboardScheduleSection({
     pendingRequestCount === 0 && availableSlotsCount === 0
       ? "No active scheduling pressure"
       : pendingRequestCount > availableSlotsCount
-        ? "Demand is ahead of visible capacity"
+        ? "Requests are ahead of visible capacity"
         : availableSlotsCount > 0
           ? "Visible capacity is covering demand"
           : "Published capacity has not opened yet";
+  const capacityTone =
+    pendingRequestCount === 0 && availableSlotsCount === 0
+      ? "success"
+      : pendingRequestCount > availableSlotsCount
+        ? "warning"
+        : availableSlotsCount > 0
+          ? "info"
+          : "neutral";
 
   return (
     <DashboardV2ChartFrame
@@ -108,12 +116,19 @@ export function DashboardScheduleSection({
               </div>
             </div>
 
-            <div className="v2-dashboard-schedule__capacity-shell">
+            <div
+              className={`v2-dashboard-schedule__capacity-shell v2-dashboard-schedule__capacity-shell--${capacityTone}`}
+            >
               <div className="v2-dashboard-schedule__capacity-topline">
-                <DashboardV2Text tone="label">Visible balance</DashboardV2Text>
-                <DashboardV2Text tone="caption">
-                  {capacityStateLabel}
-                </DashboardV2Text>
+                <div className="v2-dashboard-schedule__capacity-copy">
+                  <DashboardV2Text tone="label">Visible balance</DashboardV2Text>
+                  <DashboardV2Text tone="caption">
+                    {capacityStateLabel}
+                  </DashboardV2Text>
+                </div>
+                <strong className="v2-dashboard-schedule__capacity-balance">
+                  {pendingRequestCount}:{availableSlotsCount}
+                </strong>
               </div>
               <div
                 className={`v2-dashboard-schedule__capacity-gauge ${
@@ -141,14 +156,18 @@ export function DashboardScheduleSection({
                     className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--pending"
                     aria-hidden="true"
                   />
-                  <span>{pendingRequestCount} requests</span>
+                  <span>
+                    <strong>{pendingRequestCount}</strong> requests
+                  </span>
                 </span>
                 <span className="v2-dashboard-schedule__capacity-token">
                   <span
                     className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--available"
                     aria-hidden="true"
                   />
-                  <span>{availableSlotsCount} open slots</span>
+                  <span>
+                    <strong>{availableSlotsCount}</strong> open slots
+                  </span>
                 </span>
               </div>
             </div>
@@ -192,7 +211,7 @@ export function DashboardScheduleSection({
                   <div className="v2-dashboard-schedule__empty">
                     <CalendarClock size={16} />
                     <DashboardV2Text tone="muted">
-                      No visits are visible in today’s current agenda.
+                      No visits are visible in today’s agenda.
                     </DashboardV2Text>
                   </div>
                 )}
@@ -269,7 +288,7 @@ export function DashboardScheduleSection({
                     All caught up for today
                   </DashboardV2Text>
                   <DashboardV2Text tone="muted">
-                    No active visits are visible, and capacity still stays in view.
+                    No active visits are visible, and open capacity still stays in view.
                   </DashboardV2Text>
                 </div>
               )}

@@ -497,7 +497,7 @@ describe("DashboardRoute", () => {
       screen.getByText(/This overview does not claim confirmed ownership/i),
     ).not.toBeVisible();
     expect(
-      screen.getByText(/This page reflects the current dashboard summary/i),
+      screen.getByText(/This page reflects the dashboard summary/i),
     ).not.toBeVisible();
     expect(
       screen.queryByText(/This overview reflects visible requests and open slots/i),

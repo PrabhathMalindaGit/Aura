@@ -495,7 +495,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(openAlertsCount, "open alert")} are leading the day right now.`,
       actionLabel: "Open alerts",
       actionPath: "/alerts",
-      note: "Start in alerts. Return here after the first pass.",
+      note: "Start in alerts, then return here once the first pass is clear.",
     };
   }
 
@@ -506,7 +506,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(messagesNeedingResponseCount, "patient thread")} need a clinician response right now.`,
       actionLabel: "Open inbox",
       actionPath: "/communication",
-      note: "Use inbox for thread-level review.",
+      note: "Start in inbox while response pressure is still visible.",
     };
   }
 
@@ -517,7 +517,7 @@ export function buildDashboardAttention({
       copy: "Due work and missed check-ins need a deliberate first pass.",
       actionLabel: "Open queue",
       actionPath: "/worklist",
-      note: "Use queue for task-level review.",
+      note: "Use the queue once live alerts and inbox pressure are stable.",
     };
   }
 
@@ -528,7 +528,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(todayAppointmentsCount, "visit")} are active today and worth confirming early.`,
       actionLabel: "Open schedule",
       actionPath: "/appointments",
-      note: "Use schedule for request and capacity decisions.",
+      note: "Use schedule for request pressure and visible capacity.",
     };
   }
 
@@ -539,7 +539,7 @@ export function buildDashboardAttention({
       copy: `${pluralize(pendingInsightsCount, "review item")} are waiting once live operational work is clear.`,
       actionLabel: "Open insights",
       actionPath: "/insights",
-      note: "Use insights once the live lanes are steady.",
+      note: "Open insights after the live lanes settle.",
     };
   }
 
@@ -549,7 +549,7 @@ export function buildDashboardAttention({
     copy: "No urgent pressure is leading right now. Confirm the operational lanes and keep the day moving.",
     actionLabel: "Open queue",
     actionPath: "/worklist",
-    note: "Stay here for overview and move into the right route when pressure builds.",
+    note: "Stay here for the overview, then step into the right route when pressure builds.",
   };
 }
 
@@ -591,8 +591,8 @@ export function buildDashboardSummaryStrip({
         typeof flaggedBySafetyCount === "number"
           ? compactCountLabel(
               flaggedBySafetyCount,
-              "safety flagged",
-              "safety flagged",
+              "flagged",
+              "flagged",
             )
           : null,
       ),
@@ -697,8 +697,8 @@ export function buildDashboardOperationalLoad({
         flaggedBySafetyCount > 0
           ? compactCountLabel(
               flaggedBySafetyCount,
-              "safety flagged",
-              "safety flagged",
+              "flagged",
+              "flagged",
             )
           : "No flagged threads",
       path: "/communication",
@@ -891,7 +891,7 @@ export function buildDashboardDataContext({
     ],
     coverageSummary: "Live feeds and the next 7 days of visible scheduling.",
     coverageDetail:
-      "This page reflects the current dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
+      "This page reflects the dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
     trustSummary:
       "Overview only. Detailed review stays in destination routes.",
     trustDetail:

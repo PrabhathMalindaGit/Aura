@@ -9,6 +9,7 @@ import {
   CommunicationRouteFacade,
   DashboardRouteFacade,
   InsightsRouteFacade,
+  PatientsRouteFacade,
   PatientWorkspaceRouteFacade,
   SettingsRouteFacade,
   WorklistRouteFacade,
@@ -30,7 +31,6 @@ function withRouteSuspense(element: ReactNode): JSX.Element {
   return <Suspense fallback={null}>{element}</Suspense>;
 }
 
-const PatientsPage = lazyNamedComponent(() => import('../pages/PatientsPage'), 'PatientsPage');
 const PatientComparePage = lazyNamedComponent(() => import('../pages/PatientComparePage'), 'PatientComparePage');
 const PatientExercisePlanPage = lazyNamedComponent(() => import('../pages/PatientExercisePlanPage'), 'PatientExercisePlanPage');
 const PatientExerciseSessionsPage = lazyNamedComponent(
@@ -73,7 +73,7 @@ export const router = createBrowserRouter([
           { path: 'alerts', element: <AlertsRouteFacade /> },
           { path: 'insights', element: <InsightsRouteFacade /> },
           { path: 'appointments', element: <AppointmentsRouteFacade /> },
-          { path: 'patients', element: withRouteSuspense(<PatientsPage />) },
+          { path: 'patients', element: <PatientsRouteFacade /> },
           { path: 'patients/compare', element: withRouteSuspense(<PatientComparePage />) },
           { path: 'patients/:patientId', element: <PatientWorkspaceRouteFacade /> },
           { path: 'patients/:patientId/overview', element: <PatientWorkspaceRouteFacade /> },

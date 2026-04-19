@@ -7,6 +7,7 @@ import { DashboardRoute } from "../modules/analytics";
 import { AlertsRoute } from "../modules/alerts";
 import { AppointmentsRoute } from "../modules/appointments";
 import { InsightsRoute } from "../modules/insights";
+import { PatientsRoute } from "../modules/patients";
 import { PatientWorkspaceRoute } from "../modules/patient-workspace";
 import { SettingsRoute } from "../modules/settings";
 
@@ -49,6 +50,10 @@ const InboxRoute = lazyNamedComponent(
 const PatientDetailPage = lazyNamedComponent(
   () => import("../../pages/PatientDetailPage"),
   "PatientDetailPage",
+);
+const PatientsPage = lazyNamedComponent(
+  () => import("../../pages/PatientsPage"),
+  "PatientsPage",
 );
 const SettingsPage = lazyNamedComponent(
   () => import("../../pages/SettingsPage"),
@@ -113,6 +118,16 @@ export function PatientWorkspaceRouteFacade(): JSX.Element {
       routeId="patient-workspace"
       legacy={<PatientDetailPage />}
       v2={<PatientWorkspaceRoute />}
+    />
+  );
+}
+
+export function PatientsRouteFacade(): JSX.Element {
+  return (
+    <RouteFacade
+      routeId="patients"
+      legacy={<PatientsPage />}
+      v2={<PatientsRoute />}
     />
   );
 }

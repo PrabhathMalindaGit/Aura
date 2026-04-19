@@ -818,6 +818,36 @@ describe('usePatientWorkspaceViewModel', () => {
     expect(result.current.header.sourceCue).toBe('Opened from Dashboard');
   });
 
+  it('preserves patients-roster entry context so the workspace can return to the roster', async () => {
+    installPatientWorkspaceFetchMock();
+
+    const { result } = renderHook(
+      () => usePatientWorkspaceViewModel(),
+      {
+        wrapper: createWrapper({
+          pathname: `/patients/${PATIENT_ID}`,
+          search: '?days=14',
+          state: createPatientEntryState({
+            patientId: PATIENT_ID,
+            source: 'patients',
+            subtype: 'roster',
+            focus: 'roster',
+            returnTo: '/patients?search=Taylor',
+          }),
+        }),
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.patientDisplayName).toBe('Taylor Moss');
+      expect(result.current.activeTab).toBe('overview');
+    });
+
+    expect(result.current.header.returnTo).toBe('/patients?search=Taylor');
+    expect(result.current.header.returnLabel).toBe('Return to Patients');
+    expect(result.current.header.sourceCue).toBe('Opened from Patients roster');
+  });
+
   it('preserves selective query-bucket loading for direct history routes', async () => {
     const tracker = installPatientWorkspaceFetchMock();
 

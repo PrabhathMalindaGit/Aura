@@ -22,6 +22,7 @@ describe('dashboard v2 migration gates', () => {
         dashboard: true,
         worklist: true,
         communication: true,
+        patients: true,
         'patient-workspace': true,
         alerts: true,
         insights: true,
@@ -31,9 +32,11 @@ describe('dashboard v2 migration gates', () => {
     });
   });
 
-  it('resolves the patient workspace route only for the approved core patient paths', () => {
+  it('resolves the patients roster and patient workspace only for the approved core patient paths', () => {
+    expect(resolveDashboardV2RouteId('/patients')).toBe('patients');
     expect(resolveDashboardV2RouteId('/patients/p1')).toBe('patient-workspace');
     expect(resolveDashboardV2RouteId('/patients/p1/history')).toBe('patient-workspace');
+    expect(resolveDashboardV2RouteId('/patients/compare')).toBeNull();
     expect(resolveDashboardV2RouteId('/patients/p1/plan')).toBeNull();
   });
 

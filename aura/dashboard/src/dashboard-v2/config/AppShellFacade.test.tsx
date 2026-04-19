@@ -53,11 +53,21 @@ describe('AppShellFacade', () => {
 
   it('keeps legacy shell behavior on out-of-scope routes', () => {
     render(
-      <MemoryRouter initialEntries={['/patients']}>
+      <MemoryRouter initialEntries={['/patients/compare']}>
         <AppShellFacade />
       </MemoryRouter>,
     );
 
     expect(screen.getByTestId('legacy-shell')).toBeInTheDocument();
+  });
+
+  it('renders the v2 shell by default on the patients roster route', () => {
+    render(
+      <MemoryRouter initialEntries={['/patients']}>
+        <AppShellFacade />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('v2-shell')).toBeInTheDocument();
   });
 });

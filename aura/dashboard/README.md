@@ -43,6 +43,7 @@ Aura Dashboard V2 is now the default for:
 - `/dashboard`
 - `/worklist`
 - `/communication`
+- `/patients`
 - `/patients/:patientId`
 - `/alerts`
 - `/insights`

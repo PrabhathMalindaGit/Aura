@@ -33,6 +33,7 @@ test('route-level rollback can force dashboard back to legacy without disabling 
           dashboard: false,
           worklist: true,
           communication: true,
+          patients: true,
           'patient-workspace': true,
           alerts: true,
           insights: true,

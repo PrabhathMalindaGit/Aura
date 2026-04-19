@@ -2,6 +2,7 @@ export type DashboardV2RouteId =
   | 'dashboard'
   | 'worklist'
   | 'communication'
+  | 'patients'
   | 'patient-workspace'
   | 'alerts'
   | 'insights'
@@ -22,6 +23,7 @@ export const DASHBOARD_V2_ROUTE_IDS: DashboardV2RouteId[] = [
   'dashboard',
   'worklist',
   'communication',
+  'patients',
   'patient-workspace',
   'alerts',
   'insights',
@@ -35,6 +37,7 @@ const DEFAULT_ROUTES: Record<DashboardV2RouteId, boolean> = {
   dashboard: true,
   worklist: true,
   communication: true,
+  patients: true,
   'patient-workspace': true,
   alerts: true,
   insights: true,
@@ -43,7 +46,7 @@ const DEFAULT_ROUTES: Record<DashboardV2RouteId, boolean> = {
 };
 
 const PATIENT_WORKSPACE_ROUTE_PATTERN =
-  /^\/patients\/[^/]+(?:\/(?:overview|communications|guidance|history))?\/?$/;
+  /^\/patients\/(?!compare(?:\/|$))[^/]+(?:\/(?:overview|communications|guidance|history))?\/?$/;
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -273,6 +276,10 @@ export function resolveDashboardV2RouteId(pathname: string): DashboardV2RouteId 
 
   if (pathname.startsWith('/communication')) {
     return 'communication';
+  }
+
+  if (pathname === '/patients' || pathname === '/patients/') {
+    return 'patients';
   }
 
   if (pathname.startsWith('/alerts')) {

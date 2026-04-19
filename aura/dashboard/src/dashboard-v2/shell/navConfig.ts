@@ -46,10 +46,10 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
     icon: MessageSquareMore,
   },
   {
-    key: 'patient-workspace',
-    label: 'Patient workspace',
+    key: 'patients',
+    label: 'Patients roster',
     shortLabel: 'Patients',
-    description: 'Open patient workspaces and summaries',
+    description: 'Search the care roster and open patient workspaces',
     to: '/patients',
     icon: UsersRound,
   },
@@ -87,10 +87,51 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   },
 ];
 
+const DASHBOARD_V2_ROUTE_META: Record<DashboardV2RouteId, { title: string; description: string }> = {
+  dashboard: {
+    title: 'Service analytics',
+    description: 'Operational metrics and service trends',
+  },
+  worklist: {
+    title: 'Triage queue',
+    description: 'Scan and open active review work',
+  },
+  communication: {
+    title: 'Clinician inbox',
+    description: 'Review conversations and follow-up',
+  },
+  patients: {
+    title: 'Patients roster',
+    description: 'Search the care roster and open patient workspaces',
+  },
+  'patient-workspace': {
+    title: 'Patient workspace',
+    description: 'Single-patient review, coordination, and history context',
+  },
+  alerts: {
+    title: 'Governance',
+    description: 'Alert triage and safety governance',
+  },
+  insights: {
+    title: 'Follow-up tasks',
+    description: 'Insight review and clinical follow-through',
+  },
+  appointments: {
+    title: 'Scheduling',
+    description: 'Appointments and scheduling flow',
+  },
+  settings: {
+    title: 'Workspace settings',
+    description: 'Theme, workspace, and preference controls',
+  },
+};
+
 export function getDashboardV2RouteTitle(routeId: DashboardV2RouteId | null): string {
-  return DASHBOARD_V2_NAV_ITEMS.find((item) => item.key === routeId)?.label ?? 'Aura clinician workbench';
+  return routeId ? DASHBOARD_V2_ROUTE_META[routeId]?.title ?? 'Aura clinician workbench' : 'Aura clinician workbench';
 }
 
 export function getDashboardV2RouteDescription(routeId: DashboardV2RouteId | null): string {
-  return DASHBOARD_V2_NAV_ITEMS.find((item) => item.key === routeId)?.description ?? 'Clinical review foundation';
+  return routeId
+    ? DASHBOARD_V2_ROUTE_META[routeId]?.description ?? 'Clinical review foundation'
+    : 'Clinical review foundation';
 }

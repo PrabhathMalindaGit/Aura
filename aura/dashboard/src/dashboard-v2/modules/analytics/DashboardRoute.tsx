@@ -37,7 +37,6 @@ export function DashboardRoute(): JSX.Element {
         <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--operational">
           <DashboardOperationalLoadSection
             rows={viewModel.operationalLoadRows}
-            note={viewModel.priorityQueuePressureNote}
             loading={viewModel.operationalLoading}
             error={viewModel.operationalError}
             isRefreshing={viewModel.isRefreshing}
@@ -79,7 +78,6 @@ export function DashboardRoute(): JSX.Element {
         <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--context">
           <DashboardDataContextPanel
             dataContext={viewModel.dataContext}
-            priorityQueuePressureNote={viewModel.priorityQueuePressureNote}
           />
         </div>
       </div>

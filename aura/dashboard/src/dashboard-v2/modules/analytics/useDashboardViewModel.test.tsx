@@ -337,7 +337,7 @@ describe("useDashboardViewModel", () => {
       "Pending requests exceed visible open capacity in the next 7 days.",
     );
     expect(result.current.priorityQueuePressureNote).toContain(
-      "urgent or high-priority",
+      "urgent item",
     );
   });
 
@@ -391,10 +391,10 @@ describe("useDashboardViewModel", () => {
     expect(result.current.communicationSignals[0]?.reviewLine).not.toContain(
       "Reply received",
     );
-    expect(result.current.dataContext.trustSummary).toMatch(
-      /confirmed ownership, AI authorship/i,
+    expect(result.current.dataContext.trustDetail).toMatch(
+      /Ownership, AI authorship/i,
     );
-    expect(result.current.dataContext.trustSummary).not.toMatch(
+    expect(result.current.dataContext.trustDetail).not.toMatch(
       /Owned by AI|guaranteed coverage/i,
     );
   });

@@ -6,12 +6,10 @@ import { DashboardV2MetadataList } from "../../../patterns/MetadataList";
 
 interface DashboardDataContextPanelProps {
   dataContext: DashboardDataContextVm;
-  priorityQueuePressureNote: string;
 }
 
 export function DashboardDataContextPanel({
   dataContext,
-  priorityQueuePressureNote,
 }: DashboardDataContextPanelProps): JSX.Element {
   return (
     <DashboardV2Surface
@@ -20,32 +18,29 @@ export function DashboardDataContextPanel({
       data-testid="v2-dashboard-data-context"
     >
       <header className="v2-dashboard-data-context__header">
-        <DashboardV2Text tone="label">Freshness &amp; scope</DashboardV2Text>
-        <DashboardV2Heading as="h2">What this overview reflects</DashboardV2Heading>
-        <DashboardV2Text tone="caption">
-          {priorityQueuePressureNote}
-        </DashboardV2Text>
+        <DashboardV2Text tone="label">Context</DashboardV2Text>
+        <DashboardV2Heading as="h2">Freshness &amp; scope</DashboardV2Heading>
       </header>
 
       <DashboardV2MetadataList items={dataContext.metadata} />
 
       <DashboardV2Disclosure
-        title="Current scope"
+        title="What’s included"
         summary={dataContext.coverageSummary}
         defaultExpanded={false}
       >
         <DashboardV2Text tone="muted">
-          {dataContext.coverageSummary}
+          {dataContext.coverageDetail}
         </DashboardV2Text>
       </DashboardV2Disclosure>
 
       <DashboardV2Disclosure
-        title="What stays in destination routes"
+        title="Trust & provenance"
         summary={dataContext.trustSummary}
         defaultExpanded={false}
       >
         <DashboardV2Text tone="muted">
-          {dataContext.trustSummary}
+          {dataContext.trustDetail}
         </DashboardV2Text>
       </DashboardV2Disclosure>
     </DashboardV2Surface>

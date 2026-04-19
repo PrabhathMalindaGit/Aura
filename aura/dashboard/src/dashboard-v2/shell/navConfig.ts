@@ -23,9 +23,9 @@ export interface DashboardV2NavItem {
 export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'dashboard',
-    label: 'Service analytics',
-    shortLabel: 'Analytics',
-    description: 'Operational metrics and service trends',
+    label: 'Today overview',
+    shortLabel: 'Today',
+    description: 'Live operational summary',
     to: '/dashboard',
     icon: LayoutDashboard,
   },
@@ -89,8 +89,8 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
 
 const DASHBOARD_V2_ROUTE_META: Record<DashboardV2RouteId, { title: string; description: string }> = {
   dashboard: {
-    title: 'Service analytics',
-    description: 'Operational metrics and service trends',
+    title: 'Today',
+    description: 'Live operational summary',
   },
   worklist: {
     title: 'Triage queue',
@@ -127,11 +127,11 @@ const DASHBOARD_V2_ROUTE_META: Record<DashboardV2RouteId, { title: string; descr
 };
 
 export function getDashboardV2RouteTitle(routeId: DashboardV2RouteId | null): string {
-  return routeId ? DASHBOARD_V2_ROUTE_META[routeId]?.title ?? 'Aura clinician workbench' : 'Aura clinician workbench';
+  return routeId ? DASHBOARD_V2_ROUTE_META[routeId]?.title ?? 'Aura clinician workspace' : 'Aura clinician workspace';
 }
 
 export function getDashboardV2RouteDescription(routeId: DashboardV2RouteId | null): string {
   return routeId
-    ? DASHBOARD_V2_ROUTE_META[routeId]?.description ?? 'Clinical review foundation'
-    : 'Clinical review foundation';
+    ? DASHBOARD_V2_ROUTE_META[routeId]?.description ?? 'Operational overview'
+    : 'Operational overview';
 }

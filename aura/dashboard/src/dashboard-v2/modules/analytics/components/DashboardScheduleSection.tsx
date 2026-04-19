@@ -38,16 +38,15 @@ export function DashboardScheduleSection({
   return (
     <DashboardV2ChartFrame
       title="Today & capacity"
-      summary="Where today’s load is concentrated"
-      description={`Next visible open slot: ${nextOpenSlotValue}`}
+      summary="Schedule shape and open capacity"
     >
       <section
         className="v2-dashboard-schedule"
         data-testid="v2-dashboard-schedule-section"
       >
         <div className="v2-dashboard-schedule__header">
-          <DashboardV2Text tone="muted">
-            Visible visits and open capacity for the next route change.
+          <DashboardV2Text tone="caption">
+            Next visible slot {nextOpenSlotValue}
           </DashboardV2Text>
           <DashboardV2Button tone="ghost" size="sm" onPress={onOpenSchedule}>
             Open schedule
@@ -72,13 +71,11 @@ export function DashboardScheduleSection({
           <>
             <div className="v2-dashboard-schedule__facts">
               <div className="v2-dashboard-schedule__fact">
-                <DashboardV2Text tone="label">
-                  Next visible open slot
-                </DashboardV2Text>
+                <DashboardV2Text tone="label">Open slot</DashboardV2Text>
                 <strong>{nextOpenSlotValue}</strong>
               </div>
               <div className="v2-dashboard-schedule__fact">
-                <DashboardV2Text tone="label">Capacity balance</DashboardV2Text>
+                <DashboardV2Text tone="label">Capacity</DashboardV2Text>
                 <DashboardV2Text tone="strong">
                   {schedulingFootnote}
                 </DashboardV2Text>
@@ -186,8 +183,7 @@ export function DashboardScheduleSection({
                     No visits are active today
                   </DashboardV2Text>
                   <DashboardV2Text tone="muted">
-                    The schedule can still be used to review request pressure
-                    and visible open capacity.
+                    Visible request pressure and open capacity still appear here.
                   </DashboardV2Text>
                 </div>
               )}

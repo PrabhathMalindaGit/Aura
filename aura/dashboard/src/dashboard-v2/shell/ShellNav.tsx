@@ -29,7 +29,7 @@ export function DashboardV2ShellNav({
           <div className="dashboard-v2-shell__brand-copy">
             <strong className="dashboard-v2-shell__brand-title">Aura Clinician</strong>
             <DashboardV2Text as="span" tone="muted">
-              Safety-oriented workbench
+              Care operations
             </DashboardV2Text>
           </div>
         ) : null}

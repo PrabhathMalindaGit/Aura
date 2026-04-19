@@ -6,7 +6,6 @@ import { DashboardV2Text } from "../../../primitives/Text";
 
 interface DashboardOperationalLoadSectionProps {
   rows: DashboardOperationalLoadRowVm[];
-  note: string;
   loading: boolean;
   error: boolean;
   isRefreshing: boolean;
@@ -33,23 +32,22 @@ function operationalActionLabel(path: string): string {
 
 function operationalToneLabel(tone: DashboardOperationalLoadRowVm["tone"]): string {
   if (tone === "critical") {
-    return "Immediate";
+    return "Now";
   }
 
   if (tone === "warning") {
-    return "Building";
+    return "Watch";
   }
 
   if (tone === "success") {
-    return "Steady";
+    return "Clear";
   }
 
-  return "Visible";
+  return "Live";
 }
 
 export function DashboardOperationalLoadSection({
   rows,
-  note,
   loading,
   error,
   isRefreshing,
@@ -59,8 +57,7 @@ export function DashboardOperationalLoadSection({
   return (
     <DashboardV2ChartFrame
       title="Operational load"
-      summary="Where demand is building right now"
-      description={note}
+      summary="Leading pressure by lane"
     >
       <section
         className="v2-dashboard-operational-load"
@@ -82,7 +79,7 @@ export function DashboardOperationalLoadSection({
           />
         ) : (
           <div className="v2-dashboard-operational-load__rows" role="list">
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <button
                 key={row.key}
                 type="button"
@@ -92,6 +89,9 @@ export function DashboardOperationalLoadSection({
                 onClick={() => onOpenRoute(row.path)}
               >
                 <div className="v2-dashboard-operational-row__lane">
+                  <span className="v2-dashboard-operational-row__rank" aria-hidden="true">
+                    {index + 1}
+                  </span>
                   <span
                     className={`v2-dashboard-operational-row__tone v2-dashboard-operational-row__tone--${row.tone}`}
                     aria-hidden="true"

@@ -112,6 +112,7 @@ export function DashboardV2Shell(): JSX.Element {
   const workspacePreferences = useClinicianWorkspacePreferences();
   const routeId = resolveDashboardV2RouteId(pathname);
   const routeOwnsContextRail =
+    routeId === 'dashboard' ||
     routeId === 'worklist' ||
     routeId === 'communication' ||
     routeId === 'patient-workspace' ||
@@ -257,7 +258,7 @@ export function DashboardV2Shell(): JSX.Element {
             </DashboardV2Button>
           ) : null}
           <div className="dashboard-v2-shell__title-group">
-            <DashboardV2Text tone="label">Aura dashboard v2 foundation</DashboardV2Text>
+            <DashboardV2Text tone="label">Care operations</DashboardV2Text>
             <DashboardV2Heading as="h1">{routeTitle}</DashboardV2Heading>
             <DashboardV2Text tone="muted">{routeDescription}</DashboardV2Text>
           </div>
@@ -337,18 +338,14 @@ export function DashboardV2Shell(): JSX.Element {
     ? null
     : (
         <DashboardV2ContextRailPanel
-          title="Context rail foundation"
-          description="Right-side governance, provenance, and explanation surfaces are staged here for later route migrations."
+          title="Freshness & scope"
+          description="Compact governance, provenance, and route context."
         >
           <DashboardV2GovernancePanel onOpenExplanation={() => setExplanationOpen(true)} />
         </DashboardV2ContextRailPanel>
       );
 
-  const footer = (
-    <DashboardV2Text tone="muted">
-      Phase 1 preserves the current backend truth, auth/session flow, route semantics, and CTA destinations while the v2 shell and primitive system are staged.
-    </DashboardV2Text>
-  );
+  const footer = null;
 
   return (
     <>
@@ -374,7 +371,7 @@ export function DashboardV2Shell(): JSX.Element {
         open={navDrawerOpen}
         onOpenChange={setNavDrawerOpen}
         title="Navigation"
-        description="Primary dashboard-v2 navigation"
+        description="Primary workspace navigation"
         placement="bottom"
       >
         <DashboardV2ShellNav
@@ -388,8 +385,8 @@ export function DashboardV2Shell(): JSX.Element {
         <DashboardV2Drawer
           open={contextRailOpen}
           onOpenChange={setContextRailOpen}
-          title="Context rail"
-          description="Governance, provenance, and explanation scaffolding"
+          title="Freshness & scope"
+          description="Compact governance, provenance, and explanation context"
           placement="bottom"
         >
           {contextRail}

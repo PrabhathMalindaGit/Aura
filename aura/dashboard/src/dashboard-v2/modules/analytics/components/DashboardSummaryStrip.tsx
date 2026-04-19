@@ -15,18 +15,18 @@ interface DashboardSummaryStripProps {
 
 function summaryStateLabel(tone: DashboardSummaryMetricVm["tone"]): string {
   if (tone === "critical") {
-    return "Immediate";
+    return "Now";
   }
 
   if (tone === "warning") {
-    return "Building";
+    return "Watch";
   }
 
   if (tone === "success") {
-    return "Steady";
+    return "Clear";
   }
 
-  return "Visible";
+  return "Live";
 }
 
 function summaryActionLabel(path: string): string {
@@ -63,15 +63,11 @@ export function DashboardSummaryStrip({
     >
       <div className="v2-dashboard-summary-strip__header">
         <div className="v2-dashboard-summary-strip__header-copy">
-          <DashboardV2Text tone="label">Overview strip</DashboardV2Text>
+          <DashboardV2Text tone="label">Overview</DashboardV2Text>
           <DashboardV2Heading as="h2" id="v2-dashboard-summary-strip-title">
             At a glance
           </DashboardV2Heading>
         </div>
-        <DashboardV2Text tone="muted" className="v2-dashboard-summary-strip__header-note">
-          Safety, inbox, follow-up, insights, and schedule stay visible without
-          competing for attention.
-        </DashboardV2Text>
       </div>
 
       {loading ? (

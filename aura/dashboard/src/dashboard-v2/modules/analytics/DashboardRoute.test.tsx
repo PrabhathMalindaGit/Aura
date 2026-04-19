@@ -359,7 +359,7 @@ describe("DashboardRoute", () => {
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     await screen.findByTestId("v2-dashboard-metric-alerts");
     expect(screen.getByTestId("v2-dashboard-status-bar")).toHaveTextContent(
-      "Operations overview",
+      "Today",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
       "Open alerts",
@@ -479,11 +479,20 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /What stays in destination routes/i }),
+      screen.getByRole("button", { name: /Trust & provenance/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Current scope/i }),
+      screen.getByRole("button", { name: /What’s included/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/This overview does not claim confirmed ownership/i),
+    ).not.toBeVisible();
+    expect(
+      screen.getByText(/This page reflects the current dashboard summary/i),
+    ).not.toBeVisible();
+    expect(
+      screen.queryByText(/This overview reflects visible requests and open slots/i),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toBeVisible();
   });
 });

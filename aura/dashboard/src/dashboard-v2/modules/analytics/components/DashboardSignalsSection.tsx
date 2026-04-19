@@ -40,14 +40,10 @@ export function DashboardSignalsSection({
     >
       <header className="v2-dashboard-signals__header">
         <div>
-          <DashboardV2Text tone="label">Signals to watch</DashboardV2Text>
+          <DashboardV2Text tone="label">Signals</DashboardV2Text>
           <DashboardV2Heading as="h2">
             Recent movement worth a second look
           </DashboardV2Heading>
-          <DashboardV2Text tone="muted">
-            Safety activity and inbox pressure stay short here so the next
-            action is easy to spot.
-          </DashboardV2Text>
         </div>
       </header>
 
@@ -72,14 +68,9 @@ export function DashboardSignalsSection({
             tone="elevated"
           >
             <header className="v2-dashboard-signals__panel-header">
-              <div>
-                <DashboardV2Text tone="label">
-                  Recent safety activity
-                </DashboardV2Text>
-                <DashboardV2Heading as="h3">
-                  Recent safety activity
-                </DashboardV2Heading>
-              </div>
+              <DashboardV2Heading as="h3">
+                Recent safety activity
+              </DashboardV2Heading>
               <DashboardV2Button tone="ghost" size="sm" onPress={onOpenAlerts}>
                 Open alerts
               </DashboardV2Button>
@@ -158,14 +149,9 @@ export function DashboardSignalsSection({
             tone="elevated"
           >
             <header className="v2-dashboard-signals__panel-header">
-              <div>
-                <DashboardV2Text tone="label">
-                  Inbox needing response
-                </DashboardV2Text>
-                <DashboardV2Heading as="h3">
-                  Communication pressure
-                </DashboardV2Heading>
-              </div>
+              <DashboardV2Heading as="h3">
+                Communication pressure
+              </DashboardV2Heading>
               <DashboardV2Button tone="ghost" size="sm" onPress={onOpenInbox}>
                 Open inbox
               </DashboardV2Button>
@@ -214,8 +200,7 @@ export function DashboardSignalsSection({
                       <DashboardV2Text tone="muted">
                         {item.contextLine}
                       </DashboardV2Text>
-                    ) : null}
-                    {item.reviewLine ? (
+                    ) : item.reviewLine ? (
                       <DashboardV2Text tone="muted">
                         {item.reviewLine}
                       </DashboardV2Text>

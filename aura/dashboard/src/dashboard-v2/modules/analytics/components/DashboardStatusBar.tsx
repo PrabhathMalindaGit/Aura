@@ -23,7 +23,6 @@ export function DashboardStatusBar({
     >
       <div className="v2-dashboard-status-bar__title-row">
         <div className="v2-dashboard-status-bar__copy">
-          <DashboardV2Text tone="label">Operations overview</DashboardV2Text>
           <DashboardV2Heading as="h1">{statusBar.title}</DashboardV2Heading>
         </div>
 

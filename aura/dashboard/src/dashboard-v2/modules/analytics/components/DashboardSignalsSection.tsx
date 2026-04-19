@@ -20,6 +20,8 @@ interface DashboardSignalsSectionProps {
   onOpenInbox: () => void;
   onOpenPatient: (patientId: string) => void;
   onOpenThread: (patientId: string) => void;
+  guardPatientActions?: boolean;
+  guardThreadActions?: boolean;
 }
 
 function communicationRowTone(
@@ -51,6 +53,8 @@ export function DashboardSignalsSection({
   onOpenInbox,
   onOpenPatient,
   onOpenThread,
+  guardPatientActions = false,
+  guardThreadActions = false,
 }: DashboardSignalsSectionProps): JSX.Element {
   return (
     <section
@@ -120,7 +124,17 @@ export function DashboardSignalsSection({
                         />
                         <button
                           type="button"
-                          className="v2-dashboard-link-button"
+                          className={`v2-dashboard-link-button${
+                            guardPatientActions
+                              ? " v2-dashboard-link-button--guarded"
+                              : ""
+                          }`}
+                          disabled={guardPatientActions}
+                          title={
+                            guardPatientActions
+                              ? "Synthetic demo patient. Downstream patient view is guarded in demo mode."
+                              : undefined
+                          }
                           onClick={() => onOpenPatient(item.patientId)}
                         >
                           {item.patientLabel}
@@ -157,9 +171,10 @@ export function DashboardSignalsSection({
                         tone="row"
                         size="sm"
                         className="v2-dashboard-row-button"
+                        isDisabled={guardPatientActions}
                         onPress={() => onOpenPatient(item.patientId)}
                       >
-                        Open patient
+                        {guardPatientActions ? "Demo only" : "Open patient"}
                       </DashboardV2Button>
                     </div>
                   </article>
@@ -207,7 +222,17 @@ export function DashboardSignalsSection({
                         />
                         <button
                           type="button"
-                          className="v2-dashboard-link-button"
+                          className={`v2-dashboard-link-button${
+                            guardPatientActions
+                              ? " v2-dashboard-link-button--guarded"
+                              : ""
+                          }`}
+                          disabled={guardPatientActions}
+                          title={
+                            guardPatientActions
+                              ? "Synthetic demo patient. Downstream patient view is guarded in demo mode."
+                              : undefined
+                          }
                           onClick={() => onOpenPatient(item.patientId)}
                         >
                           {item.patientLabel}
@@ -257,9 +282,10 @@ export function DashboardSignalsSection({
                         tone="row"
                         size="sm"
                         className="v2-dashboard-row-button"
+                        isDisabled={guardThreadActions}
                         onPress={() => onOpenThread(item.patientId)}
                       >
-                        Open thread
+                        {guardThreadActions ? "Demo only" : "Open thread"}
                       </DashboardV2Button>
                     </div>
                   </article>

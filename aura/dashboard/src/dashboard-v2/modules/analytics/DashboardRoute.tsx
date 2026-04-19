@@ -57,6 +57,7 @@ export function DashboardRoute(): JSX.Element {
             onRefresh={viewModel.onRefresh}
             onOpenSchedule={() => viewModel.navigateTo("/appointments")}
             onOpenPatient={viewModel.openPatient}
+            guardPatientActions={viewModel.guardPatientActions}
           />
         </div>
 
@@ -72,6 +73,8 @@ export function DashboardRoute(): JSX.Element {
             onOpenInbox={() => viewModel.navigateTo("/communication")}
             onOpenPatient={viewModel.openPatient}
             onOpenThread={viewModel.openThread}
+            guardPatientActions={viewModel.guardPatientActions}
+            guardThreadActions={viewModel.guardThreadActions}
           />
         </div>
 

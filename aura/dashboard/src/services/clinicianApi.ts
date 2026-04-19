@@ -1732,10 +1732,13 @@ export function useAlertContext(
   });
 }
 
-export function usePatients(): UseQueryResult<PatientSummary[], unknown> {
+export function usePatients(
+  options: { enabled?: boolean } = {},
+): UseQueryResult<PatientSummary[], unknown> {
   return useQuery({
     queryKey: clinicianQueryKeys.patients(),
     queryFn: () => listPatients(),
+    enabled: options.enabled ?? true,
     staleTime: PATIENTS_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
@@ -1743,10 +1746,13 @@ export function usePatients(): UseQueryResult<PatientSummary[], unknown> {
   });
 }
 
-export function useDashboardSummary(): UseQueryResult<DashboardSummary, unknown> {
+export function useDashboardSummary(
+  options: { enabled?: boolean } = {},
+): UseQueryResult<DashboardSummary, unknown> {
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardSummary(),
     queryFn: () => getDashboardSummary(),
+    enabled: options.enabled ?? true,
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
@@ -1756,10 +1762,12 @@ export function useDashboardSummary(): UseQueryResult<DashboardSummary, unknown>
 
 export function useDashboardPriorityQueue(
   limit: number = 8,
+  options: { enabled?: boolean } = {},
 ): UseQueryResult<DashboardPriorityQueueItem[], unknown> {
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardPriorityQueue(limit),
     queryFn: () => listDashboardPriorityQueue(limit),
+    enabled: options.enabled ?? true,
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
@@ -1769,10 +1777,12 @@ export function useDashboardPriorityQueue(
 
 export function useDashboardRecentSafetyEvents(
   limit: number = 6,
+  options: { enabled?: boolean } = {},
 ): UseQueryResult<DashboardSafetyEvent[], unknown> {
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardRecentSafetyEvents(limit),
     queryFn: () => listDashboardRecentSafetyEvents(limit),
+    enabled: options.enabled ?? true,
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
@@ -1780,10 +1790,13 @@ export function useDashboardRecentSafetyEvents(
   });
 }
 
-export function useDashboardTodayAppointments(): UseQueryResult<DashboardTodayAppointmentItem[], unknown> {
+export function useDashboardTodayAppointments(
+  options: { enabled?: boolean } = {},
+): UseQueryResult<DashboardTodayAppointmentItem[], unknown> {
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardTodayAppointments(),
     queryFn: () => listDashboardTodayAppointments(),
+    enabled: options.enabled ?? true,
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
@@ -1792,7 +1805,7 @@ export function useDashboardTodayAppointments(): UseQueryResult<DashboardTodayAp
 }
 
 export function useDashboardFollowUpTasks(
-  params: { limit?: number; assignedToMe?: boolean } = {},
+  params: { limit?: number; assignedToMe?: boolean; enabled?: boolean } = {},
 ): UseQueryResult<DashboardFollowUpTaskItem[], unknown> {
   const limit = params.limit ?? 5;
   const assignedToMe = params.assignedToMe === true;
@@ -1800,6 +1813,7 @@ export function useDashboardFollowUpTasks(
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardFollowUpTasks(limit, assignedToMe),
     queryFn: () => listDashboardFollowUpTasks({ limit, assignedToMe }),
+    enabled: params.enabled ?? true,
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,
@@ -1809,10 +1823,12 @@ export function useDashboardFollowUpTasks(
 
 export function useDashboardCommunicationOverview(
   limit: number = 5,
+  options: { enabled?: boolean } = {},
 ): UseQueryResult<DashboardCommunicationOverview, unknown> {
   return useQuery({
     queryKey: clinicianQueryKeys.dashboardCommunicationOverview(limit),
     queryFn: () => getDashboardCommunicationOverview(limit),
+    enabled: options.enabled ?? true,
     staleTime: DASHBOARD_QUERY_STALE_TIME_MS,
     retry: retryIfAllowed,
     refetchOnWindowFocus: false,

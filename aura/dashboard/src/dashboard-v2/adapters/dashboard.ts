@@ -23,6 +23,10 @@ export type DashboardSurfaceTone =
 export interface DashboardStatusBarVm {
   title: string;
   guidanceLine: string;
+  modeIndicator?: {
+    label: string;
+    detail: string;
+  } | null;
   facts: Array<{
     key: string;
     label: string;
@@ -138,6 +142,8 @@ interface DashboardStatusBarInput {
   schedulingRangeLabel: string;
   priorityQueueCount: number;
   leadKindLabel: string | null;
+  demoIndicatorLabel?: string | null;
+  demoScenarioLabel?: string | null;
 }
 
 interface DashboardSummaryStripInput {
@@ -172,12 +178,14 @@ interface DashboardScheduleInput {
   patientLabels: Map<string, string>;
   nextOpenSlotLabel: string | null;
   schedulingFootnote: string;
+  nowMs?: number;
 }
 
 interface DashboardSignalsInput {
   safetyEvents: DashboardSafetyEvent[];
   communicationItems: DashboardCommunicationOverviewItem[];
   patientLabels: Map<string, string>;
+  nowMs?: number;
 }
 
 interface DashboardDataContextInput {
@@ -185,6 +193,7 @@ interface DashboardDataContextInput {
   schedulingRangeLabel: string;
   priorityQueueSampleLabel: string | null;
   nextOpenSlotLabel: string | null;
+  demoSourceLabel?: string | null;
 }
 
 function formatCountValue(value: number | null | undefined): string {
@@ -402,6 +411,7 @@ function communicationChips(
 
 function communicationContextLine(
   item: DashboardCommunicationOverviewItem,
+  nowMs: number = Date.now(),
 ): string | null {
   const parts = [
     item.patientRiskLevel === "high" ? "Higher risk" : null,
@@ -411,7 +421,7 @@ function communicationContextLine(
     item.responseDelayed || item.responseState === "delayed"
       ? `Delayed past ${item.responseDelayHours ?? "configured"}h`
       : item.responseDueAt
-        ? `Target ${formatDashboardRelativeTime(item.responseDueAt)}`
+        ? `Target ${formatDashboardRelativeTime(item.responseDueAt, nowMs)}`
         : item.responseDelayHours
           ? `Target ${item.responseDelayHours}h`
           : null,
@@ -425,13 +435,14 @@ function communicationContextLine(
 
 function communicationReviewLine(
   item: DashboardCommunicationOverviewItem,
+  nowMs: number = Date.now(),
 ): string | null {
   if (!item.reviewedAfterLatestInbound) {
     return null;
   }
 
   const reviewedAtLabel = item.lastReviewedAt
-    ? formatDashboardRelativeTime(item.lastReviewedAt)
+    ? formatDashboardRelativeTime(item.lastReviewedAt, nowMs)
     : "in workflow";
   const reviewerLabel = item.lastReviewedBy?.displayName?.trim() || "Unknown";
 
@@ -458,10 +469,19 @@ export function buildDashboardStatusBar({
   schedulingRangeLabel,
   priorityQueueCount,
   leadKindLabel,
+  demoIndicatorLabel,
+  demoScenarioLabel,
 }: DashboardStatusBarInput): DashboardStatusBarVm {
   return {
     title: "Today",
     guidanceLine: "Live operational summary",
+    modeIndicator:
+      demoIndicatorLabel && demoScenarioLabel
+        ? {
+            label: demoIndicatorLabel,
+            detail: `Synthetic data · ${demoScenarioLabel}`,
+          }
+        : null,
     facts: [
       {
         key: "window",
@@ -793,6 +813,7 @@ export function buildDashboardSchedule({
   patientLabels,
   nextOpenSlotLabel,
   schedulingFootnote,
+  nowMs = Date.now(),
 }: DashboardScheduleInput): {
   timelineBlocks: DashboardScheduleTimelineBlockVm[];
   scheduleItems: DashboardScheduleItemVm[];
@@ -837,7 +858,7 @@ export function buildDashboardSchedule({
     statusLabel: humanizeDashboardLabel(item.status),
     statusTone: appointmentStatusTone(item.status),
     note: appointmentSummary(item),
-    updatedLabel: `Updated ${formatDashboardRelativeTime(item.updatedAt)}`,
+    updatedLabel: `Updated ${formatDashboardRelativeTime(item.updatedAt, nowMs)}`,
   }));
 
   return {
@@ -852,6 +873,7 @@ export function buildDashboardSignals({
   safetyEvents,
   communicationItems,
   patientLabels,
+  nowMs = Date.now(),
 }: DashboardSignalsInput): {
   safetyItems: DashboardSafetySignalVm[];
   communicationItems: DashboardCommunicationSignalVm[];
@@ -869,7 +891,7 @@ export function buildDashboardSignals({
         ),
         summary: item.summary,
         eventLabel: humanizeDashboardLabel(item.type),
-        eventTimeLabel: formatDashboardRelativeTime(item.createdAt),
+        eventTimeLabel: formatDashboardRelativeTime(item.createdAt, nowMs),
         eventTimeTitle: formatDashboardDateTime(item.createdAt),
         statusLabel: status.label,
         statusTone: status.tone,
@@ -884,11 +906,11 @@ export function buildDashboardSignals({
       ),
       preview:
         item.messagePreview?.trim() || "Conversation preview unavailable.",
-      messageAgeLabel: formatDashboardRelativeTime(item.messageCreatedAt),
+      messageAgeLabel: formatDashboardRelativeTime(item.messageCreatedAt, nowMs),
       messageAgeTitle: formatDashboardDateTime(item.messageCreatedAt),
       chips: communicationChips(item),
-      contextLine: communicationContextLine(item),
-      reviewLine: communicationReviewLine(item),
+      contextLine: communicationContextLine(item, nowMs),
+      reviewLine: communicationReviewLine(item, nowMs),
     })),
   };
 }
@@ -898,9 +920,13 @@ export function buildDashboardDataContext({
   schedulingRangeLabel,
   priorityQueueSampleLabel,
   nextOpenSlotLabel,
+  demoSourceLabel,
 }: DashboardDataContextInput): DashboardDataContextVm {
   return {
     metadata: [
+      ...(demoSourceLabel
+        ? [{ label: "Data source", value: demoSourceLabel }]
+        : []),
       { label: "Updated", value: updatedLabel },
       { label: "Window", value: schedulingRangeLabel },
       {
@@ -923,12 +949,13 @@ export function buildDashboardDataContext({
 
 export function formatDashboardUpdatedLabel(
   updatedAtMs: number | null,
+  nowMs: number = Date.now(),
 ): string {
   if (!updatedAtMs || updatedAtMs <= 0) {
     return "Unknown";
   }
 
-  return formatDashboardRelativeTime(new Date(updatedAtMs).toISOString());
+  return formatDashboardRelativeTime(new Date(updatedAtMs).toISOString(), nowMs);
 }
 
 export function buildPriorityQueueSampleLabel(

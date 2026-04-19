@@ -19,6 +19,19 @@ export function DashboardStatusBar({
       <div className="v2-dashboard-status-bar__title-row">
         <div className="v2-dashboard-status-bar__copy">
           <DashboardV2Text tone="label">Operations overview</DashboardV2Text>
+          {statusBar.modeIndicator ? (
+            <div
+              className="v2-dashboard-status-bar__mode-indicator"
+              data-testid="v2-dashboard-demo-indicator"
+            >
+              <span className="v2-dashboard-status-bar__mode-label">
+                {statusBar.modeIndicator.label}
+              </span>
+              <span className="v2-dashboard-status-bar__mode-detail">
+                {statusBar.modeIndicator.detail}
+              </span>
+            </div>
+          ) : null}
           <DashboardV2Heading as="h1">{statusBar.title}</DashboardV2Heading>
           <DashboardV2Text
             tone="caption"

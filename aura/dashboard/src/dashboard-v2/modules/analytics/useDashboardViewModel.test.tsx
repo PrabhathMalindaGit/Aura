@@ -277,7 +277,7 @@ function installDashboardFetchMock(
   });
 }
 
-function createWrapper(): ({
+function createWrapper(initialEntry: string = "/dashboard"): ({
   children,
 }: {
   children: ReactNode;
@@ -287,7 +287,7 @@ function createWrapper(): ({
   return function Wrapper({ children }: { children: ReactNode }): JSX.Element {
     return (
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={["/dashboard"]}>{children}</MemoryRouter>
+        <MemoryRouter initialEntries={[initialEntry]}>{children}</MemoryRouter>
       </QueryClientProvider>
     );
   };
@@ -300,6 +300,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("useDashboardViewModel", () => {
@@ -341,6 +342,7 @@ describe("useDashboardViewModel", () => {
     );
     expect(result.current.schedulePendingRequestCount).toBe(2);
     expect(result.current.scheduleAvailableSlotsCount).toBe(1);
+    expect(globalThis.fetch).toHaveBeenCalled();
   });
 
   it("renders supported missing metadata as Unknown without inventing reply or AI ownership truth", async () => {
@@ -427,5 +429,43 @@ describe("useDashboardViewModel", () => {
         },
       },
     });
+  });
+
+  it("uses deterministic synthetic dashboard data and guards patient or thread actions when demo mode is enabled", async () => {
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => createJsonResponse({ ok: true }));
+
+    const { result } = renderHook(() => useDashboardViewModel(), {
+      wrapper: createWrapper("/dashboard?dashboardDemo=urgentSafetyDay"),
+    });
+
+    await waitFor(() => {
+      expect(result.current.summaryLoading).toBe(false);
+      expect(result.current.statusBar.title).toBe("Today");
+    });
+
+    expect(result.current.guardPatientActions).toBe(true);
+    expect(result.current.guardThreadActions).toBe(true);
+    expect(result.current.statusBar.modeIndicator).toEqual({
+      label: "Demo mode",
+      detail: "Synthetic data · Urgent safety day",
+    });
+    expect(result.current.dataContext.metadata[0]).toEqual({
+      label: "Data source",
+      value: "Synthetic presentation dataset · Urgent safety day",
+    });
+    expect(result.current.summaryMetrics[0]?.value).toBe("4");
+    expect(result.current.safetySignals[0]?.patientLabel).toBe("Patient One");
+    expect(result.current.communicationSignals[0]?.patientLabel).toBe(
+      "Patient One",
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    result.current.openPatient("p-demo-01");
+    result.current.openThread("p-demo-01");
+
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

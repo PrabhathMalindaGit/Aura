@@ -23,6 +23,8 @@ import {
   type DashboardStatusBarVm,
   type DashboardSummaryMetricVm,
 } from "../../adapters/dashboard";
+import { resolveDashboardDemoMode } from "./demo/dashboardDemoMode";
+import { getDashboardDemoScenario } from "./demo/dashboardDemoScenarios";
 import {
   listAppointmentRequests,
   listAppointmentSlots,
@@ -127,21 +129,47 @@ export interface UseDashboardViewModelResult {
   navigateTo: (path: string) => void;
   openPatient: (patientId: string) => void;
   openThread: (patientId?: string) => void;
+  guardPatientActions: boolean;
+  guardThreadActions: boolean;
 }
 
 export function useDashboardViewModel(): UseDashboardViewModelResult {
   const navigate = useNavigate();
   const location = useLocation();
-  const summaryQuery = useDashboardSummary();
-  const priorityQueueQuery = useDashboardPriorityQueue(7);
-  const safetyEventsQuery = useDashboardRecentSafetyEvents(6);
-  const appointmentsQuery = useDashboardTodayAppointments();
-  const followUpTasksQuery = useDashboardFollowUpTasks({ limit: 12 });
-  const communicationQuery = useDashboardCommunicationOverview(6);
-  const patientsQuery = usePatients();
+  const demoMode = useMemo(
+    () => resolveDashboardDemoMode(location.search),
+    [location.search],
+  );
+  const isDemoMode = demoMode.enabled && Boolean(demoMode.scenarioId);
+  const demoScenario = useMemo(
+    () =>
+      demoMode.scenarioId ? getDashboardDemoScenario(demoMode.scenarioId) : null,
+    [demoMode.scenarioId],
+  );
+  const demoNowMs = demoMode.anchorIso ? Date.parse(demoMode.anchorIso) : null;
+
+  const summaryQuery = useDashboardSummary({ enabled: !isDemoMode });
+  const priorityQueueQuery = useDashboardPriorityQueue(7, {
+    enabled: !isDemoMode,
+  });
+  const safetyEventsQuery = useDashboardRecentSafetyEvents(6, {
+    enabled: !isDemoMode,
+  });
+  const appointmentsQuery = useDashboardTodayAppointments({
+    enabled: !isDemoMode,
+  });
+  const followUpTasksQuery = useDashboardFollowUpTasks({
+    limit: 12,
+    enabled: !isDemoMode,
+  });
+  const communicationQuery = useDashboardCommunicationOverview(6, {
+    enabled: !isDemoMode,
+  });
+  const patientsQuery = usePatients({ enabled: !isDemoMode });
 
   const schedulingRange = useMemo(() => {
-    const fromDate = startOfDay(new Date());
+    const baseDate = demoMode.anchorIso ? new Date(demoMode.anchorIso) : new Date();
+    const fromDate = startOfDay(baseDate);
     const toDate = endOfDay(addDays(fromDate, 6));
 
     return {
@@ -149,7 +177,7 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
       to: toDate.toISOString(),
       label: formatAnalyticsDateRange(fromDate, toDate),
     };
-  }, []);
+  }, [demoMode.anchorIso]);
 
   const upcomingAvailableSlotsQuery = useQuery({
     queryKey: [
@@ -167,6 +195,7 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
         status: "available",
         limit: 200,
       }),
+    enabled: !isDemoMode,
   });
 
   const pendingAppointmentRequestsQuery = useQuery({
@@ -184,26 +213,77 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
         to: schedulingRange.to,
         limit: 200,
       }),
+    enabled: !isDemoMode,
   });
 
   const pendingInsightsQuery = useQuery({
     queryKey: ["dashboard-home", "analytics", "insights", "pending"],
     queryFn: () => listInsightsQueue("pending", 200),
+    enabled: !isDemoMode,
   });
+
+  const summaryData = isDemoMode
+    ? demoScenario?.dataset.summary ?? null
+    : summaryQuery.data ?? null;
+  const priorityQueueData = isDemoMode
+    ? demoScenario?.dataset.priorityQueue ?? []
+    : priorityQueueQuery.data ?? [];
+  const safetyEventsData = isDemoMode
+    ? demoScenario?.dataset.safetyEvents ?? []
+    : safetyEventsQuery.data ?? [];
+  const appointmentsData = isDemoMode
+    ? demoScenario?.dataset.todayAppointments ?? []
+    : appointmentsQuery.data ?? [];
+  const followUpTasksData = isDemoMode
+    ? demoScenario?.dataset.followUpTasks ?? []
+    : followUpTasksQuery.data ?? [];
+  const communicationOverviewData = isDemoMode
+    ? demoScenario?.dataset.communicationOverview ?? null
+    : communicationQuery.data ?? null;
+  const appointmentRequestsData = isDemoMode
+    ? demoScenario?.dataset.appointmentRequests ?? []
+    : pendingAppointmentRequestsQuery.data ?? [];
+  const availableSlotsData = isDemoMode
+    ? demoScenario?.dataset.availableSlots ?? []
+    : upcomingAvailableSlotsQuery.data ?? [];
+  const pendingInsightsData = isDemoMode
+    ? demoScenario?.dataset.insights ?? []
+    : pendingInsightsQuery.data ?? [];
+  const updatedAtMs = isDemoMode
+    ? Date.parse(demoScenario?.dataset.updatedAtIso ?? "")
+    : Math.max(
+        summaryQuery.dataUpdatedAt,
+        priorityQueueQuery.dataUpdatedAt,
+        safetyEventsQuery.dataUpdatedAt,
+        appointmentsQuery.dataUpdatedAt,
+        followUpTasksQuery.dataUpdatedAt,
+        communicationQuery.dataUpdatedAt,
+        upcomingAvailableSlotsQuery.dataUpdatedAt,
+        pendingAppointmentRequestsQuery.dataUpdatedAt,
+        pendingInsightsQuery.dataUpdatedAt,
+        patientsQuery.dataUpdatedAt,
+      ) || null;
 
   const patientLabelMap = useMemo(
     () =>
       new Map(
-        (patientsQuery.data ?? []).map((patient) => [
+        ((isDemoMode
+          ? demoScenario?.dataset.patients
+          : patientsQuery.data) ?? []
+        ).map((patient) => [
           patient.id,
           patient.displayName?.trim() || patient.id,
         ]),
       ),
-    [patientsQuery.data],
+    [demoScenario?.dataset.patients, isDemoMode, patientsQuery.data],
   );
 
   const openPatient = useCallback(
     (patientId: string) => {
+      if (isDemoMode) {
+        return;
+      }
+
       const normalizedPatientId = patientId.trim();
       if (!normalizedPatientId) {
         return;
@@ -218,11 +298,15 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
         }),
       });
     },
-    [location.pathname, location.search, navigate],
+    [isDemoMode, location.pathname, location.search, navigate],
   );
 
   const openThread = useCallback(
     (patientId?: string) => {
+      if (isDemoMode) {
+        return;
+      }
+
       if (typeof patientId === "string" && patientId.trim()) {
         navigate(
           `/communication?patientId=${encodeURIComponent(patientId.trim())}`,
@@ -232,7 +316,7 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
 
       navigate("/communication");
     },
-    [navigate],
+    [isDemoMode, navigate],
   );
 
   const navigateTo = useCallback(
@@ -243,6 +327,10 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   );
 
   const onRefresh = useCallback(() => {
+    if (isDemoMode) {
+      return;
+    }
+
     void Promise.allSettled([
       summaryQuery.refetch(),
       priorityQueueQuery.refetch(),
@@ -259,6 +347,7 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
     appointmentsQuery,
     communicationQuery,
     followUpTasksQuery,
+    isDemoMode,
     pendingAppointmentRequestsQuery,
     pendingInsightsQuery,
     patientsQuery,
@@ -269,34 +358,41 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   ]);
 
   const tasksDueTodayCount = useMemo(() => {
-    const today = new Date();
+    const today = demoMode.anchorIso ? new Date(demoMode.anchorIso) : new Date();
+    const followUpTasks = (
+      isDemoMode ? demoScenario?.dataset.followUpTasks : followUpTasksQuery.data
+    ) ?? [];
 
-    return (followUpTasksQuery.data ?? []).filter((item) => {
+    return followUpTasks.filter((item) => {
       if (!item.dueAt) {
         return false;
       }
 
       return isSameCalendarDay(new Date(item.dueAt), today);
     }).length;
-  }, [followUpTasksQuery.data]);
+  }, [
+    demoMode.anchorIso,
+    demoScenario?.dataset.followUpTasks,
+    followUpTasksQuery.data,
+    isDemoMode,
+  ]);
 
   const communicationNeedsResponseCount =
-    communicationQuery.data?.counts.needsResponseCount ??
-    summaryQuery.data?.messagesNeedingResponseCount ??
+    communicationOverviewData?.counts.needsResponseCount ??
+    summaryData?.messagesNeedingResponseCount ??
     null;
   const flaggedBySafetyCount =
-    communicationQuery.data?.counts.flaggedBySafetyCount ?? null;
+    communicationOverviewData?.counts.flaggedBySafetyCount ?? null;
   const pendingInsightsCount =
-    summaryQuery.data?.pendingInsightsCount ??
-    pendingInsightsQuery.data?.length ??
+    summaryData?.pendingInsightsCount ??
+    pendingInsightsData?.length ??
     null;
   const highPriorityInsightsCount =
-    pendingInsightsQuery.data?.filter((item) => item.priority >= 3).length ?? 0;
-  const pendingAppointmentRequestsCount =
-    pendingAppointmentRequestsQuery.data?.length ?? 0;
-  const availableSlotsCount = upcomingAvailableSlotsQuery.data?.length ?? 0;
-  const recentSafetyEventCount = safetyEventsQuery.data?.length ?? 0;
-  const nextOpenSlot = getNextAvailableSlot(upcomingAvailableSlotsQuery.data);
+    pendingInsightsData?.filter((item) => item.priority >= 3).length ?? 0;
+  const pendingAppointmentRequestsCount = appointmentRequestsData.length ?? 0;
+  const availableSlotsCount = availableSlotsData.length ?? 0;
+  const recentSafetyEventCount = safetyEventsData.length ?? 0;
+  const nextOpenSlot = getNextAvailableSlot(availableSlotsData);
   const nextOpenSlotLabel = nextOpenSlot
     ? formatDashboardTimeRange(nextOpenSlot.startsAt, nextOpenSlot.endsAt)
     : null;
@@ -318,51 +414,43 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   }, [availableSlotsCount, pendingAppointmentRequestsCount]);
 
   const updatedAtLabel = formatDashboardUpdatedLabel(
-    Math.max(
-      summaryQuery.dataUpdatedAt,
-      priorityQueueQuery.dataUpdatedAt,
-      safetyEventsQuery.dataUpdatedAt,
-      appointmentsQuery.dataUpdatedAt,
-      followUpTasksQuery.dataUpdatedAt,
-      communicationQuery.dataUpdatedAt,
-      upcomingAvailableSlotsQuery.dataUpdatedAt,
-      pendingAppointmentRequestsQuery.dataUpdatedAt,
-      pendingInsightsQuery.dataUpdatedAt,
-      patientsQuery.dataUpdatedAt,
-    ) || null,
+    updatedAtMs,
+    demoNowMs ?? undefined,
   );
 
   const statusBar = buildDashboardStatusBar({
     schedulingRangeLabel: schedulingRange.label,
-    priorityQueueCount: priorityQueueQuery.data?.length ?? 0,
-    leadKindLabel: buildLeadKindLabel(priorityQueueQuery.data ?? []),
+    priorityQueueCount: priorityQueueData.length,
+    leadKindLabel: buildLeadKindLabel(priorityQueueData),
+    demoIndicatorLabel: demoMode.indicatorLabel,
+    demoScenarioLabel: demoMode.scenarioLabel,
   });
 
   const attention = buildDashboardAttention({
-    openAlertsCount: summaryQuery.data?.openAlertsCount ?? 0,
+    openAlertsCount: summaryData?.openAlertsCount ?? 0,
     messagesNeedingResponseCount: communicationNeedsResponseCount ?? 0,
     tasksDueTodayCount,
-    missedCheckinsCount: summaryQuery.data?.missedCheckinsCount ?? 0,
+    missedCheckinsCount: summaryData?.missedCheckinsCount ?? 0,
     todayAppointmentsCount:
-      summaryQuery.data?.todayAppointmentsCount ??
-      appointmentsQuery.data?.length ??
+      summaryData?.todayAppointmentsCount ??
+      appointmentsData.length ??
       0,
     pendingInsightsCount: pendingInsightsCount ?? 0,
   });
 
   const summaryMetrics = buildDashboardSummaryStrip({
-    summary: summaryQuery.data ?? null,
+    summary: summaryData,
     messagesNeedingResponseCount: communicationNeedsResponseCount,
     openFollowUpTasksCount:
-      summaryQuery.data?.openFollowUpTasksCount ??
-      followUpTasksQuery.data?.length ??
+      summaryData?.openFollowUpTasksCount ??
+      followUpTasksData.length ??
       null,
     pendingInsightsCount,
     todayAppointmentsCount:
-      summaryQuery.data?.todayAppointmentsCount ??
-      appointmentsQuery.data?.length ??
+      summaryData?.todayAppointmentsCount ??
+      appointmentsData.length ??
       null,
-    assignedToMeAlertsCount: summaryQuery.data?.assignedToMeAlertsCount ?? null,
+    assignedToMeAlertsCount: summaryData?.assignedToMeAlertsCount ?? null,
     tasksDueTodayCount,
     highPriorityInsightsCount,
     pendingAppointmentRequestsCount,
@@ -370,16 +458,16 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   });
 
   const operationalLoadRows = buildDashboardOperationalLoad({
-    summary: summaryQuery.data ?? null,
+    summary: summaryData,
     messagesNeedingResponseCount: communicationNeedsResponseCount ?? 0,
     openFollowUpTasksCount:
-      summaryQuery.data?.openFollowUpTasksCount ??
-      followUpTasksQuery.data?.length ??
+      summaryData?.openFollowUpTasksCount ??
+      followUpTasksData.length ??
       0,
     pendingInsightsCount: pendingInsightsCount ?? 0,
     pendingAppointmentRequestsCount,
     availableSlotsCount,
-    missedCheckinsCount: summaryQuery.data?.missedCheckinsCount ?? 0,
+    missedCheckinsCount: summaryData?.missedCheckinsCount ?? 0,
     tasksDueTodayCount,
     highPriorityInsightsCount,
     recentSafetyEventCount,
@@ -387,76 +475,93 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   });
 
   const scheduleVm = buildDashboardSchedule({
-    appointments: appointmentsQuery.data ?? [],
+    appointments: appointmentsData,
     patientLabels: patientLabelMap,
     nextOpenSlotLabel,
     schedulingFootnote,
+    nowMs: demoNowMs ?? undefined,
   });
 
   const signalsVm = buildDashboardSignals({
-    safetyEvents: safetyEventsQuery.data ?? [],
-    communicationItems: communicationQuery.data?.items ?? [],
+    safetyEvents: safetyEventsData,
+    communicationItems: communicationOverviewData?.items ?? [],
     patientLabels: patientLabelMap,
+    nowMs: demoNowMs ?? undefined,
   });
 
   const dataContext = buildDashboardDataContext({
     updatedLabel: updatedAtLabel,
     schedulingRangeLabel: schedulingRange.label,
     priorityQueueSampleLabel: buildPriorityQueueSampleLabel(
-      priorityQueueQuery.data ?? [],
+      priorityQueueData,
       patientLabelMap,
     ),
     nextOpenSlotLabel,
+    demoSourceLabel:
+      isDemoMode && demoMode.scenarioLabel
+        ? `Synthetic presentation dataset · ${demoMode.scenarioLabel}`
+        : null,
   });
 
   const priorityQueuePressureNote = buildPriorityQueuePressureNote(
-    priorityQueueQuery.data ?? [],
+    priorityQueueData,
   );
 
-  const isRefreshing =
-    summaryQuery.isFetching ||
-    priorityQueueQuery.isFetching ||
-    safetyEventsQuery.isFetching ||
-    appointmentsQuery.isFetching ||
-    followUpTasksQuery.isFetching ||
-    communicationQuery.isFetching ||
-    upcomingAvailableSlotsQuery.isFetching ||
-    pendingAppointmentRequestsQuery.isFetching ||
-    pendingInsightsQuery.isFetching ||
-    patientsQuery.isFetching;
+  const isRefreshing = isDemoMode
+    ? false
+    : summaryQuery.isFetching ||
+      priorityQueueQuery.isFetching ||
+      safetyEventsQuery.isFetching ||
+      appointmentsQuery.isFetching ||
+      followUpTasksQuery.isFetching ||
+      communicationQuery.isFetching ||
+      upcomingAvailableSlotsQuery.isFetching ||
+      pendingAppointmentRequestsQuery.isFetching ||
+      pendingInsightsQuery.isFetching ||
+      patientsQuery.isFetching;
 
-  const summaryLoading = summaryQuery.isLoading && !summaryQuery.data;
-  const summaryError = Boolean(summaryQuery.error) && !summaryQuery.data;
-  const operationalLoading =
-    (summaryQuery.isLoading && !summaryQuery.data) ||
-    (communicationQuery.isLoading && !communicationQuery.data) ||
-    (followUpTasksQuery.isLoading && !followUpTasksQuery.data);
-  const operationalError =
-    Boolean(summaryQuery.error) &&
-    !summaryQuery.data &&
-    Boolean(communicationQuery.error) &&
-    !communicationQuery.data;
-  const scheduleLoading =
-    (appointmentsQuery.isLoading && !appointmentsQuery.data) ||
-    (pendingAppointmentRequestsQuery.isLoading &&
-      !pendingAppointmentRequestsQuery.data) ||
-    (upcomingAvailableSlotsQuery.isLoading &&
-      !upcomingAvailableSlotsQuery.data);
-  const scheduleError =
-    Boolean(appointmentsQuery.error) &&
-    !appointmentsQuery.data &&
-    Boolean(pendingAppointmentRequestsQuery.error) &&
-    !pendingAppointmentRequestsQuery.data &&
-    Boolean(upcomingAvailableSlotsQuery.error) &&
-    !upcomingAvailableSlotsQuery.data;
-  const signalsLoading =
-    (safetyEventsQuery.isLoading && !safetyEventsQuery.data) ||
-    (communicationQuery.isLoading && !communicationQuery.data);
-  const signalsError =
-    Boolean(safetyEventsQuery.error) &&
-    !safetyEventsQuery.data &&
-    Boolean(communicationQuery.error) &&
-    !communicationQuery.data;
+  const summaryLoading = isDemoMode
+    ? false
+    : summaryQuery.isLoading && !summaryQuery.data;
+  const summaryError = isDemoMode
+    ? false
+    : Boolean(summaryQuery.error) && !summaryQuery.data;
+  const operationalLoading = isDemoMode
+    ? false
+    : (summaryQuery.isLoading && !summaryQuery.data) ||
+      (communicationQuery.isLoading && !communicationQuery.data) ||
+      (followUpTasksQuery.isLoading && !followUpTasksQuery.data);
+  const operationalError = isDemoMode
+    ? false
+    : Boolean(summaryQuery.error) &&
+      !summaryQuery.data &&
+      Boolean(communicationQuery.error) &&
+      !communicationQuery.data;
+  const scheduleLoading = isDemoMode
+    ? false
+    : (appointmentsQuery.isLoading && !appointmentsQuery.data) ||
+      (pendingAppointmentRequestsQuery.isLoading &&
+        !pendingAppointmentRequestsQuery.data) ||
+      (upcomingAvailableSlotsQuery.isLoading &&
+        !upcomingAvailableSlotsQuery.data);
+  const scheduleError = isDemoMode
+    ? false
+    : Boolean(appointmentsQuery.error) &&
+      !appointmentsQuery.data &&
+      Boolean(pendingAppointmentRequestsQuery.error) &&
+      !pendingAppointmentRequestsQuery.data &&
+      Boolean(upcomingAvailableSlotsQuery.error) &&
+      !upcomingAvailableSlotsQuery.data;
+  const signalsLoading = isDemoMode
+    ? false
+    : (safetyEventsQuery.isLoading && !safetyEventsQuery.data) ||
+      (communicationQuery.isLoading && !communicationQuery.data);
+  const signalsError = isDemoMode
+    ? false
+    : Boolean(safetyEventsQuery.error) &&
+      !safetyEventsQuery.data &&
+      Boolean(communicationQuery.error) &&
+      !communicationQuery.data;
 
   return {
     statusBar,
@@ -486,5 +591,7 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
     navigateTo,
     openPatient,
     openThread,
+    guardPatientActions: isDemoMode,
+    guardThreadActions: isDemoMode,
   };
 }

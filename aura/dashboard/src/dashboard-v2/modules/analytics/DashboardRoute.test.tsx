@@ -297,12 +297,12 @@ function LocationEcho(): JSX.Element {
   );
 }
 
-function renderDashboardRoute(): void {
+function renderDashboardRoute(initialEntry: string = "/dashboard"): void {
   const queryClient = createQueryClient();
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/dashboard"]}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/dashboard" element={<DashboardRouteFacade />} />
           <Route path="/alerts" element={<LocationEcho />} />
@@ -340,6 +340,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
 });
 
 describe("DashboardRoute", () => {
@@ -567,5 +568,54 @@ describe("DashboardRoute", () => {
     expect(await screen.findByText("All caught up for today")).toBeVisible();
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
+  });
+
+  it("renders synthetic labeling and guards patient or thread actions in dashboard demo mode while keeping overview CTAs live", async () => {
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => createJsonResponse({ ok: true }));
+
+    renderDashboardRoute("/dashboard?dashboardDemo=communicationBacklogDay");
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(await screen.findByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
+      "Demo mode",
+    );
+    expect(screen.getByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
+      "Synthetic data",
+    );
+    expect(screen.getByText("Patient One")).toBeVisible();
+    expect(screen.getByText("Data source")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Synthetic presentation dataset · Communication backlog day",
+      ),
+    ).toBeVisible();
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const communicationItem = await screen.findByTestId(
+      "v2-dashboard-communication-item-demo-backlog-thread-1",
+    );
+    expect(
+      within(communicationItem).getByRole("button", { name: "Demo only" }),
+    ).toBeDisabled();
+    expect(
+      within(communicationItem).getByRole("button", { name: "Patient One" }),
+    ).toBeDisabled();
+
+    await userEvent.click(
+      within(screen.getByTestId("v2-dashboard-signals-section")).getByRole(
+        "button",
+        { name: "Open inbox" },
+      ),
+    );
+
+    expect(await screen.findByTestId("location-echo")).toHaveTextContent(
+      '"pathname":"/communication"',
+    );
+    expect(screen.getByTestId("location-echo")).not.toHaveTextContent(
+      '"search":"?patientId=p-demo-01"',
+    );
   });
 });

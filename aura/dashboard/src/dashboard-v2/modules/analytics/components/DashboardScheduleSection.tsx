@@ -24,6 +24,7 @@ interface DashboardScheduleSectionProps {
   onRefresh: () => void;
   onOpenSchedule: () => void;
   onOpenPatient: (patientId: string) => void;
+  guardPatientActions?: boolean;
 }
 
 export function DashboardScheduleSection({
@@ -39,6 +40,7 @@ export function DashboardScheduleSection({
   onRefresh,
   onOpenSchedule,
   onOpenPatient,
+  guardPatientActions = false,
 }: DashboardScheduleSectionProps): JSX.Element {
   const totalCapacityUnits = Math.max(
     pendingRequestCount + availableSlotsCount,
@@ -200,6 +202,7 @@ export function DashboardScheduleSection({
                         width: `${block.widthPercent}%`,
                       }}
                       title={block.detail}
+                      disabled={guardPatientActions}
                       onClick={() => onOpenPatient(block.patientId)}
                     >
                       <span className="v2-dashboard-schedule__block-label">
@@ -246,7 +249,17 @@ export function DashboardScheduleSection({
                         />
                         <button
                           type="button"
-                          className="v2-dashboard-link-button"
+                          className={`v2-dashboard-link-button${
+                            guardPatientActions
+                              ? " v2-dashboard-link-button--guarded"
+                              : ""
+                          }`}
+                          disabled={guardPatientActions}
+                          title={
+                            guardPatientActions
+                              ? "Synthetic demo patient. Downstream patient view is guarded in demo mode."
+                              : undefined
+                          }
                           onClick={() => onOpenPatient(item.patientId)}
                         >
                           {item.patientLabel}
@@ -278,9 +291,10 @@ export function DashboardScheduleSection({
                         tone="secondary"
                         size="sm"
                         className="v2-dashboard-row-button"
+                        isDisabled={guardPatientActions}
                         onPress={() => onOpenPatient(item.patientId)}
                       >
-                        Open patient
+                        {guardPatientActions ? "Demo only" : "Open patient"}
                       </DashboardV2Button>
                     </div>
                   </article>

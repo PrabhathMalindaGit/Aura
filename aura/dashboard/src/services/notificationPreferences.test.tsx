@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
@@ -167,7 +167,9 @@ describe('notificationPreferences helpers', () => {
     expect(screen.getByTestId('quiet-hours-active')).toHaveTextContent('off');
     expect(vi.getTimerCount()).toBeGreaterThan(0);
 
-    await vi.advanceTimersByTimeAsync(60_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
 
     expect(screen.getByTestId('quiet-hours-active')).toHaveTextContent('on');
     expect(screen.getByTestId('communication-cue-mode')).toHaveTextContent('reduced');

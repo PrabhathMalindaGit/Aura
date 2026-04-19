@@ -459,9 +459,13 @@ function buildInboundEvent(item: DashboardCommunicationOverviewItem): Communicat
   const patientId = normalizePatientId(item.patientId);
   const preview = normalizeText(item.messagePreview) || 'Patient communication is available for review.';
   const occurredAt = normalizeTimestamp(item.messageCreatedAt) ?? new Date(0).toISOString();
+  const reviewIdentity =
+    normalizeText(item.id) ||
+    toTrimmedString(item.messageId) ||
+    `${patientId || 'unknown'}:${occurredAt}`;
 
   return {
-    id: item.messageId?.trim() || item.id,
+    id: `patient-message:${reviewIdentity}`,
     kind: 'patient-message',
     patientId,
     occurredAt,
@@ -475,8 +479,10 @@ function buildInboundEvent(item: DashboardCommunicationOverviewItem): Communicat
 }
 
 function buildReplyEvent(reply: CommunicationLocalReply): CommunicationTimelineEvent {
+  const replyIdentity = getReplyMergeKey(reply);
+
   return {
-    id: reply.id,
+    id: `clinician-reply:${replyIdentity}`,
     kind: 'clinician-reply',
     patientId: reply.patientId,
     occurredAt: reply.createdAt,

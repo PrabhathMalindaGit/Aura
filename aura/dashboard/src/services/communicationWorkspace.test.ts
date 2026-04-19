@@ -11,9 +11,11 @@ import {
 } from './clinicianProfile';
 import {
   addCommunicationThreadReply,
+  deriveCommunicationThreads,
   getCommunicationWorkspaceStorageKey,
   readCommunicationWorkspaceLocalState,
 } from './communicationWorkspace';
+import type { DashboardCommunicationOverviewItem } from '../types/models';
 
 function toBase64Url(value: string): string {
   return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
@@ -151,5 +153,41 @@ describe('communicationWorkspace', () => {
         getCommunicationWorkspaceStorageKey(getClinicianCommunicationScopeKey()),
       ),
     ).toContain('New auth-scoped reply.');
+  });
+
+  it('uses stable unique timeline ids when multiple review rows reference the same message', () => {
+    const items: DashboardCommunicationOverviewItem[] = [
+      {
+        id: 'review-1',
+        patientId: 'patient-1',
+        patientName: 'Jordan Lee',
+        messageId: 'message-1',
+        needsResponse: true,
+        flaggedBySafety: true,
+        followUpRequested: false,
+        messageCreatedAt: '2026-03-09T10:00:00.000Z',
+        messagePreview: 'First review row for the same inbound message.',
+      },
+      {
+        id: 'review-2',
+        patientId: 'patient-1',
+        patientName: 'Jordan Lee',
+        messageId: 'message-1',
+        needsResponse: true,
+        flaggedBySafety: false,
+        followUpRequested: false,
+        messageCreatedAt: '2026-03-09T10:05:00.000Z',
+        messagePreview: 'Second review row still tied to that message.',
+      },
+    ];
+
+    const threads = deriveCommunicationThreads(items);
+    const timelineIds = threads[0]?.timeline.map((event) => event.id) ?? [];
+
+    expect(timelineIds).toEqual([
+      'patient-message:review-1',
+      'patient-message:review-2',
+    ]);
+    expect(new Set(timelineIds).size).toBe(timelineIds.length);
   });
 });

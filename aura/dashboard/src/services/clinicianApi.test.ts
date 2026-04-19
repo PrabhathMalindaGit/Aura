@@ -1,8 +1,14 @@
 /* @vitest-environment jsdom */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AlertItem } from '../types/models';
-import { deriveAlertTimeline } from './clinicianApi';
+import { createJsonResponse } from '../test/mocks';
+import {
+  deriveAlertTimeline,
+  listAppointmentRequests,
+  listAppointmentSlots,
+  listInsightsQueue,
+} from './clinicianApi';
 
 describe('deriveAlertTimeline', () => {
   it('includes expected audit events from alert fields', () => {
@@ -42,5 +48,41 @@ describe('deriveAlertTimeline', () => {
     );
 
     expect(events[0]?.type).toBe('ALERT_CREATED');
+  });
+});
+
+describe('clinicianApi list query limits', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('clamps dashboard list queries to the clinician route max of 100', async () => {
+    const requestUrls: URL[] = [];
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const requestUrl = input instanceof Request ? input.url : String(input);
+      requestUrls.push(new URL(requestUrl, 'http://localhost'));
+      return createJsonResponse({ ok: true, items: [] });
+    });
+
+    await Promise.all([
+      listAppointmentSlots({ status: 'available', limit: 200 }),
+      listAppointmentRequests({ status: 'pending', limit: 200 }),
+      listInsightsQueue('pending', 200),
+    ]);
+
+    const slotsUrl = requestUrls.find(
+      (url) => url.pathname === '/clinician/appointments/slots',
+    );
+    const requestsUrl = requestUrls.find(
+      (url) => url.pathname === '/clinician/appointments/requests',
+    );
+    const insightsUrl = requestUrls.find(
+      (url) => url.pathname === '/clinician/insights',
+    );
+
+    expect(slotsUrl?.searchParams.get('limit')).toBe('100');
+    expect(requestsUrl?.searchParams.get('limit')).toBe('100');
+    expect(insightsUrl?.searchParams.get('limit')).toBe('100');
   });
 });

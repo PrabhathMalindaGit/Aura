@@ -767,6 +767,19 @@ export async function createAppointmentSlot(payload: {
   return response.slot;
 }
 
+const CLINICIAN_QUERY_LIMIT_MAX = 100;
+
+function clampClinicianQueryLimit(limit: number | undefined): number | undefined {
+  if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+    return undefined;
+  }
+
+  return Math.min(
+    CLINICIAN_QUERY_LIMIT_MAX,
+    Math.max(1, Math.trunc(limit)),
+  );
+}
+
 export async function listAppointmentSlots(params: {
   from?: string;
   to?: string;
@@ -774,6 +787,7 @@ export async function listAppointmentSlots(params: {
   limit?: number;
 } = {}): Promise<AppointmentSlot[]> {
   const query = new URLSearchParams();
+  const limit = clampClinicianQueryLimit(params.limit);
   if (params.from) {
     query.set('from', params.from);
   }
@@ -783,8 +797,8 @@ export async function listAppointmentSlots(params: {
   if (params.status) {
     query.set('status', params.status);
   }
-  if (typeof params.limit === 'number' && Number.isFinite(params.limit)) {
-    query.set('limit', String(Math.max(1, Math.trunc(params.limit))));
+  if (typeof limit === 'number') {
+    query.set('limit', String(limit));
   }
 
   const suffix = query.size > 0 ? `?${query.toString()}` : '';
@@ -802,6 +816,7 @@ export async function listAppointmentRequests(params: {
   limit?: number;
 } = {}): Promise<AppointmentRequestItem[]> {
   const query = new URLSearchParams();
+  const limit = clampClinicianQueryLimit(params.limit);
   if (params.status) {
     query.set('status', params.status);
   }
@@ -811,8 +826,8 @@ export async function listAppointmentRequests(params: {
   if (params.to) {
     query.set('to', params.to);
   }
-  if (typeof params.limit === 'number' && Number.isFinite(params.limit)) {
-    query.set('limit', String(Math.max(1, Math.trunc(params.limit))));
+  if (typeof limit === 'number') {
+    query.set('limit', String(limit));
   }
 
   const suffix = query.size > 0 ? `?${query.toString()}` : '';
@@ -955,8 +970,9 @@ export async function listInsightsQueue(
 ): Promise<InsightItem[]> {
   const query = new URLSearchParams();
   query.set('status', status);
-  if (Number.isFinite(limit)) {
-    query.set('limit', String(Math.max(1, Math.trunc(limit))));
+  const clampedLimit = clampClinicianQueryLimit(limit);
+  if (typeof clampedLimit === 'number') {
+    query.set('limit', String(clampedLimit));
   }
   const response = await fetchJson<InsightsQueueResponse>(
     `/clinician/insights?${query.toString()}`,

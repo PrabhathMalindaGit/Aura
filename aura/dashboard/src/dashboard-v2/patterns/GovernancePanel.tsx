@@ -19,7 +19,7 @@ interface DashboardV2GovernancePanelProps {
 
 export function DashboardV2GovernancePanel({
   title = 'Governance and provenance',
-  description = 'Audit context, provenance labels, explanation controls, and responsibility boundaries will dock here as each route migrates.',
+  description = 'Audit context, provenance labels, explanation controls, and responsibility boundaries stay visible here without competing with the active workflow.',
   provenance = ['clinician-entered', 'patient-reported', 'device-captured', 'ai-suggested'],
   lastReviewedBy = null,
   lastReviewedAt = null,
@@ -64,10 +64,10 @@ export function DashboardV2GovernancePanel({
 
       <DashboardV2Disclosure
         title="Caution zone"
-        summary="AI-assisted outputs remain advisory until route-level evidence panels are migrated."
+        summary="AI-assisted outputs remain advisory unless the active route explicitly shows supported evidence."
       >
         <DashboardV2Text tone="muted">
-          V2 will keep source, evidence summary, limitations, update date, and validation context visible on actionable AI-assisted surfaces.
+          Source, evidence summary, limitations, update date, and validation context stay visible on actionable AI-assisted surfaces before they are treated as review support.
         </DashboardV2Text>
       </DashboardV2Disclosure>
     </div>

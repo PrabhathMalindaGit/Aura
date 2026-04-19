@@ -6,8 +6,8 @@ import type {
 import { DashboardV2Badge } from "../../../primitives/Badge";
 import { DashboardV2Button } from "../../../primitives/Button";
 import { DashboardV2Surface } from "../../../primitives/Surface";
+import { DashboardV2ClinicianPatientAnchor } from "../../../patterns/ClinicianPatientAnchor";
 import { DashboardV2Heading, DashboardV2Text } from "../../../primitives/Text";
-import { DashboardPatientAnchor } from "./DashboardPatientAnchor";
 
 interface DashboardSignalsSectionProps {
   safetyItems: DashboardSafetySignalVm[];
@@ -90,7 +90,7 @@ export function DashboardSignalsSection({
               <DashboardV2Heading as="h3">
                 Recent safety activity
               </DashboardV2Heading>
-              <DashboardV2Button tone="ghost" size="sm" onPress={onOpenAlerts}>
+              <DashboardV2Button tone="quiet" size="sm" onPress={onOpenAlerts}>
                 Open alerts
               </DashboardV2Button>
             </header>
@@ -106,7 +106,7 @@ export function DashboardSignalsSection({
                   >
                     <div className="v2-dashboard-signals__item-topline">
                       <div className="v2-dashboard-signals__patient">
-                        <DashboardPatientAnchor
+                        <DashboardV2ClinicianPatientAnchor
                           patientLabel={item.patientLabel}
                           tone={
                             item.statusTone === "critical"
@@ -154,7 +154,7 @@ export function DashboardSignalsSection({
                         {item.eventTimeLabel}
                       </DashboardV2Text>
                       <DashboardV2Button
-                        tone="secondary"
+                        tone="row"
                         size="sm"
                         className="v2-dashboard-row-button"
                         onPress={() => onOpenPatient(item.patientId)}
@@ -185,7 +185,7 @@ export function DashboardSignalsSection({
               <DashboardV2Heading as="h3">
                 Communication pressure
               </DashboardV2Heading>
-              <DashboardV2Button tone="ghost" size="sm" onPress={onOpenInbox}>
+              <DashboardV2Button tone="quiet" size="sm" onPress={onOpenInbox}>
                 Open inbox
               </DashboardV2Button>
             </header>
@@ -201,7 +201,7 @@ export function DashboardSignalsSection({
                   >
                     <div className="v2-dashboard-signals__item-topline">
                       <div className="v2-dashboard-signals__patient">
-                        <DashboardPatientAnchor
+                        <DashboardV2ClinicianPatientAnchor
                           patientLabel={item.patientLabel}
                           tone={communicationRowTone(item)}
                         />
@@ -252,7 +252,7 @@ export function DashboardSignalsSection({
                         {item.messageAgeLabel}
                       </DashboardV2Text>
                       <DashboardV2Button
-                        tone="secondary"
+                        tone="row"
                         size="sm"
                         className="v2-dashboard-row-button"
                         onPress={() => onOpenThread(item.patientId)}

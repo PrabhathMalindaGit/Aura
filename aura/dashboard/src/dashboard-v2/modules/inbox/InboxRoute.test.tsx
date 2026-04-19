@@ -276,7 +276,7 @@ describe('InboxRoute', () => {
     expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
     expect(screen.getByText('Local private draft')).toBeInTheDocument();
-    expect(screen.getByText('Shared coordination')).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { name: 'Team-visible context' }).length).toBeGreaterThan(0);
 
     await user.click(screen.getByTestId('v2-inbox-row-patient-2'));
 

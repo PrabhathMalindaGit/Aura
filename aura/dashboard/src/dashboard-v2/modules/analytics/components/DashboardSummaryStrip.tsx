@@ -1,8 +1,11 @@
 import { ArrowUpRight } from "lucide-react";
 import { DashboardModuleState } from "../../../../components/dashboard/DashboardModuleState";
 import type { DashboardSummaryMetricVm } from "../../../adapters/dashboard";
-import { DashboardV2Surface } from "../../../primitives/Surface";
-import { DashboardV2Heading, DashboardV2Text } from "../../../primitives/Text";
+import { DashboardV2Button } from "../../../primitives/Button";
+import {
+  DashboardV2ClinicianSummaryMetric,
+  DashboardV2ClinicianSummaryStrip,
+} from "../../../patterns/ClinicianSummaryStrip";
 import { DashboardDirectionalCue } from "./DashboardDirectionalCue";
 
 interface DashboardSummaryStripProps {
@@ -81,21 +84,12 @@ export function DashboardSummaryStrip({
   onOpenRoute,
 }: DashboardSummaryStripProps): JSX.Element {
   return (
-    <DashboardV2Surface
-      as="section"
+    <DashboardV2ClinicianSummaryStrip
+      eyebrow="Overview"
+      title="At a glance"
       className="v2-dashboard-summary-strip"
-      aria-labelledby="v2-dashboard-summary-strip-title"
       data-testid="v2-dashboard-summary-strip"
     >
-      <div className="v2-dashboard-summary-strip__header">
-        <div className="v2-dashboard-summary-strip__header-copy">
-          <DashboardV2Text tone="label">Overview</DashboardV2Text>
-          <DashboardV2Heading as="h2" id="v2-dashboard-summary-strip-title">
-            At a glance
-          </DashboardV2Heading>
-        </div>
-      </div>
-
       {loading ? (
         <DashboardModuleState
           mode="loading"
@@ -111,52 +105,47 @@ export function DashboardSummaryStrip({
           retrying={isRefreshing}
         />
       ) : (
-        <div className="v2-dashboard-summary-strip__grid">
+        <>
           {metrics.map((metric) => (
-            <button
+            <DashboardV2ClinicianSummaryMetric
               key={metric.key}
-              type="button"
               className={`v2-dashboard-summary-card v2-dashboard-summary-card--${metric.tone}`}
-              data-testid={`v2-dashboard-metric-${metric.key}`}
-              onClick={() => onOpenRoute(metric.path)}
-            >
-              <div className="v2-dashboard-summary-card__topline">
-                <div className="v2-dashboard-summary-card__label-stack">
-                  <DashboardV2Text tone="label">{metric.label}</DashboardV2Text>
-                </div>
-                <div className="v2-dashboard-summary-card__signal">
-                  <span className="v2-dashboard-summary-card__state">
-                    <span
-                      className={`v2-dashboard-summary-card__state-dot v2-dashboard-summary-card__state-dot--${metric.tone}`}
-                      aria-hidden="true"
-                    />
-                    <span>{summaryStateLabel(metric.tone)}</span>
-                  </span>
-                  <DashboardDirectionalCue
-                    tone={metric.tone}
-                    intensity={summaryCueLevel(metric)}
-                    label={`${metric.label} directional cue`}
-                    className="v2-dashboard-summary-card__cue"
+              label={metric.label}
+              value={metric.value}
+              detail={metric.detail}
+              tone={metric.tone === "critical" ? "critical" : metric.tone === "warning" ? "warning" : metric.tone === "success" ? "success" : "neutral"}
+              state={
+                <span className="v2-dashboard-summary-card__state">
+                  <span
+                    className={`v2-dashboard-summary-card__state-dot v2-dashboard-summary-card__state-dot--${metric.tone}`}
+                    aria-hidden="true"
                   />
-                </div>
-              </div>
-              <strong className="v2-dashboard-summary-card__value">
-                {metric.value}
-              </strong>
-              <DashboardV2Text
-                tone="muted"
-                className="v2-dashboard-summary-card__detail"
-              >
-                {metric.detail}
-              </DashboardV2Text>
-              <span className="v2-dashboard-summary-card__action">
-                <ArrowUpRight size={14} />
-                <span>{summaryActionLabel(metric.path)}</span>
-              </span>
-            </button>
+                  <span>{summaryStateLabel(metric.tone)}</span>
+                </span>
+              }
+              cue={
+                <DashboardDirectionalCue
+                  tone={metric.tone}
+                  intensity={summaryCueLevel(metric)}
+                  label={`${metric.label} directional cue`}
+                  className="v2-dashboard-summary-card__cue"
+                />
+              }
+              action={
+                <DashboardV2Button
+                  tone="row"
+                  size="sm"
+                  trailingIcon={<ArrowUpRight size={14} />}
+                  onPress={() => onOpenRoute(metric.path)}
+                >
+                  {summaryActionLabel(metric.path)}
+                </DashboardV2Button>
+              }
+              data-testid={`v2-dashboard-metric-${metric.key}`}
+            />
           ))}
-        </div>
+        </>
       )}
-    </DashboardV2Surface>
+    </DashboardV2ClinicianSummaryStrip>
   );
 }

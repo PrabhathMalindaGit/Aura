@@ -1,13 +1,20 @@
 import { AlertTriangle, Bot, ShieldCheck } from 'lucide-react';
 import type { DashboardV2MetadataItem } from '../../../patterns/MetadataList';
 import { DashboardV2MetadataList } from '../../../patterns/MetadataList';
+import {
+  DashboardV2ClinicianActionBar,
+} from '../../../patterns/ClinicianActionBar';
+import {
+  DashboardV2ClinicianSupportGroup,
+  DashboardV2ClinicianSupportRail,
+} from '../../../patterns/ClinicianSupportRail';
 import { DashboardV2ProvenanceBadge } from '../../../patterns/ProvenanceBadge';
 import type { InboxSupportVm } from '../../../adapters/communication';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Textarea } from '../../../primitives/Textarea';
-import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
+import { DashboardV2Text } from '../../../primitives/Text';
 
 interface SharedCoordinationRailProps {
   support: InboxSupportVm;
@@ -50,14 +57,13 @@ export function InboxSharedCoordinationSection({
   onOpenExplanation,
 }: SharedCoordinationRailProps): JSX.Element {
   return (
-    <DashboardV2Surface className="v2-inbox-support-card" tone="base">
-      <div className="v2-inbox-section-heading">
-        <DashboardV2Text tone="label">Shared coordination</DashboardV2Text>
-        <DashboardV2Heading as="h3">Team-visible context</DashboardV2Heading>
-        <DashboardV2Text tone="muted">
-          Shared coordination stays separate from the patient timeline and your local draft.
-        </DashboardV2Text>
-      </div>
+    <DashboardV2ClinicianSupportGroup
+      className="v2-inbox-support-card"
+      tone="base"
+      eyebrow="Shared coordination"
+      title="Team-visible context"
+      description="Shared coordination stays separate from the patient timeline and your local draft."
+    >
 
       <div className="v2-inbox-support-card__badges" aria-label="Provenance sources">
         {support.provenance.map((source) => (
@@ -68,25 +74,25 @@ export function InboxSharedCoordinationSection({
       <DashboardV2MetadataList items={toMetadataItems(support.governanceFacts)} />
 
       {support.responseStateNote ? (
-        <DashboardV2Badge tone="warning">{support.responseStateNote}</DashboardV2Badge>
+        <DashboardV2Badge tone="delayed">{support.responseStateNote}</DashboardV2Badge>
       ) : null}
       {support.thresholdContext ? (
-        <DashboardV2Badge tone="neutral">{support.thresholdContext}</DashboardV2Badge>
+        <DashboardV2Badge tone="support" size="sm">{support.thresholdContext}</DashboardV2Badge>
       ) : null}
 
-      <div className="v2-inbox-support-card__actions">
-        <DashboardV2Badge tone="info" icon={ShieldCheck}>
+      <DashboardV2ClinicianActionBar className="v2-inbox-support-card__actions">
+        <DashboardV2Badge tone="support" size="sm" icon={ShieldCheck}>
           Explicit responsibility boundaries
         </DashboardV2Badge>
         <DashboardV2Button
-          tone="secondary"
+          tone="quiet"
           size="sm"
           onPress={onOpenExplanation}
           leadingIcon={<Bot size={16} />}
         >
           Open explanation
         </DashboardV2Button>
-      </div>
+      </DashboardV2ClinicianActionBar>
 
       <div className="v2-inbox-support-snapshot">
         <DashboardV2Text tone="label">{support.sharedCoordination.statusEyebrow}</DashboardV2Text>
@@ -98,7 +104,7 @@ export function InboxSharedCoordinationSection({
       </div>
 
       <div className="v2-inbox-support-card__actions">
-        <DashboardV2Button tone="secondary" size="sm" onPress={onOpenStructuredCoordination}>
+        <DashboardV2Button tone="row" size="sm" onPress={onOpenStructuredCoordination}>
           Open structured coordination
         </DashboardV2Button>
       </div>
@@ -175,7 +181,7 @@ export function InboxSharedCoordinationSection({
           </div>
         </div>
       ) : null}
-    </DashboardV2Surface>
+    </DashboardV2ClinicianSupportGroup>
   );
 }
 
@@ -183,14 +189,13 @@ export function InboxWorkflowSection({ support }: WorkflowSectionProps): JSX.Ele
   const { linkedTask, latestActivity } = support.workflow;
 
   return (
-    <DashboardV2Surface className="v2-inbox-support-card" tone="base">
-      <div className="v2-inbox-section-heading">
-        <DashboardV2Text tone="label">Workflow context</DashboardV2Text>
-        <DashboardV2Heading as="h3">Linked workflow</DashboardV2Heading>
-        <DashboardV2Text tone="muted">
-          Read-only workflow references stay visible here without changing your local draft.
-        </DashboardV2Text>
-      </div>
+    <DashboardV2ClinicianSupportGroup
+      className="v2-inbox-support-card"
+      tone="base"
+      eyebrow="Workflow context"
+      title="Linked workflow"
+      description="Read-only workflow references stay visible here without changing your local draft."
+    >
 
       <div className="v2-inbox-support-snapshot">
         <DashboardV2Text tone="strong">{linkedTask.title}</DashboardV2Text>
@@ -220,7 +225,7 @@ export function InboxWorkflowSection({ support }: WorkflowSectionProps): JSX.Ele
           </>
         )}
       </div>
-    </DashboardV2Surface>
+    </DashboardV2ClinicianSupportGroup>
   );
 }
 
@@ -229,20 +234,21 @@ export function InboxReferenceSection({
   onOpenExplanation,
 }: ReferenceSectionProps): JSX.Element {
   return (
-    <DashboardV2Surface className="v2-inbox-support-card" tone="muted">
-      <div className="v2-inbox-section-heading">
-        <DashboardV2Text tone="label">Reference / help</DashboardV2Text>
-        <DashboardV2Heading as="h3">Thread boundaries</DashboardV2Heading>
-      </div>
+    <DashboardV2ClinicianSupportGroup
+      className="v2-inbox-support-card"
+      tone="muted"
+      eyebrow="Reference / help"
+      title="Thread boundaries"
+    >
       <DashboardV2Text>{support.reference.summary}</DashboardV2Text>
       <DashboardV2Text tone="muted">{support.reference.note}</DashboardV2Text>
       <DashboardV2Text tone="muted">{support.reference.caution}</DashboardV2Text>
       <div className="v2-inbox-support-card__actions">
-        <DashboardV2Button tone="secondary" size="sm" onPress={onOpenExplanation}>
+        <DashboardV2Button tone="quiet" size="sm" onPress={onOpenExplanation}>
           Review explanation
         </DashboardV2Button>
       </div>
-    </DashboardV2Surface>
+    </DashboardV2ClinicianSupportGroup>
   );
 }
 
@@ -250,10 +256,16 @@ export function SharedCoordinationRail(
   props: SharedCoordinationRailProps,
 ): JSX.Element {
   return (
-    <div className="v2-inbox-support-rail" data-testid="v2-inbox-support-rail">
+    <DashboardV2ClinicianSupportRail
+      className="v2-inbox-support-rail"
+      tone="muted"
+      eyebrow="Shared coordination"
+      title="Team-visible context"
+      data-testid="v2-inbox-support-rail"
+    >
       <InboxSharedCoordinationSection {...props} />
       <InboxWorkflowSection support={props.support} />
       <InboxReferenceSection support={props.support} onOpenExplanation={props.onOpenExplanation} />
-    </div>
+    </DashboardV2ClinicianSupportRail>
   );
 }

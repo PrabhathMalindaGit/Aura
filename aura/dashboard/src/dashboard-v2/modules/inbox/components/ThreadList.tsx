@@ -1,9 +1,10 @@
-import { AlertTriangle } from 'lucide-react';
 import type { InboxQueueRowVm } from '../../../adapters/communication';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
+import { DashboardV2ClinicianQueueRow } from '../../../patterns/ClinicianQueueRow';
+import { DashboardV2ClinicianQuietState } from '../../../patterns/ClinicianQuietState';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Button } from '../../../primitives/Button';
-import { DashboardV2Surface } from '../../../primitives/Surface';
-import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
+import { DashboardV2Text } from '../../../primitives/Text';
 
 interface ThreadListProps {
   rows: InboxQueueRowVm[];
@@ -44,30 +45,37 @@ export function ThreadList({
 
   if (statusTitle) {
     return (
-      <DashboardV2Surface className="v2-inbox-queue-pane__state" tone="muted">
-        <AlertTriangle size={18} />
-        <DashboardV2Heading as="h3">{statusTitle}</DashboardV2Heading>
-        {statusDescription ? <DashboardV2Text tone="muted">{statusDescription}</DashboardV2Text> : null}
-        {onRetry ? (
-          <DashboardV2Button tone="secondary" size="sm" onPress={onRetry}>
-            Retry
-          </DashboardV2Button>
-        ) : null}
-      </DashboardV2Surface>
+      <DashboardV2ClinicianQuietState
+        className="v2-inbox-queue-pane__state"
+        eyebrow="Queue status"
+        title={statusTitle}
+        description={statusDescription}
+        action={
+          onRetry ? (
+            <DashboardV2Button tone="secondary" size="sm" onPress={onRetry}>
+              Retry
+            </DashboardV2Button>
+          ) : undefined
+        }
+      />
     );
   }
 
   if (rows.length === 0) {
     return (
-      <DashboardV2Surface className="v2-inbox-queue-pane__state" tone="muted">
-        <DashboardV2Heading as="h3">{emptyTitle ?? 'No threads in this view'}</DashboardV2Heading>
-        {emptyDescription ? <DashboardV2Text tone="muted">{emptyDescription}</DashboardV2Text> : null}
-        {onEmptyAction && emptyActionLabel ? (
-          <DashboardV2Button tone="secondary" size="sm" onPress={onEmptyAction}>
-            {emptyActionLabel}
-          </DashboardV2Button>
-        ) : null}
-      </DashboardV2Surface>
+      <DashboardV2ClinicianQuietState
+        className="v2-inbox-queue-pane__state"
+        eyebrow="Message queue"
+        title={emptyTitle ?? 'No threads in this view'}
+        description={emptyDescription}
+        action={
+          onEmptyAction && emptyActionLabel ? (
+            <DashboardV2Button tone="secondary" size="sm" onPress={onEmptyAction}>
+              {emptyActionLabel}
+            </DashboardV2Button>
+          ) : undefined
+        }
+      />
     );
   }
 
@@ -75,19 +83,41 @@ export function ThreadList({
     <ul className="v2-inbox-thread-list" role="list" aria-label="Communication threads">
       {rows.map((row) => (
         <li key={row.key} className="v2-inbox-thread-list__item">
-          <button
-            type="button"
+          <DashboardV2ClinicianQueueRow
             className={`v2-inbox-thread-row v2-inbox-thread-row--${row.responseTone}${
               selectedKey === row.key ? ' v2-inbox-thread-row--selected' : ''
             }`}
-            aria-pressed={selectedKey === row.key}
-            data-testid={`v2-inbox-row-${row.patientId ?? row.key}`}
-            onClick={() => onSelect(row.key)}
+            tone={
+              row.responseTone === 'critical'
+                ? 'critical'
+                : row.responseTone === 'warning'
+                  ? 'warning'
+                  : row.responseTone === 'success'
+                    ? 'success'
+                    : 'neutral'
+            }
+            selected={selectedKey === row.key}
+            onPress={() => onSelect(row.key)}
+            testId={`v2-inbox-row-${row.patientId ?? row.key}`}
           >
             <div className="v2-inbox-thread-row__topline">
               <div className="v2-inbox-thread-row__identity">
+                <DashboardV2ClinicianPatientAnchor
+                  patientLabel={row.patientName}
+                  tone={
+                    row.responseTone === 'critical'
+                      ? 'critical'
+                      : row.responseTone === 'warning'
+                        ? 'warning'
+                        : row.responseTone === 'success'
+                          ? 'success'
+                          : 'neutral'
+                  }
+                />
                 <strong className="v2-inbox-thread-row__name">{row.patientName}</strong>
-                <DashboardV2Badge tone={row.responseTone}>{row.responseLabel}</DashboardV2Badge>
+                <DashboardV2Badge tone={row.responseTone === 'critical' ? 'safety' : row.responseTone === 'warning' ? 'delayed' : row.responseTone === 'success' ? 'clear' : 'private'}>
+                  {row.responseLabel}
+                </DashboardV2Badge>
               </div>
               <span
                 className="v2-inbox-thread-row__time"
@@ -103,13 +133,26 @@ export function ThreadList({
             {row.supportingBadges.length > 0 ? (
               <div className="v2-inbox-thread-row__supporting">
                 {row.supportingBadges.map((badge) => (
-                  <DashboardV2Badge key={`${row.key}-${badge.label}`} tone={badge.tone}>
+                  <DashboardV2Badge
+                    key={`${row.key}-${badge.label}`}
+                    tone={
+                      badge.tone === 'critical'
+                        ? 'safety'
+                        : badge.tone === 'warning'
+                          ? 'delayed'
+                          : badge.tone === 'info'
+                            ? 'info'
+                            : badge.tone === 'success'
+                              ? 'clear'
+                              : 'private'
+                    }
+                  >
                     {badge.label}
                   </DashboardV2Badge>
                 ))}
               </div>
             ) : null}
-          </button>
+          </DashboardV2ClinicianQueueRow>
         </li>
       ))}
     </ul>

@@ -5,6 +5,8 @@ import {
   type TriageQueueRowVm,
   type TriageSignalChipVm,
 } from '../../../adapters/worklist';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
+import { DashboardV2ClinicianQueueRow } from '../../../patterns/ClinicianQueueRow';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Text } from '../../../primitives/Text';
 
@@ -16,23 +18,23 @@ interface QueueListProps {
 
 function mapStatusTone(tone: TriageQueueRowVm['statusTone']): React.ComponentProps<typeof DashboardV2Badge>['tone'] {
   if (tone === 'success') {
-    return 'success';
+    return 'clear';
   }
 
   if (tone === 'warning') {
-    return 'warning';
+    return 'priority';
   }
 
-  return 'neutral';
+  return 'private';
 }
 
 function mapSignalChipTone(chip: TriageSignalChipVm): React.ComponentProps<typeof DashboardV2Badge>['tone'] {
   if (chip.tone === 'critical') {
-    return 'critical';
+    return 'safety';
   }
 
   if (chip.tone === 'warning') {
-    return 'warning';
+    return 'delayed';
   }
 
   if (chip.tone === 'info') {
@@ -72,16 +74,14 @@ export function QueueList({
 
         return (
           <li key={row.key} className="triage-queue-list__item">
-            <button
-              type="button"
-              data-row-index={index}
-              data-testid={`triage-queue-row-${rowTestId}`}
+            <DashboardV2ClinicianQueueRow
               className={cn(
                 'triage-queue-row',
                 `triage-queue-row--${rowTone}`,
-                isSelected && 'triage-queue-row--selected',
               )}
-              onClick={() => onSelect(row.key)}
+              tone={rowTone === 'critical' ? 'critical' : rowTone === 'warning' ? 'warning' : 'neutral'}
+              selected={isSelected}
+              onPress={() => onSelect(row.key)}
               onKeyDown={(event) => {
                 if (event.key === 'ArrowDown') {
                   moveFocus(event, 'next');
@@ -92,17 +92,22 @@ export function QueueList({
                   moveFocus(event, 'prev');
                 }
               }}
-              aria-current={isSelected ? 'true' : undefined}
-              aria-describedby={`triage-queue-row-freshness-${row.key}`}
+              describedBy={`triage-queue-row-freshness-${row.key}`}
+              rowIndex={index}
+              testId={`triage-queue-row-${rowTestId}`}
             >
               <div className="triage-queue-row__topline">
                 <div className="triage-queue-row__identity">
+                  <DashboardV2ClinicianPatientAnchor
+                    patientLabel={row.patientName}
+                    tone={rowTone === 'critical' ? 'critical' : rowTone === 'warning' ? 'warning' : 'neutral'}
+                  />
                   <strong className="triage-queue-row__name">{row.patientName}</strong>
                   <DashboardV2Badge tone={mapStatusTone(row.statusTone)}>
                     {row.statusLabel}
                   </DashboardV2Badge>
                 </div>
-                <DashboardV2Badge tone={row.priorityTone}>
+                <DashboardV2Badge tone={row.priorityTone === 'critical' ? 'safety' : 'priority'}>
                   {row.priorityLabel}
                 </DashboardV2Badge>
               </div>
@@ -136,7 +141,7 @@ export function QueueList({
               >
                 {row.freshnessLine}
               </p>
-            </button>
+            </DashboardV2ClinicianQueueRow>
           </li>
         );
       })}

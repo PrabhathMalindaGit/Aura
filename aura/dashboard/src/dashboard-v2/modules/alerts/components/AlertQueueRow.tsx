@@ -1,4 +1,6 @@
 import type { AlertQueueRowVm, AlertsBadgeTone } from '../../../adapters/alerts';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
+import { DashboardV2ClinicianQueueRow } from '../../../patterns/ClinicianQueueRow';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Text } from '../../../primitives/Text';
 
@@ -11,15 +13,15 @@ interface AlertQueueRowProps {
 
 function mapBadgeTone(tone: AlertsBadgeTone): React.ComponentProps<typeof DashboardV2Badge>['tone'] {
   if (tone === 'critical') {
-    return 'critical';
+    return 'safety';
   }
 
   if (tone === 'warning') {
-    return 'warning';
+    return 'delayed';
   }
 
   if (tone === 'success') {
-    return 'success';
+    return 'clear';
   }
 
   if (tone === 'info') {
@@ -36,21 +38,40 @@ export function AlertQueueRow({
   onSelect,
 }: AlertQueueRowProps): JSX.Element {
   return (
-    <button
-      type="button"
+    <DashboardV2ClinicianQueueRow
       className={[
         'v2-alert-row',
         `v2-alert-row--${row.severityTone}`,
-        selected ? 'v2-alert-row--selected' : null,
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-pressed={selected}
-      onClick={onSelect}
-      data-testid={`v2-alert-row-${row.alertId}`}
+      tone={
+        row.severityTone === 'critical'
+          ? 'critical'
+          : row.severityTone === 'warning'
+            ? 'warning'
+            : row.severityTone === 'success'
+              ? 'success'
+              : 'neutral'
+      }
+      selected={selected}
+      onPress={onSelect}
+      testId={`v2-alert-row-${row.alertId}`}
     >
       <div className="v2-alert-row__topline">
         <div className="v2-alert-row__identity">
+          <DashboardV2ClinicianPatientAnchor
+            patientLabel={row.patientName}
+            tone={
+              row.severityTone === 'critical'
+                ? 'critical'
+                : row.severityTone === 'warning'
+                  ? 'warning'
+                  : row.severityTone === 'success'
+                    ? 'success'
+                    : 'neutral'
+            }
+          />
           <DashboardV2Text tone="label">{row.patientId}</DashboardV2Text>
           <DashboardV2Text as="span" tone="caption">{row.sourceLabel}</DashboardV2Text>
         </div>
@@ -88,6 +109,6 @@ export function AlertQueueRow({
           ))}
         </div>
       ) : null}
-    </button>
+    </DashboardV2ClinicianQueueRow>
   );
 }

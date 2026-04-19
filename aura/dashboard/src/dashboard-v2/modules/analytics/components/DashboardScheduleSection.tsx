@@ -8,8 +8,8 @@ import { DashboardV2ChartFrame } from "../../../charts/ChartFrame";
 import { DashboardV2Badge } from "../../../primitives/Badge";
 import { DashboardV2Button } from "../../../primitives/Button";
 import { DashboardV2Disclosure } from "../../../primitives/Disclosure";
+import { DashboardV2ClinicianPatientAnchor } from "../../../patterns/ClinicianPatientAnchor";
 import { DashboardV2Text } from "../../../primitives/Text";
-import { DashboardPatientAnchor } from "./DashboardPatientAnchor";
 
 interface DashboardScheduleSectionProps {
   timeline: DashboardScheduleTimelineBlockVm[];
@@ -229,7 +229,7 @@ export function DashboardScheduleSection({
                   >
                     <div className="v2-dashboard-schedule__item-topline">
                       <div className="v2-dashboard-schedule__patient">
-                        <DashboardPatientAnchor
+                        <DashboardV2ClinicianPatientAnchor
                           patientLabel={item.patientLabel}
                           tone={
                             item.statusTone === "critical"

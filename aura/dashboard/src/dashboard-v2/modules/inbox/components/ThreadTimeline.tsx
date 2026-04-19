@@ -1,7 +1,11 @@
 import type { InboxTimelineItemVm } from '../../../adapters/communication';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
+import {
+  DashboardV2ClinicianTimeline,
+  DashboardV2ClinicianTimelineRow,
+} from '../../../patterns/ClinicianTimeline';
 import { DashboardV2Badge } from '../../../primitives/Badge';
-import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
-import { DashboardV2Surface } from '../../../primitives/Surface';
+import { DashboardV2Text } from '../../../primitives/Text';
 
 interface ThreadTimelineProps {
   items: InboxTimelineItemVm[];
@@ -9,48 +13,49 @@ interface ThreadTimelineProps {
 
 export function ThreadTimeline({ items }: ThreadTimelineProps): JSX.Element {
   return (
-    <DashboardV2Surface className="v2-inbox-timeline" tone="elevated">
-      <div className="v2-inbox-section-heading">
-        <DashboardV2Text tone="label">Main review lane</DashboardV2Text>
-        <DashboardV2Heading as="h3">Timeline</DashboardV2Heading>
-      </div>
-
-      <div className="v2-inbox-timeline__list" role="list" aria-label="Patient communication timeline">
+    <DashboardV2ClinicianTimeline
+      className="v2-inbox-timeline"
+      eyebrow="Main review lane"
+      title="Timeline"
+    >
+      <div aria-label="Patient communication timeline">
         {items.map((item) => (
-          <article
+          <DashboardV2ClinicianTimelineRow
             key={item.id}
             className={`v2-inbox-timeline__event v2-inbox-timeline__event--${item.role}${
               item.continuation ? ' v2-inbox-timeline__event--continuation' : ''
             }`}
-            role="listitem"
-          >
-            <div className="v2-inbox-timeline__event-head">
-              <div className="v2-inbox-timeline__event-copy">
-                <strong>{item.speakerLabel}</strong>
-                {item.speakerSecondaryLabel ? (
-                  <DashboardV2Text tone="muted">{item.speakerSecondaryLabel}</DashboardV2Text>
-                ) : null}
-                <div className="v2-inbox-timeline__event-meta">
-                  <span title={item.occurredAtTitle}>{item.occurredAtLabel}</span>
-                  {item.metaNote ? <span>{item.metaNote}</span> : null}
-                </div>
-              </div>
-
-              {item.badges.length > 0 ? (
-                <div className="v2-inbox-timeline__event-badges">
-                  {item.badges.map((badge) => (
-                    <DashboardV2Badge key={`${item.id}-${badge.label}`} tone={badge.tone}>
+            tone={item.role === 'patient' ? 'patient' : item.role === 'clinician' ? 'clinician' : 'system'}
+            continuation={item.continuation}
+            marker={
+              item.role === 'patient' ? (
+                <DashboardV2ClinicianPatientAnchor patientLabel={item.speakerLabel} tone="neutral" />
+              ) : (
+                <span className="v2-inbox-timeline__marker-label">{item.role[0]?.toUpperCase() ?? 'S'}</span>
+              )
+            }
+            title={item.speakerLabel}
+            meta={
+              <>
+                {item.speakerSecondaryLabel ? <span>{item.speakerSecondaryLabel}</span> : null}
+                <span title={item.occurredAtTitle}>{item.occurredAtLabel}</span>
+                {item.metaNote ? <span>{item.metaNote}</span> : null}
+              </>
+            }
+            badges={
+              item.badges.length > 0
+                ? item.badges.map((badge) => (
+                    <DashboardV2Badge key={`${item.id}-${badge.label}`} tone={badge.tone === 'critical' ? 'safety' : badge.tone === 'warning' ? 'delayed' : badge.tone === 'patient' ? 'shared' : badge.tone === 'clinician' ? 'private' : badge.tone}>
                       {badge.label}
                     </DashboardV2Badge>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
+                  ))
+                : undefined
+            }
+          >
             <DashboardV2Text>{item.preview}</DashboardV2Text>
-          </article>
+          </DashboardV2ClinicianTimelineRow>
         ))}
       </div>
-    </DashboardV2Surface>
+    </DashboardV2ClinicianTimeline>
   );
 }

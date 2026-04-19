@@ -12,7 +12,7 @@ interface DashboardV2ExplanationDrawerProps {
 export function DashboardV2ExplanationDrawer({
   open,
   onOpenChange,
-  title = 'AI explanation drawer',
+  title = 'Explanation',
   children,
 }: DashboardV2ExplanationDrawerProps): JSX.Element {
   return (
@@ -20,11 +20,11 @@ export function DashboardV2ExplanationDrawer({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      description="Evidence summaries, logic notes, and cautionary metadata will appear here as routes migrate into v2."
+      description="Supporting evidence notes, review boundaries, and cautionary context appear here when the active route needs more explanation."
     >
       {children ?? (
         <DashboardV2Text tone="muted">
-          Phase 1 provides the drawer scaffold only. Route-level explanation content remains unchanged until the operational surfaces migrate.
+          Additional route explanation is available here when a workflow needs more detail than the default operational view should show.
         </DashboardV2Text>
       )}
     </DashboardV2Drawer>

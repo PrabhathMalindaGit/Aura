@@ -1,6 +1,7 @@
-import { AlertTriangle, RefreshCcw } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 import type { WorklistFilters as WorklistFiltersState } from '../../../../utils/worklist';
 import type { TriageQueueRowVm } from '../../../adapters/worklist';
+import { DashboardV2ClinicianQuietState } from '../../../patterns/ClinicianQuietState';
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
@@ -99,31 +100,38 @@ export function QueuePane({
             <div className="triage-skeleton triage-skeleton--row" />
           </div>
         ) : statusTitle ? (
-          <DashboardV2Surface className="triage-queue-pane__empty" tone="muted">
-            <AlertTriangle size={18} />
-            <DashboardV2Heading as="h3">{statusTitle}</DashboardV2Heading>
-            {statusDescription ? <DashboardV2Text tone="muted">{statusDescription}</DashboardV2Text> : null}
-            {onRetry ? (
-              <DashboardV2Button
-                tone="secondary"
-                size="sm"
-                onPress={onRetry}
-                leadingIcon={<RefreshCcw size={16} />}
-              >
-                Retry
-              </DashboardV2Button>
-            ) : null}
-          </DashboardV2Surface>
+          <DashboardV2ClinicianQuietState
+            className="triage-queue-pane__empty"
+            eyebrow="Queue status"
+            title={statusTitle}
+            description={statusDescription}
+            action={
+              onRetry ? (
+                <DashboardV2Button
+                  tone="secondary"
+                  size="sm"
+                  onPress={onRetry}
+                  leadingIcon={<RefreshCcw size={16} />}
+                >
+                  Retry
+                </DashboardV2Button>
+              ) : undefined
+            }
+          />
         ) : rows.length === 0 ? (
-          <DashboardV2Surface className="triage-queue-pane__empty" tone="muted">
-            <DashboardV2Heading as="h3">{emptyTitle ?? 'No patients in this view'}</DashboardV2Heading>
-            {emptyDescription ? <DashboardV2Text tone="muted">{emptyDescription}</DashboardV2Text> : null}
-            {onEmptyAction && emptyActionLabel ? (
-              <DashboardV2Button tone="secondary" size="sm" onPress={onEmptyAction}>
-                {emptyActionLabel}
-              </DashboardV2Button>
-            ) : null}
-          </DashboardV2Surface>
+          <DashboardV2ClinicianQuietState
+            className="triage-queue-pane__empty"
+            eyebrow="Review lane"
+            title={emptyTitle ?? 'No patients in this view'}
+            description={emptyDescription}
+            action={
+              onEmptyAction && emptyActionLabel ? (
+                <DashboardV2Button tone="secondary" size="sm" onPress={onEmptyAction}>
+                  {emptyActionLabel}
+                </DashboardV2Button>
+              ) : undefined
+            }
+          />
         ) : (
           <QueueList rows={rows} selectedKey={selectedKey} onSelect={onSelect} />
         )}

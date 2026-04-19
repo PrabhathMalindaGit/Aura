@@ -5,7 +5,14 @@ import {
 import type { ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
-type ButtonTone = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonTone =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'quiet'
+  | 'row'
+  | 'caution'
+  | 'danger';
 type ButtonSize = 'sm' | 'md';
 
 export interface DashboardV2ButtonProps extends AriaButtonProps {
@@ -13,6 +20,7 @@ export interface DashboardV2ButtonProps extends AriaButtonProps {
   size?: ButtonSize;
   fullWidth?: boolean;
   leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
 }
 
 export function DashboardV2Button({
@@ -22,6 +30,7 @@ export function DashboardV2Button({
   size = 'md',
   fullWidth = false,
   leadingIcon,
+  trailingIcon,
   ...props
 }: DashboardV2ButtonProps): JSX.Element {
   return (
@@ -37,6 +46,7 @@ export function DashboardV2Button({
     >
       {leadingIcon ? <span className="v2-button__icon">{leadingIcon}</span> : null}
       <span className="v2-button__label">{children}</span>
+      {trailingIcon ? <span className="v2-button__icon">{trailingIcon}</span> : null}
     </AriaButton>
   );
 }

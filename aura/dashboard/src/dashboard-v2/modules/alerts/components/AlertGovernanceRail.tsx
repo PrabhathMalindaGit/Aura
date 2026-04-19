@@ -1,7 +1,10 @@
 import type { AlertGovernanceVm } from '../../../adapters/alerts';
+import {
+  DashboardV2ClinicianSupportGroup,
+  DashboardV2ClinicianSupportRail,
+} from '../../../patterns/ClinicianSupportRail';
 import { DashboardV2Button } from '../../../primitives/Button';
-import { DashboardV2Surface } from '../../../primitives/Surface';
-import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
+import { DashboardV2Text } from '../../../primitives/Text';
 
 interface AlertGovernanceRailProps {
   governance: AlertGovernanceVm | null;
@@ -22,11 +25,7 @@ function AlertFactSection({
   footer,
 }: AlertFactSectionProps): JSX.Element {
   return (
-    <DashboardV2Surface className="v2-alert-governance-rail__card" tone="muted">
-      <div className="v2-alert-governance-rail__card-header">
-        <DashboardV2Text tone="label">{title}</DashboardV2Text>
-        {subtitle ? <DashboardV2Text tone="muted">{subtitle}</DashboardV2Text> : null}
-      </div>
+    <DashboardV2ClinicianSupportGroup className="v2-alert-governance-rail__card" tone="base" title={title} description={subtitle}>
       <dl className="v2-alert-governance-rail__facts">
         {facts.map((fact) => (
           <div key={`${title}-${fact.label}`} className="v2-alert-governance-rail__fact">
@@ -36,7 +35,7 @@ function AlertFactSection({
         ))}
       </dl>
       {footer}
-    </DashboardV2Surface>
+    </DashboardV2ClinicianSupportGroup>
   );
 }
 
@@ -84,7 +83,7 @@ export function AlertGovernanceMetadataSection({
         footer={
           onOpenExplanation ? (
             <div className="v2-alert-governance-rail__footer">
-              <DashboardV2Button tone="ghost" size="sm" onPress={onOpenExplanation}>
+              <DashboardV2Button tone="quiet" size="sm" onPress={onOpenExplanation}>
                 Open explanation
               </DashboardV2Button>
             </div>
@@ -101,33 +100,29 @@ export function AlertGovernanceRail({
 }: AlertGovernanceRailProps): JSX.Element {
   if (!governance) {
     return (
-      <DashboardV2Surface className="v2-alert-governance-rail" tone="muted">
-        <DashboardV2Heading as="h2">Governance context</DashboardV2Heading>
+      <DashboardV2ClinicianSupportRail className="v2-alert-governance-rail" tone="muted" title="Governance context">
         <DashboardV2Text tone="muted">
           Patient summary, provenance, threshold basis, and workflow context appear here after an alert is selected.
         </DashboardV2Text>
-      </DashboardV2Surface>
+      </DashboardV2ClinicianSupportRail>
     );
   }
 
   return (
-    <div className="v2-alert-governance-rail" data-testid="v2-alert-governance-rail">
-      <DashboardV2Surface className="v2-alert-governance-rail__intro" tone="elevated">
-        <DashboardV2Text tone="label">Governance context</DashboardV2Text>
-        <DashboardV2Heading as="h2">Support the current alert review</DashboardV2Heading>
-        <DashboardV2Text tone="muted">
-          This rail intentionally stays secondary to the active alert workspace. Unsupported ownership and provenance claims remain omitted.
-        </DashboardV2Text>
-      </DashboardV2Surface>
-
-      <div className="v2-alert-governance-rail__stack">
-        <AlertPatientContextSection governance={governance} />
-        <AlertWorkflowSection governance={governance} />
-        <AlertGovernanceMetadataSection
-          governance={governance}
-          onOpenExplanation={onOpenExplanation}
-        />
-      </div>
-    </div>
+    <DashboardV2ClinicianSupportRail
+      className="v2-alert-governance-rail"
+      tone="muted"
+      eyebrow="Governance context"
+      title="Support the current alert review"
+      description="This rail stays secondary to the active alert workspace and keeps provenance claims conservative."
+      data-testid="v2-alert-governance-rail"
+    >
+      <AlertPatientContextSection governance={governance} />
+      <AlertWorkflowSection governance={governance} />
+      <AlertGovernanceMetadataSection
+        governance={governance}
+        onOpenExplanation={onOpenExplanation}
+      />
+    </DashboardV2ClinicianSupportRail>
   );
 }

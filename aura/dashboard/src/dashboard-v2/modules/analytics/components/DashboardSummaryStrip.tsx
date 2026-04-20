@@ -116,8 +116,9 @@ export function DashboardSummaryStrip({
               )}
 
               <DashboardV2Button
-                tone="row"
+                tone="quiet"
                 size="sm"
+                className="v2-dashboard-summary-card__cta"
                 trailingIcon={<ArrowUpRight size={14} />}
                 onPress={() => onOpenRoute(metric.path)}
               >

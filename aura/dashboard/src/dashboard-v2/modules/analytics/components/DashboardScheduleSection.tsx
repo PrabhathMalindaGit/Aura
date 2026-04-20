@@ -74,7 +74,12 @@ export function DashboardScheduleSection({
             Keep schedule pressure in view without leaving the page.
           </DashboardV2Text>
         </div>
-        <DashboardV2Button tone="secondary" size="sm" onPress={onOpenSchedule}>
+        <DashboardV2Button
+          tone="quiet"
+          size="sm"
+          className="v2-dashboard-schedule__open-button"
+          onPress={onOpenSchedule}
+        >
           Open schedule
         </DashboardV2Button>
       </header>

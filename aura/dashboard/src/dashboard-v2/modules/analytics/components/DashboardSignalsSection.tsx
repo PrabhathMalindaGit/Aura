@@ -92,7 +92,12 @@ export function DashboardSignalsSection({
             <DashboardV2Text tone="label">Recent safety activity</DashboardV2Text>
             <DashboardV2Heading as="h2">What changed most recently</DashboardV2Heading>
           </div>
-          <DashboardV2Button tone="quiet" size="sm" onPress={onOpenAlerts}>
+          <DashboardV2Button
+            tone="quiet"
+            size="sm"
+            className="v2-dashboard-signals__header-action"
+            onPress={onOpenAlerts}
+          >
             Open alerts
           </DashboardV2Button>
         </header>
@@ -161,9 +166,9 @@ export function DashboardSignalsSection({
                     {item.statusLabel}
                   </DashboardV2Badge>
                   <DashboardV2Button
-                    tone="row"
+                    tone="quiet"
                     size="sm"
-                    className="v2-dashboard-row-button"
+                    className="v2-dashboard-row-button v2-dashboard-signals__action"
                     isDisabled={guardPatientActions}
                     onPress={() => onOpenPatient(item.patientId)}
                   >
@@ -192,7 +197,12 @@ export function DashboardSignalsSection({
             <DashboardV2Text tone="label">Communication pressure</DashboardV2Text>
             <DashboardV2Heading as="h2">Threads that need a response next</DashboardV2Heading>
           </div>
-          <DashboardV2Button tone="quiet" size="sm" onPress={onOpenInbox}>
+          <DashboardV2Button
+            tone="quiet"
+            size="sm"
+            className="v2-dashboard-signals__header-action"
+            onPress={onOpenInbox}
+          >
             Open inbox
           </DashboardV2Button>
         </header>
@@ -269,9 +279,9 @@ export function DashboardSignalsSection({
                     ))}
                   </div>
                   <DashboardV2Button
-                    tone="row"
+                    tone="quiet"
                     size="sm"
-                    className="v2-dashboard-row-button"
+                    className="v2-dashboard-row-button v2-dashboard-signals__action"
                     isDisabled={guardThreadActions}
                     onPress={() => onOpenThread(item.patientId)}
                   >

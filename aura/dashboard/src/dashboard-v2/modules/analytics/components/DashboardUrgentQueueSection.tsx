@@ -139,7 +139,7 @@ export function DashboardUrgentQueueSection({
                 <DashboardV2Button
                   tone="row"
                   size="sm"
-                  className="v2-dashboard-row-button"
+                  className="v2-dashboard-row-button v2-dashboard-urgent-queue__action"
                   trailingIcon={<ArrowUpRight size={14} />}
                   isDisabled={actionGuarded}
                   onPress={() =>

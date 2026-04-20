@@ -60,6 +60,7 @@ export function DashboardAttentionPanel({
 
           <div className="v2-dashboard-attention__actions">
             <DashboardV2Button
+              className="v2-dashboard-attention__cta"
               onPress={() => onOpenRoute(attention.actionPath)}
               leadingIcon={<ArrowRight size={16} />}
             >

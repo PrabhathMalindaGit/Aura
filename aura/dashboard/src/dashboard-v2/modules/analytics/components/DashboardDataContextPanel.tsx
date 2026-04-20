@@ -20,7 +20,12 @@ export function DashboardDataContextPanel({
       <div className="v2-dashboard-data-context__summary">
         <div className="v2-dashboard-data-context__copy">
           <DashboardV2Text tone="label">Freshness &amp; trust</DashboardV2Text>
-          <DashboardV2Text tone="muted">{dataContext.sourceNote}</DashboardV2Text>
+          <DashboardV2Text
+            tone="muted"
+            className="v2-dashboard-data-context__source-note"
+          >
+            {dataContext.sourceNote}
+          </DashboardV2Text>
         </div>
         <DashboardV2MetadataList items={dataContext.metadata} />
       </div>

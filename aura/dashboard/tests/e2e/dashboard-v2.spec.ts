@@ -42,7 +42,7 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
     "Review window",
   );
   await expect(page.getByTestId("v2-dashboard-data-context")).toContainText(
-    "Schedule status:",
+    "Schedule:",
   );
   await expect(
     page

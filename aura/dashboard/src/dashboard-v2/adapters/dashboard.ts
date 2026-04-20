@@ -1089,7 +1089,7 @@ export function buildDashboardDataContext({
     ],
     sourceNote: demoSourceLabel
       ? "Synthetic presentation data is active. Real mode remains the source of truth for live work."
-      : "Counts reflect the dashboard summary plus live safety, inbox, and visible scheduling feeds.",
+      : "Includes dashboard summary, live safety, inbox, and visible scheduling.",
     coverageSummary:
       "Dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
     coverageDetail:

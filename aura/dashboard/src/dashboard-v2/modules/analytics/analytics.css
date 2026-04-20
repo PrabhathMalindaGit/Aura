@@ -680,40 +680,35 @@
 
 .v2-dashboard-data-context {
   display: grid;
-  gap: 0.18rem;
-  padding: 0.06rem 0 0;
+  gap: 0.08rem;
+  padding: 0.04rem 0 0;
   border: 0;
   border-top: 1px solid hsl(var(--v2-border) / 0.46);
   background: transparent;
 }
 
-.v2-dashboard-data-context__summary {
-  align-items: start;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.24rem 0.72rem;
-}
-
-.v2-dashboard-data-context__inline {
+.v2-dashboard-data-context__meta-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.22rem 0.4rem;
+  gap: 0.14rem 0.32rem;
   min-width: 0;
+  padding-top: 0.04rem;
 }
 
 .v2-dashboard-data-context__inline-item {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.2rem;
+  gap: 0.16rem;
   color: hsl(var(--v2-text-muted));
-  font-size: 0.68rem;
-  line-height: 1.3;
+  font-size: 0.64rem;
+  line-height: 1.25;
 }
 
 .v2-dashboard-data-context__inline-item::before {
   content: "·";
   color: hsl(var(--v2-text-muted) / 0.68);
-  margin-inline-end: 0.08rem;
+  margin-inline-end: 0.04rem;
 }
 
 .v2-dashboard-data-context__inline-item:first-child::before {
@@ -727,28 +722,82 @@
 }
 
 .v2-dashboard-data-context__inline-item--note {
-  max-width: 36rem;
+  max-width: 32rem;
 }
 
-.v2-dashboard-data-context__actions {
-  display: flex;
-  flex-wrap: wrap;
+.v2-dashboard-data-context__inline-action,
+.v2-dashboard-data-context__disclosure {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.28rem;
 }
 
-.v2-dashboard-data-context__schedule-button {
-  min-height: 1.62rem;
-  padding-inline: 0.56rem;
+.v2-dashboard-data-context__inline-action::before,
+.v2-dashboard-data-context__disclosure::before {
+  content: "·";
+  color: hsl(var(--v2-text-muted) / 0.68);
+  margin-inline-end: 0.04rem;
+}
+
+.v2-dashboard-data-context__inline-action {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: hsl(var(--v2-text));
+  font-size: 0.64rem;
+  font-weight: var(--v2-font-weight-semibold);
+  line-height: 1.25;
+  box-shadow: none;
+}
+
+.v2-dashboard-data-context__inline-action:is(:hover, :focus-visible) {
+  border-color: transparent;
+  background: transparent;
+  color: hsl(var(--v2-info));
+  box-shadow: none;
 }
 
 .v2-dashboard-data-context__disclosure {
-  gap: 0.14rem;
+  flex-wrap: wrap;
+  gap: 0.08rem;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__header {
+  display: inline-flex;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__trigger {
+  width: auto;
+  gap: 0.16rem;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__copy {
+  display: inline-flex;
+  align-items: center;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__title {
+  font-size: 0.64rem;
+  line-height: 1.25;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__summary {
+  display: none;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__icon {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+
+.v2-dashboard-data-context__disclosure .v2-disclosure__panel {
+  flex-basis: 100%;
+  width: 100%;
+  margin-top: 0.22rem;
 }
 
 .v2-dashboard-data-context__detail-grid {
@@ -829,7 +878,7 @@
 .dark .v2-dashboard-summary-strip__grid,
 .dark .v2-dashboard-urgent-queue__list,
 .dark .v2-dashboard-signals__item,
-.dark .v2-dashboard-data-context__disclosure {
+.dark .v2-dashboard-data-context__disclosure .v2-disclosure__panel {
   border-color: hsl(var(--v2-border) / 0.7);
   background: hsl(var(--v2-bg-subtle) / 0.84);
 }
@@ -873,7 +922,6 @@
 @container (max-width: 78rem) {
   .v2-dashboard-route__hero-grid,
   .v2-dashboard-signals,
-  .v2-dashboard-data-context__summary,
   .v2-dashboard-data-context__detail-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -902,9 +950,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .v2-dashboard-data-context__actions {
-    justify-content: flex-start;
-  }
 }
 
 @container (max-width: 42rem) {
@@ -944,15 +989,6 @@
   }
 
   .v2-dashboard-data-context {
-    padding-top: 0.28rem;
-  }
-
-  .v2-dashboard-schedule__block {
-    min-width: 3.6rem;
-    padding: 0.32rem 0.4rem;
-  }
-
-  .v2-dashboard-schedule__block-detail {
-    display: none;
+    padding-top: 0.18rem;
   }
 }

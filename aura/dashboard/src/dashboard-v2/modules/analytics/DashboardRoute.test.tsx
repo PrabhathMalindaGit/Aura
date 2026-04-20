@@ -404,7 +404,7 @@ describe("DashboardRoute", () => {
       "Review window",
     );
     expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
-      "Schedule status:",
+      "Schedule:",
     );
     expect(
       within(screen.getByTestId("v2-dashboard-data-context")).getByRole(
@@ -593,7 +593,7 @@ describe("DashboardRoute", () => {
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
     expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
-      "Schedule status:",
+      "Schedule:",
     );
     expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
       "No visible open capacity",

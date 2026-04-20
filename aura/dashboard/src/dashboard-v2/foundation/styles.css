@@ -1163,14 +1163,14 @@
 
 .dashboard-v2-shell__content-shell {
   display: grid;
-  gap: 0.58rem;
-  padding: 0.72rem;
+  gap: 0.5rem;
+  padding: 0.64rem;
 }
 
 .dashboard-v2-shell__banner {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.56rem 0.72rem;
+  gap: 0.24rem;
+  padding: 0.48rem 0.64rem;
   border: 1px solid hsl(var(--v2-border));
   border-radius: var(--v2-radius-lg);
   background:
@@ -1194,7 +1194,7 @@
 
 .dashboard-v2-shell__meta-row {
   display: grid;
-  gap: 0.32rem 0.68rem;
+  gap: 0.26rem 0.58rem;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
@@ -1205,7 +1205,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.24rem 0.42rem;
+  gap: 0.2rem 0.36rem;
 }
 
 .dashboard-v2-shell__utility-cluster,
@@ -1277,12 +1277,12 @@
 }
 
 .dashboard-v2-shell__search-shell {
-  padding-top: 0.28rem;
+  padding-top: 0.22rem;
   border-top: 1px solid hsl(var(--v2-border) / 0.5);
 }
 
 .dashboard-v2-shell__search-form {
-  width: min(22rem, 100%);
+  width: min(20.5rem, 100%);
 }
 
 .dashboard-v2-shell__search-form .v2-field {

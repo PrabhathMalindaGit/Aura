@@ -3,25 +3,21 @@ import { useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   buildDashboardAttention,
+  buildDashboardCapacityRail,
   buildDashboardDataContext,
-  buildDashboardOperationalLoad,
-  buildDashboardSchedule,
+  buildDashboardOperationalSummary,
   buildDashboardSignals,
   buildDashboardStatusBar,
-  buildDashboardSummaryStrip,
-  buildLeadKindLabel,
-  buildPriorityQueuePressureNote,
-  buildPriorityQueueSampleLabel,
+  buildDashboardUrgentQueue,
   formatDashboardUpdatedLabel,
   type DashboardAttentionVm,
+  type DashboardCapacityRailVm,
   type DashboardCommunicationSignalVm,
   type DashboardDataContextVm,
-  type DashboardOperationalLoadRowVm,
   type DashboardSafetySignalVm,
-  type DashboardScheduleItemVm,
-  type DashboardScheduleTimelineBlockVm,
   type DashboardStatusBarVm,
   type DashboardSummaryMetricVm,
+  type DashboardUrgentQueueRowVm,
 } from "../../adapters/dashboard";
 import {
   isDashboardDemoCapabilityEnabled,
@@ -110,25 +106,20 @@ function getNextAvailableSlot(
 
 export interface UseDashboardViewModelResult {
   statusBar: DashboardStatusBarVm;
-  attention: DashboardAttentionVm;
-  summaryMetrics: DashboardSummaryMetricVm[];
-  operationalLoadRows: DashboardOperationalLoadRowVm[];
-  scheduleTimeline: DashboardScheduleTimelineBlockVm[];
-  scheduleItems: DashboardScheduleItemVm[];
-  safetySignals: DashboardSafetySignalVm[];
-  communicationSignals: DashboardCommunicationSignalVm[];
-  dataContext: DashboardDataContextVm;
-  priorityQueuePressureNote: string;
-  schedulingFootnote: string;
-  nextOpenSlotValue: string;
-  schedulePendingRequestCount: number;
-  scheduleAvailableSlotsCount: number;
-  summaryLoading: boolean;
-  summaryError: boolean;
-  operationalLoading: boolean;
-  operationalError: boolean;
-  scheduleLoading: boolean;
-  scheduleError: boolean;
+  shiftBrief: DashboardAttentionVm;
+  operationalSummary: DashboardSummaryMetricVm[];
+  urgentQueue: DashboardUrgentQueueRowVm[];
+  capacityRail: DashboardCapacityRailVm;
+  safetyActivity: DashboardSafetySignalVm[];
+  communicationPressure: DashboardCommunicationSignalVm[];
+  freshnessTrust: DashboardDataContextVm;
+  watchlistPatients: null;
+  overviewLoading: boolean;
+  overviewError: boolean;
+  queueLoading: boolean;
+  queueError: boolean;
+  capacityLoading: boolean;
+  capacityError: boolean;
   signalsLoading: boolean;
   signalsError: boolean;
   isRefreshing: boolean;
@@ -424,14 +415,11 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
   const flaggedBySafetyCount =
     communicationOverviewData?.counts.flaggedBySafetyCount ?? null;
   const pendingInsightsCount =
-    summaryData?.pendingInsightsCount ??
-    pendingInsightsData?.length ??
-    null;
+    summaryData?.pendingInsightsCount ?? pendingInsightsData?.length ?? null;
   const highPriorityInsightsCount =
     pendingInsightsData?.filter((item) => item.priority >= 3).length ?? 0;
   const pendingAppointmentRequestsCount = appointmentRequestsData.length ?? 0;
   const availableSlotsCount = availableSlotsData.length ?? 0;
-  const recentSafetyEventCount = safetyEventsData.length ?? 0;
   const nextOpenSlot = getNextAvailableSlot(availableSlotsData);
   const nextOpenSlotLabel = nextOpenSlot
     ? formatDashboardTimeRange(nextOpenSlot.startsAt, nextOpenSlot.endsAt)
@@ -460,65 +448,51 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
 
   const statusBar = buildDashboardStatusBar({
     schedulingRangeLabel: schedulingRange.label,
-    priorityQueueCount: priorityQueueData.length,
-    leadKindLabel: buildLeadKindLabel(priorityQueueData),
     demoIndicatorLabel: demoMode.indicatorLabel,
     demoScenarioLabel: demoMode.scenarioLabel,
   });
 
-  const attention = buildDashboardAttention({
+  const shiftBrief = buildDashboardAttention({
     openAlertsCount: summaryData?.openAlertsCount ?? 0,
     messagesNeedingResponseCount: communicationNeedsResponseCount ?? 0,
     tasksDueTodayCount,
     missedCheckinsCount: summaryData?.missedCheckinsCount ?? 0,
     todayAppointmentsCount:
-      summaryData?.todayAppointmentsCount ??
-      appointmentsData.length ??
-      0,
+      summaryData?.todayAppointmentsCount ?? appointmentsData.length ?? 0,
     pendingInsightsCount: pendingInsightsCount ?? 0,
   });
 
-  const summaryMetrics = buildDashboardSummaryStrip({
+  const operationalSummary = buildDashboardOperationalSummary({
     summary: summaryData,
     messagesNeedingResponseCount: communicationNeedsResponseCount,
     openFollowUpTasksCount:
-      summaryData?.openFollowUpTasksCount ??
-      followUpTasksData.length ??
-      null,
+      summaryData?.openFollowUpTasksCount ?? followUpTasksData.length ?? null,
     pendingInsightsCount,
     todayAppointmentsCount:
-      summaryData?.todayAppointmentsCount ??
-      appointmentsData.length ??
-      null,
+      summaryData?.todayAppointmentsCount ?? appointmentsData.length ?? null,
     assignedToMeAlertsCount: summaryData?.assignedToMeAlertsCount ?? null,
     tasksDueTodayCount,
     highPriorityInsightsCount,
     pendingAppointmentRequestsCount,
+    availableSlotsCount,
     flaggedBySafetyCount,
   });
 
-  const operationalLoadRows = buildDashboardOperationalLoad({
-    summary: summaryData,
-    messagesNeedingResponseCount: communicationNeedsResponseCount ?? 0,
-    openFollowUpTasksCount:
-      summaryData?.openFollowUpTasksCount ??
-      followUpTasksData.length ??
-      0,
-    pendingInsightsCount: pendingInsightsCount ?? 0,
-    pendingAppointmentRequestsCount,
-    availableSlotsCount,
-    missedCheckinsCount: summaryData?.missedCheckinsCount ?? 0,
-    tasksDueTodayCount,
-    highPriorityInsightsCount,
-    recentSafetyEventCount,
-    flaggedBySafetyCount: flaggedBySafetyCount ?? 0,
+  const urgentQueue = buildDashboardUrgentQueue({
+    priorityItems: priorityQueueData,
+    followUpTasks: followUpTasksData,
+    communicationItems: communicationOverviewData?.items ?? [],
+    patientLabels: patientLabelMap,
+    nowMs: demoNowMs ?? undefined,
   });
 
-  const scheduleVm = buildDashboardSchedule({
+  const capacityRail = buildDashboardCapacityRail({
     appointments: appointmentsData,
     patientLabels: patientLabelMap,
     nextOpenSlotLabel,
     schedulingFootnote,
+    pendingRequestCount: pendingAppointmentRequestsCount,
+    availableSlotsCount,
     nowMs: demoNowMs ?? undefined,
   });
 
@@ -529,23 +503,15 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
     nowMs: demoNowMs ?? undefined,
   });
 
-  const dataContext = buildDashboardDataContext({
+  const freshnessTrust = buildDashboardDataContext({
     updatedLabel: updatedAtLabel,
     schedulingRangeLabel: schedulingRange.label,
-    priorityQueueSampleLabel: buildPriorityQueueSampleLabel(
-      priorityQueueData,
-      patientLabelMap,
-    ),
     nextOpenSlotLabel,
     demoSourceLabel:
       isDemoMode && demoMode.scenarioLabel
         ? `Synthetic presentation dataset · ${demoMode.scenarioLabel}`
         : null,
   });
-
-  const priorityQueuePressureNote = buildPriorityQueuePressureNote(
-    priorityQueueData,
-  );
 
   const isRefreshing = isDemoMode
     ? false
@@ -560,31 +526,30 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
       pendingInsightsQuery.isFetching ||
       patientsQuery.isFetching;
 
-  const summaryLoading = isDemoMode
+  const overviewLoading = isDemoMode
     ? false
     : summaryQuery.isLoading && !summaryQuery.data;
-  const summaryError = isDemoMode
+  const overviewError = isDemoMode
     ? false
     : Boolean(summaryQuery.error) && !summaryQuery.data;
-  const operationalLoading = isDemoMode
+  const queueLoading = isDemoMode
     ? false
-    : (summaryQuery.isLoading && !summaryQuery.data) ||
-      (communicationQuery.isLoading && !communicationQuery.data) ||
-      (followUpTasksQuery.isLoading && !followUpTasksQuery.data);
-  const operationalError = isDemoMode
+    : urgentQueue.length === 0 &&
+      priorityQueueQuery.isLoading &&
+      !priorityQueueQuery.data;
+  const queueError = isDemoMode
     ? false
-    : Boolean(summaryQuery.error) &&
-      !summaryQuery.data &&
-      Boolean(communicationQuery.error) &&
-      !communicationQuery.data;
-  const scheduleLoading = isDemoMode
+    : urgentQueue.length === 0 &&
+      Boolean(priorityQueueQuery.error) &&
+      !priorityQueueQuery.data;
+  const capacityLoading = isDemoMode
     ? false
     : (appointmentsQuery.isLoading && !appointmentsQuery.data) ||
       (pendingAppointmentRequestsQuery.isLoading &&
         !pendingAppointmentRequestsQuery.data) ||
       (upcomingAvailableSlotsQuery.isLoading &&
         !upcomingAvailableSlotsQuery.data);
-  const scheduleError = isDemoMode
+  const capacityError = isDemoMode
     ? false
     : Boolean(appointmentsQuery.error) &&
       !appointmentsQuery.data &&
@@ -613,25 +578,20 @@ export function useDashboardViewModel(): UseDashboardViewModelResult {
 
   return {
     statusBar,
-    attention,
-    summaryMetrics,
-    operationalLoadRows,
-    scheduleTimeline: scheduleVm.timelineBlocks,
-    scheduleItems: scheduleVm.scheduleItems,
-    safetySignals: signalsVm.safetyItems,
-    communicationSignals: signalsVm.communicationItems,
-    dataContext,
-    priorityQueuePressureNote,
-    schedulingFootnote: scheduleVm.schedulingFootnote,
-    nextOpenSlotValue: scheduleVm.nextOpenSlotValue,
-    schedulePendingRequestCount: pendingAppointmentRequestsCount,
-    scheduleAvailableSlotsCount: availableSlotsCount,
-    summaryLoading,
-    summaryError,
-    operationalLoading,
-    operationalError,
-    scheduleLoading,
-    scheduleError,
+    shiftBrief,
+    operationalSummary,
+    urgentQueue,
+    capacityRail,
+    safetyActivity: signalsVm.safetyItems,
+    communicationPressure: signalsVm.communicationItems,
+    freshnessTrust,
+    watchlistPatients: null,
+    overviewLoading,
+    overviewError,
+    queueLoading,
+    queueError,
+    capacityLoading,
+    capacityError,
     signalsLoading,
     signalsError,
     isRefreshing,

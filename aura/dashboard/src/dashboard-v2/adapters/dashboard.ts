@@ -1,5 +1,6 @@
 import type {
   DashboardCommunicationOverviewItem,
+  DashboardFollowUpTaskItem,
   DashboardItemPriority,
   DashboardPriorityQueueItem,
   DashboardSafetyEvent,
@@ -22,16 +23,11 @@ export type DashboardSurfaceTone =
 
 export interface DashboardStatusBarVm {
   title: string;
-  guidanceLine: string;
+  windowLabel: string;
   modeIndicator?: {
     label: string;
     detail: string;
   } | null;
-  facts: Array<{
-    key: string;
-    label: string;
-    value: string;
-  }>;
 }
 
 export interface DashboardAttentionVm {
@@ -47,20 +43,23 @@ export interface DashboardSummaryMetricVm {
   key: string;
   label: string;
   value: string;
-  detail: string;
+  stateLabel: string;
+  context: string | null;
   path: string;
   tone: DashboardSurfaceTone;
 }
 
-export interface DashboardOperationalLoadRowVm {
-  key: string;
-  label: string;
-  value: number;
-  displayValue: string;
-  detail: string;
-  path: string;
+export interface DashboardUrgentQueueRowVm {
+  id: string;
   tone: DashboardSurfaceTone;
-  barPercent: number;
+  title: string;
+  patientLabel: string | null;
+  patientId: string | null;
+  contextLine: string;
+  dueLabel: string | null;
+  actionLabel: string;
+  actionKind: "route" | "patient" | "thread";
+  actionPath?: string;
 }
 
 export interface DashboardScheduleTimelineBlockVm {
@@ -74,16 +73,14 @@ export interface DashboardScheduleTimelineBlockVm {
   patientId: string;
 }
 
-export interface DashboardScheduleItemVm {
-  id: string;
-  patientId: string;
-  patientLabel: string;
-  patientInitials: string;
-  timeRangeLabel: string;
-  statusLabel: string;
-  statusTone: DashboardSurfaceTone;
+export interface DashboardCapacityRailVm {
+  nextOpenSlotValue: string;
+  capacityStateLabel: string;
+  pendingRequestCount: number;
+  availableSlotsCount: number;
+  visitsSummary: string;
   note: string;
-  updatedLabel: string;
+  timelineBlocks: DashboardScheduleTimelineBlockVm[];
 }
 
 export interface DashboardSafetySignalVm {
@@ -123,6 +120,7 @@ export interface DashboardDataContextVm {
     label: string;
     value: string | null;
   }>;
+  sourceNote: string;
   coverageSummary: string;
   coverageDetail: string;
   trustSummary: string;
@@ -140,13 +138,11 @@ interface DashboardAttentionInput {
 
 interface DashboardStatusBarInput {
   schedulingRangeLabel: string;
-  priorityQueueCount: number;
-  leadKindLabel: string | null;
   demoIndicatorLabel?: string | null;
   demoScenarioLabel?: string | null;
 }
 
-interface DashboardSummaryStripInput {
+interface DashboardOperationalSummaryInput {
   summary: DashboardSummary | null;
   messagesNeedingResponseCount: number | null;
   openFollowUpTasksCount: number | null;
@@ -156,28 +152,25 @@ interface DashboardSummaryStripInput {
   tasksDueTodayCount: number;
   highPriorityInsightsCount: number;
   pendingAppointmentRequestsCount: number;
+  availableSlotsCount: number;
   flaggedBySafetyCount: number | null;
 }
 
-interface DashboardOperationalLoadInput {
-  summary: DashboardSummary | null;
-  messagesNeedingResponseCount: number;
-  openFollowUpTasksCount: number;
-  pendingInsightsCount: number;
-  pendingAppointmentRequestsCount: number;
-  availableSlotsCount: number;
-  missedCheckinsCount: number;
-  tasksDueTodayCount: number;
-  highPriorityInsightsCount: number;
-  recentSafetyEventCount: number;
-  flaggedBySafetyCount: number;
+interface DashboardUrgentQueueInput {
+  priorityItems: DashboardPriorityQueueItem[];
+  followUpTasks: DashboardFollowUpTaskItem[];
+  communicationItems: DashboardCommunicationOverviewItem[];
+  patientLabels: Map<string, string>;
+  nowMs?: number;
 }
 
-interface DashboardScheduleInput {
+interface DashboardCapacityRailInput {
   appointments: DashboardTodayAppointmentItem[];
   patientLabels: Map<string, string>;
   nextOpenSlotLabel: string | null;
   schedulingFootnote: string;
+  pendingRequestCount: number;
+  availableSlotsCount: number;
   nowMs?: number;
 }
 
@@ -191,7 +184,6 @@ interface DashboardSignalsInput {
 interface DashboardDataContextInput {
   updatedLabel: string;
   schedulingRangeLabel: string;
-  priorityQueueSampleLabel: string | null;
   nextOpenSlotLabel: string | null;
   demoSourceLabel?: string | null;
 }
@@ -210,10 +202,6 @@ function pluralize(
   plural: string = `${singular}s`,
 ): string {
   return `${value} ${value === 1 ? singular : plural}`;
-}
-
-function optionalDetail(value: string | null | undefined): string {
-  return value?.trim() ? value : "";
 }
 
 function compactCountLabel(
@@ -269,22 +257,16 @@ function toneFromCount(
   return "info";
 }
 
-function priorityKindLabel(
-  itemType: DashboardPriorityQueueItem["itemType"],
-): string {
-  switch (itemType) {
-    case "alert":
-      return "Safety review";
-    case "appointment_exception":
-      return "Scheduling pressure";
-    case "communication":
-      return "Inbox follow-through";
-    case "missed_checkin":
-      return "Missed check-in follow-up";
-    case "task":
-    default:
-      return "Follow-up workload";
+function priorityTone(priority: DashboardItemPriority): DashboardSurfaceTone {
+  if (priority === "urgent" || priority === "high") {
+    return "critical";
   }
+
+  if (priority === "medium") {
+    return "warning";
+  }
+
+  return "neutral";
 }
 
 function appointmentStatusTone(
@@ -303,26 +285,6 @@ function appointmentStatusTone(
   }
 
   return "neutral";
-}
-
-function appointmentSummary(item: DashboardTodayAppointmentItem): string {
-  if (item.note?.trim()) {
-    return item.note.trim();
-  }
-
-  if (item.status === "awaiting_confirmation") {
-    return "Awaiting confirmation.";
-  }
-
-  if (item.status === "reschedule_requested") {
-    return "Reschedule requested.";
-  }
-
-  if (item.status === "missed") {
-    return "Missed visit needs follow-through.";
-  }
-
-  return "Visit is scheduled.";
 }
 
 function safetyStatusVm(item: DashboardSafetyEvent): {
@@ -398,8 +360,7 @@ function communicationChips(
 
   return [...chips]
     .sort((left, right) => {
-      const toneDifference =
-        tonePriority[right.tone] - tonePriority[left.tone];
+      const toneDifference = tonePriority[right.tone] - tonePriority[left.tone];
       if (toneDifference !== 0) {
         return toneDifference;
       }
@@ -453,374 +414,172 @@ function timelineWindowPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-function priorityTone(priority: DashboardItemPriority): DashboardSurfaceTone {
-  if (priority === "urgent" || priority === "high") {
-    return "critical";
+function taskTypeLabel(type: DashboardFollowUpTaskItem["type"]): string {
+  switch (type) {
+    case "safety_review":
+      return "Safety review";
+    case "adherence_review":
+      return "Adherence review";
+    case "communication":
+      return "Communication follow-up";
+    case "appointment":
+      return "Scheduling follow-up";
+    case "follow_up":
+      return "Clinical follow-up";
+    default:
+      return humanizeDashboardLabel(type);
   }
-
-  if (priority === "medium") {
-    return "warning";
-  }
-
-  return "neutral";
 }
 
-export function buildDashboardStatusBar({
-  schedulingRangeLabel,
-  priorityQueueCount,
-  leadKindLabel,
-  demoIndicatorLabel,
-  demoScenarioLabel,
-}: DashboardStatusBarInput): DashboardStatusBarVm {
-  return {
-    title: "Today",
-    guidanceLine: "Live operational summary",
-    modeIndicator:
-      demoIndicatorLabel && demoScenarioLabel
-        ? {
-            label: demoIndicatorLabel,
-            detail: `Synthetic data · ${demoScenarioLabel}`,
-          }
-        : null,
-    facts: [
-      {
-        key: "window",
-        label: "Scheduling window",
-        value: schedulingRangeLabel,
-      },
-      {
-        key: "priority",
-        label: "Urgent sample",
-        value: leadKindLabel
-          ? `${priorityQueueCount} in ${leadKindLabel.toLowerCase()}`
-          : `${priorityQueueCount} visible`,
-      },
-    ],
-  };
+function priorityQueueTitle(item: DashboardPriorityQueueItem): string {
+  if (item.title?.trim()) {
+    return item.title.trim();
+  }
+
+  switch (item.itemType) {
+    case "communication":
+      return "Delayed patient response";
+    case "missed_checkin":
+      return "Missed check-in";
+    case "appointment_exception":
+      return "Scheduling exception";
+    case "task":
+      return "Follow-up task";
+    case "alert":
+    default:
+      return "Safety review";
+  }
 }
 
-export function buildDashboardAttention({
-  openAlertsCount,
-  messagesNeedingResponseCount,
-  tasksDueTodayCount,
-  missedCheckinsCount,
-  todayAppointmentsCount,
-  pendingInsightsCount,
-}: DashboardAttentionInput): DashboardAttentionVm {
-  if (openAlertsCount > 0) {
+function priorityQueueContext(item: DashboardPriorityQueueItem): string {
+  if (item.subtitle?.trim()) {
+    return item.subtitle.trim();
+  }
+
+  switch (item.itemType) {
+    case "communication":
+      return "Patient thread needs a response.";
+    case "missed_checkin":
+      return "Check-in follow-through is due.";
+    case "appointment_exception":
+      return "Scheduling needs manual review.";
+    case "task":
+      return "Follow-up work is waiting.";
+    case "alert":
+    default:
+      return "Safety review is waiting.";
+  }
+}
+
+function priorityQueueDueLabel(
+  item: DashboardPriorityQueueItem,
+  nowMs: number,
+): string {
+  if (item.dueAt) {
+    return `Due ${formatDashboardRelativeTime(item.dueAt, nowMs)}`;
+  }
+
+  return `Queued ${formatDashboardRelativeTime(item.createdAt, nowMs)}`;
+}
+
+function priorityQueueAction(
+  item: DashboardPriorityQueueItem,
+): Pick<
+  DashboardUrgentQueueRowVm,
+  "actionKind" | "actionLabel" | "actionPath"
+> {
+  switch (item.itemType) {
+    case "alert":
+      return {
+        actionKind: "route",
+        actionLabel: "Open alerts",
+        actionPath: "/alerts",
+      };
+    case "communication":
+      return {
+        actionKind: "thread",
+        actionLabel: "Open thread",
+      };
+    case "appointment_exception":
+      return {
+        actionKind: "route",
+        actionLabel: "Open schedule",
+        actionPath: "/appointments",
+      };
+    case "missed_checkin":
+      return {
+        actionKind: "patient",
+        actionLabel: "Open patient",
+      };
+    case "task":
+    default:
+      if (item.linkedEntityType === "alert") {
+        return {
+          actionKind: "route",
+          actionLabel: "Open alerts",
+          actionPath: "/alerts",
+        };
+      }
+
+      if (item.linkedEntityType === "appointment") {
+        return {
+          actionKind: "route",
+          actionLabel: "Open schedule",
+          actionPath: "/appointments",
+        };
+      }
+
+      return {
+        actionKind: "patient",
+        actionLabel: "Open patient",
+      };
+  }
+}
+
+function followUpTaskAction(
+  item: DashboardFollowUpTaskItem,
+): Pick<
+  DashboardUrgentQueueRowVm,
+  "actionKind" | "actionLabel" | "actionPath"
+> {
+  if (item.linkedAlertId) {
     return {
-      tone: "critical",
-      title: "Safety review leads the shift",
-      copy: `${pluralize(openAlertsCount, "open alert")} are leading the day right now.`,
+      actionKind: "route",
       actionLabel: "Open alerts",
       actionPath: "/alerts",
-      note: "Begin with the live safety lane.",
     };
   }
 
-  if (messagesNeedingResponseCount > 0) {
+  if (item.linkedAppointmentId) {
     return {
-      tone: "warning",
-      title: "Inbox pressure is building",
-      copy: `${pluralize(messagesNeedingResponseCount, "patient thread")} need a clinician response right now.`,
-      actionLabel: "Open inbox",
-      actionPath: "/communication",
-      note: "Open inbox while response pressure is still visible.",
-    };
-  }
-
-  if (tasksDueTodayCount > 0 || missedCheckinsCount > 0) {
-    return {
-      tone: "info",
-      title: "Follow-through is setting the pace",
-      copy: "Due work and missed check-ins need an early pass.",
-      actionLabel: "Open queue",
-      actionPath: "/worklist",
-      note: "Move into queue review once live lanes settle.",
-    };
-  }
-
-  if (todayAppointmentsCount > 0) {
-    return {
-      tone: "neutral",
-      title: "The agenda deserves an early check",
-      copy: `${pluralize(todayAppointmentsCount, "visit")} are active today and worth confirming early.`,
+      actionKind: "route",
       actionLabel: "Open schedule",
       actionPath: "/appointments",
-      note: "Schedule holds visible capacity and request pressure.",
     };
   }
 
-  if (pendingInsightsCount > 0) {
+  if (item.linkedMessageId) {
     return {
-      tone: "neutral",
-      title: "Immediate pressure is steady",
-      copy: `${pluralize(pendingInsightsCount, "review item")} are waiting after live operational work is clear.`,
-      actionLabel: "Open insights",
-      actionPath: "/insights",
-      note: null,
+      actionKind: "thread",
+      actionLabel: "Open thread",
     };
   }
 
   return {
-    tone: "success",
-    title: "The shift is steady",
-    copy: "No urgent lane is leading right now. Confirm the overview and keep the day moving.",
-    actionLabel: "Open queue",
-    actionPath: "/worklist",
-    note: null,
+    actionKind: "patient",
+    actionLabel: "Open patient",
   };
 }
 
-export function buildDashboardSummaryStrip({
-  summary,
-  messagesNeedingResponseCount,
-  openFollowUpTasksCount,
-  pendingInsightsCount,
-  todayAppointmentsCount,
-  assignedToMeAlertsCount,
-  tasksDueTodayCount,
-  highPriorityInsightsCount,
-  pendingAppointmentRequestsCount,
-  flaggedBySafetyCount,
-}: DashboardSummaryStripInput): DashboardSummaryMetricVm[] {
-  const openAlertsCount = summary?.openAlertsCount ?? null;
-
-  return [
-    {
-      key: "alerts",
-      label: "Open alerts",
-      value: formatCountValue(openAlertsCount),
-      detail: optionalDetail(
-        typeof assignedToMeAlertsCount === "number" &&
-          assignedToMeAlertsCount > 0
-          ? compactCountLabel(assignedToMeAlertsCount, "assigned", "assigned")
-          : null,
-      ),
-      path: "/alerts",
-      tone: toneFromCount(openAlertsCount ?? 0, {
-        criticalAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "communication",
-      label: "Messages needing response",
-      value: formatCountValue(messagesNeedingResponseCount),
-      detail: optionalDetail(
-        typeof flaggedBySafetyCount === "number" &&
-          flaggedBySafetyCount > 0
-          ? compactCountLabel(
-              flaggedBySafetyCount,
-              "flagged",
-              "flagged",
-            )
-          : null,
-      ),
-      path: "/communication",
-      tone: toneFromCount(messagesNeedingResponseCount ?? 0, {
-        criticalAt: 3,
-        warningAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "tasks",
-      label: "Open follow-up tasks",
-      value: formatCountValue(openFollowUpTasksCount),
-      detail: optionalDetail(
-        tasksDueTodayCount > 0
-          ? compactCountLabel(tasksDueTodayCount, "due today", "due today")
-          : null,
-      ),
-      path: "/worklist",
-      tone: toneFromCount(openFollowUpTasksCount ?? 0, {
-        criticalAt: 4,
-        warningAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "insights",
-      label: "Pending insights",
-      value: formatCountValue(pendingInsightsCount),
-      detail: optionalDetail(
-        highPriorityInsightsCount > 0
-          ? compactCountLabel(
-              highPriorityInsightsCount,
-              "high-priority",
-              "high-priority",
-            )
-          : null,
-      ),
-      path: "/insights",
-      tone: toneFromCount(pendingInsightsCount ?? 0, {
-        warningAt: 1,
-        criticalAt: 4,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "appointments",
-      label: "Today’s appointments",
-      value: formatCountValue(todayAppointmentsCount),
-      detail: optionalDetail(
-        typeof pendingAppointmentRequestsCount === "number"
-          ? pendingAppointmentRequestsCount > 0
-            ? compactCountLabel(
-                pendingAppointmentRequestsCount,
-                "request pending",
-                "requests pending",
-              )
-            : null
-          : null,
-      ),
-      path: "/appointments",
-      tone: toneFromCount(todayAppointmentsCount ?? 0, {
-        warningAt: 1,
-        criticalAt: 4,
-        successWhenZero: true,
-      }),
-    },
-  ];
+function overdueLabel(iso: string, nowMs: number): string {
+  return `Due ${formatDashboardRelativeTime(iso, nowMs)}`;
 }
 
-export function buildDashboardOperationalLoad({
-  summary,
-  messagesNeedingResponseCount,
-  openFollowUpTasksCount,
-  pendingInsightsCount,
-  pendingAppointmentRequestsCount,
-  availableSlotsCount,
-  missedCheckinsCount,
-  tasksDueTodayCount,
-  highPriorityInsightsCount,
-  recentSafetyEventCount,
-  flaggedBySafetyCount,
-}: DashboardOperationalLoadInput): DashboardOperationalLoadRowVm[] {
-  const rows = [
-    {
-      key: "alerts",
-      label: "Alerts",
-      value: summary?.openAlertsCount ?? 0,
-      detail: [
-        (summary?.assignedToMeAlertsCount ?? 0) > 0
-          ? compactCountLabel(
-              summary?.assignedToMeAlertsCount ?? 0,
-              "assigned",
-              "assigned",
-            )
-          : null,
-        recentSafetyEventCount > 0
-          ? compactCountLabel(recentSafetyEventCount, "recent event")
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      path: "/alerts",
-      tone: toneFromCount(summary?.openAlertsCount ?? 0, {
-        criticalAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "communication",
-      label: "Communication",
-      value: messagesNeedingResponseCount,
-      detail:
-        flaggedBySafetyCount > 0
-          ? compactCountLabel(
-              flaggedBySafetyCount,
-              "flagged",
-              "flagged",
-            )
-          : "",
-      path: "/communication",
-      tone: toneFromCount(messagesNeedingResponseCount, {
-        criticalAt: 3,
-        warningAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "worklist",
-      label: "Follow-up queue",
-      value: openFollowUpTasksCount,
-      detail: [
-        tasksDueTodayCount > 0
-          ? compactCountLabel(tasksDueTodayCount, "due today", "due today")
-          : null,
-        missedCheckinsCount > 0
-          ? compactCountLabel(missedCheckinsCount, "missed check-in")
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      path: "/worklist",
-      tone: toneFromCount(openFollowUpTasksCount, {
-        criticalAt: 4,
-        warningAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "insights",
-      label: "Insights",
-      value: pendingInsightsCount,
-      detail:
-        pendingInsightsCount > 0
-          ? `${compactCountLabel(highPriorityInsightsCount, "high-priority")} visible`
-          : "",
-      path: "/insights",
-      tone: toneFromCount(pendingInsightsCount, {
-        criticalAt: 4,
-        warningAt: 1,
-        successWhenZero: true,
-      }),
-    },
-    {
-      key: "appointments",
-      label: "Scheduling",
-      value: pendingAppointmentRequestsCount,
-      detail:
-        pendingAppointmentRequestsCount > 0
-          ? `${compactCountLabel(pendingAppointmentRequestsCount, "request")} · ${compactCountLabel(availableSlotsCount, "open slot")}`
-          : availableSlotsCount > 0
-            ? `${compactCountLabel(availableSlotsCount, "open slot")} visible`
-            : "",
-      path: "/appointments",
-      tone:
-        pendingAppointmentRequestsCount > availableSlotsCount
-          ? "warning"
-          : toneFromCount(pendingAppointmentRequestsCount, {
-              warningAt: 1,
-              successWhenZero: true,
-            }),
-    },
-  ];
-
-  const maxValue = Math.max(...rows.map((row) => row.value), 1);
-
-  return rows.map((row) => ({
-    ...row,
-    displayValue: formatCountValue(row.value),
-    barPercent: Math.max(8, Math.round((row.value / maxValue) * 100)),
-  }));
-}
-
-export function buildDashboardSchedule({
-  appointments,
-  patientLabels,
-  nextOpenSlotLabel,
-  schedulingFootnote,
-  nowMs = Date.now(),
-}: DashboardScheduleInput): {
-  timelineBlocks: DashboardScheduleTimelineBlockVm[];
-  scheduleItems: DashboardScheduleItemVm[];
-  nextOpenSlotValue: string;
-  schedulingFootnote: string;
-} {
-  const timelineBlocks = [...appointments]
+function buildTimelineBlocks(
+  appointments: DashboardTodayAppointmentItem[],
+  patientLabels: Map<string, string>,
+): DashboardScheduleTimelineBlockVm[] {
+  return [...appointments]
     .sort(
       (left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt),
     )
@@ -846,26 +605,425 @@ export function buildDashboardSchedule({
         patientId: item.patientId,
       };
     });
+}
 
-  const scheduleItems = appointments.slice(0, 4).map((item) => ({
-    id: item.id,
-    patientId: item.patientId,
-    patientLabel: patientLabels.get(item.patientId) ?? item.patientId,
-    patientInitials: buildPatientInitials(
-      patientLabels.get(item.patientId) ?? item.patientId,
-    ),
-    timeRangeLabel: formatDashboardTimeRange(item.startsAt, item.endsAt),
-    statusLabel: humanizeDashboardLabel(item.status),
-    statusTone: appointmentStatusTone(item.status),
-    note: appointmentSummary(item),
-    updatedLabel: `Updated ${formatDashboardRelativeTime(item.updatedAt, nowMs)}`,
-  }));
+function summaryMetricToneToState(
+  tone: DashboardSurfaceTone,
+  defaultState: string,
+): string {
+  if (tone === "critical") {
+    return "Active";
+  }
+
+  if (tone === "warning") {
+    return defaultState;
+  }
+
+  if (tone === "success") {
+    return "Clear";
+  }
+
+  return defaultState;
+}
+
+export function buildDashboardStatusBar({
+  schedulingRangeLabel,
+  demoIndicatorLabel,
+  demoScenarioLabel,
+}: DashboardStatusBarInput): DashboardStatusBarVm {
+  return {
+    title: "Today",
+    windowLabel: schedulingRangeLabel,
+    modeIndicator:
+      demoIndicatorLabel && demoScenarioLabel
+        ? {
+            label: demoIndicatorLabel,
+            detail: `Synthetic data · ${demoScenarioLabel}`,
+          }
+        : null,
+  };
+}
+
+export function buildDashboardAttention({
+  openAlertsCount,
+  messagesNeedingResponseCount,
+  tasksDueTodayCount,
+  missedCheckinsCount,
+  todayAppointmentsCount,
+  pendingInsightsCount,
+}: DashboardAttentionInput): DashboardAttentionVm {
+  if (openAlertsCount > 0) {
+    const countLabel = pluralize(openAlertsCount, "open alert");
+    return {
+      tone: "critical",
+      title: "Safety review leads the shift",
+      copy:
+        openAlertsCount === 1
+          ? `${countLabel} is setting the clearest immediate pressure.`
+          : `${countLabel} are setting the clearest immediate pressure.`,
+      actionLabel: "Open alerts",
+      actionPath: "/alerts",
+      note: "Start in the live safety lane.",
+    };
+  }
+
+  if (messagesNeedingResponseCount > 0) {
+    const countLabel = pluralize(
+      messagesNeedingResponseCount,
+      "patient thread",
+    );
+    return {
+      tone: "warning",
+      title: "Response pressure is building",
+      copy:
+        messagesNeedingResponseCount === 1
+          ? `${countLabel} is still waiting on a clinician response.`
+          : `${countLabel} are still waiting on a clinician response.`,
+      actionLabel: "Open inbox",
+      actionPath: "/communication",
+      note: "Clear the oldest risky thread first.",
+    };
+  }
+
+  if (tasksDueTodayCount > 0 || missedCheckinsCount > 0) {
+    const dueFragment =
+      tasksDueTodayCount > 0
+        ? compactCountLabel(tasksDueTodayCount, "task due today", "tasks due today")
+        : null;
+    const missedFragment =
+      missedCheckinsCount > 0
+        ? compactCountLabel(missedCheckinsCount, "missed check-in")
+        : null;
+
+    return {
+      tone: "info",
+      title: "Follow-through is setting the pace",
+      copy: [dueFragment, missedFragment].filter(Boolean).join(" · "),
+      actionLabel: "Open queue",
+      actionPath: "/worklist",
+      note: "Move through due work before it starts to slip.",
+    };
+  }
+
+  if (todayAppointmentsCount > 0) {
+    const countLabel = pluralize(todayAppointmentsCount, "visible visit");
+    return {
+      tone: "neutral",
+      title: "Scheduling deserves an early read",
+      copy:
+        todayAppointmentsCount === 1
+          ? `${countLabel} is visible today and worth confirming early.`
+          : `${countLabel} are visible today and worth confirming early.`,
+      actionLabel: "Open schedule",
+      actionPath: "/appointments",
+      note: "Check published capacity before demand tightens.",
+    };
+  }
+
+  if (pendingInsightsCount > 0) {
+    return {
+      tone: "neutral",
+      title: "Live pressure is steady",
+      copy: `${pluralize(pendingInsightsCount, "review item")} are waiting once operational lanes are clear.`,
+      actionLabel: "Open insights",
+      actionPath: "/insights",
+      note: null,
+    };
+  }
 
   return {
-    timelineBlocks,
-    scheduleItems,
+    tone: "success",
+    title: "The shift is steady",
+    copy: "No urgent lane is leading right now. Confirm the overview and move into the next clinical task.",
+    actionLabel: "Open queue",
+    actionPath: "/worklist",
+    note: null,
+  };
+}
+
+export function buildDashboardOperationalSummary({
+  summary,
+  messagesNeedingResponseCount,
+  openFollowUpTasksCount,
+  pendingInsightsCount,
+  todayAppointmentsCount,
+  assignedToMeAlertsCount,
+  tasksDueTodayCount,
+  highPriorityInsightsCount,
+  pendingAppointmentRequestsCount,
+  availableSlotsCount,
+  flaggedBySafetyCount,
+}: DashboardOperationalSummaryInput): DashboardSummaryMetricVm[] {
+  const openAlertsCount = summary?.openAlertsCount ?? null;
+  const alertsTone = toneFromCount(openAlertsCount ?? 0, {
+    criticalAt: 1,
+    successWhenZero: true,
+  });
+  const communicationTone = toneFromCount(messagesNeedingResponseCount ?? 0, {
+    criticalAt: 3,
+    warningAt: 1,
+    successWhenZero: true,
+  });
+  const followUpTone = toneFromCount(openFollowUpTasksCount ?? 0, {
+    criticalAt: 4,
+    warningAt: 1,
+    successWhenZero: true,
+  });
+  const insightsTone = toneFromCount(pendingInsightsCount ?? 0, {
+    criticalAt: 4,
+    warningAt: 1,
+    successWhenZero: true,
+  });
+  const schedulingTone =
+    pendingAppointmentRequestsCount > 0 &&
+    pendingAppointmentRequestsCount > availableSlotsCount
+      ? "warning"
+      : toneFromCount(pendingAppointmentRequestsCount, {
+          warningAt: 1,
+          successWhenZero: true,
+        });
+
+  return [
+    {
+      key: "alerts",
+      label: "Alerts",
+      value: formatCountValue(openAlertsCount),
+      stateLabel:
+        openAlertsCount && openAlertsCount > 0
+          ? summaryMetricToneToState(alertsTone, "Open")
+          : "Clear",
+      context:
+        typeof assignedToMeAlertsCount === "number" &&
+        assignedToMeAlertsCount > 0
+          ? compactCountLabel(assignedToMeAlertsCount, "assigned", "assigned")
+          : null,
+      path: "/alerts",
+      tone: alertsTone,
+    },
+    {
+      key: "communication",
+      label: "Inbox",
+      value: formatCountValue(messagesNeedingResponseCount),
+      stateLabel:
+        typeof flaggedBySafetyCount === "number" && flaggedBySafetyCount > 0
+          ? "Flagged"
+          : (messagesNeedingResponseCount ?? 0) > 0
+            ? "Waiting"
+            : "Clear",
+      context:
+        typeof flaggedBySafetyCount === "number" && flaggedBySafetyCount > 0
+          ? compactCountLabel(flaggedBySafetyCount, "safety flag", "safety flags")
+          : null,
+      path: "/communication",
+      tone: communicationTone,
+    },
+    {
+      key: "tasks",
+      label: "Follow-up",
+      value: formatCountValue(openFollowUpTasksCount),
+      stateLabel:
+        tasksDueTodayCount > 0
+          ? "Due today"
+          : (openFollowUpTasksCount ?? 0) > 0
+            ? "Open"
+            : "Clear",
+      context:
+        tasksDueTodayCount > 0
+          ? compactCountLabel(tasksDueTodayCount, "due today", "due today")
+          : null,
+      path: "/worklist",
+      tone: followUpTone,
+    },
+    {
+      key: "insights",
+      label: "Insights",
+      value: formatCountValue(pendingInsightsCount),
+      stateLabel:
+        highPriorityInsightsCount > 0
+          ? "Priority"
+          : (pendingInsightsCount ?? 0) > 0
+            ? "Pending"
+            : "Clear",
+      context:
+        highPriorityInsightsCount > 0
+          ? compactCountLabel(
+              highPriorityInsightsCount,
+              "high-priority item",
+              "high-priority items",
+            )
+          : null,
+      path: "/insights",
+      tone: insightsTone,
+    },
+    {
+      key: "appointments",
+      label: "Scheduling",
+      value: formatCountValue(todayAppointmentsCount),
+      stateLabel:
+        pendingAppointmentRequestsCount > availableSlotsCount &&
+        pendingAppointmentRequestsCount > 0
+          ? "Tight"
+          : pendingAppointmentRequestsCount > 0
+            ? "Queued"
+            : availableSlotsCount > 0
+              ? "Capacity open"
+              : "Clear",
+      context:
+        pendingAppointmentRequestsCount > 0 || availableSlotsCount > 0
+          ? `${compactCountLabel(pendingAppointmentRequestsCount, "request")} · ${compactCountLabel(availableSlotsCount, "open slot")}`
+          : null,
+      path: "/appointments",
+      tone: schedulingTone,
+    },
+  ];
+}
+
+export function buildDashboardUrgentQueue({
+  priorityItems,
+  followUpTasks,
+  communicationItems,
+  patientLabels,
+  nowMs = Date.now(),
+}: DashboardUrgentQueueInput): DashboardUrgentQueueRowVm[] {
+  const rows: DashboardUrgentQueueRowVm[] = [];
+  const seen = new Set<string>();
+
+  const addRow = (row: DashboardUrgentQueueRowVm): void => {
+    const dedupeKey = [
+      row.actionKind,
+      row.actionPath ?? row.patientId ?? "none",
+      row.title,
+      row.dueLabel ?? "none",
+    ].join(":");
+
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+
+    seen.add(dedupeKey);
+    rows.push(row);
+  };
+
+  priorityItems.slice(0, 4).forEach((item) => {
+    const patientLabel = patientLabels.get(item.patientId) ?? item.patientId;
+    const action = priorityQueueAction(item);
+
+    addRow({
+      id: `priority-${item.id}`,
+      tone: priorityTone(item.priority),
+      title: priorityQueueTitle(item),
+      patientLabel,
+      patientId: item.patientId,
+      contextLine: priorityQueueContext(item),
+      dueLabel: priorityQueueDueLabel(item, nowMs),
+      actionLabel: action.actionLabel,
+      actionKind: action.actionKind,
+      actionPath: action.actionPath,
+    });
+  });
+
+  communicationItems
+    .filter(
+      (item) =>
+        item.flaggedBySafety ||
+        item.responseDelayed ||
+        item.responseState === "delayed" ||
+        item.needsResponse,
+    )
+    .slice(0, 4)
+    .forEach((item) => {
+      const title =
+        item.responseDelayed || item.responseState === "delayed"
+          ? "Delayed patient response"
+          : item.flaggedBySafety
+            ? "Safety flagged thread"
+            : "Message needs response";
+
+      addRow({
+        id: `communication-${item.id}`,
+        tone:
+          item.flaggedBySafety
+            ? "critical"
+            : item.responseDelayed || item.responseState === "delayed"
+              ? "warning"
+              : "info",
+        title,
+        patientLabel: item.patientName?.trim() || item.patientId,
+        patientId: item.patientId,
+        contextLine:
+          item.messagePreview?.trim() ||
+          communicationContextLine(item, nowMs) ||
+          "Conversation preview unavailable.",
+        dueLabel:
+          communicationContextLine(item, nowMs) ||
+          `Latest message ${formatDashboardRelativeTime(item.messageCreatedAt, nowMs)}`,
+        actionLabel: "Open thread",
+        actionKind: "thread",
+      });
+    });
+
+  followUpTasks
+    .filter(
+      (item) =>
+        item.priority === "urgent" ||
+        item.priority === "high" ||
+        Boolean(item.dueAt),
+    )
+    .slice(0, 4)
+    .forEach((item) => {
+      const patientLabel = patientLabels.get(item.patientId) ?? item.patientId;
+      const action = followUpTaskAction(item);
+
+      addRow({
+        id: `task-${item.id}`,
+        tone:
+          item.priority === "urgent" || item.priority === "high"
+            ? "warning"
+            : "info",
+        title: item.title?.trim() || taskTypeLabel(item.type),
+        patientLabel,
+        patientId: item.patientId,
+        contextLine: taskTypeLabel(item.type),
+        dueLabel: item.dueAt
+          ? overdueLabel(item.dueAt, nowMs)
+          : `Updated ${formatDashboardRelativeTime(item.updatedAt, nowMs)}`,
+        actionLabel: action.actionLabel,
+        actionKind: action.actionKind,
+        actionPath: action.actionPath,
+      });
+    });
+
+  return rows.slice(0, 4);
+}
+
+export function buildDashboardCapacityRail({
+  appointments,
+  patientLabels,
+  nextOpenSlotLabel,
+  schedulingFootnote,
+  pendingRequestCount,
+  availableSlotsCount,
+}: DashboardCapacityRailInput): DashboardCapacityRailVm {
+  const capacityStateLabel =
+    pendingRequestCount === 0 && availableSlotsCount === 0
+      ? "No active scheduling pressure"
+      : pendingRequestCount > availableSlotsCount
+        ? "Requests are ahead of visible capacity"
+        : availableSlotsCount > 0
+          ? "Visible capacity is covering demand"
+          : "Published capacity has not opened yet";
+
+  return {
     nextOpenSlotValue: nextOpenSlotLabel ?? "No visible open capacity",
-    schedulingFootnote,
+    capacityStateLabel,
+    pendingRequestCount,
+    availableSlotsCount,
+    visitsSummary:
+      appointments.length > 0
+        ? `${pluralize(appointments.length, "visible visit")} on today’s agenda.`
+        : "No visits are visible on today’s agenda.",
+    note: schedulingFootnote,
+    timelineBlocks: buildTimelineBlocks(appointments, patientLabels),
   };
 }
 
@@ -879,16 +1037,15 @@ export function buildDashboardSignals({
   communicationItems: DashboardCommunicationSignalVm[];
 } {
   return {
-    safetyItems: safetyEvents.slice(0, 3).map((item) => {
+    safetyItems: safetyEvents.slice(0, 4).map((item) => {
       const status = safetyStatusVm(item);
+      const patientLabel = patientLabels.get(item.patientId) ?? item.patientId;
 
       return {
         id: item.id,
         patientId: item.patientId,
-        patientLabel: patientLabels.get(item.patientId) ?? item.patientId,
-        patientInitials: buildPatientInitials(
-          patientLabels.get(item.patientId) ?? item.patientId,
-        ),
+        patientLabel,
+        patientInitials: buildPatientInitials(patientLabel),
         summary: item.summary,
         eventLabel: humanizeDashboardLabel(item.type),
         eventTimeLabel: formatDashboardRelativeTime(item.createdAt, nowMs),
@@ -897,28 +1054,29 @@ export function buildDashboardSignals({
         statusTone: status.tone,
       };
     }),
-    communicationItems: communicationItems.slice(0, 3).map((item) => ({
-      id: item.id,
-      patientId: item.patientId,
-      patientLabel: item.patientName?.trim() || item.patientId,
-      patientInitials: buildPatientInitials(
-        item.patientName?.trim() || item.patientId,
-      ),
-      preview:
-        item.messagePreview?.trim() || "Conversation preview unavailable.",
-      messageAgeLabel: formatDashboardRelativeTime(item.messageCreatedAt, nowMs),
-      messageAgeTitle: formatDashboardDateTime(item.messageCreatedAt),
-      chips: communicationChips(item),
-      contextLine: communicationContextLine(item, nowMs),
-      reviewLine: communicationReviewLine(item, nowMs),
-    })),
+    communicationItems: communicationItems.slice(0, 4).map((item) => {
+      const patientLabel = item.patientName?.trim() || item.patientId;
+
+      return {
+        id: item.id,
+        patientId: item.patientId,
+        patientLabel,
+        patientInitials: buildPatientInitials(patientLabel),
+        preview:
+          item.messagePreview?.trim() || "Conversation preview unavailable.",
+        messageAgeLabel: formatDashboardRelativeTime(item.messageCreatedAt, nowMs),
+        messageAgeTitle: formatDashboardDateTime(item.messageCreatedAt),
+        chips: communicationChips(item),
+        contextLine: communicationContextLine(item, nowMs),
+        reviewLine: communicationReviewLine(item, nowMs),
+      };
+    }),
   };
 }
 
 export function buildDashboardDataContext({
   updatedLabel,
   schedulingRangeLabel,
-  priorityQueueSampleLabel,
   nextOpenSlotLabel,
   demoSourceLabel,
 }: DashboardDataContextInput): DashboardDataContextVm {
@@ -928,22 +1086,22 @@ export function buildDashboardDataContext({
         ? [{ label: "Data source", value: demoSourceLabel }]
         : []),
       { label: "Updated", value: updatedLabel },
-      { label: "Window", value: schedulingRangeLabel },
+      { label: "Review window", value: schedulingRangeLabel },
       {
-        label: "Urgent sample",
-        value: priorityQueueSampleLabel ?? "Unknown",
-      },
-      {
-        label: "Open slot",
+        label: "Next visible slot",
         value: nextOpenSlotLabel ?? "No visible open capacity",
       },
     ],
-    coverageSummary: "Live feeds and the next 7 days of visible scheduling.",
+    sourceNote: demoSourceLabel
+      ? "Synthetic presentation data is active. Real mode remains the source of truth for live work."
+      : "Counts reflect the dashboard summary plus live safety, inbox, and visible scheduling feeds.",
+    coverageSummary:
+      "Dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
     coverageDetail:
-      "This page reflects the dashboard summary, live safety and inbox feeds, and the next 7 days of visible scheduling.",
-    trustSummary: "Overview only. Detailed review stays in destination routes.",
+      "This route is an operational overview, not a full review workspace. Use the destination routes for detailed triage, inbox handling, patient review, scheduling, and insight decisions.",
+    trustSummary: "State labels reflect current pressure only.",
     trustDetail:
-      "This overview does not claim confirmed ownership, AI authorship, or unsupported historical certainty. Detailed review stays in destination routes.",
+      "This page does not infer historical direction, confirmed ownership, or AI authorship when the underlying dashboard data does not support those claims.",
   };
 }
 
@@ -956,40 +1114,4 @@ export function formatDashboardUpdatedLabel(
   }
 
   return formatDashboardRelativeTime(new Date(updatedAtMs).toISOString(), nowMs);
-}
-
-export function buildPriorityQueueSampleLabel(
-  items: DashboardPriorityQueueItem[],
-  patientLabels: Map<string, string>,
-): string | null {
-  const sample = items[0];
-  if (!sample) {
-    return null;
-  }
-
-  return `${priorityKindLabel(sample.itemType)} for ${patientLabels.get(sample.patientId) ?? sample.patientId}`;
-}
-
-export function buildLeadKindLabel(
-  items: DashboardPriorityQueueItem[],
-): string | null {
-  const sample = items[0];
-  return sample ? priorityKindLabel(sample.itemType) : null;
-}
-
-export function buildPriorityQueuePressureNote(
-  items: DashboardPriorityQueueItem[],
-): string {
-  if (items.length === 0) {
-    return "No urgent sample is surfacing right now.";
-  }
-
-  const highPriorityCount = items.filter(
-    (item) => priorityTone(item.priority) === "critical",
-  ).length;
-  if (highPriorityCount > 0) {
-    return `${pluralize(highPriorityCount, "urgent item")} are surfacing in the current sample.`;
-  }
-
-  return `${pluralize(items.length, "routed item")} are surfacing in the current sample.`;
 }

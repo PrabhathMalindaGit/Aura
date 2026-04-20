@@ -30,12 +30,12 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-status-bar")).toContainText(
-    "Service analytics",
+    "Today",
   );
   await expect(page.getByTestId("v2-dashboard-summary-strip")).toContainText(
-    "Open alerts",
+    "Operational summary",
   );
-  await expect(page.getByTestId("v2-dashboard-operational-load")).toBeVisible();
+  await expect(page.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-schedule-section")).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-signals-section")).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-data-context")).toBeVisible();
@@ -50,7 +50,10 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
 
-  await page.getByTestId("v2-dashboard-metric-communication").click();
+  await page
+    .getByTestId("v2-dashboard-metric-communication")
+    .getByRole("button", { name: "Open inbox" })
+    .click();
   await expect(page).toHaveURL(/\/communication$/);
 
   await page.goBack();

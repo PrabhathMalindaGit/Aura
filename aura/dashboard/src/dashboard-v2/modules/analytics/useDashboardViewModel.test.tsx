@@ -304,7 +304,7 @@ afterEach(() => {
 });
 
 describe("useDashboardViewModel", () => {
-  it("maps the current dashboard truth into the service analytics overview model", async () => {
+  it("maps the current dashboard truth into the today operations brief model", async () => {
     installDashboardFetchMock();
 
     const { result } = renderHook(() => useDashboardViewModel(), {
@@ -312,36 +312,34 @@ describe("useDashboardViewModel", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.summaryLoading).toBe(false);
-      expect(result.current.summaryMetrics[0]?.value).toBe("2");
+      expect(result.current.overviewLoading).toBe(false);
+      expect(result.current.operationalSummary[0]?.value).toBe("2");
     });
 
-    expect(result.current.attention.actionPath).toBe("/alerts");
-    expect(result.current.summaryMetrics.map((metric) => metric.label)).toEqual(
-      [
-        "Open alerts",
-        "Messages needing response",
-        "Open follow-up tasks",
-        "Pending insights",
-        "Today’s appointments",
-      ],
-    );
-    expect(result.current.operationalLoadRows.map((row) => row.label)).toEqual([
+    expect(result.current.shiftBrief.actionPath).toBe("/alerts");
+    expect(
+      result.current.operationalSummary.map((metric) => metric.label),
+    ).toEqual([
       "Alerts",
-      "Communication",
-      "Follow-up queue",
+      "Inbox",
+      "Follow-up",
       "Insights",
       "Scheduling",
     ]);
-    expect(result.current.nextOpenSlotValue).toContain("Apr");
-    expect(result.current.schedulingFootnote).toBe(
+    expect(result.current.operationalSummary[1]).toMatchObject({
+      stateLabel: "Flagged",
+      path: "/communication",
+    });
+    expect(result.current.capacityRail.nextOpenSlotValue).toContain("–");
+    expect(result.current.capacityRail.note).toBe(
       "Pending requests exceed visible open capacity in the next 7 days.",
     );
-    expect(result.current.priorityQueuePressureNote).toContain(
-      "urgent item",
+    expect(result.current.capacityRail.pendingRequestCount).toBe(2);
+    expect(result.current.capacityRail.availableSlotsCount).toBe(1);
+    expect(result.current.urgentQueue.length).toBeGreaterThan(0);
+    expect(result.current.urgentQueue.map((row) => row.title)).toContain(
+      "Assigned high-risk alert",
     );
-    expect(result.current.schedulePendingRequestCount).toBe(2);
-    expect(result.current.scheduleAvailableSlotsCount).toBe(1);
     expect(globalThis.fetch).toHaveBeenCalled();
   });
 
@@ -384,23 +382,23 @@ describe("useDashboardViewModel", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.safetySignals.length).toBe(1);
-      expect(result.current.communicationSignals.length).toBe(1);
+      expect(result.current.safetyActivity.length).toBe(1);
+      expect(result.current.communicationPressure.length).toBe(1);
     });
 
-    expect(result.current.safetySignals[0]?.statusLabel).toBe("Unknown");
-    expect(result.current.safetySignals[0]?.patientInitials).toBe("JL");
-    expect(result.current.communicationSignals[0]?.reviewLine).toContain(
+    expect(result.current.safetyActivity[0]?.statusLabel).toBe("Unknown");
+    expect(result.current.safetyActivity[0]?.patientInitials).toBe("JL");
+    expect(result.current.communicationPressure[0]?.reviewLine).toContain(
       "Unknown",
     );
-    expect(result.current.communicationSignals[0]?.patientInitials).toBe("JL");
-    expect(result.current.communicationSignals[0]?.reviewLine).not.toContain(
+    expect(result.current.communicationPressure[0]?.patientInitials).toBe("JL");
+    expect(result.current.communicationPressure[0]?.reviewLine).not.toContain(
       "Reply received",
     );
-    expect(result.current.dataContext.trustDetail).toMatch(
-      /Ownership, AI authorship/i,
+    expect(result.current.freshnessTrust.trustDetail).toMatch(
+      /ownership, or AI authorship/i,
     );
-    expect(result.current.dataContext.trustDetail).not.toMatch(
+    expect(result.current.freshnessTrust.trustDetail).not.toMatch(
       /Owned by AI|guaranteed coverage/i,
     );
   });
@@ -413,10 +411,14 @@ describe("useDashboardViewModel", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.scheduleItems.length).toBeGreaterThan(0);
+      expect(result.current.capacityRail.timelineBlocks.length).toBeGreaterThan(
+        0,
+      );
     });
 
-    expect(result.current.scheduleItems[0]?.patientInitials).toBe("JL");
+    expect(result.current.capacityRail.timelineBlocks[0]?.label).toBe(
+      "Jordan Lee",
+    );
     result.current.openPatient("patient-1");
 
     expect(mockNavigate).toHaveBeenCalledWith("/patients/patient-1", {
@@ -442,7 +444,7 @@ describe("useDashboardViewModel", () => {
     });
 
     await waitFor(() => {
-      expect(result.current.summaryLoading).toBe(false);
+      expect(result.current.overviewLoading).toBe(false);
       expect(result.current.statusBar.title).toBe("Today");
     });
 
@@ -452,13 +454,13 @@ describe("useDashboardViewModel", () => {
       label: "Demo mode",
       detail: "Synthetic data · Urgent safety day",
     });
-    expect(result.current.dataContext.metadata[0]).toEqual({
+    expect(result.current.freshnessTrust.metadata[0]).toEqual({
       label: "Data source",
       value: "Synthetic presentation dataset · Urgent safety day",
     });
-    expect(result.current.summaryMetrics[0]?.value).toBe("4");
-    expect(result.current.safetySignals[0]?.patientLabel).toBe("Patient One");
-    expect(result.current.communicationSignals[0]?.patientLabel).toBe(
+    expect(result.current.operationalSummary[0]?.value).toBe("4");
+    expect(result.current.safetyActivity[0]?.patientLabel).toBe("Patient One");
+    expect(result.current.communicationPressure[0]?.patientLabel).toBe(
       "Patient One",
     );
     expect(fetchSpy).not.toHaveBeenCalled();

@@ -1,11 +1,11 @@
 import { DashboardAttentionPanel } from "./components/DashboardAttentionPanel";
 import { DashboardDataContextPanel } from "./components/DashboardDataContextPanel";
 import { DashboardDemoTools } from "./components/DashboardDemoTools";
-import { DashboardOperationalLoadSection } from "./components/DashboardOperationalLoadSection";
 import { DashboardScheduleSection } from "./components/DashboardScheduleSection";
 import { DashboardSignalsSection } from "./components/DashboardSignalsSection";
 import { DashboardStatusBar } from "./components/DashboardStatusBar";
 import { DashboardSummaryStrip } from "./components/DashboardSummaryStrip";
+import { DashboardUrgentQueueSection } from "./components/DashboardUrgentQueueSection";
 import { useDashboardViewModel } from "./useDashboardViewModel";
 import "./analytics.css";
 
@@ -28,59 +28,32 @@ export function DashboardRoute(): JSX.Element {
       ) : null}
 
       <DashboardAttentionPanel
-        attention={viewModel.attention}
-        onOpenRoute={viewModel.navigateTo}
-      />
-
-      <DashboardSummaryStrip
-        metrics={viewModel.summaryMetrics}
-        loading={viewModel.summaryLoading}
-        error={viewModel.summaryError}
+        attention={viewModel.shiftBrief}
+        loading={viewModel.overviewLoading}
+        error={viewModel.overviewError}
         isRefreshing={viewModel.isRefreshing}
         onRefresh={viewModel.onRefresh}
         onOpenRoute={viewModel.navigateTo}
       />
 
-      <div className="v2-dashboard-route__overview-grid">
-        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--operational">
-          <DashboardOperationalLoadSection
-            rows={viewModel.operationalLoadRows}
-            loading={viewModel.operationalLoading}
-            error={viewModel.operationalError}
+      <div className="v2-dashboard-route__hero-grid">
+        <div className="v2-dashboard-route__hero-main">
+          <DashboardSummaryStrip
+            metrics={viewModel.operationalSummary}
+            loading={viewModel.overviewLoading}
+            error={viewModel.overviewError}
             isRefreshing={viewModel.isRefreshing}
             onRefresh={viewModel.onRefresh}
             onOpenRoute={viewModel.navigateTo}
           />
-        </div>
 
-        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--schedule">
-          <DashboardScheduleSection
-            timeline={viewModel.scheduleTimeline}
-            items={viewModel.scheduleItems}
-            nextOpenSlotValue={viewModel.nextOpenSlotValue}
-            schedulingFootnote={viewModel.schedulingFootnote}
-            pendingRequestCount={viewModel.schedulePendingRequestCount}
-            availableSlotsCount={viewModel.scheduleAvailableSlotsCount}
-            loading={viewModel.scheduleLoading}
-            error={viewModel.scheduleError}
+          <DashboardUrgentQueueSection
+            rows={viewModel.urgentQueue}
+            loading={viewModel.queueLoading}
+            error={viewModel.queueError}
             isRefreshing={viewModel.isRefreshing}
             onRefresh={viewModel.onRefresh}
-            onOpenSchedule={() => viewModel.navigateTo("/appointments")}
-            onOpenPatient={viewModel.openPatient}
-            guardPatientActions={viewModel.guardPatientActions}
-          />
-        </div>
-
-        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--signals">
-          <DashboardSignalsSection
-            safetyItems={viewModel.safetySignals}
-            communicationItems={viewModel.communicationSignals}
-            loading={viewModel.signalsLoading}
-            error={viewModel.signalsError}
-            isRefreshing={viewModel.isRefreshing}
-            onRefresh={viewModel.onRefresh}
-            onOpenAlerts={() => viewModel.navigateTo("/alerts")}
-            onOpenInbox={() => viewModel.navigateTo("/communication")}
+            onOpenRoute={viewModel.navigateTo}
             onOpenPatient={viewModel.openPatient}
             onOpenThread={viewModel.openThread}
             guardPatientActions={viewModel.guardPatientActions}
@@ -88,12 +61,36 @@ export function DashboardRoute(): JSX.Element {
           />
         </div>
 
-        <div className="v2-dashboard-route__overview-area v2-dashboard-route__overview-area--context">
-          <DashboardDataContextPanel
-            dataContext={viewModel.dataContext}
+        <div className="v2-dashboard-route__hero-rail">
+          <DashboardScheduleSection
+            rail={viewModel.capacityRail}
+            loading={viewModel.capacityLoading}
+            error={viewModel.capacityError}
+            isRefreshing={viewModel.isRefreshing}
+            onRefresh={viewModel.onRefresh}
+            onOpenSchedule={() => viewModel.navigateTo("/appointments")}
+            onOpenPatient={viewModel.openPatient}
+            guardPatientActions={viewModel.guardPatientActions}
           />
         </div>
       </div>
+
+      <DashboardSignalsSection
+        safetyItems={viewModel.safetyActivity}
+        communicationItems={viewModel.communicationPressure}
+        loading={viewModel.signalsLoading}
+        error={viewModel.signalsError}
+        isRefreshing={viewModel.isRefreshing}
+        onRefresh={viewModel.onRefresh}
+        onOpenAlerts={() => viewModel.navigateTo("/alerts")}
+        onOpenInbox={() => viewModel.navigateTo("/communication")}
+        onOpenPatient={viewModel.openPatient}
+        onOpenThread={viewModel.openThread}
+        guardPatientActions={viewModel.guardPatientActions}
+        guardThreadActions={viewModel.guardThreadActions}
+      />
+
+      <DashboardDataContextPanel dataContext={viewModel.freshnessTrust} />
     </div>
   );
 }

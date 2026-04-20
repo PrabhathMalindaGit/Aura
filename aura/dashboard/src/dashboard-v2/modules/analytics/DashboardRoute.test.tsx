@@ -373,25 +373,28 @@ describe("DashboardRoute", () => {
     renderDashboardRoute();
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
-    await screen.findByTestId("v2-dashboard-metric-alerts");
+    await screen.findByText("Lane pressure at a glance");
     expect(screen.getByTestId("v2-dashboard-status-bar")).toHaveTextContent(
       "Today",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
-      "Open alerts",
+      "Alerts",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
-      "Messages needing response",
+      "Inbox",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
-      "Open follow-up tasks",
+      "Follow-up",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
-      "Pending insights",
+      "Insights",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
-      "Today’s appointments",
+      "Scheduling",
     );
+    expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
+    expect(screen.getByTestId("v2-dashboard-schedule-section")).toBeVisible();
+    expect(screen.getByTestId("v2-dashboard-signals-section")).toBeVisible();
     expect(screen.queryByText("Assigned to me alerts")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/foundation|phase 1|migration|staged/i),
@@ -497,19 +500,19 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /Trust & provenance/i }),
+      screen.getByRole("button", { name: /Trust note/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /What’s included/i }),
+      screen.getByRole("button", { name: /Coverage note/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/This overview does not claim confirmed ownership/i),
+      screen.getByText(/This page does not infer historical direction/i),
     ).not.toBeVisible();
     expect(
-      screen.getByText(/This page reflects the dashboard summary/i),
+      screen.getByText(/This route is an operational overview/i),
     ).not.toBeVisible();
     expect(
-      screen.queryByText(/This overview reflects visible requests and open slots/i),
+      screen.queryByText(/Short lists, not secondary workbenches/i),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toBeVisible();
   });
@@ -573,9 +576,12 @@ describe("DashboardRoute", () => {
     renderDashboardRoute();
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
-    expect(await screen.findByText("All caught up for today")).toBeVisible();
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
+    expect(
+      await screen.findByText("No visits are visible in today’s agenda."),
+    ).toBeVisible();
+    expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
   });
 
   it("renders synthetic labeling and guards patient or thread actions in dashboard demo mode while keeping overview CTAs live", async () => {
@@ -593,7 +599,7 @@ describe("DashboardRoute", () => {
     expect(screen.getByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
       "Synthetic data",
     );
-    expect(screen.getByText("Patient One")).toBeVisible();
+    expect(screen.getAllByText("Patient One").length).toBeGreaterThan(0);
     expect(screen.getByText("Data source")).toBeVisible();
     expect(
       screen.getByText(

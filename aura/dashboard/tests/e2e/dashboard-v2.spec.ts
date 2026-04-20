@@ -30,9 +30,6 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByRole("heading", { name: "Today", level: 1 })).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
-  await expect(page.getByTestId("v2-dashboard-status-bar")).toContainText(
-    "Review window",
-  );
   await expect(page.getByTestId("v2-dashboard-attention-panel")).toContainText(
     "Priority now",
   );
@@ -40,9 +37,18 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
     "Operational summary",
   );
   await expect(page.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
-  await expect(page.getByTestId("v2-dashboard-schedule-section")).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-signals-section")).toBeVisible();
-  await expect(page.getByTestId("v2-dashboard-data-context")).toBeVisible();
+  await expect(page.getByTestId("v2-dashboard-data-context")).toContainText(
+    "Review window",
+  );
+  await expect(page.getByTestId("v2-dashboard-data-context")).toContainText(
+    "Schedule status:",
+  );
+  await expect(
+    page
+      .getByTestId("v2-dashboard-data-context")
+      .getByRole("button", { name: "Open schedule" }),
+  ).toBeVisible();
 
   await page
     .getByTestId("v2-dashboard-attention-panel")
@@ -79,7 +85,7 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await page.reload();
   await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Coverage & trust/i }),
+    page.getByRole("button", { name: /About this data/i }),
   ).toBeVisible();
 
   await page.evaluate(() => {

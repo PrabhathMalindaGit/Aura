@@ -374,9 +374,6 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     await screen.findByText("Lane pressure at a glance");
-    expect(screen.getByTestId("v2-dashboard-status-bar")).toHaveTextContent(
-      "Review window",
-    );
     expect(screen.getByTestId("v2-dashboard-attention-panel")).toHaveTextContent(
       "Priority now",
     );
@@ -402,8 +399,19 @@ describe("DashboardRoute", () => {
       "Scheduling",
     );
     expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
-    expect(screen.getByTestId("v2-dashboard-schedule-section")).toBeVisible();
     expect(screen.getByTestId("v2-dashboard-signals-section")).toBeVisible();
+    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
+      "Review window",
+    );
+    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
+      "Schedule status:",
+    );
+    expect(
+      within(screen.getByTestId("v2-dashboard-data-context")).getByRole(
+        "button",
+        { name: "Open schedule" },
+      ),
+    ).toBeVisible();
     expect(screen.queryByText("Assigned to me alerts")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/foundation|phase 1|migration|staged/i),
@@ -509,7 +517,7 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /Coverage & trust/i }),
+      screen.getByRole("button", { name: /About this data/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/This page does not infer historical direction/i),
@@ -584,12 +592,12 @@ describe("DashboardRoute", () => {
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
-    expect(screen.getByTestId("v2-dashboard-schedule-section")).toHaveTextContent(
+    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
+      "Schedule status:",
+    );
+    expect(screen.getByTestId("v2-dashboard-data-context")).toHaveTextContent(
       "No visible open capacity",
     );
-    expect(
-      screen.queryByRole("button", { name: /Visible agenda/i }),
-    ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
   });
 
@@ -602,11 +610,8 @@ describe("DashboardRoute", () => {
     renderDashboardRoute("/dashboard?dashboardDemo=communicationBacklogDay");
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
-    expect(await screen.findByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
-      "Demo mode",
-    );
-    expect(screen.getByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
-      "Synthetic data",
+    expect(screen.getByTestId("v2-dashboard-demo-tools")).toHaveTextContent(
+      "Synthetic scenario",
     );
     expect(screen.getAllByText("Patient One").length).toBeGreaterThan(0);
     expect(screen.getByText("Data source")).toBeVisible();
@@ -682,8 +687,8 @@ describe("DashboardRoute", () => {
       screen.getByRole("button", { name: "Urgent safety day" }),
     );
 
-    expect(await screen.findByTestId("v2-dashboard-demo-indicator")).toHaveTextContent(
-      "Demo mode",
+    expect(screen.getByTestId("v2-dashboard-demo-tools")).toHaveTextContent(
+      "Synthetic scenario",
     );
     expect(screen.getByTestId("location-echo")).toHaveTextContent(
       '"search":"?dashboardDemo=urgentSafetyDay"',

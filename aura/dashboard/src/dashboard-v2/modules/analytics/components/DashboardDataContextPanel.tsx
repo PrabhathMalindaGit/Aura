@@ -19,9 +19,8 @@ export function DashboardDataContextPanel({
     >
       <div className="v2-dashboard-data-context__summary">
         <div className="v2-dashboard-data-context__copy">
-          <DashboardV2Text tone="label">Freshness &amp; trust</DashboardV2Text>
           <DashboardV2Text
-            tone="muted"
+            tone="caption"
             className="v2-dashboard-data-context__source-note"
           >
             {dataContext.sourceNote}
@@ -30,23 +29,26 @@ export function DashboardDataContextPanel({
         <DashboardV2MetadataList items={dataContext.metadata} />
       </div>
 
-      <div className="v2-dashboard-data-context__disclosures">
-        <DashboardV2Disclosure
-          title="Coverage note"
-          summary={dataContext.coverageSummary}
-          defaultExpanded={false}
-        >
-          <DashboardV2Text tone="muted">{dataContext.coverageDetail}</DashboardV2Text>
-        </DashboardV2Disclosure>
+      <DashboardV2Disclosure
+        title="Coverage & trust"
+        summary="Included sources and interpretation limits."
+        defaultExpanded={false}
+        className="v2-dashboard-data-context__disclosure"
+      >
+        <div className="v2-dashboard-data-context__detail-grid">
+          <div className="v2-dashboard-data-context__detail-block">
+            <DashboardV2Text tone="label">Coverage</DashboardV2Text>
+            <DashboardV2Text tone="muted">{dataContext.coverageSummary}</DashboardV2Text>
+            <DashboardV2Text tone="muted">{dataContext.coverageDetail}</DashboardV2Text>
+          </div>
 
-        <DashboardV2Disclosure
-          title="Trust note"
-          summary={dataContext.trustSummary}
-          defaultExpanded={false}
-        >
-          <DashboardV2Text tone="muted">{dataContext.trustDetail}</DashboardV2Text>
-        </DashboardV2Disclosure>
-      </div>
+          <div className="v2-dashboard-data-context__detail-block">
+            <DashboardV2Text tone="label">Trust note</DashboardV2Text>
+            <DashboardV2Text tone="muted">{dataContext.trustSummary}</DashboardV2Text>
+            <DashboardV2Text tone="muted">{dataContext.trustDetail}</DashboardV2Text>
+          </div>
+        </div>
+      </DashboardV2Disclosure>
     </DashboardV2Surface>
   );
 }

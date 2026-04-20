@@ -375,6 +375,12 @@ describe("DashboardRoute", () => {
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     await screen.findByText("Lane pressure at a glance");
     expect(screen.getByTestId("v2-dashboard-status-bar")).toHaveTextContent(
+      "Review window",
+    );
+    expect(screen.getByTestId("v2-dashboard-attention-panel")).toHaveTextContent(
+      "Start in safety review",
+    );
+    expect(screen.getByTestId("v2-dashboard-data-context")).not.toHaveTextContent(
       "Today",
     );
     expect(screen.getByTestId("v2-dashboard-summary-strip")).toHaveTextContent(
@@ -500,10 +506,7 @@ describe("DashboardRoute", () => {
 
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /Trust note/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Coverage note/i }),
+      screen.getByRole("button", { name: /Coverage & trust/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/This page does not infer historical direction/i),
@@ -579,8 +582,8 @@ describe("DashboardRoute", () => {
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
     expect(
-      await screen.findByText("No visits are visible in today’s agenda."),
-    ).toBeVisible();
+      screen.getByRole("button", { name: /Visible agenda/i }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
   });
 

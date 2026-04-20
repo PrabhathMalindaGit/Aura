@@ -248,59 +248,68 @@ export function DashboardV2Shell(): JSX.Element {
   const bannerMeta = useMemo(
     () => (
       <div className="dashboard-v2-shell__banner-copy">
-        <div className="dashboard-v2-shell__headline">
-          {isNarrowViewport ? (
-            <DashboardV2Button
-              tone="ghost"
-              size="sm"
-              onPress={() => setNavDrawerOpen(true)}
-              leadingIcon={<Menu size={16} />}
-            >
-              Menu
-            </DashboardV2Button>
-          ) : null}
-          <div className="dashboard-v2-shell__title-group">
-            <DashboardV2Text tone="label">Care operations</DashboardV2Text>
-            <DashboardV2Heading as="h1">{routeTitle}</DashboardV2Heading>
-            <DashboardV2Text tone="muted">{routeDescription}</DashboardV2Text>
-          </div>
-        </div>
-
-        <div className="dashboard-v2-shell__status-cluster">
-          <span className="dashboard-v2-shell__datetime">
-            {formatWorkspaceDateTime(nowMs, workspacePreferences.resolvedTimezone)}
-          </span>
-          <span className="dashboard-v2-shell__status">
-            {connection.online ? 'Connected' : 'Offline'}
-          </span>
-          <span className="dashboard-v2-shell__timestamp">
-            Updated {formatLastUpdated(connection.lastSuccessAt)}
-          </span>
-          {showShellContextDrawer ? (
-            <DashboardV2Button
-              tone="secondary"
-              size="sm"
-              onPress={() => setContextRailOpen(true)}
-              leadingIcon={<PanelRightOpen size={16} />}
-            >
-              Context
-            </DashboardV2Button>
-          ) : null}
-        </div>
-
-        <div className="dashboard-v2-shell__identity">
-          <Link className="dashboard-v2-shell__identity-link" to="/settings">
-            <ClinicianAvatar identity={clinicianIdentity} decorative size="md" />
-            <div className="dashboard-v2-shell__identity-copy">
-              <strong>{clinicianIdentity.displayName}</strong>
-              <DashboardV2Text as="span" tone="muted">
-                {clinicianIdentity.secondaryLine || workspacePreferences.availabilityLabel}
-              </DashboardV2Text>
+        <div className="dashboard-v2-shell__meta-row">
+          <div className="dashboard-v2-shell__route-cluster">
+            {isNarrowViewport ? (
+              <DashboardV2Button
+                tone="ghost"
+                size="sm"
+                onPress={() => setNavDrawerOpen(true)}
+                leadingIcon={<Menu size={16} />}
+              >
+                Menu
+              </DashboardV2Button>
+            ) : null}
+            <div className="dashboard-v2-shell__title-group">
+              <DashboardV2Text tone="label">Care operations</DashboardV2Text>
+              <div className="dashboard-v2-shell__route-line">
+                <DashboardV2Heading as="h1">{routeTitle}</DashboardV2Heading>
+                <DashboardV2Text
+                  tone="muted"
+                  className="dashboard-v2-shell__route-description"
+                >
+                  {routeDescription}
+                </DashboardV2Text>
+              </div>
             </div>
-          </Link>
-          <DashboardV2Button tone="ghost" size="sm" onPress={handleSignOut}>
-            Sign out
-          </DashboardV2Button>
+          </div>
+
+          <div className="dashboard-v2-shell__utility-cluster">
+            <Link className="dashboard-v2-shell__identity-link" to="/settings">
+              <ClinicianAvatar identity={clinicianIdentity} decorative size="md" />
+              <div className="dashboard-v2-shell__identity-copy">
+                <strong>{clinicianIdentity.displayName}</strong>
+                <DashboardV2Text as="span" tone="muted">
+                  {clinicianIdentity.secondaryLine || workspacePreferences.availabilityLabel}
+                </DashboardV2Text>
+              </div>
+            </Link>
+
+            <div className="dashboard-v2-shell__status-cluster">
+              <span className="dashboard-v2-shell__datetime">
+                {formatWorkspaceDateTime(nowMs, workspacePreferences.resolvedTimezone)}
+              </span>
+              <span className="dashboard-v2-shell__status">
+                {connection.online ? 'Connected' : 'Offline'}
+              </span>
+              <span className="dashboard-v2-shell__timestamp">
+                Updated {formatLastUpdated(connection.lastSuccessAt)}
+              </span>
+              {showShellContextDrawer ? (
+                <DashboardV2Button
+                  tone="secondary"
+                  size="sm"
+                  onPress={() => setContextRailOpen(true)}
+                  leadingIcon={<PanelRightOpen size={16} />}
+                >
+                  Context
+                </DashboardV2Button>
+              ) : null}
+              <DashboardV2Button tone="ghost" size="sm" onPress={handleSignOut}>
+                Sign out
+              </DashboardV2Button>
+            </div>
+          </div>
         </div>
       </div>
     ),

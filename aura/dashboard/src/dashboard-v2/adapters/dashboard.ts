@@ -656,14 +656,14 @@ export function buildDashboardAttention({
     const countLabel = pluralize(openAlertsCount, "open alert");
     return {
       tone: "critical",
-      title: "Safety review leads the shift",
+      title: "Start in safety review",
       copy:
         openAlertsCount === 1
-          ? `${countLabel} is setting the clearest immediate pressure.`
-          : `${countLabel} are setting the clearest immediate pressure.`,
+          ? `${countLabel} is the clearest live pressure.`
+          : `${countLabel} are the clearest live pressure.`,
       actionLabel: "Open alerts",
       actionPath: "/alerts",
-      note: "Start in the live safety lane.",
+      note: "Review the active safety lane first.",
     };
   }
 
@@ -674,14 +674,14 @@ export function buildDashboardAttention({
     );
     return {
       tone: "warning",
-      title: "Response pressure is building",
+      title: "Inbox response comes next",
       copy:
         messagesNeedingResponseCount === 1
           ? `${countLabel} is still waiting on a clinician response.`
           : `${countLabel} are still waiting on a clinician response.`,
       actionLabel: "Open inbox",
       actionPath: "/communication",
-      note: "Clear the oldest risky thread first.",
+      note: "Clear the riskiest delayed thread first.",
     };
   }
 
@@ -697,11 +697,11 @@ export function buildDashboardAttention({
 
     return {
       tone: "info",
-      title: "Follow-through is setting the pace",
+      title: "Due follow-through is next",
       copy: [dueFragment, missedFragment].filter(Boolean).join(" · "),
       actionLabel: "Open queue",
       actionPath: "/worklist",
-      note: "Move through due work before it starts to slip.",
+      note: "Move through due work before it slips.",
     };
   }
 
@@ -709,22 +709,22 @@ export function buildDashboardAttention({
     const countLabel = pluralize(todayAppointmentsCount, "visible visit");
     return {
       tone: "neutral",
-      title: "Scheduling deserves an early read",
+      title: "Schedule visibility needs a check",
       copy:
         todayAppointmentsCount === 1
           ? `${countLabel} is visible today and worth confirming early.`
           : `${countLabel} are visible today and worth confirming early.`,
       actionLabel: "Open schedule",
       actionPath: "/appointments",
-      note: "Check published capacity before demand tightens.",
+      note: "Confirm the visible schedule before demand tightens.",
     };
   }
 
   if (pendingInsightsCount > 0) {
     return {
       tone: "neutral",
-      title: "Live pressure is steady",
-      copy: `${pluralize(pendingInsightsCount, "review item")} are waiting once operational lanes are clear.`,
+      title: "Operational lanes are clear",
+      copy: `${pluralize(pendingInsightsCount, "review item")} are waiting once the live lanes are clear.`,
       actionLabel: "Open insights",
       actionPath: "/insights",
       note: null,
@@ -733,8 +733,8 @@ export function buildDashboardAttention({
 
   return {
     tone: "success",
-    title: "The shift is steady",
-    copy: "No urgent lane is leading right now. Confirm the overview and move into the next clinical task.",
+    title: "No urgent lane is leading",
+    copy: "The overview is steady right now. Confirm the queue and move into the next clinical task.",
     actionLabel: "Open queue",
     actionPath: "/worklist",
     note: null,
@@ -1077,20 +1077,15 @@ export function buildDashboardSignals({
 export function buildDashboardDataContext({
   updatedLabel,
   schedulingRangeLabel,
-  nextOpenSlotLabel,
   demoSourceLabel,
 }: DashboardDataContextInput): DashboardDataContextVm {
   return {
     metadata: [
+      { label: "Updated", value: updatedLabel },
+      { label: "Review window", value: schedulingRangeLabel },
       ...(demoSourceLabel
         ? [{ label: "Data source", value: demoSourceLabel }]
         : []),
-      { label: "Updated", value: updatedLabel },
-      { label: "Review window", value: schedulingRangeLabel },
-      {
-        label: "Next visible slot",
-        value: nextOpenSlotLabel ?? "No visible open capacity",
-      },
     ],
     sourceNote: demoSourceLabel
       ? "Synthetic presentation data is active. Real mode remains the source of truth for live work."

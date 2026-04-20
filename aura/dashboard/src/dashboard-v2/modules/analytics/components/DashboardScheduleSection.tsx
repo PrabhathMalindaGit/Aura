@@ -2,6 +2,7 @@ import { CalendarClock } from "lucide-react";
 import { DashboardModuleState } from "../../../../components/dashboard/DashboardModuleState";
 import type { DashboardCapacityRailVm } from "../../../adapters/dashboard";
 import { DashboardV2Button } from "../../../primitives/Button";
+import { DashboardV2Disclosure } from "../../../primitives/Disclosure";
 import { DashboardV2Surface } from "../../../primitives/Surface";
 import { DashboardV2Text } from "../../../primitives/Text";
 
@@ -69,10 +70,8 @@ export function DashboardScheduleSection({
     >
       <header className="v2-dashboard-schedule__header">
         <div className="v2-dashboard-schedule__header-copy">
-          <DashboardV2Text tone="label">Today &amp; capacity</DashboardV2Text>
-          <DashboardV2Text tone="caption">
-            Keep schedule pressure in view without leaving the page.
-          </DashboardV2Text>
+          <DashboardV2Text tone="label">Schedule status</DashboardV2Text>
+          <DashboardV2Text tone="caption">{rail.capacityStateLabel}</DashboardV2Text>
         </div>
         <DashboardV2Button
           tone="quiet"
@@ -108,19 +107,7 @@ export function DashboardScheduleSection({
             <DashboardV2Text tone="muted">{rail.visitsSummary}</DashboardV2Text>
           </div>
 
-          <div
-            className={`v2-dashboard-schedule__capacity-shell v2-dashboard-schedule__capacity-shell--${tone}`}
-          >
-            <div className="v2-dashboard-schedule__capacity-topline">
-              <div className="v2-dashboard-schedule__capacity-copy">
-                <DashboardV2Text tone="label">Visible balance</DashboardV2Text>
-                <DashboardV2Text tone="caption">{rail.capacityStateLabel}</DashboardV2Text>
-              </div>
-              <strong className="v2-dashboard-schedule__capacity-balance">
-                {rail.pendingRequestCount}:{rail.availableSlotsCount}
-              </strong>
-            </div>
-
+          <div className={`v2-dashboard-schedule__support v2-dashboard-schedule__support--${tone}`}>
             <div
               className={`v2-dashboard-schedule__capacity-gauge ${
                 rail.pendingRequestCount === 0 && rail.availableSlotsCount === 0
@@ -142,68 +129,75 @@ export function DashboardScheduleSection({
               />
             </div>
 
-            <div className="v2-dashboard-schedule__capacity-legend">
-              <span className="v2-dashboard-schedule__capacity-token">
+            <div className="v2-dashboard-schedule__support-metrics">
+              <span className="v2-dashboard-schedule__support-token">
                 <span
                   className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--pending"
                   aria-hidden="true"
                 />
                 <span>
-                  <strong>{rail.pendingRequestCount}</strong> requests
+                  Pending <strong>{rail.pendingRequestCount}</strong>
                 </span>
               </span>
-              <span className="v2-dashboard-schedule__capacity-token">
+              <span className="v2-dashboard-schedule__support-token">
                 <span
                   className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--available"
                   aria-hidden="true"
                 />
                 <span>
-                  <strong>{rail.availableSlotsCount}</strong> open slots
+                  Open slots <strong>{rail.availableSlotsCount}</strong>
                 </span>
               </span>
             </div>
+
+            <DashboardV2Text tone="muted" className="v2-dashboard-schedule__note">
+              {rail.note}
+            </DashboardV2Text>
           </div>
 
-          <div className="v2-dashboard-schedule__timeline-shell">
-            <div className="v2-dashboard-schedule__timeline-scale" aria-hidden="true">
-              <span>08:00</span>
-              <span>12:00</span>
-              <span>16:00</span>
-              <span>20:00</span>
+          <DashboardV2Disclosure
+            title="Visible agenda"
+            summary={rail.visitsSummary}
+            defaultExpanded={false}
+            className="v2-dashboard-schedule__agenda-disclosure"
+          >
+            <div className="v2-dashboard-schedule__timeline-shell">
+              <div className="v2-dashboard-schedule__timeline-scale" aria-hidden="true">
+                <span>08:00</span>
+                <span>12:00</span>
+                <span>16:00</span>
+                <span>20:00</span>
+              </div>
+              <div className="v2-dashboard-schedule__timeline" aria-label="Today timeline">
+                {rail.timelineBlocks.length > 0 ? (
+                  rail.timelineBlocks.map((block) => (
+                    <button
+                      key={block.id}
+                      type="button"
+                      className={`v2-dashboard-schedule__block v2-dashboard-schedule__block--${block.tone}`}
+                      style={{
+                        left: `${block.leftPercent}%`,
+                        width: `${block.widthPercent}%`,
+                      }}
+                      title={`${block.label} · ${block.detail}`}
+                      disabled={guardPatientActions}
+                      onClick={() => onOpenPatient(block.patientId)}
+                    >
+                      <span className="v2-dashboard-schedule__block-label">{block.label}</span>
+                      <span className="v2-dashboard-schedule__block-detail">{block.statusLabel}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="v2-dashboard-schedule__empty">
+                    <CalendarClock size={16} />
+                    <DashboardV2Text tone="muted">
+                      No visits are visible in today’s agenda.
+                    </DashboardV2Text>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="v2-dashboard-schedule__timeline" aria-label="Today timeline">
-              {rail.timelineBlocks.length > 0 ? (
-                rail.timelineBlocks.map((block) => (
-                  <button
-                    key={block.id}
-                    type="button"
-                    className={`v2-dashboard-schedule__block v2-dashboard-schedule__block--${block.tone}`}
-                    style={{
-                      left: `${block.leftPercent}%`,
-                      width: `${block.widthPercent}%`,
-                    }}
-                    title={`${block.label} · ${block.detail}`}
-                    disabled={guardPatientActions}
-                    onClick={() => onOpenPatient(block.patientId)}
-                  >
-                    <span className="v2-dashboard-schedule__block-label">{block.label}</span>
-                    <span className="v2-dashboard-schedule__block-detail">{block.statusLabel}</span>
-                  </button>
-                ))
-              ) : (
-                <div className="v2-dashboard-schedule__empty">
-                  <CalendarClock size={16} />
-                  <DashboardV2Text tone="muted">
-                    No visits are visible in today’s agenda.
-                  </DashboardV2Text>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DashboardV2Text tone="muted" className="v2-dashboard-schedule__note">
-            {rail.note}
-          </DashboardV2Text>
+          </DashboardV2Disclosure>
         </>
       )}
     </DashboardV2Surface>

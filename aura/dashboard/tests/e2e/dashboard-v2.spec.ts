@@ -28,9 +28,10 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   expect(runtimeIssues, runtimeIssues.join("\n")).toEqual([]);
 
   await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Today", level: 1 })).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
   await expect(page.getByTestId("v2-dashboard-status-bar")).toContainText(
-    "Today",
+    "Review window",
   );
   await expect(page.getByTestId("v2-dashboard-summary-strip")).toContainText(
     "Operational summary",
@@ -75,9 +76,8 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await page.reload();
   await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Coverage note/i }),
+    page.getByRole("button", { name: /Coverage & trust/i }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /Trust note/i })).toBeVisible();
 
   await page.evaluate(() => {
     document.documentElement.setAttribute("data-theme", "dark");

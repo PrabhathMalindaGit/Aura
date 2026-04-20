@@ -223,5 +223,7 @@ export function formatExercisesPct(value: number | undefined): string {
     return '—';
   }
 
-  return `${Math.round(value * 100)}%`;
+  const normalizedValue = value <= 1 ? value * 100 : value;
+
+  return `${Math.round(normalizedValue)}%`;
 }

@@ -10,6 +10,7 @@ interface QueueFiltersProps {
   filters: WorklistFiltersState;
   activeFilterCount: number;
   disabled?: boolean;
+  isCompactLayout: boolean;
   isVeryNarrow: boolean;
   onSearchChange: (value: string) => void;
   onToggleFilter: (
@@ -104,6 +105,7 @@ export function QueueFilters({
   filters,
   activeFilterCount,
   disabled = false,
+  isCompactLayout,
   isVeryNarrow,
   onSearchChange,
   onToggleFilter,
@@ -119,13 +121,6 @@ export function QueueFilters({
           options={STATUS_OPTIONS}
           selectedKey={filters.status}
           onSelectionChange={(value) => onStatusChange(value as WorklistFiltersState['status'])}
-          isDisabled={disabled}
-        />
-        <DashboardV2Select
-          label="Sort"
-          options={SORT_OPTIONS}
-          selectedKey={filters.sort}
-          onSelectionChange={(value) => onSortChange(value as WorklistFiltersState['sort'])}
           isDisabled={disabled}
         />
       </div>
@@ -160,7 +155,7 @@ export function QueueFilters({
         />
       </div>
 
-      {isVeryNarrow ? (
+      {isCompactLayout || isVeryNarrow ? (
         <DashboardV2Disclosure
           className="triage-queue-filters__disclosure"
           title="Filters"

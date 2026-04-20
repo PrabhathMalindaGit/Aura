@@ -161,13 +161,39 @@ export function ActiveReviewWorkspace({
       </div>
 
       <div className="triage-workspace__body">
-        <DashboardV2Surface className="triage-workspace__section" tone="elevated">
-          <DashboardV2Text tone="label">Why this patient is here now</DashboardV2Text>
-          <DashboardV2Heading as="h2">{workspace.whyNowTitle}</DashboardV2Heading>
-          <DashboardV2Text tone="muted">{workspace.whyNowSupport}</DashboardV2Text>
-        </DashboardV2Surface>
+        <div className="triage-workspace__brief">
+          <DashboardV2Surface className="triage-workspace__section triage-workspace__section--why-now" tone="elevated">
+            <DashboardV2Text tone="label">Why this patient is here now</DashboardV2Text>
+            <DashboardV2Heading as="h2">{workspace.whyNowTitle}</DashboardV2Heading>
+            <DashboardV2Text tone="muted">{workspace.whyNowSupport}</DashboardV2Text>
+          </DashboardV2Surface>
 
-        <DashboardV2Surface className="triage-workspace__section" tone="elevated">
+          <DashboardV2Surface className="triage-workspace__section triage-workspace__section--actions" tone="base">
+            <DashboardV2Text tone="label">Next actions</DashboardV2Text>
+            <div className="triage-workspace__actions">
+              <DashboardV2Button
+                tone="primary"
+                onPress={() => onRunAction(selectedCase, workspace.primaryAction)}
+              >
+                {workspace.primaryAction.label}
+              </DashboardV2Button>
+              <div className="triage-workspace__secondary-actions">
+                {workspace.secondaryActions.map((action) => (
+                  <DashboardV2Button
+                    key={action.key}
+                    tone="ghost"
+                    size="sm"
+                    onPress={() => onRunAction(selectedCase, action)}
+                  >
+                    {action.label}
+                  </DashboardV2Button>
+                ))}
+              </div>
+            </div>
+          </DashboardV2Surface>
+        </div>
+
+        <DashboardV2Surface className="triage-workspace__section triage-workspace__section--metrics" tone="base">
           <DashboardV2Text tone="label">What changed</DashboardV2Text>
           <div className="triage-workspace__metrics" role="list" aria-label="Current patient signals">
             {workspace.changeMetrics.map((metric) => (
@@ -183,7 +209,7 @@ export function ActiveReviewWorkspace({
           </div>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="triage-workspace__section" tone="elevated">
+        <DashboardV2Surface className="triage-workspace__section triage-workspace__section--signals" tone="muted">
           <DashboardV2Text tone="label">Key supporting signals</DashboardV2Text>
           <div className="triage-workspace__supporting">
             <div className="triage-workspace__truth">
@@ -200,30 +226,6 @@ export function ActiveReviewWorkspace({
                 </li>
               ))}
             </ul>
-          </div>
-        </DashboardV2Surface>
-
-        <DashboardV2Surface className="triage-workspace__section" tone="elevated">
-          <DashboardV2Text tone="label">Next actions</DashboardV2Text>
-          <div className="triage-workspace__actions">
-            <DashboardV2Button
-              tone="primary"
-              onPress={() => onRunAction(selectedCase, workspace.primaryAction)}
-            >
-              {workspace.primaryAction.label}
-            </DashboardV2Button>
-            <div className="triage-workspace__secondary-actions">
-              {workspace.secondaryActions.map((action) => (
-                <DashboardV2Button
-                  key={action.key}
-                  tone="ghost"
-                  size="sm"
-                  onPress={() => onRunAction(selectedCase, action)}
-                >
-                  {action.label}
-                </DashboardV2Button>
-              ))}
-            </div>
           </div>
         </DashboardV2Surface>
       </div>

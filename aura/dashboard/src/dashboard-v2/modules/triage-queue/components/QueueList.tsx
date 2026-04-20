@@ -71,6 +71,7 @@ export function QueueList({
         const isSelected = row.key === selectedKey;
         const rowTone = row.priorityTone;
         const rowTestId = row.patientId.trim() || row.key;
+        const supportingChip = row.supportingChips[0] ?? null;
 
         return (
           <li key={row.key} className="triage-queue-list__item">
@@ -78,6 +79,7 @@ export function QueueList({
               className={cn(
                 'triage-queue-row',
                 `triage-queue-row--${rowTone}`,
+                isSelected && 'triage-queue-row--selected',
               )}
               tone={rowTone === 'critical' ? 'critical' : rowTone === 'warning' ? 'warning' : 'neutral'}
               selected={isSelected}
@@ -126,21 +128,23 @@ export function QueueList({
                 </DashboardV2Text>
               </div>
 
-              <div className="triage-queue-row__support">
-                {row.supportingChips.slice(0, 2).map((chip) => (
-                  <DashboardV2Badge key={`${row.key}-${chip.label}`} tone={mapSignalChipTone(chip)}>
-                    {chip.label}
-                  </DashboardV2Badge>
-                ))}
-              </div>
+              <div className="triage-queue-row__footer">
+                <p
+                  id={`triage-queue-row-freshness-${row.key}`}
+                  className="triage-queue-row__freshness"
+                  title={row.freshnessTitle}
+                >
+                  {row.freshnessLine}
+                </p>
 
-              <p
-                id={`triage-queue-row-freshness-${row.key}`}
-                className="triage-queue-row__freshness"
-                title={row.freshnessTitle}
-              >
-                {row.freshnessLine}
-              </p>
+                <div className="triage-queue-row__support">
+                  {supportingChip ? (
+                    <DashboardV2Badge tone={mapSignalChipTone(supportingChip)} size="sm">
+                      {supportingChip.label}
+                    </DashboardV2Badge>
+                  ) : null}
+                </div>
+              </div>
             </DashboardV2ClinicianQueueRow>
           </li>
         );

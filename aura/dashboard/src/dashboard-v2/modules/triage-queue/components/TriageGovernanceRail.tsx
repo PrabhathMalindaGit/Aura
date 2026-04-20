@@ -63,7 +63,7 @@ export function TriageGovernanceRail({
         />
       </DashboardV2ClinicianSupportGroup>
 
-      <DashboardV2ClinicianSupportGroup title="Why this case is prioritized" tone="base">
+      <DashboardV2ClinicianSupportGroup title="Why this case is prioritized" tone="muted">
         <DashboardV2Disclosure
           title="Queue basis"
           summary={governance.queuePriorityBasis[0] ?? 'Server-calculated from current queue signals'}
@@ -93,9 +93,9 @@ export function TriageGovernanceRail({
       </DashboardV2ClinicianSupportGroup>
 
       <div className="triage-governance-rail__footer">
-        <DashboardV2Badge tone="unknown">
+        <DashboardV2Text tone="muted">
           AI-supported prioritization is not exposed on this route.
-        </DashboardV2Badge>
+        </DashboardV2Text>
         <DashboardV2Button
           tone="secondary"
           size="sm"

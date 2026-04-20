@@ -26,12 +26,28 @@ export function QueueStatusBar({
 }: QueueStatusBarProps): JSX.Element {
   return (
     <DashboardV2Surface className="triage-status-bar" tone="muted">
-      <div className="triage-status-bar__copy">
-        <DashboardV2Text tone="label">Active review</DashboardV2Text>
-        <DashboardV2Heading as="h1">Triage queue</DashboardV2Heading>
-        <DashboardV2Text tone="muted">
-          {guidanceLine}
-        </DashboardV2Text>
+      <div className="triage-status-bar__main">
+        <div className="triage-status-bar__copy">
+          <DashboardV2Text tone="label">Active review</DashboardV2Text>
+          <DashboardV2Heading as="h1">Triage queue</DashboardV2Heading>
+          <DashboardV2Text tone="muted">
+            {guidanceLine}
+          </DashboardV2Text>
+        </div>
+
+        <div className="triage-status-bar__actions">
+          <DashboardV2Button
+            tone="secondary"
+            size="sm"
+            onPress={onRefresh}
+            leadingIcon={<RefreshCcw size={16} />}
+          >
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </DashboardV2Button>
+          <DashboardV2Button tone="ghost" size="sm" onPress={onClearView}>
+            Clear view
+          </DashboardV2Button>
+        </div>
       </div>
 
       <div className="triage-status-bar__facts" aria-live="polite">
@@ -41,20 +57,6 @@ export function QueueStatusBar({
         <span className="triage-status-bar__pill">
           {activeFilterCount > 0 ? `${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active` : 'No filters active'}
         </span>
-      </div>
-
-      <div className="triage-status-bar__actions">
-        <DashboardV2Button
-          tone="secondary"
-          size="sm"
-          onPress={onRefresh}
-          leadingIcon={<RefreshCcw size={16} />}
-        >
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </DashboardV2Button>
-        <DashboardV2Button tone="ghost" size="sm" onPress={onClearView}>
-          Clear view
-        </DashboardV2Button>
       </div>
     </DashboardV2Surface>
   );

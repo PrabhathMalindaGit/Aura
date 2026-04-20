@@ -12,6 +12,7 @@ interface QueuePaneProps {
   filters: WorklistFiltersState;
   activeFilterCount: number;
   disabled?: boolean;
+  isCompactLayout: boolean;
   isVeryNarrow: boolean;
   rows: TriageQueueRowVm[];
   selectedKey: string | null;
@@ -45,6 +46,7 @@ export function QueuePane({
   filters,
   activeFilterCount,
   disabled = false,
+  isCompactLayout,
   isVeryNarrow,
   rows,
   selectedKey,
@@ -66,7 +68,7 @@ export function QueuePane({
   onQueueScroll,
 }: QueuePaneProps): JSX.Element {
   return (
-    <DashboardV2Surface className="triage-queue-pane" tone="base">
+    <DashboardV2Surface className="triage-queue-pane" tone="muted">
       <div className="triage-queue-pane__header">
         <div>
           <DashboardV2Text tone="label">Scan the queue</DashboardV2Text>
@@ -79,6 +81,7 @@ export function QueuePane({
           filters={filters}
           activeFilterCount={activeFilterCount}
           disabled={disabled}
+          isCompactLayout={isCompactLayout}
           isVeryNarrow={isVeryNarrow}
           onSearchChange={onSearchChange}
           onToggleFilter={onToggleFilter}

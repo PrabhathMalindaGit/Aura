@@ -358,4 +358,47 @@ describe('TriageQueueRoute', () => {
     expect(screen.queryByTestId('triage-active-workspace')).not.toBeInTheDocument();
     expect(screen.getByTestId('triage-queue-row-p1')).toBeInTheDocument();
   });
+
+  it('moves the support rail to drawer-only earlier and collapses advanced filters on medium layouts', async () => {
+    installMatchMediaMock((query) => {
+      if (query === '(max-width: 1439px)') {
+        return true;
+      }
+
+      if (query === '(max-width: 1023px)') {
+        return false;
+      }
+
+      if (query === '(max-width: 599px)') {
+        return false;
+      }
+
+      return false;
+    });
+    installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    expect(await screen.findByTestId('triage-active-workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Governance' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Supporting context' })).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: /Filters/ })).toBeInTheDocument();
+    expect(screen.getByText('Status')).not.toBeVisible();
+  });
+
+  it('places next actions before what changed in the selected review lane', async () => {
+    installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    await screen.findByTestId('triage-active-workspace');
+
+    const nextActions = screen.getByText('Next actions');
+    const whatChanged = screen.getByText('What changed');
+
+    expect(
+      nextActions.compareDocumentPosition(whatChanged) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

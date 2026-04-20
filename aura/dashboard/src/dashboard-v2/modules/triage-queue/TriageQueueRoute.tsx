@@ -14,7 +14,7 @@ import { TriageGovernanceRail } from './components/TriageGovernanceRail';
 import { useTriageQueueViewModel } from './useTriageQueueViewModel';
 import './triage-queue.css';
 
-const MEDIUM_LAYOUT_QUERY = '(max-width: 1279px)';
+const MEDIUM_LAYOUT_QUERY = '(max-width: 1439px)';
 const NARROW_LAYOUT_QUERY = '(max-width: 1023px)';
 const VERY_NARROW_LAYOUT_QUERY = '(max-width: 599px)';
 
@@ -138,6 +138,7 @@ export function TriageQueueRoute(): JSX.Element {
       filters={filters}
       activeFilterCount={activeFilterCount}
       disabled={queueDisabled}
+      isCompactLayout={isMediumLayout}
       isVeryNarrow={isVeryNarrow}
       rows={cases.map((item) => item.row)}
       selectedKey={visibleSelectionKey}

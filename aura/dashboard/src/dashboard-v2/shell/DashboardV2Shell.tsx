@@ -121,6 +121,7 @@ export function DashboardV2Shell(): JSX.Element {
     routeId === 'appointments';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
+  const compactRouteDescription = routeId === 'dashboard' ? null : routeDescription;
   const forceRailDrawer = routeId === 'patients';
   const showShellContextDrawer = !routeOwnsContextRail && (useRailDrawer || forceRailDrawer);
 
@@ -261,16 +262,18 @@ export function DashboardV2Shell(): JSX.Element {
               </DashboardV2Button>
             ) : null}
             <div className="dashboard-v2-shell__title-group">
-              <DashboardV2Text tone="label">Care operations</DashboardV2Text>
-              <div className="dashboard-v2-shell__route-line">
+              <div className="dashboard-v2-shell__title-line">
+                <DashboardV2Text tone="label">Care operations</DashboardV2Text>
                 <DashboardV2Heading as="h1">{routeTitle}</DashboardV2Heading>
+              </div>
+              {compactRouteDescription ? (
                 <DashboardV2Text
                   tone="muted"
                   className="dashboard-v2-shell__route-description"
                 >
-                  {routeDescription}
+                  {compactRouteDescription}
                 </DashboardV2Text>
-              </div>
+              ) : null}
             </div>
           </div>
 
@@ -315,12 +318,12 @@ export function DashboardV2Shell(): JSX.Element {
     ),
     [
       clinicianIdentity,
+      compactRouteDescription,
       connection.lastSuccessAt,
       connection.online,
       handleSignOut,
       isNarrowViewport,
       nowMs,
-      routeDescription,
       routeTitle,
       setContextRailOpen,
       setNavDrawerOpen,

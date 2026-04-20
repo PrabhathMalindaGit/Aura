@@ -1,4 +1,3 @@
-import { CalendarClock } from "lucide-react";
 import { DashboardModuleState } from "../../../../components/dashboard/DashboardModuleState";
 import type { DashboardCapacityRailVm } from "../../../adapters/dashboard";
 import { DashboardV2Button } from "../../../primitives/Button";
@@ -49,18 +48,13 @@ export function DashboardScheduleSection({
   guardPatientActions = false,
 }: DashboardScheduleSectionProps): JSX.Element {
   const tone = capacityTone(rail);
-  const totalUnits = Math.max(
-    rail.pendingRequestCount + rail.availableSlotsCount,
-    1,
-  );
-  const pendingShare =
-    rail.pendingRequestCount + rail.availableSlotsCount > 0
-      ? (rail.pendingRequestCount / totalUnits) * 100
-      : 0;
-  const availableShare =
-    rail.pendingRequestCount + rail.availableSlotsCount > 0
-      ? (rail.availableSlotsCount / totalUnits) * 100
-      : 0;
+  const showAgendaDisclosure = rail.timelineBlocks.length > 0;
+  const supportLine =
+    rail.timelineBlocks.length > 0
+      ? rail.visitsSummary
+      : rail.pendingRequestCount > 0 || rail.availableSlotsCount > 0
+        ? rail.note
+        : null;
 
   return (
     <DashboardV2Surface
@@ -86,91 +80,65 @@ export function DashboardScheduleSection({
       {loading ? (
         <DashboardModuleState
           mode="loading"
-          title="Loading capacity context"
-          lines={4}
+          title="Loading schedule status"
+          lines={2}
         />
       ) : error ? (
         <DashboardModuleState
           mode="error"
-          title="Unable to load today and capacity"
-          description="Refresh to restore the schedule and visible capacity context."
+          title="Unable to load schedule status"
+          description="Refresh to restore visible schedule context."
           onRetry={onRefresh}
           retrying={isRefreshing}
         />
       ) : (
         <>
-          <div className="v2-dashboard-schedule__spotlight">
-            <DashboardV2Text tone="label">Next visible slot</DashboardV2Text>
-            <strong className="v2-dashboard-schedule__spotlight-value">
+          <div className={`v2-dashboard-schedule__summary v2-dashboard-schedule__summary--${tone}`}>
+            <strong className="v2-dashboard-schedule__summary-value">
               {rail.nextOpenSlotValue}
             </strong>
-            <DashboardV2Text tone="muted">{rail.visitsSummary}</DashboardV2Text>
-          </div>
-
-          <div className={`v2-dashboard-schedule__support v2-dashboard-schedule__support--${tone}`}>
-            <div
-              className={`v2-dashboard-schedule__capacity-gauge ${
-                rail.pendingRequestCount === 0 && rail.availableSlotsCount === 0
-                  ? "v2-dashboard-schedule__capacity-gauge--empty"
-                  : ""
-              }`}
-              aria-label={rail.capacityStateLabel}
-            >
-              <span
-                className="v2-dashboard-schedule__capacity-fill v2-dashboard-schedule__capacity-fill--pending"
-                style={{ width: `${pendingShare}%` }}
-              />
-              <span
-                className="v2-dashboard-schedule__capacity-fill v2-dashboard-schedule__capacity-fill--available"
-                style={{
-                  left: `${pendingShare}%`,
-                  width: `${availableShare}%`,
-                }}
-              />
-            </div>
-
-            <div className="v2-dashboard-schedule__support-metrics">
-              <span className="v2-dashboard-schedule__support-token">
-                <span
-                  className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--pending"
-                  aria-hidden="true"
-                />
-                <span>
-                  Pending <strong>{rail.pendingRequestCount}</strong>
+            <DashboardV2Text tone="muted">{rail.capacityStateLabel}</DashboardV2Text>
+            {supportLine ? (
+              <DashboardV2Text tone="muted" className="v2-dashboard-schedule__note">
+                {supportLine}
+              </DashboardV2Text>
+            ) : null}
+            {(rail.pendingRequestCount > 0 || rail.availableSlotsCount > 0) ? (
+              <div className="v2-dashboard-schedule__micro-metrics">
+                <span className="v2-dashboard-schedule__micro-token">
+                  <span
+                    className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--pending"
+                    aria-hidden="true"
+                  />
+                  <span>Pending {rail.pendingRequestCount}</span>
                 </span>
-              </span>
-              <span className="v2-dashboard-schedule__support-token">
-                <span
-                  className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--available"
-                  aria-hidden="true"
-                />
-                <span>
-                  Open slots <strong>{rail.availableSlotsCount}</strong>
+                <span className="v2-dashboard-schedule__micro-token">
+                  <span
+                    className="v2-dashboard-schedule__capacity-dot v2-dashboard-schedule__capacity-dot--available"
+                    aria-hidden="true"
+                  />
+                  <span>Open {rail.availableSlotsCount}</span>
                 </span>
-              </span>
-            </div>
-
-            <DashboardV2Text tone="muted" className="v2-dashboard-schedule__note">
-              {rail.note}
-            </DashboardV2Text>
-          </div>
-
-          <DashboardV2Disclosure
-            title="Visible agenda"
-            summary={rail.visitsSummary}
-            defaultExpanded={false}
-            className="v2-dashboard-schedule__agenda-disclosure"
-          >
-            <div className="v2-dashboard-schedule__timeline-shell">
-              <div className="v2-dashboard-schedule__timeline-scale" aria-hidden="true">
-                <span>08:00</span>
-                <span>12:00</span>
-                <span>16:00</span>
-                <span>20:00</span>
               </div>
-              <div className="v2-dashboard-schedule__timeline" aria-label="Today timeline">
-                {rail.timelineBlocks.length > 0 ? (
-                  rail.timelineBlocks.map((block) => (
+            ) : null}
+          </div>
+
+          {showAgendaDisclosure ? (
+            <DashboardV2Disclosure
+              title="Visible agenda"
+              summary={rail.visitsSummary}
+              defaultExpanded={false}
+              className="v2-dashboard-schedule__agenda-disclosure"
+            >
+              <div className="v2-dashboard-schedule__timeline-shell">
+                <div className="v2-dashboard-schedule__timeline-scale" aria-hidden="true">
+                  <span>08:00</span>
+                  <span>12:00</span>
+                  <span>16:00</span>
+                  <span>20:00</span>
+                </div>
+                <div className="v2-dashboard-schedule__timeline" aria-label="Today timeline">
+                  {rail.timelineBlocks.map((block) => (
                     <button
                       key={block.id}
                       type="button"
@@ -186,18 +154,11 @@ export function DashboardScheduleSection({
                       <span className="v2-dashboard-schedule__block-label">{block.label}</span>
                       <span className="v2-dashboard-schedule__block-detail">{block.statusLabel}</span>
                     </button>
-                  ))
-                ) : (
-                  <div className="v2-dashboard-schedule__empty">
-                    <CalendarClock size={16} />
-                    <DashboardV2Text tone="muted">
-                      No visits are visible in today’s agenda.
-                    </DashboardV2Text>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
-          </DashboardV2Disclosure>
+            </DashboardV2Disclosure>
+          ) : null}
         </>
       )}
     </DashboardV2Surface>

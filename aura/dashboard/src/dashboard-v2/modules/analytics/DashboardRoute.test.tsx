@@ -378,6 +378,9 @@ describe("DashboardRoute", () => {
       "Review window",
     );
     expect(screen.getByTestId("v2-dashboard-attention-panel")).toHaveTextContent(
+      "Priority now",
+    );
+    expect(screen.getByTestId("v2-dashboard-attention-panel")).toHaveTextContent(
       "Start in safety review",
     );
     expect(screen.getByTestId("v2-dashboard-data-context")).not.toHaveTextContent(
@@ -581,9 +584,12 @@ describe("DashboardRoute", () => {
     expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
     expect(await screen.findByText("Nothing new in safety feed")).toBeVisible();
     expect(await screen.findByText("No replies are waiting")).toBeVisible();
+    expect(screen.getByTestId("v2-dashboard-schedule-section")).toHaveTextContent(
+      "No visible open capacity",
+    );
     expect(
-      screen.getByRole("button", { name: /Visible agenda/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /Visible agenda/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("v2-dashboard-urgent-queue")).toBeVisible();
   });
 

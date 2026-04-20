@@ -33,6 +33,9 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
   await expect(page.getByTestId("v2-dashboard-status-bar")).toContainText(
     "Review window",
   );
+  await expect(page.getByTestId("v2-dashboard-attention-panel")).toContainText(
+    "Priority now",
+  );
   await expect(page.getByTestId("v2-dashboard-summary-strip")).toContainText(
     "Operational summary",
   );

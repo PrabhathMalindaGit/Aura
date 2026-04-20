@@ -1,8 +1,6 @@
 import type { DashboardDataContextVm } from "../../../adapters/dashboard";
 import { DashboardV2Disclosure } from "../../../primitives/Disclosure";
-import { DashboardV2Surface } from "../../../primitives/Surface";
 import { DashboardV2Text } from "../../../primitives/Text";
-import { DashboardV2MetadataList } from "../../../patterns/MetadataList";
 
 interface DashboardDataContextPanelProps {
   dataContext: DashboardDataContextVm;
@@ -12,26 +10,31 @@ export function DashboardDataContextPanel({
   dataContext,
 }: DashboardDataContextPanelProps): JSX.Element {
   return (
-    <DashboardV2Surface
+    <footer
       className="v2-dashboard-data-context"
-      tone="muted"
       data-testid="v2-dashboard-data-context"
     >
       <div className="v2-dashboard-data-context__summary">
-        <div className="v2-dashboard-data-context__copy">
-          <DashboardV2Text
-            tone="caption"
-            className="v2-dashboard-data-context__source-note"
-          >
-            {dataContext.sourceNote}
-          </DashboardV2Text>
-        </div>
-        <DashboardV2MetadataList items={dataContext.metadata} />
+        <DashboardV2Text
+          tone="caption"
+          className="v2-dashboard-data-context__source-note"
+        >
+          {dataContext.sourceNote}
+        </DashboardV2Text>
+
+        <dl className="v2-dashboard-data-context__metadata">
+          {dataContext.metadata.map((item) => (
+            <div key={item.label} className="v2-dashboard-data-context__metadata-item">
+              <dt>{item.label}</dt>
+              <dd>{item.value?.trim() ? item.value : "Unknown"}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <DashboardV2Disclosure
         title="Coverage & trust"
-        summary="Included sources and interpretation limits."
+        summary="Sources and interpretation limits."
         defaultExpanded={false}
         className="v2-dashboard-data-context__disclosure"
       >
@@ -49,6 +52,6 @@ export function DashboardDataContextPanel({
           </div>
         </div>
       </DashboardV2Disclosure>
-    </DashboardV2Surface>
+    </footer>
   );
 }

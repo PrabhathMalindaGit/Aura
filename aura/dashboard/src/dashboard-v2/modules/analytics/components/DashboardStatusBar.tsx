@@ -1,5 +1,4 @@
 import type { DashboardStatusBarVm } from "../../../adapters/dashboard";
-import { DashboardV2Surface } from "../../../primitives/Surface";
 import { DashboardV2Text } from "../../../primitives/Text";
 
 interface DashboardStatusBarProps {
@@ -10,12 +9,10 @@ export function DashboardStatusBar({
   statusBar,
 }: DashboardStatusBarProps): JSX.Element {
   return (
-    <DashboardV2Surface
+    <div
       className="v2-dashboard-status-bar"
-      tone="muted"
       data-testid="v2-dashboard-status-bar"
     >
-      <span className="v2-visually-hidden">{statusBar.title}</span>
       <div className="v2-dashboard-status-bar__meta">
         <DashboardV2Text tone="caption" className="v2-dashboard-status-bar__window">
           Review window {statusBar.windowLabel}
@@ -34,6 +31,6 @@ export function DashboardStatusBar({
           </div>
         ) : null}
       </div>
-    </DashboardV2Surface>
+    </div>
   );
 }

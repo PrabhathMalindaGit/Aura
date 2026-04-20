@@ -81,6 +81,8 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
   await expect(page.getByRole('heading', { name: 'Patient P1' })).toBeVisible();
   await expect(page.getByTestId('v2-patient-return-link')).toContainText('Return to Worklist');
   await expect(page.getByText('Opened from Worklist')).toBeVisible();
+  await expect(page.locator('.v2-patient-header')).toHaveCSS('position', 'static');
+  await expect(page.locator('.v2-patient-route__decision-strip')).toHaveCSS('position', 'static');
 
   await page.getByTestId('v2-patient-nav-communications').click();
   await expect(page).toHaveURL(/\/patients\/p1\/communications$/);

@@ -31,6 +31,14 @@ test('patients v2 keeps roster-to-workspace navigation inside the v2 flow by def
   await expect(page.getByTestId('v2-patients-route')).toBeVisible();
   await expect(page.getByTestId('v2-patients-status-bar')).toContainText('Patients');
   await expect(page.getByRole('table', { name: 'Patients roster results' })).toBeVisible();
+  await expect(page.getByText('Freshness & scope')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Context' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Context' }).click();
+  await expect(page.getByText('Freshness & scope')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Open explanation drawer' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Freshness & scope')).toHaveCount(0);
 
   await page.setViewportSize({ width: 960, height: 900 });
   await page.reload();

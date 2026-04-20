@@ -121,6 +121,8 @@ export function DashboardV2Shell(): JSX.Element {
     routeId === 'appointments';
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
+  const forceRailDrawer = routeId === 'patients';
+  const showShellContextDrawer = !routeOwnsContextRail && (useRailDrawer || forceRailDrawer);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
@@ -193,10 +195,10 @@ export function DashboardV2Shell(): JSX.Element {
   }, [isNarrowViewport, setNavDrawerOpen]);
 
   useEffect(() => {
-    if (!useRailDrawer) {
+    if (!showShellContextDrawer) {
       setContextRailOpen(false);
     }
-  }, [setContextRailOpen, useRailDrawer]);
+  }, [setContextRailOpen, showShellContextDrawer]);
 
   useEffect(() => {
     setLayoutMode(isNarrowViewport ? 'focus' : 'workspace');
@@ -274,7 +276,7 @@ export function DashboardV2Shell(): JSX.Element {
           <span className="dashboard-v2-shell__timestamp">
             Updated {formatLastUpdated(connection.lastSuccessAt)}
           </span>
-          {useRailDrawer && !routeOwnsContextRail ? (
+          {showShellContextDrawer ? (
             <DashboardV2Button
               tone="secondary"
               size="sm"
@@ -310,11 +312,10 @@ export function DashboardV2Shell(): JSX.Element {
       isNarrowViewport,
       nowMs,
       routeDescription,
-      routeOwnsContextRail,
       routeTitle,
       setContextRailOpen,
       setNavDrawerOpen,
-      useRailDrawer,
+      showShellContextDrawer,
       workspacePreferences.availabilityLabel,
       workspacePreferences.resolvedTimezone,
     ],
@@ -351,7 +352,7 @@ export function DashboardV2Shell(): JSX.Element {
     <>
       <DashboardV2ShellFrame
         bannerMeta={bannerMeta}
-        contextualRail={useRailDrawer ? null : contextRail}
+        contextualRail={showShellContextDrawer ? null : contextRail}
         footer={footer}
         navigation={
           <DashboardV2ShellNav

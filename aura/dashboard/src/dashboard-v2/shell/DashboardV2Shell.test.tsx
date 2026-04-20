@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDashboardV2UiStore } from "../state/useDashboardV2UiStore";
@@ -116,13 +117,18 @@ describe("DashboardV2Shell", () => {
     expect(screen.queryByText(/Open explanation drawer/i)).not.toBeInTheDocument();
   });
 
-  it("moves the default shell-owned context rail into a drawer earlier for patients routes", () => {
-    useMediaQueryMock.mockImplementation((query: string) => query === "(max-width: 1439px)");
+  it("keeps the patients route on drawer-only context access even on wide layouts", async () => {
+    const user = userEvent.setup();
 
     renderShell("/patients");
 
     expect(screen.getByText("Patients workspace")).toBeInTheDocument();
     expect(screen.queryByText("Freshness & scope")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Context" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Context" }));
+
+    expect((await screen.findAllByRole("heading", { name: "Freshness & scope" })).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Open explanation drawer" })).toBeInTheDocument();
   });
 });

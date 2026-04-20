@@ -1,6 +1,5 @@
-import { Bot, ShieldCheck } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import type { ProvenanceSource } from '../adapters/viewModels';
-import { DashboardV2Badge } from '../primitives/Badge';
 import { DashboardV2Button } from '../primitives/Button';
 import { DashboardV2Disclosure } from '../primitives/Disclosure';
 import { DashboardV2Heading, DashboardV2Text } from '../primitives/Text';
@@ -48,11 +47,12 @@ export function DashboardV2GovernancePanel({
       />
 
       <div className="v2-governance-panel__actions">
-        <DashboardV2Badge icon={ShieldCheck} tone="info">
+        <DashboardV2Text tone="muted" className="v2-governance-panel__boundaries">
           Explicit responsibility boundaries
-        </DashboardV2Badge>
+        </DashboardV2Text>
         <DashboardV2Button
           tone="secondary"
+          size="sm"
           onPress={() => {
             onOpenExplanation?.();
           }}

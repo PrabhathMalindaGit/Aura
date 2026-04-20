@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDashboardV2UiStore } from "../state/useDashboardV2UiStore";
 import { DashboardV2Shell } from "./DashboardV2Shell";
 
+const useMediaQueryMock = vi.fn(() => false);
+
 vi.mock("../../components/auth/SessionTimeoutModal", () => ({
   SessionTimeoutModal: () => null,
 }));
@@ -39,7 +41,7 @@ vi.mock("../../hooks/useClinicianWorkspacePreferences", () => ({
 }));
 
 vi.mock("../../hooks/useMediaQuery", () => ({
-  useMediaQuery: () => false,
+  useMediaQuery: (query: string) => useMediaQueryMock(query),
 }));
 
 vi.mock("../../services/apiClient", () => ({
@@ -80,6 +82,7 @@ function renderShell(entry = "/dashboard"): void {
       <Routes>
         <Route path="/" element={<DashboardV2Shell />}>
           <Route path="dashboard" element={<div>Dashboard workspace</div>} />
+          <Route path="patients" element={<div>Patients workspace</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -89,6 +92,8 @@ function renderShell(entry = "/dashboard"): void {
 describe("DashboardV2Shell", () => {
   beforeEach(() => {
     resetDashboardV2UiStore();
+    useMediaQueryMock.mockReset();
+    useMediaQueryMock.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -109,5 +114,15 @@ describe("DashboardV2Shell", () => {
       screen.queryByRole("complementary", { name: "Contextual governance rail" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/Open explanation drawer/i)).not.toBeInTheDocument();
+  });
+
+  it("moves the default shell-owned context rail into a drawer earlier for patients routes", () => {
+    useMediaQueryMock.mockImplementation((query: string) => query === "(max-width: 1439px)");
+
+    renderShell("/patients");
+
+    expect(screen.getByText("Patients workspace")).toBeInTheDocument();
+    expect(screen.queryByText("Freshness & scope")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Context" })).toBeInTheDocument();
   });
 });

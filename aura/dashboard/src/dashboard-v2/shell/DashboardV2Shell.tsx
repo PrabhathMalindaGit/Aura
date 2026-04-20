@@ -39,7 +39,7 @@ import { DashboardV2ShellFrame } from './ShellFrame';
 import { DashboardV2ShellNav } from './ShellNav';
 
 const NARROW_VIEWPORT_QUERY = '(max-width: 1023px)';
-const RAIL_DRAWER_QUERY = '(max-width: 1279px)';
+const RAIL_DRAWER_QUERY = '(max-width: 1439px)';
 
 const QUICK_OPEN_ROUTES: Record<string, string> = {
   analytics: '/dashboard',
@@ -339,7 +339,7 @@ export function DashboardV2Shell(): JSX.Element {
     : (
         <DashboardV2ContextRailPanel
           title="Freshness & scope"
-          description="Compact governance, provenance, and route context."
+          description="Compact governance, provenance, and route context without competing with the main workspace."
         >
           <DashboardV2GovernancePanel onOpenExplanation={() => setExplanationOpen(true)} />
         </DashboardV2ContextRailPanel>

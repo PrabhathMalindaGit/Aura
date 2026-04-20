@@ -25,8 +25,7 @@ import { DashboardV2Heading, DashboardV2Text } from '../../primitives/Text';
 import { usePatientsViewModel } from './usePatientsViewModel';
 import './patients.css';
 
-const CARD_LAYOUT_QUERY = '(max-width: 899px)';
-const VERY_NARROW_LAYOUT_QUERY = '(max-width: 599px)';
+const CARD_LAYOUT_QUERY = '(max-width: 767px)';
 
 function getStatusTone(status: PatientStatus): 'success' | 'warning' | 'neutral' | 'unknown' {
   if (status === 'active') {
@@ -108,28 +107,31 @@ function buildInitials(displayName: string): string {
   );
 }
 
-interface CompareTrayProps {
+interface CompareToolbarProps {
   compareCount: number;
   previewPatients: PatientSummary[];
   onClear: () => void;
   onOpenCompare: () => void;
 }
 
-function CompareTray({
+function CompareToolbar({
   compareCount,
   previewPatients,
   onClear,
   onOpenCompare,
-}: CompareTrayProps): JSX.Element {
+}: CompareToolbarProps): JSX.Element {
   if (compareCount === 0) {
     return null;
   }
 
   return (
-    <div className="v2-patients-route__compare-tray">
+    <div className="v2-patients-route__compare-toolbar" aria-live="polite">
       <div className="v2-patients-route__compare-copy">
-        <DashboardV2Text tone="strong">{compareCount} selected</DashboardV2Text>
-        <div className="v2-patients-route__compare-chips" aria-live="polite">
+        <div className="v2-patients-route__compare-summary">
+          <DashboardV2Text tone="label">Compare selection</DashboardV2Text>
+          <DashboardV2Text tone="strong">{compareCount} selected</DashboardV2Text>
+        </div>
+        <div className="v2-patients-route__compare-chips">
           {previewPatients.map((patient) => (
             <span key={patient.id} className="v2-patients-route__compare-chip">
               {getPatientDisplayName(patient)}
@@ -376,7 +378,6 @@ function PatientCardList({
 
 export function PatientsRoute(): JSX.Element {
   const isCardLayout = useMediaQuery(CARD_LAYOUT_QUERY);
-  const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const viewModel = usePatientsViewModel();
   const totalPatients = viewModel.rosterSummary.total;
   const visibleCount = viewModel.visiblePatients.length;
@@ -398,20 +399,20 @@ export function PatientsRoute(): JSX.Element {
         </div>
 
         <div className="v2-patients-route__status-actions">
-          <div className="v2-patients-route__metrics" aria-label="Roster status summary">
-            <div className="v2-patients-route__metric">
+          <div className="v2-patients-route__facts" aria-label="Roster status summary">
+            <div className="v2-patients-route__fact">
               <span>Showing</span>
               <strong>{visibleCount === totalPatients ? totalPatients : `${visibleCount}/${totalPatients}`}</strong>
             </div>
-            <div className="v2-patients-route__metric">
+            <div className="v2-patients-route__fact">
               <span>Closer review</span>
               <strong>{viewModel.visibleSummary.needsReview}</strong>
             </div>
-            <div className="v2-patients-route__metric">
+            <div className="v2-patients-route__fact">
               <span>Active alerts</span>
               <strong>{viewModel.visibleSummary.openAlerts}</strong>
             </div>
-            <div className="v2-patients-route__metric">
+            <div className="v2-patients-route__fact">
               <span>Updated</span>
               <strong>{viewModel.updatedAtLabel}</strong>
             </div>
@@ -446,10 +447,10 @@ export function PatientsRoute(): JSX.Element {
       ) : null}
 
       <DashboardV2Surface className="v2-patients-route__controls" data-testid="v2-patients-filters">
-        <div className="v2-patients-route__controls-grid">
+        <div className="v2-patients-route__controls-primary">
           <DashboardV2Field
+            className="v2-patients-route__field v2-patients-route__field--search"
             label="Search patients"
-            description="Search by patient name or patient ID."
             control={
               <input
                 aria-label="Search patients"
@@ -463,6 +464,25 @@ export function PatientsRoute(): JSX.Element {
           />
 
           <DashboardV2Field
+            className="v2-patients-route__field"
+            label="Sort patients"
+            control={
+              <select
+                aria-label="Sort patients"
+                className="v2-patients-route__select"
+                value={viewModel.filters.sort}
+                onChange={(event) => viewModel.setSort(event.target.value as typeof viewModel.filters.sort)}
+              >
+                <option value="alerts-desc">Open alerts (desc)</option>
+                <option value="last-checkin-desc">Last check-in (most recent)</option>
+                <option value="name-asc">Name A-Z</option>
+                <option value="status-active-first">Status (Active first)</option>
+              </select>
+            }
+          />
+
+          <DashboardV2Field
+            className="v2-patients-route__field"
             label="Filter patients by status"
             control={
               <select
@@ -481,6 +501,7 @@ export function PatientsRoute(): JSX.Element {
           />
 
           <DashboardV2Field
+            className="v2-patients-route__field"
             label="Filter by recently active"
             control={
               <select
@@ -498,26 +519,9 @@ export function PatientsRoute(): JSX.Element {
               </select>
             }
           />
-
-          <DashboardV2Field
-            label="Sort patients"
-            control={
-              <select
-                aria-label="Sort patients"
-                className="v2-patients-route__select"
-                value={viewModel.filters.sort}
-                onChange={(event) => viewModel.setSort(event.target.value as typeof viewModel.filters.sort)}
-              >
-                <option value="alerts-desc">Open alerts (desc)</option>
-                <option value="last-checkin-desc">Last check-in (most recent)</option>
-                <option value="name-asc">Name A-Z</option>
-                <option value="status-active-first">Status (Active first)</option>
-              </select>
-            }
-          />
         </div>
 
-        <div className="v2-patients-route__controls-footer">
+        <div className="v2-patients-route__controls-secondary">
           <div className="v2-patients-route__preset-group" role="group" aria-label="Quick triage views">
             <span className="v2-patients-route__group-label">Review focus</span>
             <div className="v2-patients-route__preset-buttons">
@@ -564,24 +568,26 @@ export function PatientsRoute(): JSX.Element {
             </label>
           </div>
         </div>
-
-        <CompareTray
-          compareCount={compareCount}
-          previewPatients={viewModel.comparePreviewPatients}
-          onClear={viewModel.clearComparePatients}
-          onOpenCompare={viewModel.openCompareMode}
-        />
       </DashboardV2Surface>
 
       <DashboardV2Surface className="v2-patients-route__results" data-testid="v2-patients-results">
-        <div className="v2-patients-route__results-header">
-          <div>
-            <DashboardV2Heading as="h2">Roster results</DashboardV2Heading>
-            <DashboardV2Text tone="muted">{viewModel.workspaceSupportLine}</DashboardV2Text>
+        <div className="v2-patients-route__results-head">
+          <div className="v2-patients-route__results-header">
+            <div>
+              <DashboardV2Heading as="h2">Roster results</DashboardV2Heading>
+              <DashboardV2Text tone="muted">{viewModel.workspaceSupportLine}</DashboardV2Text>
+            </div>
+            <DashboardV2Badge tone="clinician" icon={UsersRound}>
+              {viewModel.workspaceStatusLine}
+            </DashboardV2Badge>
           </div>
-          <DashboardV2Badge tone="clinician" icon={UsersRound}>
-            {viewModel.workspaceStatusLine}
-          </DashboardV2Badge>
+
+          <CompareToolbar
+            compareCount={compareCount}
+            previewPatients={viewModel.comparePreviewPatients}
+            onClear={viewModel.clearComparePatients}
+            onOpenCompare={viewModel.openCompareMode}
+          />
         </div>
 
         {viewModel.showInitialLoading ? (
@@ -664,16 +670,9 @@ export function PatientsRoute(): JSX.Element {
           />
         )}
 
-        <div className="v2-patients-route__results-footer">
-          <DashboardV2Text tone="muted">
-            Alert burden shows current open-alert count only. Pain level shows the latest reported score only.
-          </DashboardV2Text>
-          {!isVeryNarrow ? (
-            <DashboardV2Text tone="muted">
-              Compare stays explicit so the roster can stay focused on patient-open actions.
-            </DashboardV2Text>
-          ) : null}
-        </div>
+        <DashboardV2Text tone="muted" className="v2-patients-route__results-footnote">
+          Alert burden shows current open-alert count only. Compare stays explicit so the roster can stay focused on patient-open actions.
+        </DashboardV2Text>
       </DashboardV2Surface>
     </div>
   );

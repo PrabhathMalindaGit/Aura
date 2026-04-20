@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
@@ -203,5 +204,28 @@ describe('PatientsRouteFacade', () => {
         '/patients/compare?patient=patient-42&patient=patient-77',
       );
     });
+  });
+
+  it('shows compare state inline in roster results instead of a standalone compare tray card', async () => {
+    const user = userEvent.setup();
+
+    renderPatientsRoute();
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Select Taylor Moss for compare' }));
+
+    const resultsSurface = screen.getByTestId('v2-patients-results');
+
+    expect(within(resultsSurface).getByText('1 selected')).toBeInTheDocument();
+    expect(within(resultsSurface).getByRole('button', { name: 'Compare selected (1)' })).toBeInTheDocument();
+    expect(within(resultsSurface).getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+  });
+
+  it('keeps the table dominant through typical narrow laptop widths', async () => {
+    installViewportMock(960);
+
+    renderPatientsRoute();
+
+    expect(await screen.findByRole('table', { name: 'Patients roster results' })).toBeInTheDocument();
+    expect(screen.queryByTestId('v2-patients-card-patient-42')).not.toBeInTheDocument();
   });
 });

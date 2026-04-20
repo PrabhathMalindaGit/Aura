@@ -1,9 +1,7 @@
-import { Filter } from 'lucide-react';
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Disclosure } from '../../../primitives/Disclosure';
 import { DashboardV2Input } from '../../../primitives/Input';
 import { DashboardV2Select } from '../../../primitives/Select';
-import { DashboardV2Text } from '../../../primitives/Text';
 import type { WorklistFilters as WorklistFiltersState } from '../../../../utils/worklist';
 
 interface QueueFiltersProps {
@@ -137,11 +135,11 @@ export function QueueFilters({
     <div className="triage-queue-filters">
       <div className="triage-queue-filters__primary">
         <DashboardV2Input
-          label="Search worklist"
+          label="Search"
           name="triage-queue-search"
           type="search"
           value={filters.search}
-          placeholder="Search patient name or ID"
+          placeholder="Search patient"
           onChange={(event) => onSearchChange(event.currentTarget.value)}
           isDisabled={disabled}
         />
@@ -166,13 +164,6 @@ export function QueueFilters({
         </DashboardV2Disclosure>
       ) : (
         <div className="triage-queue-filters__expanded">
-          <div className="triage-queue-filters__toolbar">
-            <DashboardV2Text tone="label">Filter the queue</DashboardV2Text>
-            <span className="triage-queue-filters__count">
-              <Filter size={14} />
-              {activeFilterCount > 0 ? `${activeFilterCount} active` : 'No additional filters'}
-            </span>
-          </div>
           {advancedFilters}
         </div>
       )}

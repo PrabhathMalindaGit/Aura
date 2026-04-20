@@ -67,12 +67,16 @@ export function QueuePane({
   queueRef,
   onQueueScroll,
 }: QueuePaneProps): JSX.Element {
+  const visibleCountLabel = rows.length === 1 ? '1 active case' : `${rows.length} active cases`;
+
   return (
     <DashboardV2Surface className="triage-queue-pane" tone="muted">
       <div className="triage-queue-pane__header">
-        <div>
-          <DashboardV2Text tone="label">Scan the queue</DashboardV2Text>
+        <div className="triage-queue-pane__title">
           <DashboardV2Heading as="h2">Patients in review</DashboardV2Heading>
+          <DashboardV2Text tone="muted">
+            {loading ? 'Refreshing queue' : visibleCountLabel}
+          </DashboardV2Text>
         </div>
       </div>
 

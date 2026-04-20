@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
@@ -276,6 +277,18 @@ describe('TriageQueueRoute', () => {
     expect(screen.getByTestId('triage-queue-row-p2')).toHaveFocus();
   });
 
+  it('removes the old active-review hero card in favor of a thinner route strip', async () => {
+    installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    expect(await screen.findByTestId('triage-queue-route', undefined, asyncQueryTimeout)).toBeInTheDocument();
+    expect(screen.queryByText('Active review')).not.toBeInTheDocument();
+    const statusStrip = screen.getByTestId('triage-status-strip');
+    expect(within(statusStrip).queryByRole('heading')).not.toBeInTheDocument();
+    expect(within(statusStrip).getByText(/in view/)).toBeInTheDocument();
+  });
+
   it('preserves query semantics for v2 filters', async () => {
     const { requests } = installWorklistFetchMock();
 
@@ -299,8 +312,10 @@ describe('TriageQueueRoute', () => {
 
     const averyRow = await screen.findByTestId('triage-queue-row-p2');
     await userEvent.click(averyRow);
+    await userEvent.click(screen.getByRole('button', { name: 'Governance' }));
 
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Close panel' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Open patient' }));
 
@@ -385,6 +400,20 @@ describe('TriageQueueRoute', () => {
 
     expect(screen.getByRole('button', { name: /Filters/ })).toBeInTheDocument();
     expect(screen.getByText('Status')).not.toBeVisible();
+  });
+
+  it('keeps supporting context out of the inline rail on wide layouts and exposes governance through the drawer', async () => {
+    installWorklistFetchMock();
+
+    renderWorklistRoute();
+
+    expect(await screen.findByTestId('triage-active-workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Governance' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Supporting context' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Governance' }));
+    expect(await screen.findByRole('heading', { name: 'Governance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open explanation' })).toBeInTheDocument();
   });
 
   it('places next actions before what changed in the selected review lane', async () => {

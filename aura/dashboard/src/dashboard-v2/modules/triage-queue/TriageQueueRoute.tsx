@@ -59,16 +59,10 @@ export function TriageQueueRoute(): JSX.Element {
     filters,
   } = useTriageQueueViewModel({ isNarrowLayout });
 
-  const showInlineRail = !isMediumLayout;
+  const showInlineRail = false;
   const showQueueOnly = isNarrowLayout && (!selectedCase || focusMode === 'queue');
-  const showGovernanceAction = isMediumLayout;
+  const showGovernanceAction = Boolean(selectedCase);
   const queueDisabled = worklistQuery.isFetching && cases.length === 0;
-
-  useEffect(() => {
-    if (showInlineRail) {
-      setGovernanceOpen(false);
-    }
-  }, [setGovernanceOpen, showInlineRail]);
 
   useEffect(() => {
     if (!isNarrowLayout) {

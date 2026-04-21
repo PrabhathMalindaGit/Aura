@@ -121,6 +121,9 @@ function CompareToolbar({
           <DashboardV2Text tone="label">Compare selection</DashboardV2Text>
           <DashboardV2Text tone="strong">{compareCount} selected</DashboardV2Text>
         </div>
+        <DashboardV2Text tone="muted" className="v2-patients-route__compare-support">
+          Keep compare explicit so the roster can stay focused on patient-open actions.
+        </DashboardV2Text>
         <div className="v2-patients-route__compare-chips">
           {previewPatients.map((patient) => (
             <span key={patient.id} className="v2-patients-route__compare-chip">
@@ -165,7 +168,7 @@ function PatientTable({
   return (
     <DashboardV2TableFrame
       className="v2-patients-table-frame"
-      summary="Generic patient open stays inside the V2 patient workspace. Compare remains a separate route."
+      summary="Patient-open stays inside the V2 patient workspace, while compare remains an explicit route."
     >
       <DashboardV2Table aria-label="Patients roster results">
         <thead>
@@ -252,8 +255,9 @@ function PatientTable({
                       </DashboardV2Text>
                     </div>
                     <DashboardV2Button
-                      tone="secondary"
+                      tone="row"
                       size="sm"
+                      trailingIcon={<ArrowUpRight size={14} />}
                       onPress={() => onOpenPatient(patient.id)}
                     >
                       Open review
@@ -299,6 +303,20 @@ function PatientCardList({
             as="article"
             data-testid={`v2-patients-card-${patient.id}`}
           >
+            <div className="v2-patients-card__topline">
+              <label className="v2-patients-route__checkbox-label v2-patients-card__checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={compareSelected}
+                  disabled={compareDisabled}
+                  aria-label={`Select ${displayName} for compare`}
+                  onChange={() => onToggleComparePatient(patient.id)}
+                />
+                <span>Compare</span>
+              </label>
+              <DashboardV2Badge tone={getStatusTone(status)}>{getStatusLabel(status)}</DashboardV2Badge>
+            </div>
+
             <div className="v2-patients-card__header">
               <div className="v2-patients-card__identity">
                 <DashboardV2ClinicianPatientAnchor patientLabel={displayName} size="md" />
@@ -307,7 +325,14 @@ function PatientCardList({
                   <DashboardV2Text tone="muted">ID: {patient.id}</DashboardV2Text>
                 </div>
               </div>
-              <DashboardV2Badge tone={getStatusTone(status)}>{getStatusLabel(status)}</DashboardV2Badge>
+              <DashboardV2Button
+                tone="row"
+                size="sm"
+                onPress={() => onOpenPatient(patient.id)}
+                data-testid={`v2-patients-open-patient-${patient.id}`}
+              >
+                Open review
+              </DashboardV2Button>
             </div>
 
             <DashboardV2Text tone="muted" className="v2-patients-card__support">
@@ -338,22 +363,9 @@ function PatientCardList({
             </dl>
 
             <div className="v2-patients-card__actions">
-              <DashboardV2Button
-                tone="secondary"
-                fullWidth
-                onPress={() => onOpenPatient(patient.id)}
-                data-testid={`v2-patients-open-patient-${patient.id}`}
-              >
-                Open review
-              </DashboardV2Button>
-              <DashboardV2Button
-                tone={compareSelected ? 'secondary' : 'ghost'}
-                fullWidth
-                onPress={() => onToggleComparePatient(patient.id)}
-                isDisabled={compareDisabled}
-              >
-                {compareSelected ? 'Remove from compare' : 'Add to compare'}
-              </DashboardV2Button>
+              <DashboardV2Text tone="muted">
+                {compareSelected ? 'Included in compare selection.' : buildActionSupportLabel(patient)}
+              </DashboardV2Text>
             </div>
           </DashboardV2Surface>
         );
@@ -372,50 +384,188 @@ export function PatientsRoute(): JSX.Element {
   return (
     <div className="v2-patients-route" data-testid="v2-patients-route">
       <DashboardV2Surface
-        className="v2-patients-route__status-bar"
+        className="v2-patients-route__command"
         tone="muted"
         data-testid="v2-patients-status-bar"
       >
-        <div className="v2-patients-route__status-copy">
-          <DashboardV2Text tone="label">Care roster</DashboardV2Text>
-          <DashboardV2Heading as="h1">Patients</DashboardV2Heading>
-          <DashboardV2Text tone="muted">
-            Search the care roster, focus the right cohort, and open the correct patient workspace without leaving the V2 shell.
-          </DashboardV2Text>
-        </div>
+        <div className="v2-patients-route__command-header">
+          <div className="v2-patients-route__status-copy">
+            <DashboardV2Text tone="label">Care roster</DashboardV2Text>
+            <DashboardV2Heading as="h1">Patients</DashboardV2Heading>
+            <DashboardV2Text tone="muted">
+              Search the roster, focus the right review cohort, and open the correct patient workspace without leaving the V2 shell.
+            </DashboardV2Text>
+          </div>
 
-        <div className="v2-patients-route__status-actions">
-          <div className="v2-patients-route__facts" aria-label="Roster status summary">
-            <div className="v2-patients-route__fact">
-              <span>Showing</span>
-              <strong>{visibleCount === totalPatients ? totalPatients : `${visibleCount}/${totalPatients}`}</strong>
-            </div>
-            <div className="v2-patients-route__fact">
-              <span>Closer review</span>
-              <strong>{viewModel.visibleSummary.needsReview}</strong>
-            </div>
-            <div className="v2-patients-route__fact">
-              <span>Active alerts</span>
-              <strong>{viewModel.visibleSummary.openAlerts}</strong>
-            </div>
-            <div className="v2-patients-route__fact">
+          <div className="v2-patients-route__command-utilities">
+            <div className="v2-patients-route__utility-pill">
               <span>Updated</span>
               <strong>{viewModel.updatedAtLabel}</strong>
             </div>
+
+            <div className="v2-patients-route__status-buttons">
+              <DashboardV2Button
+                tone="row"
+                size="sm"
+                leadingIcon={<RefreshCw size={15} />}
+                onPress={viewModel.retryPatients}
+              >
+                {viewModel.patientsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+              </DashboardV2Button>
+              <DashboardV2Button tone="quiet" size="sm" onPress={viewModel.clearSavedPatientsState}>
+                Clear view
+              </DashboardV2Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="v2-patients-route__facts" aria-label="Roster status summary">
+          <div className="v2-patients-route__fact">
+            <span>Showing</span>
+            <strong>{visibleCount === totalPatients ? totalPatients : `${visibleCount}/${totalPatients}`}</strong>
+          </div>
+          <div className="v2-patients-route__fact">
+            <span>Closer review</span>
+            <strong>{viewModel.visibleSummary.needsReview}</strong>
+          </div>
+          <div className="v2-patients-route__fact">
+            <span>Active alerts</span>
+            <strong>{viewModel.visibleSummary.openAlerts}</strong>
+          </div>
+          <div className="v2-patients-route__fact">
+            <span>Roster scope</span>
+            <strong>{viewModel.workspaceStatusLine}</strong>
+          </div>
+        </div>
+
+        <div className="v2-patients-route__toolbar" data-testid="v2-patients-filters">
+          <div className="v2-patients-route__toolbar-primary">
+            <DashboardV2Field
+              className="v2-patients-route__field v2-patients-route__field--search"
+              label="Search patients"
+              labelHidden
+              control={
+                <div className="v2-patients-route__search-shell">
+                  <DashboardV2Icon icon={Search} size={16} className="v2-patients-route__search-icon" />
+                  <input
+                    aria-label="Search patients"
+                    className="v2-input v2-patients-route__search-input"
+                    type="search"
+                    value={viewModel.filters.search}
+                    placeholder="Search by name or patient ID"
+                    onChange={(event) => viewModel.setSearch(event.target.value)}
+                  />
+                </div>
+              }
+            />
+
+            <DashboardV2Field
+              className="v2-patients-route__field"
+              label="Sort patients"
+              labelHidden
+              control={
+                <select
+                  aria-label="Sort patients"
+                  className="v2-patients-route__select"
+                  value={viewModel.filters.sort}
+                  onChange={(event) => viewModel.setSort(event.target.value as typeof viewModel.filters.sort)}
+                >
+                  <option value="alerts-desc">Sort by alert burden</option>
+                  <option value="last-checkin-desc">Sort by recent check-ins</option>
+                  <option value="name-asc">Sort by name A-Z</option>
+                  <option value="status-active-first">Sort by active status</option>
+                </select>
+              }
+            />
+
+            <DashboardV2Field
+              className="v2-patients-route__field"
+              label="Filter patients by status"
+              labelHidden
+              control={
+                <select
+                  aria-label="Filter patients by status"
+                  className="v2-patients-route__select"
+                  value={viewModel.filters.status}
+                  onChange={(event) => viewModel.setStatus(event.target.value as typeof viewModel.filters.status)}
+                >
+                  <option value="all">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="on_hold">On hold</option>
+                  <option value="discharged">Discharged</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              }
+            />
+
+            <DashboardV2Field
+              className="v2-patients-route__field"
+              label="Filter by recently active"
+              labelHidden
+              control={
+                <select
+                  aria-label="Filter by recently active"
+                  className="v2-patients-route__select"
+                  value={viewModel.filters.recentlyActive}
+                  onChange={(event) =>
+                    viewModel.setRecentlyActive(event.target.value as typeof viewModel.filters.recentlyActive)
+                  }
+                >
+                  <option value="all">Any recent activity</option>
+                  <option value="24h">Active in 24h</option>
+                  <option value="7d">Active in 7d</option>
+                  <option value="30d">Active in 30d</option>
+                </select>
+              }
+            />
           </div>
 
-          <div className="v2-patients-route__status-buttons">
-            <DashboardV2Button
-              tone="secondary"
-              size="sm"
-              leadingIcon={<RefreshCw size={15} />}
-              onPress={viewModel.retryPatients}
-            >
-              {viewModel.patientsQuery.isFetching ? 'Refreshing...' : 'Refresh'}
-            </DashboardV2Button>
-            <DashboardV2Button tone="ghost" size="sm" onPress={viewModel.clearSavedPatientsState}>
-              Clear view
-            </DashboardV2Button>
+          <div className="v2-patients-route__toolbar-secondary">
+            <div className="v2-patients-route__preset-group" role="group" aria-label="Quick triage views">
+              <span className="v2-patients-route__group-label">Review focus</span>
+              <div className="v2-patients-route__preset-buttons">
+                {viewModel.activeTriagePreset ? (
+                  <DashboardV2Badge tone="info" size="sm" icon={Search}>
+                    {viewModel.activeTriagePreset.label}
+                  </DashboardV2Badge>
+                ) : null}
+                {PATIENT_TRIAGE_PRESETS.map((preset) => {
+                  const isActive = viewModel.activeTriagePreset?.id === preset.id;
+
+                  return (
+                    <DashboardV2Button
+                      key={preset.id}
+                      tone={isActive ? 'secondary' : 'quiet'}
+                      size="sm"
+                      onPress={() => viewModel.applyTriagePreset(preset.id)}
+                    >
+                      {preset.label}
+                    </DashboardV2Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="v2-patients-route__toggle-group">
+              <label className="v2-patients-route__toggle">
+                <input
+                  aria-label="Has open alerts"
+                  type="checkbox"
+                  checked={viewModel.filters.hasOpenAlertsOnly}
+                  onChange={(event) => viewModel.setHasOpenAlertsOnly(event.target.checked)}
+                />
+                <span>Open alerts only</span>
+              </label>
+              <label className="v2-patients-route__toggle">
+                <input
+                  aria-label="Missed check-ins"
+                  type="checkbox"
+                  checked={viewModel.filters.missedCheckinsOnly}
+                  onChange={(event) => viewModel.setMissedCheckinsOnly(event.target.checked)}
+                />
+                <span>Missed check-ins only</span>
+              </label>
+            </div>
           </div>
         </div>
       </DashboardV2Surface>
@@ -432,140 +582,22 @@ export function PatientsRoute(): JSX.Element {
         </DashboardV2Surface>
       ) : null}
 
-      <DashboardV2Surface className="v2-patients-route__controls" data-testid="v2-patients-filters">
-        <div className="v2-patients-route__controls-primary">
-          <DashboardV2Field
-            className="v2-patients-route__field v2-patients-route__field--search"
-            label="Search patients"
-            control={
-              <input
-                aria-label="Search patients"
-                className="v2-input"
-                type="search"
-                value={viewModel.filters.search}
-                placeholder="Search by name or patient ID"
-                onChange={(event) => viewModel.setSearch(event.target.value)}
-              />
-            }
-          />
-
-          <DashboardV2Field
-            className="v2-patients-route__field"
-            label="Sort patients"
-            control={
-              <select
-                aria-label="Sort patients"
-                className="v2-patients-route__select"
-                value={viewModel.filters.sort}
-                onChange={(event) => viewModel.setSort(event.target.value as typeof viewModel.filters.sort)}
-              >
-                <option value="alerts-desc">Open alerts (desc)</option>
-                <option value="last-checkin-desc">Last check-in (most recent)</option>
-                <option value="name-asc">Name A-Z</option>
-                <option value="status-active-first">Status (Active first)</option>
-              </select>
-            }
-          />
-
-          <DashboardV2Field
-            className="v2-patients-route__field"
-            label="Filter patients by status"
-            control={
-              <select
-                aria-label="Filter patients by status"
-                className="v2-patients-route__select"
-                value={viewModel.filters.status}
-                onChange={(event) => viewModel.setStatus(event.target.value as typeof viewModel.filters.status)}
-              >
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="on_hold">On hold</option>
-                <option value="discharged">Discharged</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            }
-          />
-
-          <DashboardV2Field
-            className="v2-patients-route__field"
-            label="Filter by recently active"
-            control={
-              <select
-                aria-label="Filter by recently active"
-                className="v2-patients-route__select"
-                value={viewModel.filters.recentlyActive}
-                onChange={(event) =>
-                  viewModel.setRecentlyActive(event.target.value as typeof viewModel.filters.recentlyActive)
-                }
-              >
-                <option value="all">All</option>
-                <option value="24h">24h</option>
-                <option value="7d">7d</option>
-                <option value="30d">30d</option>
-              </select>
-            }
-          />
-        </div>
-
-        <div className="v2-patients-route__controls-secondary">
-          <div className="v2-patients-route__preset-group" role="group" aria-label="Quick triage views">
-            <span className="v2-patients-route__group-label">Review focus</span>
-            <div className="v2-patients-route__preset-buttons">
-              {viewModel.activeTriagePreset ? (
-                <DashboardV2Badge tone="info" icon={Search}>
-                  {viewModel.activeTriagePreset.label}
-                </DashboardV2Badge>
-              ) : null}
-              {PATIENT_TRIAGE_PRESETS.map((preset) => {
-                const isActive = viewModel.activeTriagePreset?.id === preset.id;
-
-                return (
-                  <DashboardV2Button
-                    key={preset.id}
-                    tone={isActive ? 'secondary' : 'ghost'}
-                    size="sm"
-                    onPress={() => viewModel.applyTriagePreset(preset.id)}
-                  >
-                    {preset.label}
-                  </DashboardV2Button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="v2-patients-route__toggle-group">
-            <label className="v2-patients-route__toggle">
-              <input
-                aria-label="Has open alerts"
-                type="checkbox"
-                checked={viewModel.filters.hasOpenAlertsOnly}
-                onChange={(event) => viewModel.setHasOpenAlertsOnly(event.target.checked)}
-              />
-              <span>Open alerts only</span>
-            </label>
-            <label className="v2-patients-route__toggle">
-              <input
-                aria-label="Missed check-ins"
-                type="checkbox"
-                checked={viewModel.filters.missedCheckinsOnly}
-                onChange={(event) => viewModel.setMissedCheckinsOnly(event.target.checked)}
-              />
-              <span>Missed check-ins only</span>
-            </label>
-          </div>
-        </div>
-      </DashboardV2Surface>
-
       <DashboardV2Surface className="v2-patients-route__results" data-testid="v2-patients-results">
         <div className="v2-patients-route__results-head">
           <div className="v2-patients-route__results-header">
-            <div>
-              <DashboardV2Heading as="h2">Roster results</DashboardV2Heading>
+            <div className="v2-patients-route__results-title">
+              <DashboardV2Text tone="label">Roster results</DashboardV2Text>
+              <DashboardV2Heading as="h2">Patient roster</DashboardV2Heading>
               <DashboardV2Text tone="muted">{viewModel.workspaceSupportLine}</DashboardV2Text>
             </div>
-            <DashboardV2Badge tone="clinician" icon={UsersRound}>
-              {viewModel.workspaceStatusLine}
-            </DashboardV2Badge>
+            <div className="v2-patients-route__results-meta">
+              <DashboardV2Badge tone="clinician" size="sm" icon={UsersRound}>
+                {viewModel.workspaceStatusLine}
+              </DashboardV2Badge>
+              <DashboardV2Badge tone="support" size="sm">
+                {viewModel.reviewBurdenLabel}
+              </DashboardV2Badge>
+            </div>
           </div>
 
           <CompareToolbar
@@ -656,9 +688,14 @@ export function PatientsRoute(): JSX.Element {
           />
         )}
 
-        <DashboardV2Text tone="muted" className="v2-patients-route__results-footnote">
-          Alert burden shows current open-alert count only. Compare stays explicit so the roster can stay focused on patient-open actions.
-        </DashboardV2Text>
+        <div className="v2-patients-route__results-footer">
+          <DashboardV2Text tone="muted" className="v2-patients-route__results-footnote">
+            Alert burden shows current open-alert count only.
+          </DashboardV2Text>
+          <DashboardV2Text tone="muted" className="v2-patients-route__results-footnote">
+            {viewModel.workspaceStatusLine}
+          </DashboardV2Text>
+        </div>
       </DashboardV2Surface>
     </div>
   );

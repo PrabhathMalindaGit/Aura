@@ -73,43 +73,45 @@ export function PatientCommunicationsPane({
         <DashboardV2Text tone="caption">{communications.localTruthNote}</DashboardV2Text>
       </DashboardV2Surface>
 
-      <PatientCommunicationPanel
-        items={items}
-        timeline={timeline}
-        freshnessLabel={communications.freshnessLabel}
-        onRetry={onRetry}
-        onOpenCommunication={onOpenCommunicationWorkspace}
-        onOpenAlerts={onOpenAlertsWorkspace}
-        showQuickReply={canQuickReplyFromPatientDetail}
-        quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
-        quickReplyValue={patientQuickReply}
-        onQuickReplyChange={onQuickReplyChange}
-        onSendQuickReply={onSendQuickReply}
-        replyTemplates={communicationAuthoring.templates}
-        selectedTemplateId={selectedQuickReplyTemplateId}
-        onSelectedTemplateChange={onSelectedQuickReplyTemplateChange}
-        onInsertTemplate={onInsertTemplate}
-        hasSignature={communicationAuthoring.hasSignature}
-        onInsertSignature={onInsertSignature}
-      />
-
-      <div className="v2-patient-communications-grid">
-        <PatientTasksPanel
-          activeTasks={tasks}
-          recentCompletedTasks={completedTasks}
-          freshnessLabel={tasksFreshnessLabel}
-          completingTaskId={completingTaskId}
+      <div className="v2-patient-communications-workbench">
+        <PatientCommunicationPanel
+          items={items}
+          timeline={timeline}
+          freshnessLabel={communications.freshnessLabel}
           onRetry={onRetry}
-          onCompleteTask={onCompleteTask}
+          onOpenCommunication={onOpenCommunicationWorkspace}
           onOpenAlerts={onOpenAlertsWorkspace}
-          onOpenAppointments={onOpenAppointmentsWorkspace}
+          showQuickReply={canQuickReplyFromPatientDetail}
+          quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
+          quickReplyValue={patientQuickReply}
+          onQuickReplyChange={onQuickReplyChange}
+          onSendQuickReply={onSendQuickReply}
+          replyTemplates={communicationAuthoring.templates}
+          selectedTemplateId={selectedQuickReplyTemplateId}
+          onSelectedTemplateChange={onSelectedQuickReplyTemplateChange}
+          onInsertTemplate={onInsertTemplate}
+          hasSignature={communicationAuthoring.hasSignature}
+          onInsertSignature={onInsertSignature}
         />
-        <PatientAppointmentsPanel
-          items={appointments}
-          freshnessLabel={appointmentsFreshnessLabel}
-          onRetry={onRetry}
-          onOpenAppointments={onOpenAppointmentsWorkspace}
-        />
+
+        <div className="v2-patient-communications-grid">
+          <PatientTasksPanel
+            activeTasks={tasks}
+            recentCompletedTasks={completedTasks}
+            freshnessLabel={tasksFreshnessLabel}
+            completingTaskId={completingTaskId}
+            onRetry={onRetry}
+            onCompleteTask={onCompleteTask}
+            onOpenAlerts={onOpenAlertsWorkspace}
+            onOpenAppointments={onOpenAppointmentsWorkspace}
+          />
+          <PatientAppointmentsPanel
+            items={appointments}
+            freshnessLabel={appointmentsFreshnessLabel}
+            onRetry={onRetry}
+            onOpenAppointments={onOpenAppointmentsWorkspace}
+          />
+        </div>
       </div>
     </div>
   );

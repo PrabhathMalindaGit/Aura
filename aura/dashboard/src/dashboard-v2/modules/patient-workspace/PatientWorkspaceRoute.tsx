@@ -154,39 +154,41 @@ export function PatientWorkspaceRoute(): JSX.Element {
   return (
     <>
       <div className="v2-patient-route" data-testid="v2-patient-workspace-route">
-        <PatientWorkspaceHeader
-          header={viewModel.header}
-          selectedDays={viewModel.selectedDays}
-          onSelectDays={viewModel.setSelectedDays}
-          showSupportAction={isMediumLayout}
-          onOpenSupport={() => viewModel.openSupportView('coordination')}
-        >
-          <PatientSubrouteNav
-            items={viewModel.header.navLinks}
-            activeTab={viewModel.activeTab}
-          />
-        </PatientWorkspaceHeader>
+        <div className="v2-patient-workspace-command">
+          <PatientWorkspaceHeader
+            header={viewModel.header}
+            selectedDays={viewModel.selectedDays}
+            onSelectDays={viewModel.setSelectedDays}
+            showSupportAction={isMediumLayout}
+            onOpenSupport={() => viewModel.openSupportView('coordination')}
+          >
+            <PatientSubrouteNav
+              items={viewModel.header.navLinks}
+              activeTab={viewModel.activeTab}
+            />
+          </PatientWorkspaceHeader>
 
-        {viewModel.headerNotices.length > 0 ? (
-          <div className="v2-patient-route__notices">
-            {viewModel.headerNotices.map((notice) => (
-              <DashboardV2Surface
-                key={notice.key}
-                className={`v2-patient-route__notice v2-patient-route__notice--${notice.tone}`}
-                tone={notice.tone === 'critical' ? 'critical' : 'muted'}
-              >
-                <DashboardV2Text tone="strong">{notice.title}</DashboardV2Text>
-                <DashboardV2Text tone="muted">{notice.body}</DashboardV2Text>
-              </DashboardV2Surface>
-            ))}
+          {viewModel.headerNotices.length > 0 ? (
+            <div className="v2-patient-route__notices">
+              {viewModel.headerNotices.map((notice) => (
+                <DashboardV2Surface
+                  key={notice.key}
+                  className={`v2-patient-route__notice v2-patient-route__notice--${notice.tone}`}
+                  tone={notice.tone === 'critical' ? 'critical' : 'muted'}
+                >
+                  <DashboardV2Text tone="strong">{notice.title}</DashboardV2Text>
+                  <DashboardV2Text tone="muted">{notice.body}</DashboardV2Text>
+                </DashboardV2Surface>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="v2-patient-route__decision-strip">
+            <PatientDecisionStrip
+              strip={viewModel.decisionStrip}
+              onAction={viewModel.onDecisionAction}
+            />
           </div>
-        ) : null}
-
-        <div className="v2-patient-route__decision-strip">
-          <PatientDecisionStrip
-            strip={viewModel.decisionStrip}
-            onAction={viewModel.onDecisionAction}
-          />
         </div>
 
         <DashboardV2PatientWorkspaceLayout

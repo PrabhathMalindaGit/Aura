@@ -126,7 +126,7 @@ export function PatientGuidancePane({
       </DashboardV2Surface>
 
       <div className="v2-patient-guidance-grid">
-        <DashboardV2Surface className="v2-patient-guidance-card" tone="base">
+        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--rehab" tone="base">
           <div className="v2-patient-guidance-card__header">
             <div>
               <DashboardV2Text tone="label">Rehab progression</DashboardV2Text>
@@ -154,7 +154,7 @@ export function PatientGuidancePane({
           </div>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-guidance-card" tone="base">
+        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--prom" tone="base">
           <DashboardV2Text tone="label">Questionnaires</DashboardV2Text>
           <DashboardV2Heading as="h3">PROM queue</DashboardV2Heading>
           <div className="v2-patient-guidance-list">
@@ -201,7 +201,7 @@ export function PatientGuidancePane({
           ) : null}
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-guidance-card" tone="base">
+        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--insights" tone="base">
           <div className="v2-patient-guidance-card__header">
             <div>
               <DashboardV2Text tone="label">Clinical guidance</DashboardV2Text>
@@ -258,7 +258,7 @@ export function PatientGuidancePane({
           ) : null}
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-guidance-card" tone="base">
+        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--recovery" tone="base">
           <DashboardV2Text tone="label">Recovery support</DashboardV2Text>
           <DashboardV2Heading as="h3">Check-in support configuration</DashboardV2Heading>
           <DashboardV2Select
@@ -309,7 +309,7 @@ export function PatientGuidancePane({
       </div>
 
       <div className="v2-patient-guidance-footer">
-        <DashboardV2Surface className="v2-patient-guidance-card" tone="muted">
+        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--plan" tone="muted">
           <DashboardV2Text tone="label">Exercise plan</DashboardV2Text>
           <DashboardV2Heading as="h3">{patientPlan ? `Version ${patientPlan.version}` : 'No plan assigned'}</DashboardV2Heading>
           <DashboardV2Text tone="muted">
@@ -319,7 +319,7 @@ export function PatientGuidancePane({
           </DashboardV2Text>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-guidance-card" tone="muted">
+        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--caregiver" tone="muted">
           <DashboardV2Text tone="label">Caregiver access</DashboardV2Text>
           <DashboardV2Heading as="h3">{activeCaregiverAccessItems.length} active</DashboardV2Heading>
           <DashboardV2Text tone="muted">

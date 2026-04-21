@@ -42,43 +42,45 @@ export function PatientOverviewPane({
 }: PatientOverviewPaneProps): JSX.Element {
   return (
     <div className="v2-patient-pane v2-patient-pane--overview" data-testid="v2-patient-overview-pane">
-      <PatientDecisionSurface
-        priorities={priorities}
-        recommendedActions={recommendedActions}
-        isLoading={false}
-        priorityError={prioritiesError}
-        recommendedActionsError={recommendedActionsError}
-        onRetry={onRetry}
-        onAction={(key) => onAction(key === 'trends' ? 'history' : key)}
-      />
+      <div className="v2-patient-overview-cockpit">
+        <PatientDecisionSurface
+          priorities={priorities}
+          recommendedActions={recommendedActions}
+          isLoading={false}
+          priorityError={prioritiesError}
+          recommendedActionsError={recommendedActionsError}
+          onRetry={onRetry}
+          onAction={(key) => onAction(key === 'trends' ? 'history' : key)}
+        />
 
-      <DashboardV2Surface className="v2-patient-review-summary" tone="muted">
-        <div className="v2-patient-review-summary__header">
-          <div>
-            <DashboardV2Text tone="label">Review window activity</DashboardV2Text>
-            <DashboardV2Heading as="h3">Current patient context in the selected window</DashboardV2Heading>
+        <DashboardV2Surface className="v2-patient-review-summary" tone="muted">
+          <div className="v2-patient-review-summary__header">
+            <div>
+              <DashboardV2Text tone="label">Current context</DashboardV2Text>
+              <DashboardV2Heading as="h3">Selected-window patient state</DashboardV2Heading>
+            </div>
+            {overview.freshnessLabel ? <DashboardV2Text tone="caption">{overview.freshnessLabel}</DashboardV2Text> : null}
           </div>
-          {overview.freshnessLabel ? <DashboardV2Text tone="caption">{overview.freshnessLabel}</DashboardV2Text> : null}
-        </div>
-        <div className="v2-patient-review-summary__grid">
-          {overview.reviewWindowItems.map((item) => (
-            <article key={item.label} className="v2-patient-review-summary__item">
-              <DashboardV2Text tone="label">{item.label}</DashboardV2Text>
-              <DashboardV2Text as="strong" tone="strong">{item.value}</DashboardV2Text>
-              <DashboardV2Text tone="muted">{item.note}</DashboardV2Text>
-            </article>
-          ))}
-        </div>
-      </DashboardV2Surface>
+          <div className="v2-patient-review-summary__grid">
+            {overview.reviewWindowItems.map((item) => (
+              <article key={item.label} className="v2-patient-review-summary__item">
+                <DashboardV2Text tone="label">{item.label}</DashboardV2Text>
+                <DashboardV2Text as="strong" tone="strong">{item.value}</DashboardV2Text>
+                <DashboardV2Text tone="muted">{item.note}</DashboardV2Text>
+              </article>
+            ))}
+          </div>
+        </DashboardV2Surface>
+      </div>
 
       <div className="v2-patient-overview-grid">
-        <DashboardV2Surface className="v2-patient-overview-card" tone="elevated">
+        <DashboardV2Surface className="v2-patient-overview-card v2-patient-overview-card--trajectory" tone="elevated">
           <DashboardV2Text tone="label">Clinical trajectory</DashboardV2Text>
           <DashboardV2Heading as="h3">{overview.trajectory.headline}</DashboardV2Heading>
           <DashboardV2Text tone="muted">{overview.trajectory.summary}</DashboardV2Text>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-overview-card" tone="base">
+        <DashboardV2Surface className="v2-patient-overview-card v2-patient-overview-card--follow-through" tone="base">
           <DashboardV2Text tone="label">Follow-through digest</DashboardV2Text>
           <div className="v2-patient-digest-list">
             {overview.followThroughDigest.map((item) => (
@@ -91,7 +93,7 @@ export function PatientOverviewPane({
           </div>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-overview-card" tone="base">
+        <DashboardV2Surface className="v2-patient-overview-card v2-patient-overview-card--guidance" tone="base">
           <DashboardV2Text tone="label">Guidance digest</DashboardV2Text>
           <div className="v2-patient-digest-list">
             {overview.guidanceDigest.map((item) => (

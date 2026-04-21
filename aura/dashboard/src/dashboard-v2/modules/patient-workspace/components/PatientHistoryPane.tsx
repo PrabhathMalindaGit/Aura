@@ -61,18 +61,6 @@ export function PatientHistoryPane({
         {history.freshnessLabel ? <DashboardV2Text tone="caption">{history.freshnessLabel}</DashboardV2Text> : null}
       </DashboardV2Surface>
 
-      <DashboardV2Surface className="v2-patient-review-summary" tone="muted">
-        <div className="v2-patient-review-summary__grid">
-          {history.summaryItems.map((item) => (
-            <article key={item.label} className="v2-patient-review-summary__item">
-              <DashboardV2Text tone="label">{item.label}</DashboardV2Text>
-              <DashboardV2Text as="strong" tone="strong">{item.value}</DashboardV2Text>
-              <DashboardV2Text tone="muted">{item.note}</DashboardV2Text>
-            </article>
-          ))}
-        </div>
-      </DashboardV2Surface>
-
       <DashboardV2Surface className="v2-patient-history-chart" tone="base">
         <div className="v2-patient-pane-intro__header">
           <div>
@@ -93,6 +81,18 @@ export function PatientHistoryPane({
             onCollapseMetric={() => onExpandedTrendMetricChange(null)}
           />
         )}
+      </DashboardV2Surface>
+
+      <DashboardV2Surface className="v2-patient-review-summary v2-patient-review-summary--history" tone="muted">
+        <div className="v2-patient-review-summary__grid">
+          {history.summaryItems.map((item) => (
+            <article key={item.label} className="v2-patient-review-summary__item">
+              <DashboardV2Text tone="label">{item.label}</DashboardV2Text>
+              <DashboardV2Text as="strong" tone="strong">{item.value}</DashboardV2Text>
+              <DashboardV2Text tone="muted">{item.note}</DashboardV2Text>
+            </article>
+          ))}
+        </div>
       </DashboardV2Surface>
 
       <div className="v2-patient-history-support-grid">

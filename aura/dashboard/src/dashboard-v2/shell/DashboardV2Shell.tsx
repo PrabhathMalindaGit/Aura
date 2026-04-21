@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, PanelRightOpen } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, PanelRightOpen, Search } from 'lucide-react';
 import { SessionTimeoutModal } from '../../components/auth/SessionTimeoutModal';
 import { PageTransition } from '../../components/motion/PageTransition';
 import { OfflineBanner } from '../../components/system/OfflineBanner';
@@ -263,7 +263,6 @@ export function DashboardV2Shell(): JSX.Element {
             ) : null}
             <div className="dashboard-v2-shell__title-group">
               <div className="dashboard-v2-shell__title-line">
-                <DashboardV2Text tone="label">Care operations</DashboardV2Text>
                 <DashboardV2Heading as="h1">{routeTitle}</DashboardV2Heading>
               </div>
               {compactRouteDescription ? (
@@ -286,13 +285,18 @@ export function DashboardV2Shell(): JSX.Element {
                   {clinicianIdentity.secondaryLine || workspacePreferences.availabilityLabel}
                 </DashboardV2Text>
               </div>
+              <ChevronDown className="dashboard-v2-shell__identity-chevron" size={15} aria-hidden="true" />
             </Link>
 
             <div className="dashboard-v2-shell__status-cluster">
               <span className="dashboard-v2-shell__datetime">
                 {formatWorkspaceDateTime(nowMs, workspacePreferences.resolvedTimezone)}
               </span>
-              <span className="dashboard-v2-shell__status">
+              <span
+                className="dashboard-v2-shell__status"
+                data-state={connection.online ? 'online' : 'offline'}
+              >
+                <span className="dashboard-v2-shell__status-dot" aria-hidden="true" />
                 {connection.online ? 'Connected' : 'Offline'}
               </span>
               <span className="dashboard-v2-shell__timestamp">
@@ -308,7 +312,13 @@ export function DashboardV2Shell(): JSX.Element {
                   Context
                 </DashboardV2Button>
               ) : null}
-              <DashboardV2Button tone="ghost" size="sm" onPress={handleSignOut}>
+              <DashboardV2Button
+                className="dashboard-v2-shell__signout"
+                tone="ghost"
+                size="sm"
+                onPress={handleSignOut}
+                leadingIcon={<LogOut size={15} />}
+              >
                 Sign out
               </DashboardV2Button>
             </div>
@@ -335,15 +345,20 @@ export function DashboardV2Shell(): JSX.Element {
 
   const search = (
     <form className="dashboard-v2-shell__search-form" onSubmit={handleQuickOpenSubmit}>
-      <DashboardV2Input
-        label="Quick open"
-        labelHidden
-        name="dashboard-v2-search"
-        onChange={(event) => setSearchValue(event.currentTarget.value)}
-        placeholder="Quick open patient, alert, or workspace"
-        type="search"
-        value={searchValue}
-      />
+      <div className="dashboard-v2-shell__search-control">
+        <DashboardV2Input
+          label="Quick open"
+          labelHidden
+          name="dashboard-v2-search"
+          onChange={(event) => setSearchValue(event.currentTarget.value)}
+          placeholder="Search patients, alerts, or workspace"
+          type="search"
+          value={searchValue}
+        />
+        <span className="dashboard-v2-shell__search-icon" aria-hidden="true">
+          <Search size={18} />
+        </span>
+      </div>
     </form>
   );
 

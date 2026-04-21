@@ -49908,3 +49908,151 @@ a {
     gap: 0.4rem;
   }
 }
+
+/* Phase 1 screenshot-match shell parity: keep legacy fallback chrome aligned with v2. */
+.app-shell {
+  background:
+    radial-gradient(circle at 100% 0%, hsl(221 86% 61% / 0.16), transparent 32rem),
+    linear-gradient(135deg, hsl(219 95% 91%), hsl(215 58% 96%) 34%, hsl(214 33% 93%));
+}
+
+.sidebar {
+  border-color: hsl(216 22% 90% / 0.72);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, hsl(0 0% 100% / 0.98), hsl(216 24% 97% / 0.86));
+  box-shadow:
+    0 18px 44px hsl(215 26% 25% / 0.07),
+    inset 0 1px 0 hsl(0 0% 100% / 0.82);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sidebar__brand-mark {
+  border-radius: 17px;
+  background: linear-gradient(145deg, hsl(221 86% 61%), hsl(221 82% 52%));
+  color: white;
+  box-shadow: 0 14px 28px hsl(221 86% 61% / 0.24);
+}
+
+.sidebar__brand-text {
+  letter-spacing: -0.01em;
+}
+
+.sidebar__brand-subtitle,
+.sidebar__section-label {
+  color: hsl(217 10% 48%);
+}
+
+.sidebar-item {
+  min-height: 46px;
+  border-radius: 999px;
+  background: transparent;
+  color: hsl(217 10% 42%);
+}
+
+.sidebar-item__icon {
+  color: inherit;
+}
+
+.sidebar-item:hover {
+  background: hsl(0 0% 100% / 0.78);
+  border-color: hsl(216 22% 90% / 0.8);
+  color: hsl(220 22% 14%);
+  box-shadow: none;
+  transform: none;
+}
+
+.sidebar-item--active {
+  border-color: hsl(220 12% 9%);
+  background: hsl(220 12% 9%);
+  color: white;
+  box-shadow: 0 12px 24px hsl(220 12% 9% / 0.16);
+}
+
+.sidebar-item--active .sidebar-item__icon {
+  color: white;
+}
+
+.shell-main {
+  border-color: hsl(216 22% 90% / 0.72);
+  border-radius: 32px;
+  background: hsl(216 28% 95% / 0.95);
+  box-shadow:
+    0 18px 45px hsl(215 24% 24% / 0.055),
+    inset 0 1px 0 hsl(0 0% 100% / 0.88);
+}
+
+.topbar {
+  min-height: 82px;
+  border-bottom-color: hsl(216 22% 90% / 0.66);
+  background: hsl(0 0% 100% / 0.96);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.88);
+}
+
+.app-shell[data-route-header-owner='page'] .topbar__route-label {
+  color: hsl(220 22% 14%);
+  font-size: clamp(1.1rem, 1.65vw, 1.45rem);
+  font-weight: 700;
+}
+
+.app-shell[data-route-header-owner='page'] .topbar__eyebrow {
+  color: hsl(217 10% 48%);
+}
+
+.topbar__search,
+.topbar__datetime,
+.topbar__status-cluster,
+.topbar__identity {
+  border-color: hsl(216 22% 90% / 0.72);
+  background: hsl(0 0% 100% / 0.96);
+  box-shadow: 0 10px 24px hsl(215 24% 24% / 0.045);
+}
+
+.topbar__search {
+  min-height: 46px;
+}
+
+.topbar__identity-entry {
+  padding-inline-end: 0.75rem;
+}
+
+.topbar__signout.btn {
+  border-radius: 999px;
+}
+
+.dark .app-shell {
+  background:
+    radial-gradient(circle at 100% 0%, hsl(217 92% 68% / 0.12), transparent 32rem),
+    linear-gradient(135deg, hsl(214 25% 17%), hsl(210 22% 10%) 45%, hsl(210 18% 12%));
+}
+
+.dark .sidebar,
+.dark .shell-main,
+.dark .topbar,
+.dark .topbar__search,
+.dark .topbar__datetime,
+.dark .topbar__status-cluster,
+.dark .topbar__identity {
+  border-color: hsl(211 16% 28% / 0.9);
+  background: hsl(211 18% 14% / 0.96);
+}
+
+.dark .sidebar-item {
+  color: hsl(210 18% 72%);
+}
+
+.dark .sidebar-item:hover {
+  background: hsl(211 18% 18% / 0.82);
+  color: hsl(210 25% 94%);
+}
+
+.dark .sidebar-item--active {
+  border-color: hsl(210 25% 94%);
+  background: hsl(210 25% 94%);
+  color: hsl(211 18% 14%);
+}
+
+.dark .sidebar-item--active .sidebar-item__icon {
+  color: hsl(211 18% 14%);
+}

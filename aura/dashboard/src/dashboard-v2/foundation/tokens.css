@@ -24,6 +24,7 @@
   --v2-font-size-data-number: 1rem;
   --v2-font-size-metric-headline: clamp(1.3rem, 1.55vw, 1.75rem);
   --v2-font-size-section-heading: clamp(1.05rem, 1.15vw, 1.28rem);
+  --v2-font-size-shell-title: clamp(1.65rem, 2vw, 2.05rem);
   --v2-font-weight-regular: 400;
   --v2-font-weight-medium: 500;
   --v2-font-weight-semibold: 600;
@@ -43,27 +44,34 @@
   --v2-space-8: 40px;
   --v2-radius-sm: 10px;
   --v2-radius-md: 14px;
-  --v2-radius-lg: 18px;
-  --v2-radius-xl: 24px;
+  --v2-radius-lg: 20px;
+  --v2-radius-xl: 28px;
+  --v2-radius-shell: 32px;
+  --v2-radius-control: 999px;
 
-  --v2-bg-app: 210 28% 96%;
-  --v2-bg-subtle: 210 24% 94%;
+  --v2-bg-app: 215 58% 96%;
+  --v2-bg-subtle: 214 33% 93%;
+  --v2-bg-shell: 216 28% 95%;
   --v2-surface: 0 0% 100%;
-  --v2-surface-muted: 210 24% 98%;
-  --v2-surface-quiet: 210 26% 97%;
+  --v2-surface-muted: 216 24% 97%;
+  --v2-surface-quiet: 216 20% 95%;
   --v2-surface-elevated: 0 0% 100%;
-  --v2-text: 210 26% 18%;
-  --v2-text-muted: 212 14% 38%;
-  --v2-border: 210 18% 83%;
-  --v2-border-strong: 210 18% 72%;
-  --v2-focus: 201 82% 44%;
-  --v2-focus-shadow: 201 100% 92%;
+  --v2-text: 220 22% 14%;
+  --v2-text-muted: 217 10% 48%;
+  --v2-border: 216 22% 90%;
+  --v2-border-strong: 216 18% 80%;
+  --v2-focus: 219 91% 59%;
+  --v2-focus-shadow: 219 100% 94%;
+  --v2-primary: 221 86% 61%;
+  --v2-primary-strong: 221 82% 52%;
+  --v2-primary-soft: 219 100% 96%;
+  --v2-nav-active: 220 12% 9%;
   --v2-critical: 6 66% 44%;
   --v2-critical-soft: 8 72% 96%;
   --v2-warning: 35 80% 44%;
   --v2-warning-soft: 44 100% 96%;
-  --v2-info: 205 78% 42%;
-  --v2-info-soft: 208 100% 96%;
+  --v2-info: 221 86% 57%;
+  --v2-info-soft: 219 100% 96%;
   --v2-success: 158 48% 34%;
   --v2-success-soft: 153 46% 95%;
   --v2-provenance-clinician: 205 74% 40%;
@@ -71,15 +79,15 @@
   --v2-provenance-device: 267 34% 44%;
   --v2-provenance-ai: 34 78% 42%;
   --v2-provenance-unknown: 213 10% 44%;
-  --v2-chart-line-primary: 205 76% 42%;
+  --v2-chart-line-primary: 221 86% 57%;
   --v2-chart-line-secondary: 153 44% 34%;
   --v2-chart-line-tertiary: 35 80% 44%;
   --v2-chart-grid: 210 20% 86%;
   --v2-chart-threshold: 6 66% 44%;
 
-  --v2-shadow-sm: 0 10px 24px hsl(210 18% 28% / 0.06);
-  --v2-shadow-md: 0 18px 44px hsl(210 18% 24% / 0.1);
-  --v2-shadow-selection: 0 12px 28px hsl(210 18% 20% / 0.08);
+  --v2-shadow-sm: 0 10px 24px hsl(215 24% 24% / 0.045);
+  --v2-shadow-md: 0 18px 44px hsl(215 24% 22% / 0.08);
+  --v2-shadow-selection: 0 12px 28px hsl(215 24% 20% / 0.07);
   --v2-focus-ring:
     0 0 0 2px hsl(var(--v2-surface)),
     0 0 0 4px hsl(var(--v2-focus) / 0.22);
@@ -93,6 +101,7 @@
 [data-theme='dark'] {
   --v2-bg-app: 210 22% 10%;
   --v2-bg-subtle: 210 18% 12%;
+  --v2-bg-shell: 212 18% 13%;
   --v2-surface: 211 18% 14%;
   --v2-surface-muted: 212 16% 17%;
   --v2-surface-quiet: 212 16% 15%;
@@ -103,6 +112,10 @@
   --v2-border-strong: 211 16% 38%;
   --v2-focus: 197 90% 66%;
   --v2-focus-shadow: 200 52% 24%;
+  --v2-primary: 217 92% 68%;
+  --v2-primary-strong: 217 88% 62%;
+  --v2-primary-soft: 217 34% 19%;
+  --v2-nav-active: 210 25% 94%;
   --v2-critical: 8 74% 66%;
   --v2-critical-soft: 8 34% 18%;
   --v2-warning: 38 88% 65%;

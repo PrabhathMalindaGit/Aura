@@ -104,7 +104,7 @@ describe("DashboardV2Shell", () => {
   it("keeps the dashboard shell free of foundation copy and shell-side context rail scaffolding", () => {
     renderShell();
 
-    expect(screen.getAllByText("Care operations").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Today" })).toBeVisible();
     expect(screen.getAllByText("Live operational summary").length).toBeGreaterThan(0);
     expect(screen.getByRole("searchbox", { name: /Quick open/i })).toBeInTheDocument();
     expect(screen.getByText("Dashboard workspace")).toBeInTheDocument();

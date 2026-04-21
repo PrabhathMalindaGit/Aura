@@ -23,21 +23,26 @@ export function DashboardV2ShellNav({
     <div className={cn('dashboard-v2-shell__nav', collapsed && 'dashboard-v2-shell__nav--collapsed')}>
       <div className="dashboard-v2-shell__brand">
         <div className="dashboard-v2-shell__brand-mark" aria-hidden="true">
-          A
+          <span className="dashboard-v2-shell__brand-cross" />
         </div>
         {!collapsed ? (
           <div className="dashboard-v2-shell__brand-copy">
-            <strong className="dashboard-v2-shell__brand-title">Aura Clinician</strong>
+            <strong className="dashboard-v2-shell__brand-title">Aura</strong>
             <DashboardV2Text as="span" tone="muted">
-              Care operations
+              Clinician workspace
             </DashboardV2Text>
           </div>
         ) : null}
       </div>
 
       {!compact && onToggleCollapse ? (
-        <DashboardV2Button tone="ghost" size="sm" onPress={onToggleCollapse}>
-          <DashboardV2Icon icon={collapsed ? PanelLeftOpen : PanelLeftClose} size={16} />
+        <DashboardV2Button
+          className="dashboard-v2-shell__nav-toggle"
+          tone="ghost"
+          size="sm"
+          onPress={onToggleCollapse}
+          leadingIcon={<DashboardV2Icon icon={collapsed ? PanelLeftOpen : PanelLeftClose} size={16} />}
+        >
           {!collapsed ? 'Collapse' : 'Expand'}
         </DashboardV2Button>
       ) : null}

@@ -48,6 +48,7 @@
   --v2-radius-xl: 28px;
   --v2-radius-shell: 32px;
   --v2-radius-control: 999px;
+  --v2-radius-row: 22px;
 
   --v2-bg-app: 215 58% 96%;
   --v2-bg-subtle: 214 33% 93%;
@@ -56,6 +57,10 @@
   --v2-surface-muted: 216 24% 97%;
   --v2-surface-quiet: 216 20% 95%;
   --v2-surface-elevated: 0 0% 100%;
+  --v2-row-surface: 216 28% 98%;
+  --v2-row-surface-hover: 0 0% 100%;
+  --v2-row-selected: 219 100% 97%;
+  --v2-row-border: 216 24% 88%;
   --v2-text: 220 22% 14%;
   --v2-text-muted: 217 10% 48%;
   --v2-border: 216 22% 90%;
@@ -88,6 +93,7 @@
   --v2-shadow-sm: 0 10px 24px hsl(215 24% 24% / 0.045);
   --v2-shadow-md: 0 18px 44px hsl(215 24% 22% / 0.08);
   --v2-shadow-selection: 0 12px 28px hsl(215 24% 20% / 0.07);
+  --v2-shadow-row: 0 10px 26px hsl(215 24% 24% / 0.04);
   --v2-focus-ring:
     0 0 0 2px hsl(var(--v2-surface)),
     0 0 0 4px hsl(var(--v2-focus) / 0.22);
@@ -106,6 +112,10 @@
   --v2-surface-muted: 212 16% 17%;
   --v2-surface-quiet: 212 16% 15%;
   --v2-surface-elevated: 211 18% 18%;
+  --v2-row-surface: 212 17% 16%;
+  --v2-row-surface-hover: 212 17% 19%;
+  --v2-row-selected: 214 32% 20%;
+  --v2-row-border: 211 16% 31%;
   --v2-text: 210 25% 94%;
   --v2-text-muted: 210 18% 72%;
   --v2-border: 211 16% 28%;
@@ -138,6 +148,7 @@
   --v2-shadow-sm: 0 16px 34px hsl(210 42% 4% / 0.3);
   --v2-shadow-md: 0 24px 52px hsl(210 42% 3% / 0.42);
   --v2-shadow-selection: 0 18px 40px hsl(210 42% 3% / 0.34);
+  --v2-shadow-row: 0 16px 34px hsl(210 42% 4% / 0.28);
   --v2-focus-ring:
     0 0 0 2px hsl(var(--v2-bg-app)),
     0 0 0 4px hsl(var(--v2-focus) / 0.26);

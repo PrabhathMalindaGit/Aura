@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 interface DashboardV2ClinicianPatientAnchorProps {
   patientLabel: string;
   tone?: 'critical' | 'warning' | 'success' | 'neutral';
+  size?: 'sm' | 'md';
 }
 
 function patientInitials(label: string): string {
@@ -33,10 +34,11 @@ function patientAnchorHue(label: string): number {
 export function DashboardV2ClinicianPatientAnchor({
   patientLabel,
   tone = 'neutral',
+  size = 'sm',
 }: DashboardV2ClinicianPatientAnchorProps): JSX.Element {
   return (
     <span
-      className={`v2-clinician-patient-anchor v2-clinician-patient-anchor--${tone}`}
+      className={`v2-clinician-patient-anchor v2-clinician-patient-anchor--${tone} v2-clinician-patient-anchor--${size}`}
       aria-hidden="true"
       title={patientLabel}
       style={

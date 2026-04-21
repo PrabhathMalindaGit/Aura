@@ -1,4 +1,5 @@
 import type { InsightQueueRowVm, InsightsBadgeTone } from '../../../adapters/insights';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Text } from '../../../primitives/Text';
 
@@ -79,6 +80,18 @@ export function InsightQueueRow({
         </div>
 
         <div className="v2-insight-row__body">
+          <DashboardV2ClinicianPatientAnchor
+            patientLabel={row.patientName}
+            tone={
+              row.priorityTone === 'critical'
+                ? 'critical'
+                : row.priorityTone === 'warning'
+                  ? 'warning'
+                  : row.priorityTone === 'success'
+                    ? 'success'
+                    : 'neutral'
+            }
+          />
           <div className="v2-insight-row__copy">
             <strong className="v2-insight-row__name">{row.patientName}</strong>
             <span className="v2-insight-row__title">{row.title}</span>

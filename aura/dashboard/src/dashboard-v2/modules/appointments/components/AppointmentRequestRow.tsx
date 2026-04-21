@@ -1,4 +1,5 @@
 import type { AppointmentRequestRowVm, AppointmentsBadgeTone } from '../../../adapters/appointments';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Text } from '../../../primitives/Text';
 
@@ -58,6 +59,7 @@ export function AppointmentRequestRow({
       </div>
 
       <div className="v2-appointment-request-row__body">
+        <DashboardV2ClinicianPatientAnchor patientLabel={row.patientName} tone="neutral" />
         <div className="v2-appointment-request-row__copy">
           <strong className="v2-appointment-request-row__name">{row.patientName}</strong>
           <span className="v2-appointment-request-row__schedule">{row.scheduleLabel}</span>

@@ -15,6 +15,7 @@ import {
   getPainLevelMeta,
 } from '../../../components/patients/patientRosterSignalUtils';
 import type { PatientStatus, PatientSummary } from '../../../types/models';
+import { DashboardV2ClinicianPatientAnchor } from '../../patterns/ClinicianPatientAnchor';
 import { DashboardV2Badge } from '../../primitives/Badge';
 import { DashboardV2Button } from '../../primitives/Button';
 import { DashboardV2Field } from '../../primitives/Field';
@@ -94,17 +95,6 @@ function buildActionSupportLabel(patient: PatientSummary): string {
   }
 
   return 'Open patient context';
-}
-
-function buildInitials(displayName: string): string {
-  return (
-    displayName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? '')
-      .join('') || 'P'
-  );
 }
 
 interface CompareToolbarProps {
@@ -220,9 +210,7 @@ function PatientTable({
                     onClick={() => onOpenPatient(patient.id)}
                     data-testid={`v2-patients-open-patient-${patient.id}`}
                   >
-                    <span className="v2-patients-route__avatar" aria-hidden="true">
-                      {buildInitials(displayName)}
-                    </span>
+                    <DashboardV2ClinicianPatientAnchor patientLabel={displayName} size="md" />
                     <span className="v2-patients-table__patient-copy">
                       <span className="v2-patients-table__patient-head">
                         <span className="v2-patients-table__patient-name">{displayName}</span>
@@ -313,9 +301,7 @@ function PatientCardList({
           >
             <div className="v2-patients-card__header">
               <div className="v2-patients-card__identity">
-                <span className="v2-patients-route__avatar" aria-hidden="true">
-                  {buildInitials(displayName)}
-                </span>
+                <DashboardV2ClinicianPatientAnchor patientLabel={displayName} size="md" />
                 <div className="v2-patients-card__identity-copy">
                   <DashboardV2Heading as="h3">{displayName}</DashboardV2Heading>
                   <DashboardV2Text tone="muted">ID: {patient.id}</DashboardV2Text>

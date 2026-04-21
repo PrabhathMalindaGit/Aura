@@ -71,6 +71,12 @@
   box-shadow: none;
 }
 
+.v2-dashboard-summary-strip {
+  padding: var(--v2-space-5);
+  border-color: hsl(var(--v2-border) / 0.58);
+  background: hsl(var(--v2-surface));
+}
+
 .v2-dashboard-status-bar__meta,
 .v2-dashboard-demo-tools__header,
 .v2-dashboard-demo-tools__controls,
@@ -248,14 +254,14 @@
 
 .v2-dashboard-summary-strip__header {
   align-items: start;
-  padding-bottom: 0.1rem;
-  border-bottom: 1px solid hsl(var(--v2-border) / 0.48);
+  padding-bottom: var(--v2-space-3);
+  border-bottom: 1px solid hsl(var(--v2-border) / 0.42);
 }
 
 .v2-dashboard-summary-strip__grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0;
+  gap: var(--v2-space-3);
   overflow: visible;
   border: 0;
   border-radius: 0;
@@ -264,14 +270,16 @@
 
 .v2-dashboard-summary-card {
   display: grid;
-  gap: 0.28rem;
-  padding: 0.56rem 0.8rem 0.5rem;
-  border-inline-start: 1px solid hsl(var(--v2-border) / 0.44);
-  background: transparent;
+  gap: 0.5rem;
+  min-height: 8.3rem;
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border) / 0.54);
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-row-surface));
 }
 
 .v2-dashboard-summary-card:first-child {
-  border-inline-start: 0;
+  border-inline-start: 1px solid hsl(var(--v2-border) / 0.54);
 }
 
 .v2-dashboard-summary-card__topline {
@@ -281,9 +289,9 @@
 }
 
 .v2-dashboard-summary-card__value {
-  font-size: clamp(1.44rem, 1.95vw, 1.82rem);
+  font-size: clamp(1.8rem, 2.3vw, 2.28rem);
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .v2-dashboard-summary-card__detail,
@@ -298,11 +306,11 @@
 
 .v2-dashboard-summary-card__cta {
   justify-self: start;
-  min-height: 1.75rem;
-  padding-inline: 0.55rem;
-  border-color: transparent;
-  background: transparent;
-  color: hsl(var(--v2-text-muted));
+  min-height: 2.05rem;
+  padding-inline: 0.7rem;
+  border-color: hsl(var(--v2-border) / 0.52);
+  background: hsl(var(--v2-surface));
+  color: hsl(var(--v2-text));
 }
 
 .v2-dashboard-urgent-queue__list {
@@ -881,6 +889,14 @@
 .dark .v2-dashboard-data-context__disclosure .v2-disclosure__panel {
   border-color: hsl(var(--v2-border) / 0.7);
   background: hsl(var(--v2-bg-subtle) / 0.84);
+}
+
+.dark .v2-dashboard-summary-strip__grid {
+  background: transparent;
+}
+
+.dark .v2-dashboard-summary-card {
+  background: hsl(var(--v2-row-surface));
 }
 
 .dark .v2-dashboard-attention {

@@ -15,6 +15,7 @@ interface RiskOverrideFormProps {
   alert: AlertItem;
   saving?: boolean;
   backendReady?: boolean;
+  compact?: boolean;
   onSave: (payload: { riskFinal: string; overrideReason?: string }) => void | Promise<void>;
   onClear: () => void | Promise<void>;
 }
@@ -23,6 +24,7 @@ export function RiskOverrideForm({
   alert,
   saving = false,
   backendReady = true,
+  compact = false,
   onSave,
   onClear,
 }: RiskOverrideFormProps): JSX.Element {
@@ -45,7 +47,14 @@ export function RiskOverrideForm({
 
   return (
     <>
-      <section className="drawer-section" aria-label="Risk Override">
+      <section
+        className={
+          compact
+            ? 'drawer-section risk-override-form risk-override-form--compact'
+            : 'drawer-section risk-override-form'
+        }
+        aria-label="Risk Override"
+      >
         <h3>Risk Override</h3>
         <p className="muted-text">Adjust final risk when clinician review differs from automated triage.</p>
 
@@ -89,7 +98,7 @@ export function RiskOverrideForm({
           <span>Override reason {reasonRequired ? '(required)' : '(optional)'}</span>
           <textarea
             id="risk-override-reason"
-            rows={3}
+            rows={compact ? 2 : 3}
             value={overrideReason}
             aria-label="Override reason"
             onChange={(event) => setOverrideReason(event.target.value)}

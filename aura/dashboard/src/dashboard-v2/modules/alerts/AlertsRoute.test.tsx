@@ -395,7 +395,7 @@ describe('AlertsRoute', () => {
     expect(await screen.findByTestId('v2-alert-row-alert-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
     expect(screen.queryByTestId('v2-alert-governance-rail')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open governance' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument();
 
     await user.click(screen.getByTestId('v2-alert-row-alert-2'));
 
@@ -428,7 +428,7 @@ describe('AlertsRoute', () => {
 
     expect(await screen.findByTestId('v2-alerts-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Open governance' }));
+    await user.click(screen.getByRole('button', { name: 'Context' }));
 
     expect(await screen.findByRole('heading', { name: 'Alert governance context' })).toBeInTheDocument();
   });

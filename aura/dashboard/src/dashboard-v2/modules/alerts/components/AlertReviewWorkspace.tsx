@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
-import type { AlertContextResult, AlertItem } from '../../../../types/models';
+import type { AlertContextResult, AlertItem, TimelineEvent, TriggeringEvent } from '../../../../types/models';
 import {
   clinicianQueryKeys,
   retryNotification,
@@ -14,9 +14,9 @@ import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 import { AlertTimeline } from '../../../../components/alerts/AlertTimeline';
 import { NotificationPanel } from '../../../../components/alerts/NotificationPanel';
 import { RiskOverrideForm } from '../../../../components/alerts/RiskOverrideForm';
-import { TriggeringEventPanel } from '../../../../components/alerts/TriggeringEventPanel';
 import { asAppError, toUserMessage } from '../../../../utils/errors';
 import { formatRiskLabel, getEffectiveRisk } from '../../../../utils/risk';
+import { formatExactTime, formatRelativeTime } from '../../../../utils/time';
 import { notificationStatusLabel } from '../../../../utils/notification';
 import { AlertReviewHeader } from './AlertReviewHeader';
 
@@ -92,6 +92,96 @@ function renderIdleState(
       <DashboardV2Text tone="muted">{description}</DashboardV2Text>
       {action}
     </DashboardV2Surface>
+  );
+}
+
+function formatOptionalNumber(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : '—';
+}
+
+function formatCheckinDate(value: string | undefined): JSX.Element | string {
+  if (!value) {
+    return 'Unknown';
+  }
+
+  return (
+    <time dateTime={value} title={formatExactTime(value)}>
+      {formatRelativeTime(value)}
+    </time>
+  );
+}
+
+function buildCompactTimeline(events: TimelineEvent[] | undefined): TimelineEvent[] | undefined {
+  if (!events?.length) {
+    return events;
+  }
+
+  const toTimestamp = (value: string) => {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  return [...events]
+    .sort((left, right) => toTimestamp(right.at) - toTimestamp(left.at))
+    .slice(0, 6);
+}
+
+function renderEvidenceSnapshot(
+  event: TriggeringEvent | undefined,
+  loading: boolean,
+  onFetchDetails: () => void,
+  fetchDisabled: boolean,
+): JSX.Element {
+  if (loading) {
+    return (
+      <div className="v2-alert-review-workspace__compact-empty">
+        <DashboardV2Text tone="muted">Loading evidence snapshot...</DashboardV2Text>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="v2-alert-review-workspace__compact-empty">
+        <DashboardV2Text tone="muted">Triggering event not available yet.</DashboardV2Text>
+        <DashboardV2Button tone="secondary" size="sm" onPress={onFetchDetails} isDisabled={fetchDisabled}>
+          Fetch details
+        </DashboardV2Button>
+      </div>
+    );
+  }
+
+  if (event.type === 'chat') {
+    return (
+      <div className="v2-alert-review-workspace__evidence-note">
+        <DashboardV2Text tone="label">Triggering message</DashboardV2Text>
+        <DashboardV2Text tone="strong">{event.text || 'No triggering message recorded'}</DashboardV2Text>
+        <DashboardV2Text tone="muted">{formatCheckinDate(event.createdAt)}</DashboardV2Text>
+      </div>
+    );
+  }
+
+  const adherence = event.adherence ?? {};
+  const facts = [
+    { label: 'Date', value: formatCheckinDate(event.date) },
+    { label: 'Pain', value: formatOptionalNumber(event.pain) },
+    { label: 'Mood', value: formatOptionalNumber(event.mood) },
+    { label: 'Exercises', value: formatOptionalNumber(adherence.exercises) },
+    {
+      label: 'Medication',
+      value: adherence.medication === undefined ? '—' : adherence.medication ? 'Taken' : 'Missed',
+    },
+  ];
+
+  return (
+    <dl className="v2-alert-review-workspace__compact-facts">
+      {facts.map((fact) => (
+        <div key={fact.label}>
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -217,6 +307,10 @@ export function AlertReviewWorkspace({
 
   const effectiveRisk = formatRiskLabel(getEffectiveRisk(alert));
   const latestAuditLabel = governance?.latestAudit ?? 'Unknown';
+  const compactTimeline = buildCompactTimeline(context?.timeline);
+  const whyCopy =
+    summary.basisItems[0] ??
+    `Recorded basis is ${summary.summary}. Review current risk, evidence, and workflow state before making the next decision.`;
 
   return (
     <div
@@ -267,8 +361,9 @@ export function AlertReviewWorkspace({
           className="v2-alert-review-workspace__section v2-alert-review-workspace__section--why"
           tone="elevated"
         >
-          <DashboardV2Text tone="label">{summary.title}</DashboardV2Text>
+          <DashboardV2Text tone="label">Why this alert needs review</DashboardV2Text>
           <DashboardV2Heading as="h3">{summary.summary}</DashboardV2Heading>
+          <DashboardV2Text tone="muted">{whyCopy}</DashboardV2Text>
           <div className="v2-alert-review-workspace__facts" role="list" aria-label="Alert review facts">
             {summary.supportingFacts.map((fact) => (
               <article key={fact.label} className="v2-alert-review-workspace__fact" role="listitem">
@@ -293,76 +388,80 @@ export function AlertReviewWorkspace({
           ) : null}
         </DashboardV2Surface>
 
-        <DashboardV2Surface
-          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--evidence"
-          tone="elevated"
-        >
-          <div className="v2-alert-review-workspace__section-header">
-            <div>
-              <DashboardV2Text tone="label">Evidence and threshold basis</DashboardV2Text>
-              <DashboardV2Heading as="h3">What changed and how it was recorded</DashboardV2Heading>
+        <div className="v2-alert-review-workspace__review-grid">
+          <DashboardV2Surface
+            className="v2-alert-review-workspace__section v2-alert-review-workspace__section--evidence"
+            tone="elevated"
+          >
+            <div className="v2-alert-review-workspace__section-header">
+              <div>
+                <DashboardV2Text tone="label">Evidence snapshot</DashboardV2Text>
+                <DashboardV2Heading as="h3">What changed</DashboardV2Heading>
+              </div>
+              <div className="v2-alert-review-workspace__section-badges">
+                <DashboardV2Badge tone="warning">{effectiveRisk}</DashboardV2Badge>
+                <DashboardV2Badge tone="neutral">{latestAuditLabel}</DashboardV2Badge>
+              </div>
             </div>
-            <div className="v2-alert-review-workspace__section-badges">
-              <DashboardV2Badge tone="warning">{effectiveRisk}</DashboardV2Badge>
-              <DashboardV2Badge tone="neutral">{latestAuditLabel}</DashboardV2Badge>
+            {renderEvidenceSnapshot(
+              context?.triggeringEvent,
+              contextLoading,
+              onRefetchContext,
+              contextLoading,
+            )}
+          </DashboardV2Surface>
+
+          <DashboardV2Surface
+            className="v2-alert-review-workspace__section v2-alert-review-workspace__section--workflow"
+            tone="elevated"
+          >
+            <div className="v2-alert-review-workspace__section-header">
+              <div>
+                <DashboardV2Text tone="label">Workflow state</DashboardV2Text>
+                <DashboardV2Heading as="h3">Notification review</DashboardV2Heading>
+              </div>
+              <DashboardV2Badge tone="info">
+                {notificationStatusLabel(alert.notificationStatus)}
+              </DashboardV2Badge>
             </div>
-          </div>
-          <TriggeringEventPanel
-            event={context?.triggeringEvent}
-            loading={contextLoading}
-            onFetchDetails={onRefetchContext}
-            fetchDisabled={contextLoading}
-            sourceId={alert.source.sourceId}
-          />
-        </DashboardV2Surface>
+            <NotificationPanel
+              alert={alert}
+              compact
+              retryEnabled={!retryNotificationMutation.isPending}
+              busy={retryNotificationMutation.isPending}
+              onRetry={() => retryNotificationMutation.mutate(alert)}
+            />
+          </DashboardV2Surface>
+        </div>
 
-        <DashboardV2Surface
-          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--workflow"
-          tone="elevated"
-        >
-          <div className="v2-alert-review-workspace__section-header">
-            <div>
-              <DashboardV2Text tone="label">Notification and review state</DashboardV2Text>
-              <DashboardV2Heading as="h3">How the alert moved through workflow</DashboardV2Heading>
-            </div>
-            <DashboardV2Badge tone="info">
-              {notificationStatusLabel(alert.notificationStatus)}
-            </DashboardV2Badge>
-          </div>
-          <NotificationPanel
-            alert={alert}
-            compact
-            retryEnabled={!retryNotificationMutation.isPending}
-            busy={retryNotificationMutation.isPending}
-            onRetry={() => retryNotificationMutation.mutate(alert)}
-          />
-        </DashboardV2Surface>
+        <div className="v2-alert-review-workspace__decision-grid">
+          <DashboardV2Surface
+            className="v2-alert-review-workspace__section v2-alert-review-workspace__section--decision"
+            tone="elevated"
+          >
+            <DashboardV2Text tone="label">Risk decision</DashboardV2Text>
+            <DashboardV2Heading as="h3">Confirm final risk</DashboardV2Heading>
+            <RiskOverrideForm
+              alert={alert}
+              compact
+              saving={overridePending}
+              onSave={onSaveRiskOverride}
+              onClear={onClearRiskOverride}
+            />
+          </DashboardV2Surface>
 
-        <DashboardV2Surface
-          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--decision"
-          tone="elevated"
-        >
-          <DashboardV2Text tone="label">Override and threshold decision</DashboardV2Text>
-          <DashboardV2Heading as="h3">Keep the basis in view while reviewing final risk</DashboardV2Heading>
-          <RiskOverrideForm
-            alert={alert}
-            saving={overridePending}
-            onSave={onSaveRiskOverride}
-            onClear={onClearRiskOverride}
-          />
-        </DashboardV2Surface>
-
-        <DashboardV2Surface
-          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--trail"
-          tone="elevated"
-        >
-          <DashboardV2Text tone="label">History and audit</DashboardV2Text>
-          <DashboardV2Heading as="h3">Latest governance trail</DashboardV2Heading>
-          <AlertTimeline
-            events={context?.timeline}
-            loading={contextLoading}
-          />
-        </DashboardV2Surface>
+          <DashboardV2Surface
+            className="v2-alert-review-workspace__section v2-alert-review-workspace__section--trail"
+            tone="elevated"
+          >
+            <DashboardV2Text tone="label">History and audit</DashboardV2Text>
+            <DashboardV2Heading as="h3">Latest governance trail</DashboardV2Heading>
+            <AlertTimeline
+              events={compactTimeline}
+              loading={contextLoading}
+            />
+          </DashboardV2Surface>
+        </div>
       </div>
     </div>
   );

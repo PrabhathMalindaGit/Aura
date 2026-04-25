@@ -82,7 +82,7 @@ test('alerts v2 preserves queue context while supporting alert governance action
   const workspace = page.getByTestId('v2-alert-review-workspace');
   await expect(workspace).toContainText('Patient P1');
   await expect(page.getByTestId('v2-alert-governance-rail')).toHaveCount(0);
-  await expect(workspace.getByRole('button', { name: 'Open governance' })).toBeVisible();
+  await expect(workspace.getByRole('button', { name: 'Context' })).toBeVisible();
 
   await workspace.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p1$/);
@@ -110,8 +110,8 @@ test('alerts v2 preserves queue context while supporting alert governance action
   await expect(page.getByText('Cleared override for p1.')).toBeVisible();
 
   await page.setViewportSize({ width: 1180, height: 900 });
-  await expect(workspace.getByRole('button', { name: 'Open governance' })).toBeVisible();
-  await workspace.getByRole('button', { name: 'Open governance' }).click();
+  await expect(workspace.getByRole('button', { name: 'Context' })).toBeVisible();
+  await workspace.getByRole('button', { name: 'Context' }).click();
   await expect(page.getByRole('heading', { name: 'Alert governance context' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Alert governance context' })).toBeHidden();

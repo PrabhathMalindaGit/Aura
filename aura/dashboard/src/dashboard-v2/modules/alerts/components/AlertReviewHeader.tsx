@@ -123,7 +123,7 @@ export function AlertReviewHeader({
                 onPress={onOpenGovernance}
                 leadingIcon={<PanelRightOpen size={16} />}
               >
-                Open governance
+                Context
               </DashboardV2Button>
             ) : null}
             <DashboardV2Button tone="ghost" size="sm" onPress={onOpenPatient}>

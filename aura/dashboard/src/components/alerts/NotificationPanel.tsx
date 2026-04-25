@@ -13,6 +13,7 @@ import { NotificationStatusBadge } from './NotificationStatusBadge';
 
 interface NotificationPanelProps {
   alert: AlertItem;
+  compact?: boolean;
   retryEnabled?: boolean;
   busy?: boolean;
   onRetry?: () => void;
@@ -32,6 +33,7 @@ function renderTimestamp(value: string | undefined): JSX.Element | string {
 
 export function NotificationPanel({
   alert,
+  compact = false,
   retryEnabled = true,
   busy = false,
   onRetry,
@@ -55,12 +57,15 @@ export function NotificationPanel({
     status === 'unknown' &&
     !alert.notificationSentAt &&
     !alert.notificationFailedAt;
+  const gridClassName = compact
+    ? 'notification-panel__grid notification-panel__grid--compact'
+    : 'notification-panel__grid';
 
   return (
     <section className="drawer-section" aria-label="Notification status">
       <h3>Notification</h3>
 
-      <dl className="notification-panel__grid">
+      <dl className={gridClassName}>
         <div>
           <dt>Channel</dt>
           <dd>{notificationChannelLabel(alert.notificationChannel)}</dd>
@@ -75,26 +80,30 @@ export function NotificationPanel({
           <dt>Attempted</dt>
           <dd>{renderTimestamp(alert.notificationAttemptedAt)}</dd>
         </div>
-        <div>
-          <dt>Sent</dt>
-          <dd>{renderTimestamp(alert.notificationSentAt)}</dd>
-        </div>
-        <div>
-          <dt>Failed</dt>
-          <dd>{renderTimestamp(alert.notificationFailedAt)}</dd>
-        </div>
-        <div>
-          <dt>Target</dt>
-          <dd>{alert.notificationTarget ?? '—'}</dd>
-        </div>
-        <div>
-          <dt>Message ID</dt>
-          <dd>{alert.notificationMessageId ?? '—'}</dd>
-        </div>
-        <div>
-          <dt>Retry count</dt>
-          <dd>{typeof alert.notificationRetryCount === 'number' ? String(alert.notificationRetryCount) : '—'}</dd>
-        </div>
+        {compact ? null : (
+          <>
+            <div>
+              <dt>Sent</dt>
+              <dd>{renderTimestamp(alert.notificationSentAt)}</dd>
+            </div>
+            <div>
+              <dt>Failed</dt>
+              <dd>{renderTimestamp(alert.notificationFailedAt)}</dd>
+            </div>
+            <div>
+              <dt>Target</dt>
+              <dd>{alert.notificationTarget ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Message ID</dt>
+              <dd>{alert.notificationMessageId ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Retry count</dt>
+              <dd>{typeof alert.notificationRetryCount === 'number' ? String(alert.notificationRetryCount) : '—'}</dd>
+            </div>
+          </>
+        )}
       </dl>
 
       {awaitingConfirmation ? (

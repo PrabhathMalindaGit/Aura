@@ -81,6 +81,8 @@ test('alerts v2 preserves queue context while supporting alert governance action
   await expect(page.getByTestId('v2-alerts-route')).toBeVisible();
   const workspace = page.getByTestId('v2-alert-review-workspace');
   await expect(workspace).toContainText('Patient P1');
+  await expect(page.getByTestId('v2-alert-governance-rail')).toHaveCount(0);
+  await expect(workspace.getByRole('button', { name: 'Open governance' })).toBeVisible();
 
   await workspace.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p1$/);

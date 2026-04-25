@@ -263,7 +263,10 @@ export function AlertReviewWorkspace({
       ) : null}
 
       <div className="v2-alert-review-workspace__body">
-        <DashboardV2Surface className="v2-alert-review-workspace__section" tone="elevated">
+        <DashboardV2Surface
+          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--why"
+          tone="elevated"
+        >
           <DashboardV2Text tone="label">{summary.title}</DashboardV2Text>
           <DashboardV2Heading as="h3">{summary.summary}</DashboardV2Heading>
           <div className="v2-alert-review-workspace__facts" role="list" aria-label="Alert review facts">
@@ -290,7 +293,10 @@ export function AlertReviewWorkspace({
           ) : null}
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-alert-review-workspace__section" tone="elevated">
+        <DashboardV2Surface
+          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--evidence"
+          tone="elevated"
+        >
           <div className="v2-alert-review-workspace__section-header">
             <div>
               <DashboardV2Text tone="label">Evidence and threshold basis</DashboardV2Text>
@@ -310,7 +316,10 @@ export function AlertReviewWorkspace({
           />
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-alert-review-workspace__section" tone="elevated">
+        <DashboardV2Surface
+          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--workflow"
+          tone="elevated"
+        >
           <div className="v2-alert-review-workspace__section-header">
             <div>
               <DashboardV2Text tone="label">Notification and review state</DashboardV2Text>
@@ -322,13 +331,17 @@ export function AlertReviewWorkspace({
           </div>
           <NotificationPanel
             alert={alert}
+            compact
             retryEnabled={!retryNotificationMutation.isPending}
             busy={retryNotificationMutation.isPending}
             onRetry={() => retryNotificationMutation.mutate(alert)}
           />
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-alert-review-workspace__section" tone="elevated">
+        <DashboardV2Surface
+          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--decision"
+          tone="elevated"
+        >
           <DashboardV2Text tone="label">Override and threshold decision</DashboardV2Text>
           <DashboardV2Heading as="h3">Keep the basis in view while reviewing final risk</DashboardV2Heading>
           <RiskOverrideForm
@@ -339,7 +352,10 @@ export function AlertReviewWorkspace({
           />
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-alert-review-workspace__section" tone="elevated">
+        <DashboardV2Surface
+          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--trail"
+          tone="elevated"
+        >
           <DashboardV2Text tone="label">History and audit</DashboardV2Text>
           <DashboardV2Heading as="h3">Latest governance trail</DashboardV2Heading>
           <AlertTimeline

@@ -7,7 +7,6 @@ import { DashboardV2Drawer } from '../../primitives/Drawer';
 import { DashboardV2Surface } from '../../primitives/Surface';
 import { DashboardV2Text } from '../../primitives/Text';
 import { useAlertsUiStore } from '../../state/useAlertsUiStore';
-import { AlertGovernanceRail } from './components/AlertGovernanceRail';
 import { AlertReviewWorkspace } from './components/AlertReviewWorkspace';
 import { AlertsQueuePane } from './components/AlertsQueuePane';
 import { AlertsStatusBar } from './components/AlertsStatusBar';
@@ -59,7 +58,6 @@ export function AlertsRoute(): JSX.Element {
     element.scrollTop = queueScrollTop;
   }, [queueScrollTop, viewModel.queueRows.length]);
 
-  const showInlineRail = !isMediumLayout;
   const showQueueOnly = isNarrowLayout && (!viewModel.activeAlert || focusMode === 'queue');
 
   const queueStatus = useMemo(() => {
@@ -187,19 +185,12 @@ export function AlertsRoute(): JSX.Element {
         setSupportView('governance');
         setGovernanceOpen(true);
       }}
-      showGovernanceAction={isMediumLayout}
+      showGovernanceAction={Boolean(viewModel.activeAlert)}
       showBackToQueue={isNarrowLayout}
       onBackToQueue={viewModel.clearSelectionToQueue}
       showQueueSheetAction={isNarrowLayout && Boolean(viewModel.activeAlert)}
       onOpenQueueSheet={() => setQueueSheetOpen(true)}
       onRefetchContext={viewModel.refetchAlertContext}
-    />
-  );
-
-  const governance = (
-    <AlertGovernanceRail
-      governance={viewModel.governance}
-      onOpenExplanation={() => setExplanationOpen(true)}
     />
   );
 
@@ -230,13 +221,13 @@ export function AlertsRoute(): JSX.Element {
           <DashboardV2AlertsWorkbenchLayout
             queue={isNarrowLayout ? null : queuePane}
             workspace={workspace}
-            rail={showInlineRail ? governance : null}
+            rail={null}
           />
         )}
       </div>
 
       <AlertsSupportDrawer
-        open={isMediumLayout && governanceOpen}
+        open={governanceOpen}
         onOpenChange={setGovernanceOpen}
         activeView={supportView}
         onViewChange={setSupportView}

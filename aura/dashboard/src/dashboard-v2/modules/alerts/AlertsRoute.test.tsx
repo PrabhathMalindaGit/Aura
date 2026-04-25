@@ -394,6 +394,8 @@ describe('AlertsRoute', () => {
     expect(await screen.findByTestId('v2-alerts-queue-pane', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-alert-row-alert-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+    expect(screen.queryByTestId('v2-alert-governance-rail')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open governance' })).toBeInTheDocument();
 
     await user.click(screen.getByTestId('v2-alert-row-alert-2'));
 

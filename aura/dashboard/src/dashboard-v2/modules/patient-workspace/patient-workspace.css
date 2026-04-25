@@ -292,6 +292,10 @@
   align-items: start;
 }
 
+.v2-patient-layout--without-rail {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .v2-patient-layout__main,
 .v2-patient-layout__rail {
   min-width: 0;
@@ -304,6 +308,7 @@
 
 .v2-patient-pane-intro,
 .v2-patient-review-summary,
+.v2-patient-context-summary,
 .v2-patient-history-chart,
 .v2-patient-support-card,
 .v2-patient-overview-card,
@@ -335,7 +340,7 @@
 
 .v2-patient-overview-cockpit {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(22rem, 0.92fr);
   gap: var(--v2-space-4);
   align-items: stretch;
 }
@@ -380,6 +385,49 @@
 
 .v2-patient-review-summary {
   align-content: start;
+}
+
+.v2-patient-context-summary {
+  grid-template-columns: minmax(14rem, 0.85fr) minmax(0, 1.35fr) auto;
+  align-items: center;
+  padding: clamp(0.85rem, 1.2vw, 1.05rem) clamp(1rem, 1.45vw, 1.25rem);
+  border-radius: var(--v2-radius-xl);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.96), hsl(var(--v2-surface-muted) / 0.68)),
+    linear-gradient(135deg, hsl(var(--v2-info-soft) / 0.46), transparent 72%);
+  box-shadow: none;
+}
+
+.v2-patient-context-summary h3 {
+  font-size: clamp(1rem, 1.15vw, 1.16rem);
+}
+
+.v2-patient-context-summary__copy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.v2-patient-context-summary__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--v2-space-2);
+}
+
+.v2-patient-context-summary__fact {
+  min-width: 0;
+  padding: 0.68rem 0.82rem;
+  border: 1px solid hsl(var(--v2-border) / 0.38);
+  border-radius: var(--v2-radius-control);
+  background: hsl(var(--v2-surface) / 0.72);
+}
+
+.v2-patient-context-summary__fact strong,
+.v2-patient-context-summary__fact span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .v2-patient-review-summary__grid {
@@ -479,7 +527,7 @@
 
 .v2-patient-communications-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.65fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(20rem, 0.55fr);
   gap: var(--v2-space-4);
   align-items: start;
 }
@@ -627,6 +675,18 @@
   background: hsl(var(--v2-surface) / 0.72);
 }
 
+.v2-drawer .v2-patient-support-card,
+.v2-drawer .patient-handoff-panel {
+  border: 1px solid hsl(var(--v2-border) / 0.48);
+  border-radius: var(--v2-radius-xl);
+  background: hsl(var(--v2-surface) / 0.96);
+  box-shadow: var(--v2-shadow-sm);
+}
+
+.v2-drawer .v2-patient-support-card {
+  padding: var(--v2-space-4);
+}
+
 .v2-patient-support-card h3 {
   font-size: 0.94rem;
 }
@@ -694,18 +754,23 @@
 .v2-patient-pane .btn,
 .v2-patient-pane .v2-button,
 .v2-patient-support-rail .btn,
-.v2-patient-support-rail .v2-button {
+.v2-patient-support-rail .v2-button,
+.v2-drawer .patient-handoff-panel .btn {
   border-radius: var(--v2-radius-control);
 }
 
 .v2-patient-pane .badge,
-.v2-patient-support-rail .badge {
+.v2-patient-support-rail .badge,
+.v2-drawer .patient-handoff-panel .badge {
   border-radius: var(--v2-radius-control);
 }
 
 .v2-patient-pane .form-field input,
 .v2-patient-pane .form-field select,
-.v2-patient-pane .form-field textarea {
+.v2-patient-pane .form-field textarea,
+.v2-drawer .patient-handoff-panel .form-field input,
+.v2-drawer .patient-handoff-panel .form-field select,
+.v2-drawer .patient-handoff-panel .form-field textarea {
   border-radius: var(--v2-radius-lg);
   border-color: hsl(var(--v2-border) / 0.54);
   background: hsl(var(--v2-surface) / 0.9);
@@ -716,7 +781,8 @@
 }
 
 .v2-patient-pane .patient-detail-inline-state,
-.v2-patient-pane .empty-state {
+.v2-patient-pane .empty-state,
+.v2-drawer .patient-handoff-panel .empty-state {
   border-radius: var(--v2-radius-lg);
 }
 
@@ -724,11 +790,14 @@
 .dark .v2-patient-decision-strip,
 .dark .v2-patient-pane-intro,
 .dark .v2-patient-review-summary,
+.dark .v2-patient-context-summary,
 .dark .v2-patient-history-chart,
 .dark .v2-patient-support-card,
 .dark .v2-patient-overview-card,
 .dark .v2-patient-guidance-card,
 .dark .v2-patient-history-card,
+.dark .v2-drawer .v2-patient-support-card,
+.dark .v2-drawer .patient-handoff-panel,
 .dark .v2-patient-pane--overview .patient-decision-surface,
 .dark .v2-patient-pane--communications .patient-detail-panel,
 .dark .v2-patient-support-rail .patient-detail-panel,
@@ -751,6 +820,7 @@
 .dark .v2-patient-guidance-list__item,
 .dark .v2-patient-guidance-history__item,
 .dark .v2-patient-history-chronology__item,
+.dark .v2-patient-context-summary__fact,
 .dark .v2-patient-pane--communications .patient-communication-timeline__event,
 .dark .v2-patient-pane--communications .patient-communication-inline-state,
 .dark .v2-patient-pane--communications .patient-communication-quick-reply,
@@ -772,6 +842,7 @@
   .v2-patient-guidance-footer,
   .v2-patient-communications-workbench,
   .v2-patient-history-support-grid,
+  .v2-patient-context-summary,
   .v2-patient-decision-strip__facts,
   .v2-patient-review-summary__grid,
   .v2-patient-review-summary--history .v2-patient-review-summary__grid {
@@ -798,6 +869,7 @@
   }
 
   .v2-patient-header__facts,
+  .v2-patient-context-summary__facts,
   .v2-patient-review-summary__grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -816,6 +888,10 @@
   .v2-patient-pane--communications .patient-detail-panel__header-tools,
   .v2-patient-support-rail .patient-detail-panel__header-tools {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .v2-patient-context-summary {
     align-items: stretch;
   }
 

@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { DashboardV2ExplanationDrawer } from '../../patterns/ExplanationDrawer';
 import { DashboardV2PatientWorkspaceLayout } from '../../patterns/PatientWorkspaceLayout';
 import { DashboardV2Surface } from '../../primitives/Surface';
 import { DashboardV2Text } from '../../primitives/Text';
-import { PatientGovernanceRail } from './components/PatientGovernanceRail';
 import { PatientCommunicationsPane } from './components/PatientCommunicationsPane';
 import { PatientDecisionStrip } from './components/PatientDecisionStrip';
 import { PatientGuidancePane } from './components/PatientGuidancePane';
@@ -16,38 +15,18 @@ import { PatientWorkspaceHeader } from './components/PatientWorkspaceHeader';
 import { usePatientWorkspaceViewModel } from './usePatientWorkspaceViewModel';
 import './patient-workspace.css';
 
-const MEDIUM_LAYOUT_QUERY = '(max-width: 1279px)';
 const NARROW_LAYOUT_QUERY = '(max-width: 1023px)';
 
 export function PatientWorkspaceRoute(): JSX.Element {
-  const isMediumLayout = useMediaQuery(MEDIUM_LAYOUT_QUERY);
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
   const [explanationOpen, setExplanationOpen] = useState(false);
   const viewModel = usePatientWorkspaceViewModel();
-  const latestMessageId = viewModel.communicationItems[0]?.messageId;
-  const setSupportDrawerOpen = viewModel.setSupportDrawerOpen;
-
-  useEffect(() => {
-    if (!isMediumLayout) {
-      setSupportDrawerOpen(false);
-    }
-  }, [isMediumLayout, setSupportDrawerOpen]);
-
-  const inlineRail = !isMediumLayout ? (
-    <PatientGovernanceRail
-      patientId={viewModel.patientId}
-      latestMessageId={latestMessageId}
-      taskSnapshot={viewModel.patientTasks}
-      governance={viewModel.governance}
-      onOpenNextAction={(action) => viewModel.onDecisionAction(action)}
-      onOpenExplanation={() => setExplanationOpen(true)}
-    />
-  ) : null;
 
   const activePane =
     viewModel.activeTab === 'communications' ? (
       <PatientCommunicationsPane
         communications={viewModel.communications}
+        governance={viewModel.governance}
         items={viewModel.communicationItems}
         timeline={viewModel.communicationTimeline}
         patientQuickReply={viewModel.patientQuickReply}
@@ -71,6 +50,7 @@ export function PatientWorkspaceRoute(): JSX.Element {
         onInsertTemplate={viewModel.handleInsertPatientQuickReplyTemplate}
         onInsertSignature={viewModel.handleInsertPatientQuickReplySignature}
         onCompleteTask={viewModel.handleCompleteTask}
+        onOpenContext={() => viewModel.openSupportView('workflow')}
       />
     ) : viewModel.activeTab === 'guidance' ? (
       <PatientGuidancePane
@@ -135,6 +115,7 @@ export function PatientWorkspaceRoute(): JSX.Element {
     ) : (
       <PatientOverviewPane
         overview={viewModel.overview}
+        governance={viewModel.governance}
         priorities={viewModel.patientPriorities}
         recommendedActions={viewModel.recommendedActions}
         prioritiesError={viewModel.patientPrioritiesError}
@@ -148,6 +129,7 @@ export function PatientWorkspaceRoute(): JSX.Element {
         onAcknowledgeAlert={(alert) => viewModel.handleAlertStatusUpdate('acknowledged', alert)}
         onResolveAlert={(alert) => viewModel.handleAlertStatusUpdate('resolved', alert)}
         onViewAllAlerts={viewModel.onOpenAlertsWorkspace}
+        onOpenContext={() => viewModel.openSupportView('coordination')}
       />
     );
 
@@ -159,7 +141,7 @@ export function PatientWorkspaceRoute(): JSX.Element {
             header={viewModel.header}
             selectedDays={viewModel.selectedDays}
             onSelectDays={viewModel.setSelectedDays}
-            showSupportAction={isMediumLayout}
+            showSupportAction
             onOpenSupport={() => viewModel.openSupportView('coordination')}
           >
             <PatientSubrouteNav
@@ -193,12 +175,11 @@ export function PatientWorkspaceRoute(): JSX.Element {
 
         <DashboardV2PatientWorkspaceLayout
           main={activePane}
-          rail={inlineRail}
         />
       </div>
 
       <PatientSupportDrawer
-        open={isMediumLayout && viewModel.supportDrawerOpen}
+        open={viewModel.supportDrawerOpen}
         onOpenChange={viewModel.setSupportDrawerOpen}
         activeView={viewModel.activeSupportView}
         onViewChange={viewModel.setActiveSupportView}

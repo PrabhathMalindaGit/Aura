@@ -5,10 +5,16 @@ import type { AlertItem } from '../../../../types/models';
 import type { PatientPriorityItem, PatientRecommendedAction } from '../../../../utils/patientDetail';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
-import type { PatientWorkspaceActionId, PatientWorkspaceOverviewVm } from '../../../adapters/patientWorkspace';
+import type {
+  PatientWorkspaceActionId,
+  PatientWorkspaceGovernanceVm,
+  PatientWorkspaceOverviewVm,
+} from '../../../adapters/patientWorkspace';
+import { PatientContextSummary } from './PatientContextSummary';
 
 interface PatientOverviewPaneProps {
   overview: PatientWorkspaceOverviewVm;
+  governance: PatientWorkspaceGovernanceVm;
   priorities: PatientPriorityItem[];
   recommendedActions: PatientRecommendedAction[];
   prioritiesError: string | null;
@@ -22,10 +28,12 @@ interface PatientOverviewPaneProps {
   onAcknowledgeAlert: (alert: AlertItem) => void;
   onResolveAlert: (alert: AlertItem) => void;
   onViewAllAlerts: () => void;
+  onOpenContext: () => void;
 }
 
 export function PatientOverviewPane({
   overview,
+  governance,
   priorities,
   recommendedActions,
   prioritiesError,
@@ -39,6 +47,7 @@ export function PatientOverviewPane({
   onAcknowledgeAlert,
   onResolveAlert,
   onViewAllAlerts,
+  onOpenContext,
 }: PatientOverviewPaneProps): JSX.Element {
   return (
     <div className="v2-patient-pane v2-patient-pane--overview" data-testid="v2-patient-overview-pane">
@@ -72,6 +81,12 @@ export function PatientOverviewPane({
           </div>
         </DashboardV2Surface>
       </div>
+
+      <PatientContextSummary
+        governance={governance}
+        mode="overview"
+        onOpenContext={onOpenContext}
+      />
 
       <div className="v2-patient-overview-grid">
         <DashboardV2Surface className="v2-patient-overview-card v2-patient-overview-card--trajectory" tone="elevated">

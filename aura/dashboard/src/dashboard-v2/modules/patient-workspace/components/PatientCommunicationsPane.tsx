@@ -4,12 +4,17 @@ import { PatientTasksPanel } from '../../../../components/patients/PatientTasksP
 import type { ClinicianCommunicationTemplate } from '../../../../services/clinicianProfile';
 import type { AppointmentRequestItem, ClinicianTaskItem, DashboardCommunicationOverviewItem } from '../../../../types/models';
 import type { CommunicationTimelineEvent } from '../../../../services/communicationWorkspace';
-import type { PatientWorkspaceCommunicationsVm } from '../../../adapters/patientWorkspace';
+import type {
+  PatientWorkspaceCommunicationsVm,
+  PatientWorkspaceGovernanceVm,
+} from '../../../adapters/patientWorkspace';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
+import { PatientContextSummary } from './PatientContextSummary';
 
 interface PatientCommunicationsPaneProps {
   communications: PatientWorkspaceCommunicationsVm;
+  governance: PatientWorkspaceGovernanceVm;
   items: DashboardCommunicationOverviewItem[];
   timeline: CommunicationTimelineEvent[];
   patientQuickReply: string;
@@ -36,10 +41,12 @@ interface PatientCommunicationsPaneProps {
   onInsertTemplate: () => void;
   onInsertSignature: () => void;
   onCompleteTask: (taskId: string) => void;
+  onOpenContext: () => void;
 }
 
 export function PatientCommunicationsPane({
   communications,
+  governance,
   items,
   timeline,
   patientQuickReply,
@@ -63,6 +70,7 @@ export function PatientCommunicationsPane({
   onInsertTemplate,
   onInsertSignature,
   onCompleteTask,
+  onOpenContext,
 }: PatientCommunicationsPaneProps): JSX.Element {
   return (
     <div className="v2-patient-pane v2-patient-pane--communications" data-testid="v2-patient-communications-pane">
@@ -72,6 +80,12 @@ export function PatientCommunicationsPane({
         <DashboardV2Text tone="muted">{communications.serverTruthNote}</DashboardV2Text>
         <DashboardV2Text tone="caption">{communications.localTruthNote}</DashboardV2Text>
       </DashboardV2Surface>
+
+      <PatientContextSummary
+        governance={governance}
+        mode="communications"
+        onOpenContext={onOpenContext}
+      />
 
       <div className="v2-patient-communications-workbench">
         <PatientCommunicationPanel

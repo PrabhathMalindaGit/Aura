@@ -81,36 +81,67 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
   await expect(page.getByRole('heading', { name: 'Patient P1' })).toBeVisible();
   await expect(page.getByTestId('v2-patient-return-link')).toContainText('Return to Worklist');
   await expect(page.getByText('Opened from Worklist')).toBeVisible();
+  await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
+  await expect(page.getByText('Shared handoff')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeVisible();
   await expect(page.locator('.v2-patient-header')).toHaveCSS('position', 'static');
   await expect(page.locator('.v2-patient-route__decision-strip')).toHaveCSS('position', 'static');
+  await expect(page.locator('.v2-patient-layout')).toHaveCSS('grid-template-columns', /.+/);
 
   await page.getByTestId('v2-patient-nav-communications').click();
   await expect(page).toHaveURL(/\/patients\/p1\/communications$/);
   await expect(page.getByTestId('v2-patient-communications-pane')).toBeVisible();
+  await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
+  await expect(page.getByText('Coordination support')).toBeVisible();
 
   await page.getByRole('textbox', { name: 'Quick reply' }).fill('Saved locally from the patient workspace.');
   await page.getByRole('button', { name: 'Save local reply' }).click();
   await expect(page.getByText('Saved locally from the patient workspace.')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Context', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Patient workspace context' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Add shared note' }).fill('Team-visible follow-up note from patient workspace.');
   await page.getByRole('button', { name: 'Add shared note' }).click();
   await expect(page.getByText('Team-visible follow-up note from patient workspace.')).toBeVisible();
   await expect(page.getByText('Saved locally from the patient workspace.')).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel' }).click();
+  await expect(page.getByRole('heading', { name: 'Patient workspace context' })).toBeHidden();
 
   await page.getByTestId('v2-patient-nav-guidance').click();
   await expect(page).toHaveURL(/\/patients\/p1\/guidance$/);
   await expect(page.getByTestId('v2-patient-guidance-pane')).toBeVisible();
+  await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Current rehab phase' })).toBeVisible();
 
   await page.getByTestId('v2-patient-nav-history').click();
   await expect(page).toHaveURL(/\/patients\/p1\/history$/);
   await expect(page.getByTestId('v2-patient-history-pane')).toBeVisible();
+  await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
+  await expect(page.getByText('Longitudinal patient trajectory')).toBeVisible();
 
   await page.setViewportSize({ width: 1180, height: 900 });
-  await expect(page.getByRole('button', { name: 'Open support' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open support' }).click();
-  await expect(page.getByRole('heading', { name: 'Patient support context' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('heading', { name: 'Patient support context' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Context', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Patient workspace context' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel' }).click();
+  await expect(page.getByRole('heading', { name: 'Patient workspace context' })).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Context', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Patient workspace context' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel' }).click();
+  await expect(page.getByRole('heading', { name: 'Patient workspace context' })).toBeHidden();
+
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.evaluate(() => {
+    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'dark');
+  });
+  await expect(page.getByTestId('v2-patient-history-pane')).toBeVisible();
+  await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeVisible();
 
   await page.getByTestId('v2-patient-return-link').click();
   await expect(page).toHaveURL(/\/worklist$/);

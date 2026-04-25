@@ -3,27 +3,13 @@ import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 import { DashboardV2ProvenanceBadge } from '../../../patterns/ProvenanceBadge';
-import { PatientHandoffPanel } from '../../../../components/patients/PatientHandoffPanel';
-import type { ClinicianTaskItem } from '../../../../types/models';
 import type { PatientWorkspaceGovernanceVm } from '../../../adapters/patientWorkspace';
-
-interface SharedCoordinationSectionProps {
-  patientId: string;
-  latestMessageId?: string;
-  taskSnapshot: ClinicianTaskItem[];
-  onOpenNextAction: (action: 'alerts' | 'communication' | 'tasks' | 'appointments' | 'plan') => void;
-}
 
 interface WorkflowSectionProps {
   governance: PatientWorkspaceGovernanceVm;
 }
 
 interface GovernanceSectionProps {
-  governance: PatientWorkspaceGovernanceVm;
-  onOpenExplanation?: () => void;
-}
-
-interface PatientGovernanceRailProps extends SharedCoordinationSectionProps {
   governance: PatientWorkspaceGovernanceVm;
   onOpenExplanation?: () => void;
 }
@@ -74,30 +60,5 @@ export function PatientGovernanceMetadataSection({
         </div>
       ) : null}
     </DashboardV2Surface>
-  );
-}
-
-export function PatientGovernanceRail({
-  patientId,
-  latestMessageId,
-  taskSnapshot,
-  governance,
-  onOpenNextAction,
-  onOpenExplanation,
-}: PatientGovernanceRailProps): JSX.Element {
-  return (
-    <div className="v2-patient-support-rail" data-testid="v2-patient-governance-rail">
-      <PatientHandoffPanel
-        patientId={patientId}
-        communicationMessageId={latestMessageId}
-        taskSnapshot={taskSnapshot}
-        onOpenNextAction={onOpenNextAction}
-      />
-      <PatientGovernanceWorkflowSection governance={governance} />
-      <PatientGovernanceMetadataSection
-        governance={governance}
-        onOpenExplanation={onOpenExplanation}
-      />
-    </div>
   );
 }

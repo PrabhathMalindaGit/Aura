@@ -409,14 +409,15 @@ describe('PatientWorkspaceRoute', () => {
     expect(screen.queryByTestId('v2-patient-workspace-route')).not.toBeInTheDocument();
   });
 
-  it('renders the v2 patient workspace by default for the overview alias and keeps the inline rail on wide layouts', async () => {
+  it('renders the v2 patient workspace by default for the overview alias without a persistent rail on wide layouts', async () => {
 
     renderPatientWorkspace('/patients/patient-1?days=30');
 
     expect(await screen.findByTestId('v2-patient-workspace-route')).toBeInTheDocument();
     expect(screen.getByTestId('v2-patient-overview-pane')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Taylor Moss' })).toBeInTheDocument();
-    expect(screen.getByTestId('v2-patient-governance-rail')).toBeInTheDocument();
+    expect(screen.queryByTestId('v2-patient-governance-rail')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument();
     expect(screen.getByTestId('route-location')).toHaveTextContent('/patients/patient-1?days=30');
   });
 
@@ -435,7 +436,7 @@ describe('PatientWorkspaceRoute', () => {
     expect(screen.getByTestId('route-location')).toHaveTextContent('/patients/patient-1/guidance');
   });
 
-  it('moves support context into a drawer on medium layouts', async () => {
+  it('keeps deep context in a drawer on medium layouts', async () => {
     const user = userEvent.setup();
     installMatchMediaMock((query) => query.includes('(max-width: 1279px)') && !query.includes('(max-width: 1023px)'));
 
@@ -444,9 +445,9 @@ describe('PatientWorkspaceRoute', () => {
     expect(await screen.findByTestId('v2-patient-overview-pane')).toBeInTheDocument();
     expect(screen.queryByTestId('v2-patient-governance-rail')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Open support' }));
+    await user.click(screen.getByRole('button', { name: 'Context' }));
 
-    expect(await screen.findByRole('heading', { name: 'Patient support context' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Patient workspace context' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Shared coordination' })).toBeInTheDocument();
   });
 
@@ -457,6 +458,6 @@ describe('PatientWorkspaceRoute', () => {
 
     expect(await screen.findByTestId('v2-patient-history-pane')).toBeInTheDocument();
     expect(screen.queryByTestId('v2-patient-governance-rail')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open support' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument();
   });
 });

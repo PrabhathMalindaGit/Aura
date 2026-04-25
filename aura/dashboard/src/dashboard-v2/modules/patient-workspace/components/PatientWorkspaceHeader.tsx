@@ -69,7 +69,7 @@ export function PatientWorkspaceHeader({
               onPress={onOpenSupport}
               leadingIcon={<PanelRightOpen size={16} />}
             >
-              Open support
+              Context
             </DashboardV2Button>
           ) : null}
         </div>

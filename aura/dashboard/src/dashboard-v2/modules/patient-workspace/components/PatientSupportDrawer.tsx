@@ -42,8 +42,8 @@ export function PatientSupportDrawer({
     <DashboardV2Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Patient support context"
-      description="Shared coordination, workflow, and governance stay available without displacing the main review lane."
+      title="Patient workspace context"
+      description="Shared coordination, linked workflow, and governance details stay available without narrowing the active workspace."
       placement={placement}
     >
       <DashboardV2Tabs
@@ -65,12 +65,12 @@ export function PatientSupportDrawer({
           },
           {
             id: 'workflow',
-            label: 'Workflow',
+            label: 'Linked workflow',
             content: <PatientGovernanceWorkflowSection governance={governance} />,
           },
           {
             id: 'governance',
-            label: 'Governance',
+            label: 'Governance & trust',
             content: (
               <PatientGovernanceMetadataSection
                 governance={governance}

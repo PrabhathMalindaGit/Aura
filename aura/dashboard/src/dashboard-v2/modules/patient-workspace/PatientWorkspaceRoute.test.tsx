@@ -447,8 +447,8 @@ describe('PatientWorkspaceRoute', () => {
 
     await user.click(screen.getByRole('button', { name: 'Context' }));
 
-    expect(await screen.findByRole('heading', { name: 'Patient workspace context' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Shared coordination' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Care context' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Coordination' })).toBeInTheDocument();
   });
 
   it('keeps the compressed narrow shell and the history pane for direct deep links', async () => {

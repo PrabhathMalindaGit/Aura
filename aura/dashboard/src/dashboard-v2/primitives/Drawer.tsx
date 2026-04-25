@@ -22,6 +22,7 @@ export interface DashboardV2DrawerProps {
   children: ReactNode;
   footer?: ReactNode;
   placement?: DrawerPlacement;
+  className?: string;
 }
 
 export function DashboardV2Drawer({
@@ -32,6 +33,7 @@ export function DashboardV2Drawer({
   children,
   footer,
   placement = 'right',
+  className,
 }: DashboardV2DrawerProps): JSX.Element {
   const prefersReducedMotion = usePrefersReducedMotion();
   const animationDuration = getDashboardV2MotionDuration(prefersReducedMotion, 'slow');
@@ -44,7 +46,7 @@ export function DashboardV2Drawer({
       onOpenChange={onOpenChange}
     >
       <Modal
-        className={cn('v2-drawer', `v2-drawer--${placement}`)}
+        className={cn('v2-drawer', `v2-drawer--${placement}`, className)}
         style={{
           transitionDuration: `${animationDuration}ms`,
         }}

@@ -42,35 +42,37 @@ export function PatientSupportDrawer({
     <DashboardV2Drawer
       open={open}
       onOpenChange={onOpenChange}
-      title="Patient workspace context"
-      description="Shared coordination, linked workflow, and governance details stay available without narrowing the active workspace."
+      title="Care context"
+      description="Shared handoff, follow-up links, and review basis for this patient."
       placement={placement}
+      className="v2-patient-care-drawer"
     >
       <DashboardV2Tabs
-        ariaLabel="Patient support sections"
+        ariaLabel="Care context sections"
         selectedKey={activeView}
         onSelectionChange={(value) => onViewChange(value as PatientWorkspaceSupportView)}
         items={[
           {
             id: 'coordination',
-            label: 'Shared coordination',
+            label: 'Coordination',
             content: (
               <PatientHandoffPanel
                 patientId={patientId}
                 communicationMessageId={latestMessageId}
                 taskSnapshot={taskSnapshot}
                 onOpenNextAction={onOpenNextAction}
+                presentation="drawer"
               />
             ),
           },
           {
             id: 'workflow',
-            label: 'Linked workflow',
+            label: 'Workflow',
             content: <PatientGovernanceWorkflowSection governance={governance} />,
           },
           {
             id: 'governance',
-            label: 'Governance & trust',
+            label: 'Trust',
             content: (
               <PatientGovernanceMetadataSection
                 governance={governance}

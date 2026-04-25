@@ -24,7 +24,7 @@ export function PatientWorkspaceHeader({
 }: PatientWorkspaceHeaderProps): JSX.Element {
   return (
     <header className="v2-patient-header v2-surface v2-surface--elevated">
-      <div className="v2-patient-header__topline">
+      <div className="v2-patient-header__grid">
         <div className="v2-patient-header__return">
           <Link
             to={header.returnTo}
@@ -73,9 +73,7 @@ export function PatientWorkspaceHeader({
             </DashboardV2Button>
           ) : null}
         </div>
-      </div>
 
-      <div className="v2-patient-header__identity-row">
         <div className="v2-patient-header__identity-copy">
           <DashboardV2Text tone="label">Patient workspace</DashboardV2Text>
           <div className="v2-patient-header__name-row">
@@ -114,10 +112,10 @@ export function PatientWorkspaceHeader({
             </article>
           ))}
         </div>
-      </div>
 
-      <div className="v2-patient-header__subnav">
-        {children}
+        <div className="v2-patient-header__subnav">
+          {children}
+        </div>
       </div>
     </header>
   );

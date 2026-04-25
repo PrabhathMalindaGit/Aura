@@ -48,6 +48,7 @@ interface PatientHandoffPanelProps {
   communicationMessageId?: string;
   taskSnapshot?: ClinicianTaskItem[];
   onOpenNextAction: (action: Exclude<ClinicianCoordinationNextStep, 'monitoring'>) => void;
+  presentation?: 'default' | 'drawer';
 }
 
 export function PatientHandoffPanel({
@@ -55,6 +56,7 @@ export function PatientHandoffPanel({
   communicationMessageId,
   taskSnapshot = [],
   onOpenNextAction,
+  presentation = 'default',
 }: PatientHandoffPanelProps): JSX.Element {
   const clinicianIdentity = useClinicianIdentity();
   const coordinationQuery = usePatientCoordination(patientId);
@@ -105,20 +107,12 @@ export function PatientHandoffPanel({
   const hasLegacyLocalContext = Boolean(
     legacyLocalHandoff?.currentHandoff || (legacyLocalHandoff?.notes.length ?? 0) > 0,
   );
-  const handoffSyncKey = useMemo(
-    () =>
-      JSON.stringify(
-        currentHandoff
-          ? {
-              summary: currentHandoff.summary,
-              nextStep: currentHandoff.nextStep,
-              followUpOwner: currentHandoff.followUpOwner,
-              updatedAt: currentHandoff.updatedAt,
-            }
-          : null,
-      ),
-    [currentHandoff],
-  );
+  const currentHandoffSummary = currentHandoff?.summary ?? '';
+  const currentHandoffNextStep = currentHandoff?.nextStep ?? 'monitoring';
+  const currentHandoffOwnerKind = currentHandoff?.followUpOwner.kind ?? 'unassigned';
+  const currentHandoffOwnerLabel =
+    currentHandoff?.followUpOwner.kind === 'custom' ? currentHandoff.followUpOwner.label : '';
+  const currentHandoffLinkedTaskId = currentHandoff?.linkedTaskId ?? '';
   const hasAnySharedCoordination = Boolean(currentHandoff || notes.length > 0);
   const isInitialLoading = coordinationQuery.isLoading && coordinationQuery.data === undefined;
   const isInitialError = coordinationQuery.isError && coordinationRecord === null;
@@ -155,16 +149,25 @@ export function PatientHandoffPanel({
   }, [currentLinkedTask, linkedTaskId, selectableTaskOptions]);
   const taskLinkControlDisabled =
     isEditorDisabled || taskLinkOptionsQuery.isLoading || taskLinkOptionsQuery.isError;
+  const isDrawerPresentation = presentation === 'drawer';
+  const shouldShowLatestActivity = !isDrawerPresentation || Boolean(latestSharedActivity);
+  const shouldShowScopeNote = !isDrawerPresentation;
+  const shouldShowNotesList = !isDrawerPresentation || notes.length > 0;
 
   useEffect(() => {
-    setSummary(currentHandoff?.summary ?? '');
-    setNextStep(currentHandoff?.nextStep ?? 'monitoring');
-    setOwnerKind(currentHandoff?.followUpOwner.kind ?? 'unassigned');
-    setLinkedTaskId(currentHandoff?.linkedTaskId ?? '');
-    setCustomOwnerLabel(
-      currentHandoff?.followUpOwner.kind === 'custom' ? currentHandoff.followUpOwner.label : '',
-    );
-  }, [handoffSyncKey, patientId]);
+    setSummary(currentHandoffSummary);
+    setNextStep(currentHandoffNextStep);
+    setOwnerKind(currentHandoffOwnerKind);
+    setLinkedTaskId(currentHandoffLinkedTaskId);
+    setCustomOwnerLabel(currentHandoffOwnerLabel);
+  }, [
+    currentHandoffLinkedTaskId,
+    currentHandoffNextStep,
+    currentHandoffOwnerKind,
+    currentHandoffOwnerLabel,
+    currentHandoffSummary,
+    patientId,
+  ]);
 
   function formatLinkedTaskOptionLabel(task: Pick<ClinicianTaskItem, 'title' | 'status' | 'dueAt'>): string {
     const dueLabel = task.dueAt ? ` · Due ${formatDashboardDateTime(task.dueAt)}` : '';
@@ -251,7 +254,9 @@ export function PatientHandoffPanel({
   return (
     <Card
       id="patient-handoff-panel"
-      className="patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-secondary patient-handoff-panel"
+      className={`patient-detail-panel patient-detail-panel--operational patient-detail-panel--operations-secondary patient-handoff-panel ${
+        isDrawerPresentation ? 'patient-handoff-panel--drawer' : ''
+      }`}
       title="Shared coordination and notes"
       data-testid="patient-handoff-panel"
     >
@@ -378,7 +383,7 @@ export function PatientHandoffPanel({
           </section>
         ) : null}
 
-        {currentHandoff ? (
+        {currentHandoff && (!isDrawerPresentation || currentHandoff.linkedTaskId) ? (
           <section
             className="patient-handoff-panel__activity"
             aria-label="Linked follow-through task"
@@ -481,20 +486,21 @@ export function PatientHandoffPanel({
           </section>
         ) : null}
 
-        <section
-          className="patient-handoff-panel__activity"
-          aria-label="Latest shared coordination activity"
-        >
-          <div className="patient-handoff-panel__form-heading">
-            <div>
-              <p className="patient-handoff-panel__form-eyebrow">Latest shared activity</p>
-              <h3 className="patient-handoff-panel__form-title">Most recent team-visible update</h3>
+        {shouldShowLatestActivity ? (
+          <section
+            className="patient-handoff-panel__activity"
+            aria-label="Latest shared coordination activity"
+          >
+            <div className="patient-handoff-panel__form-heading">
+              <div>
+                <p className="patient-handoff-panel__form-eyebrow">Latest shared activity</p>
+                <h3 className="patient-handoff-panel__form-title">Most recent team-visible update</h3>
+              </div>
+              <span className="muted-text">
+                {latestSharedActivity ? latestSharedActivity.label : 'No shared activity yet'}
+              </span>
             </div>
-            <span className="muted-text">
-              {latestSharedActivity ? latestSharedActivity.label : 'No shared activity yet'}
-            </span>
-          </div>
-          {latestSharedActivity ? (
+            {latestSharedActivity ? (
             <article className="patient-handoff-panel__note-item patient-handoff-panel__note-item--activity">
               <div className="patient-handoff-panel__note-header">
                 <div className="patient-handoff-panel__attribution">
@@ -540,25 +546,28 @@ export function PatientHandoffPanel({
                 Save a current handoff or append a shared note when the care team needs patient-scoped context.
               </p>
             </div>
-          )}
-        </section>
+            )}
+          </section>
+        ) : null}
 
-        <section className="patient-handoff-panel__scope-note" aria-label="Shared coordination scope">
-          <div className="patient-handoff-panel__scope-copy">
-            <p className="patient-handoff-panel__scope-eyebrow">Shared clinician coordination</p>
-            <p className="patient-handoff-panel__scope-text">
-              Saved in Aura for team-visible coordination across clinician sessions and devices.
-            </p>
-          </div>
-          <div className="patient-handoff-panel__scope-facts" aria-live="polite">
-            <span className="patient-handoff-panel__scope-fact">
-              {currentHandoff ? 'Shared handoff saved' : 'No current shared handoff'}
-            </span>
-            <span className="patient-handoff-panel__scope-fact">
-              {notes.length} {notes.length === 1 ? 'shared note' : 'shared notes'}
-            </span>
-          </div>
-        </section>
+        {shouldShowScopeNote ? (
+          <section className="patient-handoff-panel__scope-note" aria-label="Shared coordination scope">
+            <div className="patient-handoff-panel__scope-copy">
+              <p className="patient-handoff-panel__scope-eyebrow">Shared clinician coordination</p>
+              <p className="patient-handoff-panel__scope-text">
+                Saved in Aura for team-visible coordination across clinician sessions and devices.
+              </p>
+            </div>
+            <div className="patient-handoff-panel__scope-facts" aria-live="polite">
+              <span className="patient-handoff-panel__scope-fact">
+                {currentHandoff ? 'Shared handoff saved' : 'No current shared handoff'}
+              </span>
+              <span className="patient-handoff-panel__scope-fact">
+                {notes.length} {notes.length === 1 ? 'shared note' : 'shared notes'}
+              </span>
+            </div>
+          </section>
+        ) : null}
 
         {hasLegacyLocalContext ? (
           <section
@@ -827,19 +836,20 @@ export function PatientHandoffPanel({
           </div>
         </form>
 
-        <section className="patient-handoff-panel__notes-list" aria-label="Shared coordination note history">
-          <div className="patient-handoff-panel__form-heading">
-            <div>
-              <p className="patient-handoff-panel__form-eyebrow">Shared note history</p>
-              <h3 className="patient-handoff-panel__form-title">Append-only coordination notes</h3>
+        {shouldShowNotesList ? (
+          <section className="patient-handoff-panel__notes-list" aria-label="Shared coordination note history">
+            <div className="patient-handoff-panel__form-heading">
+              <div>
+                <p className="patient-handoff-panel__form-eyebrow">Shared note history</p>
+                <h3 className="patient-handoff-panel__form-title">Append-only coordination notes</h3>
+              </div>
+              <span className="muted-text">
+                {notes.length > 0
+                  ? `Showing the ${notes.length} most recent ${notes.length === 1 ? 'note' : 'notes'}.`
+                  : 'No shared notes yet'}
+              </span>
             </div>
-            <span className="muted-text">
-              {notes.length > 0
-                ? `Showing the ${notes.length} most recent ${notes.length === 1 ? 'note' : 'notes'}.`
-                : 'No shared notes yet'}
-            </span>
-          </div>
-          {notes.length > 0 ? (
+            {notes.length > 0 ? (
             <div className="patient-handoff-panel__note-list" role="list">
               {notes.map((note) => (
                 <article key={note.id} className="patient-handoff-panel__note-item" role="listitem">
@@ -886,8 +896,9 @@ export function PatientHandoffPanel({
                 Shared notes appear here after the care team appends context for later review.
               </p>
             </div>
-          )}
-        </section>
+            )}
+          </section>
+        ) : null}
       </div>
     </Card>
   );

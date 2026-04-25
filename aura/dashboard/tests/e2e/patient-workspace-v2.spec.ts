@@ -111,7 +111,7 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
   await expect(page).toHaveURL(/\/patients\/p1\/guidance$/);
   await expect(page.getByTestId('v2-patient-guidance-pane')).toBeVisible();
   await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Current rehab phase' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Phase, plan, and next save point' })).toBeVisible();
 
   await page.getByTestId('v2-patient-nav-history').click();
   await expect(page).toHaveURL(/\/patients\/p1\/history$/);

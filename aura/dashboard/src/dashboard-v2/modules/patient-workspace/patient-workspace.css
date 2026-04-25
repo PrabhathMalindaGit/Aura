@@ -1332,6 +1332,330 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Patient workspace functional clarity + alignment pass */
+.v2-patient-pane {
+  gap: clamp(1rem, 1.35vw, 1.35rem);
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__columns {
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 1.08fr) minmax(0, 1fr);
+  gap: clamp(0.85rem, 1.05vw, 1rem);
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__lane,
+.v2-patient-review-summary--cockpit {
+  padding: clamp(0.9rem, 1vw, 1rem);
+  border-radius: 1.15rem;
+}
+
+.v2-patient-pane--overview .patient-decision-surface__lane-header,
+.v2-patient-review-summary__header {
+  min-height: 3.1rem;
+  align-content: start;
+}
+
+.v2-patient-review-summary--cockpit .v2-patient-review-summary__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.v2-patient-review-summary--cockpit .v2-patient-review-summary__item {
+  min-height: 6.75rem;
+  padding: 0.85rem;
+}
+
+.v2-patient-pane--overview .patient-priority-item,
+.v2-patient-pane--overview .patient-recommended-action {
+  min-height: 7.2rem;
+  padding: 0.85rem;
+  align-items: stretch;
+}
+
+.v2-patient-pane--overview .patient-priority-item__copy,
+.v2-patient-pane--overview .patient-recommended-action__copy {
+  display: grid;
+  gap: 0.42rem;
+  align-content: start;
+}
+
+.v2-patient-pane--overview .patient-priority-item__action,
+.v2-patient-pane--overview .patient-recommended-action__action {
+  align-self: start;
+}
+
+.v2-patient-communications-board {
+  gap: clamp(0.85rem, 1.05vw, 1rem);
+  padding: clamp(0.95rem, 1.25vw, 1.2rem);
+}
+
+.v2-patient-communications-board__header {
+  padding-bottom: 0.85rem;
+}
+
+.v2-patient-communications-workbench {
+  grid-template-columns: minmax(0, 2.25fr) minmax(18rem, 0.82fr);
+  gap: clamp(0.85rem, 1vw, 1rem);
+  align-items: start;
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-communication {
+  min-height: auto;
+  height: fit-content;
+  align-self: start;
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-communication .card__header,
+.v2-patient-pane--communications .patient-detail-panel--workflow-tasks .card__header,
+.v2-patient-pane--communications .patient-detail-panel--workflow-appointments .card__header {
+  padding: 1rem 1.05rem 0.8rem;
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-communication .card__body,
+.v2-patient-pane--communications .patient-detail-panel--workflow-tasks .card__body,
+.v2-patient-pane--communications .patient-detail-panel--workflow-appointments .card__body {
+  padding: 1rem 1.05rem;
+}
+
+.v2-patient-pane--communications .clinician-summary-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.v2-patient-pane--communications .patient-communication-list,
+.v2-patient-pane--communications .patient-communication-timeline,
+.v2-patient-pane--communications .patient-task-groups,
+.v2-patient-pane--communications .patient-appointment-panel {
+  gap: 0.65rem;
+}
+
+.v2-patient-pane--communications .patient-communication-timeline {
+  max-height: min(30rem, 62vh);
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.v2-patient-pane--communications .patient-communication-timeline__event {
+  padding: 0.72rem 0.85rem;
+}
+
+.v2-patient-pane--communications .patient-communication-timeline__body {
+  margin-block: 0.42rem 0;
+  line-height: 1.45;
+}
+
+.v2-patient-pane--communications .patient-communication-inline-state {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem 0.85rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+}
+
+.v2-patient-pane--communications .patient-communication-inline-state__title,
+.v2-patient-pane--communications .patient-communication-inline-state__copy {
+  margin: 0;
+}
+
+.v2-patient-pane--communications .patient-communication-inline-state__actions {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+.v2-patient-pane--communications .patient-task-item {
+  padding: 0.78rem 0.85rem;
+  gap: 0.6rem;
+}
+
+.v2-patient-pane--communications .patient-task-item__description,
+.v2-patient-pane--communications .patient-task-item .muted-text {
+  margin-block: 0.32rem 0;
+}
+
+.v2-patient-pane--communications .patient-task-item__actions .btn {
+  min-height: 2rem;
+}
+
+.v2-patient-pane--communications .patient-task-group:first-child .patient-task-list {
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.v2-patient-pane--communications .patient-task-group:last-child .patient-task-list {
+  max-height: 7.5rem;
+  overflow: auto;
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-appointments {
+  align-self: start;
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-appointments .empty-state {
+  padding: 1rem;
+}
+
+.v2-patient-guidance-board {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-areas:
+    'rehab rehab rehab rehab rehab rehab recovery recovery recovery recovery recovery recovery'
+    'prom prom prom prom prom insights insights insights insights insights insights insights'
+    'caregiver caregiver caregiver caregiver caregiver caregiver caregiver caregiver caregiver caregiver caregiver caregiver';
+  gap: clamp(0.95rem, 1.25vw, 1.25rem);
+  align-items: start;
+}
+
+.v2-patient-guidance-card {
+  display: grid;
+  gap: 0.95rem;
+  padding: clamp(1rem, 1.35vw, 1.25rem);
+  align-content: start;
+}
+
+.v2-patient-guidance-card--rehab,
+.v2-patient-guidance-card--recovery,
+.v2-patient-guidance-card--prom,
+.v2-patient-guidance-card--insights {
+  min-height: 0;
+}
+
+.v2-patient-guidance-card--prom {
+  grid-area: prom;
+}
+
+.v2-patient-guidance-card__header {
+  gap: 1rem;
+}
+
+.v2-patient-guidance-status-row,
+.v2-patient-guidance-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.v2-patient-guidance-status-row article,
+.v2-patient-guidance-list__item,
+.v2-patient-guidance-history__item,
+.v2-patient-guidance-plan-summary {
+  padding: 0.78rem 0.9rem;
+}
+
+.v2-patient-guidance-status-row article {
+  border: 1px solid hsl(var(--v2-border) / 0.38);
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-row-surface) / 0.82);
+}
+
+.v2-patient-guidance-card__body-grid {
+  grid-template-columns: minmax(0, 1.08fr) minmax(14rem, 0.92fr);
+  gap: 0.85rem;
+}
+
+.v2-patient-guidance-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.v2-patient-guidance-card--recovery textarea {
+  min-height: 4.4rem;
+}
+
+.v2-patient-guidance-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  padding-top: 0.2rem;
+}
+
+.v2-patient-guidance-list--compact {
+  gap: 0.55rem;
+}
+
+.v2-patient-guidance-list--compact .v2-patient-guidance-list__item {
+  min-height: auto;
+}
+
+.v2-patient-guidance-list--insights {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.v2-patient-guidance-list--insights .v2-patient-guidance-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 0.85rem;
+  align-items: start;
+}
+
+.v2-patient-guidance-list--insights .v2-patient-guidance-list__meta {
+  grid-column: 1 / -1;
+}
+
+.v2-patient-guidance-list--insights .v2-patient-actions-row {
+  grid-row: 2 / span 2;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+.v2-patient-guidance-history {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.v2-patient-guidance-card--caregiver {
+  grid-template-columns: minmax(12rem, 0.25fr) minmax(0, 0.55fr) minmax(0, 1fr);
+  gap: 0.85rem;
+  padding-block: 0.9rem;
+}
+
+.v2-patient-history-chart {
+  min-height: 0;
+}
+
+.v2-patient-history-chart .trend-access-list {
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.v2-patient-history-chart .trend-access-list__item {
+  min-height: 2.2rem;
+  padding-block: 0.35rem;
+}
+
+.v2-patient-history-support-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(0.95rem, 1.2vw, 1.2rem);
+  align-items: start;
+}
+
+.v2-patient-history-card {
+  padding: clamp(1rem, 1.35vw, 1.25rem);
+}
+
+.v2-patient-history-chronology {
+  max-height: 41rem;
+  overflow: auto;
+}
+
+.v2-patient-history-chronology__item {
+  min-height: 4.35rem;
+  padding: 0.78rem 0.9rem;
+  align-items: center;
+}
+
+.v2-patient-history-card--reference {
+  align-self: start;
+}
+
+.v2-patient-history-card--reference .v2-patient-digest-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.v2-patient-history-card--reference .v2-patient-digest-item {
+  min-height: 9rem;
+  padding: 0.9rem;
+  align-content: space-between;
+}
+
 .v2-patient-pane .patient-detail-inline-state,
 .v2-patient-pane .empty-state,
 .v2-patient-care-drawer .patient-handoff-panel .empty-state {
@@ -1381,6 +1705,7 @@
 .dark .v2-patient-review-summary--cockpit,
 .dark .v2-patient-review-digest .v2-patient-overview-card,
 .dark .v2-patient-digest-item,
+.dark .v2-patient-guidance-status-row article,
 .dark .v2-patient-guidance-plan-summary,
 .dark .v2-patient-guidance-list__item,
 .dark .v2-patient-guidance-history__item,
@@ -1442,7 +1767,8 @@
   .v2-patient-guidance-board {
     grid-template-areas:
       'rehab'
-      'support'
+      'recovery'
+      'prom'
       'insights'
       'caregiver';
   }
@@ -1483,13 +1809,24 @@
   .v2-patient-header__facts,
   .v2-patient-context-summary__facts,
   .v2-patient-review-summary__grid,
+  .v2-patient-guidance-status-row,
+  .v2-patient-guidance-form-grid,
+  .v2-patient-guidance-card__body-grid,
+  .v2-patient-guidance-card--caregiver,
   .v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__columns,
   .v2-patient-review-summary--cockpit .v2-patient-review-summary__grid,
   .v2-patient-review-summary__grid--embedded,
   .v2-patient-guidance-card--insights .v2-patient-guidance-list,
+  .v2-patient-guidance-list--insights .v2-patient-guidance-list__item,
   .v2-patient-history-card--reference .v2-patient-digest-list,
   .v2-patient-history-chart .trend-charts-stack--workspace .trend-charts-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-patient-guidance-list--insights .v2-patient-actions-row {
+    grid-row: auto;
+    grid-column: auto;
+    justify-content: flex-start;
   }
 
   .v2-patient-context-summary--inline {

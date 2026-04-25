@@ -2,6 +2,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { Skeleton } from '../ui/Skeleton';
+import type { ReactNode } from 'react';
 import {
   type PatientActionKey,
   type PatientPriorityItem,
@@ -15,6 +16,9 @@ interface PatientDecisionSurfaceProps {
   isLoading?: boolean;
   priorityError?: string | null;
   recommendedActionsError?: string | null;
+  presentation?: 'default' | 'workspace';
+  middleSlot?: ReactNode;
+  footerSlot?: ReactNode;
   onRetry: () => void;
   onAction: (key: PatientActionKey) => void;
 }
@@ -66,6 +70,9 @@ export function PatientDecisionSurface({
   isLoading = false,
   priorityError,
   recommendedActionsError,
+  presentation = 'default',
+  middleSlot,
+  footerSlot,
   onRetry,
   onAction,
 }: PatientDecisionSurfaceProps): JSX.Element {
@@ -112,7 +119,7 @@ export function PatientDecisionSurface({
     );
   }
 
-  if (priorities.length === 0 && recommendedActions.length === 0) {
+  if (priorities.length === 0 && recommendedActions.length === 0 && !middleSlot && !footerSlot) {
     return (
       <EmptyState
         title="No immediate priorities detected"
@@ -123,7 +130,10 @@ export function PatientDecisionSurface({
   }
 
   return (
-    <div className="patient-decision-surface" data-testid="patient-decision-surface">
+    <div
+      className={`patient-decision-surface patient-decision-surface--${presentation}`}
+      data-testid="patient-decision-surface"
+    >
       <div className="patient-decision-surface__toolbar">
         <div className="patient-decision-surface__facts" aria-label="Decision surface summary">
           <span className="patient-decision-surface__fact">
@@ -183,6 +193,8 @@ export function PatientDecisionSurface({
           )}
         </section>
 
+        {middleSlot ? <div className="patient-decision-surface__middle">{middleSlot}</div> : null}
+
         <section
           className="patient-decision-surface__lane patient-decision-surface__lane--secondary"
           aria-label="Recommended actions"
@@ -225,6 +237,8 @@ export function PatientDecisionSurface({
           )}
         </section>
       </div>
+
+      {footerSlot ? <div className="patient-decision-surface__footer">{footerSlot}</div> : null}
     </div>
   );
 }

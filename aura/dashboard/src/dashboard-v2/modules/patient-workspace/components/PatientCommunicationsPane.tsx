@@ -74,59 +74,64 @@ export function PatientCommunicationsPane({
 }: PatientCommunicationsPaneProps): JSX.Element {
   return (
     <div className="v2-patient-pane v2-patient-pane--communications" data-testid="v2-patient-communications-pane">
-      <DashboardV2Surface className="v2-patient-pane-intro" tone="muted">
-        <DashboardV2Text tone="label">Communications</DashboardV2Text>
-        <DashboardV2Heading as="h3">Patient messaging, local reply continuity, and operational follow-through</DashboardV2Heading>
-        <DashboardV2Text tone="muted">{communications.serverTruthNote}</DashboardV2Text>
-        <DashboardV2Text tone="caption">{communications.localTruthNote}</DashboardV2Text>
-      </DashboardV2Surface>
+      <DashboardV2Surface className="v2-patient-communications-board" tone="base">
+        <div className="v2-patient-communications-board__header">
+          <div>
+            <DashboardV2Text tone="label">Communications</DashboardV2Text>
+            <DashboardV2Heading as="h3">Patient messaging and follow-through workbench</DashboardV2Heading>
+            <DashboardV2Text tone="muted">{communications.serverTruthNote}</DashboardV2Text>
+          </div>
+          <DashboardV2Text tone="caption">{communications.localTruthNote}</DashboardV2Text>
+        </div>
 
-      <PatientContextSummary
-        governance={governance}
-        mode="communications"
-        onOpenContext={onOpenContext}
-      />
-
-      <div className="v2-patient-communications-workbench">
-        <PatientCommunicationPanel
-          items={items}
-          timeline={timeline}
-          freshnessLabel={communications.freshnessLabel}
-          onRetry={onRetry}
-          onOpenCommunication={onOpenCommunicationWorkspace}
-          onOpenAlerts={onOpenAlertsWorkspace}
-          showQuickReply={canQuickReplyFromPatientDetail}
-          quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
-          quickReplyValue={patientQuickReply}
-          onQuickReplyChange={onQuickReplyChange}
-          onSendQuickReply={onSendQuickReply}
-          replyTemplates={communicationAuthoring.templates}
-          selectedTemplateId={selectedQuickReplyTemplateId}
-          onSelectedTemplateChange={onSelectedQuickReplyTemplateChange}
-          onInsertTemplate={onInsertTemplate}
-          hasSignature={communicationAuthoring.hasSignature}
-          onInsertSignature={onInsertSignature}
+        <PatientContextSummary
+          governance={governance}
+          mode="communications"
+          presentation="inline"
+          onOpenContext={onOpenContext}
         />
 
-        <div className="v2-patient-communications-grid">
-          <PatientTasksPanel
-            activeTasks={tasks}
-            recentCompletedTasks={completedTasks}
-            freshnessLabel={tasksFreshnessLabel}
-            completingTaskId={completingTaskId}
+        <div className="v2-patient-communications-workbench">
+          <PatientCommunicationPanel
+            items={items}
+            timeline={timeline}
+            freshnessLabel={communications.freshnessLabel}
             onRetry={onRetry}
-            onCompleteTask={onCompleteTask}
+            onOpenCommunication={onOpenCommunicationWorkspace}
             onOpenAlerts={onOpenAlertsWorkspace}
-            onOpenAppointments={onOpenAppointmentsWorkspace}
+            showQuickReply={canQuickReplyFromPatientDetail}
+            quickReplyBlockedBySafety={patientCommunicationBlockedBySafety}
+            quickReplyValue={patientQuickReply}
+            onQuickReplyChange={onQuickReplyChange}
+            onSendQuickReply={onSendQuickReply}
+            replyTemplates={communicationAuthoring.templates}
+            selectedTemplateId={selectedQuickReplyTemplateId}
+            onSelectedTemplateChange={onSelectedQuickReplyTemplateChange}
+            onInsertTemplate={onInsertTemplate}
+            hasSignature={communicationAuthoring.hasSignature}
+            onInsertSignature={onInsertSignature}
           />
-          <PatientAppointmentsPanel
-            items={appointments}
-            freshnessLabel={appointmentsFreshnessLabel}
-            onRetry={onRetry}
-            onOpenAppointments={onOpenAppointmentsWorkspace}
-          />
+
+          <div className="v2-patient-communications-grid">
+            <PatientTasksPanel
+              activeTasks={tasks}
+              recentCompletedTasks={completedTasks}
+              freshnessLabel={tasksFreshnessLabel}
+              completingTaskId={completingTaskId}
+              onRetry={onRetry}
+              onCompleteTask={onCompleteTask}
+              onOpenAlerts={onOpenAlertsWorkspace}
+              onOpenAppointments={onOpenAppointmentsWorkspace}
+            />
+            <PatientAppointmentsPanel
+              items={appointments}
+              freshnessLabel={appointmentsFreshnessLabel}
+              onRetry={onRetry}
+              onOpenAppointments={onOpenAppointmentsWorkspace}
+            />
+          </div>
         </div>
-      </div>
+      </DashboardV2Surface>
     </div>
   );
 }

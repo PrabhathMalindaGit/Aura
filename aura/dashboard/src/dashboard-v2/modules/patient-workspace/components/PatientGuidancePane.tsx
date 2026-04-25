@@ -114,9 +114,11 @@ export function PatientGuidancePane({
   activeCaregiverAccessItems,
   onRetry,
 }: PatientGuidancePaneProps): JSX.Element {
+  const selectedPhase = rehab?.phases.find((phase) => phase.key === selectedRehabKey) ?? null;
+
   return (
     <div className="v2-patient-pane v2-patient-pane--guidance" data-testid="v2-patient-guidance-pane">
-      <DashboardV2Surface className="v2-patient-pane-intro" tone="muted">
+      <DashboardV2Surface className="v2-patient-pane-intro v2-patient-pane-intro--compact" tone="muted">
         <DashboardV2Text tone="label">Guidance</DashboardV2Text>
         <DashboardV2Heading as="h3">Structured questionnaires, clinical guidance, rehab progression, and recovery support</DashboardV2Heading>
         <DashboardV2Text tone="muted">{guidance.promSummary}</DashboardV2Text>
@@ -125,81 +127,160 @@ export function PatientGuidancePane({
         </DashboardV2Text>
       </DashboardV2Surface>
 
-      <div className="v2-patient-guidance-grid">
+      <div className="v2-patient-guidance-board">
         <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--rehab" tone="base">
           <div className="v2-patient-guidance-card__header">
             <div>
-              <DashboardV2Text tone="label">Rehab progression</DashboardV2Text>
-              <DashboardV2Heading as="h3">Current rehab phase</DashboardV2Heading>
+              <DashboardV2Text tone="label">Rehab plan</DashboardV2Text>
+              <DashboardV2Heading as="h3">Current rehab phase and exercise plan</DashboardV2Heading>
             </div>
             <DashboardV2Button tone="secondary" size="sm" onPress={onRetry}>
               Refresh
             </DashboardV2Button>
           </div>
-          <DashboardV2Select
-            label="Current rehab phase"
-            selectedKey={selectedRehabKey}
-            onSelectionChange={(value) => onSelectedRehabKeyChange(value)}
-            options={(rehab?.phases ?? []).map((phase) => ({
-              id: phase.key,
-              label: phase.title,
-            }))}
-            placeholder="Select rehab phase"
-          />
-          {rehabSaveError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{rehabSaveError}</DashboardV2Text> : null}
-          <div className="v2-patient-actions-row">
-            <DashboardV2Button tone="secondary" size="sm" onPress={() => void onSaveRehab()}>
-              {isSavingRehab ? 'Saving…' : 'Save rehab phase'}
-            </DashboardV2Button>
+          <div className="v2-patient-guidance-card__body-grid">
+            <div className="v2-patient-guidance-form-stack">
+              <DashboardV2Select
+                label="Current rehab phase"
+                selectedKey={selectedRehabKey}
+                onSelectionChange={(value) => onSelectedRehabKeyChange(value)}
+                options={(rehab?.phases ?? []).map((phase) => ({
+                  id: phase.key,
+                  label: phase.title,
+                }))}
+                placeholder="Select rehab phase"
+              />
+              {selectedPhase ? (
+                <article className="v2-patient-guidance-list__item">
+                  <DashboardV2Text tone="label">Phase context</DashboardV2Text>
+                  <DashboardV2Text as="strong" tone="strong">{selectedPhase.title}</DashboardV2Text>
+                  <DashboardV2Text tone="muted">{selectedPhase.description ?? 'No phase note saved.'}</DashboardV2Text>
+                </article>
+              ) : null}
+              {rehabSaveError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{rehabSaveError}</DashboardV2Text> : null}
+              <div className="v2-patient-actions-row">
+                <DashboardV2Button tone="secondary" size="sm" onPress={() => void onSaveRehab()}>
+                  {isSavingRehab ? 'Saving…' : 'Save rehab phase'}
+                </DashboardV2Button>
+              </div>
+            </div>
+
+            <article className="v2-patient-guidance-plan-summary">
+              <DashboardV2Text tone="label">Exercise plan</DashboardV2Text>
+              <DashboardV2Heading as="h3">{patientPlan ? `Version ${patientPlan.version}` : 'No plan assigned'}</DashboardV2Heading>
+              <DashboardV2Text tone="muted">
+                {patientPlan
+                  ? `${patientPlan.items.length} exercise${patientPlan.items.length === 1 ? '' : 's'} in the current plan.`
+                  : 'The plan route remains the linked destination for structured exercise programming.'}
+              </DashboardV2Text>
+            </article>
           </div>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--prom" tone="base">
-          <DashboardV2Text tone="label">Questionnaires</DashboardV2Text>
-          <DashboardV2Heading as="h3">PROM queue</DashboardV2Heading>
-          <div className="v2-patient-guidance-list">
-            {promDue.length === 0 ? (
-              <DashboardV2Text tone="muted">No questionnaires are due right now.</DashboardV2Text>
-            ) : (
-              promDue.map((item) => (
-                <article key={item.id} className="v2-patient-guidance-list__item">
-                  <DashboardV2Text as="strong" tone="strong">{item.title}</DashboardV2Text>
-                  <DashboardV2Text tone="muted">Due {new Date(item.dueAt).toLocaleString()}</DashboardV2Text>
+        <div className="v2-patient-guidance-support-stack">
+          <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--prom" tone="base">
+            <DashboardV2Text tone="label">Questionnaires</DashboardV2Text>
+            <DashboardV2Heading as="h3">PROM queue</DashboardV2Heading>
+            <div className="v2-patient-guidance-list">
+              {promDue.length === 0 ? (
+                <article className="v2-patient-guidance-list__item v2-patient-guidance-list__item--empty">
+                  <DashboardV2Text as="strong" tone="strong">No PROMs due</DashboardV2Text>
+                  <DashboardV2Text tone="muted">Questionnaire assignments can still be scheduled below.</DashboardV2Text>
                 </article>
-              ))
-            )}
-          </div>
-          <DashboardV2Input
-            label="PROM template key"
-            value={promTemplateKey}
-            onChange={(event) => onPromTemplateKeyChange(event.currentTarget.value)}
-          />
-          <DashboardV2Input
-            label="Due date"
-            type="datetime-local"
-            value={promDueAt}
-            onChange={(event) => onPromDueAtChange(event.currentTarget.value)}
-          />
-          {promSaveError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{promSaveError}</DashboardV2Text> : null}
-          <div className="v2-patient-actions-row">
-            <DashboardV2Button tone="secondary" size="sm" onPress={() => void onAssignProm()}>
-              {isAssigningProm ? 'Assigning…' : 'Assign questionnaire'}
-            </DashboardV2Button>
-          </div>
-          {completedProms.length > 0 ? (
-            <div className="v2-patient-guidance-history">
-              <DashboardV2Text tone="label">Recently completed</DashboardV2Text>
-              {completedProms.slice(0, 3).map((item) => (
-                <article key={item.id} className="v2-patient-guidance-history__item">
-                  <DashboardV2Text as="strong" tone="strong">{item.title}</DashboardV2Text>
-                  <DashboardV2Text tone="muted">
-                    {new Date(item.completedAt).toLocaleString()} · {item.score?.bandLabel ?? 'No score'}
-                  </DashboardV2Text>
-                </article>
-              ))}
+              ) : (
+                promDue.map((item) => (
+                  <article key={item.id} className="v2-patient-guidance-list__item">
+                    <DashboardV2Text as="strong" tone="strong">{item.title}</DashboardV2Text>
+                    <DashboardV2Text tone="muted">Due {new Date(item.dueAt).toLocaleString()}</DashboardV2Text>
+                  </article>
+                ))
+              )}
             </div>
-          ) : null}
-        </DashboardV2Surface>
+            <div className="v2-patient-guidance-form-stack v2-patient-guidance-form-stack--compact">
+              <DashboardV2Input
+                label="PROM template key"
+                value={promTemplateKey}
+                onChange={(event) => onPromTemplateKeyChange(event.currentTarget.value)}
+              />
+              <DashboardV2Input
+                label="Due date"
+                type="datetime-local"
+                value={promDueAt}
+                onChange={(event) => onPromDueAtChange(event.currentTarget.value)}
+              />
+              {promSaveError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{promSaveError}</DashboardV2Text> : null}
+              <div className="v2-patient-actions-row">
+                <DashboardV2Button tone="secondary" size="sm" onPress={() => void onAssignProm()}>
+                  {isAssigningProm ? 'Assigning…' : 'Assign questionnaire'}
+                </DashboardV2Button>
+              </div>
+            </div>
+            {completedProms.length > 0 ? (
+              <div className="v2-patient-guidance-history">
+                <DashboardV2Text tone="label">Recently completed</DashboardV2Text>
+                {completedProms.slice(0, 3).map((item) => (
+                  <article key={item.id} className="v2-patient-guidance-history__item">
+                    <DashboardV2Text as="strong" tone="strong">{item.title}</DashboardV2Text>
+                    <DashboardV2Text tone="muted">
+                      {new Date(item.completedAt).toLocaleString()} · {item.score?.bandLabel ?? 'No score'}
+                    </DashboardV2Text>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </DashboardV2Surface>
+
+          <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--recovery" tone="base">
+            <DashboardV2Text tone="label">Recovery support</DashboardV2Text>
+            <DashboardV2Heading as="h3">Check-in configuration</DashboardV2Heading>
+            <div className="v2-patient-guidance-form-stack v2-patient-guidance-form-stack--compact">
+              <DashboardV2Select
+                label="Check-in mode"
+                selectedKey={recoverySupportDraft.checkinMode}
+                onSelectionChange={(value) => onRecoverySupportCheckinModeChange(value as PatientRecoverySupportConfig['checkinMode'])}
+                options={[
+                  { id: 'standard', label: 'Standard' },
+                  { id: 'adaptive', label: 'Adaptive' },
+                  { id: 'force_full', label: 'Force full' },
+                ]}
+              />
+              <label className="v2-patient-checkbox">
+                <input
+                  type="checkbox"
+                  checked={recoverySupportDraft.nudgesEnabled}
+                  onChange={(event) => onRecoverySupportNudgesEnabledChange(event.currentTarget.checked)}
+                />
+                <span>Nudges enabled</span>
+              </label>
+              <DashboardV2Select
+                label="Temporary full-flow window"
+                selectedKey={recoverySupportDraft.temporaryForceFullOption}
+                onSelectionChange={(value) => onRecoverySupportTemporaryFullFlowOptionChange(value as TemporaryFullFlowOption)}
+                options={(['off', '3d', '7d'] as TemporaryFullFlowOption[]).map((option) => ({
+                  id: option,
+                  label: temporaryFullFlowOptionLabel(option),
+                }))}
+              />
+              <DashboardV2Textarea
+                label="Clinical rationale"
+                value={recoverySupportDraft.rationale}
+                onChange={(event) => onRecoverySupportRationaleChange(event.currentTarget.value)}
+              />
+            </div>
+            {recoverySupportNotice ? <DashboardV2Text tone="caption">{recoverySupportNotice}</DashboardV2Text> : null}
+            {recoverySupportError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{recoverySupportError}</DashboardV2Text> : null}
+            <div className="v2-patient-actions-row">
+              <DashboardV2Button tone="secondary" size="sm" onPress={() => void onSaveRecoverySupport()}>
+                {isSavingRecoverySupport ? 'Saving…' : 'Save recovery support'}
+              </DashboardV2Button>
+            </div>
+            <DashboardV2Text tone="caption">
+              {patientRecoverySupport?.updatedAt
+                ? `Last updated ${new Date(patientRecoverySupport.updatedAt).toLocaleString()}`
+                : 'No patient-specific override saved.'}
+            </DashboardV2Text>
+          </DashboardV2Surface>
+        </div>
 
         <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--insights" tone="base">
           <div className="v2-patient-guidance-card__header">
@@ -215,7 +296,10 @@ export function PatientGuidancePane({
           {insightActionError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{insightActionError}</DashboardV2Text> : null}
           <div className="v2-patient-guidance-list">
             {pendingInsights.length === 0 ? (
-              <DashboardV2Text tone="muted">No pending guidance suggestions.</DashboardV2Text>
+              <article className="v2-patient-guidance-list__item v2-patient-guidance-list__item--empty">
+                <DashboardV2Text as="strong" tone="strong">No pending guidance suggestions</DashboardV2Text>
+                <DashboardV2Text tone="muted">Generated review suggestions will appear here for approval.</DashboardV2Text>
+              </article>
             ) : (
               pendingInsights.map((item) => (
                 <article key={item.id} className="v2-patient-guidance-list__item">
@@ -256,67 +340,6 @@ export function PatientGuidancePane({
               ))}
             </div>
           ) : null}
-        </DashboardV2Surface>
-
-        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--recovery" tone="base">
-          <DashboardV2Text tone="label">Recovery support</DashboardV2Text>
-          <DashboardV2Heading as="h3">Check-in support configuration</DashboardV2Heading>
-          <DashboardV2Select
-            label="Check-in mode"
-            selectedKey={recoverySupportDraft.checkinMode}
-            onSelectionChange={(value) => onRecoverySupportCheckinModeChange(value as PatientRecoverySupportConfig['checkinMode'])}
-            options={[
-              { id: 'standard', label: 'Standard' },
-              { id: 'adaptive', label: 'Adaptive' },
-              { id: 'force_full', label: 'Force full' },
-            ]}
-          />
-          <label className="v2-patient-checkbox">
-            <input
-              type="checkbox"
-              checked={recoverySupportDraft.nudgesEnabled}
-              onChange={(event) => onRecoverySupportNudgesEnabledChange(event.currentTarget.checked)}
-            />
-            <span>Nudges enabled</span>
-          </label>
-          <DashboardV2Select
-            label="Temporary full-flow window"
-            selectedKey={recoverySupportDraft.temporaryForceFullOption}
-            onSelectionChange={(value) => onRecoverySupportTemporaryFullFlowOptionChange(value as TemporaryFullFlowOption)}
-            options={(['off', '3d', '7d'] as TemporaryFullFlowOption[]).map((option) => ({
-              id: option,
-              label: temporaryFullFlowOptionLabel(option),
-            }))}
-          />
-          <DashboardV2Textarea
-            label="Clinical rationale"
-            value={recoverySupportDraft.rationale}
-            onChange={(event) => onRecoverySupportRationaleChange(event.currentTarget.value)}
-          />
-          {recoverySupportNotice ? <DashboardV2Text tone="caption">{recoverySupportNotice}</DashboardV2Text> : null}
-          {recoverySupportError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{recoverySupportError}</DashboardV2Text> : null}
-          <div className="v2-patient-actions-row">
-            <DashboardV2Button tone="secondary" size="sm" onPress={() => void onSaveRecoverySupport()}>
-              {isSavingRecoverySupport ? 'Saving…' : 'Save recovery support'}
-            </DashboardV2Button>
-          </div>
-          <DashboardV2Text tone="caption">
-            {patientRecoverySupport?.updatedAt
-              ? `Last updated ${new Date(patientRecoverySupport.updatedAt).toLocaleString()}`
-              : 'No patient-specific recovery-support override saved.'}
-          </DashboardV2Text>
-        </DashboardV2Surface>
-      </div>
-
-      <div className="v2-patient-guidance-footer">
-        <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--plan" tone="muted">
-          <DashboardV2Text tone="label">Exercise plan</DashboardV2Text>
-          <DashboardV2Heading as="h3">{patientPlan ? `Version ${patientPlan.version}` : 'No plan assigned'}</DashboardV2Heading>
-          <DashboardV2Text tone="muted">
-            {patientPlan
-              ? `${patientPlan.items.length} exercise${patientPlan.items.length === 1 ? '' : 's'} in the current plan.`
-              : 'The plan route remains the linked destination for structured exercise programming.'}
-          </DashboardV2Text>
         </DashboardV2Surface>
 
         <DashboardV2Surface className="v2-patient-guidance-card v2-patient-guidance-card--caregiver" tone="muted">

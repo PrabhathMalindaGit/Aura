@@ -7,6 +7,7 @@ import type { PatientWorkspaceGovernanceVm } from '../../../adapters/patientWork
 interface PatientContextSummaryProps {
   governance: PatientWorkspaceGovernanceVm;
   mode: 'overview' | 'communications';
+  presentation?: 'surface' | 'inline';
   onOpenContext: () => void;
 }
 
@@ -31,6 +32,7 @@ function hasUsefulCommunicationContext(governance: PatientWorkspaceGovernanceVm)
 export function PatientContextSummary({
   governance,
   mode,
+  presentation = 'surface',
   onOpenContext,
 }: PatientContextSummaryProps): JSX.Element {
   if (mode === 'communications' && !hasUsefulCommunicationContext(governance)) {
@@ -59,12 +61,9 @@ export function PatientContextSummary({
         { label: 'Owner', value: owner },
         { label: 'Next step', value: nextStep },
       ];
-
-  return (
-    <DashboardV2Surface
-      className={`v2-patient-context-summary v2-patient-context-summary--${mode}`}
-      tone="muted"
-    >
+  const className = `v2-patient-context-summary v2-patient-context-summary--${mode} v2-patient-context-summary--${presentation}`;
+  const content = (
+    <>
       <div className="v2-patient-context-summary__copy">
         <DashboardV2Text tone="label">{isCommunications ? 'Linked context' : 'Coordination'}</DashboardV2Text>
         <DashboardV2Heading as="h3">{title}</DashboardV2Heading>
@@ -88,6 +87,16 @@ export function PatientContextSummary({
       >
         Open context
       </DashboardV2Button>
+    </>
+  );
+
+  if (presentation === 'inline') {
+    return <div className={className}>{content}</div>;
+  }
+
+  return (
+    <DashboardV2Surface className={className} tone="muted">
+      {content}
     </DashboardV2Surface>
   );
 }

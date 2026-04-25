@@ -942,6 +942,396 @@
   min-height: 7rem;
 }
 
+.v2-patient-pane-intro--compact {
+  padding-block: clamp(0.9rem, 1.1vw, 1.05rem);
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace,
+.v2-patient-communications-board,
+.v2-patient-guidance-card,
+.v2-patient-history-chart,
+.v2-patient-history-card,
+.v2-patient-review-digest {
+  border-radius: clamp(1.35rem, 1.8vw, var(--v2-radius-xl));
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace {
+  padding: clamp(1rem, 1.6vw, 1.45rem);
+  border-color: hsl(var(--v2-border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.99), hsl(var(--v2-surface-muted) / 0.74)),
+    linear-gradient(135deg, hsl(var(--v2-primary) / 0.055), transparent 68%);
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__toolbar {
+  padding-bottom: var(--v2-space-3);
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__columns {
+  grid-template-columns: minmax(0, 3fr) minmax(18rem, 4fr) minmax(0, 3fr);
+  gap: var(--v2-space-4);
+  align-items: stretch;
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__middle,
+.v2-patient-review-summary--cockpit,
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__lane {
+  min-width: 0;
+}
+
+.v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__lane {
+  padding: var(--v2-space-4);
+  align-content: start;
+}
+
+.v2-patient-pane--overview .patient-decision-surface__middle {
+  display: grid;
+}
+
+.v2-patient-review-summary--cockpit {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-row-surface) / 0.84);
+}
+
+.v2-patient-review-summary--cockpit .v2-patient-review-summary__grid,
+.v2-patient-review-summary__grid--embedded {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--v2-space-3);
+}
+
+.v2-patient-review-summary--cockpit .v2-patient-review-summary__item {
+  min-height: 8.1rem;
+  padding: 0.9rem;
+}
+
+.patient-decision-surface__footer {
+  padding-top: var(--v2-space-3);
+  border-top: 1px solid hsl(var(--v2-border) / 0.34);
+}
+
+.v2-patient-context-summary--inline {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.8fr) minmax(0, 1.2fr) auto;
+  gap: var(--v2-space-3);
+  align-items: center;
+  padding: 0.78rem 0.9rem;
+  border: 1px solid hsl(var(--v2-border) / 0.38);
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-surface) / 0.64);
+}
+
+.v2-patient-context-summary--inline .v2-patient-context-summary__facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.v2-patient-context-summary--inline .v2-patient-context-summary__fact {
+  padding: 0.55rem 0.68rem;
+  background: hsl(var(--v2-row-surface) / 0.78);
+}
+
+.v2-patient-review-digest {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: clamp(1rem, 1.55vw, 1.35rem);
+  border: 1px solid hsl(var(--v2-border) / 0.48);
+  background: hsl(var(--v2-surface) / 0.97);
+  box-shadow: var(--v2-shadow-sm);
+}
+
+.v2-patient-review-digest .v2-patient-overview-card {
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-row-surface) / 0.84);
+  box-shadow: none;
+}
+
+.v2-patient-review-digest .v2-patient-overview-card--trajectory {
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.98), hsl(var(--v2-primary-soft) / 0.48));
+}
+
+.v2-patient-pane--overview .patient-detail-recent-alerts-card {
+  border: 1px solid hsl(var(--v2-border) / 0.5);
+  border-radius: clamp(1.35rem, 1.8vw, var(--v2-radius-xl));
+  background: hsl(var(--v2-surface) / 0.98);
+  box-shadow: var(--v2-shadow-sm);
+  overflow: hidden;
+}
+
+.v2-patient-pane--overview .patient-detail-recent-alerts-card .card__header {
+  padding: var(--v2-space-4) var(--v2-space-5);
+  border-bottom: 1px solid hsl(var(--v2-border) / 0.36);
+}
+
+.v2-patient-pane--overview .patient-detail-recent-alerts-card .card__body {
+  padding: var(--v2-space-4) var(--v2-space-5);
+}
+
+.v2-patient-pane--overview .recent-alert-list ul {
+  display: grid;
+  gap: var(--v2-space-2);
+  margin: 0;
+  padding: 0;
+}
+
+.v2-patient-pane--overview .recent-alert-list__item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: var(--v2-space-4);
+  background: hsl(var(--v2-row-surface) / 0.82);
+}
+
+.v2-patient-pane--overview .recent-alert-list__item--critical {
+  box-shadow: inset 4px 0 0 hsl(var(--v2-critical) / 0.55);
+}
+
+.v2-patient-pane--overview .recent-alert-list__item--warning {
+  box-shadow: inset 4px 0 0 hsl(var(--v2-warning) / 0.55);
+}
+
+.v2-patient-pane--overview .recent-alert-list__source,
+.v2-patient-pane--overview .recent-alert-list__date,
+.v2-patient-pane--overview .recent-alert-list__reason {
+  color: hsl(var(--v2-text-muted));
+}
+
+.v2-patient-communications-board {
+  display: grid;
+  gap: var(--v2-space-4);
+  padding: clamp(1rem, 1.65vw, 1.45rem);
+  border: 1px solid hsl(var(--v2-border) / 0.5);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.99), hsl(var(--v2-surface-muted) / 0.66));
+  box-shadow: var(--v2-shadow-sm);
+}
+
+.v2-patient-communications-board__header {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--v2-space-4);
+  align-items: flex-start;
+  padding-bottom: var(--v2-space-3);
+  border-bottom: 1px solid hsl(var(--v2-border) / 0.34);
+}
+
+.v2-patient-communications-board__header h3 {
+  font-size: clamp(1.12rem, 1.38vw, 1.38rem);
+}
+
+.v2-patient-communications-board .v2-patient-context-summary--inline {
+  background: hsl(var(--v2-row-surface) / 0.74);
+}
+
+.v2-patient-communications-workbench {
+  grid-template-columns: minmax(0, 1.95fr) minmax(18rem, 0.75fr);
+  gap: var(--v2-space-4);
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-communication {
+  border-radius: var(--v2-radius-xl);
+  background: hsl(var(--v2-surface) / 0.98);
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-communication .card__header {
+  padding: var(--v2-space-4);
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-communication .card__body {
+  padding: var(--v2-space-4);
+}
+
+.v2-patient-pane--communications .clinician-summary-strip {
+  gap: var(--v2-space-2);
+}
+
+.v2-patient-pane--communications .patient-communication-timeline {
+  gap: var(--v2-space-2);
+}
+
+.v2-patient-pane--communications .patient-communication-timeline__event {
+  padding: 0.82rem 0.95rem;
+  background: hsl(var(--v2-row-surface) / 0.82);
+}
+
+.v2-patient-pane--communications .patient-communication-inline-state {
+  background:
+    linear-gradient(180deg, hsl(var(--v2-warning-soft) / 0.58), hsl(var(--v2-surface) / 0.9));
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-tasks,
+.v2-patient-pane--communications .patient-detail-panel--workflow-appointments {
+  border-radius: var(--v2-radius-xl);
+  background: hsl(var(--v2-surface) / 0.9);
+}
+
+.v2-patient-pane--communications .patient-task-item,
+.v2-patient-pane--communications .patient-appointment-callout,
+.v2-patient-pane--communications .patient-appointment-item {
+  padding: var(--v2-space-3);
+}
+
+.v2-patient-pane--communications .patient-task-group:last-child .patient-task-list {
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.v2-patient-pane--communications .patient-detail-panel--workflow-appointments .empty-state {
+  padding: var(--v2-space-4);
+  gap: var(--v2-space-2);
+  background: hsl(var(--v2-row-surface) / 0.72);
+}
+
+.v2-patient-guidance-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+  grid-template-areas:
+    'rehab support'
+    'insights insights'
+    'caregiver caregiver';
+  gap: var(--v2-space-4);
+}
+
+.v2-patient-guidance-board .v2-patient-guidance-card {
+  box-shadow: var(--v2-shadow-sm);
+}
+
+.v2-patient-guidance-card--rehab {
+  grid-area: rehab;
+}
+
+.v2-patient-guidance-support-stack {
+  grid-area: support;
+  display: grid;
+  gap: var(--v2-space-4);
+}
+
+.v2-patient-guidance-card--insights {
+  grid-area: insights;
+}
+
+.v2-patient-guidance-card--caregiver {
+  grid-area: caregiver;
+  grid-template-columns: minmax(12rem, 0.35fr) minmax(0, 1fr);
+  align-items: center;
+  box-shadow: none;
+  background: hsl(var(--v2-surface-muted) / 0.84);
+}
+
+.v2-patient-guidance-card__body-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(15rem, 0.75fr);
+  gap: var(--v2-space-4);
+  align-items: start;
+}
+
+.v2-patient-guidance-form-stack {
+  display: grid;
+  gap: var(--v2-space-3);
+}
+
+.v2-patient-guidance-form-stack--compact {
+  gap: var(--v2-space-2);
+}
+
+.v2-patient-guidance-plan-summary {
+  display: grid;
+  gap: var(--v2-space-2);
+  padding: var(--v2-space-4);
+  border: 1px solid hsl(var(--v2-border) / 0.42);
+  border-radius: var(--v2-radius-lg);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-surface) / 0.98), hsl(var(--v2-primary-soft) / 0.5));
+}
+
+.v2-patient-guidance-card--recovery textarea {
+  min-height: 5.5rem;
+}
+
+.v2-patient-guidance-card--prom,
+.v2-patient-guidance-card--recovery {
+  gap: var(--v2-space-3);
+}
+
+.v2-patient-guidance-list__item--empty {
+  background: hsl(var(--v2-surface-muted) / 0.72);
+}
+
+.v2-patient-guidance-card--insights .v2-patient-guidance-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.v2-patient-guidance-card--insights .v2-patient-guidance-list__item {
+  align-content: start;
+}
+
+.v2-patient-history-chart {
+  gap: var(--v2-space-4);
+  padding: clamp(1rem, 1.65vw, 1.45rem);
+}
+
+.v2-patient-history-chart .trend-charts-stack--workspace {
+  gap: var(--v2-space-4);
+}
+
+.v2-patient-history-chart .trend-charts-stack--workspace .latest-trend-badges {
+  margin: 0;
+}
+
+.v2-patient-history-chart .trend-charts-stack--workspace .trend-charts-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--v2-space-4);
+}
+
+.v2-patient-history-chart .trend-charts-stack--workspace .trend-chart-card--pain {
+  grid-column: 1 / -1;
+}
+
+.v2-patient-history-chart .trend-chart-card {
+  border-radius: var(--v2-radius-lg);
+  background: hsl(var(--v2-surface) / 0.96);
+}
+
+.v2-patient-history-chart .trend-chart-card--drilldown {
+  background: hsl(var(--v2-row-surface) / 0.82);
+}
+
+.v2-patient-history-chart .trend-access-list {
+  max-height: 24rem;
+  overflow: auto;
+}
+
+.v2-patient-history-chart .trend-access-list__item {
+  min-height: 2.7rem;
+  padding-block: 0.48rem;
+}
+
+.v2-patient-history-support-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+
+.v2-patient-history-card--chronology {
+  order: 1;
+}
+
+.v2-patient-history-card--reference {
+  order: 2;
+  background: hsl(var(--v2-surface) / 0.88);
+}
+
+.v2-patient-history-chronology__item {
+  padding: var(--v2-space-3) var(--v2-space-4);
+  background: hsl(var(--v2-row-surface) / 0.82);
+}
+
+.v2-patient-history-card--reference .v2-patient-digest-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .v2-patient-pane .patient-detail-inline-state,
 .v2-patient-pane .empty-state,
 .v2-patient-care-drawer .patient-handoff-panel .empty-state {
@@ -952,6 +1342,8 @@
 .dark .v2-patient-decision-strip,
 .dark .v2-patient-pane-intro,
 .dark .v2-patient-review-summary,
+.dark .v2-patient-review-digest,
+.dark .v2-patient-communications-board,
 .dark .v2-patient-context-summary,
 .dark .v2-patient-history-chart,
 .dark .v2-patient-support-card,
@@ -986,7 +1378,10 @@
 .dark .v2-patient-header__fact,
 .dark .v2-patient-decision-strip__fact,
 .dark .v2-patient-review-summary__item,
+.dark .v2-patient-review-summary--cockpit,
+.dark .v2-patient-review-digest .v2-patient-overview-card,
 .dark .v2-patient-digest-item,
+.dark .v2-patient-guidance-plan-summary,
 .dark .v2-patient-guidance-list__item,
 .dark .v2-patient-guidance-history__item,
 .dark .v2-patient-history-chronology__item,
@@ -1004,11 +1399,23 @@
   background: hsl(var(--v2-row-surface) / 0.75);
 }
 
+.dark .v2-patient-context-summary--inline,
+.dark .v2-patient-communications-board .v2-patient-context-summary--inline,
+.dark .v2-patient-pane--communications .patient-detail-panel--workflow-tasks,
+.dark .v2-patient-pane--communications .patient-detail-panel--workflow-appointments,
+.dark .v2-patient-history-card--reference,
+.dark .v2-patient-history-chart .trend-chart-card {
+  border-color: hsl(var(--v2-border) / 0.58);
+  background: hsl(var(--v2-surface) / 0.84);
+}
+
 @media (max-width: 1279px) {
   .v2-patient-overview-cockpit,
   .v2-patient-overview-grid,
   .v2-patient-guidance-grid,
   .v2-patient-guidance-footer,
+  .v2-patient-guidance-board,
+  .v2-patient-guidance-card__body-grid,
   .v2-patient-communications-workbench,
   .v2-patient-history-support-grid,
   .v2-patient-context-summary,
@@ -1016,6 +1423,28 @@
   .v2-patient-review-summary__grid,
   .v2-patient-review-summary--history .v2-patient-review-summary__grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__columns,
+  .v2-patient-review-summary--cockpit .v2-patient-review-summary__grid,
+  .v2-patient-review-summary__grid--embedded,
+  .v2-patient-history-card--reference .v2-patient-digest-list,
+  .v2-patient-history-chart .trend-charts-stack--workspace .trend-charts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__middle,
+  .v2-patient-guidance-card--insights,
+  .v2-patient-guidance-card--caregiver {
+    grid-column: 1 / -1;
+  }
+
+  .v2-patient-guidance-board {
+    grid-template-areas:
+      'rehab'
+      'support'
+      'insights'
+      'caregiver';
   }
 
   .v2-patient-guidance-grid {
@@ -1053,8 +1482,19 @@
 
   .v2-patient-header__facts,
   .v2-patient-context-summary__facts,
-  .v2-patient-review-summary__grid {
+  .v2-patient-review-summary__grid,
+  .v2-patient-pane--overview .patient-decision-surface--workspace .patient-decision-surface__columns,
+  .v2-patient-review-summary--cockpit .v2-patient-review-summary__grid,
+  .v2-patient-review-summary__grid--embedded,
+  .v2-patient-guidance-card--insights .v2-patient-guidance-list,
+  .v2-patient-history-card--reference .v2-patient-digest-list,
+  .v2-patient-history-chart .trend-charts-stack--workspace .trend-charts-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-patient-context-summary--inline {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
   }
 
   .v2-patient-subroute-nav {

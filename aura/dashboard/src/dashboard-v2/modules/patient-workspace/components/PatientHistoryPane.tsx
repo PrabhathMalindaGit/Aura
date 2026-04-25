@@ -64,27 +64,11 @@ export function PatientHistoryPane({
       <DashboardV2Surface className="v2-patient-history-chart" tone="base">
         <div className="v2-patient-pane-intro__header">
           <div>
-            <DashboardV2Text tone="label">Trend charts</DashboardV2Text>
+            <DashboardV2Text tone="label">Clinical review board</DashboardV2Text>
             <DashboardV2Heading as="h3">Longitudinal patient trajectory</DashboardV2Heading>
           </div>
         </div>
-        {showTrendsLoading ? (
-          <DashboardV2Text tone="muted">Loading trend history…</DashboardV2Text>
-        ) : normalizedTrends.length === 0 ? (
-          <DashboardV2Text tone="muted">No trend history is available in this review window.</DashboardV2Text>
-        ) : (
-          <TrendCharts
-            points={normalizedTrends}
-            expandedMetric={expandedTrendMetric}
-            onSelectDate={(date) => onSelectDayKey(date)}
-            onExpandMetric={(metric) => onExpandedTrendMetricChange(metric)}
-            onCollapseMetric={() => onExpandedTrendMetricChange(null)}
-          />
-        )}
-      </DashboardV2Surface>
-
-      <DashboardV2Surface className="v2-patient-review-summary v2-patient-review-summary--history" tone="muted">
-        <div className="v2-patient-review-summary__grid">
+        <div className="v2-patient-review-summary__grid v2-patient-review-summary__grid--embedded">
           {history.summaryItems.map((item) => (
             <article key={item.label} className="v2-patient-review-summary__item">
               <DashboardV2Text tone="label">{item.label}</DashboardV2Text>
@@ -93,57 +77,32 @@ export function PatientHistoryPane({
             </article>
           ))}
         </div>
+        {showTrendsLoading ? (
+          <DashboardV2Text tone="muted">Loading trend history…</DashboardV2Text>
+        ) : normalizedTrends.length === 0 ? (
+          <DashboardV2Text tone="muted">No trend history is available in this review window.</DashboardV2Text>
+        ) : (
+          <TrendCharts
+            points={normalizedTrends}
+            presentation="workspace"
+            expandedMetric={expandedTrendMetric}
+            onSelectDate={(date) => onSelectDayKey(date)}
+            onExpandMetric={(metric) => onExpandedTrendMetricChange(metric)}
+            onCollapseMetric={() => onExpandedTrendMetricChange(null)}
+          />
+        )}
       </DashboardV2Surface>
 
       <div className="v2-patient-history-support-grid">
-        <DashboardV2Surface className="v2-patient-history-card" tone="base">
-          <DashboardV2Text tone="label">Reference signals</DashboardV2Text>
-          <DashboardV2Heading as="h3">Symptoms and support trends</DashboardV2Heading>
-          <div className="v2-patient-digest-list">
-            <article className="v2-patient-digest-item">
-              <DashboardV2Text tone="label">Sleep</DashboardV2Text>
-              <DashboardV2Text as="strong" tone="strong">
-                {recentSleepRows.length > 0 ? `${recentSleepRows.length} recent entries` : 'No recent entries'}
-              </DashboardV2Text>
-              <DashboardV2Text tone="muted">Body map hotspots: {recentBodyMapSummary.map((item) => item.label).join(', ') || 'Unknown'}</DashboardV2Text>
-            </article>
-            <article className="v2-patient-digest-item">
-              <DashboardV2Text tone="label">Hydration and nutrition</DashboardV2Text>
-              <DashboardV2Text as="strong" tone="strong">
-                {recentHydrationSummary.avgDailyMl !== null ? `${recentHydrationSummary.avgDailyMl} ml/day` : 'Unknown'}
-              </DashboardV2Text>
-              <DashboardV2Text tone="muted">
-                {recentNutritionSummary.trackedDays} nutrition day{recentNutritionSummary.trackedDays === 1 ? '' : 's'} tracked
-              </DashboardV2Text>
-            </article>
-            <article className="v2-patient-digest-item">
-              <DashboardV2Text tone="label">Wearables and medication</DashboardV2Text>
-              <DashboardV2Text as="strong" tone="strong">
-                {recentWearablesSummary.trackedDays > 0 ? `${recentWearablesSummary.trackedDays} wearable days` : 'Unknown'}
-              </DashboardV2Text>
-              <DashboardV2Text tone="muted">
-                Medication adherence {recentMedicationSummary.adherencePct !== null ? `${recentMedicationSummary.adherencePct}%` : 'Unknown'}
-              </DashboardV2Text>
-            </article>
-            <article className="v2-patient-digest-item">
-              <DashboardV2Text tone="label">Symptom photos</DashboardV2Text>
-              <DashboardV2Text as="strong" tone="strong">
-                {recentPhotos.length > 0 ? `${recentPhotos.length} recent upload${recentPhotos.length === 1 ? '' : 's'}` : 'No recent uploads'}
-              </DashboardV2Text>
-              <DashboardV2Text tone="muted">Reference images stay secondary to the main clinical timeline.</DashboardV2Text>
-            </article>
-          </div>
-        </DashboardV2Surface>
-
-        <DashboardV2Surface className="v2-patient-history-card" tone="base">
+        <DashboardV2Surface className="v2-patient-history-card v2-patient-history-card--chronology" tone="base">
           <DashboardV2Text tone="label">Chronology</DashboardV2Text>
           <DashboardV2Heading as="h3">Grouped recent events</DashboardV2Heading>
           <div className="v2-patient-history-chronology">
             {chronologyItems.length === 0 ? (
               <DashboardV2Text tone="muted">No history events are available in the current window.</DashboardV2Text>
             ) : (
-              chronologyItems.slice(0, 12).map((item) => (
-                <article key={item.id} className="v2-patient-history-chronology__item">
+              chronologyItems.slice(0, 12).map((item, index) => (
+                <article key={`${item.id}-${item.occurredAt}-${index}`} className="v2-patient-history-chronology__item">
                   <div>
                     <DashboardV2Text tone="label">{item.family}</DashboardV2Text>
                     <DashboardV2Text as="strong" tone="strong">{item.title}</DashboardV2Text>
@@ -153,6 +112,47 @@ export function PatientHistoryPane({
                 </article>
               ))
             )}
+          </div>
+        </DashboardV2Surface>
+
+        <DashboardV2Surface className="v2-patient-history-card v2-patient-history-card--reference" tone="base">
+          <DashboardV2Text tone="label">Reference signals</DashboardV2Text>
+          <DashboardV2Heading as="h3">Symptoms and support trends</DashboardV2Heading>
+          <div className="v2-patient-digest-list">
+            <article className="v2-patient-digest-item">
+              <DashboardV2Text tone="label">Sleep</DashboardV2Text>
+              <DashboardV2Text as="strong" tone="strong">
+                {recentSleepRows.length > 0 ? `${recentSleepRows.length} recent entries` : 'No recent entries'}
+              </DashboardV2Text>
+              <DashboardV2Text tone="muted">
+                Body map hotspots: {recentBodyMapSummary.map((item) => item.label).join(', ') || 'No hotspots recorded'}
+              </DashboardV2Text>
+            </article>
+            <article className="v2-patient-digest-item">
+              <DashboardV2Text tone="label">Hydration and nutrition</DashboardV2Text>
+              <DashboardV2Text as="strong" tone="strong">
+                {recentHydrationSummary.avgDailyMl !== null ? `${recentHydrationSummary.avgDailyMl} ml/day` : 'No hydration average'}
+              </DashboardV2Text>
+              <DashboardV2Text tone="muted">
+                {recentNutritionSummary.trackedDays} nutrition day{recentNutritionSummary.trackedDays === 1 ? '' : 's'} tracked
+              </DashboardV2Text>
+            </article>
+            <article className="v2-patient-digest-item">
+              <DashboardV2Text tone="label">Wearables and medication</DashboardV2Text>
+              <DashboardV2Text as="strong" tone="strong">
+                {recentWearablesSummary.trackedDays > 0 ? `${recentWearablesSummary.trackedDays} wearable days` : 'No wearable days'}
+              </DashboardV2Text>
+              <DashboardV2Text tone="muted">
+                Medication adherence {recentMedicationSummary.adherencePct !== null ? `${recentMedicationSummary.adherencePct}%` : 'not recorded'}
+              </DashboardV2Text>
+            </article>
+            <article className="v2-patient-digest-item">
+              <DashboardV2Text tone="label">Symptom photos</DashboardV2Text>
+              <DashboardV2Text as="strong" tone="strong">
+                {recentPhotos.length > 0 ? `${recentPhotos.length} recent upload${recentPhotos.length === 1 ? '' : 's'}` : 'No recent uploads'}
+              </DashboardV2Text>
+              <DashboardV2Text tone="muted">Reference images stay secondary to the main clinical timeline.</DashboardV2Text>
+            </article>
           </div>
         </DashboardV2Surface>
       </div>

@@ -28,6 +28,7 @@ import { getChartAnimationConfig, isJsdomRuntime, mapMedicationToNumeric } from 
 interface TrendChartsProps {
   points: TrendPointNormalized[];
   onSelectDate: (date: string, triggerElement?: HTMLElement | null) => void;
+  presentation?: 'default' | 'workspace';
   expandedMetric?: 'pain' | 'mood' | 'adherence' | null;
   onExpandMetric?: (metric: 'pain' | 'mood' | 'adherence') => void;
   onCollapseMetric?: () => void;
@@ -120,6 +121,7 @@ function renderResponsiveChart(chartElement: JSX.Element): JSX.Element {
 export function TrendCharts({
   points,
   onSelectDate,
+  presentation = 'default',
   expandedMetric = null,
   onExpandMetric,
   onCollapseMetric,
@@ -461,7 +463,7 @@ export function TrendCharts({
           : null;
 
   return (
-    <section className="trend-charts-stack" aria-label="Patient trend charts">
+    <section className={`trend-charts-stack trend-charts-stack--${presentation}`} aria-label="Patient trend charts">
       <LatestTrendBadges points={points} />
 
       {expandedCard ? (

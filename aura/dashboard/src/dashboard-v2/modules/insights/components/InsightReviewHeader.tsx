@@ -10,8 +10,6 @@ interface InsightReviewHeaderProps {
   onApprove: () => void;
   onReject: () => void;
   onOpenPatient: () => void;
-  onOpenSupport: () => void;
-  showSupportAction: boolean;
   showBackToQueue: boolean;
   onBackToQueue: () => void;
   showQueueSheetAction: boolean;
@@ -41,8 +39,6 @@ export function InsightReviewHeader({
   onApprove,
   onReject,
   onOpenPatient,
-  onOpenSupport,
-  showSupportAction,
   showBackToQueue,
   onBackToQueue,
   showQueueSheetAction,
@@ -84,20 +80,27 @@ export function InsightReviewHeader({
             Open lane
           </DashboardV2Button>
         ) : null}
-        {showSupportAction ? (
-          <DashboardV2Button tone="ghost" size="sm" onPress={onOpenSupport}>
-            Open support
-          </DashboardV2Button>
-        ) : null}
         <DashboardV2Button tone="secondary" size="sm" onPress={onOpenPatient}>
           Open patient
         </DashboardV2Button>
         {pending ? (
           <>
-            <DashboardV2Button tone="ghost" size="sm" onPress={onReject} isDisabled={mutationPending}>
+            <DashboardV2Button
+              className="v2-insight-review-header__decision"
+              tone="ghost"
+              size="sm"
+              onPress={onReject}
+              isDisabled={mutationPending}
+            >
               Reject
             </DashboardV2Button>
-            <DashboardV2Button tone="primary" size="sm" onPress={onApprove} isDisabled={mutationPending}>
+            <DashboardV2Button
+              className="v2-insight-review-header__decision"
+              tone="primary"
+              size="sm"
+              onPress={onApprove}
+              isDisabled={mutationPending}
+            >
               {mutationPending ? 'Saving...' : 'Approve'}
             </DashboardV2Button>
           </>

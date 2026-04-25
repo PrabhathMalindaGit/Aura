@@ -42,7 +42,9 @@ test('insights v2 preserves review continuity across lifecycle, patient routing,
   await expect(page.getByText('Batch approved')).toBeVisible();
 
   await page.setViewportSize({ width: 1180, height: 900 });
-  await workspace.getByRole('button', { name: 'Open support' }).click();
+  await expect(page.getByLabel('Compact insight support summary')).toBeVisible();
+  await expect(page.getByLabel('Insight support context')).toHaveCount(0);
+  await workspace.getByRole('button', { name: 'Support context' }).click();
   await expect(page.getByRole('heading', { name: 'Insight support context' })).toBeVisible();
   await page.keyboard.press('Escape');
 

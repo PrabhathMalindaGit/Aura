@@ -133,7 +133,12 @@ test('communication v2 restores the selected thread after routing out and back b
   await expect(
     page.getByTestId('v2-inbox-workspace').getByText('Saved locally for follow-up.'),
   ).toBeVisible();
+  await expect(page.getByLabel('Compact coordination summary')).toContainText('Team context');
+  await expect(page.getByTestId('v2-inbox-support-rail')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Support context' }).click();
+  await expect(page.getByRole('heading', { name: 'Support context' })).toBeVisible();
   await expect(page.getByText('Shared coordination', { exact: true }).first()).toBeVisible();
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p2$/);

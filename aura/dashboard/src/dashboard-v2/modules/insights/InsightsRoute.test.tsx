@@ -279,8 +279,11 @@ describe('InsightsRoute', () => {
     await waitFor(() => {
       expect(screen.getByTestId('v2-insights-review-workspace')).toHaveTextContent('Patient patient-missing');
     });
-    expect(screen.getByLabelText('Insight support context')).toHaveTextContent('Unknown');
+    expect(screen.queryAllByLabelText('Insight support context')).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Support context' }));
+    expect(screen.getAllByLabelText('Insight support context')[0]).toHaveTextContent('Unknown');
     expect(screen.getByText(/Unsupported provenance stays omitted/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Close panel' }));
     expect(
       window.localStorage.getItem(getWorkspaceStateStorageKey('insights')),
     ).toContain('"activeView":"approved"');

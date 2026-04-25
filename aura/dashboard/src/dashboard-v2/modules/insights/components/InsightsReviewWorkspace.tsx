@@ -5,6 +5,7 @@ import type {
 import type {
   InsightReviewHeaderVm,
   InsightReviewSummaryVm,
+  InsightsGovernanceVm,
 } from '../../../adapters/insights';
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Surface } from '../../../primitives/Surface';
@@ -29,6 +30,7 @@ interface InsightsReviewWorkspaceProps {
   insight: InsightItem | null;
   header: InsightReviewHeaderVm | null;
   summary: InsightReviewSummaryVm | null;
+  governance: InsightsGovernanceVm | null;
   mutationPending: boolean;
   reviewError: ReviewErrorState | null;
   reviewOutcome: ReviewOutcomeState | null;
@@ -50,6 +52,7 @@ export function InsightsReviewWorkspace({
   insight,
   header,
   summary,
+  governance,
   mutationPending,
   reviewError,
   reviewOutcome,
@@ -98,13 +101,38 @@ export function InsightsReviewWorkspace({
         onApprove={onApprove}
         onReject={onReject}
         onOpenPatient={onOpenPatient}
-        onOpenSupport={onOpenSupport}
-        showSupportAction={showSupportAction}
         showBackToQueue={showBackToQueue}
         onBackToQueue={onBackToQueue}
         showQueueSheetAction={showQueueSheetAction}
         onOpenQueueSheet={onOpenQueueSheet}
       />
+
+      {governance ? (
+        <DashboardV2Surface
+          className="v2-insights-review-workspace__context-summary"
+          tone="elevated"
+          aria-label="Compact insight support summary"
+        >
+          <div className="v2-insights-review-workspace__context-copy">
+            <DashboardV2Text tone="label">Patient and review context</DashboardV2Text>
+            <DashboardV2Heading as="h3">{governance.patientTitle}</DashboardV2Heading>
+            <DashboardV2Text tone="muted">{governance.patientSubtitle}</DashboardV2Text>
+          </div>
+          <div className="v2-insights-review-workspace__context-facts">
+            {[...governance.patientFacts.slice(0, 2), ...governance.reviewFacts.slice(0, 2)].map((fact) => (
+              <article key={`${fact.label}-${fact.value}`} className="v2-insights-review-workspace__context-fact">
+                <DashboardV2Text tone="label">{fact.label}</DashboardV2Text>
+                <DashboardV2Text tone="strong">{fact.value}</DashboardV2Text>
+              </article>
+            ))}
+          </div>
+          {showSupportAction ? (
+            <DashboardV2Button tone="secondary" size="sm" onPress={onOpenSupport}>
+              Support context
+            </DashboardV2Button>
+          ) : null}
+        </DashboardV2Surface>
+      ) : null}
 
       {reviewError ? (
         <DashboardV2Surface className="v2-insights-review-workspace__notice v2-insights-review-workspace__notice--warning" tone="muted">

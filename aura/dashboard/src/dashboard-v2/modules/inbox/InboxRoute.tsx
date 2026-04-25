@@ -10,17 +10,14 @@ import { useInboxUiStore } from '../../state/useInboxUiStore';
 import { ActiveThreadWorkspace } from './components/ActiveThreadWorkspace';
 import { InboxStatusBar } from './components/InboxStatusBar';
 import { SupportContextDrawer } from './components/SupportContextDrawer';
-import { SharedCoordinationRail } from './components/SharedCoordinationRail';
 import { ThreadQueuePane } from './components/ThreadQueuePane';
 import { useInboxViewModel } from './useInboxViewModel';
 import './inbox.css';
 
-const MEDIUM_LAYOUT_QUERY = '(max-width: 1279px)';
 const NARROW_LAYOUT_QUERY = '(max-width: 1023px)';
 const VERY_NARROW_LAYOUT_QUERY = '(max-width: 599px)';
 
 export function InboxRoute(): JSX.Element {
-  const isMediumLayout = useMediaQuery(MEDIUM_LAYOUT_QUERY);
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
   const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const supportDrawerOpen = useInboxUiStore((state) => state.supportDrawerOpen);
@@ -32,12 +29,6 @@ export function InboxRoute(): JSX.Element {
   const queueRef = useRef<HTMLDivElement | null>(null);
   const [explanationOpen, setExplanationOpen] = useState(false);
   const viewModel = useInboxViewModel({ isNarrowLayout });
-
-  useEffect(() => {
-    if (!isMediumLayout) {
-      setSupportDrawerOpen(false);
-    }
-  }, [isMediumLayout, setSupportDrawerOpen]);
 
   useEffect(() => {
     if (!isNarrowLayout) {
@@ -54,7 +45,6 @@ export function InboxRoute(): JSX.Element {
     element.scrollTop = queueScrollTop;
   }, [queueScrollTop, viewModel.queueRows.length]);
 
-  const showInlineRail = !isMediumLayout;
   const showQueueOnly = isNarrowLayout && viewModel.focusMode === 'queue';
 
   const queuePane = (
@@ -89,6 +79,7 @@ export function InboxRoute(): JSX.Element {
   const workspace = (
     <ActiveThreadWorkspace
       workspace={viewModel.activeWorkspace}
+      support={viewModel.support}
       clinicianIdentity={viewModel.clinicianIdentity}
       authoring={viewModel.authoring}
       selectedTemplateId={viewModel.selectedTemplateId}
@@ -99,7 +90,7 @@ export function InboxRoute(): JSX.Element {
       statusDescription={viewModel.statusDescription}
       showBackToQueue={isNarrowLayout}
       showQueueSheetAction={isNarrowLayout && Boolean(viewModel.activeWorkspace)}
-      showSupportAction={isMediumLayout && Boolean(viewModel.support)}
+      showSupportAction={Boolean(viewModel.support)}
       onBackToQueue={viewModel.clearSelectionToQueue}
       onOpenQueueSheet={() => setQueueSheetOpen(true)}
       onOpenSupport={() => setSupportDrawerOpen(true)}
@@ -114,22 +105,6 @@ export function InboxRoute(): JSX.Element {
       onRefresh={viewModel.refreshInbox}
     />
   );
-
-  const inlineRail = viewModel.support ? (
-    <SharedCoordinationRail
-      support={viewModel.support}
-      coordinationLoading={viewModel.coordinationLoading}
-      coordinationError={viewModel.coordinationError}
-      sharedNoteDraft={viewModel.sharedNoteDraft}
-      sharedNoteNotice={viewModel.sharedNoteNotice}
-      sharedNoteError={viewModel.sharedNoteError}
-      sharedNotePending={viewModel.sharedNotePending}
-      onSharedNoteChange={viewModel.setSharedNoteDraft}
-      onSubmitSharedNote={viewModel.submitSharedNote}
-      onOpenStructuredCoordination={viewModel.openStructuredCoordination}
-      onOpenExplanation={() => setExplanationOpen(true)}
-    />
-  ) : null;
 
   const statusBanner = useMemo(() => {
     if (!viewModel.staleErrorBannerVisible) {
@@ -170,13 +145,13 @@ export function InboxRoute(): JSX.Element {
           <DashboardV2InboxWorkbenchLayout
             queue={isNarrowLayout ? null : queuePane}
             workspace={workspace}
-            rail={showInlineRail ? inlineRail : null}
+            rail={null}
           />
         )}
       </div>
 
       <SupportContextDrawer
-        open={isMediumLayout && supportDrawerOpen}
+        open={supportDrawerOpen}
         onOpenChange={setSupportDrawerOpen}
         support={viewModel.support}
         activeView={viewModel.activeSupportView}

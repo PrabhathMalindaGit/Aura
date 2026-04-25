@@ -276,7 +276,8 @@ describe('InboxRoute', () => {
     expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
     expect(screen.getByText('Local private draft')).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { name: 'Team-visible context' }).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Compact coordination summary')).toHaveTextContent('Team context');
+    expect(screen.queryByTestId('v2-inbox-support-rail')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('v2-inbox-row-patient-2'));
 
@@ -300,7 +301,9 @@ describe('InboxRoute', () => {
       expect(screen.getByTestId('v2-inbox-workspace')).toHaveTextContent('Avery Chen');
     });
 
+    await user.click(screen.getByRole('button', { name: 'Support context' }));
     expect(screen.getAllByText('Unknown').length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'Close panel' }));
 
     await user.click(screen.getByRole('button', { name: 'Open patient' }));
     expect(await screen.findByText('Patient detail workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
@@ -312,18 +315,20 @@ describe('InboxRoute', () => {
     renderCommunicationRoute();
 
     expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
-
     const localDraft = screen.getByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(localDraft, 'Local follow-up stays private.');
+
+    await user.click(screen.getByRole('button', { name: 'Support context' }));
     const sharedNote = screen.getByRole('textbox', { name: 'Add shared coordination note' });
 
-    await user.type(localDraft, 'Local follow-up stays private.');
     await user.type(sharedNote, 'Team note stays shared.');
     await user.click(screen.getByRole('button', { name: 'Add shared note' }));
 
     expect(await screen.findByText('Shared coordination note added for the care team.', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
-    expect(localDraft).toHaveValue('Local follow-up stays private.');
     expect(sharedNote).toHaveValue('');
     expect(screen.getAllByText('Team note stays shared.').length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'Close panel' }));
+    expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue('Local follow-up stays private.');
   });
 
   it('stays queue-first on narrow layouts until the clinician selects a thread', async () => {

@@ -3,7 +3,6 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { DashboardV2Drawer } from '../../primitives/Drawer';
 import { FollowUpWorkbenchLayout } from '../../patterns/FollowUpWorkbenchLayout';
 import { useInsightsUiStore } from '../../state/useInsightsUiStore';
-import { InsightGovernanceRail } from './components/InsightsGovernanceRail';
 import { InsightsQueuePane } from './components/InsightsQueuePane';
 import { InsightsReviewWorkspace } from './components/InsightsReviewWorkspace';
 import { InsightsStatusBar } from './components/InsightsStatusBar';
@@ -11,12 +10,10 @@ import { InsightsSupportDrawer } from './components/InsightsSupportDrawer';
 import { useInsightsViewModel } from './useInsightsViewModel';
 import './insights.css';
 
-const MEDIUM_LAYOUT_QUERY = '(max-width: 1279px)';
 const NARROW_LAYOUT_QUERY = '(max-width: 1023px)';
 const VERY_NARROW_LAYOUT_QUERY = '(max-width: 599px)';
 
 export function InsightsRoute(): JSX.Element {
-  const isMediumLayout = useMediaQuery(MEDIUM_LAYOUT_QUERY);
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
   const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const governanceOpen = useInsightsUiStore((state) => state.governanceOpen);
@@ -27,12 +24,6 @@ export function InsightsRoute(): JSX.Element {
   const setQueueScrollTop = useInsightsUiStore((state) => state.setQueueScrollTop);
   const queueRef = useRef<HTMLDivElement | null>(null);
   const viewModel = useInsightsViewModel({ isNarrowLayout });
-
-  useEffect(() => {
-    if (!isMediumLayout) {
-      setGovernanceOpen(false);
-    }
-  }, [isMediumLayout, setGovernanceOpen]);
 
   useEffect(() => {
     if (!isNarrowLayout) {
@@ -81,6 +72,7 @@ export function InsightsRoute(): JSX.Element {
       insight={viewModel.activeInsight}
       header={viewModel.activeHeader}
       summary={viewModel.activeSummary}
+      governance={viewModel.activeGovernance}
       mutationPending={viewModel.mutationPending}
       reviewError={viewModel.reviewError}
       reviewOutcome={viewModel.reviewOutcome}
@@ -95,16 +87,12 @@ export function InsightsRoute(): JSX.Element {
         }
       }}
       onOpenSupport={() => setGovernanceOpen(true)}
-      showSupportAction={isMediumLayout}
+      showSupportAction={Boolean(viewModel.activeGovernance)}
       showBackToQueue={isNarrowLayout}
       onBackToQueue={viewModel.clearSelectionToQueue}
       showQueueSheetAction={isNarrowLayout && Boolean(viewModel.activeInsight)}
       onOpenQueueSheet={() => setQueueSheetOpen(true)}
     />
-  );
-
-  const governance = (
-    <InsightGovernanceRail governance={viewModel.activeGovernance} />
   );
 
   return (
@@ -125,13 +113,13 @@ export function InsightsRoute(): JSX.Element {
             className="v2-insights-workbench"
             lane={isNarrowLayout ? null : queuePane}
             workspace={workspace}
-            rail={!isMediumLayout ? governance : null}
+            rail={null}
           />
         )}
       </div>
 
       <InsightsSupportDrawer
-        open={isMediumLayout && governanceOpen}
+        open={governanceOpen}
         onOpenChange={setGovernanceOpen}
         governance={viewModel.activeGovernance}
         placement={isNarrowLayout ? 'bottom' : 'right'}

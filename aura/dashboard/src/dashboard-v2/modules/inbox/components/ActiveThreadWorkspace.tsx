@@ -1,7 +1,8 @@
 import { ArrowLeft, PanelRightOpen, Rows3 } from 'lucide-react';
-import type { InboxWorkspaceVm } from '../../../adapters/communication';
+import type { InboxSupportVm, InboxWorkspaceVm } from '../../../adapters/communication';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Button } from '../../../primitives/Button';
+import { DashboardV2ProvenanceBadge } from '../../../patterns/ProvenanceBadge';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 import { LocalDraftPanel } from './LocalDraftPanel';
@@ -11,6 +12,7 @@ import type { CommunicationAuthoringSnapshot } from '../../../../services/commun
 
 interface ActiveThreadWorkspaceProps {
   workspace: InboxWorkspaceVm | null;
+  support: InboxSupportVm | null;
   clinicianIdentity: ClinicianIdentity;
   authoring: CommunicationAuthoringSnapshot;
   selectedTemplateId: string;
@@ -47,6 +49,7 @@ function renderIdleState(title: string, description: string): JSX.Element {
 
 export function ActiveThreadWorkspace({
   workspace,
+  support,
   clinicianIdentity,
   authoring,
   selectedTemplateId,
@@ -129,16 +132,6 @@ export function ActiveThreadWorkspace({
                   Review queue
                 </DashboardV2Button>
               ) : null}
-              {showSupportAction ? (
-                <DashboardV2Button
-                  tone="secondary"
-                  size="sm"
-                  onPress={onOpenSupport}
-                  leadingIcon={<PanelRightOpen size={16} />}
-                >
-                  Support context
-                </DashboardV2Button>
-              ) : null}
             </div>
           </div>
 
@@ -155,6 +148,37 @@ export function ActiveThreadWorkspace({
           <div className="v2-inbox-workspace__summary-copy">
             <DashboardV2Text tone="strong">{workspace.urgencyLine}</DashboardV2Text>
           </div>
+
+          {support ? (
+            <div className="v2-inbox-workspace__coordination-summary" aria-label="Compact coordination summary">
+              <div className="v2-inbox-workspace__coordination-copy">
+                <DashboardV2Text tone="label">Team context</DashboardV2Text>
+                <DashboardV2Text tone="strong">{support.sharedCoordination.statusEyebrow}</DashboardV2Text>
+                <DashboardV2Text tone="muted">{support.sharedCoordination.summary}</DashboardV2Text>
+              </div>
+              <div className="v2-inbox-workspace__coordination-facts">
+                {support.provenance.map((source) => (
+                  <DashboardV2ProvenanceBadge key={source} source={source} />
+                ))}
+                {support.responseStateNote ? (
+                  <DashboardV2Badge tone="delayed" size="sm">{support.responseStateNote}</DashboardV2Badge>
+                ) : null}
+                {support.workflow.linkedTask.state === 'linked' ? (
+                  <DashboardV2Badge tone="support" size="sm">{support.workflow.linkedTask.title}</DashboardV2Badge>
+                ) : null}
+              </div>
+              {showSupportAction ? (
+                <DashboardV2Button
+                  tone="secondary"
+                  size="sm"
+                  onPress={onOpenSupport}
+                  leadingIcon={<PanelRightOpen size={16} />}
+                >
+                  Support context
+                </DashboardV2Button>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="v2-inbox-workspace__summary-metadata">
             {workspace.summaryFacts.map((fact) => (

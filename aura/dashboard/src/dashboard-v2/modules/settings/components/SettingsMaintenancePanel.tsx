@@ -21,8 +21,8 @@ export function SettingsMaintenancePanel({
         <DashboardV2Text tone="label">Maintenance</DashboardV2Text>
         <DashboardV2Heading as="h3">Restore workspace profile defaults</DashboardV2Heading>
         <DashboardV2Text tone="muted">
-          Reset the editable profile form to Aura&apos;s local defaults. The
-          saved browser profile does not change until you save again.
+          Reset the editable profile form. Saved settings do not change until
+          you save again.
         </DashboardV2Text>
       </div>
 

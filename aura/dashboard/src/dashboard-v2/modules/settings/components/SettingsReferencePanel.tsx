@@ -21,10 +21,10 @@ export function SettingsReferencePanel({
     >
       <div className="v2-settings-panel__header">
         <DashboardV2Text tone="label">Reference</DashboardV2Text>
-        <DashboardV2Heading as="h3">Workspace scope and reference</DashboardV2Heading>
+        <DashboardV2Heading as="h3">Workspace reference</DashboardV2Heading>
         <DashboardV2Text tone="muted">
-          Keep shared-shell defaults and immediate browser protection scope
-          visible without interrupting configuration work.
+          Shared defaults and device-specific settings, kept out of the main
+          workflow.
         </DashboardV2Text>
       </div>
 
@@ -42,7 +42,7 @@ export function SettingsReferencePanel({
             </DashboardV2Text>
             <DashboardV2Text tone="muted">
               Warning display follows the live connection state in Aura&apos;s
-              shared shell for this browser.
+              shared shell.
             </DashboardV2Text>
             <span className="v2-settings-reference-item__status">
               Shared shell default
@@ -61,7 +61,7 @@ export function SettingsReferencePanel({
             </DashboardV2Text>
             <DashboardV2Text tone="muted">
               Table density currently follows Aura Clinician&apos;s shared
-              workspace default in this browser.
+              workspace default.
             </DashboardV2Text>
             <span className="v2-settings-reference-item__status">
               Shared workspace default

@@ -15,7 +15,7 @@ export function SettingsNotificationSection({
 
   return (
     <DashboardV2Surface
-      className="v2-settings-section"
+      className="v2-settings-section v2-settings-section--notifications"
       tone="elevated"
       data-testid="v2-settings-notification-section"
     >
@@ -24,7 +24,7 @@ export function SettingsNotificationSection({
           <DashboardV2Text tone="label">Primary settings</DashboardV2Text>
           <DashboardV2Heading as="h2">Notification preferences</DashboardV2Heading>
           <DashboardV2Text tone="muted">
-            Local attention cues in this browser only.
+            Tune local in-app attention cues without changing alert safety.
           </DashboardV2Text>
         </div>
       </div>
@@ -37,7 +37,7 @@ export function SettingsNotificationSection({
         ))}
       </div>
 
-      <div className="v2-settings-list">
+      <div className="v2-settings-list v2-settings-list--split">
         <label className="v2-settings-row" htmlFor="v2-notification-communication-cue">
           <span className="v2-settings-row__copy">
             <span className="v2-settings-row__label">
@@ -92,7 +92,7 @@ export function SettingsNotificationSection({
           <span className="v2-settings-row__copy">
             <span className="v2-settings-row__label">Quiet hours</span>
             <span className="v2-settings-row__helper">
-              Reduce secondary in-app emphasis only in this browser.
+              Reduce secondary in-app emphasis on this device.
             </span>
           </span>
           <input
@@ -177,7 +177,7 @@ export function SettingsNotificationSection({
         ) : (
           <div className="v2-settings-row v2-settings-row--stacked">
             <DashboardV2Text tone="muted">
-              Quiet hours are currently off for this browser. Turn them on here
+              Quiet hours are currently off. Turn them on here
               to set a local window.
             </DashboardV2Text>
           </div>
@@ -186,9 +186,7 @@ export function SettingsNotificationSection({
 
       <div className="v2-settings-section__footer">
         <DashboardV2Text tone="muted">
-          These settings tune local in-app attention cues only. They do not
-          affect core alert visibility, unread state, or anything outside this
-          browser.
+          These settings do not affect core alert visibility or unread state.
         </DashboardV2Text>
         <DashboardV2Button
           onPress={notificationSection.onSave}

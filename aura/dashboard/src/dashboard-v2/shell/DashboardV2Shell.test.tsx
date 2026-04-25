@@ -84,6 +84,7 @@ function renderShell(entry = "/dashboard"): void {
         <Route path="/" element={<DashboardV2Shell />}>
           <Route path="dashboard" element={<div>Dashboard workspace</div>} />
           <Route path="patients" element={<div>Patients workspace</div>} />
+          <Route path="settings" element={<div>Settings workspace</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -123,6 +124,21 @@ describe("DashboardV2Shell", () => {
     renderShell("/patients");
 
     expect(screen.getByText("Patients workspace")).toBeInTheDocument();
+    expect(screen.queryByText("Freshness & scope")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Context" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Context" }));
+
+    expect((await screen.findAllByRole("heading", { name: "Freshness & scope" })).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Open explanation drawer" })).toBeInTheDocument();
+  });
+
+  it("keeps the settings route on drawer-only context access even on wide layouts", async () => {
+    const user = userEvent.setup();
+
+    renderShell("/settings");
+
+    expect(screen.getByText("Settings workspace")).toBeInTheDocument();
     expect(screen.queryByText("Freshness & scope")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Context" })).toBeInTheDocument();
 

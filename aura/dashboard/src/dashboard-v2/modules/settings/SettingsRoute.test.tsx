@@ -148,7 +148,7 @@ describe("SettingsRouteFacade", () => {
       "Session protection",
     );
     expect(screen.getByTestId("v2-settings-reference-panel")).toHaveTextContent(
-      "Workspace scope and reference",
+      "Workspace reference",
     );
     expect(screen.getByTestId("v2-settings-maintenance-panel")).toHaveTextContent(
       "Restore workspace profile defaults",

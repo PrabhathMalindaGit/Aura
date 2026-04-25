@@ -23,7 +23,7 @@ export function SettingsCommunicationSection({
 
   return (
     <DashboardV2Surface
-      className="v2-settings-section"
+      className="v2-settings-section v2-settings-section--communication"
       tone="elevated"
       data-testid="v2-settings-communication-section"
     >
@@ -32,8 +32,7 @@ export function SettingsCommunicationSection({
           <DashboardV2Text tone="label">Primary settings</DashboardV2Text>
           <DashboardV2Heading as="h2">Communication authoring</DashboardV2Heading>
           <DashboardV2Text tone="muted">
-            Signature and reply starters stay local to this clinician in this
-            browser.
+            Signature and reply starters stay saved on this device.
           </DashboardV2Text>
         </div>
       </div>
@@ -46,12 +45,12 @@ export function SettingsCommunicationSection({
         ))}
       </div>
 
-      <div className="v2-settings-list">
+      <div className="v2-settings-list v2-settings-list--split">
         <label className="v2-settings-row v2-settings-row--textarea" htmlFor="v2-default-signature">
           <span className="v2-settings-row__copy">
             <span className="v2-settings-row__label">Signature</span>
             <span className="v2-settings-row__helper">
-              Plain text only. Whitespace-only signatures save as empty.
+              Plain text only.
             </span>
           </span>
           <textarea
@@ -71,8 +70,7 @@ export function SettingsCommunicationSection({
               Auto-append signature on fresh Communication drafts
             </span>
             <span className="v2-settings-row__helper">
-              Applies only when a thread opens with a genuinely fresh empty
-              draft.
+              Applies only when a thread opens with an empty draft.
             </span>
           </span>
           <input
@@ -217,7 +215,7 @@ export function SettingsCommunicationSection({
 
       <div className="v2-settings-section__footer">
         <DashboardV2Text tone="muted">
-          Signature and saved templates remain local to this browser only.
+          Signature and saved templates remain saved on this device.
         </DashboardV2Text>
         <DashboardV2Button
           onPress={communicationSection.onSave}

@@ -163,148 +163,162 @@ export function SettingsProfileSection({
         </aside>
       </div>
 
-      <div className="v2-settings-list" role="group" aria-label="Workspace profile fields">
-        <label className="v2-settings-row" htmlFor="v2-clinician-display-name">
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Display name</span>
-            <span className="v2-settings-row__helper">
-              {validation.displayName ?? "Shown in local clinician surfaces."}
+      <div className="v2-settings-subsection v2-settings-subsection--card">
+        <div className="v2-settings-subsection__header">
+          <DashboardV2Icon icon={UserRound} size={16} />
+          <div>
+            <DashboardV2Text as="strong" tone="strong">
+              Clinician details
+            </DashboardV2Text>
+            <DashboardV2Text tone="muted">
+              Identity and handoff notes shown across this workspace.
+            </DashboardV2Text>
+          </div>
+        </div>
+
+        <div className="v2-settings-list" role="group" aria-label="Workspace profile fields">
+          <label className="v2-settings-row" htmlFor="v2-clinician-display-name">
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Display name</span>
+              <span className="v2-settings-row__helper">
+                {validation.displayName ?? "Shown in local clinician surfaces."}
+              </span>
             </span>
-          </span>
-          <input
-            id="v2-clinician-display-name"
-            type="text"
-            aria-label="Clinician display name"
-            value={draftProfile.displayName}
-            maxLength={CLINICIAN_PROFILE_LIMITS.displayName}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange(
-                "displayName",
-                event.target.value,
-              )
-            }
-          />
-        </label>
+            <input
+              id="v2-clinician-display-name"
+              type="text"
+              aria-label="Clinician display name"
+              value={draftProfile.displayName}
+              maxLength={CLINICIAN_PROFILE_LIMITS.displayName}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange(
+                  "displayName",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
 
-        <label className="v2-settings-row" htmlFor="v2-clinician-id">
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Clinician ID</span>
-            <span className="v2-settings-row__helper">
-              {validation.clinicianId ??
-                "Editable label for this browser workspace."}
+          <label className="v2-settings-row" htmlFor="v2-clinician-id">
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Clinician ID</span>
+              <span className="v2-settings-row__helper">
+                {validation.clinicianId ??
+                  "Editable label for this browser workspace."}
+              </span>
             </span>
-          </span>
-          <input
-            id="v2-clinician-id"
-            type="text"
-            aria-label="Clinician ID"
-            value={draftProfile.clinicianId}
-            maxLength={CLINICIAN_PROFILE_LIMITS.clinicianId}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange(
-                "clinicianId",
-                event.target.value,
-              )
-            }
-          />
-        </label>
+            <input
+              id="v2-clinician-id"
+              type="text"
+              aria-label="Clinician ID"
+              value={draftProfile.clinicianId}
+              maxLength={CLINICIAN_PROFILE_LIMITS.clinicianId}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange(
+                  "clinicianId",
+                  event.target.value,
+                )
+              }
+            />
+          </label>
 
-        <label className="v2-settings-row" htmlFor="v2-clinician-role">
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Role / title</span>
-            <span className="v2-settings-row__helper">Local operational title.</span>
-          </span>
-          <input
-            id="v2-clinician-role"
-            type="text"
-            aria-label="Clinician role or title"
-            value={draftProfile.roleTitle}
-            maxLength={CLINICIAN_PROFILE_LIMITS.roleTitle}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange("roleTitle", event.target.value)
-            }
-          />
-        </label>
-
-        <label className="v2-settings-row" htmlFor="v2-clinician-specialty">
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Specialty</span>
-            <span className="v2-settings-row__helper">Short clinical label.</span>
-          </span>
-          <input
-            id="v2-clinician-specialty"
-            type="text"
-            aria-label="Clinician specialty"
-            value={draftProfile.specialty}
-            maxLength={CLINICIAN_PROFILE_LIMITS.specialty}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange("specialty", event.target.value)
-            }
-          />
-        </label>
-
-        <label className="v2-settings-row" htmlFor="v2-clinician-bio">
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Care focus</span>
-            <span className="v2-settings-row__helper">
-              Short local framing note.
+          <label className="v2-settings-row" htmlFor="v2-clinician-role">
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Role / title</span>
+              <span className="v2-settings-row__helper">Local operational title.</span>
             </span>
-          </span>
-          <input
-            id="v2-clinician-bio"
-            type="text"
-            aria-label="Short bio or care focus"
-            value={draftProfile.bio}
-            maxLength={CLINICIAN_PROFILE_LIMITS.bio}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange("bio", event.target.value)
-            }
-          />
-        </label>
+            <input
+              id="v2-clinician-role"
+              type="text"
+              aria-label="Clinician role or title"
+              value={draftProfile.roleTitle}
+              maxLength={CLINICIAN_PROFILE_LIMITS.roleTitle}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange("roleTitle", event.target.value)
+              }
+            />
+          </label>
 
-        <label className="v2-settings-row" htmlFor="v2-clinician-pronouns">
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Pronouns</span>
-            <span className="v2-settings-row__helper">Optional.</span>
-          </span>
-          <input
-            id="v2-clinician-pronouns"
-            type="text"
-            aria-label="Preferred pronouns"
-            value={draftProfile.preferredPronouns ?? ""}
-            maxLength={CLINICIAN_PROFILE_LIMITS.preferredPronouns}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange(
-                "preferredPronouns",
-                event.target.value || undefined,
-              )
-            }
-          />
-        </label>
-
-        <label
-          className="v2-settings-row v2-settings-row--textarea"
-          htmlFor="v2-clinician-note"
-        >
-          <span className="v2-settings-row__copy">
-            <span className="v2-settings-row__label">Local handoff note</span>
-            <span className="v2-settings-row__helper">
-              Browser-local handoff context for this workstation.
+          <label className="v2-settings-row" htmlFor="v2-clinician-specialty">
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Specialty</span>
+              <span className="v2-settings-row__helper">Short clinical label.</span>
             </span>
-          </span>
-          <textarea
-            id="v2-clinician-note"
-            aria-label="Contact or handoff note"
-            value={draftProfile.contactNote}
-            maxLength={CLINICIAN_PROFILE_LIMITS.contactNote}
-            onChange={(event) =>
-              profileSection.onProfileFieldChange("contactNote", event.target.value)
-            }
-          />
-        </label>
+            <input
+              id="v2-clinician-specialty"
+              type="text"
+              aria-label="Clinician specialty"
+              value={draftProfile.specialty}
+              maxLength={CLINICIAN_PROFILE_LIMITS.specialty}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange("specialty", event.target.value)
+              }
+            />
+          </label>
+
+          <label className="v2-settings-row" htmlFor="v2-clinician-bio">
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Care focus</span>
+              <span className="v2-settings-row__helper">
+                Short local framing note.
+              </span>
+            </span>
+            <input
+              id="v2-clinician-bio"
+              type="text"
+              aria-label="Short bio or care focus"
+              value={draftProfile.bio}
+              maxLength={CLINICIAN_PROFILE_LIMITS.bio}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange("bio", event.target.value)
+              }
+            />
+          </label>
+
+          <label className="v2-settings-row" htmlFor="v2-clinician-pronouns">
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Pronouns</span>
+              <span className="v2-settings-row__helper">Optional.</span>
+            </span>
+            <input
+              id="v2-clinician-pronouns"
+              type="text"
+              aria-label="Preferred pronouns"
+              value={draftProfile.preferredPronouns ?? ""}
+              maxLength={CLINICIAN_PROFILE_LIMITS.preferredPronouns}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange(
+                  "preferredPronouns",
+                  event.target.value || undefined,
+                )
+              }
+            />
+          </label>
+
+          <label
+            className="v2-settings-row v2-settings-row--textarea"
+            htmlFor="v2-clinician-note"
+          >
+            <span className="v2-settings-row__copy">
+              <span className="v2-settings-row__label">Local handoff note</span>
+              <span className="v2-settings-row__helper">
+                Handoff context for this workstation.
+              </span>
+            </span>
+            <textarea
+              id="v2-clinician-note"
+              aria-label="Contact or handoff note"
+              value={draftProfile.contactNote}
+              maxLength={CLINICIAN_PROFILE_LIMITS.contactNote}
+              onChange={(event) =>
+                profileSection.onProfileFieldChange("contactNote", event.target.value)
+              }
+            />
+          </label>
+        </div>
       </div>
 
-      <div className="v2-settings-subsection">
+      <div className="v2-settings-subsection v2-settings-subsection--card">
         <div className="v2-settings-subsection__header">
           <DashboardV2Icon icon={LayoutGrid} size={16} />
           <div>

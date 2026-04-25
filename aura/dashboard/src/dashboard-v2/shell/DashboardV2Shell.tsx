@@ -122,7 +122,7 @@ export function DashboardV2Shell(): JSX.Element {
   const routeTitle = getDashboardV2RouteTitle(routeId);
   const routeDescription = getDashboardV2RouteDescription(routeId);
   const compactRouteDescription = routeId === 'dashboard' ? null : routeDescription;
-  const forceRailDrawer = routeId === 'patients';
+  const forceRailDrawer = routeId === 'patients' || routeId === 'settings';
   const showShellContextDrawer = !routeOwnsContextRail && (useRailDrawer || forceRailDrawer);
 
   useEffect(() => {

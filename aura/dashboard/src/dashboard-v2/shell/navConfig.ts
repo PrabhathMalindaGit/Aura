@@ -121,7 +121,7 @@ const DASHBOARD_V2_ROUTE_META: Record<DashboardV2RouteId, { title: string; descr
     description: 'Appointments and scheduling flow',
   },
   settings: {
-    title: 'Workspace settings',
+    title: 'Settings',
     description: 'Theme, workspace, and preference controls',
   },
 };

@@ -21,8 +21,15 @@ export function SettingsRoute(): JSX.Element {
       <SettingsStatusBar statusBar={viewModel.statusBar} />
 
       <div className="v2-settings-route__layout">
-        <div className="v2-settings-route__main">
+        <div className="v2-settings-route__primary">
           <SettingsProfileSection profileSection={viewModel.profileSection} />
+          <div className="v2-settings-route__control-stack">
+            <SettingsAppearancePanel appearancePanel={viewModel.appearancePanel} />
+            <SettingsSessionPanel sessionPanel={viewModel.sessionPanel} />
+          </div>
+        </div>
+
+        <div className="v2-settings-route__lower">
           <SettingsCommunicationSection
             communicationSection={viewModel.communicationSection}
             isVeryNarrow={isVeryNarrow}
@@ -32,9 +39,7 @@ export function SettingsRoute(): JSX.Element {
           />
         </div>
 
-        <div className="v2-settings-route__secondary">
-          <SettingsAppearancePanel appearancePanel={viewModel.appearancePanel} />
-          <SettingsSessionPanel sessionPanel={viewModel.sessionPanel} />
+        <div className="v2-settings-route__reference">
           <SettingsReferencePanel
             referencePanel={viewModel.referencePanel}
             isVeryNarrow={isVeryNarrow}

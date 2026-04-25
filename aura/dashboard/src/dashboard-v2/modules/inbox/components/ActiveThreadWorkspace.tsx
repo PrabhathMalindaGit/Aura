@@ -149,37 +149,6 @@ export function ActiveThreadWorkspace({
             <DashboardV2Text tone="strong">{workspace.urgencyLine}</DashboardV2Text>
           </div>
 
-          {support ? (
-            <div className="v2-inbox-workspace__coordination-summary" aria-label="Compact coordination summary">
-              <div className="v2-inbox-workspace__coordination-copy">
-                <DashboardV2Text tone="label">Team context</DashboardV2Text>
-                <DashboardV2Text tone="strong">{support.sharedCoordination.statusEyebrow}</DashboardV2Text>
-                <DashboardV2Text tone="muted">{support.sharedCoordination.summary}</DashboardV2Text>
-              </div>
-              <div className="v2-inbox-workspace__coordination-facts">
-                {support.provenance.map((source) => (
-                  <DashboardV2ProvenanceBadge key={source} source={source} />
-                ))}
-                {support.responseStateNote ? (
-                  <DashboardV2Badge tone="delayed" size="sm">{support.responseStateNote}</DashboardV2Badge>
-                ) : null}
-                {support.workflow.linkedTask.state === 'linked' ? (
-                  <DashboardV2Badge tone="support" size="sm">{support.workflow.linkedTask.title}</DashboardV2Badge>
-                ) : null}
-              </div>
-              {showSupportAction ? (
-                <DashboardV2Button
-                  tone="secondary"
-                  size="sm"
-                  onPress={onOpenSupport}
-                  leadingIcon={<PanelRightOpen size={16} />}
-                >
-                  Support context
-                </DashboardV2Button>
-              ) : null}
-            </div>
-          ) : null}
-
           <div className="v2-inbox-workspace__summary-metadata">
             {workspace.summaryFacts.map((fact) => (
               <div key={fact.label} className="v2-inbox-workspace__summary-metric">
@@ -220,6 +189,37 @@ export function ActiveThreadWorkspace({
               Refresh
             </DashboardV2Button>
           </div>
+
+          {support ? (
+            <div className="v2-inbox-workspace__coordination-summary" aria-label="Compact coordination summary">
+              <div className="v2-inbox-workspace__coordination-copy">
+                <DashboardV2Text tone="label">Team context</DashboardV2Text>
+                <DashboardV2Text tone="strong">{support.sharedCoordination.statusEyebrow}</DashboardV2Text>
+                <DashboardV2Text tone="muted">{support.sharedCoordination.summary}</DashboardV2Text>
+              </div>
+              <div className="v2-inbox-workspace__coordination-facts">
+                {support.provenance.map((source) => (
+                  <DashboardV2ProvenanceBadge key={source} source={source} />
+                ))}
+                {support.responseStateNote ? (
+                  <DashboardV2Badge tone="delayed" size="sm">{support.responseStateNote}</DashboardV2Badge>
+                ) : null}
+                {support.workflow.linkedTask.state === 'linked' ? (
+                  <DashboardV2Badge tone="support" size="sm">{support.workflow.linkedTask.title}</DashboardV2Badge>
+                ) : null}
+              </div>
+              {showSupportAction ? (
+                <DashboardV2Button
+                  tone="secondary"
+                  size="sm"
+                  onPress={onOpenSupport}
+                  leadingIcon={<PanelRightOpen size={16} />}
+                >
+                  Support context
+                </DashboardV2Button>
+              ) : null}
+            </div>
+          ) : null}
         </DashboardV2Surface>
       </div>
 

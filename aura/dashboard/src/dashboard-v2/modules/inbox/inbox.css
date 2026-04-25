@@ -1,6 +1,6 @@
 .v2-inbox-route {
   display: grid;
-  gap: var(--v2-space-4);
+  gap: var(--v2-space-3);
 }
 
 .v2-inbox-banner {
@@ -17,15 +17,21 @@
 
 .v2-inbox-status-bar {
   display: grid;
-  gap: var(--v2-space-4);
-  padding: var(--v2-space-5);
+  grid-template-columns: minmax(16rem, 1fr) auto auto;
+  gap: var(--v2-space-3);
+  align-items: center;
+  padding: var(--v2-space-4);
   border-color: hsl(var(--v2-border) / 0.58);
   background: hsl(var(--v2-surface));
 }
 
 .v2-inbox-status-bar__copy {
   display: grid;
-  gap: var(--v2-space-1);
+  gap: 0.12rem;
+}
+
+.v2-inbox-status-bar__copy .v2-heading {
+  font-size: 1.08rem;
 }
 
 .v2-inbox-status-bar__facts,
@@ -51,7 +57,7 @@
 
 .v2-inbox-workbench {
   display: grid;
-  gap: var(--v2-space-4);
+  gap: var(--v2-space-3);
   min-height: 0;
 }
 
@@ -77,8 +83,8 @@
 
 .v2-inbox-queue-pane {
   display: grid;
-  gap: var(--v2-space-4);
-  padding: var(--v2-space-4);
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-3);
 }
 
 .v2-inbox-queue-pane__header {
@@ -263,19 +269,17 @@
 
 .v2-inbox-workspace {
   display: grid;
-  gap: var(--v2-space-4);
+  gap: var(--v2-space-3);
 }
 
 .v2-inbox-workspace__header {
-  position: sticky;
-  top: var(--v2-space-4);
-  z-index: 1;
+  min-width: 0;
 }
 
 .v2-inbox-workspace__summary {
   display: grid;
-  gap: var(--v2-space-4);
-  padding: var(--v2-space-5);
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-4);
 }
 
 .v2-inbox-workspace__summary-topline {
@@ -292,19 +296,26 @@
 
 .v2-inbox-workspace__coordination-summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--v2-space-3);
+  grid-template-columns: minmax(11rem, 1fr) auto auto;
+  gap: var(--v2-space-2);
   align-items: center;
-  padding: var(--v2-space-3);
-  border: 1px solid hsl(var(--v2-info) / 0.16);
-  border-radius: var(--v2-radius-lg);
-  background: hsl(var(--v2-info-soft) / 0.42);
+  padding: var(--v2-space-2) var(--v2-space-3);
+  border: 1px solid hsl(var(--v2-border) / 0.56);
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface-muted) / 0.56);
 }
 
 .v2-inbox-workspace__coordination-copy {
-  display: grid;
-  gap: var(--v2-space-1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+  align-items: baseline;
   min-width: 0;
+}
+
+.v2-inbox-workspace__coordination-copy .v2-text--label,
+.v2-inbox-workspace__coordination-copy .v2-text--muted {
+  font-size: var(--v2-font-size-caption);
 }
 
 .v2-inbox-workspace__coordination-facts {
@@ -315,23 +326,32 @@
 }
 
 .v2-inbox-workspace__summary-metadata {
-  display: grid;
-  gap: var(--v2-space-3);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
 }
 
 .v2-inbox-workspace__summary-metric {
-  display: grid;
-  gap: var(--v2-space-1);
-  padding: var(--v2-space-3);
+  display: flex;
+  gap: var(--v2-space-2);
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.16rem 0.72rem;
   border: 1px solid hsl(var(--v2-border));
-  border-radius: var(--v2-radius-md);
+  border-radius: 999px;
   background: hsl(var(--v2-surface-muted));
 }
 
 .v2-inbox-workspace__body {
   display: grid;
   gap: var(--v2-space-4);
+}
+
+@media (min-width: 1440px) {
+  .v2-inbox-workspace__body {
+    grid-template-columns: minmax(0, 1.05fr) minmax(24rem, 0.95fr);
+    align-items: start;
+  }
 }
 
 .v2-inbox-section-heading {
@@ -460,8 +480,12 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .v2-inbox-status-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .v2-inbox-workspace__summary-metadata {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
   }
 
   .v2-inbox-workspace__coordination-summary {
@@ -473,6 +497,7 @@
 @media (max-width: 599px) {
   .v2-inbox-status-bar__facts,
   .v2-inbox-status-bar__actions,
+  .v2-inbox-status-bar,
   .v2-inbox-workspace__summary-topline,
   .v2-inbox-workspace__summary-actions,
   .v2-inbox-thread-row__topline,
@@ -483,6 +508,7 @@
   }
 
   .v2-inbox-workspace__summary-metadata {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -114,16 +114,16 @@ export function InsightsReviewWorkspace({
           aria-label="Compact insight support summary"
         >
           <div className="v2-insights-review-workspace__context-copy">
-            <DashboardV2Text tone="label">Patient and review context</DashboardV2Text>
+            <DashboardV2Text tone="label">Support context</DashboardV2Text>
             <DashboardV2Heading as="h3">{governance.patientTitle}</DashboardV2Heading>
             <DashboardV2Text tone="muted">{governance.patientSubtitle}</DashboardV2Text>
           </div>
           <div className="v2-insights-review-workspace__context-facts">
             {[...governance.patientFacts.slice(0, 2), ...governance.reviewFacts.slice(0, 2)].map((fact) => (
-              <article key={`${fact.label}-${fact.value}`} className="v2-insights-review-workspace__context-fact">
-                <DashboardV2Text tone="label">{fact.label}</DashboardV2Text>
-                <DashboardV2Text tone="strong">{fact.value}</DashboardV2Text>
-              </article>
+              <span key={`${fact.label}-${fact.value}`} className="v2-insights-review-workspace__context-fact">
+                <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
+                <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
+              </span>
             ))}
           </div>
           {showSupportAction ? (
@@ -170,20 +170,20 @@ export function InsightsReviewWorkspace({
       ) : null}
 
       <div className="v2-insights-review-workspace__body">
-        <DashboardV2Surface className="v2-insights-review-workspace__section" tone="elevated">
+        <DashboardV2Surface className="v2-insights-review-workspace__section v2-insights-review-workspace__section--reason" tone="elevated">
           <DashboardV2Text tone="label">{summary.title}</DashboardV2Text>
           <DashboardV2Heading as="h3">{summary.summary}</DashboardV2Heading>
           <div className="v2-insights-review-workspace__facts" role="list" aria-label="Insight review facts">
             {summary.supportingFacts.map((fact) => (
-              <article key={fact.label} className="v2-insights-review-workspace__fact" role="listitem">
-                <DashboardV2Text tone="label">{fact.label}</DashboardV2Text>
-                <DashboardV2Text tone="strong">{fact.value}</DashboardV2Text>
+              <article key={fact.label} className="v2-insights-review-workspace__fact v2-insights-review-workspace__fact--compact" role="listitem">
+                <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
+                <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
               </article>
             ))}
           </div>
         </DashboardV2Surface>
 
-        <DashboardV2Surface className="v2-insights-review-workspace__section" tone="elevated">
+        <DashboardV2Surface className="v2-insights-review-workspace__section v2-insights-review-workspace__section--support" tone="elevated">
           <DashboardV2Text tone="label">
             {insight.status === 'pending' ? 'Review support' : 'Outcome context'}
           </DashboardV2Text>

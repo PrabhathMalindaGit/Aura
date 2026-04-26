@@ -260,9 +260,6 @@
 }
 
 .v2-alert-review-header {
-  position: sticky;
-  top: var(--v2-space-4);
-  z-index: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(16rem, auto);
   align-items: start;
@@ -686,10 +683,6 @@
   .v2-alerts-queue-pane,
   .v2-alert-review-workspace__section {
     padding: var(--v2-space-4);
-  }
-
-  .v2-alert-review-header {
-    top: var(--v2-space-3);
   }
 
   .v2-alert-review-workspace__facts,

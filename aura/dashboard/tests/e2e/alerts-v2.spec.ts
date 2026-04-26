@@ -80,9 +80,63 @@ test('alerts v2 preserves queue context while supporting alert governance action
   await expect(page).toHaveURL(/\/alerts$/);
   await expect(page.getByTestId('v2-alerts-route')).toBeVisible();
   const workspace = page.getByTestId('v2-alert-review-workspace');
+  const expectNoHorizontalOverflow = async () => {
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+      )
+      .toBe(true);
+  };
+  const expectReadableHeading = async (name: string) => {
+    const heading = workspace.getByRole('heading', { name });
+
+    await heading.scrollIntoViewIfNeeded();
+    await expect(heading).toBeInViewport();
+    const headingBox = await heading.boundingBox();
+    expect(headingBox).not.toBeNull();
+    if (headingBox) {
+      const coveredByReviewHeader = await page.evaluate(
+        ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest('.v2-alert-review-header')),
+        {
+          x: headingBox.x + Math.min(8, headingBox.width / 2),
+          y: headingBox.y + headingBox.height / 2,
+        },
+      );
+      expect(coveredByReviewHeader).toBe(false);
+    }
+  };
+
   await expect(workspace).toContainText('Patient P1');
   await expect(page.getByTestId('v2-alert-governance-rail')).toHaveCount(0);
   await expect(workspace.getByRole('button', { name: 'Context' })).toBeVisible();
+  const reviewHeader = workspace.locator('.v2-alert-review-header');
+  await expect(reviewHeader).toHaveCSS('position', 'static');
+  await expect(workspace.getByText('Why this alert needs review')).toBeVisible();
+  await expectReadableHeading('What changed');
+  await expectReadableHeading('Notification review');
+
+  await workspace.getByRole('heading', { name: 'Confirm final risk' }).scrollIntoViewIfNeeded();
+  const headerBoxAfterRiskScroll = await reviewHeader.boundingBox();
+  if (headerBoxAfterRiskScroll) {
+    expect(headerBoxAfterRiskScroll.y + headerBoxAfterRiskScroll.height).toBeLessThanOrEqual(0);
+  }
+  await expectReadableHeading('Confirm final risk');
+  await expectReadableHeading('Latest governance trail');
+  await expectNoHorizontalOverflow();
+  for (const width of [1180, 900, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(page.getByTestId('v2-alerts-route')).toBeVisible();
+    await expectNoHorizontalOverflow();
+  }
+  await page.evaluate(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  });
+  await expect(workspace).toContainText('Patient P1');
+  await expectReadableHeading('Confirm final risk');
+  await expectNoHorizontalOverflow();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   await workspace.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p1$/);

@@ -25,7 +25,6 @@ interface AppointmentsPlannerWorkspaceProps {
   reviewOutcome: RequestReviewOutcomeState | null;
   reviewErrorMessage: string | null;
   mutationPending: boolean;
-  demoModeEnabled: boolean;
   onApprove: () => void;
   onReject: () => void;
   onOpenPatient: () => void;
@@ -50,7 +49,6 @@ export function AppointmentsPlannerWorkspace({
   reviewOutcome,
   reviewErrorMessage,
   mutationPending,
-  demoModeEnabled,
   onApprove,
   onReject,
   onOpenPatient,
@@ -76,7 +74,6 @@ export function AppointmentsPlannerWorkspace({
           header={header}
           pending={request?.status === 'pending'}
           mutationPending={mutationPending}
-          demoModeEnabled={demoModeEnabled}
           onApprove={onApprove}
           onReject={onReject}
           onOpenPatient={onOpenPatient}

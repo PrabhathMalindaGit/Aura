@@ -7,7 +7,6 @@ interface AppointmentReviewHeaderProps {
   header: AppointmentReviewHeaderVm;
   pending: boolean;
   mutationPending: boolean;
-  demoModeEnabled: boolean;
   onApprove: () => void;
   onReject: () => void;
   onOpenPatient: () => void;
@@ -23,7 +22,6 @@ export function AppointmentReviewHeader({
   header,
   pending,
   mutationPending,
-  demoModeEnabled,
   onApprove,
   onReject,
   onOpenPatient,
@@ -75,18 +73,15 @@ export function AppointmentReviewHeader({
             Open publishing
           </DashboardV2Button>
         ) : null}
-        <DashboardV2Button tone="secondary" size="sm" onPress={onOpenPatient} isDisabled={demoModeEnabled}>
+        <DashboardV2Button tone="secondary" size="sm" onPress={onOpenPatient}>
           Open patient
         </DashboardV2Button>
-        {demoModeEnabled ? (
-          <span className="v2-appointment-review-header__demo-note">Demo only - no request updates</span>
-        ) : null}
         {pending ? (
           <>
-            <DashboardV2Button tone="ghost" size="sm" onPress={onReject} isDisabled={mutationPending || demoModeEnabled}>
+            <DashboardV2Button tone="ghost" size="sm" onPress={onReject} isDisabled={mutationPending}>
               Reject
             </DashboardV2Button>
-            <DashboardV2Button tone="primary" size="sm" onPress={onApprove} isDisabled={mutationPending || demoModeEnabled}>
+            <DashboardV2Button tone="primary" size="sm" onPress={onApprove} isDisabled={mutationPending}>
               {mutationPending ? 'Saving...' : 'Approve'}
             </DashboardV2Button>
           </>

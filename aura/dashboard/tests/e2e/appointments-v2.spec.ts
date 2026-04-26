@@ -32,7 +32,7 @@ test('appointments v2 shows the real-mode cockpit shell when scheduling data is 
   await expect(page.getByTestId('v2-appointment-capacity-detail')).toContainText('No open capacity visible');
   await expect(page.getByRole('heading', { name: 'No request selected' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Support context' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Demo data' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Load presentation data' })).toHaveCount(0);
   await expect(page.getByText('Emily Chen')).toHaveCount(0);
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

@@ -80,26 +80,7 @@
   font-weight: var(--v2-font-weight-semibold);
 }
 
-.v2-appointments-status-bar__demo-label,
-.v2-appointment-review-header__demo-note {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  min-height: 1.62rem;
-  padding: 0.08rem 0.62rem;
-  border: 1px solid hsl(var(--v2-info) / 0.22);
-  border-radius: 999px;
-  background: hsl(var(--v2-info) / 0.08);
-  color: hsl(var(--v2-info));
-  font-size: var(--v2-font-size-caption);
-  font-weight: var(--v2-font-weight-semibold);
-}
-
-.v2-appointments-status-bar__demo-label {
-  grid-column: 1 / -1;
-}
-
-.v2-scheduling-demo-toggle--active {
+.v2-load-presentation-data-button {
   border-color: hsl(var(--v2-info) / 0.28);
 }
 
@@ -446,11 +427,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--v2-space-2);
-}
-
-.v2-appointment-publish-panel__pill--demo {
-  border-color: hsl(var(--v2-info) / 0.24);
-  color: hsl(var(--v2-info));
 }
 
 .v2-appointments-governance-rail__context-stack {

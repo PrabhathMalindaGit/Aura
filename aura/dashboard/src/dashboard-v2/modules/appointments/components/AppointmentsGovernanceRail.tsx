@@ -7,7 +7,6 @@ interface AppointmentsGovernanceRailProps {
   governance: AppointmentsGovernanceVm | null;
   publishVm: AppointmentPublishVm;
   publishErrorMessage: string | null;
-  demoModeEnabled: boolean;
   onStartsAtChange: (value: string) => void;
   onEndsAtChange: (value: string) => void;
   onMeetingLinkChange: (value: string) => void;
@@ -18,7 +17,6 @@ export function AppointmentsGovernanceRail({
   governance,
   publishVm,
   publishErrorMessage,
-  demoModeEnabled,
   onStartsAtChange,
   onEndsAtChange,
   onMeetingLinkChange,
@@ -29,7 +27,6 @@ export function AppointmentsGovernanceRail({
       <AppointmentPublishPanel
         publishVm={publishVm}
         errorMessage={publishErrorMessage}
-        demoModeEnabled={demoModeEnabled}
         onStartsAtChange={onStartsAtChange}
         onEndsAtChange={onEndsAtChange}
         onMeetingLinkChange={onMeetingLinkChange}

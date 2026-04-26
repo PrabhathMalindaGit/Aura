@@ -3,30 +3,28 @@ import type { AppointmentRequestFilter, AppointmentsStatusBarVm } from '../../..
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
-import { SchedulingDemoToggle } from './SchedulingDemoToggle';
+import { LoadPresentationDataButton } from './LoadPresentationDataButton';
 
 interface AppointmentsStatusBarProps {
   statusBar: AppointmentsStatusBarVm;
   activeRequestStatus: AppointmentRequestFilter;
   isRefreshing: boolean;
-  demoCapabilityEnabled: boolean;
-  demoEnabled: boolean;
-  demoIndicatorLabel: string | null;
+  presentationDataEnabled: boolean;
+  presentationDataLoaded: boolean;
   onRefresh: () => void;
   onRequestStatusChange: (status: AppointmentRequestFilter) => void;
-  onToggleDemoMode: () => void;
+  onLoadPresentationData: () => void;
 }
 
 export function AppointmentsStatusBar({
   statusBar,
   activeRequestStatus,
   isRefreshing,
-  demoCapabilityEnabled,
-  demoEnabled,
-  demoIndicatorLabel,
+  presentationDataEnabled,
+  presentationDataLoaded,
   onRefresh,
   onRequestStatusChange,
-  onToggleDemoMode,
+  onLoadPresentationData,
 }: AppointmentsStatusBarProps): JSX.Element {
   return (
     <DashboardV2Surface className="v2-appointments-status-bar" tone="elevated">
@@ -63,18 +61,16 @@ export function AppointmentsStatusBar({
           size="sm"
           onPress={onRefresh}
           leadingIcon={<RefreshCcw size={16} />}
-          isDisabled={demoEnabled}
         >
           {isRefreshing ? 'Refreshing...' : 'Refresh'}
         </DashboardV2Button>
-        {demoCapabilityEnabled ? (
-          <SchedulingDemoToggle enabled={demoEnabled} onToggle={onToggleDemoMode} />
+        {presentationDataEnabled ? (
+          <LoadPresentationDataButton
+            loaded={presentationDataLoaded}
+            onLoad={onLoadPresentationData}
+          />
         ) : null}
       </div>
-
-      {demoIndicatorLabel ? (
-        <span className="v2-appointments-status-bar__demo-label">{demoIndicatorLabel}</span>
-      ) : null}
     </DashboardV2Surface>
   );
 }

@@ -335,7 +335,7 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('No open capacity visible');
     expect(screen.getByRole('heading', { name: 'No request selected' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Support context' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Demo data' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load presentation data' })).not.toBeInTheDocument();
     expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
   });
 
@@ -377,44 +377,42 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByRole('button', { name: 'Back to requests' })).toBeInTheDocument();
   });
 
-  it('keeps synthetic scheduling data behind both the env flag and scheduleDemo query param', async () => {
-    vi.stubEnv('VITE_AURA_SCHEDULING_DEMO_ENABLED', 'false');
-    installAppointmentsFetchMock();
+  it('hides presentation seeding when the presentation env flag is disabled', async () => {
+    vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'false');
+    installAppointmentsFetchMock({ requests: [], slots: [] });
 
-    renderAppointmentsRoute('/appointments?scheduleDemo=1');
+    renderAppointmentsRoute();
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Demo data' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load presentation data' })).not.toBeInTheDocument();
     expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
-    expect(screen.queryByText('Synthetic scheduling demo')).not.toBeInTheDocument();
   });
 
-  it('toggles guarded scheduling demo mode through the URL without enabling backend writes', async () => {
-    vi.stubEnv('VITE_AURA_SCHEDULING_DEMO_ENABLED', 'true');
-    installAppointmentsFetchMock();
+  it('seeds presentation data through the normal scheduling UI without URL state', async () => {
+    vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'true');
+    installAppointmentsFetchMock({ requests: [], slots: [] });
 
-    renderAppointmentsRoute('/appointments?workspace=demo-safe');
+    renderAppointmentsRoute('/appointments?workspace=seed-safe');
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Demo data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load presentation data' })).toBeInTheDocument();
     expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Demo data' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Load presentation data' }));
 
-    expect(await screen.findByText('Synthetic scheduling demo')).toBeInTheDocument();
-    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=demo-safe&scheduleDemo=1');
+    expect(await screen.findByRole('button', { name: 'Presentation data loaded' })).toBeInTheDocument();
+    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=seed-safe');
     expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
-    expect(screen.getByText('Robert Jackson')).toBeInTheDocument();
-    expect(screen.getByText('Maria Gonzalez')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Demo only - no publish' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Synthetic demo active' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=demo-safe');
-    });
-    expect(screen.queryByText('Synthetic scheduling demo')).not.toBeInTheDocument();
-    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Robert Jackson').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Maria Gonzalez').length).toBeGreaterThan(0);
+    expect(screen.getByText('Jacob Patel')).toBeInTheDocument();
+    expect(screen.getByText('Sarah Kim')).toBeInTheDocument();
+    expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('PT Follow-up');
+    expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('Telehealth');
+    expect(screen.getByLabelText('Start (local datetime)')).toHaveValue('2026-04-13T00:00');
+    expect(screen.getByLabelText('End (local datetime)')).toHaveValue('2026-04-19T23:59');
+    expect(screen.getByLabelText('Meeting link (optional)')).toHaveValue('https://meet.example.com');
+    expect(screen.getAllByRole('heading', { name: 'Emily Chen' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
   });
 });

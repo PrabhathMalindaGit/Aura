@@ -115,7 +115,6 @@ export interface AppointmentPublishVm {
   outcomeTitle: string | null;
   outcomeMessage: string | null;
   outcomeFollowThrough: string | null;
-  demoNotice?: string | null;
 }
 
 export interface AppointmentsGovernanceVm {
@@ -850,7 +849,6 @@ export function buildAppointmentPublishVm(params: {
   publishing: boolean;
   publishOutcomeState: PublishOutcomeState | null;
   publishOutcomeLabel: string | null;
-  demoNotice?: string | null;
 }): AppointmentPublishVm {
   return {
     guidance: params.coverageState.publishNote,
@@ -876,7 +874,6 @@ export function buildAppointmentPublishVm(params: {
     outcomeFollowThrough: params.publishOutcomeState
       ? `${params.publishOutcomeState.coverageText} ${params.publishOutcomeState.nextStepText}`
       : null,
-    demoNotice: params.demoNotice ?? null,
   };
 }
 

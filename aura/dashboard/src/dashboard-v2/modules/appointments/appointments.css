@@ -42,7 +42,6 @@
 .v2-appointments-planner-workspace__body,
 .v2-appointment-publish-panel__header,
 .v2-appointment-publish-panel__form,
-.v2-appointments-planner-workspace__idle,
 .v2-appointments-governance-rail,
 .v2-appointment-capacity-panel__header {
   display: grid;
@@ -104,27 +103,43 @@
   border-color: hsl(var(--v2-info) / 0.28);
 }
 
-.v2-follow-up-workbench.v2-appointments-workbench {
+.v2-appointments-cockpit {
   display: grid;
   gap: var(--v2-space-3);
-}
-
-.v2-follow-up-workbench.v2-appointments-workbench > .v2-follow-up-workbench__lane,
-.v2-follow-up-workbench.v2-appointments-workbench > .v2-follow-up-workbench__workspace,
-.v2-follow-up-workbench.v2-appointments-workbench > .v2-follow-up-workbench__rail {
+  align-items: start;
   min-width: 0;
 }
 
-.v2-follow-up-workbench.v2-appointments-workbench.v2-follow-up-workbench--with-lane.v2-follow-up-workbench--with-rail {
-  grid-template-columns: minmax(15rem, 16rem) minmax(0, 1fr) minmax(17.5rem, 18rem);
-  align-items: start;
-  gap: var(--v2-space-3);
+.v2-appointments-cockpit__lane,
+.v2-appointments-cockpit__workspace,
+.v2-appointments-cockpit__rail {
+  min-width: 0;
 }
 
-.v2-follow-up-workbench.v2-appointments-workbench.v2-follow-up-workbench--with-lane.v2-follow-up-workbench--without-rail {
+.v2-appointments-cockpit--with-lane.v2-appointments-cockpit--with-rail {
+  grid-template-columns: minmax(15rem, 16rem) minmax(0, 1fr) minmax(17.5rem, 18rem);
+}
+
+.v2-appointments-cockpit--with-lane.v2-appointments-cockpit--without-rail {
   grid-template-columns: minmax(16.75rem, 18rem) minmax(0, 1fr);
+}
+
+.v2-appointments-cockpit--without-lane {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.v2-appointments-cockpit--stacked-rail.v2-appointments-cockpit--with-lane {
+  grid-template-columns: minmax(15.5rem, 17rem) minmax(0, 1fr);
+}
+
+.v2-appointments-cockpit--stacked-rail > .v2-appointments-cockpit__rail {
+  grid-column: 1 / -1;
+}
+
+.v2-appointments-cockpit--stacked-rail .v2-appointments-governance-rail {
+  position: static;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   align-items: start;
-  gap: var(--v2-space-3);
 }
 
 .v2-appointments-request-pane,
@@ -275,6 +290,7 @@
 }
 
 .v2-appointments-planner-workspace__calendar {
+  position: relative;
   display: grid;
   grid-template-columns: 3.5rem minmax(0, 1fr);
   min-height: 24rem;
@@ -320,7 +336,6 @@
 .v2-appointments-governance-rail__fact,
 .v2-appointments-planner-workspace__slot,
 .v2-appointments-planner-workspace__context,
-.v2-appointments-planner-workspace__empty,
 .v2-appointment-publish-panel__outcome,
 .v2-appointment-publish-panel__error,
 .v2-appointments-request-pane__empty {
@@ -365,6 +380,23 @@
   overflow-wrap: anywhere;
 }
 
+.v2-appointments-planner-workspace__day-empty {
+  font-size: var(--v2-font-size-caption);
+}
+
+.v2-appointments-planner-workspace__calendar-empty {
+  position: absolute;
+  right: var(--v2-space-4);
+  bottom: var(--v2-space-4);
+  left: calc(3.5rem + var(--v2-space-4));
+  max-width: 28rem;
+  padding: var(--v2-space-3);
+  border: 1px solid hsl(var(--v2-border) / 0.72);
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface) / 0.94);
+  box-shadow: var(--v2-shadow-sm);
+}
+
 .v2-appointment-capacity-panel__header {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -392,6 +424,11 @@
 
 .v2-appointment-capacity-panel__item:last-child {
   border-bottom: 0;
+}
+
+.v2-appointment-capacity-panel__item--empty {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 4.25rem;
 }
 
 .v2-appointments-governance-rail {
@@ -457,7 +494,7 @@
 }
 
 @media (max-width: 1279px) {
-  .v2-follow-up-workbench.v2-appointments-workbench.v2-follow-up-workbench--with-lane.v2-follow-up-workbench--without-rail {
+  .v2-appointments-cockpit--with-lane.v2-appointments-cockpit--without-rail {
     grid-template-columns: minmax(15.5rem, 17rem) minmax(0, 1fr);
   }
 
@@ -512,6 +549,11 @@
 
   .v2-appointments-planner-workspace__time-rail {
     display: none;
+  }
+
+  .v2-appointments-planner-workspace__calendar-empty {
+    position: static;
+    margin: var(--v2-space-3);
   }
 
   .v2-appointments-planner-workspace__day {

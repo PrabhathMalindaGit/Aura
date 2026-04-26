@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { DashboardV2Drawer } from '../../primitives/Drawer';
-import { FollowUpWorkbenchLayout } from '../../patterns/FollowUpWorkbenchLayout';
 import { useAppointmentsUiStore } from '../../state/useAppointmentsUiStore';
 import { AppointmentsGovernanceRail } from './components/AppointmentsGovernanceRail';
 import { AppointmentsPlannerWorkspace } from './components/AppointmentsPlannerWorkspace';
@@ -27,6 +26,7 @@ export function AppointmentsRoute(): JSX.Element {
   const setRequestScrollTop = useAppointmentsUiStore((state) => state.setRequestScrollTop);
   const requestRef = useRef<HTMLDivElement | null>(null);
   const viewModel = useAppointmentsViewModel({ isNarrowLayout });
+  const showInlineGovernance = !isMediumLayout || !viewModel.activeRequest;
 
   useEffect(() => {
     if (!isMediumLayout) {
@@ -124,12 +124,23 @@ export function AppointmentsRoute(): JSX.Element {
         {viewModel.showQueueOnly ? (
           requestPane
         ) : (
-          <FollowUpWorkbenchLayout
-            className="v2-appointments-workbench"
-            lane={isNarrowLayout ? null : requestPane}
-            workspace={workspace}
-            rail={!isMediumLayout ? governance : null}
-          />
+          <section
+            className={[
+              'v2-appointments-cockpit',
+              isNarrowLayout ? 'v2-appointments-cockpit--without-lane' : 'v2-appointments-cockpit--with-lane',
+              showInlineGovernance ? 'v2-appointments-cockpit--with-rail' : 'v2-appointments-cockpit--without-rail',
+              isMediumLayout && showInlineGovernance ? 'v2-appointments-cockpit--stacked-rail' : null,
+            ].join(' ')}
+            aria-label="Scheduling cockpit"
+          >
+            {!isNarrowLayout ? (
+              <div className="v2-appointments-cockpit__lane">{requestPane}</div>
+            ) : null}
+            <div className="v2-appointments-cockpit__workspace">{workspace}</div>
+            {showInlineGovernance ? (
+              <div className="v2-appointments-cockpit__rail">{governance}</div>
+            ) : null}
+          </section>
         )}
       </div>
 

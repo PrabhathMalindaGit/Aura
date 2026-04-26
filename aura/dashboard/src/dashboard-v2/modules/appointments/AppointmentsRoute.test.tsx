@@ -124,10 +124,12 @@ function installViewportMock(width: number): void {
 }
 
 function installAppointmentsFetchMock(options: {
+  requests?: AppointmentRequestItem[];
+  slots?: AppointmentSlot[];
   publishBehaviors?: PublishBehavior[];
 } = {}): void {
-  let requestItems = [...REQUESTS];
-  let slotItems = [...SLOTS];
+  let requestItems = [...(options.requests ?? REQUESTS)];
+  let slotItems = [...(options.slots ?? SLOTS)];
   const publishBehaviors = [...(options.publishBehaviors ?? [])];
 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -319,6 +321,22 @@ describe('AppointmentsRoute', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Open patient' }));
     expect(await screen.findByText(/Patient workspace/)).toHaveTextContent('"returnTo":"/appointments"');
+  });
+
+  it('renders the real-mode scheduling cockpit shell even when requests and capacity are empty', async () => {
+    installAppointmentsFetchMock({ requests: [], slots: [] });
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    expect(await screen.findByText('No requests are waiting right now')).toBeVisible();
+    expect(screen.getByTestId('appointments-schedule-week')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'No visible capacity in this week' })).toBeVisible();
+    expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('No open capacity visible');
+    expect(screen.getByRole('heading', { name: 'No request selected' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Support context' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Demo data' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
   });
 
   it('keeps publishing secondary on medium layouts and shows publish outcomes without implying booking truth', async () => {

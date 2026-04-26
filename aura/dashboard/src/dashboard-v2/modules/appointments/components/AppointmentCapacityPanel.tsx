@@ -39,14 +39,16 @@ export function AppointmentCapacityPanel({
         </div>
       </div>
 
-      {capacity.items.length === 0 ? (
-        <DashboardV2Surface className="v2-appointment-capacity-panel__empty" tone="muted">
-          <DashboardV2Heading as="h4">{capacity.emptyTitle}</DashboardV2Heading>
-          <DashboardV2Text tone="muted">{capacity.emptyDescription}</DashboardV2Text>
-        </DashboardV2Surface>
-      ) : (
-        <div className="v2-appointment-capacity-panel__list">
-          {capacity.items.map((item) => (
+      <div className="v2-appointment-capacity-panel__list" data-testid="v2-appointment-capacity-detail">
+        {capacity.items.length === 0 ? (
+          <article className="v2-appointment-capacity-panel__item v2-appointment-capacity-panel__item--empty">
+            <div className="v2-appointment-capacity-panel__item-copy">
+              <DashboardV2Text tone="strong">{capacity.emptyTitle}</DashboardV2Text>
+              <DashboardV2Text tone="muted">{capacity.emptyDescription}</DashboardV2Text>
+            </div>
+          </article>
+        ) : (
+          capacity.items.map((item) => (
             <article key={item.slotId} className="v2-appointment-capacity-panel__item">
               <div className="v2-appointment-capacity-panel__item-copy">
                 <DashboardV2Text tone="label">{item.detailLabel}</DashboardV2Text>
@@ -63,9 +65,9 @@ export function AppointmentCapacityPanel({
                 ) : null}
               </div>
             </article>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </DashboardV2Surface>
   );
 }

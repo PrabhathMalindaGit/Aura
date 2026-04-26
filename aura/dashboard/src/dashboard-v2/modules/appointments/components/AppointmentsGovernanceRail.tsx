@@ -36,10 +36,10 @@ export function AppointmentsGovernanceRail({
         onPublish={onPublish}
       />
 
-      {governance ? (
-        <>
-          <DashboardV2Surface className="v2-appointments-governance-rail__intro" tone="elevated">
-            <DashboardV2Text tone="label">Selected request context</DashboardV2Text>
+      <DashboardV2Surface className="v2-appointments-governance-rail__intro" tone="elevated">
+        <DashboardV2Text tone="label">Selected request context</DashboardV2Text>
+        {governance ? (
+          <>
             <DashboardV2Heading as="h3">{governance.patientTitle}</DashboardV2Heading>
             <DashboardV2Text tone="muted">{governance.requestSummary}</DashboardV2Text>
             <div className="v2-appointments-governance-rail__context-stack">
@@ -56,9 +56,21 @@ export function AppointmentsGovernanceRail({
                 <DashboardV2Text tone="strong">{governance.recommendedSlot}</DashboardV2Text>
               </div>
             </div>
-          </DashboardV2Surface>
-          <DashboardV2Surface className="v2-appointments-governance-rail__section" tone="muted">
-            <DashboardV2Heading as="h3">Support context</DashboardV2Heading>
+          </>
+        ) : (
+          <>
+            <DashboardV2Heading as="h3">No request selected</DashboardV2Heading>
+            <DashboardV2Text tone="muted">
+              Select a request to review patient, workflow, and scheduling context.
+            </DashboardV2Text>
+          </>
+        )}
+      </DashboardV2Surface>
+
+      <DashboardV2Surface className="v2-appointments-governance-rail__section" tone="muted">
+        <DashboardV2Heading as="h3">Support context</DashboardV2Heading>
+        {governance ? (
+          <>
             <DashboardV2Text tone="muted">
               Match request needs to visible clinician time before approving, rejecting, or publishing more availability.
             </DashboardV2Text>
@@ -71,16 +83,13 @@ export function AppointmentsGovernanceRail({
               ))}
             </div>
             <DashboardV2Text tone="muted">{governance.explanation}</DashboardV2Text>
-          </DashboardV2Surface>
-        </>
-      ) : (
-        <DashboardV2Surface className="v2-appointments-governance-rail__section" tone="muted">
-          <DashboardV2Heading as="h3">Support context</DashboardV2Heading>
+          </>
+        ) : (
           <DashboardV2Text tone="muted">
-            Select a request to review patient, workflow, and schedule context alongside the publishing controls.
+            Use the planner and capacity detail to decide whether new availability is needed before publishing clinician time.
           </DashboardV2Text>
-        </DashboardV2Surface>
-      )}
+        )}
+      </DashboardV2Surface>
     </aside>
   );
 }

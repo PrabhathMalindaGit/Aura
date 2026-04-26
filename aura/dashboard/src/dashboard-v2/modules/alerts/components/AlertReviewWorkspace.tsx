@@ -388,51 +388,63 @@ export function AlertReviewWorkspace({
           ) : null}
         </DashboardV2Surface>
 
-        <div className="v2-alert-review-workspace__review-grid">
-          <DashboardV2Surface
-            className="v2-alert-review-workspace__section v2-alert-review-workspace__section--evidence"
-            tone="elevated"
-          >
-            <div className="v2-alert-review-workspace__section-header">
-              <div>
-                <DashboardV2Text tone="label">Evidence snapshot</DashboardV2Text>
-                <DashboardV2Heading as="h3">What changed</DashboardV2Heading>
-              </div>
-              <div className="v2-alert-review-workspace__section-badges">
-                <DashboardV2Badge tone="warning">{effectiveRisk}</DashboardV2Badge>
-                <DashboardV2Badge tone="neutral">{latestAuditLabel}</DashboardV2Badge>
-              </div>
+        <DashboardV2Surface
+          className="v2-alert-review-workspace__section v2-alert-review-workspace__section--basis"
+          tone="elevated"
+        >
+          <div className="v2-alert-review-workspace__section-header">
+            <div>
+              <DashboardV2Text tone="label">Review basis</DashboardV2Text>
+              <DashboardV2Heading as="h3">Evidence and workflow state</DashboardV2Heading>
             </div>
-            {renderEvidenceSnapshot(
-              context?.triggeringEvent,
-              contextLoading,
-              onRefetchContext,
-              contextLoading,
-            )}
-          </DashboardV2Surface>
+            <DashboardV2Badge tone="neutral">{latestAuditLabel}</DashboardV2Badge>
+          </div>
 
-          <DashboardV2Surface
-            className="v2-alert-review-workspace__section v2-alert-review-workspace__section--workflow"
-            tone="elevated"
-          >
-            <div className="v2-alert-review-workspace__section-header">
-              <div>
-                <DashboardV2Text tone="label">Workflow state</DashboardV2Text>
-                <DashboardV2Heading as="h3">Notification review</DashboardV2Heading>
+          <div className="v2-alert-review-workspace__review-grid">
+            <section
+              className="v2-alert-review-workspace__support-panel v2-alert-review-workspace__support-panel--evidence"
+              aria-label="Evidence snapshot"
+            >
+              <div className="v2-alert-review-workspace__section-header">
+                <div>
+                  <DashboardV2Text tone="label">Evidence snapshot</DashboardV2Text>
+                  <DashboardV2Heading as="h3">What changed</DashboardV2Heading>
+                </div>
+                <div className="v2-alert-review-workspace__section-badges">
+                  <DashboardV2Badge tone="warning">{effectiveRisk}</DashboardV2Badge>
+                </div>
               </div>
-              <DashboardV2Badge tone="info">
-                {notificationStatusLabel(alert.notificationStatus)}
-              </DashboardV2Badge>
-            </div>
-            <NotificationPanel
-              alert={alert}
-              compact
-              retryEnabled={!retryNotificationMutation.isPending}
-              busy={retryNotificationMutation.isPending}
-              onRetry={() => retryNotificationMutation.mutate(alert)}
-            />
-          </DashboardV2Surface>
-        </div>
+              {renderEvidenceSnapshot(
+                context?.triggeringEvent,
+                contextLoading,
+                onRefetchContext,
+                contextLoading,
+              )}
+            </section>
+
+            <section
+              className="v2-alert-review-workspace__support-panel v2-alert-review-workspace__support-panel--workflow"
+              aria-label="Workflow state"
+            >
+              <div className="v2-alert-review-workspace__section-header">
+                <div>
+                  <DashboardV2Text tone="label">Workflow state</DashboardV2Text>
+                  <DashboardV2Heading as="h3">Notification review</DashboardV2Heading>
+                </div>
+                <DashboardV2Badge tone="info">
+                  {notificationStatusLabel(alert.notificationStatus)}
+                </DashboardV2Badge>
+              </div>
+              <NotificationPanel
+                alert={alert}
+                compact
+                retryEnabled={!retryNotificationMutation.isPending}
+                busy={retryNotificationMutation.isPending}
+                onRetry={() => retryNotificationMutation.mutate(alert)}
+              />
+            </section>
+          </div>
+        </DashboardV2Surface>
 
         <div className="v2-alert-review-workspace__decision-grid">
           <DashboardV2Surface

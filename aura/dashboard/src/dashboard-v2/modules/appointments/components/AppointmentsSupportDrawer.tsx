@@ -8,6 +8,7 @@ interface AppointmentsSupportDrawerProps {
   governance: AppointmentsGovernanceVm | null;
   publishVm: AppointmentPublishVm;
   publishErrorMessage: string | null;
+  demoModeEnabled: boolean;
   onStartsAtChange: (value: string) => void;
   onEndsAtChange: (value: string) => void;
   onMeetingLinkChange: (value: string) => void;
@@ -21,6 +22,7 @@ export function AppointmentsSupportDrawer({
   governance,
   publishVm,
   publishErrorMessage,
+  demoModeEnabled,
   onStartsAtChange,
   onEndsAtChange,
   onMeetingLinkChange,
@@ -39,6 +41,7 @@ export function AppointmentsSupportDrawer({
         governance={governance}
         publishVm={publishVm}
         publishErrorMessage={publishErrorMessage}
+        demoModeEnabled={demoModeEnabled}
         onStartsAtChange={onStartsAtChange}
         onEndsAtChange={onEndsAtChange}
         onMeetingLinkChange={onMeetingLinkChange}

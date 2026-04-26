@@ -32,9 +32,9 @@ export function AppointmentsRequestPane({
       <div className="v2-appointments-request-pane__header">
         <div>
           <DashboardV2Text tone="label">Review requests</DashboardV2Text>
-          <DashboardV2Heading as="h2">Request lane</DashboardV2Heading>
+          <DashboardV2Heading as="h2">Request lane {rows.length > 0 ? rows.length : ''}</DashboardV2Heading>
           <DashboardV2Text tone="muted">
-            Requests stay scan-friendly here so the center workspace can focus on schedule context and the next decision.
+            Compact scheduling requests for the next review decision.
           </DashboardV2Text>
         </div>
       </div>

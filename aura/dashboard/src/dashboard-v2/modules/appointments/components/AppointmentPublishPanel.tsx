@@ -7,6 +7,7 @@ import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 interface AppointmentPublishPanelProps {
   publishVm: AppointmentPublishVm;
   errorMessage: string | null;
+  demoModeEnabled: boolean;
   onStartsAtChange: (value: string) => void;
   onEndsAtChange: (value: string) => void;
   onMeetingLinkChange: (value: string) => void;
@@ -16,6 +17,7 @@ interface AppointmentPublishPanelProps {
 export function AppointmentPublishPanel({
   publishVm,
   errorMessage,
+  demoModeEnabled,
   onStartsAtChange,
   onEndsAtChange,
   onMeetingLinkChange,
@@ -31,6 +33,11 @@ export function AppointmentPublishPanel({
 
       <div className="v2-appointment-publish-panel__meta">
         <span className="v2-appointment-publish-panel__pill">{publishVm.metaLabel}</span>
+        {demoModeEnabled ? (
+          <span className="v2-appointment-publish-panel__pill v2-appointment-publish-panel__pill--demo">
+            Demo scheduling data
+          </span>
+        ) : null}
       </div>
 
       {publishVm.outcomeTitle ? (
@@ -52,23 +59,33 @@ export function AppointmentPublishPanel({
         </DashboardV2Surface>
       ) : null}
 
+      {publishVm.demoNotice ? (
+        <DashboardV2Surface className="v2-appointment-publish-panel__outcome" tone="muted">
+          <DashboardV2Text tone="strong">Demo-safe publishing</DashboardV2Text>
+          <DashboardV2Text tone="muted">{publishVm.demoNotice}</DashboardV2Text>
+        </DashboardV2Surface>
+      ) : null}
+
       <div className="v2-appointment-publish-panel__form">
         <DashboardV2Input
           label="Start (local datetime)"
           type="datetime-local"
           value={publishVm.startsAtInput}
+          isDisabled={demoModeEnabled}
           onChange={(event) => onStartsAtChange(event.currentTarget.value)}
         />
         <DashboardV2Input
           label="End (local datetime)"
           type="datetime-local"
           value={publishVm.endsAtInput}
+          isDisabled={demoModeEnabled}
           onChange={(event) => onEndsAtChange(event.currentTarget.value)}
         />
         <DashboardV2Input
           label="Meeting link (optional)"
           type="url"
           value={publishVm.meetingLinkInput}
+          isDisabled={demoModeEnabled}
           onChange={(event) => onMeetingLinkChange(event.currentTarget.value)}
         />
       </div>
@@ -79,7 +96,7 @@ export function AppointmentPublishPanel({
         onPress={onPublish}
         isDisabled={!publishVm.canPublish}
       >
-        {publishVm.publishing ? 'Publishing...' : 'Publish availability'}
+        {demoModeEnabled ? 'Demo only - no publish' : publishVm.publishing ? 'Publishing...' : 'Publish availability'}
       </DashboardV2Button>
     </DashboardV2Surface>
   );

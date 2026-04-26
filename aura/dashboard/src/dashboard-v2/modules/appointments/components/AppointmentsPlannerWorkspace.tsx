@@ -25,6 +25,7 @@ interface AppointmentsPlannerWorkspaceProps {
   reviewOutcome: RequestReviewOutcomeState | null;
   reviewErrorMessage: string | null;
   mutationPending: boolean;
+  demoModeEnabled: boolean;
   onApprove: () => void;
   onReject: () => void;
   onOpenPatient: () => void;
@@ -49,6 +50,7 @@ export function AppointmentsPlannerWorkspace({
   reviewOutcome,
   reviewErrorMessage,
   mutationPending,
+  demoModeEnabled,
   onApprove,
   onReject,
   onOpenPatient,
@@ -71,6 +73,7 @@ export function AppointmentsPlannerWorkspace({
           header={header}
           pending={request?.status === 'pending'}
           mutationPending={mutationPending}
+          demoModeEnabled={demoModeEnabled}
           onApprove={onApprove}
           onReject={onReject}
           onOpenPatient={onOpenPatient}
@@ -150,42 +153,54 @@ export function AppointmentsPlannerWorkspace({
         ) : null}
 
         {planner.hasAnyVisibleSlots ? (
-          <div
-            className={`v2-appointments-planner-workspace__days v2-appointments-planner-workspace__days--${planner.scheduleView}`}
-            data-testid={`appointments-schedule-${planner.scheduleView}`}
-          >
-            {planner.dayItems.map((day) => (
-              <article
-                key={day.dayKey}
-                className={[
-                  'v2-appointments-planner-workspace__day',
-                  day.isToday ? 'v2-appointments-planner-workspace__day--today' : null,
-                  day.isSelectedRequestDay ? 'v2-appointments-planner-workspace__day--selected' : null,
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                <DashboardV2Text tone="label">{day.label}</DashboardV2Text>
-                {day.slots.length > 0 ? (
-                  <div className="v2-appointments-planner-workspace__slots">
-                    {day.slots.map((slot) => (
-                      <div
-                        key={slot.slotId}
-                        className={`v2-appointments-planner-workspace__slot v2-appointments-planner-workspace__slot--${slot.statusTone}`}
-                      >
-                        <DashboardV2Text tone="strong">{slot.label}</DashboardV2Text>
-                        <DashboardV2Text tone="muted">{slot.statusLabel}</DashboardV2Text>
-                        {slot.justPublished ? (
-                          <DashboardV2Text tone="label">Just published</DashboardV2Text>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <DashboardV2Text tone="muted">No visible slots.</DashboardV2Text>
-                )}
-              </article>
-            ))}
+          <div className="v2-appointments-planner-workspace__calendar">
+            <div className="v2-appointments-planner-workspace__time-rail" aria-hidden="true">
+              <span>All day</span>
+              <span>8 AM</span>
+              <span>10 AM</span>
+              <span>12 PM</span>
+              <span>2 PM</span>
+              <span>4 PM</span>
+            </div>
+            <div
+              className={`v2-appointments-planner-workspace__days v2-appointments-planner-workspace__days--${planner.scheduleView}`}
+              data-testid={`appointments-schedule-${planner.scheduleView}`}
+            >
+              {planner.dayItems.map((day) => (
+                <article
+                  key={day.dayKey}
+                  className={[
+                    'v2-appointments-planner-workspace__day',
+                    day.isToday ? 'v2-appointments-planner-workspace__day--today' : null,
+                    day.isSelectedRequestDay ? 'v2-appointments-planner-workspace__day--selected' : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <DashboardV2Text tone="label">{day.label}</DashboardV2Text>
+                  {day.slots.length > 0 ? (
+                    <div className="v2-appointments-planner-workspace__slots">
+                      {day.slots.map((slot) => (
+                        <div
+                          key={slot.slotId}
+                          className={`v2-appointments-planner-workspace__slot v2-appointments-planner-workspace__slot--${slot.statusTone}`}
+                        >
+                          <DashboardV2Text tone="caption">{slot.timeLabel}</DashboardV2Text>
+                          <DashboardV2Text tone="strong">{slot.title}</DashboardV2Text>
+                          <DashboardV2Text tone="muted">{slot.detailLabel}</DashboardV2Text>
+                          <DashboardV2Text tone="label">{slot.modeLabel}</DashboardV2Text>
+                          {slot.justPublished ? (
+                            <DashboardV2Text tone="label">Just published</DashboardV2Text>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <DashboardV2Text tone="muted">No visible slots.</DashboardV2Text>
+                  )}
+                </article>
+              ))}
+            </div>
           </div>
         ) : (
           <DashboardV2Surface className="v2-appointments-planner-workspace__empty" tone="muted">

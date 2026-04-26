@@ -245,12 +245,18 @@ function PatientWorkspaceEcho(): JSX.Element {
   return <div>{`Patient workspace ${JSON.stringify(location.state)}`}</div>;
 }
 
-function renderAppointmentsRoute(): void {
+function LocationEcho(): JSX.Element {
+  const location = useLocation();
+  return <div data-testid="appointments-location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function renderAppointmentsRoute(initialEntry = '/appointments'): void {
   const queryClient = createQueryClient();
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/appointments']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <LocationEcho />
         <Routes>
           <Route path="/appointments" element={<AppointmentsRouteFacade />} />
           <Route path="/patients/:patientId" element={<PatientWorkspaceEcho />} />
@@ -284,6 +290,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
 });
 
 describe('AppointmentsRoute', () => {
@@ -350,5 +357,46 @@ describe('AppointmentsRoute', () => {
     await userEvent.click(screen.getByTestId('v2-appointment-request-row-request-1'));
     expect(await screen.findByTestId('v2-appointments-planner-workspace')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Back to requests' })).toBeInTheDocument();
+  });
+
+  it('keeps synthetic scheduling data behind both the env flag and scheduleDemo query param', async () => {
+    vi.stubEnv('VITE_AURA_SCHEDULING_DEMO_ENABLED', 'false');
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute('/appointments?scheduleDemo=1');
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Demo data' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Synthetic scheduling demo')).not.toBeInTheDocument();
+  });
+
+  it('toggles guarded scheduling demo mode through the URL without enabling backend writes', async () => {
+    vi.stubEnv('VITE_AURA_SCHEDULING_DEMO_ENABLED', 'true');
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute('/appointments?workspace=demo-safe');
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Demo data' })).toBeInTheDocument();
+    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Demo data' }));
+
+    expect(await screen.findByText('Synthetic scheduling demo')).toBeInTheDocument();
+    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=demo-safe&scheduleDemo=1');
+    expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
+    expect(screen.getByText('Robert Jackson')).toBeInTheDocument();
+    expect(screen.getByText('Maria Gonzalez')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Demo only - no publish' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Synthetic demo active' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=demo-safe');
+    });
+    expect(screen.queryByText('Synthetic scheduling demo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
   });
 });

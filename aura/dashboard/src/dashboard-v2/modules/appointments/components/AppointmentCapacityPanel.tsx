@@ -48,10 +48,12 @@ export function AppointmentCapacityPanel({
         <div className="v2-appointment-capacity-panel__list">
           {capacity.items.map((item) => (
             <article key={item.slotId} className="v2-appointment-capacity-panel__item">
-              <div>
-                <DashboardV2Text tone="strong">{item.label}</DashboardV2Text>
-                <DashboardV2Text tone="muted">{item.statusLabel}</DashboardV2Text>
+              <div className="v2-appointment-capacity-panel__item-copy">
+                <DashboardV2Text tone="label">{item.detailLabel}</DashboardV2Text>
+                <DashboardV2Text tone="strong">{item.timeLabel}</DashboardV2Text>
               </div>
+              <DashboardV2Text tone="muted">{item.title}</DashboardV2Text>
+              <DashboardV2Text tone="muted">{item.modeLabel}</DashboardV2Text>
               <div className="v2-appointment-capacity-panel__item-badges">
                 <DashboardV2Badge tone={item.statusTone === 'success' ? 'success' : 'unknown'}>
                   {item.statusLabel}

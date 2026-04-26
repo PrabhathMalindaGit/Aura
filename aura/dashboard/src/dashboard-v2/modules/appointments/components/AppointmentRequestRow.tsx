@@ -62,14 +62,15 @@ export function AppointmentRequestRow({
         <DashboardV2ClinicianPatientAnchor patientLabel={row.patientName} tone="neutral" />
         <div className="v2-appointment-request-row__copy">
           <strong className="v2-appointment-request-row__name">{row.patientName}</strong>
-          <span className="v2-appointment-request-row__schedule">{row.scheduleLabel}</span>
+          <span className="v2-appointment-request-row__schedule">{row.workflowLabel}</span>
+          <DashboardV2Text tone="caption">{row.detailLine}</DashboardV2Text>
           <DashboardV2Text tone="muted">{row.supportLine}</DashboardV2Text>
         </div>
 
         {!isVeryNarrow ? (
           <div className="v2-appointment-request-row__timing">
             <DashboardV2Text tone="label">Timing</DashboardV2Text>
-            <strong>{row.timingLabel}</strong>
+            <strong>{row.waitLabel}</strong>
           </div>
         ) : null}
       </div>

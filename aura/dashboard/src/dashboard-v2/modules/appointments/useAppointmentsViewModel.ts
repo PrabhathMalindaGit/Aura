@@ -37,6 +37,14 @@ import { readWorkspaceState, writeWorkspaceState } from '../../../services/works
 import type { AppointmentSlot, PatientSummary } from '../../../types/models';
 import { asAppError, isRetryable, toUserMessage } from '../../../utils/errors';
 import { createPatientEntryState } from '../../../utils/patientEntryContext';
+import {
+  DEMO_PATIENTS,
+  DEMO_PUBLISH_DEFAULTS,
+  DEMO_REQUESTS,
+  DEMO_SCHEDULING_WORKSPACE_STATE,
+  DEMO_SLOTS,
+} from './demoSchedulingData';
+import { useSchedulingDemoMode } from './useSchedulingDemoMode';
 
 const APPOINTMENTS_WORKSPACE_PAGE = 'appointments';
 
@@ -74,6 +82,7 @@ export function useAppointmentsViewModel({
 }: UseAppointmentsViewModelOptions) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const schedulingDemo = useSchedulingDemoMode();
   const selectedRequestId = useAppointmentsUiStore((state) => state.selectedRequestId);
   const focusMode = useAppointmentsUiStore((state) => state.focusMode);
   const setSelectedRequestId = useAppointmentsUiStore((state) => state.setSelectedRequestId);
@@ -85,7 +94,9 @@ export function useAppointmentsViewModel({
       normalizeAppointmentsWorkspaceState,
     ),
   );
-  const { requestStatus, slotStatus, scheduleView, scheduleDate } = workspaceState;
+  const [demoWorkspaceState, setDemoWorkspaceState] = useState(DEMO_SCHEDULING_WORKSPACE_STATE);
+  const effectiveWorkspaceState = schedulingDemo.enabled ? demoWorkspaceState : workspaceState;
+  const { requestStatus, slotStatus, scheduleView, scheduleDate } = effectiveWorkspaceState;
   const [startsAtInput, setStartsAtInput] = useState('');
   const [endsAtInput, setEndsAtInput] = useState('');
   const [meetingLinkInput, setMeetingLinkInput] = useState('');
@@ -111,6 +122,7 @@ export function useAppointmentsViewModel({
         limit: 200,
       }),
     staleTime: 7_000,
+    enabled: !schedulingDemo.enabled,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
@@ -120,6 +132,7 @@ export function useAppointmentsViewModel({
     queryKey: ['appointments-requests', requestStatus],
     queryFn: () => listAppointmentRequests({ status: requestStatus, limit: 100 }),
     staleTime: 7_000,
+    enabled: !schedulingDemo.enabled,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
@@ -129,6 +142,7 @@ export function useAppointmentsViewModel({
     queryKey: ['appointments-slots-summary', 'available'],
     queryFn: () => listAppointmentSlots({ status: 'available', limit: 100 }),
     staleTime: 7_000,
+    enabled: !schedulingDemo.enabled,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
@@ -138,6 +152,7 @@ export function useAppointmentsViewModel({
     queryKey: ['appointments-requests-summary', 'pending'],
     queryFn: () => listAppointmentRequests({ status: 'pending', limit: 100 }),
     staleTime: 7_000,
+    enabled: !schedulingDemo.enabled,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
@@ -145,22 +160,40 @@ export function useAppointmentsViewModel({
 
   const patientMap = useMemo(() => {
     const next = new Map<string, PatientSummary>();
-    for (const patient of patientsQuery.data ?? []) {
+    for (const patient of (schedulingDemo.enabled ? DEMO_PATIENTS : patientsQuery.data ?? [])) {
       next.set(patient.id, patient);
     }
     return next;
-  }, [patientsQuery.data]);
+  }, [patientsQuery.data, schedulingDemo.enabled]);
 
   const scheduleSlots = useMemo(
-    () => sortSlotsByStart(scheduleSlotsQuery.data ?? []),
-    [scheduleSlotsQuery.data],
+    () => sortSlotsByStart(schedulingDemo.enabled ? DEMO_SLOTS : scheduleSlotsQuery.data ?? []),
+    [scheduleSlotsQuery.data, schedulingDemo.enabled],
   );
-  const requests = useMemo(() => requestsQuery.data ?? [], [requestsQuery.data]);
-  const openSlots = useMemo(() => openSlotsSummaryQuery.data ?? [], [openSlotsSummaryQuery.data]);
+  const requests = useMemo(
+    () => (schedulingDemo.enabled ? DEMO_REQUESTS.filter((item) => item.status === requestStatus) : requestsQuery.data ?? []),
+    [requestStatus, requestsQuery.data, schedulingDemo.enabled],
+  );
+  const openSlots = useMemo(
+    () => (schedulingDemo.enabled ? DEMO_SLOTS.filter((slot) => (slot.status ?? 'available') === 'available') : openSlotsSummaryQuery.data ?? []),
+    [openSlotsSummaryQuery.data, schedulingDemo.enabled],
+  );
   const pendingRequests = useMemo(
-    () => pendingRequestsSummaryQuery.data ?? [],
-    [pendingRequestsSummaryQuery.data],
+    () => (schedulingDemo.enabled ? DEMO_REQUESTS.filter((item) => item.status === 'pending') : pendingRequestsSummaryQuery.data ?? []),
+    [pendingRequestsSummaryQuery.data, schedulingDemo.enabled],
   );
+  const requestStatusCounts = useMemo(() => {
+    if (!schedulingDemo.enabled) {
+      return undefined;
+    }
+
+    return {
+      pending: DEMO_REQUESTS.filter((item) => item.status === 'pending').length,
+      approved: 12,
+      rejected: 1,
+      canceled: 2,
+    };
+  }, [schedulingDemo.enabled]);
 
   const visibleSlots = useMemo(
     () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === slotStatus),
@@ -172,15 +205,17 @@ export function useAppointmentsViewModel({
   const coordinationState = describeCoordinationState(pendingRequestsCount, availableSlotsCount);
   const coverageState = describeCoverageState(pendingRequestsCount, availableSlotsCount);
 
-  const refreshedAtLabel = formatAppointmentsLastUpdated(
-    Math.max(
-      scheduleSlotsQuery.dataUpdatedAt,
-      requestsQuery.dataUpdatedAt,
-      openSlotsSummaryQuery.dataUpdatedAt,
-      pendingRequestsSummaryQuery.dataUpdatedAt,
-      patientsQuery.dataUpdatedAt,
-    ) || null,
-  );
+  const refreshedAtLabel = schedulingDemo.enabled
+    ? '09:49 AM'
+    : formatAppointmentsLastUpdated(
+        Math.max(
+          scheduleSlotsQuery.dataUpdatedAt,
+          requestsQuery.dataUpdatedAt,
+          openSlotsSummaryQuery.dataUpdatedAt,
+          pendingRequestsSummaryQuery.dataUpdatedAt,
+          patientsQuery.dataUpdatedAt,
+        ) || null,
+      );
 
   const statusBar = buildAppointmentsStatusBar({
     requestStatus,
@@ -191,6 +226,7 @@ export function useAppointmentsViewModel({
     updatedAtLabel: refreshedAtLabel,
     coordinationState,
     coverageState,
+    requestStatusCounts,
   });
 
   useEffect(() => {
@@ -261,14 +297,17 @@ export function useAppointmentsViewModel({
     : null;
   const publishVm = buildAppointmentPublishVm({
     coverageState,
-    startsAtInput,
-    endsAtInput,
-    meetingLinkInput,
-    canPublish: startsAtInput.trim().length > 0 && endsAtInput.trim().length > 0 && !isCreating,
-    publishing: isCreating,
+    startsAtInput: schedulingDemo.enabled ? DEMO_PUBLISH_DEFAULTS.startsAtInput : startsAtInput,
+    endsAtInput: schedulingDemo.enabled ? DEMO_PUBLISH_DEFAULTS.endsAtInput : endsAtInput,
+    meetingLinkInput: schedulingDemo.enabled ? DEMO_PUBLISH_DEFAULTS.meetingLinkInput : meetingLinkInput,
+    canPublish: !schedulingDemo.enabled && startsAtInput.trim().length > 0 && endsAtInput.trim().length > 0 && !isCreating,
+    publishing: !schedulingDemo.enabled && isCreating,
     publishOutcomeState,
     publishOutcomeLabel: lastPublishOutcome
       ? `${lastPublishOutcome.startsAt.slice(0, 10)} · ${new Date(lastPublishOutcome.startsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} to ${new Date(lastPublishOutcome.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      : null,
+    demoNotice: schedulingDemo.enabled
+      ? 'Synthetic scheduling demo is active. Publishing is disabled and no backend availability will be created.'
       : null,
   });
   const governance = buildAppointmentsGovernance({
@@ -293,20 +332,35 @@ export function useAppointmentsViewModel({
     });
   }
 
+  function updateWorkspaceState(
+    patch:
+      | Partial<typeof workspaceState>
+      | ((current: typeof workspaceState) => typeof workspaceState),
+  ): void {
+    if (schedulingDemo.enabled) {
+      setDemoWorkspaceState((current) =>
+        typeof patch === 'function' ? patch(current) : { ...current, ...patch },
+      );
+      return;
+    }
+
+    persistWorkspaceState(patch);
+  }
+
   function handleRequestStatusChange(status: AppointmentRequestFilter): void {
-    persistWorkspaceState({ requestStatus: status });
+    updateWorkspaceState({ requestStatus: status });
   }
 
   function handleSlotStatusChange(status: AppointmentSlotFilter): void {
-    persistWorkspaceState({ slotStatus: status });
+    updateWorkspaceState({ slotStatus: status });
   }
 
   function handleScheduleViewChange(view: ScheduleView): void {
-    persistWorkspaceState({ scheduleView: view });
+    updateWorkspaceState({ scheduleView: view });
   }
 
   function handleScheduleDateShift(direction: 'previous' | 'next'): void {
-    persistWorkspaceState((current) => {
+    updateWorkspaceState((current) => {
       const anchorDate = parseLocalDateKey(current.scheduleDate) ?? new Date();
       const offset = direction === 'next' ? 1 : -1;
       const nextDate =
@@ -322,7 +376,7 @@ export function useAppointmentsViewModel({
   }
 
   function handleScheduleToday(): void {
-    persistWorkspaceState({
+    updateWorkspaceState({
       scheduleDate: toLocalDateKey(new Date()),
     });
   }
@@ -340,6 +394,10 @@ export function useAppointmentsViewModel({
   }
 
   async function refreshWorkspace() {
+    if (schedulingDemo.enabled) {
+      return [];
+    }
+
     return Promise.all([
       scheduleSlotsQuery.refetch(),
       requestsQuery.refetch(),
@@ -350,6 +408,10 @@ export function useAppointmentsViewModel({
   }
 
   function openPatientFromRequest(request = activeRequest): void {
+    if (schedulingDemo.enabled) {
+      return;
+    }
+
     if (!request) {
       return;
     }
@@ -372,6 +434,14 @@ export function useAppointmentsViewModel({
   }
 
   async function handleCreateSlot(): Promise<void> {
+    if (schedulingDemo.enabled) {
+      setErrorNotice({
+        scope: 'publish',
+        message: 'Synthetic demo mode does not publish availability.',
+      });
+      return;
+    }
+
     setErrorNotice(null);
     setLastPublishOutcome(null);
     setIsCreating(true);
@@ -458,6 +528,14 @@ export function useAppointmentsViewModel({
   }
 
   async function handleReview(status: 'approved' | 'rejected'): Promise<void> {
+    if (schedulingDemo.enabled) {
+      setErrorNotice({
+        scope: 'review',
+        message: 'Synthetic demo mode does not update request status.',
+      });
+      return;
+    }
+
     if (!activeRequest) {
       return;
     }
@@ -519,19 +597,26 @@ export function useAppointmentsViewModel({
     handleScheduleToday,
     handleScheduleViewChange,
     handleSlotStatusChange,
+    schedulingDemo,
     isRefreshing:
-      scheduleSlotsQuery.isFetching ||
-      requestsQuery.isFetching ||
-      openSlotsSummaryQuery.isFetching ||
-      pendingRequestsSummaryQuery.isFetching ||
-      patientsQuery.isFetching,
+      !schedulingDemo.enabled &&
+      (
+        scheduleSlotsQuery.isFetching ||
+        requestsQuery.isFetching ||
+        openSlotsSummaryQuery.isFetching ||
+        pendingRequestsSummaryQuery.isFetching ||
+        patientsQuery.isFetching
+      ),
     lastPublishOutcome,
     lastRequestReviewOutcome,
     loading:
-      requestsQuery.isLoading ||
-      scheduleSlotsQuery.isLoading ||
-      pendingRequestsSummaryQuery.isLoading ||
-      openSlotsSummaryQuery.isLoading,
+      !schedulingDemo.enabled &&
+      (
+        requestsQuery.isLoading ||
+        scheduleSlotsQuery.isLoading ||
+        pendingRequestsSummaryQuery.isLoading ||
+        openSlotsSummaryQuery.isLoading
+      ),
     mutationPending: reviewingKey !== null,
     pendingRequestsCount,
     persistWorkspaceState,

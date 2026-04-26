@@ -24,7 +24,7 @@ export interface AppointmentsStatusBarVm {
   description: string;
   guidanceLine: string;
   facts: Array<{ key: string; label: string; value: string }>;
-  requestOptions: Array<{ id: AppointmentRequestFilter; label: string }>;
+  requestOptions: Array<{ id: AppointmentRequestFilter; label: string; count?: number }>;
 }
 
 export interface AppointmentRequestRowVm {
@@ -39,6 +39,8 @@ export interface AppointmentRequestRowVm {
   scheduleLabel: string;
   timingLabel: string;
   supportLine: string;
+  detailLine: string;
+  waitLabel: string;
 }
 
 export interface AppointmentReviewHeaderVm {
@@ -59,6 +61,10 @@ export interface AppointmentReviewHeaderVm {
 export interface AppointmentScheduleSlotVm {
   slotId: string;
   label: string;
+  timeLabel: string;
+  title: string;
+  detailLabel: string;
+  modeLabel: string;
   statusLabel: string;
   statusTone: AppointmentsBadgeTone;
   justPublished: boolean;
@@ -109,16 +115,42 @@ export interface AppointmentPublishVm {
   outcomeTitle: string | null;
   outcomeMessage: string | null;
   outcomeFollowThrough: string | null;
+  demoNotice?: string | null;
 }
 
 export interface AppointmentsGovernanceVm {
   patientTitle: string;
   patientSubtitle: string;
+  requestSummary: string;
+  requestReason: string;
+  constraints: string;
+  recommendedSlot: string;
   patientFacts: Array<{ label: string; value: string }>;
   workflowFacts: Array<{ label: string; value: string }>;
   scheduleFacts: Array<{ label: string; value: string }>;
   explanation: string;
 }
+
+export interface AppointmentDisplayRequestFields {
+  rehabLabel?: string;
+  visitTypeLabel?: string;
+  durationLabel?: string;
+  modalityLabel?: string;
+  waitLabel?: string;
+  clinicianLabel?: string;
+  locationLabel?: string;
+  constraints?: string;
+  recommendedSlot?: string;
+}
+
+export interface AppointmentDisplaySlotFields {
+  displayTitle?: string;
+  displayDetail?: string;
+  displayMode?: string;
+}
+
+type AppointmentRequestWithDisplay = AppointmentRequestItem & AppointmentDisplayRequestFields;
+type AppointmentSlotWithDisplay = AppointmentSlot & AppointmentDisplaySlotFields;
 
 export interface CoordinationState {
   label: string;
@@ -608,6 +640,7 @@ export function buildAppointmentsStatusBar(params: {
   updatedAtLabel: string;
   coordinationState: CoordinationState;
   coverageState: CoverageState;
+  requestStatusCounts?: Partial<Record<AppointmentRequestFilter, number>>;
 }): AppointmentsStatusBarVm {
   return {
     title: 'Appointments',
@@ -625,10 +658,10 @@ export function buildAppointmentsStatusBar(params: {
       { key: 'updated', label: 'Updated', value: params.updatedAtLabel },
     ],
     requestOptions: [
-      { id: 'pending', label: 'Needs review' },
-      { id: 'approved', label: 'Approved' },
-      { id: 'rejected', label: 'Rejected' },
-      { id: 'canceled', label: 'Canceled' },
+      { id: 'pending', label: 'Needs review', count: params.requestStatusCounts?.pending },
+      { id: 'approved', label: 'Approved', count: params.requestStatusCounts?.approved },
+      { id: 'rejected', label: 'Rejected', count: params.requestStatusCounts?.rejected },
+      { id: 'canceled', label: 'Canceled', count: params.requestStatusCounts?.canceled },
     ],
   };
 }
@@ -638,6 +671,13 @@ export function buildAppointmentRequestRow(
   patient: PatientSummary | null,
 ): AppointmentRequestRowVm {
   const workflowLabel = appointmentWorkflowLabel(request.workflowStatus);
+  const display = request as AppointmentRequestWithDisplay;
+  const detailLine = [
+    display.visitTypeLabel,
+    display.durationLabel,
+    display.modalityLabel,
+  ].filter(Boolean).join(' · ');
+
   return {
     key: request.requestId,
     requestId: request.requestId,
@@ -649,16 +689,27 @@ export function buildAppointmentRequestRow(
     workflowTone: workflowTone(request.workflowStatus),
     scheduleLabel: `${formatCalendarDay(request.startsAt)} · ${formatTimeRange(request.startsAt, request.endsAt)}`,
     timingLabel:
-      request.status === 'pending'
+      display.waitLabel ??
+      (request.status === 'pending'
         ? formatWaitingDuration(request.createdAt)
         : request.reviewedAt
           ? `Reviewed ${formatRelativeTime(request.reviewedAt)}`
-          : `Updated ${formatRelativeTime(request.updatedAt ?? request.createdAt)}`,
+          : `Updated ${formatRelativeTime(request.updatedAt ?? request.createdAt)}`),
     supportLine:
       request.note?.trim() ||
       (request.workflowStatus
         ? `${workflowLabel} remains the recorded workflow state.`
         : 'Review this request against the visible schedule before deciding the next step.'),
+    detailLine:
+      detailLine ||
+      [workflowLabel, request.modality].filter(Boolean).join(' · '),
+    waitLabel:
+      display.waitLabel ??
+      (request.status === 'pending'
+        ? formatWaitingDuration(request.createdAt)
+        : request.reviewedAt
+          ? `Reviewed ${formatRelativeTime(request.reviewedAt)}`
+          : `Updated ${formatRelativeTime(request.updatedAt ?? request.createdAt)}`),
   };
 }
 
@@ -666,6 +717,8 @@ export function buildAppointmentReviewHeader(
   request: AppointmentRequestItem,
   patient: PatientSummary | null,
 ): AppointmentReviewHeaderVm {
+  const display = request as AppointmentRequestWithDisplay;
+
   return {
     requestId: request.requestId,
     patientId: request.patientId,
@@ -675,10 +728,15 @@ export function buildAppointmentReviewHeader(
     requestStatusTone: requestStatusTone(request.status),
     workflowLabel: appointmentWorkflowLabel(request.workflowStatus),
     workflowTone: workflowTone(request.workflowStatus),
-    scheduleLabel: `${formatCalendarDay(request.startsAt)} · ${formatTimeRange(request.startsAt, request.endsAt)}`,
-    requestAgeLabel: formatWaitingDuration(request.createdAt),
+    scheduleLabel: [
+      display.rehabLabel,
+      display.visitTypeLabel,
+      display.durationLabel,
+      display.modalityLabel,
+    ].filter(Boolean).join(' · ') || `${formatCalendarDay(request.startsAt)} · ${formatTimeRange(request.startsAt, request.endsAt)}`,
+    requestAgeLabel: display.waitLabel ?? formatWaitingDuration(request.createdAt),
     reviewLabel: request.reviewedAt ? formatExactTime(request.reviewedAt) : 'Unreviewed',
-    modalityLabel: request.modality,
+    modalityLabel: display.modalityLabel ?? request.modality,
   };
 }
 
@@ -698,6 +756,10 @@ export function buildAppointmentPlanner(
       .map<AppointmentScheduleSlotVm>((slot) => ({
         slotId: slot.slotId,
         label: formatTimeRange(slot.startsAt, slot.endsAt),
+        timeLabel: formatTimeRange(slot.startsAt, slot.endsAt),
+        title: (slot as AppointmentSlotWithDisplay).displayTitle ?? formatSlotStatusLabel((slot.status ?? 'available') as AppointmentSlotFilter),
+        detailLabel: (slot as AppointmentSlotWithDisplay).displayDetail ?? (slot.meetingLink ? 'Telehealth window' : 'Published clinician time'),
+        modeLabel: (slot as AppointmentSlotWithDisplay).displayMode ?? (slot.meetingLink ? 'Telehealth' : 'In-person'),
         statusLabel: formatSlotStatusLabel((slot.status ?? 'available') as AppointmentSlotFilter),
         statusTone: (slot.status ?? 'available') === 'available' ? 'success' : 'unknown',
         justPublished: params.lastPublishOutcomeSlotId === slot.slotId,
@@ -751,6 +813,10 @@ export function buildAppointmentCapacity(
     .map<AppointmentScheduleSlotVm>((slot) => ({
       slotId: slot.slotId,
       label: `${formatCalendarDay(slot.startsAt)} · ${formatTimeRange(slot.startsAt, slot.endsAt)}`,
+      timeLabel: formatTimeRange(slot.startsAt, slot.endsAt),
+      title: (slot as AppointmentSlotWithDisplay).displayTitle ?? formatSlotStatusLabel((slot.status ?? 'available') as AppointmentSlotFilter),
+      detailLabel: (slot as AppointmentSlotWithDisplay).displayDetail ?? formatCalendarDay(slot.startsAt),
+      modeLabel: (slot as AppointmentSlotWithDisplay).displayMode ?? (slot.meetingLink ? 'Telehealth' : 'In-person'),
       statusLabel: formatSlotStatusLabel((slot.status ?? 'available') as AppointmentSlotFilter),
       statusTone: (slot.status ?? 'available') === 'available' ? 'success' : 'unknown',
       justPublished: lastPublishOutcomeSlotId === slot.slotId,
@@ -784,6 +850,7 @@ export function buildAppointmentPublishVm(params: {
   publishing: boolean;
   publishOutcomeState: PublishOutcomeState | null;
   publishOutcomeLabel: string | null;
+  demoNotice?: string | null;
 }): AppointmentPublishVm {
   return {
     guidance: params.coverageState.publishNote,
@@ -809,6 +876,7 @@ export function buildAppointmentPublishVm(params: {
     outcomeFollowThrough: params.publishOutcomeState
       ? `${params.publishOutcomeState.coverageText} ${params.publishOutcomeState.nextStepText}`
       : null,
+    demoNotice: params.demoNotice ?? null,
   };
 }
 
@@ -826,10 +894,27 @@ export function buildAppointmentsGovernance(params: {
   }
 
   const nextOpenSlot = nextOpenSlotSummary(openSlotsSummary(params.openSlots));
+  const display = params.request as AppointmentRequestWithDisplay;
+  const requestSummary = [
+    display.rehabLabel,
+    display.visitTypeLabel,
+    display.durationLabel,
+    display.modalityLabel,
+  ].filter(Boolean).join(' · ') || `${formatCalendarDay(params.request.startsAt)} · ${formatTimeRange(params.request.startsAt, params.request.endsAt)}`;
 
   return {
     patientTitle: patientName(params.request.patientId, params.patient),
-    patientSubtitle: params.request.patientId,
+    patientSubtitle: display.rehabLabel ?? params.request.patientId,
+    requestSummary,
+    requestReason:
+      params.request.note?.trim() ||
+      'Review this request against visible capacity before deciding the next scheduling step.',
+    constraints:
+      display.constraints ??
+      `Requested window: ${formatCalendarDay(params.request.startsAt)} · ${formatTimeRange(params.request.startsAt, params.request.endsAt)}`,
+    recommendedSlot:
+      display.recommendedSlot ??
+      `${nextOpenSlot.value} · ${nextOpenSlot.hint}`,
     patientFacts: [
       { label: 'Patient status', value: formatPatientFact(params.patient?.status) },
       {

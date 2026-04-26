@@ -75,6 +75,7 @@ export function AppointmentsRoute(): JSX.Element {
       reviewOutcome={viewModel.lastRequestReviewOutcome}
       reviewErrorMessage={viewModel.errorNotice?.scope === 'review' ? viewModel.errorNotice.message : null}
       mutationPending={viewModel.mutationPending}
+      demoModeEnabled={viewModel.schedulingDemo.enabled}
       onApprove={() => viewModel.handleReview('approved')}
       onReject={() => viewModel.handleReview('rejected')}
       onOpenPatient={() => viewModel.openPatientFromRequest()}
@@ -96,6 +97,7 @@ export function AppointmentsRoute(): JSX.Element {
     <AppointmentsGovernanceRail
       governance={viewModel.governance}
       publishVm={viewModel.publishVm}
+      demoModeEnabled={viewModel.schedulingDemo.enabled}
       publishErrorMessage={viewModel.errorNotice?.scope === 'publish' ? viewModel.errorNotice.message : null}
       onStartsAtChange={viewModel.setStartsAtInput}
       onEndsAtChange={viewModel.setEndsAtInput}
@@ -111,8 +113,12 @@ export function AppointmentsRoute(): JSX.Element {
           statusBar={viewModel.statusBar}
           activeRequestStatus={viewModel.requestStatus}
           isRefreshing={viewModel.isRefreshing}
+          demoCapabilityEnabled={viewModel.schedulingDemo.capabilityEnabled}
+          demoEnabled={viewModel.schedulingDemo.enabled}
+          demoIndicatorLabel={viewModel.schedulingDemo.indicatorLabel}
           onRefresh={viewModel.handleRefresh}
           onRequestStatusChange={viewModel.handleRequestStatusChange}
+          onToggleDemoMode={viewModel.schedulingDemo.toggleDemoMode}
         />
 
         {viewModel.showQueueOnly ? (
@@ -132,6 +138,7 @@ export function AppointmentsRoute(): JSX.Element {
         onOpenChange={setGovernanceOpen}
         governance={viewModel.governance}
         publishVm={viewModel.publishVm}
+        demoModeEnabled={viewModel.schedulingDemo.enabled}
         publishErrorMessage={viewModel.errorNotice?.scope === 'publish' ? viewModel.errorNotice.message : null}
         onStartsAtChange={viewModel.setStartsAtInput}
         onEndsAtChange={viewModel.setEndsAtInput}

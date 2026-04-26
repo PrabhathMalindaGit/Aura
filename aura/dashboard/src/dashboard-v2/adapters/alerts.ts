@@ -415,7 +415,7 @@ export function buildAlertQueueRow(params: {
     supportLine: [
       alertSourceLabel(alert.source.type),
       referenceLabel ?? null,
-      alert.assignedTo ? `Assigned ${buildAssignmentLabel(alert)}` : null,
+      alert.assignedTo ? `Assigned ${buildAssignmentLabel(alert)}` : 'Unassigned',
     ]
       .filter(Boolean)
       .join(' · '),

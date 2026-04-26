@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { DashboardV2ExplanationDrawer } from '../../patterns/ExplanationDrawer';
-import { DashboardV2AlertsWorkbenchLayout } from '../../patterns/AlertsWorkbenchLayout';
-import { DashboardV2Drawer } from '../../primitives/Drawer';
 import { DashboardV2Surface } from '../../primitives/Surface';
 import { DashboardV2Text } from '../../primitives/Text';
 import { useAlertsUiStore } from '../../state/useAlertsUiStore';
@@ -26,15 +24,10 @@ export function AlertsRoute(): JSX.Element {
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
   const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const governanceOpen = useAlertsUiStore((state) => state.governanceOpen);
-  const queueSheetOpen = useAlertsUiStore((state) => state.queueSheetOpen);
-  const queueScrollTop = useAlertsUiStore((state) => state.queueScrollTop);
   const focusMode = useAlertsUiStore((state) => state.focusMode);
   const setGovernanceOpen = useAlertsUiStore((state) => state.setGovernanceOpen);
-  const setQueueSheetOpen = useAlertsUiStore((state) => state.setQueueSheetOpen);
-  const setQueueScrollTop = useAlertsUiStore((state) => state.setQueueScrollTop);
   const [explanationOpen, setExplanationOpen] = useState(false);
   const [supportView, setSupportView] = useState<AlertsSupportView>('governance');
-  const queueRef = useRef<HTMLDivElement | null>(null);
   const viewModel = useAlertsViewModel({ isNarrowLayout });
 
   useEffect(() => {
@@ -42,21 +35,6 @@ export function AlertsRoute(): JSX.Element {
       setGovernanceOpen(false);
     }
   }, [isMediumLayout, setGovernanceOpen]);
-
-  useEffect(() => {
-    if (!isNarrowLayout) {
-      setQueueSheetOpen(false);
-    }
-  }, [isNarrowLayout, setQueueSheetOpen]);
-
-  useEffect(() => {
-    const element = queueRef.current;
-    if (!element) {
-      return;
-    }
-
-    element.scrollTop = queueScrollTop;
-  }, [queueScrollTop, viewModel.queueRows.length]);
 
   const showQueueOnly = isNarrowLayout && (!viewModel.activeAlert || focusMode === 'queue');
 
@@ -130,6 +108,8 @@ export function AlertsRoute(): JSX.Element {
       chatOriginNote={viewModel.chatOriginNote}
       rows={viewModel.queueRows}
       selectedAlertId={viewModel.selectedAlertId}
+      filterCount={viewModel.filterCount}
+      hasSelectedAlert={Boolean(viewModel.activeAlert)}
       statusTitle={queueStatus?.title}
       statusDescription={queueStatus?.description}
       emptyTitle={emptyState?.title}
@@ -146,10 +126,7 @@ export function AlertsRoute(): JSX.Element {
       onReset={viewModel.resetFilters}
       onSelect={(alertId) => {
         viewModel.selectAlert(alertId, { markSeen: true });
-        setQueueSheetOpen(false);
       }}
-      queueRef={showQueueOnly || !isNarrowLayout ? queueRef : undefined}
-      onQueueScroll={setQueueScrollTop}
     />
   );
 
@@ -188,8 +165,8 @@ export function AlertsRoute(): JSX.Element {
       showGovernanceAction={Boolean(viewModel.activeAlert)}
       showBackToQueue={isNarrowLayout}
       onBackToQueue={viewModel.clearSelectionToQueue}
-      showQueueSheetAction={isNarrowLayout && Boolean(viewModel.activeAlert)}
-      onOpenQueueSheet={() => setQueueSheetOpen(true)}
+      showQueueSheetAction={false}
+      onOpenQueueSheet={() => undefined}
       onRefetchContext={viewModel.refetchAlertContext}
     />
   );
@@ -218,11 +195,10 @@ export function AlertsRoute(): JSX.Element {
         {showQueueOnly ? (
           queuePane
         ) : (
-          <DashboardV2AlertsWorkbenchLayout
-            queue={isNarrowLayout ? null : queuePane}
-            workspace={workspace}
-            rail={null}
-          />
+          <section className="v2-alerts-review-flow" aria-label="Alert governance review">
+            {queuePane}
+            {workspace}
+          </section>
         )}
       </div>
 
@@ -235,16 +211,6 @@ export function AlertsRoute(): JSX.Element {
         placement={isNarrowLayout ? 'bottom' : 'right'}
         onOpenExplanation={() => setExplanationOpen(true)}
       />
-
-      <DashboardV2Drawer
-        open={isNarrowLayout && queueSheetOpen}
-        onOpenChange={setQueueSheetOpen}
-        title="Alert queue"
-        description="Switch alerts without losing the current review context"
-        placement="bottom"
-      >
-        {queuePane}
-      </DashboardV2Drawer>
 
       <DashboardV2ExplanationDrawer
         open={explanationOpen}

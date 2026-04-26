@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ArrowLeft, PanelRightOpen, Rows3 } from 'lucide-react';
+import { ArrowLeft, PanelRightOpen, Rows3, UserRound } from 'lucide-react';
 import type { AlertItem } from '../../../../types/models';
 import type { AlertReviewHeaderVm, AlertsBadgeTone } from '../../../adapters/alerts';
+import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
 import { DashboardV2Badge } from '../../../primitives/Badge';
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
@@ -76,22 +77,38 @@ export function AlertReviewHeader({
   return (
     <>
       <header className="v2-alert-review-header">
-        <div className="v2-alert-review-header__copy">
-          <DashboardV2Text tone="label">{header.referenceLabel}</DashboardV2Text>
-          <DashboardV2Heading as="h2">{header.patientName}</DashboardV2Heading>
-          <DashboardV2Text tone="strong">{header.reason}</DashboardV2Text>
-          <div className="v2-alert-review-header__facts">
-            <DashboardV2Badge tone={mapBadgeTone(header.statusTone)}>{header.statusLabel}</DashboardV2Badge>
-            <DashboardV2Badge tone={mapBadgeTone(header.severityTone)}>{header.severityLabel}</DashboardV2Badge>
-            <DashboardV2Badge tone={mapBadgeTone(header.seenTone)}>{header.seenLabel}</DashboardV2Badge>
-            <DashboardV2Badge tone="neutral">{header.assignmentLabel}</DashboardV2Badge>
-            <DashboardV2Badge tone="neutral">{header.patientStatusLabel}</DashboardV2Badge>
+        <div className="v2-alert-review-header__identity">
+          <DashboardV2ClinicianPatientAnchor
+            patientLabel={header.patientName}
+            tone={
+              header.severityTone === 'critical'
+                ? 'critical'
+                : header.severityTone === 'warning'
+                  ? 'warning'
+                  : header.severityTone === 'success'
+                    ? 'success'
+                    : 'neutral'
+            }
+            size="md"
+          />
+          <div className="v2-alert-review-header__copy">
+            <DashboardV2Heading as="h2">{header.patientName}</DashboardV2Heading>
+            <DashboardV2Text tone="strong">{header.reason}</DashboardV2Text>
+            <div className="v2-alert-review-header__meta">
+              <span title={header.freshnessTitle}>Age {header.freshnessLabel}</span>
+              <span>{header.sourceLabel}</span>
+              <span>{header.patientId}</span>
+              <span>{header.referenceLabel}</span>
+            </div>
           </div>
-          <div className="v2-alert-review-header__meta">
-            <span title={header.freshnessTitle}>Age {header.freshnessLabel}</span>
-            <span>{header.sourceLabel}</span>
-            <span>{header.patientId}</span>
-          </div>
+        </div>
+
+        <div className="v2-alert-review-header__facts">
+          <DashboardV2Badge tone={mapBadgeTone(header.statusTone)}>{header.statusLabel}</DashboardV2Badge>
+          <DashboardV2Badge tone={mapBadgeTone(header.severityTone)}>{header.severityLabel}</DashboardV2Badge>
+          <DashboardV2Badge tone={mapBadgeTone(header.seenTone)}>{header.seenLabel}</DashboardV2Badge>
+          <DashboardV2Badge tone="neutral">{header.assignmentLabel}</DashboardV2Badge>
+          <DashboardV2Badge tone="neutral">{header.patientStatusLabel}</DashboardV2Badge>
         </div>
 
         <div className="v2-alert-review-header__actions">
@@ -126,7 +143,12 @@ export function AlertReviewHeader({
                 Context
               </DashboardV2Button>
             ) : null}
-            <DashboardV2Button tone="ghost" size="sm" onPress={onOpenPatient}>
+            <DashboardV2Button
+              tone="ghost"
+              size="sm"
+              onPress={onOpenPatient}
+              leadingIcon={<UserRound size={16} />}
+            >
               Open patient
             </DashboardV2Button>
           </div>

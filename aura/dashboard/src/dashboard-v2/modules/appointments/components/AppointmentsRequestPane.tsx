@@ -12,6 +12,7 @@ import { AppointmentRequestRow } from './AppointmentRequestRow';
 interface RequestReviewOutcomeState {
   status: 'approved' | 'rejected';
   patientLabel: string;
+  localOnly?: boolean;
 }
 
 export interface AppointmentRequestRailContext {
@@ -69,10 +70,13 @@ export function AppointmentsRequestPane({
             {selectedContext.reviewOutcome.status === 'approved' ? 'Request approved' : 'Request rejected'}
           </DashboardV2Text>
           <DashboardV2Text tone="muted">
-            {selectedContext.reviewOutcome.patientLabel}{' '}
-            {selectedContext.reviewOutcome.status === 'approved'
-              ? 'moved out of pending review.'
-              : 'stayed out of the pending review queue.'}
+            {selectedContext.reviewOutcome.localOnly
+              ? 'Presentation request updated locally. No backend records were changed.'
+              : `${selectedContext.reviewOutcome.patientLabel} ${
+                  selectedContext.reviewOutcome.status === 'approved'
+                    ? 'moved out of pending review.'
+                    : 'stayed out of the pending review queue.'
+                }`}
           </DashboardV2Text>
         </DashboardV2Surface>
       ) : null}

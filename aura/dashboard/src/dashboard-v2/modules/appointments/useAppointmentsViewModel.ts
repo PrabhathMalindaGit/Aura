@@ -49,6 +49,7 @@ import {
 const APPOINTMENTS_WORKSPACE_PAGE = 'appointments';
 const PRESENTATION_RANGE_NOTICE =
   'Presentation data is prepared for Apr 13 - Apr 19, 2026. Planner controls stay inside that local presentation range.';
+const PRESENTATION_REQUEST_ID_PREFIX = 'presentation-request-';
 
 interface PublishOutcomeState {
   slotId: string;
@@ -59,6 +60,7 @@ interface PublishOutcomeState {
 interface RequestReviewOutcomeState {
   status: 'approved' | 'rejected';
   patientLabel: string;
+  localOnly?: boolean;
 }
 
 interface AppointmentsErrorNotice {
@@ -138,6 +140,13 @@ function formatPresentationSlotDetail(startsAt: string, endsAt: string): string 
   })}`;
 }
 
+function isPresentationRequest(request: AppointmentRequestItem): boolean {
+  return (
+    request.requestId.startsWith(PRESENTATION_REQUEST_ID_PREFIX) ||
+    request.patientId.startsWith('presentation-')
+  );
+}
+
 export function useAppointmentsViewModel({
   isNarrowLayout,
 }: UseAppointmentsViewModelOptions) {
@@ -160,6 +169,9 @@ export function useAppointmentsViewModel({
   const [endsAtInput, setEndsAtInput] = useState('');
   const [meetingLinkInput, setMeetingLinkInput] = useState('');
   const [presentationDataLoaded, setPresentationDataLoaded] = useState(false);
+  const [presentationRequests, setPresentationRequests] = useState<AppointmentRequestItem[]>(() => [
+    ...PRESENTATION_REQUESTS,
+  ]);
   const [presentationPublishedSlots, setPresentationPublishedSlots] = useState<AppointmentSlot[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [reviewingKey, setReviewingKey] = useState<string | null>(null);
@@ -245,11 +257,11 @@ export function useAppointmentsViewModel({
   }, [presentationDataLoaded, presentationSlots, scheduleRange.from, scheduleRange.to, scheduleSlotsQuery.data]);
   const requests = useMemo(() => {
     if (presentationDataLoaded) {
-      return PRESENTATION_REQUESTS.filter((item) => item.status === requestStatus);
+      return presentationRequests.filter((item) => item.status === requestStatus);
     }
 
     return requestsQuery.data ?? [];
-  }, [presentationDataLoaded, requestStatus, requestsQuery.data]);
+  }, [presentationDataLoaded, presentationRequests, requestStatus, requestsQuery.data]);
   const openSlots = useMemo(() => {
     if (presentationDataLoaded) {
       return presentationSlots.filter((slot) => (slot.status ?? 'available') === 'available');
@@ -259,11 +271,11 @@ export function useAppointmentsViewModel({
   }, [openSlotsSummaryQuery.data, presentationDataLoaded, presentationSlots]);
   const pendingRequests = useMemo(() => {
     if (presentationDataLoaded) {
-      return PRESENTATION_REQUESTS.filter((item) => item.status === 'pending');
+      return presentationRequests.filter((item) => item.status === 'pending');
     }
 
     return pendingRequestsSummaryQuery.data ?? [];
-  }, [pendingRequestsSummaryQuery.data, presentationDataLoaded]);
+  }, [pendingRequestsSummaryQuery.data, presentationDataLoaded, presentationRequests]);
 
   const visibleSlots = useMemo(
     () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === slotStatus),
@@ -476,12 +488,15 @@ export function useAppointmentsViewModel({
     setFocusMode('queue');
   }
 
-  function writePresentationQueryData(extraSlots = presentationPublishedSlots): void {
+  function writePresentationQueryData(
+    extraSlots = presentationPublishedSlots,
+    extraRequests = presentationRequests,
+  ): void {
     const presentationRange = getScheduleRange(
       PRESENTATION_SCHEDULING_WORKSPACE_STATE.scheduleView,
       PRESENTATION_SCHEDULING_WORKSPACE_STATE.scheduleDate,
     );
-    const pendingPresentationRequests = PRESENTATION_REQUESTS.filter(
+    const pendingPresentationRequests = extraRequests.filter(
       (item) => item.status === 'pending',
     );
     const allPresentationSlots = sortSlotsByStart([...PRESENTATION_SLOTS, ...extraSlots]);
@@ -497,6 +512,14 @@ export function useAppointmentsViewModel({
     queryClient.setQueryData<AppointmentRequestItem[]>(
       ['appointments-requests', 'pending'],
       pendingPresentationRequests,
+    );
+    queryClient.setQueryData<AppointmentRequestItem[]>(
+      ['appointments-requests', 'approved'],
+      extraRequests.filter((item) => item.status === 'approved'),
+    );
+    queryClient.setQueryData<AppointmentRequestItem[]>(
+      ['appointments-requests', 'rejected'],
+      extraRequests.filter((item) => item.status === 'rejected'),
     );
     queryClient.setQueryData<AppointmentSlot[]>(
       ['appointments-slots-summary', 'available'],
@@ -677,6 +700,35 @@ export function useAppointmentsViewModel({
     setReviewingKey(`${activeRequest.requestId}:${status}`);
 
     try {
+      if (isPresentationRequest(activeRequest)) {
+        const reviewedAt = new Date().toISOString();
+        const reviewedItem: AppointmentRequestItem = {
+          ...activeRequest,
+          status,
+          reviewedAt,
+          updatedAt: reviewedAt,
+        };
+        const nextPresentationRequests = presentationRequests.map((item) =>
+          item.requestId === reviewedItem.requestId ? reviewedItem : item,
+        );
+        const nextVisibleRequests = nextPresentationRequests.filter(
+          (item) => item.status === requestStatus,
+        );
+        const patientId = reviewedItem.patientId.trim();
+        const patientLabel =
+          patientMap.get(patientId)?.displayName?.trim() || patientId;
+
+        setPresentationRequests(nextPresentationRequests);
+        writePresentationQueryData(presentationPublishedSlots, nextPresentationRequests);
+        setSelectedRequestId(nextVisibleRequests[0]?.requestId ?? null);
+        setLastRequestReviewOutcome({
+          status,
+          patientLabel,
+          localOnly: true,
+        });
+        return;
+      }
+
       const reviewedItem = await reviewAppointmentRequest(activeRequest.requestId, status);
       const [, , openSlotsResult, pendingRequestsResult] = await refreshWorkspace();
       const refreshedPendingRequests = pendingRequestsResult.data;
@@ -730,7 +782,8 @@ export function useAppointmentsViewModel({
     ]);
 
     setPresentationPublishedSlots([]);
-    writePresentationQueryData([]);
+    setPresentationRequests([...PRESENTATION_REQUESTS]);
+    writePresentationQueryData([], PRESENTATION_REQUESTS);
     setWorkspaceState(PRESENTATION_SCHEDULING_WORKSPACE_STATE);
     setSelectedRequestId(pendingPresentationRequests[0]?.requestId ?? null);
     setFocusMode('workspace');

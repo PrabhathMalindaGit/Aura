@@ -81,6 +81,26 @@ test('appointments presentation data stays local across planner controls and pub
   await page.getByRole('button', { name: 'Week' }).click();
   await expect(page.getByText('Emily Chen').first()).toBeVisible();
 
+  const requestLogLengthBeforeReview = tracker.requestLog.length;
+
+  await page.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(page.getByText('Presentation request updated locally. No backend records were changed.')).toBeVisible();
+  await expect(page.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Reject', exact: true }).click();
+  await expect(page.getByText('Presentation request updated locally. No backend records were changed.')).toBeVisible();
+  await expect(page.getByTestId('v2-appointment-request-row-presentation-request-robert-jackson')).toHaveCount(0);
+
+  expect(
+    tracker.requestLog
+      .slice(requestLogLengthBeforeReview)
+      .some(
+        (entry) =>
+          entry.pathname.startsWith('/clinician/appointments/requests/') &&
+          ['PATCH', 'POST', 'PUT'].includes(entry.method),
+      ),
+  ).toBe(false);
+
   await page.getByRole('button', { name: 'Publish availability' }).click();
   await expect(page.getByText('Availability added to presentation view')).toBeVisible();
   await expect(page.getByText(/No backend records were written/i)).toBeVisible();

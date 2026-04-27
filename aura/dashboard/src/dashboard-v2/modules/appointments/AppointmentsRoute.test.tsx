@@ -241,6 +241,16 @@ function installAppointmentsFetchMock(options: {
   });
 }
 
+function isAppointmentRequestReviewMutation(input: unknown, init: RequestInit | undefined): boolean {
+  const url = new URL(String(input), 'http://localhost');
+  const method = String(init?.method ?? 'GET').toUpperCase();
+
+  return (
+    url.pathname.match(/^\/clinician\/appointments\/requests\/[^/]+$/) !== null &&
+    ['PATCH', 'POST', 'PUT'].includes(method)
+  );
+}
+
 function PatientWorkspaceEcho(): JSX.Element {
   const location = useLocation();
   return <div>{`Patient workspace ${JSON.stringify(location.state)}`}</div>;
@@ -372,6 +382,31 @@ describe('AppointmentsRoute', () => {
     expect(screen.queryByRole('button', { name: 'Back to requests' })).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['Approve', 'approved'],
+    ['Reject', 'rejected'],
+  ] as const)('keeps real-mode %s wired to the backend review mutation', async (buttonName, status) => {
+    installAppointmentsFetchMock();
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('v2-appointment-request-row-request-1')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: buttonName }));
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        const body = init?.body ? JSON.parse(String(init.body)) as { status?: string } : null;
+        return (
+          url.pathname === '/clinician/appointments/requests/request-1' &&
+          String(init?.method ?? 'GET').toUpperCase() === 'PATCH' &&
+          body?.status === status
+        );
+      }),
+    ).toBe(true);
+  });
+
   it('shows presentation seeding in local development even when the presentation env flag is disabled', async () => {
     vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'false');
     installAppointmentsFetchMock({ requests: [], slots: [] });
@@ -397,6 +432,7 @@ describe('AppointmentsRoute', () => {
 
     expect(await screen.findByRole('button', { name: 'Presentation data loaded' })).toBeInTheDocument();
     expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=seed-safe');
+    expect(screen.getByTestId('appointments-location')).not.toHaveTextContent('scheduleDemo');
     expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Robert Jackson').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Maria Gonzalez').length).toBeGreaterThan(0);
@@ -443,5 +479,37 @@ describe('AppointmentsRoute', () => {
         return url.pathname === '/clinician/appointments/slots' && String(init?.method ?? 'GET').toUpperCase() === 'POST';
       }),
     ).toBe(false);
+  });
+
+  it.each([
+    ['Approve', 'Approved', 'approved'],
+    ['Reject', 'Rejected', 'rejected'],
+  ] as const)('keeps presentation %s local and moves the request to %s state', async (buttonName, statusTab, status) => {
+    vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'true');
+    installAppointmentsFetchMock({ requests: [], slots: [] });
+
+    renderAppointmentsRoute();
+
+    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Load presentation data' }));
+    expect(await screen.findByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toBeVisible();
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const callsBeforeReview = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole('button', { name: buttonName }));
+
+    expect(await screen.findByText('Presentation request updated locally. No backend records were changed.')).toBeInTheDocument();
+    expect(screen.queryByTestId('v2-appointment-request-row-presentation-request-emily-chen')).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.slice(callsBeforeReview).some(([input, init]) =>
+        isAppointmentRequestReviewMutation(input, init),
+      ),
+    ).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: statusTab }));
+    const movedRow = await screen.findByTestId('v2-appointment-request-row-presentation-request-emily-chen');
+    expect(movedRow).toHaveTextContent(status === 'approved' ? 'Approved' : 'Rejected');
+    expect(screen.getByTestId('appointments-location')).not.toHaveTextContent('scheduleDemo');
   });
 });

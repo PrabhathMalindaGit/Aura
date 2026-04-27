@@ -12,42 +12,53 @@ export interface DashboardDemoModeState {
   anchorIso: string | null;
 }
 
+interface DashboardDemoEnvironment {
+  readonly DEV?: boolean;
+  readonly VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED?: unknown;
+}
+
 function parseEnvBoolean(value: unknown): boolean {
   return typeof value === "string" && value.trim().toLowerCase() === "true";
 }
 
-function readDashboardDemoCapability(): boolean {
-  return parseEnvBoolean(
-    import.meta.env.VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED,
+function createDisabledDemoMode(): DashboardDemoModeState {
+  return {
+    enabled: false,
+    scenarioId: null,
+    scenarioLabel: null,
+    indicatorLabel: null,
+    anchorIso: null,
+  };
+}
+
+function readDashboardDemoCapability(
+  env: DashboardDemoEnvironment = import.meta.env,
+): boolean {
+  return (
+    env.DEV === true &&
+    parseEnvBoolean(env.VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED)
   );
 }
 
-export function isDashboardDemoCapabilityEnabled(): boolean {
-  return readDashboardDemoCapability();
+export function isDashboardDemoCapabilityEnabled(
+  env: DashboardDemoEnvironment = import.meta.env,
+): boolean {
+  return readDashboardDemoCapability(env);
 }
 
-export function resolveDashboardDemoMode(search: string): DashboardDemoModeState {
-  if (!readDashboardDemoCapability()) {
-    return {
-      enabled: false,
-      scenarioId: null,
-      scenarioLabel: null,
-      indicatorLabel: null,
-      anchorIso: null,
-    };
+export function resolveDashboardDemoMode(
+  search: string,
+  env: DashboardDemoEnvironment = import.meta.env,
+): DashboardDemoModeState {
+  if (!readDashboardDemoCapability(env)) {
+    return createDisabledDemoMode();
   }
 
   const params = new URLSearchParams(search);
   const candidateScenarioId = params.get("dashboardDemo");
 
   if (!isDashboardDemoScenarioId(candidateScenarioId)) {
-    return {
-      enabled: false,
-      scenarioId: null,
-      scenarioLabel: null,
-      indicatorLabel: null,
-      anchorIso: null,
-    };
+    return createDisabledDemoMode();
   }
 
   const scenario = getDashboardDemoScenario(candidateScenarioId);

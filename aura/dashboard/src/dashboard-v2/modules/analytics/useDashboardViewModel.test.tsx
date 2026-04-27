@@ -433,7 +433,32 @@ describe("useDashboardViewModel", () => {
     });
   });
 
+  it("keeps real queries enabled when a dashboard demo query param is present in production-like mode", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    installDashboardFetchMock();
+
+    const { result } = renderHook(() => useDashboardViewModel(), {
+      wrapper: createWrapper("/dashboard?dashboardDemo=urgentSafetyDay"),
+    });
+
+    await waitFor(() => {
+      expect(result.current.overviewLoading).toBe(false);
+      expect(result.current.operationalSummary[0]?.value).toBe("2");
+    });
+
+    expect(result.current.guardPatientActions).toBe(false);
+    expect(result.current.guardThreadActions).toBe(false);
+    expect(result.current.statusBar.modeIndicator).toBeNull();
+    expect(result.current.freshnessTrust.metadata).not.toContainEqual(
+      expect.objectContaining({ label: "Data source" }),
+    );
+    expect(result.current.demoTools.visible).toBe(false);
+    expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
   it("uses deterministic synthetic dashboard data and guards patient or thread actions when demo mode is enabled", async () => {
+    vi.stubEnv("DEV", true);
     vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -454,7 +479,7 @@ describe("useDashboardViewModel", () => {
       label: "Demo mode",
       detail: "Synthetic data · Urgent safety day",
     });
-    expect(result.current.freshnessTrust.metadata[0]).toEqual({
+    expect(result.current.freshnessTrust.metadata).toContainEqual({
       label: "Data source",
       value: "Synthetic presentation dataset · Urgent safety day",
     });

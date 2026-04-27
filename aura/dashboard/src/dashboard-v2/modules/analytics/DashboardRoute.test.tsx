@@ -602,6 +602,7 @@ describe("DashboardRoute", () => {
   });
 
   it("renders synthetic labeling and guards patient or thread actions in dashboard demo mode while keeping overview CTAs live", async () => {
+    vi.stubEnv("DEV", true);
     vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -647,7 +648,47 @@ describe("DashboardRoute", () => {
     );
   });
 
-  it("renders demo tools only when dashboard demo capability is enabled", async () => {
+  it("keeps URL demo params in real mode when the demo env gate is disabled", async () => {
+    installDashboardFetchMock();
+
+    renderDashboardRoute("/dashboard?dashboardDemo=communicationBacklogDay");
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(
+      screen.queryByTestId("v2-dashboard-demo-tools"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("v2-dashboard-demo-indicator"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Synthetic presentation dataset/i),
+    ).not.toBeInTheDocument();
+    expect((await screen.findAllByText("Jordan Lee")).length).toBeGreaterThan(0);
+    expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
+  it("keeps URL demo params in real mode in production-like builds even when the env gate is enabled", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    installDashboardFetchMock();
+
+    renderDashboardRoute("/dashboard?dashboardDemo=communicationBacklogDay");
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(
+      screen.queryByTestId("v2-dashboard-demo-tools"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("v2-dashboard-demo-indicator"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Synthetic presentation dataset/i),
+    ).not.toBeInTheDocument();
+    expect((await screen.findAllByText("Jordan Lee")).length).toBeGreaterThan(0);
+    expect(globalThis.fetch).toHaveBeenCalled();
+  });
+
+  it("renders demo tools only when local dev and dashboard demo capability are enabled", async () => {
     installDashboardFetchMock();
 
     renderDashboardRoute();
@@ -658,6 +699,19 @@ describe("DashboardRoute", () => {
     ).not.toBeInTheDocument();
 
     cleanup();
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
+    installDashboardFetchMock();
+
+    renderDashboardRoute();
+
+    expect(await screen.findByTestId("v2-dashboard-route")).toBeVisible();
+    expect(
+      screen.queryByTestId("v2-dashboard-demo-tools"),
+    ).not.toBeInTheDocument();
+
+    cleanup();
+    vi.stubEnv("DEV", true);
     vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
     installDashboardFetchMock();
 
@@ -671,6 +725,7 @@ describe("DashboardRoute", () => {
   });
 
   it("switches dashboard scenarios through the URL query param and clears back to real mode", async () => {
+    vi.stubEnv("DEV", true);
     vi.stubEnv("VITE_AURA_DASHBOARD_ANALYTICS_DEMO_ENABLED", "true");
     installDashboardFetchMock();
 

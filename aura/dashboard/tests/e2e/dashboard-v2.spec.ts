@@ -95,3 +95,29 @@ test("dashboard v2 stays overview-first and routes into the right downstream wor
 
   expect(runtimeIssues, runtimeIssues.join("\n")).toEqual([]);
 });
+
+test("dashboard v2 ignores dashboardDemo query params when demo env is not enabled", async ({
+  page,
+}) => {
+  const tracker = await installMockApi(page);
+
+  await page.goto("/dashboard?dashboardDemo=urgentSafetyDay");
+
+  await expect(page).toHaveURL(/\/dashboard\?dashboardDemo=urgentSafetyDay$/);
+  await expect(
+    page.getByRole("heading", { name: "Today", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByTestId("v2-dashboard-route")).toBeVisible();
+  await expect(page.getByTestId("v2-dashboard-demo-tools")).toHaveCount(0);
+  await expect(page.getByTestId("v2-dashboard-demo-indicator")).toHaveCount(0);
+  await expect(page.getByTestId("v2-dashboard-data-context")).not.toContainText(
+    "Synthetic presentation dataset",
+  );
+  await expect
+    .poll(() =>
+      tracker.requestLog.some(
+        (request) => request.pathname === "/clinician/dashboard/summary",
+      ),
+    )
+    .toBe(true);
+});

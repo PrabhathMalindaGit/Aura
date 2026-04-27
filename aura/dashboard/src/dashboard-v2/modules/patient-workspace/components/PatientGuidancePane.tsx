@@ -75,6 +75,36 @@ function insightTone(confidence: InsightItem['confidence']): 'neutral' | 'warnin
   return 'neutral';
 }
 
+const UPDATED_UNAVAILABLE_LABEL = 'Updated unavailable';
+const MIN_CLINICAL_UPDATED_AT_MS = Date.UTC(1971, 0, 1);
+
+function formatSafeUpdatedLabel(value: unknown, validPrefix = 'Updated'): string {
+  const normalizedValue = typeof value === 'string' ? value.trim() : value;
+
+  if (
+    normalizedValue === null ||
+    normalizedValue === undefined ||
+    normalizedValue === '' ||
+    normalizedValue === 0 ||
+    normalizedValue === '0'
+  ) {
+    return UPDATED_UNAVAILABLE_LABEL;
+  }
+
+  if (!(normalizedValue instanceof Date) && typeof normalizedValue !== 'string' && typeof normalizedValue !== 'number') {
+    return UPDATED_UNAVAILABLE_LABEL;
+  }
+
+  const updatedAt = normalizedValue instanceof Date ? normalizedValue : new Date(normalizedValue);
+  const updatedAtMs = updatedAt.getTime();
+
+  if (!Number.isFinite(updatedAtMs) || updatedAtMs < MIN_CLINICAL_UPDATED_AT_MS) {
+    return UPDATED_UNAVAILABLE_LABEL;
+  }
+
+  return `${validPrefix} ${updatedAt.toLocaleString()}`;
+}
+
 export function PatientGuidancePane({
   guidance,
   rehab,
@@ -115,7 +145,10 @@ export function PatientGuidancePane({
   onRetry,
 }: PatientGuidancePaneProps): JSX.Element {
   const selectedPhase = rehab?.phases.find((phase) => phase.key === selectedRehabKey) ?? null;
-  const planUpdatedLabel = patientPlan?.updatedAt ? new Date(patientPlan.updatedAt).toLocaleString() : null;
+  const planUpdatedLabel = formatSafeUpdatedLabel(patientPlan?.updatedAt);
+  const recoverySupportUpdatedLabel = patientRecoverySupport
+    ? formatSafeUpdatedLabel(patientRecoverySupport.updatedAt, 'Override updated')
+    : null;
 
   return (
     <div className="v2-patient-pane v2-patient-pane--guidance" data-testid="v2-patient-guidance-pane">
@@ -188,7 +221,7 @@ export function PatientGuidancePane({
               <DashboardV2Heading as="h3">{patientPlan ? `Version ${patientPlan.version}` : 'No plan assigned'}</DashboardV2Heading>
               <DashboardV2Text tone="muted">
                 {patientPlan
-                  ? `${patientPlan.items.length} exercise${patientPlan.items.length === 1 ? '' : 's'} in the current plan${planUpdatedLabel ? ` · Updated ${planUpdatedLabel}` : ''}.`
+                  ? `${patientPlan.items.length} exercise${patientPlan.items.length === 1 ? '' : 's'} in the current plan · ${planUpdatedLabel}.`
                   : 'The plan route remains the linked destination for structured exercise programming.'}
               </DashboardV2Text>
             </article>
@@ -237,9 +270,7 @@ export function PatientGuidancePane({
           {recoverySupportError ? <DashboardV2Text tone="caption" className="v2-patient-form-error">{recoverySupportError}</DashboardV2Text> : null}
           <div className="v2-patient-guidance-card__footer">
             <DashboardV2Text tone="caption">
-              {patientRecoverySupport?.updatedAt
-                ? `Override updated ${new Date(patientRecoverySupport.updatedAt).toLocaleString()}`
-                : 'Using pathway defaults until a patient-specific override is saved.'}
+              {recoverySupportUpdatedLabel ?? 'Using pathway defaults until a patient-specific override is saved.'}
             </DashboardV2Text>
             <DashboardV2Button tone="secondary" size="sm" onPress={() => void onSaveRecoverySupport()}>
               {isSavingRecoverySupport ? 'Saving…' : 'Save recovery support'}

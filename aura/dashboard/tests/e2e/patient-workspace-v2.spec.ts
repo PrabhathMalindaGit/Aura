@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import type { DashboardCommunicationOverview } from '../../src/types/models';
+import type { DashboardCommunicationOverview, ExercisePlan } from '../../src/types/models';
 import { installMockApi } from './helpers/mockApi';
 
 const PATIENT_WORKSPACE_COMMUNICATION_OVERVIEW: DashboardCommunicationOverview = {
@@ -33,6 +33,29 @@ const PATIENT_WORKSPACE_COMMUNICATION_OVERVIEW: DashboardCommunicationOverview =
   ],
 };
 
+const PATIENT_WORKSPACE_EPOCH_EXERCISE_PLAN: ExercisePlan = {
+  title: 'Recovery plan',
+  timezone: 'UTC',
+  daysOfWeek: [1, 3, 5],
+  version: 3,
+  updatedAt: '1970-01-01T00:00:00.000Z',
+  updatedBy: {
+    clinicianId: 'clinician-1',
+    name: 'Clinician One',
+  },
+  items: [
+    {
+      key: 'bridge',
+      name: 'Bridge',
+      instructions: 'Lift hips with control and lower slowly.',
+      sets: 3,
+      reps: 8,
+      intensity: 'moderate',
+      order: 1,
+    },
+  ],
+};
+
 test('patient workspace v2 preserves patient context, local quick reply, and shared coordination separation by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
@@ -48,6 +71,7 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
 
   const tracker = await installMockApi(page, {
     communicationOverview: PATIENT_WORKSPACE_COMMUNICATION_OVERVIEW,
+    exercisePlan: PATIENT_WORKSPACE_EPOCH_EXERCISE_PLAN,
   });
 
   await page.addInitScript(() => {
@@ -112,6 +136,9 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
   await expect(page.getByTestId('v2-patient-guidance-pane')).toBeVisible();
   await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Phase, plan, and next save point' })).toBeVisible();
+  await expect(page.getByText('1 exercise in the current plan · Updated unavailable.')).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('1/1/1970');
+  await expect(page.locator('body')).not.toContainText('Invalid Date');
 
   await page.getByTestId('v2-patient-nav-history').click();
   await expect(page).toHaveURL(/\/patients\/p1\/history$/);

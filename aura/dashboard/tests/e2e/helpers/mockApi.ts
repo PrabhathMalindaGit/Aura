@@ -52,6 +52,7 @@ interface MockApiOptions {
   coordinationByPatient?: Record<string, ClinicianCoordinationRecord | null>;
   alertsByStatus?: Record<AlertStatus, AlertItem[]>;
   insightsByStatus?: Record<InsightStatus, InsightItem[]>;
+  exercisePlan?: ExercisePlan | null;
   appointmentRequests?: AppointmentRequestItem[];
   appointmentSlots?: AppointmentSlot[];
 }
@@ -77,6 +78,7 @@ interface MockState {
   appointmentSlots: AppointmentSlot[];
   communicationOverview: DashboardCommunicationOverview;
   coordinationByPatient: Record<string, ClinicianCoordinationRecord | null>;
+  exercisePlan: ExercisePlan | null;
 }
 
 const DEFAULT_REHAB: RehabPayload = {
@@ -407,6 +409,10 @@ function createInitialState(options: MockApiOptions = {}): MockState {
     appointmentSlots: deepClone(options.appointmentSlots ?? DEFAULT_APPOINTMENT_SLOTS),
     communicationOverview: deepClone(options.communicationOverview ?? FIXTURE_DASHBOARD_COMMUNICATION),
     coordinationByPatient: deepClone(options.coordinationByPatient ?? DEFAULT_COORDINATION_BY_PATIENT),
+    exercisePlan:
+      options.exercisePlan === undefined
+        ? deepClone(DEFAULT_EXERCISE_PLAN)
+        : deepClone(options.exercisePlan),
   };
 }
 
@@ -1104,7 +1110,7 @@ export async function installMockApi(
       await fulfillJson(route, 200, {
         ok: true,
         patientId: pathname.split('/')[3] ?? FIXTURE_PATIENT_ID,
-        plan: deepClone(DEFAULT_EXERCISE_PLAN),
+        plan: deepClone(state.exercisePlan),
       });
       return;
     }

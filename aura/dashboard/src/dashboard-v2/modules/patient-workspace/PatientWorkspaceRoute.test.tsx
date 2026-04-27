@@ -18,6 +18,7 @@ const patientWorkspaceMockState = vi.hoisted(() => ({
   returnTo: '/worklist',
   returnLabel: 'Return to Worklist',
   sourceCue: 'Opened from Worklist',
+  patientPlanUpdatedAt: '2026-04-17T08:20:00.000Z' as unknown,
 }));
 
 vi.mock('../../../pages/PatientDetailPage', () => ({
@@ -296,7 +297,28 @@ vi.mock('./usePatientWorkspaceViewModel', async () => {
         insightReviewingId: null,
         insightActionError: null,
         insightActionNotice: null,
-        patientPlan: null,
+        patientPlan: {
+          title: 'Recovery plan',
+          timezone: 'UTC',
+          daysOfWeek: [1, 3, 5],
+          version: 3,
+          updatedAt: patientWorkspaceMockState.patientPlanUpdatedAt,
+          updatedBy: {
+            clinicianId: 'clinician-1',
+            name: 'Clinician One',
+          },
+          items: [
+            {
+              key: 'bridge',
+              name: 'Bridge',
+              instructions: 'Lift hips with control and lower slowly.',
+              sets: 3,
+              reps: 8,
+              intensity: 'moderate',
+              order: 1,
+            },
+          ],
+        },
         patientRecoverySupport: null,
         recoverySupportDraft: {
           checkinMode: 'adaptive',
@@ -393,6 +415,7 @@ describe('PatientWorkspaceRoute', () => {
     patientWorkspaceMockState.returnTo = '/worklist';
     patientWorkspaceMockState.returnLabel = 'Return to Worklist';
     patientWorkspaceMockState.sourceCue = 'Opened from Worklist';
+    patientWorkspaceMockState.patientPlanUpdatedAt = '2026-04-17T08:20:00.000Z';
     installMatchMediaMock(() => false);
   });
 
@@ -434,6 +457,44 @@ describe('PatientWorkspaceRoute', () => {
     expect(await screen.findByTestId('v2-patient-guidance-pane')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Taylor Moss' })).toBeInTheDocument();
     expect(screen.getByTestId('route-location')).toHaveTextContent('/patients/patient-1/guidance');
+  });
+
+  it('shows unavailable copy instead of a missing plan update timestamp on Guidance', async () => {
+    patientWorkspaceMockState.patientPlanUpdatedAt = undefined;
+
+    renderPatientWorkspace('/patients/patient-1/guidance');
+
+    expect(await screen.findByTestId('v2-patient-guidance-pane')).toBeInTheDocument();
+    expect(screen.getByText(/1 exercise in the current plan/)).toHaveTextContent('Updated unavailable');
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1\/1\/1970|1970/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['epoch', '1970-01-01T00:00:00.000Z'],
+    ['zero', 0],
+    ['invalid', 'not-a-date'],
+    ['empty', ''],
+  ])('shows unavailable copy instead of a %s plan update timestamp on Guidance', async (_label, updatedAt) => {
+    patientWorkspaceMockState.patientPlanUpdatedAt = updatedAt;
+
+    renderPatientWorkspace('/patients/patient-1/guidance');
+
+    expect(await screen.findByTestId('v2-patient-guidance-pane')).toBeInTheDocument();
+    expect(screen.getByText(/1 exercise in the current plan/)).toHaveTextContent('Updated unavailable');
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1\/1\/1970|1970/)).not.toBeInTheDocument();
+  });
+
+  it('keeps valid plan update timestamps visible on Guidance', async () => {
+    const validUpdatedAt = '2026-04-17T08:20:00.000Z';
+    patientWorkspaceMockState.patientPlanUpdatedAt = validUpdatedAt;
+
+    renderPatientWorkspace('/patients/patient-1/guidance');
+
+    expect(await screen.findByTestId('v2-patient-guidance-pane')).toBeInTheDocument();
+    expect(screen.getByText(/1 exercise in the current plan/)).toHaveTextContent(`Updated ${new Date(validUpdatedAt).toLocaleString()}`);
+    expect(screen.queryByText(/Updated unavailable/)).not.toBeInTheDocument();
   });
 
   it('keeps deep context in a drawer on medium layouts', async () => {

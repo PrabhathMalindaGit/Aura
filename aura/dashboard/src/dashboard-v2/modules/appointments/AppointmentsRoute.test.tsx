@@ -330,6 +330,7 @@ describe('AppointmentsRoute', () => {
     expect(screen.queryByText(/Booked|Confirmed visit/i)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Open patient' }));
+    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/patients/patient-1');
     expect(await screen.findByText(/Patient workspace/)).toHaveTextContent('"returnTo":"/appointments"');
   });
 
@@ -456,7 +457,23 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByLabelText('End (local datetime)')).toHaveValue('2026-04-19T23:59');
     expect(screen.getByLabelText('Meeting link (optional)')).toHaveValue('https://meet.example.com');
     expect(screen.getAllByRole('heading', { name: 'Emily Chen' }).length).toBeGreaterThan(0);
+    const presentationOnlyButton = screen.getByRole('button', {
+      name: 'Presentation only. Patient workspace unavailable for presentation data.',
+    });
+    expect(presentationOnlyButton).toBeDisabled();
+    expect(screen.getByText('Presentation only')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open patient' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    const callsBeforePresentationOpen = fetchMock.mock.calls.length;
+    await userEvent.click(presentationOnlyButton);
+    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=seed-safe');
+    expect(
+      fetchMock.mock.calls.slice(callsBeforePresentationOpen).some(([input]) =>
+        String(input).includes('presentation-emily-chen'),
+      ),
+    ).toBe(false);
 
     await userEvent.click(screen.getByRole('button', { name: 'Day', exact: true }));
     expect(screen.getByText('Presentation range locked')).toBeInTheDocument();
@@ -468,7 +485,6 @@ describe('AppointmentsRoute', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Week' }));
     expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
 
-    const fetchMock = vi.mocked(globalThis.fetch);
     await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
 
     expect(await screen.findByText('Availability added to presentation view')).toBeInTheDocument();

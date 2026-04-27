@@ -70,6 +70,14 @@ test('appointments presentation data stays local across planner controls and pub
   await expect(page.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toContainText('Reason');
   await expect(page.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toContainText('Constraints');
   await expect(page.getByText('Selected request context')).toHaveCount(0);
+  const presentationOnlyButton = page.getByRole('button', {
+    name: 'Presentation only. Patient workspace unavailable for presentation data.',
+  });
+  await expect(presentationOnlyButton).toBeVisible();
+  await expect(presentationOnlyButton).toBeDisabled();
+  await expect(page.getByText('Presentation only')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open patient' })).toHaveCount(0);
+  expect(tracker.requestLog.some((entry) => entry.pathname.includes('presentation-emily-chen'))).toBe(false);
 
   await page.getByRole('button', { name: 'Day', exact: true }).click();
   await expect(page.getByText('Presentation range locked')).toBeVisible();

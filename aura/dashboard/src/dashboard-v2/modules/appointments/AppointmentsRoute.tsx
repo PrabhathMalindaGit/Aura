@@ -49,6 +49,7 @@ export function AppointmentsRoute(): JSX.Element {
         reviewOutcome: viewModel.lastRequestReviewOutcome,
         reviewErrorMessage: viewModel.errorNotice?.scope === 'review' ? viewModel.errorNotice.message : null,
         mutationPending: viewModel.mutationPending,
+        patientWorkspaceUnavailableReason: viewModel.patientWorkspaceUnavailableReason,
         onApprove: () => viewModel.handleReview('approved'),
         onReject: () => viewModel.handleReview('rejected'),
         onOpenPatient: () => viewModel.openPatientFromRequest(),

@@ -349,6 +349,10 @@ export function useAppointmentsViewModel({
   const activeHeader = activeRequest
     ? buildAppointmentReviewHeader(activeRequest, activePatient)
     : null;
+  const patientWorkspaceUnavailableReason =
+    activeRequest && isPresentationRequest(activeRequest)
+      ? 'Patient workspace unavailable for presentation data.'
+      : null;
   const planner = buildAppointmentPlanner({
     scheduleRange,
     scheduleView,
@@ -547,6 +551,10 @@ export function useAppointmentsViewModel({
 
   function openPatientFromRequest(request = activeRequest): void {
     if (!request) {
+      return;
+    }
+
+    if (isPresentationRequest(request)) {
       return;
     }
 
@@ -827,6 +835,7 @@ export function useAppointmentsViewModel({
       pendingRequestsSummaryQuery.isLoading ||
       openSlotsSummaryQuery.isLoading,
     mutationPending: reviewingKey !== null,
+    patientWorkspaceUnavailableReason,
     pendingRequestsCount,
     persistWorkspaceState,
     presentationDataControls: {

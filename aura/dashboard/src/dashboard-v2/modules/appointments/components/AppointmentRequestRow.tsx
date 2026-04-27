@@ -120,9 +120,20 @@ export function AppointmentRequestRow({
           ) : null}
 
           <div className="v2-appointment-request-row__actions">
-            <DashboardV2Button tone="secondary" size="sm" onPress={selectedContext.onOpenPatient}>
-              Open patient
-            </DashboardV2Button>
+            {selectedContext.patientWorkspaceUnavailableReason ? (
+              <DashboardV2Button
+                tone="secondary"
+                size="sm"
+                isDisabled
+                aria-label={`Presentation only. ${selectedContext.patientWorkspaceUnavailableReason}`}
+              >
+                Presentation only
+              </DashboardV2Button>
+            ) : (
+              <DashboardV2Button tone="secondary" size="sm" onPress={selectedContext.onOpenPatient}>
+                Open patient
+              </DashboardV2Button>
+            )}
             {pending ? (
               <>
                 <DashboardV2Button tone="ghost" size="sm" onPress={selectedContext.onReject} isDisabled={selectedContext.mutationPending}>

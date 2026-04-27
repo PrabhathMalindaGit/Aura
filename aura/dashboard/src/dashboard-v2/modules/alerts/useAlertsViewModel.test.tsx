@@ -312,7 +312,7 @@ describe('useAlertsViewModel', () => {
     expect(result.current.focusMode).toBe('workspace');
   });
 
-  it('stays queue-first on narrow layouts until a clinician selects an alert', async () => {
+  it('keeps narrow layouts queue-first while aligning selection to the first visible alert', async () => {
     const { result } = renderHook(
       () => useAlertsViewModel({ isNarrowLayout: true }),
       { wrapper: createWrapper('/alerts') },
@@ -322,7 +322,8 @@ describe('useAlertsViewModel', () => {
       expect(result.current.queueRows).toHaveLength(2);
     });
 
-    expect(result.current.activeAlert).toBeNull();
+    expect(result.current.activeAlert?._id).toBe('alert-1');
+    expect(result.current.activeHeader?.patientName).toBe('Jordan Lee');
     expect(result.current.focusMode).toBe('queue');
   });
 

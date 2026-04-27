@@ -22,6 +22,7 @@ export interface AppointmentRequestRailContext {
   reviewOutcome: RequestReviewOutcomeState | null;
   reviewErrorMessage: string | null;
   mutationPending: boolean;
+  patientWorkspaceUnavailableReason: string | null;
   onApprove: () => void;
   onReject: () => void;
   onOpenPatient: () => void;

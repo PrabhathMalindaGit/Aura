@@ -298,7 +298,7 @@ export function useAlertsViewModel({
 
   useEffect(() => {
     if (visibleAlerts.length === 0) {
-      if (selectedAlertId && !sourceAlerts.some((alert) => alert._id === selectedAlertId)) {
+      if (selectedAlertId) {
         setSelectedAlertId(null);
       }
 
@@ -319,9 +319,7 @@ export function useAlertsViewModel({
     }
 
     if (isNarrowLayout) {
-      if (selectedAlertId && !sourceAlerts.some((alert) => alert._id === selectedAlertId)) {
-        setSelectedAlertId(null);
-      }
+      setSelectedAlertId(visibleAlerts[0]?._id ?? null);
       setFocusMode('queue');
       return;
     }
@@ -333,12 +331,11 @@ export function useAlertsViewModel({
     selectedAlertId,
     setFocusMode,
     setSelectedAlertId,
-    sourceAlerts,
     visibleAlerts,
   ]);
 
   const activeAlert =
-    sourceAlerts.find((alert) => alert._id === selectedAlertId) ??
+    visibleAlerts.find((alert) => alert._id === selectedAlertId) ??
     null;
   const activeAlertSeenByUi = activeAlert ? isAlertSeenForUi(activeAlert, seenAlertMap) : false;
 

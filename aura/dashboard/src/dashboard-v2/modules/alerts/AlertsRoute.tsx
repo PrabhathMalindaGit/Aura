@@ -68,7 +68,7 @@ export function AlertsRoute(): JSX.Element {
 
     if (viewModel.filterCount > 0) {
       return {
-        title: 'No alerts match this view',
+        title: 'No alerts match this filtered view.',
         description: 'Reset filters to return to the full governance queue.',
       };
     }
@@ -109,7 +109,6 @@ export function AlertsRoute(): JSX.Element {
       rows={viewModel.queueRows}
       selectedAlertId={viewModel.selectedAlertId}
       filterCount={viewModel.filterCount}
-      hasSelectedAlert={Boolean(viewModel.activeAlert)}
       statusTitle={queueStatus?.title}
       statusDescription={queueStatus?.description}
       emptyTitle={emptyState?.title}

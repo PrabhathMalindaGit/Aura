@@ -30,7 +30,6 @@ interface AlertsQueuePaneProps {
   rows: AlertQueueRowVm[];
   selectedAlertId: string | null;
   filterCount: number;
-  hasSelectedAlert: boolean;
   statusTitle?: string;
   statusDescription?: string;
   emptyTitle?: string;
@@ -85,7 +84,6 @@ export function AlertsQueuePane({
   rows,
   selectedAlertId,
   filterCount,
-  hasSelectedAlert,
   statusTitle,
   statusDescription,
   emptyTitle,
@@ -105,10 +103,6 @@ export function AlertsQueuePane({
   onQueueScroll,
 }: AlertsQueuePaneProps): JSX.Element {
   const openStatusView = status === 'open';
-  const filteredSelectionNote =
-    rows.length === 0 && filterCount > 0 && hasSelectedAlert
-      ? 'No alerts match the current filters. The selected alert remains open for review.'
-      : null;
 
   return (
     <DashboardV2Surface className="v2-alerts-queue-pane" tone="base">
@@ -210,12 +204,6 @@ export function AlertsQueuePane({
         ) : null}
       </div>
 
-      {filteredSelectionNote ? (
-        <div className="v2-alerts-queue-pane__inline-note">
-          <DashboardV2Text tone="muted">{filteredSelectionNote}</DashboardV2Text>
-        </div>
-      ) : null}
-
       <div
         ref={queueRef}
         className="v2-alerts-queue-pane__body"
@@ -244,7 +232,7 @@ export function AlertsQueuePane({
               </DashboardV2Button>
             ) : null}
           </DashboardV2Surface>
-        ) : filteredSelectionNote ? null : rows.length === 0 ? (
+        ) : rows.length === 0 ? (
           <DashboardV2Surface className="v2-alerts-queue-pane__empty" tone="muted">
             <DashboardV2Heading as="h3">{emptyTitle ?? 'No alerts match this view'}</DashboardV2Heading>
             {emptyDescription ? <DashboardV2Text tone="muted">{emptyDescription}</DashboardV2Text> : null}

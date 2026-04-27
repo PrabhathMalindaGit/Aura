@@ -404,6 +404,49 @@ describe('AlertsRoute', () => {
     });
   });
 
+  it('keeps selected review aligned with the filtered queue', async () => {
+    const user = userEvent.setup();
+
+    renderAlertsRoute();
+
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+
+    await user.click(screen.getByTestId('v2-alert-row-alert-2'));
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Avery Chen');
+    });
+
+    const searchInput = screen.getByPlaceholderText('Search patient, alert id, or reason');
+    await user.type(searchInput, 'patient-2');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Avery Chen');
+    });
+
+    await user.clear(searchInput);
+    await user.type(searchInput, 'patient-1');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Jordan Lee');
+    });
+
+    await user.clear(searchInput);
+    await user.type(searchInput, 'no matching alert');
+
+    expect(await screen.findByRole('heading', { name: 'No alerts match this filtered view.' })).toBeInTheDocument();
+    expect(screen.getByText('Reset filters to return to the full governance queue.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select an alert to begin review' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Acknowledge' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take over' })).not.toBeInTheDocument();
+
+    await user.click(screen.getAllByRole('button', { name: 'Reset filters' }).at(-1)!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Jordan Lee');
+    });
+  });
+
   it('preserves patient navigation semantics and shows Unknown when metadata is absent', async () => {
     const user = userEvent.setup();
 

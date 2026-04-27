@@ -123,6 +123,26 @@ test('alerts v2 preserves queue context while supporting alert governance action
   await expectReadableHeading('Confirm final risk');
   await expectReadableHeading('Latest governance trail');
   await expectNoHorizontalOverflow();
+
+  const searchInput = page.getByPlaceholder('Search patient, alert id, or reason');
+  await searchInput.fill('p1');
+  await expect(workspace).toContainText('Patient P1');
+
+  await searchInput.fill('p2');
+  await expect(workspace).toContainText('Patient p2');
+  await expect(workspace).not.toContainText('Patient P1');
+
+  await searchInput.fill('no matching alert');
+  await expect(page.getByRole('heading', { name: 'No alerts match this filtered view.' })).toBeVisible();
+  await expect(page.getByText('Reset filters to return to the full governance queue.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Select an alert to begin review' })).toBeVisible();
+  await expect(workspace.getByRole('button', { name: 'Acknowledge' })).toHaveCount(0);
+  await expect(workspace.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+  await expect(workspace.getByRole('button', { name: 'Take over' })).toHaveCount(0);
+
+  await page.getByTestId('v2-alerts-queue-pane').getByRole('button', { name: 'Reset filters' }).click();
+  await expect(workspace).toContainText('Patient P1');
+
   for (const width of [1180, 900, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => window.scrollTo(0, 0));

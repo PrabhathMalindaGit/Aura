@@ -46,7 +46,7 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
     }
   });
 
-  await installMockApi(page, {
+  const tracker = await installMockApi(page, {
     communicationOverview: PATIENT_WORKSPACE_COMMUNICATION_OVERVIEW,
   });
 
@@ -118,17 +118,36 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
   await expect(page.getByTestId('v2-patient-history-pane')).toBeVisible();
   await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
   await expect(page.getByText('Longitudinal patient trajectory')).toBeVisible();
+  await expect(page.getByText('No connected wearable source')).toBeVisible();
+  await expect(page.getByText('Medication and check-in history remain visible in the main timeline.')).toBeVisible();
+  await expect(page.getByText('5 wearable days')).toHaveCount(0);
+  expect(tracker.requestLog.some((entry) => entry.pathname.includes('/wearables/'))).toBe(false);
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
+    .toBe(false);
 
   await page.setViewportSize({ width: 1180, height: 900 });
   await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeVisible();
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
+    .toBe(false);
   await page.getByRole('button', { name: 'Context', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Care context' })).toBeVisible();
   await page.getByRole('button', { name: 'Close panel' }).click();
   await expect(page.getByRole('heading', { name: 'Care context' })).toBeHidden();
 
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(page.getByTestId('v2-patient-history-pane')).toBeVisible();
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
+    .toBe(false);
+
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId('v2-patient-governance-rail')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Context', exact: true })).toBeVisible();
+  await expect
+    .poll(async () => page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
+    .toBe(false);
   await page.getByRole('button', { name: 'Context', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Care context' })).toBeVisible();
   await page.getByRole('button', { name: 'Close panel' }).click();
@@ -145,5 +164,6 @@ test('patient workspace v2 preserves patient context, local quick reply, and sha
 
   await page.getByTestId('v2-patient-return-link').click();
   await expect(page).toHaveURL(/\/worklist$/);
+  expect(tracker.requestLog.some((entry) => entry.pathname.includes('/wearables/'))).toBe(false);
   expect(runtimeIssues, runtimeIssues.join('\n')).toEqual([]);
 });

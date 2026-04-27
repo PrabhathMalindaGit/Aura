@@ -15,8 +15,6 @@ import {
   getPatientPhotos,
   getPatientProms,
   getPatientNutritionRange,
-  getPatientWearablesDaily,
-  getPatientWearablesSummary,
   getRehabPhases,
   listAlerts,
   listAppointmentRequests,
@@ -434,7 +432,7 @@ export interface PatientWorkspaceViewModel {
   recentBodyMapSummary: Array<{ region: string; label: string; count: number }>;
   recentHydrationSummary: { avgDailyMl: number | null; daysMeetingTarget: number };
   recentNutritionSummary: { trackedDays: number; avgFruitVeg: number | null; proteinOkHighDays: number };
-  recentWearablesSummary: { trackedDays: number; avgSteps: number | null; avgActiveMinutes: number | null; avgRestingHr: number | null; source: string };
+  recentWearablesSummary: { trackedDays: number | null; avgSteps: number | null; avgActiveMinutes: number | null; avgRestingHr: number | null; source: string | null };
   recentMedicationSummary: { scheduled: number; taken: number; skipped: number; adherencePct: number | null };
   recentPhotos: SymptomPhotoItem[];
 }
@@ -598,26 +596,6 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
   const patientNutritionQuery = useQuery({
     queryKey: ['patient-nutrition', patientId, recentSleepFrom, recentSleepTo],
     queryFn: () => getPatientNutritionRange(patientId, recentSleepFrom, recentSleepTo),
-    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
-    staleTime: 7_000,
-    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
-    refetchOnWindowFocus: false,
-    placeholderData: (previous) => previous,
-  });
-
-  const patientWearablesSummaryQuery = useQuery({
-    queryKey: ['patient-wearables-summary', patientId, recentSleepFrom, recentSleepTo],
-    queryFn: () => getPatientWearablesSummary(patientId, recentSleepFrom, recentSleepTo, 'mock'),
-    enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
-    staleTime: 7_000,
-    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
-    refetchOnWindowFocus: false,
-    placeholderData: (previous) => previous,
-  });
-
-  const patientWearablesDailyQuery = useQuery({
-    queryKey: ['patient-wearables-daily', patientId, recentSleepFrom, recentSleepTo],
-    queryFn: () => getPatientWearablesDaily(patientId, recentSleepFrom, recentSleepTo, 'mock'),
     enabled: Boolean(patientId) && shouldLoadHistoryReferenceBucket,
     staleTime: 7_000,
     retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
@@ -1441,8 +1419,6 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
             patientRecentCheckinsQuery.dataUpdatedAt,
             patientHydrationQuery.dataUpdatedAt,
             patientNutritionQuery.dataUpdatedAt,
-            patientWearablesSummaryQuery.dataUpdatedAt,
-            patientWearablesDailyQuery.dataUpdatedAt,
             patientMedicationAdherenceQuery.dataUpdatedAt,
             patientPhotosQuery.dataUpdatedAt,
           ),
@@ -1457,8 +1433,6 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
       patientPhotosQuery.dataUpdatedAt,
       patientRecentCheckinsQuery.dataUpdatedAt,
       patientSessionsQuery.dataUpdatedAt,
-      patientWearablesDailyQuery.dataUpdatedAt,
-      patientWearablesSummaryQuery.dataUpdatedAt,
       trendsQuery.dataUpdatedAt,
     ],
   );
@@ -1561,19 +1535,13 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
 
   const recentWearablesSummary = useMemo(
     () => ({
-      trackedDays: patientWearablesSummaryQuery.data?.trackedDays ?? 0,
-      avgSteps: patientWearablesSummaryQuery.data?.avgSteps ?? null,
-      avgActiveMinutes: patientWearablesSummaryQuery.data?.avgActiveMinutes ?? null,
-      avgRestingHr: patientWearablesSummaryQuery.data?.avgRestingHr ?? null,
-      source: patientWearablesSummaryQuery.data?.source ?? 'mock',
+      trackedDays: null,
+      avgSteps: null,
+      avgActiveMinutes: null,
+      avgRestingHr: null,
+      source: null,
     }),
-    [
-      patientWearablesSummaryQuery.data?.avgActiveMinutes,
-      patientWearablesSummaryQuery.data?.avgRestingHr,
-      patientWearablesSummaryQuery.data?.avgSteps,
-      patientWearablesSummaryQuery.data?.source,
-      patientWearablesSummaryQuery.data?.trackedDays,
-    ],
+    [],
   );
 
   const recentMedicationSummary = useMemo(() => {
@@ -1988,8 +1956,6 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
       patientRecentCheckinsQuery.refetch(),
       patientHydrationQuery.refetch(),
       patientNutritionQuery.refetch(),
-      patientWearablesSummaryQuery.refetch(),
-      patientWearablesDailyQuery.refetch(),
       patientMedicationAdherenceQuery.refetch(),
       patientPhotosQuery.refetch(),
     ]);
@@ -2000,8 +1966,6 @@ export function usePatientWorkspaceViewModel(): PatientWorkspaceViewModel {
     patientPhotosQuery,
     patientRecentCheckinsQuery,
     patientSessionsQuery,
-    patientWearablesDailyQuery,
-    patientWearablesSummaryQuery,
     trendsQuery,
   ]);
 

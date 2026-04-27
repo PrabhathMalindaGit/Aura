@@ -689,7 +689,7 @@ export async function getPatientWearablesSummary(
   patientId: string,
   from: string,
   to: string,
-  source: WearableSource = 'mock',
+  source: WearableSource,
 ): Promise<WearablesSummaryResponse> {
   const query = new URLSearchParams({
     from,
@@ -708,7 +708,7 @@ export async function getPatientWearablesDaily(
   patientId: string,
   from: string,
   to: string,
-  source: WearableSource = 'mock',
+  source: WearableSource,
 ): Promise<WearablesDailyResponse> {
   const query = new URLSearchParams({
     from,

@@ -20,7 +20,7 @@ interface PatientHistoryPaneProps {
   recentBodyMapSummary: Array<{ region: string; label: string; count: number }>;
   recentHydrationSummary: { avgDailyMl: number | null; daysMeetingTarget: number };
   recentNutritionSummary: { trackedDays: number; avgFruitVeg: number | null; proteinOkHighDays: number };
-  recentWearablesSummary: { trackedDays: number; avgSteps: number | null; avgActiveMinutes: number | null; avgRestingHr: number | null; source: string };
+  recentWearablesSummary: { trackedDays: number | null; avgSteps: number | null; avgActiveMinutes: number | null; avgRestingHr: number | null; source: string | null };
   recentMedicationSummary: { scheduled: number; taken: number; skipped: number; adherencePct: number | null };
   recentPhotos: SymptomPhotoItem[];
   onSelectDayKey: (date: string | null) => void;
@@ -140,10 +140,14 @@ export function PatientHistoryPane({
             <article className="v2-patient-digest-item">
               <DashboardV2Text tone="label">Wearables and medication</DashboardV2Text>
               <DashboardV2Text as="strong" tone="strong">
-                {recentWearablesSummary.trackedDays > 0 ? `${recentWearablesSummary.trackedDays} wearable days` : 'No wearable days'}
+                {recentWearablesSummary.source && recentWearablesSummary.trackedDays !== null
+                  ? `${recentWearablesSummary.trackedDays} wearable day${recentWearablesSummary.trackedDays === 1 ? '' : 's'}`
+                  : 'No connected wearable source'}
               </DashboardV2Text>
               <DashboardV2Text tone="muted">
-                Medication adherence {recentMedicationSummary.adherencePct !== null ? `${recentMedicationSummary.adherencePct}%` : 'not recorded'}
+                {recentWearablesSummary.source
+                  ? `Medication adherence ${recentMedicationSummary.adherencePct !== null ? `${recentMedicationSummary.adherencePct}%` : 'not recorded'}`
+                  : 'Medication and check-in history remain visible in the main timeline.'}
               </DashboardV2Text>
             </article>
             <article className="v2-patient-digest-item">

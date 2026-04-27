@@ -337,11 +337,11 @@ vi.mock('./usePatientWorkspaceViewModel', async () => {
         recentHydrationSummary: { avgDailyMl: null, daysMeetingTarget: 0 },
         recentNutritionSummary: { trackedDays: 0, avgFruitVeg: null, proteinOkHighDays: 0 },
         recentWearablesSummary: {
-          trackedDays: 0,
+          trackedDays: null,
           avgSteps: null,
           avgActiveMinutes: null,
           avgRestingHr: null,
-          source: 'mock',
+          source: null,
         },
         recentMedicationSummary: { scheduled: 0, taken: 0, skipped: 0, adherencePct: null },
         recentPhotos: [],
@@ -459,5 +459,7 @@ describe('PatientWorkspaceRoute', () => {
     expect(await screen.findByTestId('v2-patient-history-pane')).toBeInTheDocument();
     expect(screen.queryByTestId('v2-patient-governance-rail')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Context' })).toBeInTheDocument();
+    expect(screen.getByText('No connected wearable source')).toBeInTheDocument();
+    expect(screen.getByText('Medication and check-in history remain visible in the main timeline.')).toBeInTheDocument();
   });
 });

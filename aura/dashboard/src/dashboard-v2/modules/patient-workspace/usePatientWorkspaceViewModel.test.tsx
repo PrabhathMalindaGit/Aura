@@ -668,36 +668,6 @@ function installPatientWorkspaceFetchMock(): FetchTracker {
       });
     }
 
-    if (url.pathname === `/clinician/patients/${PATIENT_ID}/wearables/summary`) {
-      return createJsonResponse({
-        ok: true,
-        patientId: PATIENT_ID,
-        source: 'mock',
-        from: '2026-04-11',
-        to: TODAY,
-        trackedDays: 4,
-        avgSteps: 5230,
-        avgActiveMinutes: 34,
-        avgRestingHr: 68,
-        totalSteps: 20920,
-        totalActiveMinutes: 136,
-      });
-    }
-
-    if (url.pathname === `/clinician/patients/${PATIENT_ID}/wearables/daily`) {
-      return createJsonResponse({
-        ok: true,
-        patientId: PATIENT_ID,
-        source: 'mock',
-        from: '2026-04-11',
-        to: TODAY,
-        days: [
-          { date: '2026-04-16', steps: 4800, activeMinutes: 28, restingHr: 69 },
-          { date: '2026-04-17', steps: 5660, activeMinutes: 40, restingHr: 67 },
-        ],
-      });
-    }
-
     if (url.pathname === `/clinician/patients/${PATIENT_ID}/medications/adherence`) {
       return createJsonResponse({
         ok: true,
@@ -865,6 +835,15 @@ describe('usePatientWorkspaceViewModel', () => {
     expect(tracker.trendDaysCalls).toContain(30);
     expect(tracker.requestLog.some((request) => request.pathname === `/clinician/patients/${PATIENT_ID}/checkins`)).toBe(true);
     expect(tracker.requestLog.some((request) => request.pathname === `/clinician/patients/${PATIENT_ID}/hydration/range`)).toBe(true);
+    expect(tracker.requestLog.some((request) => request.pathname.includes('/wearables/'))).toBe(false);
+    expect(tracker.requestLog.some((request) => request.search.includes('source=mock'))).toBe(false);
+    expect(result.current.recentWearablesSummary).toMatchObject({
+      trackedDays: null,
+      avgSteps: null,
+      avgActiveMinutes: null,
+      avgRestingHr: null,
+      source: null,
+    });
     expect(tracker.requestLog.some((request) => request.pathname === '/clinician/dashboard/communication-overview')).toBe(false);
     expect(tracker.requestLog.some((request) => request.pathname === '/clinician/tasks')).toBe(false);
     expect(tracker.requestLog.some((request) => request.pathname === '/clinician/appointments/requests')).toBe(true);

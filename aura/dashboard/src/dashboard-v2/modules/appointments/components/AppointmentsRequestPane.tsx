@@ -1,8 +1,30 @@
 import type { RefObject } from 'react';
-import type { AppointmentRequestRowVm } from '../../../adapters/appointments';
+import type {
+  AppointmentRequestRowVm,
+  AppointmentReviewHeaderVm,
+  AppointmentsGovernanceVm,
+} from '../../../adapters/appointments';
+import type { AppointmentRequestItem } from '../../../../types/models';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 import { AppointmentRequestRow } from './AppointmentRequestRow';
+
+interface RequestReviewOutcomeState {
+  status: 'approved' | 'rejected';
+  patientLabel: string;
+}
+
+export interface AppointmentRequestRailContext {
+  header: AppointmentReviewHeaderVm | null;
+  request: AppointmentRequestItem | null;
+  governance: AppointmentsGovernanceVm | null;
+  reviewOutcome: RequestReviewOutcomeState | null;
+  reviewErrorMessage: string | null;
+  mutationPending: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  onOpenPatient: () => void;
+}
 
 interface AppointmentsRequestPaneProps {
   rows: AppointmentRequestRowVm[];
@@ -14,6 +36,7 @@ interface AppointmentsRequestPaneProps {
   requestRef?: RefObject<HTMLDivElement | null>;
   onRequestScroll?: (scrollTop: number) => void;
   onSelectRequest: (requestId: string) => void;
+  selectedContext: AppointmentRequestRailContext;
 }
 
 export function AppointmentsRequestPane({
@@ -26,6 +49,7 @@ export function AppointmentsRequestPane({
   requestRef,
   onRequestScroll,
   onSelectRequest,
+  selectedContext,
 }: AppointmentsRequestPaneProps): JSX.Element {
   return (
     <DashboardV2Surface className="v2-appointments-request-pane" tone="base">
@@ -38,6 +62,27 @@ export function AppointmentsRequestPane({
           </DashboardV2Text>
         </div>
       </div>
+
+      {selectedContext.reviewOutcome ? (
+        <DashboardV2Surface className="v2-appointments-request-pane__notice" tone="muted">
+          <DashboardV2Text tone="strong">
+            {selectedContext.reviewOutcome.status === 'approved' ? 'Request approved' : 'Request rejected'}
+          </DashboardV2Text>
+          <DashboardV2Text tone="muted">
+            {selectedContext.reviewOutcome.patientLabel}{' '}
+            {selectedContext.reviewOutcome.status === 'approved'
+              ? 'moved out of pending review.'
+              : 'stayed out of the pending review queue.'}
+          </DashboardV2Text>
+        </DashboardV2Surface>
+      ) : null}
+
+      {selectedContext.reviewErrorMessage ? (
+        <DashboardV2Surface className="v2-appointments-request-pane__notice" tone="muted">
+          <DashboardV2Text tone="strong">Could not update request</DashboardV2Text>
+          <DashboardV2Text tone="muted">{selectedContext.reviewErrorMessage}</DashboardV2Text>
+        </DashboardV2Surface>
+      ) : null}
 
       <div
         ref={requestRef}
@@ -65,6 +110,7 @@ export function AppointmentsRequestPane({
                 selected={row.requestId === selectedRequestId}
                 isVeryNarrow={isVeryNarrow}
                 onSelect={() => onSelectRequest(row.requestId)}
+                selectedContext={row.requestId === selectedRequestId ? selectedContext : null}
               />
             ))}
           </div>

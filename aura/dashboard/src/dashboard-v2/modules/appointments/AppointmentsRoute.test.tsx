@@ -5,7 +5,6 @@ import {
   cleanup,
   render,
   screen,
-  waitFor,
 } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
@@ -316,7 +315,8 @@ describe('AppointmentsRoute', () => {
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
     await screen.findByTestId('v2-appointment-request-row-request-1');
     const plannerWorkspace = await screen.findByTestId('v2-appointments-planner-workspace');
-    expect(plannerWorkspace).toHaveTextContent('Jordan Lee');
+    expect(plannerWorkspace).toHaveTextContent('Planner');
+    expect(screen.getByRole('heading', { name: 'Jordan Lee' })).toBeVisible();
     expect(screen.queryByText(/Booked|Confirmed visit/i)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Open patient' }));
@@ -333,13 +333,12 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByTestId('appointments-schedule-week')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'No visible capacity in this week' })).toBeVisible();
     expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('No open capacity visible');
-    expect(screen.getByRole('heading', { name: 'No request selected' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Support context' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Load presentation data' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Selected request context')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Support context' })).not.toBeInTheDocument();
     expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
   });
 
-  it('keeps publishing secondary on medium layouts and shows publish outcomes without implying booking truth', async () => {
+  it('keeps publishing inline on medium layouts and shows publish outcomes without implying booking truth', async () => {
     installViewportMock(1180);
     installAppointmentsFetchMock();
 
@@ -347,11 +346,7 @@ describe('AppointmentsRoute', () => {
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
     await screen.findByTestId('v2-appointment-request-row-request-1');
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Open publishing' })).toBeInTheDocument();
-    });
-    await userEvent.click(screen.getByRole('button', { name: 'Open publishing' }));
-    expect(await screen.findByRole('heading', { name: 'Scheduling support context' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Open only the time still needed' })).toBeVisible();
 
     await userEvent.type(screen.getByLabelText('Start (local datetime)'), '2026-04-20T14:00');
     await userEvent.type(screen.getByLabelText('End (local datetime)'), '2026-04-20T14:30');
@@ -363,7 +358,7 @@ describe('AppointmentsRoute', () => {
     expect(screen.queryByText(/Booked|Confirmed visit/i)).not.toBeInTheDocument();
   });
 
-  it('stays request-first on narrow layouts until a clinician selects a request', async () => {
+  it('keeps the planner first on narrow layouts while preserving request selection', async () => {
     installViewportMock(900);
     installAppointmentsFetchMock();
 
@@ -371,20 +366,20 @@ describe('AppointmentsRoute', () => {
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
     await screen.findByTestId('v2-appointment-request-row-request-1');
-    expect(screen.queryByTestId('v2-appointments-planner-workspace')).not.toBeInTheDocument();
+    expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
     await userEvent.click(screen.getByTestId('v2-appointment-request-row-request-1'));
-    expect(await screen.findByTestId('v2-appointments-planner-workspace')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Back to requests' })).toBeInTheDocument();
+    expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Back to requests' })).not.toBeInTheDocument();
   });
 
-  it('hides presentation seeding when the presentation env flag is disabled', async () => {
+  it('shows presentation seeding in local development even when the presentation env flag is disabled', async () => {
     vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'false');
     installAppointmentsFetchMock({ requests: [], slots: [] });
 
     renderAppointmentsRoute();
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Load presentation data' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load presentation data' })).toBeInTheDocument();
     expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
   });
 
@@ -407,6 +402,18 @@ describe('AppointmentsRoute', () => {
     expect(screen.getAllByText('Maria Gonzalez').length).toBeGreaterThan(0);
     expect(screen.getByText('Jacob Patel')).toBeInTheDocument();
     expect(screen.getByText('Sarah Kim')).toBeInTheDocument();
+    expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
+    expect(screen.getByTestId('v2-appointments-request-pane')).toBeVisible();
+    expect(screen.queryByText('Selected request context')).not.toBeInTheDocument();
+    expect(screen.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
+      'Reason',
+    );
+    expect(screen.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
+      'Constraints',
+    );
+    expect(screen.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
+      'Recommended slot',
+    );
     expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('PT Follow-up');
     expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('Telehealth');
     expect(screen.getByLabelText('Start (local datetime)')).toHaveValue('2026-04-13T00:00');
@@ -414,5 +421,27 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByLabelText('Meeting link (optional)')).toHaveValue('https://meet.example.com');
     expect(screen.getAllByRole('heading', { name: 'Emily Chen' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Day', exact: true }));
+    expect(screen.getByText('Presentation range locked')).toBeInTheDocument();
+    expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Today', exact: true }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Week' }));
+    expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
+
+    expect(await screen.findByText('Availability added to presentation view')).toBeInTheDocument();
+    expect(screen.getByText(/No backend records were written/i)).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url = new URL(String(input), 'http://localhost');
+        return url.pathname === '/clinician/appointments/slots' && String(init?.method ?? 'GET').toUpperCase() === 'POST';
+      }),
+    ).toBe(false);
   });
 });

@@ -76,6 +76,7 @@ export function AppointmentPublishPanel({
       <DashboardV2Button
         tone="primary"
         size="sm"
+        fullWidth
         onPress={onPublish}
         isDisabled={!publishVm.canPublish}
       >

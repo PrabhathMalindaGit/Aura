@@ -34,7 +34,7 @@ export function AppointmentsGovernanceRail({
       />
 
       <DashboardV2Surface className="v2-appointments-governance-rail__intro" tone="elevated">
-        <DashboardV2Text tone="label">Selected request context</DashboardV2Text>
+        <DashboardV2Text tone="label">Request context</DashboardV2Text>
         {governance ? (
           <>
             <DashboardV2Heading as="h3">{governance.patientTitle}</DashboardV2Heading>

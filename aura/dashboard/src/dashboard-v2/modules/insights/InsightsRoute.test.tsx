@@ -333,15 +333,17 @@ describe('InsightsRoute', () => {
     expect(selectedReview).toHaveTextContent('Symptoms');
     expect(selectedReview).toHaveTextContent('Confidence');
     expect(selectedReview).toHaveTextContent('high');
-    expect(selectedReview).toHaveTextContent('Suggested follow-through');
-    expect(selectedReview).toHaveTextContent('Review this item before routine batching.');
-    expect(selectedReview).toHaveTextContent('Approve keeps this suggestion available for follow-through.');
-    expect(selectedReview).toHaveTextContent('Reject removes this suggestion from the active review lane.');
+    expect(selectedReview).not.toHaveTextContent('Suggested follow-through');
+    expect(selectedReview).not.toHaveTextContent('Review this item before routine batching.');
     expect(selectedReview).toHaveTextContent('Decision checklist');
     expect(selectedReview).toHaveTextContent('Patient context available');
     expect(selectedReview).toHaveTextContent('Review reason visible');
     expect(selectedReview).toHaveTextContent('Decision actions available');
     expect(selectedReview).not.toHaveTextContent(/Presentation/i);
+    const supportRail = screen.getByLabelText('Follow-up review support');
+    expect(supportRail).toHaveTextContent('Support context');
+    expect(supportRail).toHaveTextContent('Why this needs follow-up');
+    expect(supportRail).toHaveTextContent('Review support');
 
     await userEvent.click(within(lane).getByTestId('v2-insight-row-insight-low-1'));
     await waitFor(() => {

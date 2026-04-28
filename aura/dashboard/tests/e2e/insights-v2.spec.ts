@@ -31,9 +31,12 @@ test('insights v2 preserves review continuity across lifecycle, patient routing,
   await expect(page.getByText('Follow-up lane')).toBeVisible();
   await expect(page.getByLabel('Selected insight review')).toContainText('Pain trend worsened');
   await expect(page.getByLabel('Selected insight review')).toContainText('Review basis');
-  await expect(page.getByLabel('Selected insight review')).toContainText('Suggested follow-through');
-  await expect(page.getByLabel('Selected insight review')).toContainText('Review this item before routine batching.');
+  await expect(page.getByLabel('Selected insight review')).not.toContainText('Suggested follow-through');
+  await expect(page.getByLabel('Selected insight review')).not.toContainText('Review this item before routine batching.');
   await expect(page.getByLabel('Selected insight review')).toContainText('Decision checklist');
+  await expect(page.getByLabel('Follow-up review support')).toContainText('Support context');
+  await expect(page.getByLabel('Follow-up review support')).toContainText('Why this needs follow-up');
+  await expect(page.getByLabel('Follow-up review support')).toContainText('Review support');
   const workspace = page.getByTestId('v2-insights-review-workspace');
   await expect(workspace).toContainText('Patient P1');
   await expect(page.getByLabel('Selected insight review')).not.toContainText(/Presentation/i);

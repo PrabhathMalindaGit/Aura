@@ -48,28 +48,6 @@ interface InsightsReviewWorkspaceProps {
   onOpenQueueSheet: () => void;
 }
 
-function followThroughItems(status: InsightItem['status']): string[] {
-  if (status === 'approved') {
-    return [
-      'This suggestion is already approved and remains visible for follow-through.',
-      'Open patient keeps the review connected to the patient workspace.',
-    ];
-  }
-
-  if (status === 'rejected') {
-    return [
-      'This suggestion is already rejected and remains visible for review history.',
-      'Open patient keeps the recorded decision connected to the patient workspace.',
-    ];
-  }
-
-  return [
-    'Review this item before routine batching.',
-    'Approve keeps this suggestion available for follow-through.',
-    'Reject removes this suggestion from the active review lane.',
-  ];
-}
-
 export function InsightsReviewWorkspace({
   insight,
   header,
@@ -193,31 +171,18 @@ export function InsightsReviewWorkspace({
               </div>
             </DashboardV2Surface>
 
-            <DashboardV2Surface className="v2-insights-selected-review__decision-panel" tone="muted">
-              <div>
-                <DashboardV2Text tone="label">Suggested follow-through</DashboardV2Text>
-                <ul className="v2-insights-selected-review__support-list">
-                  {followThroughItems(insight.status).map((item) => (
-                    <li key={item}>
-                      <DashboardV2Text tone="muted">{item}</DashboardV2Text>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <DashboardV2Text tone="label">Decision checklist</DashboardV2Text>
-                <div className="v2-insights-selected-review__checklist" role="list" aria-label="Decision checklist">
-                  {[
-                    governance ? 'Patient context available' : 'Patient context unavailable',
-                    'Review reason visible',
-                    insight.status === 'pending' ? 'Decision actions available' : 'Recorded outcome visible',
-                  ].map((item) => (
-                    <span key={item} className="v2-insights-selected-review__check" role="listitem">
-                      {item}
-                    </span>
-                  ))}
-                </div>
+            <DashboardV2Surface className="v2-insights-selected-review__checklist-panel" tone="muted">
+              <DashboardV2Text tone="label">Decision checklist</DashboardV2Text>
+              <div className="v2-insights-selected-review__checklist" role="list" aria-label="Decision checklist">
+                {[
+                  governance ? 'Patient context available' : 'Patient context unavailable',
+                  'Review reason visible',
+                  insight.status === 'pending' ? 'Decision actions available' : 'Recorded outcome visible',
+                ].map((item) => (
+                  <span key={item} className="v2-insights-selected-review__check" role="listitem">
+                    {item}
+                  </span>
+                ))}
               </div>
             </DashboardV2Surface>
           </div>
@@ -253,7 +218,7 @@ export function InsightsReviewWorkspace({
           ) : null}
 
           <DashboardV2Surface className="v2-insights-support-card v2-insights-support-card--reason" tone="elevated">
-            <DashboardV2Text tone="label">{summary.title}</DashboardV2Text>
+            <DashboardV2Heading as="h3">{summary.title}</DashboardV2Heading>
             <DashboardV2Text tone="muted">{summary.summary}</DashboardV2Text>
             <div className="v2-insights-review-workspace__facts" role="list" aria-label="Insight review facts">
               {summary.supportingFacts.map((fact) => (
@@ -266,9 +231,9 @@ export function InsightsReviewWorkspace({
           </DashboardV2Surface>
 
           <DashboardV2Surface className="v2-insights-support-card v2-insights-support-card--support" tone="elevated">
-            <DashboardV2Text tone="label">
+            <DashboardV2Heading as="h3">
               {insight.status === 'pending' ? 'Review support' : 'Outcome context'}
-            </DashboardV2Text>
+            </DashboardV2Heading>
             <ul className="v2-insights-review-workspace__basis-list">
               {summary.basisItems.map((item) => (
                 <li key={item}>

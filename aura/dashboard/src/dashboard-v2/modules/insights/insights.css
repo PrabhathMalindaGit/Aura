@@ -280,7 +280,7 @@
 
 .v2-insights-review-workspace__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 25rem);
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 27rem);
   gap: var(--v2-space-3);
   align-items: stretch;
 }
@@ -330,13 +330,13 @@
 
 .v2-insights-selected-review__basis-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.82fr);
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.42fr);
   gap: var(--v2-space-3);
   align-items: stretch;
 }
 
 .v2-insights-selected-review__basis-panel,
-.v2-insights-selected-review__decision-panel {
+.v2-insights-selected-review__checklist-panel {
   display: grid;
   gap: var(--v2-space-3);
   padding: var(--v2-space-4);
@@ -357,13 +357,6 @@
   border: 1px solid hsl(var(--v2-border) / 0.62);
   border-radius: var(--v2-radius-md);
   background: hsl(var(--v2-surface) / 0.76);
-}
-
-.v2-insights-selected-review__support-list {
-  display: grid;
-  gap: var(--v2-space-1);
-  margin: var(--v2-space-2) 0 0;
-  padding-left: var(--v2-space-4);
 }
 
 .v2-insights-selected-review__checklist {
@@ -448,13 +441,13 @@
 }
 
 .v2-insights-support-rail {
-  gap: var(--v2-space-3);
+  gap: var(--v2-space-4);
   align-content: start;
 }
 
 .v2-insights-support-card {
-  gap: var(--v2-space-2);
-  padding: var(--v2-space-4);
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-5);
 }
 
 .v2-insights-support-card__header {
@@ -467,23 +460,37 @@
 
 .v2-insights-support-card__facts {
   display: grid;
-  gap: var(--v2-space-2);
+  gap: var(--v2-space-1);
 }
 
 .v2-insights-support-card__fact {
   display: grid;
-  grid-template-columns: minmax(6rem, 0.9fr) minmax(0, 1fr);
-  gap: var(--v2-space-2);
+  grid-template-columns: minmax(7rem, 0.82fr) minmax(0, 1fr);
+  gap: var(--v2-space-3);
   align-items: center;
   min-width: 0;
-  padding: 0.42rem 0;
+  padding: 0.66rem 0;
   border-top: 1px solid hsl(var(--v2-border) / 0.62);
+}
+
+.v2-insights-support-card__fact span:last-child {
+  line-height: var(--v2-line-height-tight);
 }
 
 .v2-insights-support-card--reason .v2-insights-review-workspace__facts {
   display: flex;
   flex-wrap: wrap;
   gap: var(--v2-space-2);
+  padding-top: var(--v2-space-1);
+}
+
+.v2-insights-support-card .v2-insights-review-workspace__basis-list {
+  gap: 0.48rem;
+  padding-left: 1.15rem;
+}
+
+.v2-insights-support-card .v2-insights-review-workspace__basis-list li {
+  padding-left: 0.15rem;
 }
 
 .v2-insights-review-workspace__notice--success {
@@ -581,7 +588,7 @@
 
 @media (max-width: 1279px) {
   .v2-insights-review-workspace__layout {
-    grid-template-columns: minmax(0, 1fr) minmax(17rem, 22rem);
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
   }
 }
 
@@ -602,7 +609,7 @@
   .v2-insight-review-header,
   .v2-insights-selected-review,
   .v2-insights-selected-review__basis-panel,
-  .v2-insights-selected-review__decision-panel,
+  .v2-insights-selected-review__checklist-panel,
   .v2-insights-support-card,
   .v2-insights-review-workspace__context-summary,
   .v2-insights-review-workspace__section,

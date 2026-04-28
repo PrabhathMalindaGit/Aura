@@ -3,7 +3,6 @@
   gap: var(--v2-space-3);
 }
 
-.v2-insights-status-bar,
 .v2-insights-status-bar__views,
 .v2-insights-status-bar__facts,
 .v2-insights-status-bar__actions,
@@ -15,13 +14,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--v2-space-2);
-}
-
-.v2-insights-status-bar {
-  align-items: flex-start;
-  padding: var(--v2-space-4);
-  border-color: hsl(var(--v2-border) / 0.58);
-  background: hsl(var(--v2-surface));
 }
 
 .v2-insights-status-bar__copy,
@@ -40,10 +32,6 @@
 .v2-insights-batch-bar__copy {
   display: grid;
   gap: var(--v2-space-1);
-}
-
-.v2-insights-status-bar__copy {
-  flex: 1 1 18rem;
 }
 
 .v2-insights-status-bar__pill,
@@ -441,7 +429,6 @@
 }
 
 @media (max-width: 599px) {
-  .v2-insights-status-bar,
   .v2-insights-queue-pane,
   .v2-insight-review-header,
   .v2-insights-review-workspace__context-summary,

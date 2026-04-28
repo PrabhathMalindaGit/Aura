@@ -636,6 +636,7 @@ export function buildAppointmentsStatusBar(params: {
   scheduleRangeLabel: string;
   pendingRequestsCount: number;
   availableSlotsCount: number;
+  visibleRequestsCount: number;
   updatedAtLabel: string;
   coordinationState: CoordinationState;
   coverageState: CoverageState;
@@ -654,6 +655,7 @@ export function buildAppointmentsStatusBar(params: {
       { key: 'range', label: 'Range', value: params.scheduleRangeLabel },
       { key: 'pending', label: 'Pending requests', value: String(params.pendingRequestsCount) },
       { key: 'open', label: 'Open capacity', value: String(params.availableSlotsCount) },
+      { key: 'visible-requests', label: 'Visible requests', value: String(params.visibleRequestsCount) },
       { key: 'updated', label: 'Updated', value: params.updatedAtLabel },
     ],
     requestOptions: [

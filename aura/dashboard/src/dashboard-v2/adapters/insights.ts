@@ -263,6 +263,12 @@ export function buildInsightsStatusBar(params: {
       : params.activeView === 'rejected'
         ? 'Rejected follow-up'
         : 'Pending follow-up';
+  const visibleCount =
+    params.activeView === 'approved'
+      ? params.approvedCount
+      : params.activeView === 'rejected'
+        ? params.rejectedCount
+        : params.pendingCount;
 
   const guidanceLine =
     params.activeView === 'pending'
@@ -284,6 +290,9 @@ export function buildInsightsStatusBar(params: {
       { key: 'pending', label: 'Pending', value: String(params.pendingCount) },
       { key: 'approved', label: 'Approved', value: String(params.approvedCount) },
       { key: 'rejected', label: 'Rejected', value: String(params.rejectedCount) },
+      { key: 'individual-pending', label: 'Pending follow-up', value: String(params.individualPendingCount) },
+      { key: 'batchable-pending', label: 'Batchable follow-up', value: String(params.batchablePendingCount) },
+      { key: 'visible', label: 'Visible suggestions', value: String(visibleCount) },
       { key: 'updated', label: 'Updated', value: params.updatedAtLabel },
     ],
     statusOptions,

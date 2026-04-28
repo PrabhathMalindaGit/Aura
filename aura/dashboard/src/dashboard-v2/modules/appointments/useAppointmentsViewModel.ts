@@ -161,6 +161,33 @@ export function useAppointmentsViewModel({
     placeholderData: (previous) => previous,
   });
 
+  const approvedRequestsSummaryQuery = useQuery({
+    queryKey: ['appointments-requests-summary', 'approved'],
+    queryFn: () => listAppointmentRequests({ status: 'approved', limit: 100 }),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const rejectedRequestsSummaryQuery = useQuery({
+    queryKey: ['appointments-requests-summary', 'rejected'],
+    queryFn: () => listAppointmentRequests({ status: 'rejected', limit: 100 }),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
+  const canceledRequestsSummaryQuery = useQuery({
+    queryKey: ['appointments-requests-summary', 'canceled'],
+    queryFn: () => listAppointmentRequests({ status: 'canceled', limit: 100 }),
+    staleTime: 7_000,
+    retry: (failureCount, error) => failureCount < 2 && isRetryable(asAppError(error)),
+    refetchOnWindowFocus: false,
+    placeholderData: (previous) => previous,
+  });
+
   const patientMap = useMemo(() => {
     const next = new Map<string, PatientSummary>();
 
@@ -186,6 +213,15 @@ export function useAppointmentsViewModel({
   const pendingRequests = useMemo(() => {
     return pendingRequestsSummaryQuery.data ?? [];
   }, [pendingRequestsSummaryQuery.data]);
+  const approvedRequests = useMemo(() => {
+    return approvedRequestsSummaryQuery.data ?? [];
+  }, [approvedRequestsSummaryQuery.data]);
+  const rejectedRequests = useMemo(() => {
+    return rejectedRequestsSummaryQuery.data ?? [];
+  }, [rejectedRequestsSummaryQuery.data]);
+  const canceledRequests = useMemo(() => {
+    return canceledRequestsSummaryQuery.data ?? [];
+  }, [canceledRequestsSummaryQuery.data]);
 
   const visibleSlots = useMemo(
     () => scheduleSlots.filter((slot) => (slot.status ?? 'available') === slotStatus),
@@ -203,6 +239,9 @@ export function useAppointmentsViewModel({
       requestsQuery.dataUpdatedAt,
       openSlotsSummaryQuery.dataUpdatedAt,
       pendingRequestsSummaryQuery.dataUpdatedAt,
+      approvedRequestsSummaryQuery.dataUpdatedAt,
+      rejectedRequestsSummaryQuery.dataUpdatedAt,
+      canceledRequestsSummaryQuery.dataUpdatedAt,
       patientsQuery.dataUpdatedAt,
     ) || null,
   );
@@ -213,9 +252,16 @@ export function useAppointmentsViewModel({
     scheduleRangeLabel: scheduleRange.label,
     pendingRequestsCount,
     availableSlotsCount,
+    visibleRequestsCount: requests.length,
     updatedAtLabel: refreshedAtLabel,
     coordinationState,
     coverageState,
+    requestStatusCounts: {
+      pending: pendingRequests.length,
+      approved: approvedRequests.length,
+      rejected: rejectedRequests.length,
+      canceled: canceledRequests.length,
+    },
   });
 
   useEffect(() => {
@@ -370,6 +416,9 @@ export function useAppointmentsViewModel({
       requestsQuery.refetch(),
       openSlotsSummaryQuery.refetch(),
       pendingRequestsSummaryQuery.refetch(),
+      approvedRequestsSummaryQuery.refetch(),
+      rejectedRequestsSummaryQuery.refetch(),
+      canceledRequestsSummaryQuery.refetch(),
       patientsQuery.refetch(),
     ]);
   }
@@ -550,6 +599,9 @@ export function useAppointmentsViewModel({
       requestsQuery.isFetching ||
       openSlotsSummaryQuery.isFetching ||
       pendingRequestsSummaryQuery.isFetching ||
+      approvedRequestsSummaryQuery.isFetching ||
+      rejectedRequestsSummaryQuery.isFetching ||
+      canceledRequestsSummaryQuery.isFetching ||
       patientsQuery.isFetching,
     lastPublishOutcome,
     lastRequestReviewOutcome,

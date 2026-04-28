@@ -1,8 +1,13 @@
-import { RefreshCcw } from 'lucide-react';
+import {
+  CheckCircle2,
+  Eye,
+  Inbox,
+  RefreshCcw,
+  ShieldX,
+  Sparkles,
+} from 'lucide-react';
 import type { InsightsStatusBarVm, InsightsView } from '../../../adapters/insights';
-import { DashboardV2Button } from '../../../primitives/Button';
-import { DashboardV2Surface } from '../../../primitives/Surface';
-import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
+import { ReviewSummaryStrip, type ReviewSummaryMetric } from '../../../patterns/ReviewSummaryStrip';
 
 interface InsightsStatusBarProps {
   statusBar: InsightsStatusBarVm;
@@ -19,46 +24,75 @@ export function InsightsStatusBar({
   onRefresh,
   onViewChange,
 }: InsightsStatusBarProps): JSX.Element {
+  const countForView = (view: InsightsView) =>
+    statusBar.statusOptions.find((option) => option.id === view)?.count ?? 0;
+  const activeOption = statusBar.statusOptions.find((option) => option.id === activeView);
+  const individualPendingFact = statusBar.facts.find((fact) => fact.key === 'individual-pending');
+  const visibleFact = statusBar.facts.find((fact) => fact.key === 'visible');
+  const metricItems: ReviewSummaryMetric[] = [
+    {
+      key: 'pending',
+      label: 'Pending',
+      value: String(countForView('pending')),
+      meta: countForView('pending') === 1 ? 'Suggestion' : 'Suggestions',
+      icon: Inbox,
+      active: activeView === 'pending',
+      ariaLabel: `Pending (${countForView('pending')})`,
+      onPress: () => onViewChange('pending'),
+    },
+    {
+      key: 'approved',
+      label: 'Approved',
+      value: String(countForView('approved')),
+      meta: countForView('approved') === 1 ? 'Suggestion' : 'Suggestions',
+      icon: CheckCircle2,
+      active: activeView === 'approved',
+      ariaLabel: `Approved (${countForView('approved')})`,
+      onPress: () => onViewChange('approved'),
+    },
+    {
+      key: 'rejected',
+      label: 'Rejected',
+      value: String(countForView('rejected')),
+      meta: countForView('rejected') === 1 ? 'Suggestion' : 'Suggestions',
+      icon: ShieldX,
+      active: activeView === 'rejected',
+      ariaLabel: `Rejected (${countForView('rejected')})`,
+      onPress: () => onViewChange('rejected'),
+    },
+    {
+      key: 'pending-follow-up',
+      label: 'Pending follow-up',
+      value: individualPendingFact?.value ?? '0',
+      meta: 'Needs review',
+      icon: Sparkles,
+    },
+    {
+      key: 'visible',
+      label: 'Visible suggestions',
+      value: visibleFact?.value ?? String(activeOption?.count ?? 0),
+      meta: 'Suggestions',
+      icon: Eye,
+    },
+  ];
+
   return (
-    <DashboardV2Surface className="v2-insights-status-bar" tone="elevated">
-      <div className="v2-insights-status-bar__copy">
-        <DashboardV2Text tone="label">Follow-up review</DashboardV2Text>
-        <DashboardV2Heading as="h1">{statusBar.title}</DashboardV2Heading>
-        <DashboardV2Text tone="muted">{statusBar.guidanceLine}</DashboardV2Text>
-      </div>
-
-      <div className="v2-insights-status-bar__views" aria-label="Insight lifecycle views">
-        {statusBar.statusOptions.map((option) => (
-          <DashboardV2Button
-            key={option.id}
-            tone={option.id === activeView ? 'primary' : 'ghost'}
-            size="sm"
-            onPress={() => onViewChange(option.id)}
-          >
-            {`${option.label} (${option.count})`}
-          </DashboardV2Button>
-        ))}
-      </div>
-
-      <div className="v2-insights-status-bar__facts">
-        <span className="v2-insights-status-bar__pill">{statusBar.viewLabel}</span>
-        {statusBar.facts.map((fact) => (
-          <span key={fact.key} className="v2-insights-status-bar__pill">
-            {fact.label} {fact.value}
-          </span>
-        ))}
-      </div>
-
-      <div className="v2-insights-status-bar__actions">
-        <DashboardV2Button
-          tone="secondary"
-          size="sm"
-          onPress={onRefresh}
-          leadingIcon={<RefreshCcw size={16} />}
-        >
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </DashboardV2Button>
-      </div>
-    </DashboardV2Surface>
+    <ReviewSummaryStrip
+      className="v2-insights-status-bar"
+      kicker="Follow-up review"
+      title={statusBar.title}
+      summary={statusBar.guidanceLine}
+      metrics={metricItems}
+      metricLabel="Insight lifecycle metrics"
+      actions={[
+        {
+          key: 'refresh',
+          label: isRefreshing ? 'Refreshing...' : 'Refresh',
+          tone: 'secondary',
+          leadingIcon: <RefreshCcw size={16} />,
+          onPress: onRefresh,
+        },
+      ]}
+    />
   );
 }

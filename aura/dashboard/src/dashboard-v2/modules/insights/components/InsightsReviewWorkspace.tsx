@@ -48,6 +48,28 @@ interface InsightsReviewWorkspaceProps {
   onOpenQueueSheet: () => void;
 }
 
+function followThroughItems(status: InsightItem['status']): string[] {
+  if (status === 'approved') {
+    return [
+      'This suggestion is already approved and remains visible for follow-through.',
+      'Open patient keeps the review connected to the patient workspace.',
+    ];
+  }
+
+  if (status === 'rejected') {
+    return [
+      'This suggestion is already rejected and remains visible for review history.',
+      'Open patient keeps the recorded decision connected to the patient workspace.',
+    ];
+  }
+
+  return [
+    'Review this item before routine batching.',
+    'Approve keeps this suggestion available for follow-through.',
+    'Reject removes this suggestion from the active review lane.',
+  ];
+}
+
 export function InsightsReviewWorkspace({
   insight,
   header,
@@ -149,6 +171,55 @@ export function InsightsReviewWorkspace({
               <Activity size={22} />
             </span>
             <DashboardV2Heading as="h3">{summary.summary}</DashboardV2Heading>
+          </div>
+
+          <div className="v2-insights-selected-review__basis-layout">
+            <DashboardV2Surface className="v2-insights-selected-review__basis-panel" tone="muted">
+              <DashboardV2Text tone="label">Review basis</DashboardV2Text>
+              <div className="v2-insights-selected-review__basis-grid" role="list" aria-label="Review basis fields">
+                {[
+                  { label: 'Category', value: header.categoryLabel },
+                  { label: 'Confidence', value: header.confidenceLabel },
+                  { label: 'Priority', value: header.priorityLabel },
+                  { label: 'Review window', value: header.reviewWindowLabel },
+                  { label: 'Reviewed state', value: header.reviewedLabel },
+                  { label: 'Created', value: header.createdLabel },
+                ].map((fact) => (
+                  <article key={fact.label} className="v2-insights-selected-review__basis-fact" role="listitem">
+                    <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
+                    <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
+                  </article>
+                ))}
+              </div>
+            </DashboardV2Surface>
+
+            <DashboardV2Surface className="v2-insights-selected-review__decision-panel" tone="muted">
+              <div>
+                <DashboardV2Text tone="label">Suggested follow-through</DashboardV2Text>
+                <ul className="v2-insights-selected-review__support-list">
+                  {followThroughItems(insight.status).map((item) => (
+                    <li key={item}>
+                      <DashboardV2Text tone="muted">{item}</DashboardV2Text>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <DashboardV2Text tone="label">Decision checklist</DashboardV2Text>
+                <div className="v2-insights-selected-review__checklist" role="list" aria-label="Decision checklist">
+                  {[
+                    governance ? 'Patient context available' : 'Patient context unavailable',
+                    'Review reason visible',
+                    insight.status === 'pending' ? 'Decision actions available' : 'Recorded outcome visible',
+                  ].map((item) => (
+                    <span key={item} className="v2-insights-selected-review__check" role="listitem">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </DashboardV2Surface>
           </div>
         </section>
 

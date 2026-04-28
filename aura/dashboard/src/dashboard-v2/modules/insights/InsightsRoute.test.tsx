@@ -328,6 +328,19 @@ describe('InsightsRoute', () => {
     const selectedReview = screen.getByLabelText('Selected insight review');
     expect(selectedReview).toHaveTextContent('Selected insight review');
     expect(selectedReview).toHaveTextContent('Pain follow-up suggested');
+    expect(selectedReview).toHaveTextContent('Review basis');
+    expect(selectedReview).toHaveTextContent('Category');
+    expect(selectedReview).toHaveTextContent('Symptoms');
+    expect(selectedReview).toHaveTextContent('Confidence');
+    expect(selectedReview).toHaveTextContent('high');
+    expect(selectedReview).toHaveTextContent('Suggested follow-through');
+    expect(selectedReview).toHaveTextContent('Review this item before routine batching.');
+    expect(selectedReview).toHaveTextContent('Approve keeps this suggestion available for follow-through.');
+    expect(selectedReview).toHaveTextContent('Reject removes this suggestion from the active review lane.');
+    expect(selectedReview).toHaveTextContent('Decision checklist');
+    expect(selectedReview).toHaveTextContent('Patient context available');
+    expect(selectedReview).toHaveTextContent('Review reason visible');
+    expect(selectedReview).toHaveTextContent('Decision actions available');
     expect(selectedReview).not.toHaveTextContent(/Presentation/i);
 
     await userEvent.click(within(lane).getByTestId('v2-insight-row-insight-low-1'));
@@ -335,6 +348,7 @@ describe('InsightsRoute', () => {
       expect(screen.getByLabelText('Selected insight review')).toHaveTextContent('Routine adherence follow-up');
     });
     expect(screen.getByLabelText('Selected insight review')).toHaveTextContent('Avery Chen');
+    expect(screen.getByLabelText('Selected insight review')).toHaveTextContent('Adherence');
   });
 
   it('keeps batch review queue-scoped and preserves partial failure truth', async () => {

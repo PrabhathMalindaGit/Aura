@@ -328,6 +328,64 @@
   color: hsl(var(--v2-info));
 }
 
+.v2-insights-selected-review__basis-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.82fr);
+  gap: var(--v2-space-3);
+  align-items: stretch;
+}
+
+.v2-insights-selected-review__basis-panel,
+.v2-insights-selected-review__decision-panel {
+  display: grid;
+  gap: var(--v2-space-3);
+  padding: var(--v2-space-4);
+  background: hsl(var(--v2-surface-muted) / 0.58);
+}
+
+.v2-insights-selected-review__basis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--v2-space-2);
+}
+
+.v2-insights-selected-review__basis-fact {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.72rem;
+  border: 1px solid hsl(var(--v2-border) / 0.62);
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-surface) / 0.76);
+}
+
+.v2-insights-selected-review__support-list {
+  display: grid;
+  gap: var(--v2-space-1);
+  margin: var(--v2-space-2) 0 0;
+  padding-left: var(--v2-space-4);
+}
+
+.v2-insights-selected-review__checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--v2-space-2);
+  margin-top: var(--v2-space-2);
+}
+
+.v2-insights-selected-review__check {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.82rem;
+  padding: 0.18rem 0.68rem;
+  border: 1px solid hsl(var(--v2-info) / 0.18);
+  border-radius: 999px;
+  background: hsl(var(--v2-info-soft) / 0.54);
+  color: hsl(var(--v2-text));
+  font-size: var(--v2-font-size-caption);
+  font-weight: var(--v2-font-weight-semibold);
+}
+
 .v2-insight-review-header {
   display: grid;
   grid-template-columns: minmax(16rem, 1fr) auto;
@@ -529,7 +587,8 @@
 
 @media (max-width: 1023px) {
   .v2-insight-review-header,
-  .v2-insights-review-workspace__layout {
+  .v2-insights-review-workspace__layout,
+  .v2-insights-selected-review__basis-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -542,6 +601,8 @@
   .v2-insights-queue-pane,
   .v2-insight-review-header,
   .v2-insights-selected-review,
+  .v2-insights-selected-review__basis-panel,
+  .v2-insights-selected-review__decision-panel,
   .v2-insights-support-card,
   .v2-insights-review-workspace__context-summary,
   .v2-insights-review-workspace__section,
@@ -555,6 +616,10 @@
   .v2-insights-support-card__header,
   .v2-insights-support-card__fact {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v2-insights-selected-review__basis-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

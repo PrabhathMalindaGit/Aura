@@ -84,10 +84,6 @@
   font-weight: var(--v2-font-weight-semibold);
 }
 
-.v2-load-presentation-data-button {
-  border-color: hsl(var(--v2-info) / 0.28);
-}
-
 .v2-appointments-workflow {
   display: grid;
   gap: var(--v2-space-3);

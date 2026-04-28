@@ -8,7 +8,6 @@ import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 
 interface AppointmentsPlannerWorkspaceProps {
   planner: AppointmentPlannerVm;
-  presentationNotice?: string | null;
   onScheduleViewChange: (view: ScheduleView) => void;
   onPreviousRange: () => void;
   onNextRange: () => void;
@@ -17,7 +16,6 @@ interface AppointmentsPlannerWorkspaceProps {
 
 export function AppointmentsPlannerWorkspace({
   planner,
-  presentationNotice,
   onScheduleViewChange,
   onPreviousRange,
   onNextRange,
@@ -67,13 +65,6 @@ export function AppointmentsPlannerWorkspace({
           <DashboardV2Surface className="v2-appointments-planner-workspace__context" tone="muted">
             <DashboardV2Text tone="strong">{planner.requestScheduleContext.label}</DashboardV2Text>
             <DashboardV2Text tone="muted">{planner.requestScheduleContext.note}</DashboardV2Text>
-          </DashboardV2Surface>
-        ) : null}
-
-        {presentationNotice ? (
-          <DashboardV2Surface className="v2-appointments-planner-workspace__notice" tone="muted">
-            <DashboardV2Text tone="strong">Presentation range locked</DashboardV2Text>
-            <DashboardV2Text tone="muted">{presentationNotice}</DashboardV2Text>
           </DashboardV2Surface>
         ) : null}
 

@@ -13,6 +13,7 @@ import type {
   ExerciseSessionListItem,
   InsightItem,
   PatientRecoverySupportConfig,
+  PatientSummary,
   PatientThresholdConfig,
   PromDueCard,
   PromHistoryRow,
@@ -53,6 +54,7 @@ interface MockApiOptions {
   alertsByStatus?: Record<AlertStatus, AlertItem[]>;
   insightsByStatus?: Record<InsightStatus, InsightItem[]>;
   exercisePlan?: ExercisePlan | null;
+  patients?: PatientSummary[];
   appointmentRequests?: AppointmentRequestItem[];
   appointmentSlots?: AppointmentSlot[];
 }
@@ -79,6 +81,7 @@ interface MockState {
   communicationOverview: DashboardCommunicationOverview;
   coordinationByPatient: Record<string, ClinicianCoordinationRecord | null>;
   exercisePlan: ExercisePlan | null;
+  patients: PatientSummary[];
 }
 
 const DEFAULT_REHAB: RehabPayload = {
@@ -405,6 +408,7 @@ function createInitialState(options: MockApiOptions = {}): MockState {
     },
     tasks: deepClone(FIXTURE_PATIENT_TASKS),
     worklistItems: deepClone(FIXTURE_WORKLIST_ITEMS),
+    patients: deepClone(options.patients ?? FIXTURE_PATIENTS),
     appointmentRequests: deepClone(options.appointmentRequests ?? FIXTURE_PATIENT_APPOINTMENT_REQUESTS),
     appointmentSlots: deepClone(options.appointmentSlots ?? DEFAULT_APPOINTMENT_SLOTS),
     communicationOverview: deepClone(options.communicationOverview ?? FIXTURE_DASHBOARD_COMMUNICATION),
@@ -700,7 +704,7 @@ export async function installMockApi(
     }
 
     if (isPath(pathname, '/clinician/patients') && method === 'GET') {
-      await fulfillJson(route, 200, { ok: true, patients: deepClone(FIXTURE_PATIENTS) });
+      await fulfillJson(route, 200, { ok: true, patients: deepClone(state.patients) });
       return;
     }
 

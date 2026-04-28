@@ -3,28 +3,21 @@ import type { AppointmentRequestFilter, AppointmentsStatusBarVm } from '../../..
 import { DashboardV2Button } from '../../../primitives/Button';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
-import { LoadPresentationDataButton } from './LoadPresentationDataButton';
 
 interface AppointmentsStatusBarProps {
   statusBar: AppointmentsStatusBarVm;
   activeRequestStatus: AppointmentRequestFilter;
   isRefreshing: boolean;
-  presentationDataEnabled: boolean;
-  presentationDataLoaded: boolean;
   onRefresh: () => void;
   onRequestStatusChange: (status: AppointmentRequestFilter) => void;
-  onLoadPresentationData: () => void;
 }
 
 export function AppointmentsStatusBar({
   statusBar,
   activeRequestStatus,
   isRefreshing,
-  presentationDataEnabled,
-  presentationDataLoaded,
   onRefresh,
   onRequestStatusChange,
-  onLoadPresentationData,
 }: AppointmentsStatusBarProps): JSX.Element {
   return (
     <DashboardV2Surface className="v2-appointments-status-bar" tone="elevated">
@@ -64,12 +57,6 @@ export function AppointmentsStatusBar({
         >
           {isRefreshing ? 'Refreshing...' : 'Refresh'}
         </DashboardV2Button>
-        {presentationDataEnabled ? (
-          <LoadPresentationDataButton
-            loaded={presentationDataLoaded}
-            onLoad={onLoadPresentationData}
-          />
-        ) : null}
       </div>
     </DashboardV2Surface>
   );

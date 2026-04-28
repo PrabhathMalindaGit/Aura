@@ -97,6 +97,47 @@ const PATIENTS: PatientSummary[] = [
   },
 ];
 
+const BACKEND_SEEDED_PRESENTATION_PATIENTS: PatientSummary[] = [
+  ...PATIENTS,
+  {
+    id: 'presentation-emily-chen',
+    displayName: 'Emily Chen',
+    status: 'active',
+    lastCheckinAt: '2026-04-28T06:00:00.000Z',
+    openAlertCount: 0,
+  },
+];
+
+const BACKEND_SEEDED_PRESENTATION_REQUESTS: AppointmentRequestItem[] = [
+  {
+    requestId: 'presentation-request-emily-chen',
+    slotId: 'presentation-slot-emily-chen',
+    patientId: 'presentation-emily-chen',
+    status: 'pending',
+    workflowStatus: 'awaiting_confirmation',
+    note: 'Return-to-activity follow-up after backend presentation seed.',
+    startsAt: '2026-04-28T15:00:00.000Z',
+    endsAt: '2026-04-28T15:30:00.000Z',
+    modality: 'video',
+    meetingLink: 'https://meet.example.com/emily-chen',
+    createdAt: '2026-04-28T08:00:00.000Z',
+    updatedAt: '2026-04-28T08:00:00.000Z',
+  },
+];
+
+const BACKEND_SEEDED_PRESENTATION_SLOTS: AppointmentSlot[] = [
+  {
+    slotId: 'presentation-slot-emily-chen',
+    clinicianName: 'Clinician One',
+    startsAt: '2026-04-28T15:00:00.000Z',
+    endsAt: '2026-04-28T15:30:00.000Z',
+    modality: 'video',
+    status: 'available',
+    meetingLink: 'https://meet.example.com/emily-chen',
+    createdAt: '2026-04-28T07:30:00.000Z',
+  },
+];
+
 function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
@@ -125,10 +166,12 @@ function installViewportMock(width: number): void {
 function installAppointmentsFetchMock(options: {
   requests?: AppointmentRequestItem[];
   slots?: AppointmentSlot[];
+  patients?: PatientSummary[];
   publishBehaviors?: PublishBehavior[];
 } = {}): void {
   let requestItems = [...(options.requests ?? REQUESTS)];
   let slotItems = [...(options.slots ?? SLOTS)];
+  const patients = options.patients ?? PATIENTS;
   const publishBehaviors = [...(options.publishBehaviors ?? [])];
 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -136,7 +179,7 @@ function installAppointmentsFetchMock(options: {
     const method = String(init?.method ?? 'GET').toUpperCase();
 
     if (url.pathname === '/clinician/patients') {
-      return createJsonResponse({ ok: true, patients: PATIENTS });
+      return createJsonResponse({ ok: true, patients });
     }
 
     if (url.pathname === '/clinician/appointments/requests' && method === 'GET') {
@@ -241,16 +284,6 @@ function installAppointmentsFetchMock(options: {
   });
 }
 
-function isAppointmentRequestReviewMutation(input: unknown, init: RequestInit | undefined): boolean {
-  const url = new URL(String(input), 'http://localhost');
-  const method = String(init?.method ?? 'GET').toUpperCase();
-
-  return (
-    url.pathname.match(/^\/clinician\/appointments\/requests\/[^/]+$/) !== null &&
-    ['PATCH', 'POST', 'PUT'].includes(method)
-  );
-}
-
 function PatientWorkspaceEcho(): JSX.Element {
   const location = useLocation();
   return <div>{`Patient workspace ${JSON.stringify(location.state)}`}</div>;
@@ -346,6 +379,7 @@ describe('AppointmentsRoute', () => {
     expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('No open capacity visible');
     expect(screen.queryByText('Selected request context')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Support context' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load presentation data' })).not.toBeInTheDocument();
     expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
   });
 
@@ -408,124 +442,34 @@ describe('AppointmentsRoute', () => {
     ).toBe(true);
   });
 
-  it('shows presentation seeding in local development even when the presentation env flag is disabled', async () => {
-    vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'false');
-    installAppointmentsFetchMock({ requests: [], slots: [] });
-
-    renderAppointmentsRoute();
-
-    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Load presentation data' })).toBeInTheDocument();
-    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
-  });
-
-  it('seeds presentation data through the normal scheduling UI without URL state', async () => {
-    vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'true');
-    installAppointmentsFetchMock({ requests: [], slots: [] });
+  it('treats backend-seeded presentation-style records as normal appointment API data', async () => {
+    installAppointmentsFetchMock({
+      patients: BACKEND_SEEDED_PRESENTATION_PATIENTS,
+      requests: BACKEND_SEEDED_PRESENTATION_REQUESTS,
+      slots: BACKEND_SEEDED_PRESENTATION_SLOTS,
+    });
 
     renderAppointmentsRoute('/appointments?workspace=seed-safe');
 
     expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Load presentation data' })).toBeInTheDocument();
-    expect(screen.queryByText('Emily Chen')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Load presentation data' }));
-
-    expect(await screen.findByRole('button', { name: 'Presentation data loaded' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load presentation data' })).not.toBeInTheDocument();
     expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=seed-safe');
     expect(screen.getByTestId('appointments-location')).not.toHaveTextContent('scheduleDemo');
-    expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Robert Jackson').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Maria Gonzalez').length).toBeGreaterThan(0);
-    expect(screen.getByText('Jacob Patel')).toBeInTheDocument();
-    expect(screen.getByText('Sarah Kim')).toBeInTheDocument();
-    expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
-    expect(screen.getByTestId('v2-appointments-request-pane')).toBeVisible();
-    expect(screen.queryByText('Selected request context')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
+      'Emily Chen',
+    );
     expect(screen.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
       'Reason',
     );
     expect(screen.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
       'Constraints',
     );
-    expect(screen.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveTextContent(
-      'Recommended slot',
-    );
-    expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('PT Follow-up');
+    expect(screen.getByTestId('v2-appointments-planner-workspace')).toHaveTextContent('Telehealth');
     expect(screen.getByTestId('v2-appointment-capacity-detail')).toHaveTextContent('Telehealth');
-    expect(screen.getByLabelText('Start (local datetime)')).toHaveValue('2026-04-13T00:00');
-    expect(screen.getByLabelText('End (local datetime)')).toHaveValue('2026-04-19T23:59');
-    expect(screen.getByLabelText('Meeting link (optional)')).toHaveValue('https://meet.example.com');
-    expect(screen.getAllByRole('heading', { name: 'Emily Chen' }).length).toBeGreaterThan(0);
-    const presentationOnlyButton = screen.getByRole('button', {
-      name: 'Presentation only. Patient workspace unavailable for presentation data.',
-    });
-    expect(presentationOnlyButton).toBeDisabled();
-    expect(screen.getByText('Presentation only')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Open patient' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+    expect(screen.queryByText('Presentation only')).not.toBeInTheDocument();
 
-    const fetchMock = vi.mocked(globalThis.fetch);
-    const callsBeforePresentationOpen = fetchMock.mock.calls.length;
-    await userEvent.click(presentationOnlyButton);
-    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/appointments?workspace=seed-safe');
-    expect(
-      fetchMock.mock.calls.slice(callsBeforePresentationOpen).some(([input]) =>
-        String(input).includes('presentation-emily-chen'),
-      ),
-    ).toBe(false);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Day', exact: true }));
-    expect(screen.getByText('Presentation range locked')).toBeInTheDocument();
-    expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Previous' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Today', exact: true }));
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Week' }));
-    expect(screen.getAllByText('Emily Chen').length).toBeGreaterThan(0);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Publish availability' }));
-
-    expect(await screen.findByText('Availability added to presentation view')).toBeInTheDocument();
-    expect(screen.getByText(/No backend records were written/i)).toBeInTheDocument();
-    expect(
-      fetchMock.mock.calls.some(([input, init]) => {
-        const url = new URL(String(input), 'http://localhost');
-        return url.pathname === '/clinician/appointments/slots' && String(init?.method ?? 'GET').toUpperCase() === 'POST';
-      }),
-    ).toBe(false);
-  });
-
-  it.each([
-    ['Approve', 'Approved', 'approved'],
-    ['Reject', 'Rejected', 'rejected'],
-  ] as const)('keeps presentation %s local and moves the request to %s state', async (buttonName, statusTab, status) => {
-    vi.stubEnv('VITE_AURA_SCHEDULING_PRESENTATION_DATA_ENABLED', 'true');
-    installAppointmentsFetchMock({ requests: [], slots: [] });
-
-    renderAppointmentsRoute();
-
-    expect(await screen.findByTestId('v2-appointments-route')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Load presentation data' }));
-    expect(await screen.findByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toBeVisible();
-
-    const fetchMock = vi.mocked(globalThis.fetch);
-    const callsBeforeReview = fetchMock.mock.calls.length;
-
-    await userEvent.click(screen.getByRole('button', { name: buttonName }));
-
-    expect(await screen.findByText('Presentation request updated locally. No backend records were changed.')).toBeInTheDocument();
-    expect(screen.queryByTestId('v2-appointment-request-row-presentation-request-emily-chen')).not.toBeInTheDocument();
-    expect(
-      fetchMock.mock.calls.slice(callsBeforeReview).some(([input, init]) =>
-        isAppointmentRequestReviewMutation(input, init),
-      ),
-    ).toBe(false);
-
-    await userEvent.click(screen.getByRole('button', { name: statusTab }));
-    const movedRow = await screen.findByTestId('v2-appointment-request-row-presentation-request-emily-chen');
-    expect(movedRow).toHaveTextContent(status === 'approved' ? 'Approved' : 'Rejected');
-    expect(screen.getByTestId('appointments-location')).not.toHaveTextContent('scheduleDemo');
+    await userEvent.click(screen.getByRole('button', { name: 'Open patient' }));
+    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/patients/presentation-emily-chen');
+    expect(await screen.findByText(/Patient workspace/)).toHaveTextContent('"patientId":"presentation-emily-chen"');
   });
 });

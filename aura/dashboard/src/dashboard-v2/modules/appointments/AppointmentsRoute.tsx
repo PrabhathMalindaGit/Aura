@@ -49,7 +49,6 @@ export function AppointmentsRoute(): JSX.Element {
         reviewOutcome: viewModel.lastRequestReviewOutcome,
         reviewErrorMessage: viewModel.errorNotice?.scope === 'review' ? viewModel.errorNotice.message : null,
         mutationPending: viewModel.mutationPending,
-        patientWorkspaceUnavailableReason: viewModel.patientWorkspaceUnavailableReason,
         onApprove: () => viewModel.handleReview('approved'),
         onReject: () => viewModel.handleReview('rejected'),
         onOpenPatient: () => viewModel.openPatientFromRequest(),
@@ -60,7 +59,6 @@ export function AppointmentsRoute(): JSX.Element {
   const workspace = (
     <AppointmentsPlannerWorkspace
       planner={viewModel.planner}
-      presentationNotice={viewModel.presentationDataControls.notice}
       onScheduleViewChange={viewModel.handleScheduleViewChange}
       onPreviousRange={() => viewModel.handleScheduleDateShift('previous')}
       onNextRange={() => viewModel.handleScheduleDateShift('next')}
@@ -74,11 +72,8 @@ export function AppointmentsRoute(): JSX.Element {
         statusBar={viewModel.statusBar}
         activeRequestStatus={viewModel.requestStatus}
         isRefreshing={viewModel.isRefreshing}
-        presentationDataEnabled={viewModel.presentationDataControls.enabled}
-        presentationDataLoaded={viewModel.presentationDataControls.loaded}
         onRefresh={viewModel.handleRefresh}
         onRequestStatusChange={viewModel.handleRequestStatusChange}
-        onLoadPresentationData={viewModel.presentationDataControls.load}
       />
 
       <section className="v2-appointments-workflow" aria-label="Scheduling workflow">

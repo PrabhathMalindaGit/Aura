@@ -1,5 +1,53 @@
 import { expect, test } from '@playwright/test';
+import type { AppointmentRequestItem, AppointmentSlot, PatientSummary } from '../../src/types/models';
 import { installMockApi } from './helpers/mockApi';
+
+const BACKEND_SEEDED_PRESENTATION_PATIENTS: PatientSummary[] = [
+  {
+    id: 'p1',
+    displayName: 'Patient P1',
+    status: 'active',
+    lastCheckinAt: '2026-04-17T08:00:00.000Z',
+    openAlertCount: 1,
+  },
+  {
+    id: 'presentation-emily-chen',
+    displayName: 'Emily Chen',
+    status: 'active',
+    lastCheckinAt: '2026-04-28T06:00:00.000Z',
+    openAlertCount: 0,
+  },
+];
+
+const BACKEND_SEEDED_PRESENTATION_REQUESTS: AppointmentRequestItem[] = [
+  {
+    requestId: 'presentation-request-emily-chen',
+    slotId: 'presentation-slot-emily-chen',
+    patientId: 'presentation-emily-chen',
+    status: 'pending',
+    workflowStatus: 'awaiting_confirmation',
+    note: 'Return-to-activity follow-up after backend presentation seed.',
+    startsAt: '2026-04-28T15:00:00.000Z',
+    endsAt: '2026-04-28T15:30:00.000Z',
+    modality: 'video',
+    meetingLink: 'https://meet.example.com/emily-chen',
+    createdAt: '2026-04-28T08:00:00.000Z',
+    updatedAt: '2026-04-28T08:00:00.000Z',
+  },
+];
+
+const BACKEND_SEEDED_PRESENTATION_SLOTS: AppointmentSlot[] = [
+  {
+    slotId: 'presentation-slot-emily-chen',
+    clinicianName: 'Clinician One',
+    startsAt: '2026-04-28T15:00:00.000Z',
+    endsAt: '2026-04-28T15:30:00.000Z',
+    modality: 'video',
+    status: 'available',
+    meetingLink: 'https://meet.example.com/emily-chen',
+    createdAt: '2026-04-28T07:30:00.000Z',
+  },
+];
 
 test('appointments v2 shows the real-mode cockpit shell when scheduling data is quiet', async ({ page }) => {
   const runtimeIssues: string[] = [];
@@ -32,14 +80,14 @@ test('appointments v2 shows the real-mode cockpit shell when scheduling data is 
   await expect(page.getByTestId('v2-appointment-capacity-detail')).toContainText('No open capacity visible');
   await expect(page.getByText('Selected request context')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Support context' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Load presentation data' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Load presentation data' })).toHaveCount(0);
   await expect(page.getByText('Emily Chen')).toHaveCount(0);
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);
 });
 
-test('appointments presentation data stays local across planner controls and publish', async ({ page }) => {
+test('appointments treats backend-seeded presentation records as normal scheduling data', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
   page.on('pageerror', (error) => {
@@ -58,46 +106,44 @@ test('appointments presentation data stays local across planner controls and pub
     }
   });
 
-  const tracker = await installMockApi(page, { appointmentRequests: [], appointmentSlots: [] });
+  const tracker = await installMockApi(page, {
+    patients: BACKEND_SEEDED_PRESENTATION_PATIENTS,
+    appointmentRequests: BACKEND_SEEDED_PRESENTATION_REQUESTS,
+    appointmentSlots: BACKEND_SEEDED_PRESENTATION_SLOTS,
+  });
 
   await page.goto('/appointments');
-  await page.getByRole('button', { name: 'Load presentation data' }).click();
 
   await expect(page).toHaveURL(/\/appointments$/);
-  await expect(page.getByRole('button', { name: 'Presentation data loaded' })).toBeVisible();
-  await expect(page.getByTestId('v2-appointments-planner-workspace')).toContainText('Emily Chen');
+  await expect(page.getByRole('button', { name: 'Load presentation data' })).toHaveCount(0);
+  await expect(page.getByTestId('v2-appointments-planner-workspace')).toContainText('Telehealth');
   await expect(page.getByTestId('v2-appointments-request-pane')).toContainText('Emily Chen');
   await expect(page.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toContainText('Reason');
   await expect(page.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toContainText('Constraints');
   await expect(page.getByText('Selected request context')).toHaveCount(0);
-  const presentationOnlyButton = page.getByRole('button', {
-    name: 'Presentation only. Patient workspace unavailable for presentation data.',
-  });
-  await expect(presentationOnlyButton).toBeVisible();
-  await expect(presentationOnlyButton).toBeDisabled();
-  await expect(page.getByText('Presentation only')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open patient' })).toHaveCount(0);
-  expect(tracker.requestLog.some((entry) => entry.pathname.includes('presentation-emily-chen'))).toBe(false);
+  await expect(page.getByText('Presentation only')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Day', exact: true }).click();
-  await expect(page.getByText('Presentation range locked')).toBeVisible();
-  await expect(page.getByText('Emily Chen').first()).toBeVisible();
+  await expect(page.getByText('Presentation range locked')).toHaveCount(0);
+  await expect(page.getByTestId('v2-appointments-planner-workspace')).toContainText('Telehealth');
 
   await page.getByRole('button', { name: 'Previous' }).click();
   await page.getByRole('button', { name: 'Today', exact: true }).click();
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Week' }).click();
-  await expect(page.getByText('Emily Chen').first()).toBeVisible();
+  await expect(page.getByTestId('v2-appointments-route')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Open patient' }).click();
+  await expect(page).toHaveURL(/\/patients\/presentation-emily-chen$/);
+  expect(tracker.requestLog.some((entry) => entry.pathname.includes('presentation-emily-chen'))).toBe(true);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/appointments$/);
   const requestLogLengthBeforeReview = tracker.requestLog.length;
 
   await page.getByRole('button', { name: 'Approve', exact: true }).click();
-  await expect(page.getByText('Presentation request updated locally. No backend records were changed.')).toBeVisible();
+  await expect(page.getByText('Request approved')).toBeVisible();
   await expect(page.getByTestId('v2-appointment-request-row-presentation-request-emily-chen')).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Reject', exact: true }).click();
-  await expect(page.getByText('Presentation request updated locally. No backend records were changed.')).toBeVisible();
-  await expect(page.getByTestId('v2-appointment-request-row-presentation-request-robert-jackson')).toHaveCount(0);
 
   expect(
     tracker.requestLog
@@ -107,16 +153,17 @@ test('appointments presentation data stays local across planner controls and pub
           entry.pathname.startsWith('/clinician/appointments/requests/') &&
           ['PATCH', 'POST', 'PUT'].includes(entry.method),
       ),
-  ).toBe(false);
+  ).toBe(true);
 
+  await page.getByLabel('Start (local datetime)').fill('2026-04-30T14:00');
+  await page.getByLabel('End (local datetime)').fill('2026-04-30T14:30');
   await page.getByRole('button', { name: 'Publish availability' }).click();
-  await expect(page.getByText('Availability added to presentation view')).toBeVisible();
-  await expect(page.getByText(/No backend records were written/i)).toBeVisible();
+  await expect(page.getByText('Availability published')).toBeVisible();
   expect(
     tracker.requestLog.some(
       (entry) => entry.pathname === '/clinician/appointments/slots' && entry.method === 'POST',
     ),
-  ).toBe(false);
+  ).toBe(true);
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasHorizontalOverflow).toBe(false);

@@ -3,6 +3,7 @@ import { SettingsAppearancePanel } from "./components/SettingsAppearancePanel";
 import { SettingsCommunicationSection } from "./components/SettingsCommunicationSection";
 import { SettingsMaintenancePanel } from "./components/SettingsMaintenancePanel";
 import { SettingsNotificationSection } from "./components/SettingsNotificationSection";
+import { SettingsPresentationToolsPanel } from "./components/SettingsPresentationToolsPanel";
 import { SettingsProfileSection } from "./components/SettingsProfileSection";
 import { SettingsReferencePanel } from "./components/SettingsReferencePanel";
 import { SettingsSessionPanel } from "./components/SettingsSessionPanel";
@@ -44,9 +45,16 @@ export function SettingsRoute(): JSX.Element {
             referencePanel={viewModel.referencePanel}
             isVeryNarrow={isVeryNarrow}
           />
-          <SettingsMaintenancePanel
-            maintenancePanel={viewModel.maintenancePanel}
-          />
+          <div className="v2-settings-route__reference-aside">
+            {viewModel.presentationToolsPanel ? (
+              <SettingsPresentationToolsPanel
+                presentationToolsPanel={viewModel.presentationToolsPanel}
+              />
+            ) : null}
+            <SettingsMaintenancePanel
+              maintenancePanel={viewModel.maintenancePanel}
+            />
+          </div>
         </div>
       </div>
     </div>

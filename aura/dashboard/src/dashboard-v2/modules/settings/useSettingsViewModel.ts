@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClinicianIdentity } from "../../../hooks/useClinicianIdentity";
 import { useClinicianWorkspacePreferences } from "../../../hooks/useClinicianWorkspacePreferences";
 import {
@@ -38,6 +39,15 @@ import {
   type ThemeMode,
 } from "../../../services/theme";
 import { PATIENT_TRIAGE_PRESETS } from "../../../utils/patientFilters";
+import {
+  clinicianQueryKeys,
+  getPresentationSeedStatus,
+  invalidatePresentationDashboardQueries,
+  loadPresentationSeed,
+  resetPresentationSeed,
+  type PresentationSeedStatus,
+} from "../../../services/clinicianApi";
+import { toUserMessage } from "../../../utils/errors";
 import {
   buildDraftIdentityPreview,
   buildNotificationSummaryPills,
@@ -167,6 +177,24 @@ export interface SettingsMaintenancePanelVm {
   onRestoreDefaults: () => void;
 }
 
+export interface SettingsPresentationToolsPanelVm {
+  status: PresentationSeedStatus | null;
+  loading: boolean;
+  disabled: boolean;
+  loaded: boolean;
+  seedId: string | null;
+  lastLoadedAtLabel: string | null;
+  countsSummary: string[];
+  notice: string | null;
+  error: string | null;
+  loadLabel: string;
+  resetLabel: string;
+  loadDisabled: boolean;
+  resetDisabled: boolean;
+  onLoad: () => void;
+  onReset: () => void;
+}
+
 export interface UseSettingsViewModelResult {
   statusBar: SettingsStatusBarVm;
   profileSection: SettingsProfileSectionVm;
@@ -175,6 +203,7 @@ export interface UseSettingsViewModelResult {
   appearancePanel: SettingsAppearancePanelVm;
   sessionPanel: SettingsSessionPanelVm;
   referencePanel: SettingsReferencePanelVm;
+  presentationToolsPanel: SettingsPresentationToolsPanelVm | null;
   maintenancePanel: SettingsMaintenancePanelVm;
 }
 
@@ -186,8 +215,64 @@ function normalizeProfileFeedback(
   return scope === activeScope ? value : null;
 }
 
+function parseEnvBoolean(value: unknown): boolean {
+  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+}
+
+function isPresentationToolsEnabled(): boolean {
+  return parseEnvBoolean(import.meta.env.VITE_AURA_PRESENTATION_TOOLS_ENABLED);
+}
+
+function formatPresentationDate(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
+function formatCountLabel(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function buildCountsSummary(status: PresentationSeedStatus | null): string[] {
+  if (!status?.counts) {
+    return [];
+  }
+
+  const preferredKeys = [
+    "patients",
+    "checkIns",
+    "alerts",
+    "tasks",
+    "appointmentRequests",
+    "insightSuggestions",
+  ];
+
+  return preferredKeys
+    .map((key) => {
+      const value = status.counts[key];
+      return typeof value === "number" ? `${formatCountLabel(key)} ${value}` : null;
+    })
+    .filter((value): value is string => Boolean(value));
+}
+
 export function useSettingsViewModel(): UseSettingsViewModelResult {
+  const queryClient = useQueryClient();
   const initialProfile = useMemo(() => getClinicianProfile(), []);
+  const presentationToolsEnabled = isPresentationToolsEnabled();
   const clinicianIdentity = useClinicianIdentity();
   const workspacePreferences = useClinicianWorkspacePreferences();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => getThemeMode());
@@ -205,6 +290,39 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
   );
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const supportedTimeZones = useMemo(() => getSupportedTimeZoneOptions(), []);
+  const [presentationNotice, setPresentationNotice] = useState<string | null>(null);
+
+  const presentationStatusQuery = useQuery({
+    queryKey: clinicianQueryKeys.presentationSeedStatus(),
+    queryFn: getPresentationSeedStatus,
+    enabled: presentationToolsEnabled,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const loadPresentationMutation = useMutation({
+    mutationFn: loadPresentationSeed,
+    onMutate: () => {
+      setPresentationNotice(null);
+    },
+    onSuccess: async (result) => {
+      queryClient.setQueryData(clinicianQueryKeys.presentationSeedStatus(), result);
+      setPresentationNotice("Presentation data loaded.");
+      await invalidatePresentationDashboardQueries(queryClient);
+    },
+  });
+
+  const resetPresentationMutation = useMutation({
+    mutationFn: resetPresentationSeed,
+    onMutate: () => {
+      setPresentationNotice(null);
+    },
+    onSuccess: async (result) => {
+      queryClient.setQueryData(clinicianQueryKeys.presentationSeedStatus(), result);
+      setPresentationNotice("Presentation data reset.");
+      await invalidatePresentationDashboardQueries(queryClient);
+    },
+  });
 
   useEffect(() => {
     return subscribeThemeMode((mode) => {
@@ -700,6 +818,54 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
     );
   }
 
+  const presentationStatus = presentationStatusQuery.data ?? null;
+  const presentationBusy =
+    loadPresentationMutation.isPending || resetPresentationMutation.isPending;
+  const presentationError =
+    presentationStatusQuery.error ??
+    loadPresentationMutation.error ??
+    resetPresentationMutation.error ??
+    null;
+  const presentationToolsPanel: SettingsPresentationToolsPanelVm | null =
+    presentationToolsEnabled
+      ? {
+          status: presentationStatus,
+          loading: presentationStatusQuery.isLoading,
+          disabled: presentationStatus?.enabled === false,
+          loaded: presentationStatus?.loaded === true,
+          seedId: presentationStatus?.seedId ?? null,
+          lastLoadedAtLabel: formatPresentationDate(
+            presentationStatus?.lastLoadedAt ?? null,
+          ),
+          countsSummary: buildCountsSummary(presentationStatus),
+          notice: presentationNotice,
+          error: presentationError
+            ? toUserMessage(presentationError)
+            : null,
+          loadLabel: loadPresentationMutation.isPending
+            ? "Loading presentation data..."
+            : "Load presentation data",
+          resetLabel: resetPresentationMutation.isPending
+            ? "Resetting presentation data..."
+            : "Reset presentation data",
+          loadDisabled:
+            presentationBusy ||
+            presentationStatusQuery.isLoading ||
+            Boolean(presentationError) ||
+            !presentationStatus ||
+            presentationStatus?.enabled === false,
+          resetDisabled:
+            presentationBusy ||
+            presentationStatusQuery.isLoading ||
+            Boolean(presentationError) ||
+            !presentationStatus ||
+            presentationStatus?.enabled === false ||
+            presentationStatus?.loaded !== true,
+          onLoad: () => loadPresentationMutation.mutate(),
+          onReset: () => resetPresentationMutation.mutate(),
+        }
+      : null;
+
   return {
     statusBar,
     profileSection: {
@@ -789,6 +955,7 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
     referencePanel: {
       metadata: referenceMetadata,
     },
+    presentationToolsPanel,
     maintenancePanel: {
       notice: normalizeProfileFeedback(
         profileFeedbackScope,

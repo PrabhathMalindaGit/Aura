@@ -13,6 +13,7 @@
 .v2-settings-route__control-stack,
 .v2-settings-route__lower,
 .v2-settings-route__reference,
+.v2-settings-route__reference-aside,
 .v2-settings-status-bar,
 .v2-settings-section,
 .v2-settings-panel,
@@ -25,6 +26,9 @@
 .v2-settings-template-list,
 .v2-settings-template-editor,
 .v2-settings-template-editor__field,
+.v2-settings-presentation-status,
+.v2-settings-presentation-facts,
+.v2-settings-presentation-counts,
 .v2-settings-reference-item {
   display: grid;
   gap: var(--v2-space-3);
@@ -393,6 +397,33 @@
   border-color: hsl(var(--v2-warning) / 0.25);
   background:
     linear-gradient(180deg, hsl(var(--v2-warning-soft) / 0.82), hsl(var(--v2-surface)) 76%);
+}
+
+.v2-settings-panel--presentation {
+  border-color: hsl(var(--v2-info) / 0.22);
+  background:
+    linear-gradient(180deg, hsl(var(--v2-info-soft) / 0.7), hsl(var(--v2-surface)) 74%);
+}
+
+.v2-settings-presentation-status__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.45rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.8rem;
+  border: 1px solid hsl(var(--v2-border) / 0.7);
+  border-radius: 999px;
+  background: hsl(var(--v2-surface));
+  color: hsl(var(--v2-text));
+  font-size: var(--v2-font-size-caption);
+  font-weight: var(--v2-font-weight-semibold);
+}
+
+.v2-settings-presentation-facts,
+.v2-settings-presentation-counts {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .v2-settings-reference-item__status {

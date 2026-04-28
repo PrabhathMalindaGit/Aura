@@ -1,9 +1,10 @@
 /* @vitest-environment jsdom */
 
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearClinicianProfileForTests,
   getClinicianProfile,
@@ -14,6 +15,7 @@ import {
   getSessionSettingsStorageKey,
 } from "../../../services/sessionSettings";
 import { getThemeMode, getThemeStorageKey } from "../../../services/theme";
+import { createJsonResponse } from "../../../test/mocks";
 import { useSettingsViewModel } from "./useSettingsViewModel";
 
 function toBase64Url(value: string): string {
@@ -37,8 +39,23 @@ function signInAs(input: { sub: string; name?: string }): void {
   window.localStorage.setItem("aura_access_token", buildToken(input));
 }
 
-function wrapper({ children }: { children: ReactNode }): JSX.Element {
-  return <MemoryRouter>{children}</MemoryRouter>;
+function createQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function createWrapper(queryClient: QueryClient = createQueryClient()) {
+  return function wrapper({ children }: { children: ReactNode }): JSX.Element {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>{children}</MemoryRouter>
+      </QueryClientProvider>
+    );
+  };
 }
 
 describe("useSettingsViewModel", () => {
@@ -46,6 +63,8 @@ describe("useSettingsViewModel", () => {
     window.localStorage.clear();
     window.sessionStorage.clear();
     clearClinicianProfileForTests();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   afterEach(() => {
@@ -56,7 +75,9 @@ describe("useSettingsViewModel", () => {
   it("saves profile changes without overwriting unsaved communication drafts", () => {
     signInAs({ sub: "auth-settings-1", name: "Dr Rivera" });
 
-    const { result } = renderHook(() => useSettingsViewModel(), { wrapper });
+    const { result } = renderHook(() => useSettingsViewModel(), {
+      wrapper: createWrapper(),
+    });
 
     act(() => {
       result.current.profileSection.onProfileFieldChange(
@@ -88,7 +109,9 @@ describe("useSettingsViewModel", () => {
       clinicianId: "saved-chen-local",
     });
 
-    const { result } = renderHook(() => useSettingsViewModel(), { wrapper });
+    const { result } = renderHook(() => useSettingsViewModel(), {
+      wrapper: createWrapper(),
+    });
 
     act(() => {
       result.current.maintenancePanel.onRestoreDefaults();
@@ -107,7 +130,9 @@ describe("useSettingsViewModel", () => {
   it("applies theme and session protection changes immediately", () => {
     signInAs({ sub: "auth-settings-3", name: "Dr Theme" });
 
-    const { result } = renderHook(() => useSettingsViewModel(), { wrapper });
+    const { result } = renderHook(() => useSettingsViewModel(), {
+      wrapper: createWrapper(),
+    });
 
     act(() => {
       result.current.appearancePanel.onThemeModeChange("dark");
@@ -125,5 +150,68 @@ describe("useSettingsViewModel", () => {
     expect(result.current.sessionPanel.notice).toBe(
       "Session security settings updated.",
     );
+  });
+
+  it("keeps presentation tooling disabled without the dashboard env flag", () => {
+    signInAs({ sub: "auth-settings-4", name: "Dr Hidden" });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    const { result } = renderHook(() => useSettingsViewModel(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.presentationToolsPanel).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("loads presentation data and invalidates dashboard query caches when enabled", async () => {
+    vi.stubEnv("VITE_AURA_PRESENTATION_TOOLS_ENABLED", "true");
+    signInAs({ sub: "auth-settings-5", name: "Dr Tools" });
+    const queryClient = createQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const requestMethods: string[] = [];
+    let loaded = false;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const method = init?.method ?? "GET";
+      requestMethods.push(method);
+      if (method === "POST") {
+        loaded = true;
+      }
+
+      return createJsonResponse({
+        ok: true,
+        enabled: true,
+        loaded,
+        seedId: "phase-10c-presentation-seed-v1",
+        counts: loaded ? { patients: 8, checkIns: 112 } : {},
+        lastLoadedAt: loaded ? "2026-04-28T10:00:00.000Z" : null,
+      });
+    });
+
+    const { result } = renderHook(() => useSettingsViewModel(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.presentationToolsPanel?.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.presentationToolsPanel?.onLoad();
+    });
+
+    await waitFor(() => {
+      expect(result.current.presentationToolsPanel?.notice).toBe(
+        "Presentation data loaded.",
+      );
+    });
+
+    expect(requestMethods).toContain("POST");
+    expect(result.current.presentationToolsPanel?.loaded).toBe(true);
+    expect(result.current.presentationToolsPanel?.countsSummary).toContain(
+      "Patients 8",
+    );
+    expect(invalidateSpy).toHaveBeenCalled();
   });
 });

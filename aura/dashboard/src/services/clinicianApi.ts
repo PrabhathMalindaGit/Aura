@@ -10,6 +10,7 @@ import {
 } from './overrideStore';
 import {
   QueryKey,
+  type QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
@@ -128,6 +129,41 @@ function retryIfAllowed(failureCount: number, error: unknown): boolean {
   return failureCount < 2 && isRetryable(asAppError(error));
 }
 
+export async function getPresentationSeedStatus(): Promise<PresentationSeedStatus> {
+  return fetchJson<PresentationSeedStatus>('/clinician/dev/presentation/seed', {
+    method: 'GET',
+  });
+}
+
+export async function loadPresentationSeed(): Promise<PresentationSeedMutationResult> {
+  return fetchJson<PresentationSeedMutationResult>('/clinician/dev/presentation/seed', {
+    method: 'POST',
+  });
+}
+
+export async function resetPresentationSeed(): Promise<PresentationSeedMutationResult> {
+  return fetchJson<PresentationSeedMutationResult>('/clinician/dev/presentation/seed', {
+    method: 'DELETE',
+  });
+}
+
+export function invalidatePresentationDashboardQueries(queryClient: QueryClient): Promise<unknown[]> {
+  return Promise.all([
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const firstKey = query.queryKey[0];
+        return (
+          typeof firstKey === 'string' &&
+          PRESENTATION_RELATED_QUERY_PREFIXES.has(firstKey)
+        );
+      },
+    }),
+    queryClient.invalidateQueries({
+      queryKey: clinicianQueryKeys.presentationSeedStatus(),
+    }),
+  ]);
+}
+
 
 function createDefaultRecoverySupportResponse(patientId: string): PatientRecoverySupportResponse {
   return {
@@ -148,6 +184,7 @@ function createDefaultRecoverySupportResponse(patientId: string): PatientRecover
 }
 
 export const clinicianQueryKeys = {
+  presentationSeedStatus: (): QueryKey => ['presentation-seed', 'status'],
   dashboardSummary: (): QueryKey => ['dashboard', 'summary'],
   dashboardPriorityQueue: (limit: number): QueryKey => ['dashboard', 'priority-queue', limit],
   dashboardRecentSafetyEvents: (limit: number): QueryKey => ['dashboard', 'recent-safety-events', limit],
@@ -179,6 +216,63 @@ export const clinicianQueryKeys = {
   patientSafetyEvents: (patientId: string): QueryKey => ['patient-safety-events', patientId],
   exercisePlanHistory: (patientId: string): QueryKey => ['exercise-plan-history', patientId],
 } as const;
+
+export interface PresentationSeedCounts {
+  [key: string]: number;
+}
+
+export interface PresentationSeedStatus {
+  ok?: true;
+  enabled: boolean;
+  loaded: boolean;
+  seedId: string;
+  counts: PresentationSeedCounts;
+  lastLoadedAt: string | null;
+  message?: string;
+}
+
+export interface PresentationSeedMutationResult extends PresentationSeedStatus {
+  deleted?: PresentationSeedCounts;
+}
+
+const PRESENTATION_RELATED_QUERY_PREFIXES = new Set([
+  'dashboard',
+  'dashboard-home',
+  'patients',
+  'patient-trends',
+  'patient-recent-checkins',
+  'patient-hydration',
+  'patient-nutrition',
+  'patient-wearables-summary',
+  'patient-wearables-daily',
+  'patient-medications-adherence',
+  'patient-alerts',
+  'patient-communication-overview',
+  'patient-tasks',
+  'patient-appointments',
+  'patient-insights',
+  'patient-sessions',
+  'patient-rehab',
+  'patient-proms',
+  'patient-exercise-plan',
+  'patient-coordination',
+  'patient-thresholds',
+  'patient-recovery-support',
+  'patient-caregiver-access',
+  'patient-discharge-summary',
+  'patient-safety-events',
+  'patient-handoff-task-links',
+  'patient-weekly-report',
+  'worklist',
+  'alerts',
+  'alert-context',
+  'appointments-schedule-slots',
+  'appointments-requests',
+  'appointments-slots-summary',
+  'appointments-requests-summary',
+  'insights-queue',
+  'exercise-plan-history',
+]);
 
 const ALERT_STATUSES: AlertStatus[] = ['open', 'acknowledged', 'resolved'];
 function getAlertsCache(

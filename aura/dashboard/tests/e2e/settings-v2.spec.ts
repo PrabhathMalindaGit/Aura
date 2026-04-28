@@ -22,7 +22,7 @@ test("settings v2 keeps grouped preferences calm while preserving local save and
     }
   });
 
-  await installMockApi(page);
+  const tracker = await installMockApi(page);
 
   await page.addInitScript(() => {
     const toBase64Url = (value: string) =>
@@ -49,6 +49,12 @@ test("settings v2 keeps grouped preferences calm while preserving local save and
   await expect(
     page.getByTestId("v2-settings-maintenance-panel"),
   ).toContainText("Restore workspace profile defaults");
+  await expect(page.getByTestId("v2-settings-presentation-tools-panel")).toHaveCount(0);
+  expect(
+    tracker.requestLog.some(
+      (request) => request.pathname === "/clinician/dev/presentation/seed",
+    ),
+  ).toBe(false);
 
   await page.getByLabel("Clinician display name").fill("Dr QA Rivera");
   await page.getByRole("button", { name: "Save profile" }).click();

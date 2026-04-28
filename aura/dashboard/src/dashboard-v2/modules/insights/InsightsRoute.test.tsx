@@ -5,6 +5,7 @@ import {
   cleanup,
   render,
   screen,
+  within,
   waitFor,
 } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -149,10 +150,15 @@ function installViewportMock(width: number): void {
   });
 }
 
-function installInsightsFetchMock(options: { failReviewIds?: string[] } = {}): void {
-  let pendingItems = [...PENDING_ITEMS];
-  let approvedItems = [...APPROVED_ITEMS];
-  let rejectedItems = [...REJECTED_ITEMS];
+function installInsightsFetchMock(options: {
+  failReviewIds?: string[];
+  pendingItems?: InsightItem[];
+  approvedItems?: InsightItem[];
+  rejectedItems?: InsightItem[];
+} = {}): void {
+  let pendingItems = [...(options.pendingItems ?? PENDING_ITEMS)];
+  let approvedItems = [...(options.approvedItems ?? APPROVED_ITEMS)];
+  let rejectedItems = [...(options.rejectedItems ?? REJECTED_ITEMS)];
   const failingIds = new Set(options.failReviewIds ?? []);
 
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -297,6 +303,40 @@ describe('InsightsRoute', () => {
     expect(await screen.findByText(/Patient workspace/)).toHaveTextContent('"returnTo":"/insights"');
   });
 
+  it('renders a horizontal lane below the review strip and updates the selected insight review', async () => {
+    installInsightsFetchMock();
+
+    renderInsightsRoute();
+
+    const route = await screen.findByTestId('v2-insights-route');
+    const reviewStripTitle = await screen.findByText('Follow-up insights');
+    const lane = await screen.findByTestId('v2-insights-queue-pane');
+    expect(
+      reviewStripTitle.compareDocumentPosition(lane) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText('Scan the review lane')).toBeInTheDocument();
+    expect(screen.getByText(
+      'Pending review stays grouped so clinicians can scan work from left to right before opening an item.',
+    )).toBeInTheDocument();
+    expect(within(lane).getByTestId('v2-insight-row-insight-priority-1')).toHaveAccessibleName(
+      /Jordan Lee: Pain follow-up suggested, Symptoms, Priority 3, Pending/,
+    );
+    expect(within(route).getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+    expect(within(route).getByRole('button', { name: 'Reject' })).toBeInTheDocument();
+    expect(within(route).getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+
+    const selectedReview = screen.getByLabelText('Selected insight review');
+    expect(selectedReview).toHaveTextContent('Selected insight review');
+    expect(selectedReview).toHaveTextContent('Pain follow-up suggested');
+    expect(selectedReview).not.toHaveTextContent(/Presentation/i);
+
+    await userEvent.click(within(lane).getByTestId('v2-insight-row-insight-low-1'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Selected insight review')).toHaveTextContent('Routine adherence follow-up');
+    });
+    expect(screen.getByLabelText('Selected insight review')).toHaveTextContent('Avery Chen');
+  });
+
   it('keeps batch review queue-scoped and preserves partial failure truth', async () => {
     installInsightsFetchMock({ failReviewIds: ['insight-low-2'] });
 
@@ -332,5 +372,20 @@ describe('InsightsRoute', () => {
     await userEvent.click(await screen.findByTestId('v2-insight-row-insight-priority-1'));
     expect(await screen.findByTestId('v2-insights-review-workspace')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Back to lane' })).toBeInTheDocument();
+    expect(screen.getByTestId('v2-insights-queue-pane')).toBeVisible();
+  });
+
+  it('keeps the empty lane honest when no suggestions exist', async () => {
+    installInsightsFetchMock({
+      pendingItems: [],
+      approvedItems: [],
+      rejectedItems: [],
+    });
+
+    renderInsightsRoute();
+
+    expect(await screen.findByTestId('v2-insights-route')).toBeVisible();
+    expect(await screen.findByText('No guidance suggestions are waiting')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Selected insight review')).not.toBeInTheDocument();
   });
 });

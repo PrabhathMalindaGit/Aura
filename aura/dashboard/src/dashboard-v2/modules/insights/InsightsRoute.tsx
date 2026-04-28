@@ -11,11 +11,9 @@ import { useInsightsViewModel } from './useInsightsViewModel';
 import './insights.css';
 
 const NARROW_LAYOUT_QUERY = '(max-width: 1023px)';
-const VERY_NARROW_LAYOUT_QUERY = '(max-width: 599px)';
 
 export function InsightsRoute(): JSX.Element {
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
-  const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const governanceOpen = useInsightsUiStore((state) => state.governanceOpen);
   const queueSheetOpen = useInsightsUiStore((state) => state.queueSheetOpen);
   const queueScrollTop = useInsightsUiStore((state) => state.queueScrollTop);
@@ -52,7 +50,6 @@ export function InsightsRoute(): JSX.Element {
       selectedLowPriorityCount={viewModel.selectedLowPriorityCount}
       allVisibleLowPrioritySelected={viewModel.allVisibleLowPrioritySelected}
       batchActionStatus={viewModel.batchActionStatus}
-      isVeryNarrow={isVeryNarrow}
       queueRef={viewModel.showQueueOnly || !isNarrowLayout ? queueRef : undefined}
       onQueueScroll={setQueueScrollTop}
       onSelectInsight={(insightId) => {
@@ -109,12 +106,14 @@ export function InsightsRoute(): JSX.Element {
         {viewModel.showQueueOnly ? (
           queuePane
         ) : (
-          <FollowUpWorkbenchLayout
-            className="v2-insights-workbench"
-            lane={isNarrowLayout ? null : queuePane}
-            workspace={workspace}
-            rail={null}
-          />
+          <>
+            {queuePane}
+            <FollowUpWorkbenchLayout
+              className="v2-insights-workbench"
+              workspace={workspace}
+              rail={null}
+            />
+          </>
         )}
       </div>
 

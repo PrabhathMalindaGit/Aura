@@ -16,7 +16,6 @@ interface InsightsQueuePaneProps {
   selectedLowPriorityCount: number;
   allVisibleLowPrioritySelected: boolean;
   batchActionStatus: 'approved' | 'rejected' | null;
-  isVeryNarrow: boolean;
   queueRef?: RefObject<HTMLDivElement | null>;
   onQueueScroll?: (scrollTop: number) => void;
   onSelectInsight: (insightId: string) => void;
@@ -38,7 +37,6 @@ export function InsightsQueuePane({
   selectedLowPriorityCount,
   allVisibleLowPrioritySelected,
   batchActionStatus,
-  isVeryNarrow,
   queueRef,
   onQueueScroll,
   onSelectInsight,
@@ -57,7 +55,7 @@ export function InsightsQueuePane({
           <DashboardV2Text tone="label">Scan the review lane</DashboardV2Text>
           <DashboardV2Heading as="h2">Follow-up lane</DashboardV2Heading>
           <DashboardV2Text tone="muted">
-            Pending review stays grouped so clinicians can work from individual follow-up down to routine batch review without losing context.
+            Pending review stays grouped so clinicians can scan work from left to right before opening an item.
           </DashboardV2Text>
         </div>
       </div>
@@ -95,7 +93,6 @@ export function InsightsQueuePane({
                       row={row}
                       selected={row.insightId === selectedInsightId}
                       checked={selectedLowPriorityIds.has(row.insightId)}
-                      isVeryNarrow={isVeryNarrow}
                       onSelect={() => onSelectInsight(row.insightId)}
                       onToggle={
                         section.selectable

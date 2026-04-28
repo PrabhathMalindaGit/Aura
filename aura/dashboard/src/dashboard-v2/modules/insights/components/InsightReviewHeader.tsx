@@ -48,7 +48,7 @@ export function InsightReviewHeader({
     <header className="v2-insight-review-header">
       <div className="v2-insight-review-header__copy">
         <div className="v2-insight-review-header__topline">
-          <DashboardV2Text tone="label">{header.patientId}</DashboardV2Text>
+          <DashboardV2Text tone="label">Selected insight review</DashboardV2Text>
           <DashboardV2Text as="span" tone="caption">
             {header.patientStatusLabel}
           </DashboardV2Text>
@@ -96,6 +96,7 @@ export function InsightReviewHeader({
       </div>
 
       <div className="v2-insight-review-header__facts">
+        <span className="v2-insight-review-header__pill">Item {header.patientId}</span>
         <DashboardV2Badge tone={mapBadgeTone(header.statusTone)}>{header.statusLabel}</DashboardV2Badge>
         <DashboardV2Badge tone={mapBadgeTone(header.priorityTone)}>{header.priorityLabel}</DashboardV2Badge>
         <DashboardV2Badge tone={mapBadgeTone(header.confidenceTone)}>{header.confidenceLabel}</DashboardV2Badge>

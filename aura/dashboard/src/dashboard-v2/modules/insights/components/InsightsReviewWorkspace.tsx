@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react';
+import { Activity, AlertTriangle } from 'lucide-react';
 import type {
   InsightItem,
 } from '../../../../types/models';
@@ -94,46 +94,6 @@ export function InsightsReviewWorkspace({
 
   return (
     <div className="v2-insights-review-workspace" data-testid="v2-insights-review-workspace">
-      <InsightReviewHeader
-        header={header}
-        pending={insight.status === 'pending'}
-        mutationPending={mutationPending}
-        onApprove={onApprove}
-        onReject={onReject}
-        onOpenPatient={onOpenPatient}
-        showBackToQueue={showBackToQueue}
-        onBackToQueue={onBackToQueue}
-        showQueueSheetAction={showQueueSheetAction}
-        onOpenQueueSheet={onOpenQueueSheet}
-      />
-
-      {governance ? (
-        <DashboardV2Surface
-          className="v2-insights-review-workspace__context-summary"
-          tone="elevated"
-          aria-label="Compact insight support summary"
-        >
-          <div className="v2-insights-review-workspace__context-copy">
-            <DashboardV2Text tone="label">Support context</DashboardV2Text>
-            <DashboardV2Heading as="h3">{governance.patientTitle}</DashboardV2Heading>
-            <DashboardV2Text tone="muted">{governance.patientSubtitle}</DashboardV2Text>
-          </div>
-          <div className="v2-insights-review-workspace__context-facts">
-            {[...governance.patientFacts.slice(0, 2), ...governance.reviewFacts.slice(0, 2)].map((fact) => (
-              <span key={`${fact.label}-${fact.value}`} className="v2-insights-review-workspace__context-fact">
-                <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
-                <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
-              </span>
-            ))}
-          </div>
-          {showSupportAction ? (
-            <DashboardV2Button tone="secondary" size="sm" onPress={onOpenSupport}>
-              Support context
-            </DashboardV2Button>
-          ) : null}
-        </DashboardV2Surface>
-      ) : null}
-
       {reviewError ? (
         <DashboardV2Surface className="v2-insights-review-workspace__notice v2-insights-review-workspace__notice--warning" tone="muted">
           <AlertTriangle size={16} />
@@ -169,37 +129,84 @@ export function InsightsReviewWorkspace({
         </DashboardV2Surface>
       ) : null}
 
-      <div className="v2-insights-review-workspace__body">
-        <DashboardV2Surface className="v2-insights-review-workspace__section v2-insights-review-workspace__section--reason" tone="elevated">
-          <DashboardV2Text tone="label">{summary.title}</DashboardV2Text>
-          <DashboardV2Heading as="h3">{summary.summary}</DashboardV2Heading>
-          <div className="v2-insights-review-workspace__facts" role="list" aria-label="Insight review facts">
-            {summary.supportingFacts.map((fact) => (
-              <article key={fact.label} className="v2-insights-review-workspace__fact v2-insights-review-workspace__fact--compact" role="listitem">
-                <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
-                <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
-              </article>
-            ))}
-          </div>
-        </DashboardV2Surface>
+      <div className="v2-insights-review-workspace__layout">
+        <section className="v2-insights-selected-review" aria-label="Selected insight review">
+          <InsightReviewHeader
+            header={header}
+            pending={insight.status === 'pending'}
+            mutationPending={mutationPending}
+            onApprove={onApprove}
+            onReject={onReject}
+            onOpenPatient={onOpenPatient}
+            showBackToQueue={showBackToQueue}
+            onBackToQueue={onBackToQueue}
+            showQueueSheetAction={showQueueSheetAction}
+            onOpenQueueSheet={onOpenQueueSheet}
+          />
 
-        <DashboardV2Surface className="v2-insights-review-workspace__section v2-insights-review-workspace__section--support" tone="elevated">
-          <DashboardV2Text tone="label">
-            {insight.status === 'pending' ? 'Review support' : 'Outcome context'}
-          </DashboardV2Text>
-          <DashboardV2Heading as="h3">
-            {insight.status === 'pending'
-              ? 'Keep the supported follow-up basis in view while deciding'
-              : 'Keep the recorded follow-up basis in view while routing onward'}
-          </DashboardV2Heading>
-          <ul className="v2-insights-review-workspace__basis-list">
-            {summary.basisItems.map((item) => (
-              <li key={item}>
-                <DashboardV2Text tone="muted">{item}</DashboardV2Text>
-              </li>
-            ))}
-          </ul>
-        </DashboardV2Surface>
+          <div className="v2-insights-selected-review__why">
+            <span className="v2-insights-selected-review__icon" aria-hidden="true">
+              <Activity size={22} />
+            </span>
+            <DashboardV2Heading as="h3">{summary.summary}</DashboardV2Heading>
+          </div>
+        </section>
+
+        <aside className="v2-insights-support-rail" aria-label="Follow-up review support">
+          {governance ? (
+            <DashboardV2Surface
+              className="v2-insights-support-card v2-insights-support-card--context"
+              tone="elevated"
+            >
+              <div className="v2-insights-support-card__header">
+                <div>
+                  <DashboardV2Text tone="label">Support context</DashboardV2Text>
+                  <DashboardV2Heading as="h3">{governance.patientTitle}</DashboardV2Heading>
+                </div>
+                {showSupportAction ? (
+                  <DashboardV2Button tone="secondary" size="sm" onPress={onOpenSupport}>
+                    Support context
+                  </DashboardV2Button>
+                ) : null}
+              </div>
+              <DashboardV2Text tone="muted">{governance.patientSubtitle}</DashboardV2Text>
+              <div className="v2-insights-support-card__facts" role="list" aria-label="Support context facts">
+                {[...governance.patientFacts.slice(0, 2), ...governance.reviewFacts.slice(0, 2)].map((fact) => (
+                  <article key={`${fact.label}-${fact.value}`} className="v2-insights-support-card__fact" role="listitem">
+                    <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
+                    <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
+                  </article>
+                ))}
+              </div>
+            </DashboardV2Surface>
+          ) : null}
+
+          <DashboardV2Surface className="v2-insights-support-card v2-insights-support-card--reason" tone="elevated">
+            <DashboardV2Text tone="label">{summary.title}</DashboardV2Text>
+            <DashboardV2Text tone="muted">{summary.summary}</DashboardV2Text>
+            <div className="v2-insights-review-workspace__facts" role="list" aria-label="Insight review facts">
+              {summary.supportingFacts.map((fact) => (
+                <article key={fact.label} className="v2-insights-review-workspace__fact v2-insights-review-workspace__fact--compact" role="listitem">
+                  <DashboardV2Text as="span" tone="label">{fact.label}</DashboardV2Text>
+                  <DashboardV2Text as="span" tone="strong">{fact.value}</DashboardV2Text>
+                </article>
+              ))}
+            </div>
+          </DashboardV2Surface>
+
+          <DashboardV2Surface className="v2-insights-support-card v2-insights-support-card--support" tone="elevated">
+            <DashboardV2Text tone="label">
+              {insight.status === 'pending' ? 'Review support' : 'Outcome context'}
+            </DashboardV2Text>
+            <ul className="v2-insights-review-workspace__basis-list">
+              {summary.basisItems.map((item) => (
+                <li key={item}>
+                  <DashboardV2Text tone="muted">{item}</DashboardV2Text>
+                </li>
+              ))}
+            </ul>
+          </DashboardV2Surface>
+        </aside>
       </div>
     </div>
   );

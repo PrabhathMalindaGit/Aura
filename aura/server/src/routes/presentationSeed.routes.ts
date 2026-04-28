@@ -26,6 +26,7 @@ function handlePresentationSeedError(error: unknown, res: Response) {
       error: "PRESENTATION_SEED_COLLISION",
       message: "Presentation seed reserved IDs collide with untagged records",
       collisions: error.collisions,
+      details: error.details,
     });
   }
 

@@ -118,6 +118,15 @@ type PresentationCounts = Record<string, number>;
 type CountableModel = {
   countDocuments(filter: Record<string, unknown>): Promise<number>;
 };
+type PresentationSeedCollisionDetail = {
+  collection: string;
+  count: number;
+  ids: string[];
+  reason: string;
+  safeToAutoClean: boolean;
+  records?: Array<Record<string, unknown>>;
+  recommendedCleanup?: string;
+};
 
 export class PresentationSeedDisabledError extends Error {
   constructor() {
@@ -127,10 +136,15 @@ export class PresentationSeedDisabledError extends Error {
 
 export class PresentationSeedCollisionError extends Error {
   collisions: string[];
+  details: PresentationSeedCollisionDetail[];
 
-  constructor(collisions: string[]) {
+  constructor(
+    collisions: string[],
+    details: PresentationSeedCollisionDetail[] = []
+  ) {
     super("Presentation seed collision detected");
     this.collisions = collisions;
+    this.details = details;
   }
 }
 
@@ -314,21 +328,140 @@ async function preflightPresentationSeedCollisions(): Promise<void> {
     }
   }
 
+  if (collisions.length > 0) {
+    throw new PresentationSeedCollisionError(collisions);
+  }
+
+  await retagLegacyPresentationAppointmentSlots();
+
+  const slotCollisionDetail = await getUnsafeAppointmentSlotCollisionDetail();
+  if (slotCollisionDetail) {
+    collisions.push(`appointmentSlots:${slotCollisionDetail.count}`);
+  }
+
+  if (collisions.length > 0) {
+    throw new PresentationSeedCollisionError(
+      collisions,
+      slotCollisionDetail ? [slotCollisionDetail] : []
+    );
+  }
+}
+
+function appointmentSlotManifestKey(slot: {
+  clinicianId: string;
+  startsAt: Date;
+}): string {
+  return `${slot.clinicianId}|${slot.startsAt.toISOString()}`;
+}
+
+function matchesAppointmentSlotManifest(
+  slot: Record<string, unknown>,
+  manifestSlot: ReturnType<typeof buildAppointmentSlots>[number]
+): boolean {
+  const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
+  const endsAt = slot.endsAt instanceof Date ? slot.endsAt : null;
+
+  return (
+    slot.clinicianId === manifestSlot.clinicianId &&
+    startsAt?.toISOString() === manifestSlot.startsAt.toISOString() &&
+    endsAt?.toISOString() === manifestSlot.endsAt.toISOString() &&
+    slot.modality === manifestSlot.modality &&
+    slot.status === manifestSlot.status &&
+    slot.meetingLink === manifestSlot.meetingLink
+  );
+}
+
+function appointmentSlotDiagnostic(slot: Record<string, unknown>) {
+  const startsAt = slot.startsAt instanceof Date ? slot.startsAt.toISOString() : null;
+  const endsAt = slot.endsAt instanceof Date ? slot.endsAt.toISOString() : null;
+  const idValue =
+    slot._id && typeof (slot._id as { toString?: unknown }).toString === "function"
+      ? (slot._id as { toString(): string }).toString()
+      : String(slot._id ?? "");
+
+  return {
+    id: idValue,
+    clinicianId: slot.clinicianId,
+    startsAt,
+    endsAt,
+    modality: slot.modality,
+    status: slot.status,
+    meetingLink: slot.meetingLink,
+    demoTag: slot.demoTag ?? null,
+  };
+}
+
+async function findUntaggedPresentationSlotCollisions() {
   const slotWindows = buildAppointmentSlots().map((slot) => ({
     clinicianId: slot.clinicianId,
     startsAt: slot.startsAt,
   }));
-  const slotCollisionCount = await AppointmentSlot.countDocuments({
-    $or: slotWindows,
-    ...untagged,
-  });
-  if (slotCollisionCount > 0) {
-    collisions.push(`appointmentSlots:${slotCollisionCount}`);
+
+  return AppointmentSlot.find({
+    $and: [{ $or: slotWindows }, untaggedQuery()],
+  })
+    .select("_id clinicianId startsAt endsAt modality status meetingLink demoTag")
+    .lean();
+}
+
+async function retagLegacyPresentationAppointmentSlots(): Promise<void> {
+  const manifestByKey = new Map(
+    buildAppointmentSlots().map((slot) => [appointmentSlotManifestKey(slot), slot])
+  );
+  const collisions = await findUntaggedPresentationSlotCollisions();
+  const safeIds = collisions
+    .filter((slot) => {
+      const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
+      const manifestSlot = startsAt
+        ? manifestByKey.get(`${slot.clinicianId}|${startsAt.toISOString()}`)
+        : null;
+
+      return manifestSlot ? matchesAppointmentSlotManifest(slot, manifestSlot) : false;
+    })
+    .map((slot) => slot._id);
+
+  if (safeIds.length === 0) {
+    return;
   }
 
-  if (collisions.length > 0) {
-    throw new PresentationSeedCollisionError(collisions);
+  await AppointmentSlot.updateMany(
+    { _id: { $in: safeIds } },
+    { $set: { demoTag: PRESENTATION_DEMO_TAG } }
+  );
+}
+
+async function getUnsafeAppointmentSlotCollisionDetail(): Promise<
+  PresentationSeedCollisionDetail | null
+> {
+  const manifestByKey = new Map(
+    buildAppointmentSlots().map((slot) => [appointmentSlotManifestKey(slot), slot])
+  );
+  const collisions = await findUntaggedPresentationSlotCollisions();
+  const unsafeRecords = collisions
+    .filter((slot) => {
+      const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
+      const manifestSlot = startsAt
+        ? manifestByKey.get(`${slot.clinicianId}|${startsAt.toISOString()}`)
+        : null;
+
+      return !manifestSlot || !matchesAppointmentSlotManifest(slot, manifestSlot);
+    })
+    .map(appointmentSlotDiagnostic);
+
+  if (unsafeRecords.length === 0) {
+    return null;
   }
+
+  return {
+    collection: "appointmentSlots",
+    count: unsafeRecords.length,
+    ids: unsafeRecords.map((record) => String(record.id)),
+    reason: "untagged records collide with deterministic presentation appointment slots",
+    safeToAutoClean: false,
+    records: unsafeRecords,
+    recommendedCleanup:
+      "Inspect these local AppointmentSlot records. No automatic cleanup was applied because they do not exactly match the deterministic presentation seed manifest.",
+  };
 }
 
 async function resetPresentationSeedRecords(): Promise<PresentationCounts> {

@@ -38,6 +38,40 @@ const mutableEnv = env as unknown as {
   AURA_PRESENTATION_SEED_ENABLED: boolean;
 };
 
+function dateAt(date: string, hour: number): Date {
+  return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00.000Z`);
+}
+
+function buildLegacyPresentationAppointmentSlot(
+  index: number,
+  overrides: Record<string, unknown> = {}
+) {
+  const slots = [
+    ["2026-04-13", 14],
+    ["2026-04-14", 15],
+    ["2026-04-15", 13],
+    ["2026-04-15", 16],
+    ["2026-04-16", 14],
+    ["2026-04-17", 10],
+    ["2026-04-17", 15],
+    ["2026-04-18", 9],
+    ["2026-04-18", 11],
+    ["2026-04-19", 10],
+  ].map(([date, hour], slotIndex) => ({
+    clinicianId: "presentation-clinician",
+    startsAt: dateAt(String(date), Number(hour)),
+    endsAt: dateAt(String(date), Number(hour) + 1),
+    modality: "video",
+    status: slotIndex % 3 === 0 ? "closed" : "available",
+    meetingLink: `https://meet.example.com/presentation-${slotIndex + 1}`,
+  }));
+
+  return {
+    ...slots[index],
+    ...overrides,
+  };
+}
+
 async function clearCollections() {
   await Promise.all([
     Alert.deleteMany({}),
@@ -191,16 +225,96 @@ describe("presentation seed clinician dev routes", () => {
       adherence: { exercises: 1, medication: true },
       risk: { level: "low", reasons: [] },
     });
+    const realSlot = await AppointmentSlot.create({
+      clinicianId: "presentation-clinician",
+      startsAt: dateAt("2026-04-20", 14),
+      endsAt: dateAt("2026-04-20", 15),
+      modality: "video",
+      status: "available",
+      meetingLink: "https://example.com/meet/real-slot",
+    });
 
-    await request(app).post(route);
+    const seed = await request(app).post(route);
     const reset = await request(app).delete(route);
 
+    expect(seed.status).toBe(200);
     expect(reset.status).toBe(200);
     expect(reset.body.deleted.patients).toBe(8);
     expect(reset.body.counts.patients).toBe(0);
     expect(await Patient.exists({ patientId: "p1", displayName: "Patient One" })).toBeTruthy();
     expect(await CheckIn.exists({ patientId: "p1", date: "2026-04-18" })).toBeTruthy();
+    expect(await AppointmentSlot.exists({ _id: realSlot._id })).toBeTruthy();
     expect(await Patient.countDocuments({ demoTag: PRESENTATION_DEMO_TAG })).toBe(0);
+  });
+
+  it("safely retags legacy untagged presentation appointment slots before reseeding", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const legacySlots = await AppointmentSlot.insertMany(
+      Array.from({ length: 8 }, (_value, index) =>
+        buildLegacyPresentationAppointmentSlot(index)
+      )
+    );
+
+    const first = await request(app).post(route);
+    const second = await request(app).post(route);
+
+    expect(first.status).toBe(200);
+    expect(first.body.deleted.appointmentSlots).toBe(8);
+    expect(first.body.counts.appointmentSlots).toBe(10);
+    expect(second.status).toBe(200);
+    expect(second.body.counts).toEqual(first.body.counts);
+    expect(await AppointmentSlot.countDocuments({
+      _id: { $in: legacySlots.map((slot) => slot._id) },
+    })).toBe(0);
+    expect(await AppointmentSlot.countDocuments({
+      demoTag: PRESENTATION_DEMO_TAG,
+    })).toBe(10);
+
+    const reset = await request(app).delete(route);
+
+    expect(reset.status).toBe(200);
+    expect(reset.body.deleted.appointmentSlots).toBe(10);
+    expect(await AppointmentSlot.countDocuments({
+      demoTag: PRESENTATION_DEMO_TAG,
+    })).toBe(0);
+  });
+
+  it("fails safely with diagnostics for unsafe untagged appointment slot collisions", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const realSlot = await AppointmentSlot.create(
+      buildLegacyPresentationAppointmentSlot(0, {
+        meetingLink: "https://example.com/meet/real-collision",
+      })
+    );
+
+    const seed = await request(app).post(route);
+    const reset = await request(app).delete(route);
+
+    expect(seed.status).toBe(409);
+    expect(seed.body.error).toBe("PRESENTATION_SEED_COLLISION");
+    expect(seed.body.collisions).toContain("appointmentSlots:1");
+    expect(seed.body.details).toEqual([
+      expect.objectContaining({
+        collection: "appointmentSlots",
+        count: 1,
+        ids: [String(realSlot._id)],
+        reason: "untagged records collide with deterministic presentation appointment slots",
+        safeToAutoClean: false,
+      }),
+    ]);
+    expect(seed.body.details[0].records).toEqual([
+      expect.objectContaining({
+        id: String(realSlot._id),
+        clinicianId: "presentation-clinician",
+        startsAt: "2026-04-13T14:00:00.000Z",
+        endsAt: "2026-04-13T15:00:00.000Z",
+        meetingLink: "https://example.com/meet/real-collision",
+        demoTag: null,
+      }),
+    ]);
+    expect(await AppointmentSlot.exists({ _id: realSlot._id })).toBeTruthy();
+    expect(reset.status).toBe(200);
+    expect(await AppointmentSlot.exists({ _id: realSlot._id })).toBeTruthy();
   });
 
   it("fails safely when untagged data uses reserved presentation patient IDs", async () => {

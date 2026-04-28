@@ -6,6 +6,7 @@ function buildRuntimeEnv(
   overrides: Partial<{
     NODE_ENV: string;
     ALLOW_UNAUTH_CLINICIAN_BODY_IDS: boolean;
+    AURA_PRESENTATION_SEED_ENABLED: boolean;
     CORS_ALLOWED_ORIGINS: string[];
     AI_BASE_URL: string;
     AURA_AI_SERVICE_KEY: string;
@@ -15,6 +16,7 @@ function buildRuntimeEnv(
   return {
     NODE_ENV: "production",
     ALLOW_UNAUTH_CLINICIAN_BODY_IDS: false,
+    AURA_PRESENTATION_SEED_ENABLED: false,
     CORS_ALLOWED_ORIGINS: ["https://app.example.com"],
     AI_BASE_URL: "https://ai.example.com",
     AURA_AI_SERVICE_KEY: "prod-ai-key",
@@ -48,6 +50,16 @@ describe("runtime env safety checks", () => {
 
   it("allows normal production mode when bypass is disabled", () => {
     expect(() => assertRuntimeEnvSafety(buildRuntimeEnv())).not.toThrow();
+  });
+
+  it("throws when presentation seed is enabled in production", () => {
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_PRESENTATION_SEED_ENABLED: true,
+        })
+      )
+    ).toThrow(/AURA_PRESENTATION_SEED_ENABLED/);
   });
 
   it("throws when AI_BASE_URL is invalid", () => {

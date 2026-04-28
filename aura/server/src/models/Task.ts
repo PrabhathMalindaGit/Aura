@@ -123,6 +123,10 @@ const taskSchema = new Schema(
       type: Schema.Types.Mixed,
       default: undefined,
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
     completedAt: {
       type: Date,
       default: null,
@@ -140,6 +144,7 @@ const taskSchema = new Schema(
 taskSchema.index({ patientId: 1, status: 1, dueAt: 1 });
 taskSchema.index({ assignedTo: 1, status: 1, dueAt: 1 });
 taskSchema.index({ status: 1, priority: 1, createdAt: -1 });
+taskSchema.index({ demoTag: 1 });
 
 const Task = model("Task", taskSchema);
 

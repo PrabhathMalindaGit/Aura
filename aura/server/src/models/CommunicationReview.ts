@@ -100,6 +100,10 @@ const communicationReviewSchema = new Schema(
       type: clinicianSnapshotSchema,
       default: undefined,
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -111,6 +115,7 @@ communicationReviewSchema.index({ patientId: 1, needsResponse: 1, messageCreated
 communicationReviewSchema.index({ followUpRequested: 1, updatedAt: -1 });
 communicationReviewSchema.index({ patientId: 1, resolvedAt: 1, messageCreatedAt: -1 });
 communicationReviewSchema.index({ patientId: 1, lastReviewedAt: -1, messageCreatedAt: -1 });
+communicationReviewSchema.index({ demoTag: 1 });
 
 const CommunicationReview = model("CommunicationReview", communicationReviewSchema);
 

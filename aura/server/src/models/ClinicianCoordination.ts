@@ -176,6 +176,10 @@ const clinicianCoordinationSchema = new Schema(
       type: [noteHistoryItemSchema],
       default: [],
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -183,6 +187,7 @@ const clinicianCoordinationSchema = new Schema(
 );
 
 clinicianCoordinationSchema.index({ patientId: 1 }, { unique: true });
+clinicianCoordinationSchema.index({ demoTag: 1 });
 
 const ClinicianCoordination = model(
   "ClinicianCoordination",

@@ -88,6 +88,10 @@ const communicationEventSchema = new Schema(
       default: () => new Date(),
       index: true,
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: false,
@@ -103,6 +107,7 @@ communicationEventSchema.index({
   sourceSurface: 1,
   createdAt: -1,
 });
+communicationEventSchema.index({ demoTag: 1 });
 
 const CommunicationEvent = model("CommunicationEvent", communicationEventSchema);
 

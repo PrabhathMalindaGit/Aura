@@ -152,6 +152,10 @@ const insightSuggestionSchema = new Schema(
       type: Date,
       default: null,
     },
+    demoTag: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,
@@ -160,6 +164,7 @@ const insightSuggestionSchema = new Schema(
 
 insightSuggestionSchema.index({ patientId: 1, status: 1, createdAt: -1 });
 insightSuggestionSchema.index({ patientId: 1, fingerprint: 1 }, { unique: true });
+insightSuggestionSchema.index({ demoTag: 1 });
 
 const InsightSuggestion = model("InsightSuggestion", insightSuggestionSchema);
 

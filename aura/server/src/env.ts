@@ -115,6 +115,10 @@ export const env = {
     process.env.ALLOW_UNAUTH_CLINICIAN_BODY_IDS,
     false
   ),
+  AURA_PRESENTATION_SEED_ENABLED: toBool(
+    process.env.AURA_PRESENTATION_SEED_ENABLED,
+    false
+  ),
   CORS_ALLOWED_ORIGINS: toStringArray(process.env.CORS_ALLOWED_ORIGINS),
   PAIN_HIGH_THRESHOLD: toInt(process.env.PAIN_HIGH_THRESHOLD, 7),
 } as const;
@@ -123,6 +127,7 @@ type RuntimeEnv = {
   CORS_ALLOWED_ORIGINS: readonly string[];
   NODE_ENV: string;
   ALLOW_UNAUTH_CLINICIAN_BODY_IDS: boolean;
+  AURA_PRESENTATION_SEED_ENABLED: boolean;
   AI_BASE_URL: string;
   AURA_AI_SERVICE_KEY: string;
   AI_REQUEST_TIMEOUT_MS: number;
@@ -131,6 +136,10 @@ type RuntimeEnv = {
 export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
   if (value.ALLOW_UNAUTH_CLINICIAN_BODY_IDS && value.NODE_ENV !== "test") {
     throw new Error("ALLOW_UNAUTH_CLINICIAN_BODY_IDS is allowed only when NODE_ENV=test");
+  }
+
+  if (value.AURA_PRESENTATION_SEED_ENABLED && value.NODE_ENV === "production") {
+    throw new Error("AURA_PRESENTATION_SEED_ENABLED is not allowed in production");
   }
 
   if (

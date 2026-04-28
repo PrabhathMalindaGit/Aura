@@ -17,6 +17,7 @@ import internalN8nRoutes from "./internalN8n.routes";
 import medicationsRoutes from "./medications.routes";
 import nutritionRoutes from "./nutrition.routes";
 import patientRoutes from "./patient.routes";
+import presentationSeedRoutes from "./presentationSeed.routes";
 import promsRoutes from "./proms.routes";
 import rehabPhasesRoutes from "./rehabPhases.routes";
 import symptomPhotosRoutes from "./symptomPhotos.routes";
@@ -51,5 +52,6 @@ router.use(weeklyReportsRoutes);
 router.use(worklistRoutes);
 router.use(eventsRoutes);
 router.use(patientRoutes);
+router.use(presentationSeedRoutes);
 
 export default router;

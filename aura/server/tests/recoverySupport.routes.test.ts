@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import app from "../src/app";
 import CareEvent from "../src/models/CareEvent";
@@ -123,6 +123,8 @@ describe("recovery support routes", () => {
   });
 
   beforeEach(async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOW);
     await Promise.all([
       CareEvent.deleteMany({}),
       CheckIn.deleteMany({}),
@@ -130,6 +132,10 @@ describe("recovery support routes", () => {
       PatientRecoverySupportConfig.deleteMany({}),
       User.deleteMany({}),
     ]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("returns the richer patient adaptation DTO and dedupes history writes across repeated reads", async () => {

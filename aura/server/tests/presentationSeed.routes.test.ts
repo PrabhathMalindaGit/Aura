@@ -48,16 +48,16 @@ function buildLegacyPresentationAppointmentSlot(
   overrides: Record<string, unknown> = {}
 ) {
   const slots = [
-    ["2026-04-13", 14],
-    ["2026-04-14", 15],
-    ["2026-04-15", 13],
-    ["2026-04-15", 16],
-    ["2026-04-16", 14],
-    ["2026-04-17", 10],
-    ["2026-04-17", 15],
-    ["2026-04-18", 9],
-    ["2026-04-18", 11],
-    ["2026-04-19", 10],
+    ["2026-04-27", 14],
+    ["2026-04-28", 15],
+    ["2026-04-29", 13],
+    ["2026-04-29", 16],
+    ["2026-04-30", 14],
+    ["2026-05-01", 10],
+    ["2026-05-01", 15],
+    ["2026-05-02", 9],
+    ["2026-05-02", 11],
+    ["2026-05-03", 10],
   ].map(([date, hour], slotIndex) => ({
     clinicianId: "presentation-clinician",
     startsAt: dateAt(String(date), Number(hour)),
@@ -69,6 +69,43 @@ function buildLegacyPresentationAppointmentSlot(
 
   return {
     ...slots[index],
+    ...overrides,
+  };
+}
+
+function buildLegacyPresentationCommunicationEvent(
+  patientIndex: number,
+  eventType: "patient_message_sent" | "follow_up_requested" = "patient_message_sent",
+  overrides: Record<string, unknown> = {}
+) {
+  const patients = [
+    "presentation-emily-chen",
+    "presentation-robert-jackson",
+    "presentation-maria-gonzalez",
+    "presentation-jacob-patel",
+    "presentation-sarah-kim",
+    "presentation-michael-brown",
+    "presentation-emily-lee",
+    "presentation-david-lee",
+  ];
+  const patientId = patients[patientIndex];
+  const messageId = `${String(patientIndex + 1).padStart(24, "0")}`;
+  const reviewId = `${String(patientIndex + 101).padStart(24, "0")}`;
+
+  return {
+    patientId,
+    threadKey: `presentation-thread-${patientId}`,
+    channel: "patient_chat",
+    messageId: `presentation-message-${messageId}`,
+    eventType,
+    actorType: eventType === "patient_message_sent" ? "patient" : "automation",
+    actorId: eventType === "patient_message_sent" ? patientId : "presentation-seed",
+    sourceSurface: "presentation-seed",
+    sourceRecordId: reviewId,
+    createdAt:
+      eventType === "patient_message_sent"
+        ? dateAt("2026-04-18", 9 + patientIndex)
+        : dateAt("2026-04-18", 18),
     ...overrides,
   };
 }
@@ -230,7 +267,7 @@ describe("presentation seed clinician dev routes", () => {
 
     const slots = await request(app)
       .get(
-        "/clinician/appointments/slots?status=available&from=2026-04-13T00:00:00.000Z&to=2026-04-19T23:59:59.999Z&limit=100"
+        "/clinician/appointments/slots?status=available&from=2026-04-27T00:00:00.000Z&to=2026-05-03T23:59:59.999Z&limit=100"
       )
       .set(auth);
     expect(slots.status).toBe(200);
@@ -243,7 +280,7 @@ describe("presentation seed clinician dev routes", () => {
 
     const requests = await request(app)
       .get(
-        "/clinician/appointments/requests?status=pending&from=2026-04-13T00:00:00.000Z&to=2026-04-19T23:59:59.999Z&limit=100"
+        "/clinician/appointments/requests?status=pending&from=2026-04-27T00:00:00.000Z&to=2026-05-03T23:59:59.999Z&limit=100"
       )
       .set(auth);
     expect(requests.status).toBe(200);
@@ -300,6 +337,17 @@ describe("presentation seed clinician dev routes", () => {
       status: "available",
       meetingLink: "https://example.com/meet/real-slot",
     });
+    const realCommunicationEvent = await CommunicationEvent.create({
+      patientId: "p1",
+      threadKey: "thread-p1-real",
+      channel: "patient_chat",
+      eventType: "thread_opened",
+      actorType: "clinician",
+      actorId: "real-clinician",
+      sourceSurface: "clinician-inbox",
+      sourceRecordId: "real-thread-p1",
+      createdAt: dateAt("2026-04-18", 15),
+    });
 
     const seed = await request(app).post(route);
     const reset = await request(app).delete(route);
@@ -311,7 +359,82 @@ describe("presentation seed clinician dev routes", () => {
     expect(await Patient.exists({ patientId: "p1", displayName: "Patient One" })).toBeTruthy();
     expect(await CheckIn.exists({ patientId: "p1", date: "2026-04-18" })).toBeTruthy();
     expect(await AppointmentSlot.exists({ _id: realSlot._id })).toBeTruthy();
+    expect(await CommunicationEvent.exists({ _id: realCommunicationEvent._id })).toBeTruthy();
     expect(await Patient.countDocuments({ demoTag: PRESENTATION_DEMO_TAG })).toBe(0);
+  });
+
+  it("safely retags legacy untagged presentation communication events before reseeding", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const legacyEvents = await CommunicationEvent.insertMany([
+      buildLegacyPresentationCommunicationEvent(0, "patient_message_sent"),
+      buildLegacyPresentationCommunicationEvent(1, "patient_message_sent"),
+      buildLegacyPresentationCommunicationEvent(2, "follow_up_requested"),
+      {
+        patientId: "presentation-maria-gonzalez",
+        threadKey: "patient_chat:presentation-maria-gonzalez",
+        channel: "patient_chat",
+        eventType: "thread_opened",
+        actorType: "clinician",
+        actorId: "presentation-clinician",
+        sourceSurface: "communication_inbox",
+        createdAt: dateAt("2026-04-28", 9),
+      },
+    ]);
+
+    const seed = await request(app).post(route);
+    const reset = await request(app).delete(route);
+
+    expect(seed.status).toBe(200);
+    expect(seed.body.deleted.communicationEvents).toBe(4);
+    expect(seed.body.counts.communicationEvents).toBe(16);
+    expect(
+      await CommunicationEvent.countDocuments({
+        _id: { $in: legacyEvents.map((event) => event._id) },
+      })
+    ).toBe(0);
+    expect(reset.status).toBe(200);
+    expect(reset.body.deleted.communicationEvents).toBe(16);
+    expect(await CommunicationEvent.countDocuments({
+      demoTag: PRESENTATION_DEMO_TAG,
+    })).toBe(0);
+  });
+
+  it("fails safely with diagnostics for unsafe untagged communication event collisions", async () => {
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const realEvent = await CommunicationEvent.create(
+      buildLegacyPresentationCommunicationEvent(0, "patient_message_sent", {
+        createdAt: dateAt("2026-04-18", 8),
+      })
+    );
+
+    const seed = await request(app).post(route);
+    const reset = await request(app).delete(route);
+
+    expect(seed.status).toBe(409);
+    expect(seed.body.error).toBe("PRESENTATION_SEED_COLLISION");
+    expect(seed.body.collisions).toContain("communicationEvents:1");
+    expect(seed.body.details).toEqual([
+      expect.objectContaining({
+        collection: "communicationEvents",
+        count: 1,
+        ids: [String(realEvent._id)],
+        safeToAutoClean: false,
+      }),
+    ]);
+    expect(seed.body.details[0].records).toEqual([
+      expect.objectContaining({
+        id: String(realEvent._id),
+        patientId: "presentation-emily-chen",
+        threadKey: "presentation-thread-presentation-emily-chen",
+        eventType: "patient_message_sent",
+        sourceSurface: "presentation-seed",
+        createdAt: "2026-04-18T08:00:00.000Z",
+        demoTag: null,
+      }),
+    ]);
+    expect(await CommunicationEvent.exists({ _id: realEvent._id })).toBeTruthy();
+    expect(reset.status).toBe(200);
+    expect(await CommunicationEvent.exists({ _id: realEvent._id })).toBeTruthy();
   });
 
   it("safely retags legacy untagged presentation appointment slots before reseeding", async () => {
@@ -373,8 +496,8 @@ describe("presentation seed clinician dev routes", () => {
       expect.objectContaining({
         id: String(realSlot._id),
         clinicianId: "presentation-clinician",
-        startsAt: "2026-04-13T14:00:00.000Z",
-        endsAt: "2026-04-13T15:00:00.000Z",
+        startsAt: "2026-04-27T14:00:00.000Z",
+        endsAt: "2026-04-27T15:00:00.000Z",
         meetingLink: "https://example.com/meet/real-collision",
         demoTag: null,
       }),

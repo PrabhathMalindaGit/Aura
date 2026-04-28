@@ -214,4 +214,56 @@ describe("useSettingsViewModel", () => {
     );
     expect(invalidateSpy).toHaveBeenCalled();
   });
+
+  it("refetches presentation status after a failed load without locking retry actions", async () => {
+    vi.stubEnv("VITE_AURA_PRESENTATION_TOOLS_ENABLED", "true");
+    signInAs({ sub: "auth-settings-6", name: "Dr Retry" });
+    let getCount = 0;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const method = init?.method ?? "GET";
+      if (method === "POST") {
+        return createJsonResponse(
+          {
+            ok: false,
+            error: "PRESENTATION_SEED_COLLISION",
+            message: "Presentation seed reserved IDs collide with untagged records",
+          },
+          409,
+        );
+      }
+
+      getCount += 1;
+      const loaded = getCount === 1;
+      return createJsonResponse({
+        ok: true,
+        enabled: true,
+        loaded,
+        seedId: "phase-10c-presentation-seed-v1",
+        counts: loaded ? { patients: 8, appointmentRequests: 6 } : {},
+        lastLoadedAt: loaded ? "2026-04-28T10:00:00.000Z" : null,
+      });
+    });
+
+    const { result } = renderHook(() => useSettingsViewModel(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.presentationToolsPanel?.loaded).toBe(true);
+    });
+
+    act(() => {
+      result.current.presentationToolsPanel?.onLoad();
+    });
+
+    await waitFor(() => {
+      expect(result.current.presentationToolsPanel?.error).toBe(
+        "The request could not be completed.",
+      );
+      expect(result.current.presentationToolsPanel?.loaded).toBe(false);
+    });
+    expect(result.current.presentationToolsPanel?.loadDisabled).toBe(false);
+    expect(result.current.presentationToolsPanel?.resetDisabled).toBe(true);
+  });
 });

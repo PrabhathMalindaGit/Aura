@@ -316,6 +316,8 @@ export async function getPresentationSeedStatus() {
 async function preflightPresentationSeedCollisions(
   context?: PresentationSeedClinicianContext
 ): Promise<void> {
+  await retagLegacyPresentationCommunicationEvents(context);
+
   const patientIds = presentationPatientIds();
   const untagged = untaggedQuery();
   const patientIdModels: Array<[string, CountableModel]> = [
@@ -334,7 +336,6 @@ async function preflightPresentationSeedCollisions(
     ["alerts", Alert as CountableModel],
     ["careEvents", CareEvent as CountableModel],
     ["communicationReviews", CommunicationReview as CountableModel],
-    ["communicationEvents", CommunicationEvent as CountableModel],
     ["clinicianCoordinations", ClinicianCoordination as CountableModel],
     ["tasks", Task as CountableModel],
     ["insightSuggestions", InsightSuggestion as CountableModel],
@@ -358,6 +359,12 @@ async function preflightPresentationSeedCollisions(
     throw new PresentationSeedCollisionError(collisions);
   }
 
+  const communicationEventCollisionDetail =
+    await getUnsafeCommunicationEventCollisionDetail(context);
+  if (communicationEventCollisionDetail) {
+    collisions.push(`communicationEvents:${communicationEventCollisionDetail.count}`);
+  }
+
   await retagLegacyPresentationAppointmentSlots(context);
 
   const slotCollisionDetail = await getUnsafeAppointmentSlotCollisionDetail(context);
@@ -368,9 +375,205 @@ async function preflightPresentationSeedCollisions(
   if (collisions.length > 0) {
     throw new PresentationSeedCollisionError(
       collisions,
-      slotCollisionDetail ? [slotCollisionDetail] : []
+      [
+        communicationEventCollisionDetail,
+        slotCollisionDetail,
+      ].filter((detail): detail is PresentationSeedCollisionDetail => Boolean(detail))
     );
   }
+}
+
+function buildCommunicationEventManifest() {
+  return PRESENTATION_PATIENTS.flatMap((patient, index) => [
+    {
+      patientId: patient.patientId,
+      threadKey: `presentation-thread-${patient.patientId}`,
+      channel: "patient_chat",
+      eventType: "patient_message_sent",
+      actorType: "patient",
+      actorId: patient.patientId,
+      sourceSurface: "presentation-seed",
+      createdAt: dateAt("2026-04-18", 9 + index),
+    },
+    {
+      patientId: patient.patientId,
+      threadKey: `presentation-thread-${patient.patientId}`,
+      channel: "patient_chat",
+      eventType: "follow_up_requested",
+      actorType: "automation",
+      actorId: "presentation-seed",
+      sourceSurface: "presentation-seed",
+      createdAt: dateAt("2026-04-18", 18),
+    },
+  ]);
+}
+
+function communicationEventManifestKey(event: {
+  patientId: string;
+  eventType: string;
+  createdAt: Date;
+}): string {
+  return `${event.patientId}|${event.eventType}|${event.createdAt.toISOString()}`;
+}
+
+function isObjectIdString(value: unknown): boolean {
+  return typeof value === "string" && /^[a-f\d]{24}$/i.test(value);
+}
+
+function matchesCommunicationEventManifest(
+  event: Record<string, unknown>,
+  manifestEvent: ReturnType<typeof buildCommunicationEventManifest>[number]
+): boolean {
+  const createdAt = event.createdAt instanceof Date ? event.createdAt : null;
+  const messageId = typeof event.messageId === "string" ? event.messageId : "";
+  const messageRecordId = messageId.replace("presentation-message-", "");
+
+  return (
+    event.patientId === manifestEvent.patientId &&
+    event.threadKey === manifestEvent.threadKey &&
+    event.channel === manifestEvent.channel &&
+    event.eventType === manifestEvent.eventType &&
+    event.actorType === manifestEvent.actorType &&
+    event.actorId === manifestEvent.actorId &&
+    event.sourceSurface === manifestEvent.sourceSurface &&
+    createdAt?.toISOString() === manifestEvent.createdAt.toISOString() &&
+    messageId.startsWith("presentation-message-") &&
+    isObjectIdString(messageRecordId) &&
+    isObjectIdString(event.sourceRecordId)
+  );
+}
+
+function matchesPresentationInteractionCommunicationEvent(
+  event: Record<string, unknown>,
+  context?: PresentationSeedClinicianContext
+): boolean {
+  const seedClinician = resolveSeedClinician(context);
+  const patientId = typeof event.patientId === "string" ? event.patientId : "";
+  const presentationInteractionSurfaces = new Set([
+    "communication_inbox",
+    "patient_detail_communication_panel",
+  ]);
+
+  return (
+    presentationPatientIds().includes(patientId) &&
+    event.threadKey === `patient_chat:${patientId}` &&
+    event.channel === "patient_chat" &&
+    event.eventType === "thread_opened" &&
+    event.actorType === "clinician" &&
+    event.actorId === seedClinician.clinicianId &&
+    typeof event.sourceSurface === "string" &&
+    presentationInteractionSurfaces.has(event.sourceSurface) &&
+    event.createdAt instanceof Date
+  );
+}
+
+function communicationEventDiagnostic(event: Record<string, unknown>) {
+  const createdAt = event.createdAt instanceof Date ? event.createdAt.toISOString() : null;
+  const idValue =
+    event._id && typeof (event._id as { toString?: unknown }).toString === "function"
+      ? (event._id as { toString(): string }).toString()
+      : String(event._id ?? "");
+
+  return {
+    id: idValue,
+    patientId: event.patientId,
+    threadKey: event.threadKey,
+    eventType: event.eventType,
+    actorType: event.actorType,
+    actorId: event.actorId,
+    sourceSurface: event.sourceSurface,
+    createdAt,
+    demoTag: event.demoTag ?? null,
+  };
+}
+
+async function findUntaggedPresentationCommunicationEventCollisions() {
+  return CommunicationEvent.find({
+    patientId: { $in: presentationPatientIds() },
+    ...untaggedQuery(),
+  })
+    .select(
+      "_id patientId threadKey channel messageId eventType actorType actorId sourceSurface sourceRecordId createdAt demoTag"
+    )
+    .lean();
+}
+
+async function retagLegacyPresentationCommunicationEvents(
+  context?: PresentationSeedClinicianContext
+): Promise<void> {
+  const manifestByKey = new Map(
+    buildCommunicationEventManifest().map((event) => [
+      communicationEventManifestKey(event),
+      event,
+    ])
+  );
+  const collisions = await findUntaggedPresentationCommunicationEventCollisions();
+  const safeIds = collisions
+    .filter((event) => {
+      const createdAt = event.createdAt instanceof Date ? event.createdAt : null;
+      const manifestEvent = createdAt
+        ? manifestByKey.get(`${event.patientId}|${event.eventType}|${createdAt.toISOString()}`)
+        : null;
+
+      return (
+        (manifestEvent ? matchesCommunicationEventManifest(event, manifestEvent) : false) ||
+        matchesPresentationInteractionCommunicationEvent(event, context)
+      );
+    })
+    .map((event) => event._id);
+
+  if (safeIds.length === 0) {
+    return;
+  }
+
+  await CommunicationEvent.updateMany(
+    { _id: { $in: safeIds } },
+    { $set: { demoTag: PRESENTATION_DEMO_TAG } }
+  );
+}
+
+async function getUnsafeCommunicationEventCollisionDetail(
+  context?: PresentationSeedClinicianContext
+): Promise<PresentationSeedCollisionDetail | null> {
+  const manifestByKey = new Map(
+    buildCommunicationEventManifest().map((event) => [
+      communicationEventManifestKey(event),
+      event,
+    ])
+  );
+  const collisions = await findUntaggedPresentationCommunicationEventCollisions();
+  const unsafeRecords = collisions
+    .filter((event) => {
+      const createdAt = event.createdAt instanceof Date ? event.createdAt : null;
+      const manifestEvent = createdAt
+        ? manifestByKey.get(`${event.patientId}|${event.eventType}|${createdAt.toISOString()}`)
+        : null;
+
+      const matchesSeedManifest = manifestEvent
+        ? matchesCommunicationEventManifest(event, manifestEvent)
+        : false;
+
+      return (
+        !matchesSeedManifest &&
+        !matchesPresentationInteractionCommunicationEvent(event, context)
+      );
+    })
+    .map(communicationEventDiagnostic);
+
+  if (unsafeRecords.length === 0) {
+    return null;
+  }
+
+  return {
+    collection: "communicationEvents",
+    count: unsafeRecords.length,
+    ids: unsafeRecords.map((record) => String(record.id)),
+    reason: "untagged records use reserved presentation communication event patients without matching the deterministic presentation event manifest",
+    safeToAutoClean: false,
+    records: unsafeRecords,
+    recommendedCleanup:
+      "Inspect these local CommunicationEvent records. No automatic cleanup was applied because they do not exactly match the deterministic presentation seed event manifest.",
+  };
 }
 
 function appointmentSlotManifestKey(slot: {
@@ -581,16 +784,16 @@ async function resetPresentationSeedRecords(): Promise<PresentationCounts> {
 function buildAppointmentSlots(context?: PresentationSeedClinicianContext) {
   const seedClinician = resolveSeedClinician(context);
   return [
-    ["2026-04-13", 14],
-    ["2026-04-14", 15],
-    ["2026-04-15", 13],
-    ["2026-04-15", 16],
-    ["2026-04-16", 14],
-    ["2026-04-17", 10],
-    ["2026-04-17", 15],
-    ["2026-04-18", 9],
-    ["2026-04-18", 11],
-    ["2026-04-19", 10],
+    ["2026-04-27", 14],
+    ["2026-04-28", 15],
+    ["2026-04-29", 13],
+    ["2026-04-29", 16],
+    ["2026-04-30", 14],
+    ["2026-05-01", 10],
+    ["2026-05-01", 15],
+    ["2026-05-02", 9],
+    ["2026-05-02", 11],
+    ["2026-05-03", 10],
   ].map(([date, hour], index) => ({
     clinicianId: seedClinician.clinicianId,
     startsAt: dateAt(String(date), Number(hour)),

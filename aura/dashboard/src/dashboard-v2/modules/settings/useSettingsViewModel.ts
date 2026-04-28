@@ -310,6 +310,11 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
       setPresentationNotice("Presentation data loaded.");
       await invalidatePresentationDashboardQueries(queryClient);
     },
+    onError: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: clinicianQueryKeys.presentationSeedStatus(),
+      });
+    },
   });
 
   const resetPresentationMutation = useMutation({
@@ -321,6 +326,11 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
       queryClient.setQueryData(clinicianQueryKeys.presentationSeedStatus(), result);
       setPresentationNotice("Presentation data reset.");
       await invalidatePresentationDashboardQueries(queryClient);
+    },
+    onError: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: clinicianQueryKeys.presentationSeedStatus(),
+      });
     },
   });
 
@@ -826,6 +836,7 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
     loadPresentationMutation.error ??
     resetPresentationMutation.error ??
     null;
+  const presentationStatusUnavailable = Boolean(presentationStatusQuery.error);
   const presentationToolsPanel: SettingsPresentationToolsPanelVm | null =
     presentationToolsEnabled
       ? {
@@ -851,13 +862,13 @@ export function useSettingsViewModel(): UseSettingsViewModelResult {
           loadDisabled:
             presentationBusy ||
             presentationStatusQuery.isLoading ||
-            Boolean(presentationError) ||
+            presentationStatusUnavailable ||
             !presentationStatus ||
             presentationStatus?.enabled === false,
           resetDisabled:
             presentationBusy ||
             presentationStatusQuery.isLoading ||
-            Boolean(presentationError) ||
+            presentationStatusUnavailable ||
             !presentationStatus ||
             presentationStatus?.enabled === false ||
             presentationStatus?.loaded !== true,

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createJsonResponse } from '../../../test/mocks';
-import { getWorkspaceStateStorageKey } from '../../../services/workspaceState';
+import { getWorkspaceStateStorageKey, writeWorkspaceState } from '../../../services/workspaceState';
 import type { InsightItem, PatientSummary } from '../../../types/models';
 import { resetInsightsUiStore } from '../../state/useInsightsUiStore';
 import { useInsightsViewModel } from './useInsightsViewModel';
@@ -52,6 +52,14 @@ const PENDING_ITEMS: InsightItem[] = [
 
 const APPROVED_ITEMS: InsightItem[] = [];
 const REJECTED_ITEMS: InsightItem[] = [];
+const APPROVED_VISIBLE_ITEMS: InsightItem[] = [
+  {
+    ...PENDING_ITEMS[0],
+    id: 'insight-approved-1',
+    status: 'approved',
+    reviewedAt: '2026-04-18T10:00:00.000Z',
+  },
+];
 
 const PATIENTS: PatientSummary[] = [
   { id: 'patient-1', displayName: 'Jordan Lee', status: 'active' },
@@ -68,9 +76,12 @@ function createQueryClient(): QueryClient {
   });
 }
 
-function installInsightsFetchMock(options: { failReviewIds?: string[] } = {}): void {
+function installInsightsFetchMock(options: {
+  approvedItems?: InsightItem[];
+  failReviewIds?: string[];
+} = {}): void {
   let pendingItems = [...PENDING_ITEMS];
-  let approvedItems = [...APPROVED_ITEMS];
+  let approvedItems = [...(options.approvedItems ?? APPROVED_ITEMS)];
   let rejectedItems = [...REJECTED_ITEMS];
   const failingIds = new Set(options.failReviewIds ?? []);
 
@@ -153,7 +164,7 @@ afterEach(() => {
 
 describe('useInsightsViewModel', () => {
   it('auto-selects the first visible item on wide layouts and persists lifecycle changes', async () => {
-    installInsightsFetchMock();
+    installInsightsFetchMock({ approvedItems: APPROVED_VISIBLE_ITEMS });
 
     const { result } = renderHook(
       () => useInsightsViewModel({ isNarrowLayout: false }),
@@ -172,6 +183,60 @@ describe('useInsightsViewModel', () => {
       expect(result.current.activeView).toBe('approved');
     });
     expect(window.localStorage.getItem(getWorkspaceStateStorageKey('insights'))).toContain('"activeView":"approved"');
+  });
+
+  it('switches an empty saved approved view back to pending when pending suggestions exist', async () => {
+    installInsightsFetchMock();
+    writeWorkspaceState('insights', { activeView: 'approved' });
+
+    const { result } = renderHook(
+      () => useInsightsViewModel({ isNarrowLayout: false }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(result.current.activeView).toBe('pending');
+      expect(result.current.activeInsight?.id).toBe('insight-priority-1');
+    });
+    expect(result.current.queueSections.some((section) => section.rows.length > 0)).toBe(true);
+    expect(window.localStorage.getItem(getWorkspaceStateStorageKey('insights'))).toContain('"activeView":"pending"');
+  });
+
+  it('keeps a saved approved view when approved suggestions are visible', async () => {
+    installInsightsFetchMock({ approvedItems: APPROVED_VISIBLE_ITEMS });
+    writeWorkspaceState('insights', { activeView: 'approved' });
+
+    const { result } = renderHook(
+      () => useInsightsViewModel({ isNarrowLayout: false }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(result.current.activeView).toBe('approved');
+      expect(result.current.activeInsight?.id).toBe('insight-approved-1');
+    });
+  });
+
+  it('keeps an explicit approved selection even when that tab is empty', async () => {
+    installInsightsFetchMock();
+
+    const { result } = renderHook(
+      () => useInsightsViewModel({ isNarrowLayout: false }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(result.current.activeInsight?.id).toBe('insight-priority-1');
+    });
+
+    act(() => {
+      result.current.persistActiveView('approved');
+    });
+
+    await waitFor(() => {
+      expect(result.current.activeView).toBe('approved');
+      expect(result.current.activeInsight).toBeNull();
+    });
   });
 
   it('preserves partial batch failure truth and keeps failed low-priority rows selected', async () => {

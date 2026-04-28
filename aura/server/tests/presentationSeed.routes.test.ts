@@ -30,6 +30,7 @@ import User from "../src/models/User";
 import WearableDaily from "../src/models/WearableDaily";
 import { env } from "../src/env";
 import { PRESENTATION_DEMO_TAG } from "../src/services/presentationSeedService";
+import { signAuthToken } from "../src/utils/jwt";
 
 const route = "/clinician/dev/presentation/seed";
 
@@ -70,6 +71,15 @@ function buildLegacyPresentationAppointmentSlot(
     ...slots[index],
     ...overrides,
   };
+}
+
+function clinicianToken(user: { _id: unknown; email: string; displayName?: string }): string {
+  return signAuthToken({
+    id: String(user._id),
+    role: "clinician",
+    email: user.email,
+    name: user.displayName,
+  });
 }
 
 async function clearCollections() {
@@ -192,6 +202,63 @@ describe("presentation seed clinician dev routes", () => {
       demoTag: PRESENTATION_DEMO_TAG,
     });
     expect(linkedSlot).toBeTruthy();
+  });
+
+  it("loads seeded appointment data for the requesting clinician through normal appointment APIs", async () => {
+    mutableEnv.ALLOW_UNAUTH_CLINICIAN_BODY_IDS = false;
+    mutableEnv.AURA_PRESENTATION_SEED_ENABLED = true;
+    const clinician = await User.create({
+      email: "presentation-clinician@example.com",
+      passwordHash: "test-password-hash",
+      role: "clinician",
+      displayName: "Presentation Tester",
+    });
+    const staleLegacySlots = await AppointmentSlot.insertMany([
+      buildLegacyPresentationAppointmentSlot(0),
+      buildLegacyPresentationAppointmentSlot(1),
+    ]);
+    const token = clinicianToken(clinician);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    const seed = await request(app).post(route).set(auth);
+    expect(seed.status).toBe(200);
+    expect(
+      await AppointmentSlot.countDocuments({
+        _id: { $in: staleLegacySlots.map((slot) => slot._id) },
+      })
+    ).toBe(0);
+
+    const slots = await request(app)
+      .get(
+        "/clinician/appointments/slots?status=available&from=2026-04-13T00:00:00.000Z&to=2026-04-19T23:59:59.999Z&limit=100"
+      )
+      .set(auth);
+    expect(slots.status).toBe(200);
+    expect(slots.body.items.length).toBeGreaterThan(0);
+    expect(
+      slots.body.items.every(
+        (item: { clinicianId: string }) => item.clinicianId === String(clinician._id)
+      )
+    ).toBe(true);
+
+    const requests = await request(app)
+      .get(
+        "/clinician/appointments/requests?status=pending&from=2026-04-13T00:00:00.000Z&to=2026-04-19T23:59:59.999Z&limit=100"
+      )
+      .set(auth);
+    expect(requests.status).toBe(200);
+    expect(requests.body.items.length).toBeGreaterThan(0);
+    expect(requests.body.items[0].patientId).toMatch(/^presentation-/);
+
+    const review = await request(app)
+      .patch(`/clinician/appointments/requests/${requests.body.items[0].requestId as string}`)
+      .set(auth)
+      .send({ status: "rejected" });
+    expect(review.status).toBe(200);
+    expect(review.body.item.reviewedBy).toEqual({
+      clinicianId: String(clinician._id),
+      name: "Presentation Tester",
+    });
   });
 
   it("is idempotent and keeps counts stable on repeated seed", async () => {

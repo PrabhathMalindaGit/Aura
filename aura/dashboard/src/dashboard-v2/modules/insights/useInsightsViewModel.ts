@@ -63,6 +63,7 @@ export function useInsightsViewModel({
   const [reviewError, setReviewError] = useState<ReviewErrorState | null>(null);
   const [reviewOutcome, setReviewOutcome] = useState<ReviewOutcomeState | null>(null);
   const [selectedLowPriorityIds, setSelectedLowPriorityIds] = useState<Set<string>>(() => new Set());
+  const [hasResolvedInitialEmptyView, setHasResolvedInitialEmptyView] = useState(false);
 
   const patientsQuery = usePatients();
 
@@ -118,6 +119,30 @@ export function useInsightsViewModel({
       : activeView === 'rejected'
         ? rejectedQuery
         : pendingQuery;
+
+  useEffect(() => {
+    if (hasResolvedInitialEmptyView || activeView === 'pending') {
+      return;
+    }
+    if (pendingItems.length === 0 || activeItems.length > 0) {
+      return;
+    }
+    if (pendingQuery.isLoading || activeQuery.isLoading) {
+      return;
+    }
+
+    setActiveView('pending');
+    writeWorkspaceState(INSIGHTS_WORKSPACE_PAGE, { activeView: 'pending' });
+    setSelectedLowPriorityIds(new Set());
+    setHasResolvedInitialEmptyView(true);
+  }, [
+    activeItems.length,
+    activeQuery.isLoading,
+    activeView,
+    hasResolvedInitialEmptyView,
+    pendingItems.length,
+    pendingQuery.isLoading,
+  ]);
 
   const updatedAtLabel = formatInsightsLastUpdated(
     Math.max(
@@ -274,6 +299,7 @@ export function useInsightsViewModel({
   }
 
   function persistActiveView(nextView: InsightsView): void {
+    setHasResolvedInitialEmptyView(true);
     setActiveView(nextView);
     writeWorkspaceState(INSIGHTS_WORKSPACE_PAGE, { activeView: nextView });
     if (nextView !== 'pending') {

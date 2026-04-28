@@ -7,6 +7,7 @@ import {
   PresentationSeedDisabledError,
   resetPresentationSeed,
 } from "../services/presentationSeedService";
+import type { RequestWithUser } from "../types/auth";
 import { logger } from "../utils/logger";
 
 const router = Router();
@@ -54,7 +55,11 @@ router.get("/clinician/dev/presentation/seed", async (_req, res) => {
 
 router.post("/clinician/dev/presentation/seed", async (_req, res) => {
   try {
-    const summary = await loadPresentationSeed();
+    const req = _req as RequestWithUser;
+    const summary = await loadPresentationSeed({
+      clinicianId: req.user?.id,
+      clinicianName: req.user?.name,
+    });
     return res.json({
       ok: true,
       ...summary,

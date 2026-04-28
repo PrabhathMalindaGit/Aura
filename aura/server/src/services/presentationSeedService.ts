@@ -118,6 +118,10 @@ type PresentationCounts = Record<string, number>;
 type CountableModel = {
   countDocuments(filter: Record<string, unknown>): Promise<number>;
 };
+export type PresentationSeedClinicianContext = {
+  clinicianId?: string;
+  clinicianName?: string;
+};
 type PresentationSeedCollisionDetail = {
   collection: string;
   count: number;
@@ -160,6 +164,26 @@ function presentationPatientIds(): string[] {
 
 function dateAt(date: string, hour: number): Date {
   return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00.000Z`);
+}
+
+function resolveSeedClinician(
+  context?: PresentationSeedClinicianContext
+): { clinicianId: string; clinicianName: string } {
+  return {
+    clinicianId: context?.clinicianId?.trim() || CLINICIAN_ID,
+    clinicianName: context?.clinicianName?.trim() || CLINICIAN_NAME,
+  };
+}
+
+function appointmentSlotCleanupContexts(
+  context?: PresentationSeedClinicianContext
+): Array<PresentationSeedClinicianContext | undefined> {
+  const seedClinician = resolveSeedClinician(context);
+  if (seedClinician.clinicianId === CLINICIAN_ID) {
+    return [context];
+  }
+
+  return [context, undefined];
 }
 
 function isTaggedQuery() {
@@ -289,7 +313,9 @@ export async function getPresentationSeedStatus() {
   };
 }
 
-async function preflightPresentationSeedCollisions(): Promise<void> {
+async function preflightPresentationSeedCollisions(
+  context?: PresentationSeedClinicianContext
+): Promise<void> {
   const patientIds = presentationPatientIds();
   const untagged = untaggedQuery();
   const patientIdModels: Array<[string, CountableModel]> = [
@@ -332,9 +358,9 @@ async function preflightPresentationSeedCollisions(): Promise<void> {
     throw new PresentationSeedCollisionError(collisions);
   }
 
-  await retagLegacyPresentationAppointmentSlots();
+  await retagLegacyPresentationAppointmentSlots(context);
 
-  const slotCollisionDetail = await getUnsafeAppointmentSlotCollisionDetail();
+  const slotCollisionDetail = await getUnsafeAppointmentSlotCollisionDetail(context);
   if (slotCollisionDetail) {
     collisions.push(`appointmentSlots:${slotCollisionDetail.count}`);
   }
@@ -391,8 +417,10 @@ function appointmentSlotDiagnostic(slot: Record<string, unknown>) {
   };
 }
 
-async function findUntaggedPresentationSlotCollisions() {
-  const slotWindows = buildAppointmentSlots().map((slot) => ({
+async function findUntaggedPresentationSlotCollisions(
+  context?: PresentationSeedClinicianContext
+) {
+  const slotWindows = buildAppointmentSlots(context).map((slot) => ({
     clinicianId: slot.clinicianId,
     startsAt: slot.startsAt,
   }));
@@ -404,21 +432,28 @@ async function findUntaggedPresentationSlotCollisions() {
     .lean();
 }
 
-async function retagLegacyPresentationAppointmentSlots(): Promise<void> {
-  const manifestByKey = new Map(
-    buildAppointmentSlots().map((slot) => [appointmentSlotManifestKey(slot), slot])
-  );
-  const collisions = await findUntaggedPresentationSlotCollisions();
-  const safeIds = collisions
-    .filter((slot) => {
-      const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
-      const manifestSlot = startsAt
-        ? manifestByKey.get(`${slot.clinicianId}|${startsAt.toISOString()}`)
-        : null;
+async function retagLegacyPresentationAppointmentSlots(
+  context?: PresentationSeedClinicianContext
+): Promise<void> {
+  const safeIds: unknown[] = [];
+  for (const cleanupContext of appointmentSlotCleanupContexts(context)) {
+    const manifestByKey = new Map(
+      buildAppointmentSlots(cleanupContext).map((slot) => [appointmentSlotManifestKey(slot), slot])
+    );
+    const collisions = await findUntaggedPresentationSlotCollisions(cleanupContext);
+    safeIds.push(
+      ...collisions
+        .filter((slot) => {
+          const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
+          const manifestSlot = startsAt
+            ? manifestByKey.get(`${slot.clinicianId}|${startsAt.toISOString()}`)
+            : null;
 
-      return manifestSlot ? matchesAppointmentSlotManifest(slot, manifestSlot) : false;
-    })
-    .map((slot) => slot._id);
+          return manifestSlot ? matchesAppointmentSlotManifest(slot, manifestSlot) : false;
+        })
+        .map((slot) => slot._id)
+    );
+  }
 
   if (safeIds.length === 0) {
     return;
@@ -430,13 +465,13 @@ async function retagLegacyPresentationAppointmentSlots(): Promise<void> {
   );
 }
 
-async function getUnsafeAppointmentSlotCollisionDetail(): Promise<
-  PresentationSeedCollisionDetail | null
-> {
+async function getUnsafeAppointmentSlotCollisionDetail(
+  context?: PresentationSeedClinicianContext
+): Promise<PresentationSeedCollisionDetail | null> {
   const manifestByKey = new Map(
-    buildAppointmentSlots().map((slot) => [appointmentSlotManifestKey(slot), slot])
+    buildAppointmentSlots(context).map((slot) => [appointmentSlotManifestKey(slot), slot])
   );
-  const collisions = await findUntaggedPresentationSlotCollisions();
+  const collisions = await findUntaggedPresentationSlotCollisions(context);
   const unsafeRecords = collisions
     .filter((slot) => {
       const startsAt = slot.startsAt instanceof Date ? slot.startsAt : null;
@@ -543,7 +578,8 @@ async function resetPresentationSeedRecords(): Promise<PresentationCounts> {
   };
 }
 
-function buildAppointmentSlots() {
+function buildAppointmentSlots(context?: PresentationSeedClinicianContext) {
+  const seedClinician = resolveSeedClinician(context);
   return [
     ["2026-04-13", 14],
     ["2026-04-14", 15],
@@ -556,7 +592,7 @@ function buildAppointmentSlots() {
     ["2026-04-18", 11],
     ["2026-04-19", 10],
   ].map(([date, hour], index) => ({
-    clinicianId: CLINICIAN_ID,
+    clinicianId: seedClinician.clinicianId,
     startsAt: dateAt(String(date), Number(hour)),
     endsAt: dateAt(String(date), Number(hour) + 1),
     modality: "video",
@@ -772,7 +808,10 @@ function buildProms() {
   ]);
 }
 
-async function insertPresentationData(): Promise<PresentationCounts> {
+async function insertPresentationData(
+  context?: PresentationSeedClinicianContext
+): Promise<PresentationCounts> {
+  const seedClinician = resolveSeedClinician(context);
   const patients = await Patient.insertMany(buildPatientRecords());
   const dailyRecords = buildDailyRecords();
   const [checkIns, hydrationLogs, nutritionLogs, wearableDailies] = await Promise.all([
@@ -1057,7 +1096,7 @@ async function insertPresentationData(): Promise<PresentationCounts> {
     }))
   );
 
-  const appointmentSlots = await AppointmentSlot.insertMany(buildAppointmentSlots());
+  const appointmentSlots = await AppointmentSlot.insertMany(buildAppointmentSlots(context));
   const appointmentRequests = await AppointmentRequest.insertMany(
     PRESENTATION_PATIENTS.slice(0, 6).map((patient, index) => ({
       slotId: appointmentSlots[index]._id,
@@ -1066,7 +1105,7 @@ async function insertPresentationData(): Promise<PresentationCounts> {
       note: "Presentation request for scheduling review.",
       reviewedBy:
         index % 3 === 0
-          ? { clinicianId: CLINICIAN_ID, name: CLINICIAN_NAME }
+          ? { clinicianId: seedClinician.clinicianId, name: seedClinician.clinicianName }
           : undefined,
       reviewedAt: index % 3 === 0 ? dateAt("2026-04-12", 12) : undefined,
       demoTag: PRESENTATION_DEMO_TAG,
@@ -1132,11 +1171,11 @@ async function insertPresentationData(): Promise<PresentationCounts> {
   };
 }
 
-export async function loadPresentationSeed() {
+export async function loadPresentationSeed(context?: PresentationSeedClinicianContext) {
   assertPresentationSeedEnabled();
-  await preflightPresentationSeedCollisions();
+  await preflightPresentationSeedCollisions(context);
   const deleted = await resetPresentationSeedRecords();
-  const counts = await insertPresentationData();
+  const counts = await insertPresentationData(context);
 
   return {
     enabled: true,

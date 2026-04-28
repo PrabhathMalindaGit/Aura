@@ -103,7 +103,11 @@ export function ActiveThreadWorkspace({
   return (
     <div className="v2-inbox-workspace" data-testid="v2-inbox-workspace">
       <div className="v2-inbox-workspace__header">
-        <DashboardV2Surface className="v2-inbox-workspace__summary" tone="elevated">
+        <DashboardV2Surface
+          className="v2-inbox-workspace__summary"
+          tone="elevated"
+          data-testid="v2-inbox-active-thread"
+        >
           <div className="v2-inbox-workspace__summary-topline">
             <div>
               <DashboardV2Text tone="label">Active thread</DashboardV2Text>

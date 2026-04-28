@@ -171,7 +171,9 @@ function renderCommunicationRoute(initialEntry: string = '/communication?view=ne
   );
 }
 
-function installCommunicationFetchMock(): void {
+function installCommunicationFetchMock(
+  overview: DashboardCommunicationOverview = COMMUNICATION_OVERVIEW,
+): void {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input), 'http://localhost');
 
@@ -180,7 +182,7 @@ function installCommunicationFetchMock(): void {
     }
 
     if (url.pathname === '/clinician/dashboard/communication-overview') {
-      return createJsonResponse({ ok: true, overview: COMMUNICATION_OVERVIEW });
+      return createJsonResponse({ ok: true, overview });
     }
 
     if (url.pathname.match(/^\/clinician\/patients\/[^/]+\/coordination\/notes$/)) {
@@ -239,6 +241,12 @@ function setCommunicationGate(enabled: boolean): void {
   });
 }
 
+function expectElementBefore(first: HTMLElement, second: HTMLElement): void {
+  expect(
+    first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+}
+
 describe('InboxRoute', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -272,18 +280,34 @@ describe('InboxRoute', () => {
     renderCommunicationRoute();
 
     expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(screen.getByText('Communication triage')).toBeInTheDocument();
     expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
+    expect(screen.getByTestId('v2-inbox-queue-lane')).toHaveAccessibleName('Horizontal message queue');
     expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+    expect(screen.getByTestId('v2-inbox-timeline')).toHaveTextContent('Pain is much worse after exercise today.');
     expect(screen.getByText('Local private draft')).toBeInTheDocument();
+    expect(screen.getByText('Private to this browser only. Saving here does not send a patient message or update shared coordination.')).toBeInTheDocument();
     expect(screen.getByLabelText('Compact coordination summary')).toHaveTextContent('Team context');
     expect(screen.queryByTestId('v2-inbox-support-rail')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /send patient message/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open alerts' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open patient' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open structured coordination' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Refresh' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Support context' })).toBeInTheDocument();
+
+    expectElementBefore(screen.getByText('Communication triage'), screen.getByTestId('v2-inbox-queue'));
+    expectElementBefore(screen.getByTestId('v2-inbox-queue'), screen.getByTestId('v2-inbox-active-thread'));
+    expectElementBefore(screen.getByTestId('v2-inbox-active-thread'), screen.getByTestId('v2-inbox-timeline'));
+    expectElementBefore(screen.getByTestId('v2-inbox-timeline'), screen.getByTestId('v2-inbox-local-draft'));
 
     await user.click(screen.getByTestId('v2-inbox-row-patient-2'));
 
     await waitFor(() => {
       expect(screen.getByTestId('v2-inbox-workspace')).toHaveTextContent('Avery Chen');
     });
+    expect(screen.getByTestId('v2-inbox-timeline')).toHaveTextContent('Can someone confirm whether tomorrow still works?');
 
     expect(screen.queryByText('Patient detail workspace')).not.toBeInTheDocument();
   });
@@ -331,7 +355,7 @@ describe('InboxRoute', () => {
     expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue('Local follow-up stays private.');
   });
 
-  it('stays queue-first on narrow layouts until the clinician selects a thread', async () => {
+  it('keeps the queue, active thread, timeline, and draft stacked on narrow layouts', async () => {
     installMatchMediaMock(
       (query) => query.includes('max-width: 1023px') || query.includes('max-width: 1279px'),
     );
@@ -341,15 +365,38 @@ describe('InboxRoute', () => {
 
     expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
-    expect(screen.queryByTestId('v2-inbox-workspace')).not.toBeInTheDocument();
-
     expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(screen.getByTestId('v2-inbox-workspace')).toBeInTheDocument();
+    expectElementBefore(screen.getByTestId('v2-inbox-queue'), screen.getByTestId('v2-inbox-active-thread'));
+    expectElementBefore(screen.getByTestId('v2-inbox-active-thread'), screen.getByTestId('v2-inbox-timeline'));
+    expectElementBefore(screen.getByTestId('v2-inbox-timeline'), screen.getByTestId('v2-inbox-local-draft'));
+
     await user.click(screen.getByTestId('v2-inbox-row-patient-1'));
 
     await waitFor(() => {
       expect(screen.getByTestId('v2-inbox-workspace')).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('button', { name: 'Back to queue' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Back to queue' })).not.toBeInTheDocument();
+  });
+
+  it('shows route-local empty states when the queue has no threads', async () => {
+    vi.restoreAllMocks();
+    installMatchMediaMock(() => false);
+    installCommunicationFetchMock({
+      counts: {
+        needsResponseCount: 0,
+        flaggedBySafetyCount: 0,
+        followUpRequestedCount: 0,
+      },
+      items: [],
+    });
+
+    renderCommunicationRoute('/communication?view=all');
+
+    expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByText('No communication waiting', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(screen.getByText('Select a patient thread')).toBeInTheDocument();
+    expect(screen.getByText('Patient communication needing clinician review will appear here.')).toBeInTheDocument();
   });
 });

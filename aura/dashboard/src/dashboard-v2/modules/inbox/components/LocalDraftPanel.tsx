@@ -33,7 +33,7 @@ export function LocalDraftPanel({
   onSaveDraft,
 }: LocalDraftPanelProps): JSX.Element {
   return (
-    <DashboardV2Surface className="v2-inbox-draft-panel" tone="elevated">
+    <DashboardV2Surface className="v2-inbox-draft-panel" tone="elevated" data-testid="v2-inbox-local-draft">
       <div className="v2-inbox-section-heading">
         <DashboardV2Text tone="label">Primary authoring surface</DashboardV2Text>
         <DashboardV2Heading as="h3">Local private draft</DashboardV2Heading>

@@ -66,6 +66,8 @@ export function ThreadQueuePane({
       <div
         ref={queueRef}
         className="v2-inbox-queue-pane__body"
+        data-testid="v2-inbox-queue-lane"
+        aria-label="Horizontal message queue"
         onScroll={(event) => onQueueScroll?.(event.currentTarget.scrollTop)}
       >
         <ThreadList

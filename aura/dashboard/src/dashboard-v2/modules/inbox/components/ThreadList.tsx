@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import type { InboxQueueRowVm } from '../../../adapters/communication';
 import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
 import { DashboardV2ClinicianQueueRow } from '../../../patterns/ClinicianQueueRow';
@@ -81,80 +82,90 @@ export function ThreadList({
 
   return (
     <ul className="v2-inbox-thread-list" role="list" aria-label="Communication threads">
-      {rows.map((row) => (
-        <li key={row.key} className="v2-inbox-thread-list__item">
-          <DashboardV2ClinicianQueueRow
-            className={`v2-inbox-thread-row v2-inbox-thread-row--${row.responseTone}${
-              selectedKey === row.key ? ' v2-inbox-thread-row--selected' : ''
-            }`}
-            tone={
-              row.responseTone === 'critical'
-                ? 'critical'
-                : row.responseTone === 'warning'
-                  ? 'warning'
-                  : row.responseTone === 'success'
-                    ? 'success'
-                    : 'neutral'
-            }
-            selected={selectedKey === row.key}
-            onPress={() => onSelect(row.key)}
-            testId={`v2-inbox-row-${row.patientId ?? row.key}`}
-          >
-            <div className="v2-inbox-thread-row__topline">
-              <div className="v2-inbox-thread-row__identity">
-                <DashboardV2ClinicianPatientAnchor
-                  patientLabel={row.patientName}
-                  tone={
-                    row.responseTone === 'critical'
-                      ? 'critical'
-                      : row.responseTone === 'warning'
-                        ? 'warning'
-                        : row.responseTone === 'success'
-                          ? 'success'
-                          : 'neutral'
-                  }
-                />
-                <strong className="v2-inbox-thread-row__name">{row.patientName}</strong>
-                <DashboardV2Badge tone={row.responseTone === 'critical' ? 'safety' : row.responseTone === 'warning' ? 'delayed' : row.responseTone === 'success' ? 'clear' : 'private'}>
-                  {row.responseLabel}
-                </DashboardV2Badge>
-              </div>
-              <span
-                className="v2-inbox-thread-row__time"
-                title={row.freshnessTitle}
-              >
-                {row.freshnessLabel}
-              </span>
-            </div>
+      {rows.map((row) => {
+        const selected = selectedKey === row.key;
 
-            <DashboardV2Text tone="strong">{row.preview}</DashboardV2Text>
-            <DashboardV2Text tone="muted">{row.metaLine}</DashboardV2Text>
-
-            {row.supportingBadges.length > 0 ? (
-              <div className="v2-inbox-thread-row__supporting">
-                {row.supportingBadges.map((badge) => (
-                  <DashboardV2Badge
-                    key={`${row.key}-${badge.label}`}
+        return (
+          <li key={row.key} className="v2-inbox-thread-list__item">
+            <DashboardV2ClinicianQueueRow
+              className={`v2-inbox-thread-row v2-inbox-thread-row--${row.responseTone}${
+                selected ? ' v2-inbox-thread-row--selected' : ''
+              }`}
+              tone={
+                row.responseTone === 'critical'
+                  ? 'critical'
+                  : row.responseTone === 'warning'
+                    ? 'warning'
+                    : row.responseTone === 'success'
+                      ? 'success'
+                      : 'neutral'
+              }
+              selected={selected}
+              onPress={() => onSelect(row.key)}
+              testId={`v2-inbox-row-${row.patientId ?? row.key}`}
+            >
+              <div className="v2-inbox-thread-row__topline">
+                <div className="v2-inbox-thread-row__identity">
+                  <DashboardV2ClinicianPatientAnchor
+                    patientLabel={row.patientName}
                     tone={
-                      badge.tone === 'critical'
-                        ? 'safety'
-                        : badge.tone === 'warning'
-                          ? 'delayed'
-                          : badge.tone === 'info'
-                            ? 'info'
-                            : badge.tone === 'success'
-                              ? 'clear'
-                              : 'private'
+                      row.responseTone === 'critical'
+                        ? 'critical'
+                        : row.responseTone === 'warning'
+                          ? 'warning'
+                          : row.responseTone === 'success'
+                            ? 'success'
+                            : 'neutral'
                     }
-                  >
-                    {badge.label}
+                  />
+                  <strong className="v2-inbox-thread-row__name">{row.patientName}</strong>
+                  <DashboardV2Badge tone={row.responseTone === 'critical' ? 'safety' : row.responseTone === 'warning' ? 'delayed' : row.responseTone === 'success' ? 'clear' : 'private'}>
+                    {row.responseLabel}
                   </DashboardV2Badge>
-                ))}
+                </div>
+                <span
+                  className="v2-inbox-thread-row__time"
+                  title={row.freshnessTitle}
+                >
+                  {row.freshnessLabel}
+                </span>
+                {selected ? (
+                  <span className="v2-inbox-thread-row__selected-indicator">
+                    <Check size={14} aria-hidden="true" />
+                    Selected
+                  </span>
+                ) : null}
               </div>
-            ) : null}
-          </DashboardV2ClinicianQueueRow>
-        </li>
-      ))}
+
+              <DashboardV2Text tone="strong">{row.preview}</DashboardV2Text>
+              <DashboardV2Text tone="muted">{row.metaLine}</DashboardV2Text>
+
+              {row.supportingBadges.length > 0 ? (
+                <div className="v2-inbox-thread-row__supporting">
+                  {row.supportingBadges.map((badge) => (
+                    <DashboardV2Badge
+                      key={`${row.key}-${badge.label}`}
+                      tone={
+                        badge.tone === 'critical'
+                          ? 'safety'
+                          : badge.tone === 'warning'
+                            ? 'delayed'
+                            : badge.tone === 'info'
+                              ? 'info'
+                              : badge.tone === 'success'
+                                ? 'clear'
+                                : 'private'
+                      }
+                    >
+                      {badge.label}
+                    </DashboardV2Badge>
+                  ))}
+                </div>
+              ) : null}
+            </DashboardV2ClinicianQueueRow>
+          </li>
+        );
+      })}
     </ul>
   );
 }

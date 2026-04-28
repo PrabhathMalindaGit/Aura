@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import type {
   ClinicianCoordinationRecord,
   DashboardCommunicationOverview,
@@ -99,6 +100,33 @@ const COORDINATION_BY_PATIENT: Record<string, ClinicianCoordinationRecord | null
   p2: null,
 };
 
+async function expectCommunicationWorkspaceStack(page: Page): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  const statusBox = await page.locator('.v2-inbox-status-bar').boundingBox();
+  const queueBox = await page.getByTestId('v2-inbox-queue').boundingBox();
+  const activeBox = await page.getByTestId('v2-inbox-active-thread').boundingBox();
+  const timelineBox = await page.getByTestId('v2-inbox-timeline').boundingBox();
+  const draftBox = await page.getByTestId('v2-inbox-local-draft').boundingBox();
+
+  expect(statusBox).not.toBeNull();
+  expect(queueBox).not.toBeNull();
+  expect(activeBox).not.toBeNull();
+  expect(timelineBox).not.toBeNull();
+  expect(draftBox).not.toBeNull();
+
+  expect(queueBox!.y).toBeGreaterThan(statusBox!.y);
+  expect(activeBox!.y).toBeGreaterThan(queueBox!.y);
+  expect(timelineBox!.y).toBeGreaterThan(activeBox!.y);
+  expect(draftBox!.y).toBeGreaterThan(timelineBox!.y);
+
+  await expect(page.getByTestId('v2-inbox-queue-lane')).toBeVisible();
+  const hasNoPageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+  );
+  expect(hasNoPageOverflow).toBeTruthy();
+}
+
 test('communication v2 restores the selected thread after routing out and back by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
@@ -122,9 +150,22 @@ test('communication v2 restores the selected thread after routing out and back b
 
   await expect(page).toHaveURL(/\/communication\?view=needs-response$/);
   await expect(page.getByTestId('v2-inbox-route')).toBeVisible();
+  await expect(page.getByText('Communication triage')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-queue')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-active-thread')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-timeline')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-local-draft')).toBeVisible();
+  await expect(page.getByText('Saving here does not send a patient message or update shared coordination.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /send patient message/i })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open alerts' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open patient' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open structured coordination' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Support context' })).toBeVisible();
+  await expectCommunicationWorkspaceStack(page);
 
   await page.getByTestId('v2-inbox-row-p2').click();
   await expect(page.getByTestId('v2-inbox-workspace')).toContainText('Patient P2');
+  await expect(page.getByTestId('v2-inbox-timeline')).toContainText('Can we confirm whether tomorrow still works?');
 
   await page.getByRole('textbox', { name: 'Personal reply draft' }).fill('Saved locally for follow-up.');
   await page.getByRole('button', { name: 'Save local reply' }).focus();
@@ -139,6 +180,25 @@ test('communication v2 restores the selected thread after routing out and back b
   await expect(page.getByRole('heading', { name: 'Support context' })).toBeVisible();
   await expect(page.getByText('Shared coordination', { exact: true }).first()).toBeVisible();
   await page.keyboard.press('Escape');
+
+  for (const viewport of [
+    { width: 1180, height: 900 },
+    { width: 900, height: 900 },
+    { width: 390, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expectCommunicationWorkspaceStack(page);
+  }
+
+  await page.evaluate(() => {
+    document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'dark');
+  });
+  await expect(page.getByTestId('v2-inbox-queue')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-active-thread')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-timeline')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-local-draft')).toBeVisible();
+  await expectCommunicationWorkspaceStack(page);
 
   await page.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p2$/);

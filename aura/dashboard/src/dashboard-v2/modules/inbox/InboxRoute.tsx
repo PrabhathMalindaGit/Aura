@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { DashboardV2ExplanationDrawer } from '../../patterns/ExplanationDrawer';
-import { DashboardV2InboxWorkbenchLayout } from '../../patterns/InboxWorkbenchLayout';
-import { DashboardV2Drawer } from '../../primitives/Drawer';
 import { DashboardV2Surface } from '../../primitives/Surface';
 import { DashboardV2Text } from '../../primitives/Text';
 import { useInboxUiStore } from '../../state/useInboxUiStore';
@@ -21,20 +19,12 @@ export function InboxRoute(): JSX.Element {
   const isNarrowLayout = useMediaQuery(NARROW_LAYOUT_QUERY);
   const isVeryNarrow = useMediaQuery(VERY_NARROW_LAYOUT_QUERY);
   const supportDrawerOpen = useInboxUiStore((state) => state.supportDrawerOpen);
-  const queueSheetOpen = useInboxUiStore((state) => state.queueSheetOpen);
   const queueScrollTop = useInboxUiStore((state) => state.queueScrollTop);
   const setSupportDrawerOpen = useInboxUiStore((state) => state.setSupportDrawerOpen);
-  const setQueueSheetOpen = useInboxUiStore((state) => state.setQueueSheetOpen);
   const setQueueScrollTop = useInboxUiStore((state) => state.setQueueScrollTop);
   const queueRef = useRef<HTMLDivElement | null>(null);
   const [explanationOpen, setExplanationOpen] = useState(false);
-  const viewModel = useInboxViewModel({ isNarrowLayout });
-
-  useEffect(() => {
-    if (!isNarrowLayout) {
-      setQueueSheetOpen(false);
-    }
-  }, [isNarrowLayout, setQueueSheetOpen]);
+  const viewModel = useInboxViewModel({ isNarrowLayout: false });
 
   useEffect(() => {
     const element = queueRef.current;
@@ -45,8 +35,6 @@ export function InboxRoute(): JSX.Element {
     element.scrollTop = queueScrollTop;
   }, [queueScrollTop, viewModel.queueRows.length]);
 
-  const showQueueOnly = isNarrowLayout && viewModel.focusMode === 'queue';
-
   const queuePane = (
     <ThreadQueuePane
       currentView={viewModel.currentView}
@@ -54,7 +42,7 @@ export function InboxRoute(): JSX.Element {
       isVeryNarrow={isVeryNarrow}
       loading={viewModel.showInitialLoading}
       rows={viewModel.queueRows}
-      selectedKey={showQueueOnly ? viewModel.selectedKey : viewModel.selectedKey}
+      selectedKey={viewModel.selectedKey}
       statusTitle={viewModel.statusTitle}
       statusDescription={viewModel.statusDescription}
       emptyTitle={viewModel.emptyTitle}
@@ -69,9 +57,8 @@ export function InboxRoute(): JSX.Element {
       onViewChange={viewModel.setCurrentView}
       onSelect={(key) => {
         viewModel.selectThread(key);
-        setQueueSheetOpen(false);
       }}
-      queueRef={showQueueOnly || !isNarrowLayout ? queueRef : undefined}
+      queueRef={queueRef}
       onQueueScroll={setQueueScrollTop}
     />
   );
@@ -88,11 +75,11 @@ export function InboxRoute(): JSX.Element {
       loading={viewModel.showInitialLoading}
       statusTitle={viewModel.statusTitle}
       statusDescription={viewModel.statusDescription}
-      showBackToQueue={isNarrowLayout}
-      showQueueSheetAction={isNarrowLayout && Boolean(viewModel.activeWorkspace)}
+      showBackToQueue={false}
+      showQueueSheetAction={false}
       showSupportAction={Boolean(viewModel.support)}
       onBackToQueue={viewModel.clearSelectionToQueue}
-      onOpenQueueSheet={() => setQueueSheetOpen(true)}
+      onOpenQueueSheet={viewModel.clearSelectionToQueue}
       onOpenSupport={() => setSupportDrawerOpen(true)}
       onTemplateChange={viewModel.setSelectedTemplateId}
       onDraftChange={viewModel.setDraftReply}
@@ -139,15 +126,10 @@ export function InboxRoute(): JSX.Element {
 
         {statusBanner}
 
-        {showQueueOnly ? (
-          queuePane
-        ) : (
-          <DashboardV2InboxWorkbenchLayout
-            queue={isNarrowLayout ? null : queuePane}
-            workspace={workspace}
-            rail={null}
-          />
-        )}
+        <section className="v2-inbox-stacked-workspace" aria-label="Communication inbox workspace">
+          {queuePane}
+          {workspace}
+        </section>
       </div>
 
       <SupportContextDrawer
@@ -168,16 +150,6 @@ export function InboxRoute(): JSX.Element {
         onOpenStructuredCoordination={viewModel.openStructuredCoordination}
         onOpenExplanation={() => setExplanationOpen(true)}
       />
-
-      <DashboardV2Drawer
-        open={isNarrowLayout && queueSheetOpen}
-        onOpenChange={setQueueSheetOpen}
-        title="Message queue"
-        description="Switch threads without losing the current review context"
-        placement="bottom"
-      >
-        {queuePane}
-      </DashboardV2Drawer>
 
       <DashboardV2ExplanationDrawer
         open={explanationOpen}

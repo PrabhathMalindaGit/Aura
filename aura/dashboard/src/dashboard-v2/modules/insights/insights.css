@@ -370,9 +370,11 @@
 }
 
 .v2-insight-review-header__actions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  column-gap: var(--v2-space-3);
+  column-gap: var(--v2-space-4);
   row-gap: var(--v2-space-2);
 }
 

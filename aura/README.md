@@ -25,15 +25,34 @@ This README remains useful for local service startup, but it is no longer the fu
 - Terminal
 
 ## Run Everything Locally (Start-to-Finish)
+### Choose your startup mode
+Most development uses normal mode. For the final dashboard presentation, use presentation demo mode.
+
+#### A. Normal development mode
+Use this for ordinary development.
+- Backend: `npm run dev`
+- Dashboard: `npm run dev`
+- Presentation tools are not enabled.
+
+#### B. Presentation demo mode
+Use this for final demos/screenshots with realistic backend-seeded dashboard data.
+- Backend: `AURA_PRESENTATION_SEED_ENABLED=true npm run dev`
+- Dashboard: `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev`
+- Then open `http://localhost:5173/settings` and use `Settings -> Presentation tools -> Reset presentation data` / `Load presentation data`.
+
+Running `npm run dev` without the presentation flags is not wrong; it simply disables `Settings -> Presentation tools`.
+
 ### Fast Path (experienced users)
 1. `cd "/Users/University/Final Project/aura" && docker compose up -d`
 2. Start the AI service from `/Users/University/Final Project/aura/ai`:
    - `source .venv/bin/activate`
    - `uvicorn src.main:app --reload --host 127.0.0.1 --port 8001`
 3. Start the Node backend from `/Users/University/Final Project/aura/server`:
-   - `npm run dev`
+   - Normal development: `npm run dev`
+   - Presentation demo: `AURA_PRESENTATION_SEED_ENABLED=true npm run dev`
 4. Start the dashboard from `/Users/University/Final Project/aura/dashboard`:
-   - `npm run dev`
+   - Normal development: `npm run dev`
+   - Presentation demo: `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev`
 5. Optional for full patient-flow demos: start the mobile app from `/Users/University/Final Project/aura/mobile`:
    - `npm run start`
 6. Seed the base demo data from `/Users/University/Final Project/aura/server`:
@@ -121,6 +140,10 @@ cd "/Users/University/Final Project/aura/server"
 npm install
 npm run dev
 ```
+For presentation demo mode, use:
+```bash
+AURA_PRESENTATION_SEED_ENABLED=true npm run dev
+```
 2. Verify API health:
 ```bash
 curl -s http://localhost:3000/health
@@ -148,6 +171,10 @@ lsof -i :3000
 cd "/Users/University/Final Project/aura/dashboard"
 npm install
 npm run dev
+```
+For presentation demo mode, use:
+```bash
+VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev
 ```
 2. Open:
 ```text

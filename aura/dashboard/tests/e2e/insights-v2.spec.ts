@@ -33,7 +33,10 @@ test('insights v2 preserves review continuity across lifecycle, patient routing,
   await expect(page.getByLabel('Selected insight review')).toContainText('Review basis');
   await expect(page.getByLabel('Selected insight review')).not.toContainText('Suggested follow-through');
   await expect(page.getByLabel('Selected insight review')).not.toContainText('Review this item before routine batching.');
-  await expect(page.getByLabel('Selected insight review')).toContainText('Decision checklist');
+  await expect(page.getByLabel('Selected insight review')).not.toContainText('Decision checklist');
+  await expect(page.getByLabel('Selected insight review')).not.toContainText('Patient context available');
+  await expect(page.getByLabel('Selected insight review')).not.toContainText('Review reason visible');
+  await expect(page.getByLabel('Selected insight review')).not.toContainText('Decision actions available');
   await expect(page.getByLabel('Follow-up review support')).toContainText('Support context');
   await expect(page.getByLabel('Follow-up review support')).toContainText('Why this needs follow-up');
   await expect(page.getByLabel('Follow-up review support')).toContainText('Review support');

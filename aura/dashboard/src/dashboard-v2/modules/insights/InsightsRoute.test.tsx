@@ -335,10 +335,10 @@ describe('InsightsRoute', () => {
     expect(selectedReview).toHaveTextContent('high');
     expect(selectedReview).not.toHaveTextContent('Suggested follow-through');
     expect(selectedReview).not.toHaveTextContent('Review this item before routine batching.');
-    expect(selectedReview).toHaveTextContent('Decision checklist');
-    expect(selectedReview).toHaveTextContent('Patient context available');
-    expect(selectedReview).toHaveTextContent('Review reason visible');
-    expect(selectedReview).toHaveTextContent('Decision actions available');
+    expect(selectedReview).not.toHaveTextContent('Decision checklist');
+    expect(selectedReview).not.toHaveTextContent('Patient context available');
+    expect(selectedReview).not.toHaveTextContent('Review reason visible');
+    expect(selectedReview).not.toHaveTextContent('Decision actions available');
     expect(selectedReview).not.toHaveTextContent(/Presentation/i);
     const supportRail = screen.getByLabelText('Follow-up review support');
     expect(supportRail).toHaveTextContent('Support context');

@@ -170,21 +170,6 @@ export function InsightsReviewWorkspace({
                 ))}
               </div>
             </DashboardV2Surface>
-
-            <DashboardV2Surface className="v2-insights-selected-review__checklist-panel" tone="muted">
-              <DashboardV2Text tone="label">Decision checklist</DashboardV2Text>
-              <div className="v2-insights-selected-review__checklist" role="list" aria-label="Decision checklist">
-                {[
-                  governance ? 'Patient context available' : 'Patient context unavailable',
-                  'Review reason visible',
-                  insight.status === 'pending' ? 'Decision actions available' : 'Recorded outcome visible',
-                ].map((item) => (
-                  <span key={item} className="v2-insights-selected-review__check" role="listitem">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </DashboardV2Surface>
           </div>
         </section>
 

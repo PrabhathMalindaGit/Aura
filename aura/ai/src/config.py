@@ -30,6 +30,11 @@ class Settings(BaseModel):
     pain_high_threshold: int = 7
     log_level: str = "INFO"
     aura_ai_service_key: str = "dev_aura_ai_key"
+    rag_pgvector_enabled: bool = False
+    rag_pgvector_database_url: str = ""
+    rag_pgvector_fallback_enabled: bool = True
+    rag_pgvector_top_k: int = 2
+    rag_pgvector_dimensions: int = 384
 
 
 def _normalize_environment() -> str:
@@ -62,6 +67,20 @@ def _parse_int_env(name: str, default: str, *, minimum: int, maximum: int) -> in
         )
 
     return parsed
+
+
+def _parse_bool_env(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+
+    raise ConfigurationError(f"{name} must be a boolean value")
 
 
 def _parse_log_level() -> str:
@@ -97,4 +116,17 @@ def get_settings() -> Settings:
         ),
         log_level=_parse_log_level(),
         aura_ai_service_key=_parse_ai_service_key(environment),
+        rag_pgvector_enabled=_parse_bool_env("RAG_PGVECTOR_ENABLED", False),
+        rag_pgvector_database_url=os.getenv(
+            "RAG_PGVECTOR_DATABASE_URL", ""
+        ).strip(),
+        rag_pgvector_fallback_enabled=_parse_bool_env(
+            "RAG_PGVECTOR_FALLBACK_ENABLED", True
+        ),
+        rag_pgvector_top_k=_parse_int_env(
+            "RAG_PGVECTOR_TOP_K", "2", minimum=1, maximum=10
+        ),
+        rag_pgvector_dimensions=_parse_int_env(
+            "RAG_PGVECTOR_DIMENSIONS", "384", minimum=16, maximum=4096
+        ),
     )

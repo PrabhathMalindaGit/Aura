@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 import src.config as config_module
 from src.services.rag_store import retrieve_static_knowledge
+from src.services.pgvector_store import PGVectorUnavailable
 
 
 class RagStaticRetrievalTestCase(unittest.TestCase):
@@ -82,6 +83,88 @@ class RagStaticRetrievalTestCase(unittest.TestCase):
         results = retrieve_static_knowledge(
             "My muscles feel sore and I am fatigued after rehab."
         )
+
+        self.assertGreater(len(results), 0)
+        self.assertEqual(results[0].chunk.id, "normal_soreness_and_fatigue")
+
+    def test_pgvector_disabled_uses_lexical_retrieval(self) -> None:
+        os.environ["RAG_PGVECTOR_ENABLED"] = "false"
+        os.environ["RAG_PGVECTOR_DATABASE_URL"] = (
+            "postgresql://aura:aura@localhost:5432/aura_vectors"
+        )
+        config_module.get_settings.cache_clear()
+
+        with patch("src.services.rag_store.retrieve_static_knowledge_rows") as mocked:
+            results = retrieve_static_knowledge(
+                "I missed my exercises and feel discouraged about restarting."
+            )
+
+        mocked.assert_not_called()
+        self.assertGreater(len(results), 0)
+        self.assertEqual(results[0].chunk.id, "missed_exercises")
+
+    def test_pgvector_result_preserves_retrieval_shape(self) -> None:
+        os.environ["RAG_PGVECTOR_ENABLED"] = "true"
+        os.environ["RAG_PGVECTOR_DATABASE_URL"] = (
+            "postgresql://aura:aura@localhost:5432/aura_vectors"
+        )
+        config_module.get_settings.cache_clear()
+
+        with patch(
+            "src.services.rag_store.retrieve_static_knowledge_rows",
+            return_value=[
+                {
+                    "id": "pacing_and_rest",
+                    "title": "Pacing And Rest",
+                    "category": "rehab_support",
+                    "chunk_text": "Pacing activity with planned rest can support rehab.",
+                    "safe_response_snippet": "Keep today manageable with planned rests.",
+                    "source_version": "static-rehab-v1",
+                    "safety_tags": ["supportive", "non_diagnostic"],
+                    "keywords": ["pace", "rest"],
+                    "score": 0.42,
+                }
+            ],
+        ):
+            results = retrieve_static_knowledge("How should I pace activity today?")
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].chunk.id, "pacing_and_rest")
+        self.assertEqual(results[0].chunk.source_version, "static-rehab-v1")
+        self.assertEqual(results[0].score, 0.42)
+
+    def test_pgvector_failure_falls_back_to_lexical_retrieval(self) -> None:
+        os.environ["RAG_PGVECTOR_ENABLED"] = "true"
+        os.environ["RAG_PGVECTOR_DATABASE_URL"] = (
+            "postgresql://aura:aura@localhost:5432/aura_vectors"
+        )
+        config_module.get_settings.cache_clear()
+
+        with patch(
+            "src.services.rag_store.retrieve_static_knowledge_rows",
+            side_effect=PGVectorUnavailable("table missing"),
+        ):
+            results = retrieve_static_knowledge(
+                "I missed my exercises and feel discouraged about restarting."
+            )
+
+        self.assertGreater(len(results), 0)
+        self.assertEqual(results[0].chunk.id, "missed_exercises")
+
+    def test_empty_pgvector_result_falls_back_to_lexical_retrieval(self) -> None:
+        os.environ["RAG_PGVECTOR_ENABLED"] = "true"
+        os.environ["RAG_PGVECTOR_DATABASE_URL"] = (
+            "postgresql://aura:aura@localhost:5432/aura_vectors"
+        )
+        config_module.get_settings.cache_clear()
+
+        with patch(
+            "src.services.rag_store.retrieve_static_knowledge_rows",
+            return_value=[],
+        ):
+            results = retrieve_static_knowledge(
+                "My muscles feel sore and I am fatigued after rehab."
+            )
 
         self.assertGreater(len(results), 0)
         self.assertEqual(results[0].chunk.id, "normal_soreness_and_fatigue")

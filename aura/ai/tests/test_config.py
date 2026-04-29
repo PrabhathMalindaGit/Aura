@@ -45,6 +45,24 @@ class AiConfigTestCase(unittest.TestCase):
         test_settings = config_module.get_settings()
         self.assertEqual(test_settings.aura_ai_service_key, "dev_aura_ai_key")
 
+    def test_pgvector_defaults_are_fallback_safe(self) -> None:
+        config_module.get_settings.cache_clear()
+        settings = config_module.get_settings()
+
+        self.assertFalse(settings.rag_pgvector_enabled)
+        self.assertEqual(settings.rag_pgvector_database_url, "")
+        self.assertTrue(settings.rag_pgvector_fallback_enabled)
+        self.assertEqual(settings.rag_pgvector_top_k, 2)
+        self.assertEqual(settings.rag_pgvector_dimensions, 384)
+
+    def test_invalid_pgvector_boolean_env_is_rejected(self) -> None:
+        os.environ["RAG_PGVECTOR_ENABLED"] = "maybe"
+
+        config_module.get_settings.cache_clear()
+
+        with self.assertRaises(config_module.ConfigurationError):
+            config_module.get_settings()
+
 
 if __name__ == "__main__":
     unittest.main()

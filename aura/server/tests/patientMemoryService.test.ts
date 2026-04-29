@@ -1,7 +1,25 @@
 import mongoose from "mongoose";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
+const vectorMock = vi.hoisted(() => {
+  class MockPatientMemoryVectorUnavailable extends Error {
+    constructor(message = "PGVector patient memory unavailable") {
+      super(message);
+      this.name = "PatientMemoryVectorUnavailable";
+    }
+  }
+
+  return {
+    PatientMemoryVectorUnavailable: MockPatientMemoryVectorUnavailable,
+    mirrorPatientMemoryVector: vi.fn(),
+    retrievePatientMemoryVectors: vi.fn(),
+  };
+});
+
+vi.mock("../src/services/patientMemoryVectorService", () => vectorMock);
+
+import { env } from "../src/env";
 import PatientMemory from "../src/models/PatientMemory";
 import {
   extractLowRiskMemoryCandidate,
@@ -11,6 +29,13 @@ import {
 
 describe("patientMemoryService", () => {
   let mongoServer: MongoMemoryServer | null = null;
+  const mutableEnv = env as unknown as {
+    RAG_PGVECTOR_PATIENT_MEMORY_ENABLED: boolean;
+    RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED: boolean;
+  };
+  const originalPgvectorEnabled = mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED;
+  const originalPgvectorFallbackEnabled =
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED;
 
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
@@ -25,6 +50,16 @@ describe("patientMemoryService", () => {
   });
 
   beforeEach(async () => {
+    vi.restoreAllMocks();
+    vectorMock.mirrorPatientMemoryVector.mockReset();
+    vectorMock.retrievePatientMemoryVectors.mockReset();
+    vectorMock.mirrorPatientMemoryVector.mockResolvedValue({ mirrored: false });
+    vectorMock.retrievePatientMemoryVectors.mockRejectedValue(
+      new vectorMock.PatientMemoryVectorUnavailable()
+    );
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED = originalPgvectorEnabled;
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED =
+      originalPgvectorFallbackEnabled;
     await PatientMemory.deleteMany({});
   });
 
@@ -85,6 +120,7 @@ describe("patientMemoryService", () => {
 
     expect(saved).toBeNull();
     expect(await PatientMemory.countDocuments({ patientId: "p1" })).toBe(0);
+    expect(vectorMock.mirrorPatientMemoryVector).not.toHaveBeenCalled();
   });
 
   it("bounds memory summaries to 240 characters", () => {
@@ -145,5 +181,137 @@ describe("patientMemoryService", () => {
     );
     expect(JSON.stringify(memories)).not.toContain("long reminders");
     expect(JSON.stringify(memories)).not.toContain("evening soreness");
+  });
+
+  it("mirrors sanitized low-risk memory summaries to PGVector when enabled", async () => {
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED = true;
+    vectorMock.mirrorPatientMemoryVector.mockResolvedValue({ mirrored: true });
+
+    const saved = await saveLowRiskMemory({
+      patientId: "p1",
+      text: "My goal is to walk upstairs confidently.",
+      sourceRefId: "message-1",
+      riskLevel: "low",
+      reasonCodes: [],
+    });
+
+    expect(saved).toMatchObject({
+      memoryType: "goal",
+      summary: "Patient's current goal is to walk upstairs confidently.",
+    });
+    expect(vectorMock.mirrorPatientMemoryVector).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patientId: "p1",
+        memoryType: "goal",
+        sourceKind: "low_risk_chat",
+        status: "active",
+        summary: "Patient's current goal is to walk upstairs confidently.",
+      })
+    );
+    expect(JSON.stringify(vectorMock.mirrorPatientMemoryVector.mock.calls[0][0])).not.toContain(
+      "My goal is"
+    );
+  });
+
+  it("does not mirror unsafe candidates to PGVector", async () => {
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED = true;
+
+    const saved = await saveLowRiskMemory({
+      patientId: "p1",
+      text: "My goal is to take 50 mg of medication.",
+      riskLevel: "low",
+      reasonCodes: [],
+    });
+
+    expect(saved).toBeNull();
+    expect(vectorMock.mirrorPatientMemoryVector).not.toHaveBeenCalled();
+  });
+
+  it("uses MongoDB lexical retrieval when PGVector patient memory is disabled", async () => {
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED = false;
+    await PatientMemory.create({
+      patientId: "p1",
+      memoryType: "preference",
+      summary: "Patient prefers short reminders.",
+      sourceKind: "low_risk_chat",
+    });
+
+    const memories = await getRelevantPatientMemories({
+      patientId: "p1",
+      query: "short reminders",
+    });
+
+    expect(memories).toHaveLength(1);
+    expect(memories[0].summary).toBe("Patient prefers short reminders.");
+    expect(vectorMock.retrievePatientMemoryVectors).not.toHaveBeenCalled();
+  });
+
+  it("falls back to MongoDB lexical retrieval when PGVector errors", async () => {
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED = true;
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED = true;
+    vectorMock.retrievePatientMemoryVectors.mockRejectedValue(
+      new vectorMock.PatientMemoryVectorUnavailable("table missing")
+    );
+    await PatientMemory.create([
+      {
+        patientId: "p1",
+        memoryType: "preference",
+        summary: "Patient prefers short reminders.",
+        sourceKind: "low_risk_chat",
+      },
+      {
+        patientId: "p2",
+        memoryType: "preference",
+        summary: "Patient prefers long reminders.",
+        sourceKind: "low_risk_chat",
+      },
+    ]);
+
+    const memories = await getRelevantPatientMemories({
+      patientId: "p1",
+      query: "short reminders",
+    });
+
+    expect(vectorMock.retrievePatientMemoryVectors).toHaveBeenCalledWith({
+      patientId: "p1",
+      query: "short reminders",
+      limit: undefined,
+    });
+    expect(memories).toHaveLength(1);
+    expect(memories[0].summary).toBe("Patient prefers short reminders.");
+    expect(JSON.stringify(memories)).not.toContain("long reminders");
+  });
+
+  it("returns same-patient PGVector memories when available", async () => {
+    mutableEnv.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED = true;
+    vectorMock.retrievePatientMemoryVectors.mockResolvedValue([
+      {
+        id: "memory-p1",
+        memoryType: "preference",
+        summary: "Patient prefers short reminders.",
+        sourceKind: "low_risk_chat",
+        score: 0.91,
+      },
+    ]);
+
+    const memories = await getRelevantPatientMemories({
+      patientId: "p1",
+      query: "short reminders",
+    });
+
+    expect(memories).toEqual([
+      {
+        id: "memory-p1",
+        memoryType: "preference",
+        summary: "Patient prefers short reminders.",
+        sourceKind: "low_risk_chat",
+        score: 0.91,
+      },
+    ]);
+    expect(vectorMock.retrievePatientMemoryVectors).toHaveBeenCalledWith({
+      patientId: "p1",
+      query: "short reminders",
+      limit: undefined,
+    });
   });
 });

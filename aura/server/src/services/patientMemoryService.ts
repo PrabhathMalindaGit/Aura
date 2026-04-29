@@ -1,5 +1,12 @@
 import PatientMemory from "../models/PatientMemory";
+import { env } from "../env";
 import { toId } from "../utils/ids";
+import { logger } from "../utils/logger";
+import {
+  PatientMemoryVectorUnavailable,
+  mirrorPatientMemoryVector,
+  retrievePatientMemoryVectors,
+} from "./patientMemoryVectorService";
 
 export type PatientMemoryType =
   | "goal"
@@ -225,6 +232,28 @@ export async function saveLowRiskMemory(input: {
       }
     );
 
+    try {
+      await mirrorPatientMemoryVector({
+        memoryId: toId(doc._id),
+        patientId: doc.patientId,
+        memoryType: doc.memoryType as PatientMemoryType,
+        sourceKind: doc.sourceKind as PatientMemorySourceKind,
+        status: doc.status as "active" | "superseded",
+        summary: doc.summary,
+        expiresAt: doc.expiresAt instanceof Date ? doc.expiresAt : null,
+      });
+    } catch (error) {
+      logger.warn("patient_memory.pgvector_mirror_failed", {
+        patientId,
+        memoryId: toId(doc._id),
+        reason:
+          error instanceof PatientMemoryVectorUnavailable
+            ? "unavailable"
+            : "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     return {
       id: toId(doc._id),
       memoryType: doc.memoryType as PatientMemoryType,
@@ -267,7 +296,7 @@ function lexicalScore(query: string, document: string): number {
   return overlap / Math.sqrt(queryTerms.length * documentTerms.length);
 }
 
-export async function getRelevantPatientMemories(input: {
+async function getRelevantPatientMemoriesFromMongo(input: {
   patientId: string;
   query: string;
   limit?: number;
@@ -301,4 +330,51 @@ export async function getRelevantPatientMemories(input: {
     .sort((a, b) => b.score - a.score || b.updatedAt - a.updatedAt)
     .slice(0, limit)
     .map(({ updatedAt: _updatedAt, ...memory }) => memory);
+}
+
+export async function getRelevantPatientMemories(input: {
+  patientId: string;
+  query: string;
+  limit?: number;
+}): Promise<RelevantPatientMemory[]> {
+  const patientId = input.patientId.trim();
+  if (!patientId) {
+    return [];
+  }
+
+  if (env.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED) {
+    try {
+      const vectorMemories = await retrievePatientMemoryVectors({
+        patientId,
+        query: input.query,
+        limit: input.limit,
+      });
+
+      if (
+        vectorMemories.length > 0 ||
+        !env.RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED
+      ) {
+        return vectorMemories;
+      }
+    } catch (error) {
+      if (!env.RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED) {
+        throw error;
+      }
+
+      logger.warn("patient_memory.pgvector_retrieval_fallback_used", {
+        patientId,
+        reason:
+          error instanceof PatientMemoryVectorUnavailable
+            ? "unavailable"
+            : "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return getRelevantPatientMemoriesFromMongo({
+    patientId,
+    query: input.query,
+    limit: input.limit,
+  });
 }

@@ -16,6 +16,20 @@ function parseIntEnv(name: string, value: string | undefined, fallback: number):
   return parsed;
 }
 
+function parseBoundedIntEnv(
+  name: string,
+  value: string | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number
+): number {
+  const parsed = parseIntEnv(name, value, fallback);
+  if (parsed < minimum || parsed > maximum) {
+    throw new Error(`${name} must be between ${minimum} and ${maximum}`);
+  }
+  return parsed;
+}
+
 function toBool(value: string | undefined, fallback: boolean): boolean {
   if (!value) {
     return fallback;
@@ -121,6 +135,29 @@ export const env = {
   ),
   CORS_ALLOWED_ORIGINS: toStringArray(process.env.CORS_ALLOWED_ORIGINS),
   PAIN_HIGH_THRESHOLD: toInt(process.env.PAIN_HIGH_THRESHOLD, 7),
+  RAG_PGVECTOR_DATABASE_URL: process.env.RAG_PGVECTOR_DATABASE_URL || "",
+  RAG_PGVECTOR_DIMENSIONS: parseBoundedIntEnv(
+    "RAG_PGVECTOR_DIMENSIONS",
+    process.env.RAG_PGVECTOR_DIMENSIONS,
+    384,
+    384,
+    384
+  ),
+  RAG_PGVECTOR_PATIENT_MEMORY_ENABLED: toBool(
+    process.env.RAG_PGVECTOR_PATIENT_MEMORY_ENABLED,
+    false
+  ),
+  RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED: toBool(
+    process.env.RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED,
+    true
+  ),
+  RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: parseBoundedIntEnv(
+    "RAG_PGVECTOR_PATIENT_MEMORY_TOP_K",
+    process.env.RAG_PGVECTOR_PATIENT_MEMORY_TOP_K,
+    3,
+    1,
+    3
+  ),
 } as const;
 
 type RuntimeEnv = {
@@ -131,6 +168,8 @@ type RuntimeEnv = {
   AI_BASE_URL: string;
   AURA_AI_SERVICE_KEY: string;
   AI_REQUEST_TIMEOUT_MS: number;
+  RAG_PGVECTOR_DIMENSIONS: number;
+  RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: number;
 };
 
 export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
@@ -163,6 +202,17 @@ export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
     throw new Error(
       `AI_REQUEST_TIMEOUT_MS must be between ${MIN_AI_REQUEST_TIMEOUT_MS} and ${MAX_AI_REQUEST_TIMEOUT_MS}`
     );
+  }
+
+  if (value.RAG_PGVECTOR_DIMENSIONS !== 384) {
+    throw new Error("RAG_PGVECTOR_DIMENSIONS must be 384");
+  }
+
+  if (
+    value.RAG_PGVECTOR_PATIENT_MEMORY_TOP_K < 1 ||
+    value.RAG_PGVECTOR_PATIENT_MEMORY_TOP_K > 3
+  ) {
+    throw new Error("RAG_PGVECTOR_PATIENT_MEMORY_TOP_K must be between 1 and 3");
   }
 
   if (

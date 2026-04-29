@@ -11,6 +11,8 @@ function buildRuntimeEnv(
     AI_BASE_URL: string;
     AURA_AI_SERVICE_KEY: string;
     AI_REQUEST_TIMEOUT_MS: number;
+    RAG_PGVECTOR_DIMENSIONS: number;
+    RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: number;
   }> = {}
 ) {
   return {
@@ -21,6 +23,8 @@ function buildRuntimeEnv(
     AI_BASE_URL: "https://ai.example.com",
     AURA_AI_SERVICE_KEY: "prod-ai-key",
     AI_REQUEST_TIMEOUT_MS: 4000,
+    RAG_PGVECTOR_DIMENSIONS: 384,
+    RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: 3,
     ...overrides,
   };
 }
@@ -90,5 +94,23 @@ describe("runtime env safety checks", () => {
         })
       )
     ).toThrow(/AI_REQUEST_TIMEOUT_MS/);
+  });
+
+  it("throws when patient memory PGVector settings are out of bounds", () => {
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          RAG_PGVECTOR_DIMENSIONS: 128,
+        })
+      )
+    ).toThrow(/RAG_PGVECTOR_DIMENSIONS/);
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: 4,
+        })
+      )
+    ).toThrow(/RAG_PGVECTOR_PATIENT_MEMORY_TOP_K/);
   });
 });

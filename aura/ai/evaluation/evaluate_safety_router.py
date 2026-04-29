@@ -88,6 +88,20 @@ def _record_prediction(
         bucket["reasonCodeMatches"] += 1
 
 
+def _positive_class_metrics_not_applicable(metrics: dict[str, Any]) -> bool:
+    has_expected_positives = metrics["tp"] + metrics["fn"] > 0
+    has_predicted_positives = metrics["tp"] + metrics["fp"] > 0
+    return not has_expected_positives and not has_predicted_positives
+
+
+def _format_category_positive_class_metric(
+    metrics: dict[str, Any], metric_name: str
+) -> str:
+    if _positive_class_metrics_not_applicable(metrics):
+        return "N/A"
+    return f"{metrics[metric_name]:.4f}"
+
+
 def load_dataset(path: Path = DATASET_PATH) -> dict[str, Any]:
     with path.open(encoding="utf-8") as dataset_file:
         return json.load(dataset_file)
@@ -174,9 +188,9 @@ def print_report(dataset: dict[str, Any], metrics: dict[str, Any]) -> None:
             f"{category} | {category_metrics['total']} | "
             f"{category_metrics['tp']} | {category_metrics['fp']} | "
             f"{category_metrics['tn']} | {category_metrics['fn']} | "
-            f"{category_metrics['precision']:.4f} | "
-            f"{category_metrics['recall']:.4f} | "
-            f"{category_metrics['f1']:.4f} | "
+            f"{_format_category_positive_class_metric(category_metrics, 'precision')} | "
+            f"{_format_category_positive_class_metric(category_metrics, 'recall')} | "
+            f"{_format_category_positive_class_metric(category_metrics, 'f1')} | "
             f"{category_metrics['reasonCodeAgreement']:.4f} "
             f"({category_metrics['reasonCodeMatches']}/"
             f"{category_metrics['total']}) | "

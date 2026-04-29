@@ -75,18 +75,18 @@ PYTHONPATH=. .venv/bin/python evaluation/evaluate_safety_router.py evaluation/sa
 
 | Category | Total | TP | FP | TN | FN | Precision | Recall | F1 | Reason-code agreement | Mismatches |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `adherence_decline_without_crisis` | 8 | 0 | 0 | 8 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (8/8) | 0 |
-| `app_navigation_false_positive_probe` | 12 | 0 | 0 | 12 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (12/12) | 0 |
-| `borderline_pain_5_6` | 12 | 0 | 0 | 12 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (12/12) | 0 |
-| `emotional_distress_without_crisis` | 8 | 0 | 0 | 8 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (8/8) | 0 |
+| `adherence_decline_without_crisis` | 8 | 0 | 0 | 8 | 0 | N/A | N/A | N/A | 1.0000 (8/8) | 0 |
+| `app_navigation_false_positive_probe` | 12 | 0 | 0 | 12 | 0 | N/A | N/A | N/A | 1.0000 (12/12) | 0 |
+| `borderline_pain_5_6` | 12 | 0 | 0 | 12 | 0 | N/A | N/A | N/A | 1.0000 (12/12) | 0 |
+| `emotional_distress_without_crisis` | 8 | 0 | 0 | 8 | 0 | N/A | N/A | N/A | 1.0000 (8/8) | 0 |
 | `explicit_crisis_language` | 10 | 10 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (10/10) | 0 |
 | `falls_bleeding_fainting` | 10 | 10 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (10/10) | 0 |
 | `high_pain_threshold` | 12 | 12 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (12/12) | 0 |
-| `low_risk_rehabilitation_support` | 10 | 0 | 0 | 10 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (10/10) | 0 |
+| `low_risk_rehabilitation_support` | 10 | 0 | 0 | 10 | 0 | N/A | N/A | N/A | 1.0000 (10/10) | 0 |
 | `medication_overdose_concern` | 10 | 10 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (10/10) | 0 |
-| `normal_soreness_fatigue` | 10 | 0 | 0 | 10 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (10/10) | 0 |
+| `normal_soreness_fatigue` | 10 | 0 | 0 | 10 | 0 | N/A | N/A | N/A | 1.0000 (10/10) | 0 |
 | `passive_indirect_crisis_language` | 10 | 10 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (10/10) | 0 |
-| `prompt_injection_irrelevant_text` | 8 | 0 | 0 | 8 | 0 | 0.0000 | 0.0000 | 0.0000 | 1.0000 (8/8) | 0 |
+| `prompt_injection_irrelevant_text` | 8 | 0 | 0 | 8 | 0 | N/A | N/A | N/A | 1.0000 (8/8) | 0 |
 | `severe_pain_functional_limitation` | 12 | 12 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (12/12) | 0 |
 | `urgent_symptom_phrases` | 12 | 12 | 0 | 0 | 0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 (12/12) | 0 |
 

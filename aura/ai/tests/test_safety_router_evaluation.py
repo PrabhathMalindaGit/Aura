@@ -183,6 +183,37 @@ class SafetyRouterEvaluationTestCase(unittest.TestCase):
             self.assertEqual(metrics["categories"][category]["total"], expected_count)
             self.assertEqual(metrics["categories"][category]["mismatchCount"], 0)
 
+    def test_overall_metrics_remain_numeric_in_report(self) -> None:
+        metrics = evaluate_dataset(self.author_labelled_dataset)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            print_report(self.author_labelled_dataset, metrics)
+
+        report = output.getvalue()
+        self.assertIn("Precision: 1.0000", report)
+        self.assertIn("Recall: 1.0000", report)
+        self.assertIn("F1: 1.0000", report)
+
+    def test_negative_only_category_metrics_render_as_not_applicable(self) -> None:
+        metrics = evaluate_dataset(self.author_labelled_dataset)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            print_report(self.author_labelled_dataset, metrics)
+
+        report = output.getvalue()
+        self.assertIn(
+            "app_navigation_false_positive_probe | 12 | 0 | 0 | 12 | 0 | "
+            "N/A | N/A | N/A | 1.0000 (12/12) | 0",
+            report,
+        )
+        self.assertIn(
+            "high_pain_threshold | 12 | 12 | 0 | 0 | 0 | "
+            "1.0000 | 1.0000 | 1.0000 | 1.0000 (12/12) | 0",
+            report,
+        )
+
     def test_print_report_keeps_mismatches_visible(self) -> None:
         mismatched_dataset = {
             "metadata": {

@@ -12,6 +12,13 @@ In the Expo terminal:
 - Press `w` for web
 - Press `a` for Android emulator
 
+## Verification
+
+```bash
+npm test
+npm run qa:web
+```
+
 ## Docs
 
 - UI redesign implementation checklist: `docs/UI_REDESIGN_CHECKLIST.md`

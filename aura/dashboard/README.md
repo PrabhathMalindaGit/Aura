@@ -10,6 +10,21 @@ npm install
 npm run dev
 ```
 
+Presentation tools are local/demo only:
+
+```bash
+VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev
+```
+
+When this flag is enabled and the backend is also started with `AURA_PRESENTATION_SEED_ENABLED=true`, open `/settings` and use **Settings -> Presentation tools** to reset or load presentation data. Do not enable presentation tooling for production builds.
+
+## Verification
+
+```bash
+npm run verify
+npm run e2e
+```
+
 ## Routes
 
 - `/dashboard`
@@ -34,7 +49,10 @@ Copy `.env.local.example` to `.env.local` and adjust if needed:
 
 ```bash
 VITE_API_BASE_URL=http://localhost:3000
+VITE_AURA_PRESENTATION_TOOLS_ENABLED=true
 ```
+
+Only set `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true` for local/demo presentation mode. The dashboard has no PGVector runtime configuration; PGVector behavior is owned by the AI service and backend.
 
 ## Dashboard V2 cutover
 

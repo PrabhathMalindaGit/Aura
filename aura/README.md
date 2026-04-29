@@ -9,289 +9,283 @@ For the current demo-ready product state, use these repo sources as truth:
 - Dashboard routes and auth bootstrap: `/Users/University/Final Project/aura/dashboard/README.md`
 - Mobile workflow surfaces: `/Users/University/Final Project/aura/mobile/README.md`
 
-This README remains useful for local service startup, but it is no longer the full product walkthrough on its own.
+This README is the top-level local startup guide. The linked files remain the deeper runbooks for product walkthroughs and service-specific details.
 
 ## Current implementation truth note
 
 - Current AI safety routing is live and used by check-ins and chat through the FastAPI `/classify` endpoint.
-- The supportive `/rag/reply` path is still a stub response and should not be presented as retrieval-backed AI.
-- `aura_pgvector` is provisioned in Docker for future retrieval work, but the current demo flows do not depend on vector storage or retrieval.
+- Static rehabilitation retrieval is implemented and fallback-safe for low-risk supportive replies.
+- Patient living memory is stored canonically in MongoDB.
+- PGVector is optional:
+  - the AI service uses PGVector for curated static rehabilitation knowledge when enabled.
+  - the backend can mirror sanitized patient-memory summaries to PGVector for same-patient retrieval when enabled.
+- PGVector does not store raw patient messages.
+- High-risk chat bypasses RAG, memory writing, memory retrieval, and PGVector patient-memory indexing.
 - Canonical n8n workflow exports live in `/Users/University/Final Project/aura/n8n/workflows/`.
 - Legacy reference folders such as `/Users/University/Final Project/aura/n8n_workflows/` and `/Users/University/Final Project/aura/mobile_backup_20260223_123515/` are not active runtime sources.
 
 ## Prerequisites
+
 - Docker Desktop
-- VSCode
 - Terminal
+- Node 22 recommended
+- Python 3 with `venv`
 
-## Run Everything Locally (Start-to-Finish)
-### Choose your startup mode
-Most development uses normal mode. For the final dashboard presentation, use presentation demo mode.
+## Project services overview
 
-#### A. Normal development mode
-Use this for ordinary development.
-- Backend: `npm run dev`
-- Dashboard: `npm run dev`
-- Presentation tools are not enabled.
+| Service | Local URL / port | Notes |
+|---|---|---|
+| MongoDB | `mongodb://localhost:27017` | Canonical app database and canonical patient-memory store. |
+| PGVector/Postgres | `postgresql://aura:aura@localhost:5432/aura_vectors` | Optional static rehab knowledge and sanitized patient-memory retrieval index. |
+| n8n | `http://localhost:5678` | Workflow automation for alert and follow-through demos. |
+| AI service | `http://127.0.0.1:8001` | FastAPI Safety Router and low-risk static RAG reply path. |
+| Server | `http://localhost:3000` | Node/Express + MongoDB backend. |
+| Dashboard | `http://localhost:5173` | Vite/React clinician dashboard. |
+| Mobile | usually `http://localhost:8081` | Optional Expo patient app. |
 
-#### B. Presentation demo mode
-Use this for final demos/screenshots with realistic backend-seeded dashboard data.
-- Backend: `AURA_PRESENTATION_SEED_ENABLED=true npm run dev`
-- Dashboard: `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev`
-- Then open `http://localhost:5173/settings` and use `Settings -> Presentation tools -> Reset presentation data` / `Load presentation data`.
+## One-time setup
 
-Running `npm run dev` without the presentation flags is not wrong; it simply disables `Settings -> Presentation tools`.
+Use Node 22 where possible. The mobile app has a `.nvmrc` pinned to `22`.
 
-### Fast Path (experienced users)
-1. `cd "/Users/University/Final Project/aura" && docker compose up -d`
-2. Start the AI service from `/Users/University/Final Project/aura/ai`:
-   - `source .venv/bin/activate`
-   - `uvicorn src.main:app --reload --host 127.0.0.1 --port 8001`
-3. Start the Node backend from `/Users/University/Final Project/aura/server`:
-   - Normal development: `npm run dev`
-   - Presentation demo: `AURA_PRESENTATION_SEED_ENABLED=true npm run dev`
-4. Start the dashboard from `/Users/University/Final Project/aura/dashboard`:
-   - Normal development: `npm run dev`
-   - Presentation demo: `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev`
-5. Optional for full patient-flow demos: start the mobile app from `/Users/University/Final Project/aura/mobile`:
-   - `npm run start`
-6. Seed the base demo data from `/Users/University/Final Project/aura/server`:
-   - `npm run seed`
-7. Import/activate the canonical n8n exports described in `/Users/University/Final Project/aura/n8n/workflows/README.md`.
-8. Sign in at `http://localhost:5173/login` and open the dashboard routes you need.
-9. Run the deeper verification flow in `/Users/University/Final Project/aura/FINAL_PROOF_PACK.md`.
+```bash
+cd "/Users/University/Final Project/aura/server"
+npm install
+cp .env.example .env
 
-Mobile is optional for clinician-dashboard-only demos. Keep the detailed runbooks in:
-- `/Users/University/Final Project/aura/ai/README.md`
-- `/Users/University/Final Project/aura/mobile/README.md`
-- `/Users/University/Final Project/aura/n8n/README.md`
-- `/Users/University/Final Project/aura/n8n/workflows/README.md`
+cd "/Users/University/Final Project/aura/dashboard"
+npm install
+cp .env.local.example .env.local
 
-### 0) Before you start (one-time checks)
-1. Confirm Docker Desktop is running.
-2. Confirm you are in the correct folder:
+cd "/Users/University/Final Project/aura/mobile"
+npm install
+cp .env.example .env
+
+cd "/Users/University/Final Project/aura/ai"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+## Startup modes
+
+Most development uses normal mode. Use PGVector-enabled final/local mode when you want static PGVector retrieval and optional PGVector patient-memory indexing enabled. Use presentation demo mode for realistic dashboard presentation data.
+
+### A. Normal development mode
+
+Start Docker infrastructure:
+
 ```bash
 cd "/Users/University/Final Project/aura"
-pwd
-```
-3. Terminal naming:
-- `Terminal 1` means Docker infrastructure.
-- `Terminal 2` means the AI service.
-- `Terminal 3` means the Node backend.
-- `Terminal 4` means the dashboard dev server.
-- `Terminal 5` means the optional mobile app.
-
-### 1) Start Docker services (Mongo + pgvector + n8n) in Terminal 1
-1. Run:
-```bash
-cd "/Users/University/Final Project/aura"
-docker compose up -d
-```
-2. Verify containers:
-```bash
-docker ps
-```
-3. Expected in `docker ps`:
-- `aura_mongo` is `Up`
-- `aura_pgvector` is `Up`
-- `aura_n8n` is `Up`
-4. Note:
-- `aura_pgvector` is included for future retrieval experiments. The current local demo does not require it to be populated with vectors.
-5. Quick checks:
-- Open n8n in browser: `http://localhost:5678`
-- Check port:
-```bash
-lsof -i :5678
-```
-6. If not running, inspect logs:
-```bash
-docker logs aura_n8n --tail 50
-docker logs aura_mongo --tail 50
-docker logs aura_pgvector --tail 50
+docker compose up -d mongo pgvector n8n
 ```
 
-### 2) Start the AI service (FastAPI) in Terminal 2
-1. Run:
+Start the AI service:
+
 ```bash
 cd "/Users/University/Final Project/aura/ai"
 source .venv/bin/activate
 uvicorn src.main:app --reload --host 127.0.0.1 --port 8001
 ```
-2. In another terminal tab, verify:
-```bash
-curl -s http://localhost:8001/health
-```
-3. Expected:
-```json
-{"status":"ok"}
-```
-4. Troubleshooting:
-- If `address already in use`:
-```bash
-lsof -i :8001
-```
-- If this is your first local AI setup, use `/Users/University/Final Project/aura/ai/README.md` for venv creation and dependency installation.
-- If import errors persist: confirm you are in `/Users/University/Final Project/aura/ai` and filenames match exactly.
 
-### 3) Start the Node backend (Express + Mongo) in Terminal 3
-1. Run:
+Start the backend:
+
 ```bash
 cd "/Users/University/Final Project/aura/server"
-npm install
 npm run dev
 ```
-For presentation demo mode, use:
-```bash
-AURA_PRESENTATION_SEED_ENABLED=true npm run dev
-```
-2. Verify API health:
-```bash
-curl -s http://localhost:3000/health
-```
-3. Expected:
-```json
-{"status":"ok"}
-```
-4. Also verify Mongo connection in server console:
-- Expected log line includes: `✅ Mongo connected`
-5. Troubleshooting:
-- If Mongo connection fails:
-```bash
-docker ps
-docker logs aura_mongo --tail 50
-```
-- If port in use:
-```bash
-lsof -i :3000
-```
 
-### 4) Start the dashboard in Terminal 4
-1. Run:
+Start the dashboard:
+
 ```bash
 cd "/Users/University/Final Project/aura/dashboard"
-npm install
 npm run dev
 ```
-For presentation demo mode, use:
-```bash
-VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev
-```
-2. Open:
-```text
-http://localhost:5173/login
-```
-3. The dashboard README remains the deeper source of truth for routes, auth bootstrap, and workflow demos:
-- `/Users/University/Final Project/aura/dashboard/README.md`
 
-### 5) Optional: start the mobile app in Terminal 5
-Use this only when you need the patient-facing demo flows.
+Optional mobile startup:
 
-1. Run:
 ```bash
 cd "/Users/University/Final Project/aura/mobile"
 npm run start
 ```
-2. Typical web/dev URLs:
-- `http://localhost:8081`
-- or the Expo URL printed in the terminal
-3. Full mobile setup and env notes remain in:
-- `/Users/University/Final Project/aura/mobile/README.md`
 
-### 6) Seed the base demo data
-Run the server seed from `/Users/University/Final Project/aura/server`:
+Seed baseline demo data:
 
 ```bash
+cd "/Users/University/Final Project/aura/server"
 npm run seed
-npm run seed:reset
 ```
 
-Notes:
-- `npm run seed` creates or refreshes the baseline deterministic demo data, including the standard demo users and patient access codes.
-- `npm run seed:reset` clears the base demo dataset before reseeding it.
-- This base seed is different from the presentation seed workflow described below.
-- Full seeded-data details live in `/Users/University/Final Project/aura/server/scripts/seed/README.md`.
+Presentation tools are not enabled in normal mode.
 
-### 7) Demo access
-- Dashboard clinician: `clinician1@example.com` / `devpass123`
-- Mobile patient codes:
-  - `P1-DEMO`
-  - `P2-DEMO`
-  - `P3-DEMO`
+### B. PGVector-enabled final/local mode
 
-For the secondary clinician login and the full demo access list, see `/Users/University/Final Project/aura/FINAL_PROOF_PACK.md`.
+Start MongoDB and PGVector:
 
-### 8) Key local URLs
-- Backend health: `http://localhost:3000/health`
-- AI health: `http://localhost:8001/health`
-- Dashboard login: `http://localhost:5173/login`
-- n8n UI: `http://localhost:5678`
-- Mobile web: usually `http://localhost:8081` or the Expo URL printed in the terminal
+```bash
+cd "/Users/University/Final Project/aura"
+docker compose up -d mongo pgvector
+```
 
-### 9) Dashboard presentation demo mode
-Use this local-only workflow when you want the realistic full-dashboard presentation dataset, the Settings -> Presentation tools controls, and the backend presentation seed routes.
+Check the vector extension:
 
-Backend (Terminal 3):
+```bash
+docker exec aura_pgvector psql -U aura -d aura_vectors -c "select extname, extversion from pg_extension where extname = 'vector';"
+```
+
+Ingest static rehabilitation knowledge when needed:
+
+```bash
+cd "/Users/University/Final Project/aura/ai"
+source .venv/bin/activate
+RAG_PGVECTOR_DATABASE_URL="postgresql://aura:aura@localhost:5432/aura_vectors" PYTHONPATH=. .venv/bin/python scripts/ingest_static_knowledge_pgvector.py
+```
+
+Run ingestion after recreating the PGVector volume/table or after changing `ai/data/rehab_knowledge.json`; it is not required on every startup.
+
+Start the AI service with PGVector static retrieval:
+
+```bash
+cd "/Users/University/Final Project/aura/ai"
+source .venv/bin/activate
+RAG_PGVECTOR_ENABLED=true \
+RAG_PGVECTOR_DATABASE_URL="postgresql://aura:aura@localhost:5432/aura_vectors" \
+PYTHONPATH=. uvicorn src.main:app --reload --host 127.0.0.1 --port 8001
+```
+
+Start the backend with optional PGVector patient-memory indexing:
+
+```bash
+cd "/Users/University/Final Project/aura/server"
+RAG_PGVECTOR_PATIENT_MEMORY_ENABLED=true \
+RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED=true \
+RAG_PGVECTOR_DATABASE_URL="postgresql://aura:aura@localhost:5432/aura_vectors" \
+RAG_PGVECTOR_PATIENT_MEMORY_TOP_K=3 \
+npm run dev
+```
+
+Important boundaries:
+- MongoDB remains canonical for patient memory.
+- PGVector indexes curated static rehabilitation knowledge and optional sanitized low-risk memory summaries.
+- PGVector does not store raw patient messages.
+- High-risk chat bypasses RAG, memory writing, memory retrieval, and PGVector patient-memory indexing.
+- PGVector patient-memory indexing is disabled by default and fallback-safe.
+
+Start dashboard/mobile normally if needed.
+
+### C. Presentation demo mode
+
+Use this for final demos/screenshots with realistic backend-seeded dashboard data.
+
+Backend:
+
 ```bash
 cd "/Users/University/Final Project/aura/server"
 AURA_PRESENTATION_SEED_ENABLED=true npm run dev
 ```
 
-Dashboard (Terminal 4):
+Dashboard:
+
 ```bash
 cd "/Users/University/Final Project/aura/dashboard"
 VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev
 ```
 
-Then:
-1. Open `http://localhost:5173/settings`
-2. Sign in as clinician if needed
-3. Open `Settings -> Presentation tools`
-4. Click `Reset presentation data` if needed
-5. Click `Load presentation data`
-6. Visit:
-   - `/dashboard`
-   - `/worklist`
-   - `/patients`
-   - `/communication`
-   - `/alerts`
-   - `/insights`
-   - `/appointments`
+Then open `http://localhost:5173/settings` and use **Settings -> Presentation tools -> Reset presentation data** / **Load presentation data**.
 
-What this does:
-- The presentation seed creates a realistic full-dashboard demo dataset.
-- The dataset is marked and managed by the backend as presentation seed data.
-- `Reset presentation data` removes presentation seed records only.
-- This workflow is for local/dev/demo use only.
+Local/demo only. Never enable presentation seed in production. `npm run seed:reset` and **Reset presentation data** target different datasets.
 
-### 10) Base seed vs presentation seed
-| Workflow | Command or control | Purpose | Reset path | Docs |
-|---|---|---|---|---|
-| Base demo seed | `npm run seed` / `npm run seed:reset` in `server` | Deterministic baseline demo users, patients, and development data | `npm run seed:reset` | `/Users/University/Final Project/aura/server/scripts/seed/README.md` |
-| Presentation seed | `Settings -> Presentation tools -> Load presentation data` | Realistic full-dashboard presentation dataset | `Settings -> Presentation tools -> Reset presentation data` | This README section |
+## Demo access and URLs
 
-The presentation seed requires both `AURA_PRESENTATION_SEED_ENABLED=true` on the backend and `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true` on the dashboard. Do not confuse `npm run seed:reset` with `Reset presentation data`; they target different datasets and workflows.
+| Item | Value |
+|---|---|
+| Dashboard login | `http://localhost:5173/login` |
+| Backend health | `http://localhost:3000/health` |
+| AI health | `http://localhost:8001/health` |
+| n8n UI | `http://localhost:5678` |
+| Mobile/Expo | usually `http://localhost:8081` or the Expo URL printed in the terminal |
+| Dashboard clinician | `clinician1@example.com` / `devpass123` |
+| Mobile patient codes | `P1-DEMO`, `P2-DEMO`, `P3-DEMO` |
 
-### 11) Set up n8n canonical workflows
-The alert-created workflow is still required, but the current demo flow also expects the follow-through workflow exports under `/Users/University/Final Project/aura/n8n/workflows/`.
+For the secondary clinician login and the full demo access list, see `/Users/University/Final Project/aura/FINAL_PROOF_PACK.md`.
 
-Full guides:
-- `/Users/University/Final Project/aura/n8n/README.md` for Workflow 01 click-by-click setup
-- `/Users/University/Final Project/aura/n8n/workflows/README.md` for the full canonical export list
+## Verification commands
 
-Alert durability cadence note:
-- To finish R2 alert durability in an environment that should automatically own notification processing, also import workflows `09 - Alert Notification Processor (Cron every minute → Aura Internal Process)` and `10 - Alert Notification Reconcile (Cron every 5 minutes → Aura Internal Reconcile)`.
-- Keep those two workflows inactive by default until that environment is explicitly chosen as the scheduler owner.
-- Activate them in only one n8n instance per backend environment.
+For documentation-only changes, `git diff --check` is the minimum formatting check. Run the service commands when code changes or when you need fresh proof before submission.
+
+AI:
+
+```bash
+cd "/Users/University/Final Project/aura/ai"
+PYTHONPATH=. .venv/bin/python -m pytest -q
+```
+
+Server:
+
+```bash
+cd "/Users/University/Final Project/aura/server"
+npm test
+npm run build
+```
+
+Dashboard:
+
+```bash
+cd "/Users/University/Final Project/aura/dashboard"
+npm run verify
+npm run e2e
+```
+
+Mobile:
+
+```bash
+cd "/Users/University/Final Project/aura/mobile"
+npm test
+npm run qa:web
+```
+
+Root formatting check:
+
+```bash
+cd "/Users/University/Final Project/aura"
+git diff --check
+```
+
+## Evidence snapshot
+
+The concise final evidence summary lives at `docs/evidence/final-evaluation-summary-2026-04-29.md`.
+
+Current final-project evidence snapshot:
+- Safety Router: 144 author-labelled synthetic examples, TP=76, FP=0, TN=68, FN=0, precision=1.0000, recall=1.0000, F1=1.0000, reason-code agreement=1.0000.
+- Server: 336 tests passed.
+- AI: 50 tests passed.
+- Static PGVector regression: 12 tests passed.
+- Dashboard: 505 unit tests and 19 E2E tests passed.
+- Mobile: 125 tests passed.
+- Final local latency benchmark with PGVector static retrieval and optional PGVector patient-memory indexing enabled: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility, failures 0.
+- Clinical validation remains future work.
+
+## Safety and privacy boundaries
+
+Aura is a local final-project prototype. The evaluation evidence is local and synthetic unless explicitly stated otherwise, and it is not clinical validation or proof of safe unsupervised clinical deployment. PGVector retrieval uses deterministic hashing vectors as prototype retrieval vectors, not clinically validated semantic embeddings. MongoDB remains canonical for patient memory. The optional PGVector patient-memory index stores only sanitized low-risk summaries for same-patient retrieval. Do not store raw patient messages, crisis text, medication dosage details, contact details, secrets, or real patient data in PGVector. High-risk chat bypasses RAG, memory writing, memory retrieval, and PGVector patient-memory indexing.
+
+## n8n workflow setup
+
+Canonical workflow guides:
+- `/Users/University/Final Project/aura/n8n/README.md` for Workflow 01 click-by-click setup.
+- `/Users/University/Final Project/aura/n8n/workflows/README.md` for the full canonical export list.
+
+For local demos, import the JSON files from `/Users/University/Final Project/aura/n8n/workflows/`. Legacy snapshots in `/Users/University/Final Project/aura/n8n_workflows/` are reference-only.
+
+Alert durability scheduler caution:
+- Workflows `09 - Alert Notification Processor (Cron every minute -> Aura Internal Process)` and `10 - Alert Notification Reconcile (Cron every 5 minutes -> Aura Internal Reconcile)` should remain inactive by default.
+- Activate them only when the environment is explicitly chosen as the scheduler owner.
+- Use only one active scheduler owner per backend environment.
 - They require `AURA_API_BASE` and `AURA_WEBHOOK_KEY` in n8n.
 - If n8n is down, alert notification cadence pauses, but durable jobs remain in Mongo and resume when the scheduler owner returns.
 
-Mini-summary:
-- Create `Webhook` node with method `POST` and path `alert-created`.
-- Connect a `Set` node to map key fields for easier viewing.
-- Connect `Respond to Webhook` node returning `{"ok":true}`.
-- Save and activate the workflow.
+Webhook verification:
 
-Verification curl:
 ```bash
 curl -X POST http://localhost:5678/webhook/alert-created \
   -H "Content-Type: application/json" \
@@ -299,158 +293,87 @@ curl -X POST http://localhost:5678/webhook/alert-created \
 ```
 
 Expected response:
+
 ```json
 {"ok":true}
 ```
 
-Troubleshooting:
-- `404`: wrong path (must be `/webhook/alert-created`)
-- No execution: workflow not active
+If this returns `404`, confirm the workflow is active and the path is exactly `/webhook/alert-created`.
 
-### 12) Run the end-to-end test (THIS proves the Safety Spine works)
-This proves the full chain: check-in -> AI classify -> alert in Mongo -> n8n webhook -> clinician fetches alert.
+## Safety Spine smoke tests
 
-#### 12A) Send a HIGH-RISK check-in (pain 8)
+These checks assume Docker, AI, server, and the alert-created n8n workflow are already running.
+
+High-risk check-in should create an alert:
+
 ```bash
 curl -X POST http://localhost:3000/checkins \
   -H "Content-Type: application/json" \
-  -d '{
-    "patientId":"p1",
-    "date":"2026-02-18",
-    "mood":3,
-    "pain":8,
-    "adherence":{"exercises":0.4,"medication":true},
-    "notes":"pain getting worse"
-  }'
+  -d '{"patientId":"p1","date":"2026-02-18","mood":3,"pain":8,"adherence":{"exercises":0.4,"medication":true},"notes":"pain getting worse"}'
 ```
 
-Expected response includes:
-- `ok: true`
-- `risk: "high"`
-- `alertId`
-- `n8nDelivered` (`true` or `false`)
-- fixed safety `message`
+Expected response includes `ok: true`, `risk: "high"`, an `alertId`, and the fixed safety message. `n8nDelivered` may be `true` or `false` depending on local workflow state.
 
-#### 12B) Confirm n8n executed
-1. Open n8n UI.
-2. Go to `Executions`.
-3. Open latest execution.
-4. Confirm Webhook node output includes the incoming alert payload.
+High-risk chat should create an alert:
 
-#### 12C) Confirm alert exists in Mongo via clinician endpoint
-```bash
-curl -s "http://localhost:3000/clinician/alerts?status=open"
-```
-
-Expected:
-- Returned alerts list contains the `alertId` from step 12A.
-
-#### 12D) Acknowledge the alert
-```bash
-curl -X PATCH http://localhost:3000/clinician/alerts/<ALERT_ID> \
-  -H "Content-Type: application/json" \
-  -d '{"status":"acknowledged"}'
-```
-
-Expected:
-- `status` becomes `"acknowledged"`
-- `acknowledgedAt` is set
-
-### 13) Run the chat high-risk test (crisis phrase)
 ```bash
 curl -X POST http://localhost:3000/chat/send \
   -H "Content-Type: application/json" \
   -d '{"patientId":"p1","text":"I cant breathe"}'
 ```
 
-Expected:
-- `ok: true`
-- `risk: "high"`
-- `reply` contains the fixed safety message
-- `alertId` returned
-- new n8n execution appears
+Expected response includes `ok: true`, `risk: "high"`, a fixed safety reply, and an `alertId`.
 
-### 14) What “working” looks like (final checklist)
-- [ ] Docker containers running (`aura_mongo`, `aura_pgvector`, `aura_n8n`)
-- [ ] AI health OK on port `8001`
-- [ ] API health OK on port `3000` and Mongo connected
-- [ ] n8n workflow active and webhook returns `{"ok":true}`
-- [ ] High-risk check-in creates alert and triggers n8n
-- [ ] Clinician alerts endpoint returns created alert
-- [ ] Alert can be acknowledged via PATCH
-- [ ] High-risk chat creates alert and triggers n8n
+Confirm clinician alert visibility:
 
-### 15) Stop everything (when done)
-1. Stop the mobile app: `Ctrl+C` in `Terminal 5`, if running.
-2. Stop the dashboard: `Ctrl+C` in `Terminal 4`.
-3. Stop the Node backend: `Ctrl+C` in `Terminal 3`.
-4. Stop the AI service: `Ctrl+C` in `Terminal 2`.
-5. Stop Docker services:
+```bash
+curl -s "http://localhost:3000/clinician/alerts?status=open"
+```
+
+Acknowledge an alert:
+
+```bash
+curl -X PATCH http://localhost:3000/clinician/alerts/<ALERT_ID> \
+  -H "Content-Type: application/json" \
+  -d '{"status":"acknowledged"}'
+```
+
+Expected: `status` becomes `"acknowledged"` and `acknowledgedAt` is set.
+
+## Stop and cleanup
+
+Stop app services with `Ctrl+C` in the AI, server, dashboard, and mobile terminals.
+
+Stop Docker services:
+
 ```bash
 cd "/Users/University/Final Project/aura"
 docker compose down
 ```
-6. Optional clean reset (deletes all DB data):
+
+Dangerous full Docker data reset:
+
 ```bash
+cd "/Users/University/Final Project/aura"
 docker compose down -v
 ```
 
-### 16) Quick Debug Matrix (very useful)
-| Symptom | Likely Cause | Fix |
+Reset seeded demo data without dropping Docker volumes:
+
+```bash
+cd "/Users/University/Final Project/aura/server"
+npm run seed:reset
+```
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `/checkins` returns `502 AI_UNAVAILABLE` | AI service not running | Start AI service and run `curl -s http://localhost:8001/health` |
-| `n8nDelivered:false` in API response | Wrong webhook URL or workflow inactive | Test webhook curl directly and activate workflow in n8n |
-| Mongo connection error on backend startup | `aura_mongo` not running | Run `docker ps` and `docker logs aura_mongo --tail 50` |
-| `404` on webhook | Wrong webhook path | Use `http://localhost:5678/webhook/alert-created` |
-
-## Start services
-```bash
-cd "/Users/University/Final Project/aura"
-docker compose up -d
-```
-
-## Check services
-- n8n UI: http://localhost:5678
-- MongoDB: mongodb://localhost:27017
-- Postgres: postgresql://aura:aura@localhost:5432/aura_vectors
-
-## Stop services
-```bash
-cd "/Users/University/Final Project/aura"
-docker compose down
-```
-
-## Reset all data (DANGEROUS)
-This will delete all persisted database and n8n data volumes.
-
-```bash
-docker compose down -v
-```
-
-## Common Problems
-- If ports are already in use, check what's using them:
-  - `lsof -i :27017`
-  - `lsof -i :5432`
-  - `lsof -i :5678`
-- If port `3000` is already in use:
-  - `lsof -i :3000`
-  - `kill -9 <PID>`
-- If Docker is not running, open Docker Desktop and wait until it's fully started.
-- If n8n keeps restarting, inspect logs:
-  - `docker logs aura_n8n`
-- If the presentation tools panel is not visible:
-  - restart the dashboard with `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev`
-- If presentation seed controls are disabled or unavailable:
-  - restart the backend with `AURA_PRESENTATION_SEED_ENABLED=true npm run dev`
-- If presentation data looks old or mixed:
-  - use `Settings -> Presentation tools -> Reset presentation data`, then `Load presentation data` again
-- If you suspect a seed conflict:
-  - inspect the backend response and avoid manually deleting arbitrary database records
-- If Vite shows a large chunk warning:
-  - treat it as non-blocking if the build succeeds
-
-## Safety Notes
-- `AURA_PRESENTATION_SEED_ENABLED` and `VITE_AURA_PRESENTATION_TOOLS_ENABLED` are local/dev/demo-only flags.
-- Do not treat the presentation seed workflow as production setup.
-- Do not enable presentation seed in production.
-- Do not commit real local `.env` or `.env.local` files with machine-specific values.
+| `/checkins` or chat returns `502 AI_UNAVAILABLE` | AI service is not running or not reachable | Start AI and run `curl -s http://localhost:8001/health`. |
+| Mongo connection error on backend startup | `aura_mongo` is not running | Run `docker ps` and `docker logs aura_mongo --tail 50`. |
+| n8n webhook returns `404` or no execution appears | Wrong webhook path or inactive workflow | Use `http://localhost:5678/webhook/alert-created` and activate the workflow. |
+| Port conflict on `3000`, `5173`, `8001`, `8081`, or `5678` | Another process is using the port | Run `lsof -i :<PORT>` and stop the conflicting process. |
+| Presentation tools panel is not visible | Dashboard was started without the Vite flag | Restart dashboard with `VITE_AURA_PRESENTATION_TOOLS_ENABLED=true npm run dev`. |
+| Presentation seed controls are disabled | Backend was started without the seed flag | Restart backend with `AURA_PRESENTATION_SEED_ENABLED=true npm run dev`. |
+| PGVector extension check fails | `aura_pgvector` is not running or the volume is unhealthy | Run `docker compose up -d pgvector`, inspect `docker logs aura_pgvector --tail 50`, and rerun the extension check. |
+| PGVector retrieval has no static results | Static knowledge table was recreated or not ingested | Rerun `ai/scripts/ingest_static_knowledge_pgvector.py` with `RAG_PGVECTOR_DATABASE_URL` set. |

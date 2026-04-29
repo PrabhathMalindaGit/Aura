@@ -16,7 +16,60 @@ npm install
 npm run dev
 ```
 
-## 4) Test commands (copy/paste)
+Presentation demo mode is local/demo only:
+
+```bash
+AURA_PRESENTATION_SEED_ENABLED=true npm run dev
+```
+
+Never enable `AURA_PRESENTATION_SEED_ENABLED` in production.
+
+## 4) Seed commands
+```bash
+npm run seed
+npm run seed:reset
+```
+
+- `npm run seed` creates or refreshes deterministic baseline demo data.
+- `npm run seed:reset` clears the base demo dataset before reseeding.
+- Full seed details live in `scripts/seed/README.md`.
+
+## 5) Optional PGVector patient-memory index
+MongoDB remains canonical for patient memory. The backend can optionally mirror sanitized low-risk patient-memory summaries into PGVector for same-patient retrieval, but PGVector is only a searchable index copy.
+
+Default/fallback-safe environment:
+
+```env
+RAG_PGVECTOR_PATIENT_MEMORY_ENABLED=false
+RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED=true
+RAG_PGVECTOR_DATABASE_URL=
+RAG_PGVECTOR_PATIENT_MEMORY_TOP_K=3
+```
+
+Final/local PGVector-enabled startup:
+
+```bash
+RAG_PGVECTOR_PATIENT_MEMORY_ENABLED=true \
+RAG_PGVECTOR_PATIENT_MEMORY_FALLBACK_ENABLED=true \
+RAG_PGVECTOR_DATABASE_URL="postgresql://aura:aura@localhost:5432/aura_vectors" \
+RAG_PGVECTOR_PATIENT_MEMORY_TOP_K=3 \
+npm run dev
+```
+
+Important behavior:
+- PGVector patient-memory indexing is optional, disabled by default, and fallback-safe.
+- PGVector stores only sanitized low-risk summaries.
+- PGVector does not store raw patient messages.
+- High-risk chat bypasses RAG, memory writing, memory retrieval, and PGVector patient-memory indexing.
+- The server depends on the `pg` package for optional PGVector/Postgres access.
+
+## 6) Verification
+```bash
+npm test
+npm run build
+```
+
+## 7) Test commands (copy/paste)
 - Health:
 ```bash
 curl -s http://localhost:3000/health
@@ -507,11 +560,11 @@ curl -sS "http://localhost:3000/clinician/patients/p1/insights?status=approved&l
   -H "Authorization: Bearer <CLINICIAN_TOKEN>"
 ```
 
-## 5) n8n verification
+## 8) n8n verification
 - Open `http://localhost:5678`
 - Confirm workflow `alert-created` executed
 
-## 6) Troubleshooting
+## 9) Troubleshooting
 - Port conflicts: `lsof -i :3000`
 - Mongo not connected: `docker ps` and `docker logs aura_mongo`
 - AI not reachable: `curl http://localhost:8001/health`

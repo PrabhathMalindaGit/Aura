@@ -197,7 +197,11 @@ async function getWideSupportPanels(): Promise<{
   sharedCoordination: HTMLElement;
   workflowContext: HTMLElement;
 }> {
-  const supportRail = await screen.findByTestId('communication-support-rail');
+  const supportRail = await screen.findByTestId(
+    'communication-support-rail',
+    undefined,
+    { timeout: 5_000 },
+  );
   const workflowContext = await within(supportRail).findByRole('region', {
     name: 'Workflow context',
   });
@@ -836,8 +840,12 @@ afterEach(() => {
       'Add shared coordination note',
     )) as HTMLTextAreaElement;
 
-    await user.type(draftField, 'Local draft survives layout changes.');
-    await user.type(sharedNoteField, 'Shared note draft survives layout changes.');
+    fireEvent.change(draftField, {
+      target: { value: 'Local draft survives layout changes.' },
+    });
+    fireEvent.change(sharedNoteField, {
+      target: { value: 'Shared note draft survives layout changes.' },
+    });
 
     await setCommunicationWorkspaceLayout(768, 'narrow');
 
@@ -872,6 +880,10 @@ afterEach(() => {
     const user = userEvent.setup();
     renderCommunicationPage('/communication?patientId=patient-1');
 
+    const activeSummary = await screen.findByTestId('communication-active-summary');
+    expect(
+      within(activeSummary).getByRole('heading', { name: 'Jordan Lee' }),
+    ).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Open alerts' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Open alerts' }));

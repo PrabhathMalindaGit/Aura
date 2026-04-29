@@ -10,6 +10,9 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     mockReset: true,
+    sequence: {
+      hooks: 'list',
+    },
     testTimeout: 15000,
     hookTimeout: 15000,
   },

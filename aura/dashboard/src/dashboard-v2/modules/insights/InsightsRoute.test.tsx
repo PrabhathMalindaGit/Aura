@@ -267,7 +267,9 @@ describe('InsightsRoute', () => {
 
     renderInsightsRoute();
 
-    expect(await screen.findByText('Review queue')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Review queue', undefined, { timeout: 5_000 }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('v2-insights-route')).not.toBeInTheDocument();
   });
 

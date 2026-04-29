@@ -294,16 +294,18 @@ describe("SettingsRouteFacade", () => {
     );
   });
 
-  it("preserves save-based profile, communication, and notification behavior", async () => {
-    signInAs({ sub: "auth-settings-save", name: "Dr Hall" });
+  it("preserves save-based profile behavior", async () => {
+    signInAs({ sub: "auth-settings-profile-save", name: "Dr Hall" });
     const user = userEvent.setup();
 
     renderSettingsRoute();
 
-    await user.clear(screen.getByLabelText("Clinician display name"));
-    await user.type(screen.getByLabelText("Clinician display name"), "Dr Elena Hall");
-    await user.clear(screen.getByLabelText("Clinician ID"));
-    await user.type(screen.getByLabelText("Clinician ID"), "elena-hall-local");
+    fireEvent.change(screen.getByLabelText("Clinician display name"), {
+      target: { value: "Dr Elena Hall" },
+    });
+    fireEvent.change(screen.getByLabelText("Clinician ID"), {
+      target: { value: "elena-hall-local" },
+    });
     await user.click(screen.getByRole("button", { name: "Save profile" }));
 
     expect(screen.getByText("Settings saved in this browser.")).toBeInTheDocument();
@@ -313,18 +315,33 @@ describe("SettingsRouteFacade", () => {
     expect(window.localStorage.getItem(CLINICIAN_NAME_STORAGE_KEY)).toBe(
       "Dr Elena Hall",
     );
+  });
+
+  it("preserves save-based communication authoring behavior", async () => {
+    signInAs({ sub: "auth-settings-communication-save", name: "Dr Hall" });
+    const user = userEvent.setup();
+
+    renderSettingsRoute();
 
     await user.click(screen.getByRole("button", { name: "Add template" }));
-    await user.type(screen.getByLabelText("Template 1 title"), "Reviewed");
-    await user.type(
-      screen.getByLabelText("Template 1 body"),
-      "Thanks, I have reviewed this update.",
-    );
+    fireEvent.change(screen.getByLabelText("Template 1 title"), {
+      target: { value: "Reviewed" },
+    });
+    fireEvent.change(screen.getByLabelText("Template 1 body"), {
+      target: { value: "Thanks, I have reviewed this update." },
+    });
     await user.click(
       screen.getByRole("button", { name: "Save communication settings" }),
     );
 
     expect(getClinicianProfile().communicationAuthoring.templates).toHaveLength(1);
+  });
+
+  it("preserves save-based notification preference behavior", async () => {
+    signInAs({ sub: "auth-settings-notification-save", name: "Dr Hall" });
+    const user = userEvent.setup();
+
+    renderSettingsRoute();
 
     await user.selectOptions(
       screen.getByLabelText("Communication attention cues"),

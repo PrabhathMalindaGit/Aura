@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
@@ -11,6 +11,8 @@ import { CommunicationPage } from '../pages/CommunicationPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { createJsonResponse } from '../test/mocks';
 import { clearClinicianProfileForTests } from '../services/clinicianProfile';
+
+let testQueryClient: QueryClient | null = null;
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -127,10 +129,10 @@ function installCommunicationFetchMock(): void {
 }
 
 function renderApp(initialEntry: string = '/communication?patientId=patient-1'): void {
-  const queryClient = createQueryClient();
+  testQueryClient = createQueryClient();
 
   render(
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={testQueryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/" element={<AppShell />}>
@@ -160,6 +162,8 @@ describe('AppShell identity reactivity', () => {
 
   afterEach(() => {
     cleanup();
+    testQueryClient?.clear();
+    testQueryClient = null;
   });
 
   it(
@@ -182,16 +186,21 @@ describe('AppShell identity reactivity', () => {
       }),
     );
 
-    await screen.findByRole('heading', { name: 'Workspace', level: 1 });
-    await user.clear(screen.getByLabelText('Clinician display name'));
-    await user.type(screen.getByLabelText('Clinician display name'), 'Dr Elena Hall');
-    await user.clear(screen.getByLabelText('Clinician role or title'));
-    await user.type(screen.getByLabelText('Clinician role or title'), 'Lead rehab clinician');
-    await user.clear(screen.getByLabelText('Clinician specialty'));
-    await user.type(screen.getByLabelText('Clinician specialty'), 'Post-op recovery');
+    expect(await screen.findByRole('heading', { name: 'Workspace', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save profile' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Clinician display name'), {
+      target: { value: 'Dr Elena Hall' },
+    });
+    fireEvent.change(screen.getByLabelText('Clinician role or title'), {
+      target: { value: 'Lead rehab clinician' },
+    });
+    fireEvent.change(screen.getByLabelText('Clinician specialty'), {
+      target: { value: 'Post-op recovery' },
+    });
     await user.selectOptions(screen.getByLabelText('Availability status'), 'in-review');
-    await user.clear(screen.getByLabelText('Workspace timezone'));
-    await user.type(screen.getByLabelText('Workspace timezone'), 'America/New_York');
+    fireEvent.change(screen.getByLabelText('Workspace timezone'), {
+      target: { value: 'America/New_York' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save profile' }));
 
     await waitFor(() => {
@@ -205,6 +214,8 @@ describe('AppShell identity reactivity', () => {
 
     await user.click(screen.getByRole('link', { name: 'Inbox' }));
 
+    expect(await screen.findByRole('heading', { name: 'Inbox', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByTestId('communication-workspace')).toBeInTheDocument();
     expect(await screen.findByText('Local clinician identity')).toBeInTheDocument();
     expect(screen.getAllByText('Dr Elena Hall').length).toBeGreaterThan(0);
     expect(

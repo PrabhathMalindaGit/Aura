@@ -5,19 +5,57 @@ const CRISIS_LANGUAGE = "CRISIS_LANGUAGE" as const;
 
 const APOSTROPHE_VARIANTS = ["’", "`", "´", "ʼ", "ʹ"] as const;
 
-const CRISIS_KEYWORDS = [
+const ALWAYS_CRISIS_PHRASES = [
   "suicide",
   "kill myself",
   "self harm",
   "end my life",
   "feel unsafe",
-  "need urgent help",
   "can't breathe",
+  "cant breathe",
   "cannot breathe",
   "chest pain",
   "faint",
   "overdose",
   "took too many pills",
+  "do not want to wake up",
+  "don't want to wake up",
+  "dont want to wake up",
+  "wish I would not wake up",
+  "wish I wouldn't wake up",
+  "wish i wouldnt wake up",
+  "better off dead",
+  "no reason to live",
+  "can't go on",
+  "cant go on",
+] as const;
+
+const URGENT_HELP_PHRASE = "need urgent help" as const;
+
+const URGENT_HELP_CLINICAL_TERMS = [
+  "breathe",
+  "breathing",
+  "breath",
+  "chest pain",
+  "pain",
+  "unsafe",
+  "overdose",
+  "pills",
+  "faint",
+  "fall",
+  "bleeding",
+  "emergency",
+] as const;
+
+const URGENT_HELP_APP_TERMS = [
+  "settings button",
+  "settings",
+  "login",
+  "app",
+  "screen",
+  "password",
+  "page",
+  "button",
 ] as const;
 
 function normalizeForMatching(text: string | undefined): string {
@@ -36,9 +74,42 @@ function normalizeForMatching(text: string | undefined): string {
   return normalized;
 }
 
-const NORMALIZED_CRISIS_KEYWORDS = CRISIS_KEYWORDS.map((term) =>
+const NORMALIZED_ALWAYS_CRISIS_PHRASES = ALWAYS_CRISIS_PHRASES.map((term) =>
   normalizeForMatching(term)
 );
+const NORMALIZED_URGENT_HELP_PHRASE = normalizeForMatching(URGENT_HELP_PHRASE);
+const NORMALIZED_URGENT_HELP_CLINICAL_TERMS = URGENT_HELP_CLINICAL_TERMS.map((term) =>
+  normalizeForMatching(term)
+);
+const NORMALIZED_URGENT_HELP_APP_TERMS = URGENT_HELP_APP_TERMS.map((term) =>
+  normalizeForMatching(term)
+);
+
+function containsAny(normalizedText: string, terms: readonly string[]): boolean {
+  return terms.some((term) => normalizedText.includes(term));
+}
+
+function containsCrisisLanguage(normalizedText: string): boolean {
+  if (!normalizedText) {
+    return false;
+  }
+
+  if (containsAny(normalizedText, NORMALIZED_ALWAYS_CRISIS_PHRASES)) {
+    return true;
+  }
+
+  if (!normalizedText.includes(NORMALIZED_URGENT_HELP_PHRASE)) {
+    return false;
+  }
+
+  const hasClinicalContext = containsAny(
+    normalizedText,
+    NORMALIZED_URGENT_HELP_CLINICAL_TERMS
+  );
+  const hasAppContext = containsAny(normalizedText, NORMALIZED_URGENT_HELP_APP_TERMS);
+
+  return hasClinicalContext || !hasAppContext;
+}
 
 export function fallbackSafetyClassify(
   input: ClassifyInput,
@@ -51,10 +122,7 @@ export function fallbackSafetyClassify(
   }
 
   const normalizedText = normalizeForMatching(input.text);
-  if (
-    normalizedText &&
-    NORMALIZED_CRISIS_KEYWORDS.some((term) => normalizedText.includes(term))
-  ) {
+  if (containsCrisisLanguage(normalizedText)) {
     reasons.add(CRISIS_LANGUAGE);
   }
 

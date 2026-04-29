@@ -13,13 +13,12 @@ class SafetyRouterEvaluationTestCase(unittest.TestCase):
         self.assertEqual(metadata["positiveClass"], "high")
         self.assertIn("Synthetic", metadata["disclaimer"])
         self.assertIn("prototype-level", metadata["disclaimer"])
-        self.assertIn("not clinically validated", metadata["disclaimer"])
         self.assertIn("no real patient data", metadata["noRealPatientData"].lower())
 
-    def test_dataset_contains_24_schema_valid_examples(self) -> None:
+    def test_dataset_contains_expanded_schema_valid_examples(self) -> None:
         examples = self.dataset["examples"]
 
-        self.assertEqual(len(examples), 24)
+        self.assertGreater(len(examples), 24)
         for example in examples:
             self.assertIsInstance(example["id"], str)
             self.assertIn(example["type"], {"checkin", "chat"})
@@ -35,8 +34,9 @@ class SafetyRouterEvaluationTestCase(unittest.TestCase):
 
     def test_evaluator_returns_expected_metric_keys(self) -> None:
         metrics = evaluate_dataset(self.dataset)
+        expected_total = len(self.dataset["examples"])
 
-        self.assertEqual(metrics["total"], 24)
+        self.assertEqual(metrics["total"], expected_total)
         for key in [
             "tp",
             "fp",

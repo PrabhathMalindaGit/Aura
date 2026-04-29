@@ -124,6 +124,52 @@ describe("chatFlow integrity", () => {
     expect(await CommunicationReview.countDocuments({ patientId: "p1" })).toBe(1);
   });
 
+  it("calls ragReply for low-risk chat in rag mode", async () => {
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(ragReply).mockResolvedValue({
+      reply: "Grounded supportive reply",
+      citations: ["static-rehab:pacing_and_rest@static-rehab-v1"],
+    });
+
+    const result = await processChatMessage(lowRiskInput, {
+      requestId: "req-low-risk-rag",
+    });
+
+    expect(result.riskLevel).toBe("low");
+    expect(result.assistantReply).toBe("Grounded supportive reply");
+    expect(ragReply).toHaveBeenCalledTimes(1);
+    expect(ragReply).toHaveBeenCalledWith(
+      {
+        patientId: "p1",
+        message: lowRiskInput.text,
+      },
+      expect.objectContaining({
+        requestId: "req-low-risk-rag",
+        flow: "chat",
+        patientId: "p1",
+      })
+    );
+  });
+
+  it("never calls ragReply for high-risk chat in rag mode", async () => {
+    vi.mocked(classify).mockResolvedValue({
+      risk: "high",
+      reasons: ["CRISIS_LANGUAGE"],
+    });
+
+    const result = await processChatMessage(highRiskInput, {
+      requestId: "req-high-risk-no-rag",
+    });
+
+    expect(result.riskLevel).toBe("high");
+    expect(ragReply).not.toHaveBeenCalled();
+    expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(1);
+  });
+
   it("falls back to the static low-risk reply when ragReply output is invalid", async () => {
     vi.mocked(classify).mockResolvedValue({
       risk: "low",

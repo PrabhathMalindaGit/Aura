@@ -57,6 +57,19 @@ describe("AI service client", () => {
         data: {
           reply: "Thanks for the update.",
           citations: [],
+          grounding: {
+            fallbackUsed: false,
+            sources: [
+              {
+                id: "pacing_and_rest",
+                title: "Pacing And Rest",
+                category: "rehab_support",
+                sourceVersion: "static-rehab-v1",
+                score: 0.25,
+                type: "static_rehab_knowledge",
+              },
+            ],
+          },
         },
       } as never);
 

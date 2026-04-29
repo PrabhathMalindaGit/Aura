@@ -1,0 +1,62 @@
+[
+  {
+    "id": "pacing_and_rest",
+    "title": "Pacing And Rest",
+    "category": "rehab_support",
+    "text": "Rehabilitation often works best when activity is paced into manageable blocks with planned rest. A person can log what felt comfortable, what felt tiring, and what changed since the previous check-in, then follow the plan already given by their care team.",
+    "safe_response_snippet": "Try keeping today manageable: note what felt comfortable, take planned rests, and keep following the rehab plan your care team already gave you.",
+    "source_version": "static-rehab-v1",
+    "safety_tags": ["supportive", "non_diagnostic", "no_treatment_change"],
+    "keywords": ["pace", "pacing", "rest", "break", "tired", "activity", "manageable", "plan"]
+  },
+  {
+    "id": "normal_soreness_and_fatigue",
+    "title": "Soreness And Fatigue",
+    "category": "rehab_support",
+    "text": "Some soreness or fatigue can happen during rehabilitation, but Aura should not diagnose the cause or decide whether symptoms are safe. The safest support is to encourage symptom logging and to contact the care team if symptoms are new, worsening, unusual, or worrying.",
+    "safe_response_snippet": "It can help to log where the soreness or fatigue shows up, how strong it feels, and whether it is changing. If it is new, worsening, unusual, or worrying, contact your care team.",
+    "source_version": "static-rehab-v1",
+    "safety_tags": ["supportive", "non_diagnostic", "contact_care_team"],
+    "keywords": ["sore", "soreness", "fatigue", "tired", "ache", "aching", "muscle", "worse", "worsening"]
+  },
+  {
+    "id": "missed_exercises",
+    "title": "Missed Exercises",
+    "category": "adherence_support",
+    "text": "Missing a rehabilitation session can happen. Aura should avoid advising a patient to double up or change the plan. A safe response is to reduce shame, encourage logging the barrier, and suggest returning to the existing care-team plan when able.",
+    "safe_response_snippet": "Missing a session does not erase your progress. Log what got in the way, avoid doubling up unless your care team told you to, and return to your existing plan when you can.",
+    "source_version": "static-rehab-v1",
+    "safety_tags": ["supportive", "non_diagnostic", "no_treatment_change"],
+    "keywords": ["missed", "skip", "skipped", "forgot", "exercise", "exercises", "adherence", "discouraged", "restart"]
+  },
+  {
+    "id": "motivation_and_confidence",
+    "title": "Motivation And Confidence",
+    "category": "emotional_support",
+    "text": "Low confidence and discouragement can appear during rehabilitation. Aura can provide encouragement, reflect progress, and invite a small next step, while avoiding diagnosis, therapy claims, or promises about outcomes.",
+    "safe_response_snippet": "It is okay for confidence to fluctuate. Choose one small rehab step that matches your existing plan, and log it so your care team can see the pattern over time.",
+    "source_version": "static-rehab-v1",
+    "safety_tags": ["supportive", "non_diagnostic", "no_outcome_promise"],
+    "keywords": ["motivation", "motivated", "confidence", "discouraged", "encourage", "encouragement", "progress", "small step"]
+  },
+  {
+    "id": "sleep_hydration_energy",
+    "title": "Sleep Hydration And Energy",
+    "category": "wellbeing_support",
+    "text": "Sleep, hydration, and energy can affect how rehabilitation feels. Aura should keep advice general and avoid prescribing fluid targets, supplements, medication changes, or clinical treatment changes.",
+    "safe_response_snippet": "Consider logging sleep, hydration, and energy alongside your rehab notes today. Patterns can help your care team understand what support may be useful.",
+    "source_version": "static-rehab-v1",
+    "safety_tags": ["supportive", "non_diagnostic", "no_medication_advice"],
+    "keywords": ["sleep", "hydration", "water", "energy", "tired", "rested", "fatigue", "drink"]
+  },
+  {
+    "id": "when_to_contact_clinician",
+    "title": "When To Contact The Care Team",
+    "category": "care_team_contact",
+    "text": "Aura should not replace clinical care. For symptoms that are new, worsening, unusual, worrying, or difficult to manage, the safest support is to contact the care team. Emergency wording should remain predefined and should not be improvised as diagnosis.",
+    "safe_response_snippet": "If symptoms are new, worsening, unusual, worrying, or hard to manage, contact your care team. Aura can help you record details, but it does not replace clinical care.",
+    "source_version": "static-rehab-v1",
+    "safety_tags": ["supportive", "non_diagnostic", "contact_care_team"],
+    "keywords": ["clinician", "doctor", "care", "team", "contact", "worrying", "unusual", "worsening", "symptoms"]
+  }
+]

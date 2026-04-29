@@ -32,9 +32,24 @@ class RagReplyRequest(BaseModel):
     context: dict | list | None = None
 
 
+class RagGroundingSource(BaseModel):
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    sourceVersion: str = Field(min_length=1)
+    score: float = Field(ge=0)
+    type: Literal["static_rehab_knowledge"]
+
+
+class RagGroundingMetadata(BaseModel):
+    fallbackUsed: bool
+    sources: list[RagGroundingSource] = Field(default_factory=list)
+
+
 class RagReplyResponse(BaseModel):
     reply: str = Field(min_length=1, max_length=500)
     citations: list[str] = Field(default_factory=list)
+    grounding: RagGroundingMetadata | None = None
 
     @field_validator("reply")
     @classmethod

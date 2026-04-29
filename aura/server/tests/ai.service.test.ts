@@ -293,4 +293,61 @@ describe("AI service client", () => {
       aiOperation: "ragReply",
     });
   });
+
+  it("passes bounded patient memory context through to RAG requests", async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      status: 200,
+      data: {
+        reply: "Thanks for the update.",
+        citations: ["patient-memory:memory-1"],
+      },
+    } as never);
+
+    await ragReply(
+      {
+        patientId: "p1",
+        message: "Please keep reminders short.",
+        context: {
+          patientMemory: [
+            {
+              id: "memory-1",
+              memoryType: "preference",
+              summary: "Patient prefers short reminders.",
+              sourceKind: "low_risk_chat",
+              score: 0.8,
+            },
+          ],
+        },
+      },
+      {
+        requestId: "req-memory-context",
+        flow: "chat",
+        patientId: "p1",
+      }
+    );
+
+    expect(axios.post).toHaveBeenCalledWith(
+      "http://localhost:8001/rag/reply",
+      {
+        patientId: "p1",
+        message: "Please keep reminders short.",
+        context: {
+          patientMemory: [
+            {
+              id: "memory-1",
+              memoryType: "preference",
+              summary: "Patient prefers short reminders.",
+              sourceKind: "low_risk_chat",
+              score: 0.8,
+            },
+          ],
+        },
+      },
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-request-id": "req-memory-context",
+        }),
+      })
+    );
+  });
 });

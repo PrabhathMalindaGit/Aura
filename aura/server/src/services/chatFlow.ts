@@ -13,6 +13,10 @@ import { toId } from "../utils/ids";
 import { logger } from "../utils/logger";
 import { redactText } from "../utils/redact";
 import { AIUnavailableError, classify, ragReply } from "./ai";
+import {
+  getRelevantPatientMemories,
+  saveLowRiskMemory,
+} from "./patientMemoryService";
 import { evaluateRiskDecision } from "./riskEvaluationService";
 
 export const HIGH_RISK_REPLY =
@@ -60,14 +64,36 @@ export async function processChatMessage(
     aiReasons: aiResult.reasons,
   });
   let assistantReply: string | undefined;
+  let ragReplySucceeded = false;
   if (riskDecision.riskLevel === "low") {
     if (input.lowRiskMode === "rag") {
       try {
+        let patientMemories: Awaited<ReturnType<typeof getRelevantPatientMemories>> = [];
+        try {
+          patientMemories = await getRelevantPatientMemories({
+            patientId: input.patientId,
+            query: input.text,
+          });
+        } catch (error) {
+          logger.error("Chat patient memory retrieval failed", {
+            flow: "chat",
+            stage: "low_risk_rag",
+            patientId: input.patientId,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         assistantReply = (
           await ragReply(
             {
               patientId: input.patientId,
               message: input.text,
+              ...(patientMemories.length > 0
+                ? {
+                    context: {
+                      patientMemory: patientMemories,
+                    },
+                  }
+                : {}),
             },
             {
               requestId: requestContext?.requestId,
@@ -76,6 +102,7 @@ export async function processChatMessage(
             }
           )
         ).reply;
+        ragReplySucceeded = true;
       } catch (error) {
         if (!(error instanceof AIUnavailableError)) {
           throw error;
@@ -383,6 +410,27 @@ export async function processChatMessage(
       assistantMessageId: toId(assistantMsg._id),
       message: error instanceof Error ? error.message : String(error),
     });
+  }
+
+  if (input.lowRiskMode === "rag" && ragReplySucceeded) {
+    try {
+      await saveLowRiskMemory({
+        patientId: input.patientId,
+        text: input.text,
+        sourceRefId: toId(userMsg._id),
+        riskLevel: riskDecision.riskLevel,
+        reasonCodes: riskDecision.reasonCodes,
+      });
+    } catch (error) {
+      logger.error("Chat patient memory write failed", {
+        flow: "chat",
+        stage: "post_commit",
+        patientId: input.patientId,
+        userMessageId: toId(userMsg._id),
+        assistantMessageId: toId(assistantMsg._id),
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return {

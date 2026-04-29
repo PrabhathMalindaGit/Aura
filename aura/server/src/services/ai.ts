@@ -21,7 +21,15 @@ export type ClassifyOutput = {
 export type RagReplyInput = {
   patientId: string;
   message: string;
-  context?: unknown;
+  context?: {
+    patientMemory?: Array<{
+      id: string;
+      memoryType: "goal" | "preference" | "barrier" | "recent_pattern" | "support_need";
+      summary: string;
+      sourceKind: "low_risk_chat" | "checkin_trend" | "clinician_seed" | "system_derived";
+      score?: number;
+    }>;
+  };
 };
 
 export type RagReplyOutput = {

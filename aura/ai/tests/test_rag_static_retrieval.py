@@ -38,6 +38,27 @@ class RagStaticRetrievalTestCase(unittest.TestCase):
             },
         )
 
+    def post_rag_with_memory(self, message: str):
+        return self.client.post(
+            "/rag/reply",
+            headers={"x-aura-ai-key": "test-ai-key"},
+            json={
+                "patientId": "demo-patient-1",
+                "message": message,
+                "context": {
+                    "patientMemory": [
+                        {
+                            "id": "memory-1",
+                            "memoryType": "preference",
+                            "summary": "Patient prefers short reminders.",
+                            "sourceKind": "low_risk_chat",
+                            "score": 0.75,
+                        }
+                    ]
+                },
+            },
+        )
+
     def test_rag_reply_returns_citations_for_relevant_query(self) -> None:
         response = self.post_rag("I need help pacing my exercise and rest today.")
 
@@ -74,6 +95,43 @@ class RagStaticRetrievalTestCase(unittest.TestCase):
         self.assertTrue(payload["grounding"]["fallbackUsed"])
         self.assertEqual(payload["grounding"]["sources"], [])
         self.assertIn("contact your care team", payload["reply"])
+
+    def test_rag_reply_accepts_memory_context_with_grounding_metadata(self) -> None:
+        response = self.post_rag_with_memory(
+            "Can you help me keep reminders short while pacing exercises?"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertLessEqual(len(payload["reply"]), 500)
+        memory_sources = [
+            source
+            for source in payload["grounding"]["sources"]
+            if source["type"] == "patient_memory"
+        ]
+        self.assertEqual(len(memory_sources), 1)
+        self.assertEqual(memory_sources[0]["id"], "memory-1")
+        self.assertEqual(memory_sources[0]["memoryType"], "preference")
+        self.assertEqual(memory_sources[0]["sourceKind"], "low_risk_chat")
+        self.assertNotIn("summary", memory_sources[0])
+        self.assertIn("patient-memory:memory-1", payload["citations"])
+
+    def test_empty_memory_context_does_not_break_fallback(self) -> None:
+        response = self.client.post(
+            "/rag/reply",
+            headers={"x-aura-ai-key": "test-ai-key"},
+            json={
+                "patientId": "demo-patient-1",
+                "message": "The dashboard button color looks strange.",
+                "context": {"patientMemory": []},
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["citations"], [])
+        self.assertTrue(payload["grounding"]["fallbackUsed"])
+        self.assertEqual(payload["grounding"]["sources"], [])
 
     def test_response_stays_bounded_and_avoids_clinical_advice(self) -> None:
         response = self.post_rag(

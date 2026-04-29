@@ -4,6 +4,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 ClassifyReasonCode = Literal["PAIN_GE_THRESHOLD", "CRISIS_LANGUAGE"]
+MemoryType = Literal["goal", "preference", "barrier", "recent_pattern", "support_need"]
+MemorySourceKind = Literal[
+    "low_risk_chat",
+    "checkin_trend",
+    "clinician_seed",
+    "system_derived",
+]
 
 
 class ClassifyRequest(BaseModel):
@@ -26,19 +33,53 @@ class ClassifyResponse(BaseModel):
     ruleVersion: Literal["v1"]
 
 
+class RagPatientMemoryContextItem(BaseModel):
+    id: str = Field(min_length=1, max_length=128)
+    memoryType: MemoryType
+    summary: str = Field(min_length=1, max_length=240)
+    sourceKind: MemorySourceKind
+    score: float | None = Field(default=None, ge=0)
+
+    @field_validator("summary")
+    @classmethod
+    def validate_summary_not_blank(cls, value: str) -> str:
+        normalized = " ".join(value.split()).strip()
+        if not normalized:
+            raise ValueError("summary must not be blank")
+        return normalized
+
+
+class RagReplyContext(BaseModel):
+    patientMemory: list[RagPatientMemoryContextItem] = Field(
+        default_factory=list,
+        max_length=3,
+    )
+
+
 class RagReplyRequest(BaseModel):
     patientId: str = Field(min_length=1, max_length=64)
     message: str = Field(min_length=1, max_length=2000)
-    context: dict | list | None = None
+    context: RagReplyContext | None = None
 
 
-class RagGroundingSource(BaseModel):
+class StaticRagGroundingSource(BaseModel):
     id: str = Field(min_length=1)
     title: str = Field(min_length=1)
     category: str = Field(min_length=1)
     sourceVersion: str = Field(min_length=1)
     score: float = Field(ge=0)
     type: Literal["static_rehab_knowledge"]
+
+
+class PatientMemoryGroundingSource(BaseModel):
+    id: str = Field(min_length=1)
+    memoryType: MemoryType
+    sourceKind: MemorySourceKind
+    score: float = Field(ge=0)
+    type: Literal["patient_memory"]
+
+
+RagGroundingSource = StaticRagGroundingSource | PatientMemoryGroundingSource
 
 
 class RagGroundingMetadata(BaseModel):

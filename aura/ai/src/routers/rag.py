@@ -24,8 +24,9 @@ def rag_reply(req: RagReplyRequest, request: Request) -> RagReplyResponse:
     )
 
     retrieval_results = retrieve_static_knowledge(req.message)
+    patient_memory = req.context.patientMemory if req.context is not None else []
     response = RagReplyResponse.model_validate(
-        build_grounded_reply(req.message, retrieval_results)
+        build_grounded_reply(req.message, retrieval_results, patient_memory)
     )
 
     logger.info(
@@ -35,6 +36,7 @@ def rag_reply(req: RagReplyRequest, request: Request) -> RagReplyResponse:
             "route": request.url.path,
             "patientId": req.patientId,
             "retrievedSourceCount": len(retrieval_results),
+            "memorySourceCount": len(patient_memory),
             "fallbackUsed": response.grounding.fallbackUsed
             if response.grounding is not None
             else None,

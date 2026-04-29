@@ -44,6 +44,7 @@ import AlertNotificationJob from "../src/models/AlertNotificationJob";
 import CareEvent from "../src/models/CareEvent";
 import ChatMessage from "../src/models/ChatMessage";
 import CommunicationReview from "../src/models/CommunicationReview";
+import PatientMemory from "../src/models/PatientMemory";
 import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
 import * as communicationReviewService from "../src/services/communicationReviewService";
 import { HIGH_RISK_REPLY, LOW_RISK_REPLY, processChatMessage } from "../src/services/chatFlow";
@@ -79,6 +80,7 @@ describe("chatFlow integrity", () => {
       CareEvent.deleteMany({}),
       ChatMessage.deleteMany({}),
       CommunicationReview.deleteMany({}),
+      PatientMemory.deleteMany({}),
     ]);
   });
 
@@ -168,6 +170,90 @@ describe("chatFlow integrity", () => {
     expect(ragReply).not.toHaveBeenCalled();
     expect(await Alert.countDocuments({ patientId: "p1" })).toBe(1);
     expect(await ChatMessage.countDocuments({ patientId: "p1" })).toBe(1);
+    expect(await PatientMemory.countDocuments({ patientId: "p1" })).toBe(0);
+  });
+
+  it("writes one sanitized patient memory after a successful low-risk RAG chat commit", async () => {
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(ragReply).mockResolvedValue({
+      reply: "Grounded supportive reply",
+      citations: ["static-rehab:pacing_and_rest@static-rehab-v1"],
+    });
+
+    const result = await processChatMessage({
+      ...lowRiskInput,
+      text: "My goal is to walk upstairs confidently.",
+    });
+
+    expect(result.riskLevel).toBe("low");
+    const memories = await PatientMemory.find({ patientId: "p1" }).lean();
+    expect(memories).toHaveLength(1);
+    expect(memories[0]).toMatchObject({
+      patientId: "p1",
+      memoryType: "goal",
+      sourceKind: "low_risk_chat",
+      sourceQuality: "explicit",
+      status: "active",
+      summary: "Patient's current goal is to walk upstairs confidently.",
+    });
+    expect(memories[0].summary.length).toBeLessThanOrEqual(240);
+    expect(memories[0].summary).not.toContain("My goal is");
+  });
+
+  it("passes only same-patient memory context to low-risk RAG", async () => {
+    await PatientMemory.create([
+      {
+        patientId: "p1",
+        memoryType: "preference",
+        summary: "Patient prefers short reminders.",
+        sourceKind: "low_risk_chat",
+        sourceQuality: "explicit",
+      },
+      {
+        patientId: "p2",
+        memoryType: "preference",
+        summary: "Patient prefers long reminders.",
+        sourceKind: "low_risk_chat",
+        sourceQuality: "explicit",
+      },
+    ]);
+    vi.mocked(classify).mockResolvedValue({
+      risk: "low",
+      reasons: [],
+    });
+    vi.mocked(ragReply).mockResolvedValue({
+      reply: "Grounded supportive reply",
+      citations: [],
+    });
+
+    await processChatMessage({
+      ...lowRiskInput,
+      text: "Can you help with short reminders today?",
+    });
+
+    expect(ragReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patientId: "p1",
+        context: {
+          patientMemory: [
+            expect.objectContaining({
+              memoryType: "preference",
+              summary: "Patient prefers short reminders.",
+              sourceKind: "low_risk_chat",
+            }),
+          ],
+        },
+      }),
+      expect.objectContaining({
+        patientId: "p1",
+      })
+    );
+    expect(JSON.stringify(vi.mocked(ragReply).mock.calls[0][0])).not.toContain(
+      "long reminders"
+    );
   });
 
   it("falls back to the static low-risk reply when ragReply output is invalid", async () => {

@@ -692,7 +692,7 @@ describe("patient auth + patient endpoints", () => {
     expect(response.body.risk.level).toBe("low");
     expect(response.body.messages.assistant.text).toBe("Stub RAG reply");
 
-    const messages = await ChatMessage.find({ patientId: "p1" }).sort({ createdAt: 1 }).lean();
+    const messages = await ChatMessage.find({ patientId: "p1" }).sort({ createdAt: 1, _id: 1 }).lean();
     expect(messages).toHaveLength(2);
     expect(messages[0]?.role).toBe("user");
     expect(messages[1]?.role).toBe("assistant");

@@ -241,7 +241,7 @@ export function AlertsQueuePane({
             </DashboardV2Button>
           </DashboardV2Surface>
         ) : (
-          <div className="v2-alerts-queue-pane__list" role="list" aria-label="Alert queue">
+          <div className="v2-alerts-queue-pane__list" role="group" aria-label="Alert queue">
             {rows.map((row) => (
               <AlertQueueRow
                 key={row.key}

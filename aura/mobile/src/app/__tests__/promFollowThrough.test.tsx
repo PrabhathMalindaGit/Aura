@@ -166,6 +166,11 @@ vi.mock("@react-navigation/native", () => ({
 vi.mock("react-native", () => ({
   ActivityIndicator: (props: Record<string, unknown>) =>
     React.createElement("mock-activity-indicator", props),
+  Easing: {
+    cubic: "cubic",
+    out: (value: unknown) => value,
+  },
+  Platform: { OS: "web" },
   Pressable: ({
     children,
     ...props
@@ -361,12 +366,21 @@ vi.mock("@/src/components/MediaCard", () => ({
   MediaCard: ({
     title,
     body,
+    actions,
     ...props
   }: {
     title?: string;
     body?: string;
+    actions?: Array<{ label?: string }>;
     [key: string]: unknown;
-  }) => React.createElement("mock-media-card", props, title, body),
+  }) =>
+    React.createElement(
+      "mock-media-card",
+      props,
+      title,
+      body,
+      ...(actions ?? []).map((action) => action.label),
+    ),
 }));
 
 vi.mock("@/src/components/PrimaryButton", () => ({
@@ -480,6 +494,30 @@ vi.mock("@/src/components/TrackerTile", () => ({
     subtitle?: string;
     [key: string]: unknown;
   }) => React.createElement("mock-tracker-tile", props, title, subtitle),
+}));
+
+vi.mock("@/src/components/TipCard", () => ({
+  TipCard: ({
+    title,
+    text,
+    body,
+    actions,
+    ...props
+  }: {
+    title?: string;
+    text?: string;
+    body?: string;
+    actions?: Array<{ label?: string }>;
+    [key: string]: unknown;
+  }) =>
+    React.createElement(
+      "mock-tip-card",
+      props,
+      title,
+      text,
+      body,
+      ...(actions ?? []).map((action) => action.label),
+    ),
 }));
 
 vi.mock("@/src/components/TrustBanner", () => ({
@@ -637,7 +675,7 @@ describe("PROM follow-through surfaces", () => {
     const text = renderedText(renderer);
 
     expect(text).toContain("Needs your attention");
-    expect(text).toContain("questionnaires");
+    expect(text).toContain("update ready to review");
     expect(text).toContain("KOOS weekly check-in");
     expect(text).toContain("Open questionnaire");
     expect(getDueProms).toHaveBeenCalledWith("token-1", 100);

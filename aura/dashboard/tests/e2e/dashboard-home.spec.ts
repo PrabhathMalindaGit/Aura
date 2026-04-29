@@ -7,14 +7,17 @@ test('dashboard home loads command-center modules and routes into alerts', async
   await page.goto('/dashboard');
 
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText('Open next')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Due today' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Inbox needing response' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Keep the day moving' })).toBeVisible();
-  await expect(page.getByText('Assigned high-risk alert')).toBeVisible();
-  await expect(page.getByText('Operational context')).toBeVisible();
+  await expect(page.getByTestId('v2-dashboard-route')).toBeVisible();
+  await expect(page.getByTestId('v2-dashboard-attention-panel')).toContainText('Priority now');
+  await expect(page.getByTestId('v2-dashboard-summary-strip')).toContainText('Operational summary');
+  await expect(page.getByTestId('v2-dashboard-urgent-queue')).toContainText('Assigned high-risk alert');
+  await expect(page.getByTestId('v2-dashboard-signals-section')).toBeVisible();
+  await expect(page.getByTestId('v2-dashboard-data-context')).toContainText('Review window');
 
-  await page.getByRole('button', { name: 'Open alerts' }).first().click();
+  await page
+    .getByTestId('v2-dashboard-attention-panel')
+    .getByRole('button', { name: 'Open alerts' })
+    .click();
 
   await expect(page).toHaveURL(/\/alerts$/);
 });

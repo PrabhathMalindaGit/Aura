@@ -238,6 +238,11 @@ vi.mock("@/src/components/Card", () => ({
     React.createElement("mock-card", null, children),
 }));
 
+vi.mock("@/src/components/EmptyState", () => ({
+  EmptyState: (props: Record<string, unknown>) =>
+    React.createElement("mock-empty-state", props),
+}));
+
 vi.mock("@/src/components/IconSet", () => ({
   DomainIcon: () => React.createElement("mock-domain-icon"),
 }));

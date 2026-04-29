@@ -100,7 +100,7 @@ describe("CheckinConfirmationPanel", () => {
       ["mock-primary-button", "mock-secondary-button"].includes(String(node.type)),
     );
 
-    expect(text).toContain("Check-in saved");
+    expect(text).toContain("Check-in submitted");
     expect(text).toContain("Today at 11:02 AM");
     expect(text).toContain("Apr 11, 2026");
     expect(text).toContain("What was recorded");

@@ -8,11 +8,12 @@ test('Trend review supports 14/30 toggle and day drilldown', async ({ page }) =>
   await page.goto('/patients/p1/history?days=14');
   await page.waitForLoadState('networkidle');
 
-  await expect(page.getByTestId('days-toggle-14')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('v2-patient-history-pane')).toBeVisible();
+  await expect(page.getByTestId('v2-patient-days-14')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByLabel('Latest trend values').getByText('Latest pain')).toBeVisible();
 
-  await page.getByTestId('days-toggle-30').click();
-  await expect(page.getByTestId('days-toggle-30')).toHaveAttribute('aria-selected', 'true');
+  await page.getByTestId('v2-patient-days-30').click();
+  await expect(page.getByTestId('v2-patient-days-30')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => tracker.trendDaysCalls.filter((days) => days === 30).length).toBeGreaterThan(0);
 
   await page.getByTestId(`trend-view-${FIXTURE_DAY_DRILLDOWN_DATE}`).click();
@@ -31,10 +32,11 @@ test('Patient detail operational panels surface priorities, communication, tasks
   await page.goto('/patients/p1?days=14');
   await page.waitForLoadState('networkidle');
 
-  await expect(page.getByTestId('patient-detail-current-context')).toContainText('High pain escalation');
+  await expect(page.getByTestId('v2-patient-workspace-route')).toBeVisible();
   await expect(page.getByTestId('patient-current-priorities')).toContainText('Open safety alert needs review');
   await expect(page.getByTestId('patient-recommended-actions')).toContainText('Review latest alert');
-  await page.getByRole('tab', { name: 'Communications & Notes' }).click();
+  await page.getByTestId('v2-patient-nav-communications').click();
+  await expect(page.getByTestId('v2-patient-communications-pane')).toBeVisible();
   await expect(page.getByTestId('patient-communication-panel')).toContainText(
     'Pain is much worse after exercise today.',
   );

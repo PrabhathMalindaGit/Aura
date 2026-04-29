@@ -71,7 +71,7 @@ describe("online-only trust regression", () => {
 
     const text = `${flattenText(banner!.root)} ${flattenText(cues!.root)}`;
 
-    expect(text).toContain("Nothing was sent");
+    expect(text).toContain("Sending is paused");
     expect(text).not.toContain("Saved on this device");
     expect(text).not.toContain("Saved locally");
   });

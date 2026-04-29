@@ -2,6 +2,17 @@ import { expect, test } from '@playwright/test';
 import type { AppointmentRequestItem, AppointmentSlot, PatientSummary } from '../../src/types/models';
 import { installMockApi } from './helpers/mockApi';
 
+function localIsoForTodayAt(hour: number, minute: number): string {
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return date.toISOString();
+}
+
+const PRESENTATION_SLOT_START = localIsoForTodayAt(14, 0);
+const PRESENTATION_SLOT_END = localIsoForTodayAt(14, 30);
+const PRESENTATION_CREATED_AT = localIsoForTodayAt(8, 0);
+const PRESENTATION_SLOT_CREATED_AT = localIsoForTodayAt(7, 30);
+
 const BACKEND_SEEDED_PRESENTATION_PATIENTS: PatientSummary[] = [
   {
     id: 'p1',
@@ -14,7 +25,7 @@ const BACKEND_SEEDED_PRESENTATION_PATIENTS: PatientSummary[] = [
     id: 'presentation-emily-chen',
     displayName: 'Emily Chen',
     status: 'active',
-    lastCheckinAt: '2026-04-28T06:00:00.000Z',
+    lastCheckinAt: PRESENTATION_CREATED_AT,
     openAlertCount: 0,
   },
 ];
@@ -27,12 +38,12 @@ const BACKEND_SEEDED_PRESENTATION_REQUESTS: AppointmentRequestItem[] = [
     status: 'pending',
     workflowStatus: 'awaiting_confirmation',
     note: 'Return-to-activity follow-up after backend presentation seed.',
-    startsAt: '2026-04-28T15:00:00.000Z',
-    endsAt: '2026-04-28T15:30:00.000Z',
+    startsAt: PRESENTATION_SLOT_START,
+    endsAt: PRESENTATION_SLOT_END,
     modality: 'video',
     meetingLink: 'https://meet.example.com/emily-chen',
-    createdAt: '2026-04-28T08:00:00.000Z',
-    updatedAt: '2026-04-28T08:00:00.000Z',
+    createdAt: PRESENTATION_CREATED_AT,
+    updatedAt: PRESENTATION_CREATED_AT,
   },
 ];
 
@@ -40,12 +51,12 @@ const BACKEND_SEEDED_PRESENTATION_SLOTS: AppointmentSlot[] = [
   {
     slotId: 'presentation-slot-emily-chen',
     clinicianName: 'Clinician One',
-    startsAt: '2026-04-28T15:00:00.000Z',
-    endsAt: '2026-04-28T15:30:00.000Z',
+    startsAt: PRESENTATION_SLOT_START,
+    endsAt: PRESENTATION_SLOT_END,
     modality: 'video',
     status: 'available',
     meetingLink: 'https://meet.example.com/emily-chen',
-    createdAt: '2026-04-28T07:30:00.000Z',
+    createdAt: PRESENTATION_SLOT_CREATED_AT,
   },
 ];
 

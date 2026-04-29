@@ -142,6 +142,8 @@ describe("sync store", () => {
   });
 
   it("backfills missing hydration and nutrition clientMutationId from operationId on load", async () => {
+    const recentIso = new Date().toISOString();
+
     await setStoredSyncStateForTests("patient-a", {
       version: 1,
       migratedLegacy: true,
@@ -151,8 +153,8 @@ describe("sync store", () => {
           patientId: "patient-a",
           domain: "hydration",
           status: "queued",
-          createdAt: "2026-03-24T10:00:00.000Z",
-          updatedAt: "2026-03-24T10:00:00.000Z",
+          createdAt: recentIso,
+          updatedAt: recentIso,
           attemptCount: 0,
           payload: {
             date: "2026-03-24",
@@ -164,8 +166,8 @@ describe("sync store", () => {
           patientId: "patient-a",
           domain: "nutrition",
           status: "queued",
-          createdAt: "2026-03-24T10:05:00.000Z",
-          updatedAt: "2026-03-24T10:05:00.000Z",
+          createdAt: recentIso,
+          updatedAt: recentIso,
           attemptCount: 0,
           payload: {
             date: "2026-03-24",

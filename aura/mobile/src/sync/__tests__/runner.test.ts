@@ -12,6 +12,19 @@ vi.mock("@/src/sync/adapters/medications", () => ({
   sendMedicationSync: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/src/api/client", () => ({
+  isApiError: vi.fn((error: unknown) => {
+    return (
+      typeof error === "object" &&
+      error !== null &&
+      "kind" in error &&
+      "message" in error &&
+      "retryable" in error &&
+      "title" in error
+    );
+  }),
+}));
+
 import { sendHydrationSync } from "@/src/sync/adapters/hydration";
 import { sendMedicationSync } from "@/src/sync/adapters/medications";
 import { sendNutritionSync } from "@/src/sync/adapters/nutrition";
@@ -263,6 +276,8 @@ describe("sync runner", () => {
   });
 
   it("continues after terminal payload validation and syncs the next retained operation", async () => {
+    const recentIso = new Date().toISOString();
+
     vi.mocked(sendNutritionSync)
       .mockRejectedValueOnce({
         status: 400,
@@ -278,7 +293,7 @@ describe("sync runner", () => {
       operationId: "nutrition-terminal-1",
       domain: "nutrition",
       status: "queued",
-      createdAt: "2026-03-24T08:00:00.000Z",
+      createdAt: recentIso,
       payload: {
         date: "2026-03-24",
         protein: "ok",
@@ -292,7 +307,7 @@ describe("sync runner", () => {
       operationId: "nutrition-fresh-2",
       domain: "nutrition",
       status: "queued",
-      createdAt: "2026-03-24T09:00:00.000Z",
+      createdAt: recentIso,
       payload: {
         date: "2026-03-24",
         protein: "high",
@@ -372,6 +387,8 @@ describe("sync runner", () => {
   });
 
   it("stops on the first live retryable replay failure", async () => {
+    const recentIso = new Date().toISOString();
+
     vi.mocked(sendHydrationSync).mockRejectedValueOnce({
       title: "Network error",
       message: "Could not reach the service. Please try again.",
@@ -383,7 +400,7 @@ describe("sync runner", () => {
       operationId: "hydration-live-fail-1",
       domain: "hydration",
       status: "queued",
-      createdAt: "2026-03-24T08:00:00.000Z",
+      createdAt: recentIso,
       payload: {
         date: "2026-03-24",
         amountMl: 100,
@@ -394,7 +411,7 @@ describe("sync runner", () => {
       operationId: "hydration-live-fail-2",
       domain: "hydration",
       status: "queued",
-      createdAt: "2026-03-24T09:00:00.000Z",
+      createdAt: recentIso,
       payload: {
         date: "2026-03-24",
         amountMl: 200,

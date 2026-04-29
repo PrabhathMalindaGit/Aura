@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "seed": "ts-node scripts/seed.ts",
     "seed:reset": "ts-node scripts/seed.ts --reset",
+    "bench:latency:local": "ts-node scripts/benchmarks/latency.local.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

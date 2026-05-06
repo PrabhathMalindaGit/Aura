@@ -27,6 +27,7 @@ import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
+import { VoiceDictationButton } from "@/src/components/VoiceDictationButton";
 import { BodyMapSelector } from "@/src/components/checkin/BodyMapSelector";
 import { CheckinConfirmationPanel } from "@/src/components/checkin/CheckinConfirmationPanel";
 import { CheckinFieldBlock } from "@/src/components/checkin/CheckinFieldBlock";
@@ -214,6 +215,17 @@ function extractPatientPhotoUri(patient: unknown): string | null {
   }
 
   return null;
+}
+
+function appendReviewedTranscript(currentText: string, transcript: string, maxLength: number): string {
+  const cleanTranscript = transcript.trim();
+  if (!cleanTranscript) {
+    return currentText;
+  }
+
+  const baseText = currentText.trimEnd();
+  const separator = baseText.length > 0 ? " " : "";
+  return `${baseText}${separator}${cleanTranscript}`.slice(0, maxLength);
 }
 
 function Stepper({
@@ -1423,6 +1435,11 @@ export default function CheckinScreen() {
     resetForm();
   };
 
+  const handleNotesDictationTranscript = useCallback((transcript: string) => {
+    setNotice(null);
+    setNotes((current) => appendReviewedTranscript(current, transcript, 1200));
+  }, []);
+
   const renderSymptomsStep = () => (
     <CheckinStepCard
       compact
@@ -1997,6 +2014,10 @@ export default function CheckinScreen() {
               style={styles.notesInput}
               textAlignVertical="top"
               accessibilityLabel="Extra concerns or notes"
+            />
+            <VoiceDictationButton
+              onTranscript={handleNotesDictationTranscript}
+              testID="checkin-notes-voice-dictation"
             />
             <Text style={styles.helperText}>
               Notes can still help your care team spot issues that need follow-up.

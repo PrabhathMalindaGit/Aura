@@ -236,6 +236,19 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 6. Return online and retry:
    - expect send succeeds and history continues.
 
+## Voice Assist V1: Reviewed Dictation
+
+- Voice Assist V1 adds reviewed speech-to-text dictation for:
+  - Chat composer text
+  - Check-in notes
+- Dictation only fills or appends to the editable text field. Patients must review/edit the transcript and then use the existing **Send** or **Submit check-in** button.
+- The app does not auto-send, run voice commands, use a wake word, listen in the background, or act as an emergency voice agent.
+- Raw audio is not stored by Aura; dictation starts with `recordingOptions.persist=false`.
+- Final submitted text still goes through the existing Safety Router-backed routes:
+  - `POST /patient/chat/send`
+  - `POST /patient/checkins`
+- Native iOS/Android speech recognition uses `expo-speech-recognition`, which requires a development or production build after the config plugin is added. Expo Go is not expected to support this native speech module.
+
 ## Step 6: Progress (14/30 day summaries + history)
 
 - Progress tab loads check-ins from:

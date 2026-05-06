@@ -15,7 +15,7 @@ Before this benchmark, Aura was updated from Phase 1 static retrieval to include
 - Same-patient memory retrieval was added for low-risk RAG chat.
 - Memory is used only after low-risk classification.
 - High-risk chat bypasses memory write and retrieval.
-- PGVector-backed semantic persistence is still not implemented.
+- PGVector-backed retrieval was not part of this post-living-memory benchmark run.
 - No external LLM or external API extraction is used for living memory.
 
 ## Command Run
@@ -95,7 +95,7 @@ The following wording may be used if the surrounding report clearly identifies t
 - Dashboard was not required.
 - n8n was not required for this v1 benchmark claim.
 - Living memory uses MongoDB-backed deterministic patient-scoped summaries.
-- PGVector-backed semantic persistence is still future work.
+- PGVector-backed retrieval is not covered by this benchmark; later optional PGVector prototype retrieval evidence is recorded separately.
 - The benchmark writes synthetic local chat, alert, and notification job records.
 
 ## Cleanup

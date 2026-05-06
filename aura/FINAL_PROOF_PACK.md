@@ -11,6 +11,12 @@
 ### Implemented now
 
 - Backend remains the source of truth for alerts, tasks, appointments, worklist state, communication review metadata, and automation callbacks.
+- AI safety classification is implemented and in use through `/classify`.
+- Low-risk `/rag/reply` support is retrieval-backed by curated static rehabilitation knowledge and can use bounded backend-provided patient memory context.
+- Patient-scoped living memory is implemented for low-risk support, with MongoDB as the canonical patient-memory store.
+- Optional PGVector-backed static rehabilitation knowledge retrieval exists with fallback-safe behavior.
+- Optional backend-owned PGVector patient-memory indexing can mirror sanitized low-risk memory summaries for same-patient retrieval when enabled; PGVector does not store raw patient messages.
+- High-risk chat bypasses RAG, memory writing, memory retrieval, and PGVector patient-memory indexing.
 - Dashboard command center, worklist, alerts, patients, patient detail, appointments, insights, and settings routes are implemented.
 - Mobile check-in, tasks, appointments, reminders, chat workflow prompts, and safety routing are implemented.
 - Canonical n8n follow-through workflow exports live in `/Users/University/Final Project/aura/n8n/workflows/`.
@@ -23,8 +29,8 @@
 
 ### Intentionally stubbed or future-facing
 
-- AI safety classification is implemented and in use. The supportive `/rag/reply` path is still a stub and should not be presented as retrieval-backed.
-- `aura_pgvector` is provisioned for future retrieval work, but the current demo does not depend on vector storage or vector-backed retrieval.
+- Clinical validation, real patient validation, production validation, and proof of safe unsupervised clinical deployment remain future work.
+- PGVector retrieval uses deterministic hashing vectors for prototype retrieval, not clinically validated semantic embeddings.
 - Legacy reference folders such as `/Users/University/Final Project/aura/n8n_workflows/` and `/Users/University/Final Project/aura/mobile_backup_20260223_123515/` are not active runtime sources.
 
 ## Screenshot checklist
@@ -80,6 +86,9 @@ Capture the following against the current local build:
 |---|---|
 | High-risk check-ins create alerts | `/Users/University/Final Project/aura/server/tests/patient.routes.test.ts`, local API probe, `/clinician/alerts` visibility |
 | High-risk chat triggers safety routing | `/Users/University/Final Project/aura/server/tests/*chat*`, local API probe, alert context route |
+| Low-risk `/rag/reply` uses static rehabilitation retrieval | `/Users/University/Final Project/aura/docs/evidence/rag-static-knowledge-retrieval-2026-04-29.md`, `/Users/University/Final Project/aura/docs/evidence/rag-pgvector-static-retrieval-2026-04-29.md`, `/Users/University/Final Project/aura/ai/tests/test_rag_static_retrieval.py` |
+| Patient-scoped living memory is implemented for low-risk support | `/Users/University/Final Project/aura/docs/evidence/rag-living-memory-phase-2-2026-04-29.md`, `/Users/University/Final Project/aura/server/tests/patientMemoryService.test.ts`, `/Users/University/Final Project/aura/server/tests/chatFlow.integrity.test.ts` |
+| Optional PGVector patient-memory indexing is fallback-safe and keeps MongoDB canonical | `/Users/University/Final Project/aura/docs/evidence/rag-pgvector-patient-memory-index-2026-04-29.md`, `/Users/University/Final Project/aura/server/tests/patientMemoryVectorService.test.ts` |
 | Dashboard command center is implemented | `/Users/University/Final Project/aura/dashboard/src/pages/DashboardHomePage.tsx`, `/Users/University/Final Project/aura/dashboard/src/app/routes.tsx`, dashboard live smoke |
 | Worklist is implemented and action-oriented | `/Users/University/Final Project/aura/dashboard/src/pages/WorklistPage.tsx`, worklist route tests, local API probe |
 | Patient Detail 2.0 is operational | `/Users/University/Final Project/aura/dashboard/src/pages/PatientDetailPage.tsx`, patient detail tests/e2e |

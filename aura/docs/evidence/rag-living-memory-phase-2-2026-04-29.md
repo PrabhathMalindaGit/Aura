@@ -12,8 +12,8 @@ This file does not write the abstract.
 - Implemented Phase 2B: same-patient active memory retrieval for low-risk RAG chat.
 - Implemented: deterministic allowlisted extraction for short summaries from low-risk chat text.
 - Implemented: memory grounding metadata with `patient_memory` source type.
-- Not implemented: PGVector-backed memory storage or retrieval.
-- Not implemented: semantic vector persistence.
+- Not implemented in Phase 2A + 2B: PGVector-backed memory storage or retrieval.
+- Not implemented in Phase 2A + 2B: semantic vector persistence.
 - Not implemented: external LLM/API memory extraction.
 - Not implemented: dashboard, mobile, or clinician editing UI for memory.
 
@@ -21,7 +21,7 @@ This file does not write the abstract.
 
 Patient memory is stored in MongoDB through the backend. Each memory record is scoped by `patientId` and stores a short sanitized summary, memory type, source kind, source quality, status, timestamps, optional expiry, and small metadata.
 
-PGVector remains provisioned in Docker infrastructure for future semantic retrieval work, but this phase does not use PGVector.
+PGVector was provisioned in Docker infrastructure, but this phase did not use PGVector. Later optional PGVector prototype retrieval evidence is recorded separately.
 
 ## Safety Boundary
 
@@ -116,5 +116,5 @@ This is prototype evidence only. It is not clinical validation, real patient val
 - Retrieval is deterministic lexical retrieval, not semantic vector retrieval.
 - Memory extraction is intentionally narrow and will skip many messages.
 - Stored memory summaries are synthetic/prototype data only.
-- PGVector remains future work.
+- Clinical-grade semantic vector retrieval remains future work; later optional PGVector prototype retrieval evidence is recorded separately.
 - The system does not diagnose symptoms, change treatment plans, advise medication changes, or replace emergency care.

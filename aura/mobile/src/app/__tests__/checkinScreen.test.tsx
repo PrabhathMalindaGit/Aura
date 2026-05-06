@@ -17,6 +17,9 @@ const {
   setCachedRecoverySupport,
   canPatientUseCheckin,
   getCareModeNotice,
+  voiceTranscript,
+  networkState,
+  setCheckinLocalError,
 } = vi.hoisted(() => ({
   createCheckin: vi.fn(),
   getCheckinAdaptation: vi.fn(async (): Promise<any> => null),
@@ -32,6 +35,9 @@ const {
   setCachedRecoverySupport: vi.fn(async () => undefined),
   canPatientUseCheckin: vi.fn(() => true),
   getCareModeNotice: vi.fn((): any => null),
+  voiceTranscript: { current: "dictated check-in note" },
+  networkState: { offline: false },
+  setCheckinLocalError: vi.fn(async () => undefined),
 }));
 
 vi.mock("expo-router", () => ({
@@ -201,6 +207,20 @@ vi.mock("@/src/components/TrustCues", () => ({
   TrustCues: (props: Record<string, unknown>) => React.createElement("mock-trust-cues", props),
 }));
 
+vi.mock("@/src/components/VoiceDictationButton", () => ({
+  VoiceDictationButton: (props: Record<string, unknown>) =>
+    React.createElement("mock-voice-dictation-button", {
+      ...props,
+      accessibilityRole: "button",
+      accessibilityLabel: "Start voice dictation",
+      accessibilityHint: "Adds spoken words to this text field for review before sending.",
+      accessibilityState: { disabled: Boolean(props.disabled), busy: undefined },
+      onPress: () => {
+        (props.onTranscript as (text: string) => void)?.(voiceTranscript.current);
+      },
+    }),
+}));
+
 vi.mock("@/src/components/checkin/BodyMapSelector", () => ({
   BodyMapSelector: (props: Record<string, unknown>) =>
     React.createElement("mock-body-map-selector", props),
@@ -279,12 +299,12 @@ vi.mock("@/src/state/lastError", () => ({
     lastError: null,
     clear: clearCheckinError,
     reload: reloadCheckinError,
-    setLocalError: vi.fn(async () => undefined),
+    setLocalError: setCheckinLocalError,
   }),
 }));
 
 vi.mock("@/src/state/network", () => ({
-  useIsOffline: () => false,
+  useIsOffline: () => networkState.offline,
 }));
 
 vi.mock("@/src/state/refresh", () => ({
@@ -372,6 +392,9 @@ describe("Check-in screen validation", () => {
     canPatientUseCheckin.mockReturnValue(true);
     getCareModeNotice.mockReset();
     getCareModeNotice.mockReturnValue(null);
+    voiceTranscript.current = "dictated check-in note";
+    networkState.offline = false;
+    setCheckinLocalError.mockClear();
   });
 
   afterEach(() => {
@@ -697,6 +720,159 @@ describe("Check-in screen validation", () => {
       (node) => String(node.type) === "mock-checkin-confirmation-panel",
     )[0];
     expect(confirmation).toBeTruthy();
+  });
+
+  it("appends dictated notes without submitting until Submit is pressed", async () => {
+    voiceTranscript.current = "walking caused soreness";
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "low", reasonCodes: [] },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Extra concerns or notes").props.onChangeText("Knee felt tight");
+      findByA11y(renderer!.root, "Start voice dictation").props.onPress();
+    });
+
+    expect(findByA11y(renderer!.root, "Extra concerns or notes").props.value).toBe(
+      "Knee felt tight walking caused soreness",
+    );
+    expect(createCheckin).not.toHaveBeenCalled();
+
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin).toHaveBeenCalled();
+    expect(createCheckin.mock.calls[0]?.[1].notes).toBe(
+      "Knee felt tight walking caused soreness",
+    );
+  });
+
+  it("keeps high-risk dictated notes inside the normal submit and safety flow", async () => {
+    voiceTranscript.current = "I need urgent help today";
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "high", reasonCodes: ["URGENT_HELP"] },
+      alertId: "alert-voice",
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Start voice dictation").props.onPress();
+    });
+
+    expect(createCheckin).not.toHaveBeenCalled();
+
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin.mock.calls[0]?.[1].notes).toBe("I need urgent help today");
+    expect(routerPush).toHaveBeenCalledWith({
+      pathname: "/safety",
+      params: {
+        alertId: "alert-voice",
+        reasonCodes: "URGENT_HELP",
+      },
+    });
+  });
+
+  it("keeps offline submit blocking unchanged after dictation fills notes", async () => {
+    networkState.offline = true;
+    voiceTranscript.current = "Pain spiked after stairs";
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Start voice dictation").props.onPress();
+    });
+
+    expect(findByA11y(renderer!.root, "Extra concerns or notes").props.value).toBe(
+      "Pain spiked after stairs",
+    );
+    expect(createCheckin).not.toHaveBeenCalled();
+
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin).not.toHaveBeenCalled();
+    expect(setCheckinLocalError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "offline",
+        retryable: true,
+      }),
+    );
   });
 
   it("routes high-risk submissions to Safety without showing a success confirmation", async () => {

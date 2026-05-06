@@ -38,6 +38,7 @@ import { SkeletonBlock } from "@/src/components/Skeleton";
 import { StatusPill, type StatusPillVariant } from "@/src/components/StatusPill";
 import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
+import { VoiceDictationButton } from "@/src/components/VoiceDictationButton";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedChat,
@@ -167,6 +168,17 @@ function toPersisted(items: MessageItem[]): ChatItem[] {
     text: item.text,
     createdAt: item.createdAt,
   }));
+}
+
+function appendReviewedTranscript(currentText: string, transcript: string, maxLength: number): string {
+  const cleanTranscript = transcript.trim();
+  if (!cleanTranscript) {
+    return currentText;
+  }
+
+  const baseText = currentText.trimEnd();
+  const separator = baseText.length > 0 ? " " : "";
+  return `${baseText}${separator}${cleanTranscript}`.slice(0, maxLength);
 }
 
 function toMessageTime(iso?: string): number | null {
@@ -1086,6 +1098,11 @@ export default function ChatScreen() {
     void handleSend(localAttemptRef.current.text);
   }, [handleSend]);
 
+  const handleDictationTranscript = useCallback((transcript: string) => {
+    setDraft((current) => appendReviewedTranscript(current, transcript, 1000));
+    inputRef.current?.focus();
+  }, []);
+
   const handleRefreshUnknownAttempt = useCallback(() => {
     void loadHistory();
   }, [loadHistory]);
@@ -1530,6 +1547,12 @@ export default function ChatScreen() {
                     style={styles.input}
                     editable={!isSending}
                     textAlignVertical="top"
+                  />
+
+                  <VoiceDictationButton
+                    disabled={isSending}
+                    onTranscript={handleDictationTranscript}
+                    testID="chat-voice-dictation"
                   />
 
                   <Pressable

@@ -36,7 +36,14 @@
           "root": "./app"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Aura to use the microphone only while you dictate into the current text field for review.",
+          "speechRecognitionPermission": "Allow Aura to use speech recognition only while you dictate text for review before sending or submitting."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

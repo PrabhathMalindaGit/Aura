@@ -32,6 +32,7 @@ const {
   chatSendClear,
   canPatientUseMessages,
   getCareModeNotice,
+  voiceTranscript,
 } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routerReplace: vi.fn(),
@@ -43,7 +44,7 @@ const {
   setCachedChat: vi.fn<(patientId: string, record: CachedChatWrite) => Promise<void>>(
     async () => undefined
   ),
-  getCachedTasks: vi.fn(async () => null),
+  getCachedTasks: vi.fn(async (): Promise<any> => null),
   setCachedTasks: vi.fn(async () => undefined),
   refreshChat: vi.fn(async () => undefined),
   refreshTasks: vi.fn(async () => undefined),
@@ -54,6 +55,7 @@ const {
   chatSendClear: vi.fn(async () => undefined),
   canPatientUseMessages: vi.fn(() => true),
   getCareModeNotice: vi.fn((): any => null),
+  voiceTranscript: { current: "dictated update" },
 }));
 
 vi.mock("expo-router", () => ({
@@ -395,6 +397,20 @@ vi.mock("@/src/components/TipCard", () => ({
     ),
 }));
 
+vi.mock("@/src/components/VoiceDictationButton", () => ({
+  VoiceDictationButton: (props: Record<string, unknown>) =>
+    React.createElement("mock-voice-dictation-button", {
+      ...props,
+      accessibilityRole: "button",
+      accessibilityLabel: "Start voice dictation",
+      accessibilityHint: "Adds spoken words to this text field for review before sending.",
+      accessibilityState: { disabled: Boolean(props.disabled), busy: undefined },
+      onPress: () => {
+        (props.onTranscript as (text: string) => void)?.(voiceTranscript.current);
+      },
+    }),
+}));
+
 vi.mock("@/src/components/TrustBanner", () => ({
   TrustBanner: (props: Record<string, unknown>) => React.createElement("mock-trust-banner", props),
 }));
@@ -464,6 +480,7 @@ describe("chat truth fix", () => {
     canPatientUseMessages.mockReturnValue(true);
     getCareModeNotice.mockReset();
     getCareModeNotice.mockReturnValue(null);
+    voiceTranscript.current = "dictated update";
 
     chatHistory.mockResolvedValue([]);
     listPatientTasks.mockResolvedValue([]);
@@ -492,7 +509,7 @@ describe("chat truth fix", () => {
     });
 
     const renderer = await renderScreen();
-    const root = renderer.root;
+    const root = renderer!.root;
 
     await act(async () => {
       findByA11y(root, "Message input").props.onChangeText("Can I walk today?");
@@ -578,6 +595,120 @@ describe("chat truth fix", () => {
       localAttempt: null,
     });
     expect(getLocalAttemptCard(root)).toBeNull();
+  });
+
+  it("appends dictated transcript to the draft without sending until Send is pressed", async () => {
+    voiceTranscript.current = "better after exercises";
+    sendChat.mockResolvedValue({
+      ok: true,
+      risk: { level: "low", reasonCodes: [] },
+      messages: {
+        user: {
+          id: "user-voice-1",
+          role: "user",
+          text: "Pain is better after exercises",
+          createdAt: "2026-03-24T12:00:00.000Z",
+        },
+      },
+    });
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Message input").props.onChangeText("Pain is");
+      findByA11y(root, "Start voice dictation").props.onPress();
+      await flush();
+    });
+
+    expect(findByA11y(root, "Message input").props.value).toBe(
+      "Pain is better after exercises",
+    );
+    expect(sendChat).not.toHaveBeenCalled();
+
+    await act(async () => {
+      findByA11y(root, "Send message").props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).toHaveBeenCalledWith("token-1", "Pain is better after exercises");
+  });
+
+  it("routes high-risk dictated text through the existing send flow", async () => {
+    voiceTranscript.current = "I feel unsafe";
+    sendChat.mockResolvedValue({
+      ok: true,
+      risk: { level: "high", reasonCodes: ["CRISIS_LANGUAGE"] },
+      alertId: "alert-voice",
+      messages: {
+        user: {
+          id: "user-voice-2",
+          role: "user",
+          text: "I feel unsafe",
+          createdAt: "2026-03-24T12:10:00.000Z",
+        },
+      },
+    });
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Start voice dictation").props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+
+    await act(async () => {
+      findByA11y(root, "Send message").props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).toHaveBeenCalledWith("token-1", "I feel unsafe");
+    expect(routerPush).toHaveBeenCalledWith({
+      pathname: "/safety",
+      params: {
+        alertId: "alert-voice",
+        reasonCodes: "CRISIS_LANGUAGE",
+      },
+    });
+  });
+
+  it("keeps offline send blocking unchanged after dictation fills the draft", async () => {
+    networkState.offline = true;
+    voiceTranscript.current = "Pain increased after walking";
+    getCachedChat.mockResolvedValue({
+      confirmedMessages: [],
+      localAttempt: null,
+    });
+    getCachedTasks.mockResolvedValue({ items: [] });
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+
+    await act(async () => {
+      findByA11y(root, "Start voice dictation").props.onPress();
+      await flush();
+    });
+
+    expect(findByA11y(root, "Message input").props.value).toBe(
+      "Pain increased after walking",
+    );
+    expect(sendChat).not.toHaveBeenCalled();
+
+    await act(async () => {
+      findByA11y(root, "Send message").props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(chatSendSetError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "offline",
+        retryable: true,
+      }),
+    );
   });
 
   it("marks 502 AI-unavailable sends as failed with retry", async () => {

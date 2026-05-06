@@ -52,7 +52,7 @@ Interpretation boundary:
 
 ## 4. Mobile Voice Assist Evidence
 
-Aura mobile now has three completed Voice Assist phases plus V4-A parser-only groundwork for a future voice-guided check-in flow, all bounded to prototype support and not clinical validation.
+Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel UI evidence, all bounded to prototype support and not clinical validation.
 
 Evidence summary:
 
@@ -74,9 +74,24 @@ Evidence summary:
 - V4-A parser module has no React, API, storage, logging, speech, submit, `/rag/reply`, alert creation, or Safety Router integration.
 - V4-A preserves no auto-submit, no direct `/rag/reply`, no alert creation, no clinical action by voice, and keeps Safety Router authoritative only after normal check-in submission in later UI integration.
 - Targeted parser verification: `npm test -- guidedCheckinParser.test.ts` passed 83 tests.
-- Latest mobile verification after V4-A: `npm test` passed 46 test files / 284 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke were clean; `git diff --check` passed.
+- V4-B implemented a collapsed-by-default guided voice panel on the Check-in tab.
+- V4-B helps patients fill existing local check-in draft fields one at a time.
+- V4-B writes values only after explicit patient confirmation.
+- The manual check-in flow remains authoritative.
+- The guided panel does not render a Submit button.
+- The guided panel does not hide or disable the manual form.
+- The existing `Submit check-in` button remains the only path to `POST /patient/checkins` and the Safety Router.
+- The panel supports Listen, Confirm, Retry, Skip, and Edit manually.
+- The panel shows transcript, interpreted value, confidence, and destination field before writing anything.
+- V4-B supported fields: pain, mood, exercise completion, medication status, notes, sleep hours, and sleep quality.
+- V4-B out-of-scope/manual-only areas: body map, support need, safety state, medication dosage, diagnosis, and treatment advice.
+- V4-B safety/privacy boundaries: no auto-submit, no background listening, no wake word, no server STT, no external STT, no raw audio persistence, no hidden upload, no emergency calling, no alert creation, no `/rag/reply`, no diagnosis or treatment advice, and no Safety Router bypass.
+- Emergency-like speech in numeric/simple fields shows visible safety guidance and writes nothing.
+- High-risk notes become draft text only after explicit confirmation and route through the Safety Router only if the patient later taps `Submit check-in`.
+- V4-B is not a full autonomous voice agent.
+- Latest mobile verification after V4-B: `npm test` passed 48 test files / 299 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke passed with `FAIL 0` and `WARN 0`; `expo-doctor` passed with the npm cache workaround; `expo-modules-autolinking verify` passed; `git diff --check` passed.
 - Manual QA is not applicable yet for V4-A because no UI was added.
-- Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B UI integration will also require native QA when guided check-in uses speech recognition.
+- Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B guided check-in also uses speech recognition.
 - Clinical validation remains future work.
 
 Evidence sources:
@@ -85,6 +100,7 @@ Evidence sources:
 - `mobile-voice-assist-v2-read-aloud-2026-04-29.md`
 - `mobile-voice-assist-v3-navigation-commands-2026-04-29.md`
 - `mobile-voice-assist-v4a-guided-checkin-parser-2026-04-29.md`
+- `mobile-voice-assist-v4b-guided-checkin-panel-2026-04-29.md`
 
 ## 5. Static RAG Phase 1
 
@@ -198,9 +214,9 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 46 files passed, 284 tests passed | Latest known mobile verification after Voice Assist V4-A parser/tests. |
+| Mobile tests | 48 files passed, 299 tests passed | Latest known mobile verification after Voice Assist V4-B guided check-in panel. |
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Mobile Voice Assist V4-A evidence. These surfaces should be rerun if they change again before submission.
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Mobile Voice Assist V4-B evidence. These surfaces should be rerun if they change again before submission.
 
 ## 11. Limitations And Cautions
 
@@ -216,9 +232,10 @@ The dashboard count is included as a known verified result supplied for this fin
 - PGVector patient-memory indexing stores only sanitized summaries, while MongoDB remains canonical.
 - No raw patient chat messages should be stored in PGVector.
 - High-risk chat remains on the deterministic escalation path and bypasses RAG, memory retrieval, memory writing, and PGVector patient-memory indexing.
-- Mobile Voice Assist evidence is local/prototype implementation evidence and still requires native development/production build QA for V1/V3 speech recognition and future V4-B guided check-in UI integration.
+- Mobile Voice Assist evidence is local/prototype implementation evidence and still requires native development/production build QA for V1/V3 speech recognition and V4-B guided check-in speech recognition.
 - Voice Assist V3 is navigation-only and does not perform clinical actions by voice.
 - Voice Assist V4-A is parser-only evidence; it has no guided panel, no voice-guided check-in UI, no clinical validation, no auto-submit, no alert creation, and no clinical action by voice.
+- Voice Assist V4-B is guided panel prototype evidence, not a full autonomous voice agent, not clinical validation, and still requires manual native QA.
 
 ## 12. Safe Report Wording
 
@@ -242,8 +259,8 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 336 server tests, 284 mobile tests across 46 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
-- Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, and V4-A deterministic guided check-in parsers implemented, with manual native QA for speech-based UI and clinical validation still future work.
+- 336 server tests, 299 mobile tests across 48 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 

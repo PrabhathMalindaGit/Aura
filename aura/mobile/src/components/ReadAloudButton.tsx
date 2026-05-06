@@ -7,6 +7,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { getPressFeedbackStyle } from "@/src/components/Motion";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
 import { useTokens } from "@/src/theme/tokens";
+import { stopReadAloud } from "@/src/utils/readAloud";
 
 export type ReadAloudStatus = "idle" | "speaking" | "stopping" | "unavailable" | "error";
 
@@ -83,7 +84,7 @@ export function ReadAloudButton({
 
   const stopSpeech = useCallback(async () => {
     try {
-      await Speech.stop();
+      await stopReadAloud();
     } catch {
       setReadAloudStatus("error", ERROR_MESSAGE);
     }

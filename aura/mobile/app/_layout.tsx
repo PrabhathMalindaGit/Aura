@@ -15,6 +15,8 @@ import { CaregiverSessionProvider } from '@/src/state/caregiverSession';
 import { SyncCoordinator } from '@/src/sync/SyncCoordinator';
 import { useTokens } from '@/src/theme/tokens';
 import { SecondaryButton } from '@/src/components/SecondaryButton';
+import { VoiceCommandButton } from '@/src/components/VoiceCommandButton';
+import { shouldShowVoiceCommandForSegments } from '@/src/utils/voiceCommandVisibility';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -118,6 +120,7 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
               <View style={[styles.webFrameOuter, webShadowStyle]}>
                 <View style={styles.webFrameInner}>
                   <Slot />
+                  <VoiceCommandMount />
                   {bootOverlay}
                 </View>
               </View>
@@ -125,12 +128,39 @@ function RootLayoutNav({ fontsLoaded }: { fontsLoaded: boolean }) {
           ) : (
             <View style={styles.root}>
               <Slot />
+              <VoiceCommandMount />
               {bootOverlay}
             </View>
           )}
         </ThemeProvider>
       </CaregiverSessionProvider>
     </AuthProvider>
+  );
+}
+
+function VoiceCommandMount() {
+  const { status } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+  const tokens = useTokens();
+  const styles = useMemo(() => createStyles(tokens), [tokens]);
+  const shouldShow = shouldShowVoiceCommandForSegments(status, segments);
+
+  if (!shouldShow) {
+    return null;
+  }
+
+  return (
+    <View pointerEvents="box-none" style={styles.voiceCommandDock}>
+      <VoiceCommandButton
+        onNavigate={(route) => {
+          router.push(route as never);
+        }}
+        onGoBack={() => {
+          router.back();
+        }}
+      />
+    </View>
   );
 }
 
@@ -215,6 +245,13 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderRadius: tokens.layout.frameRadius,
       overflow: "hidden",
       backgroundColor: tokens.colors.background,
+    },
+    voiceCommandDock: {
+      position: "absolute",
+      right: tokens.spacing.md,
+      bottom: 104,
+      alignItems: "flex-end",
+      zIndex: 20,
     },
   });
 }

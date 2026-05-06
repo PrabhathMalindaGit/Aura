@@ -262,6 +262,14 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - Patient-entered private notes are not read automatically.
 - Reading aloud may expose private health information if others can hear; use headphones or stop reading when privacy matters.
 
+## Voice Assist V3: Navigation Commands
+
+- Voice Assist V3 adds tap-to-use voice commands for safe app navigation.
+- Supported commands can open app screens, go back, show command help, or stop current read-aloud playback.
+- V3 does not submit forms, send messages, book or cancel appointments, upload photos, log clinical data, create alerts, call emergency services, or bypass the Safety Router.
+- V3 does not use a wake word, background listening, server STT, external STT, or raw audio persistence.
+- Native command recognition uses the same `expo-speech-recognition` module as V1 and requires a development or production build for mobile native QA.
+
 ## Step 6: Progress (14/30 day summaries + history)
 
 - Progress tab loads check-ins from:

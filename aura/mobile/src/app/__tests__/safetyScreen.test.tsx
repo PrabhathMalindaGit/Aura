@@ -100,6 +100,18 @@ vi.mock("@/src/components/PrimaryButton", () => ({
     React.createElement("mock-primary-button", props),
 }));
 
+vi.mock("@/src/components/ReadAloudButton", () => ({
+  ReadAloudButton: (props: Record<string, unknown>) =>
+    React.createElement("mock-read-aloud-button" as any, {
+      ...props,
+      accessibilityRole: "button",
+      accessibilityLabel: props.label ?? "Read aloud",
+      onPress: vi.fn(),
+    } as any),
+  normalizeReadAloudText: (parts: Array<string | null | undefined>) =>
+    parts.filter(Boolean).join(". "),
+}));
+
 vi.mock("@/src/components/Row", () => ({
   Row: (props: Record<string, unknown>) => React.createElement("mock-row", props),
 }));
@@ -168,6 +180,7 @@ vi.mock("@/src/theme/tokens", () => ({
 }));
 
 import SafetyScreen from "@/app/safety";
+import { Linking } from "react-native";
 
 describe("Safety screen", () => {
   it("uses patient-safe fallback copy when clinic phone details are unavailable", async () => {
@@ -200,5 +213,31 @@ describe("Safety screen", () => {
       (node) => String(node.type) === "mock-empty-state",
     );
     expect(loadingState.props.title).toBe("Loading safety support");
+  });
+
+  it("adds fixed safety-guidance read-aloud without navigating or calling", async () => {
+    authState.status = "signedIn";
+    routerPush.mockClear();
+    let renderer: ReactTestRenderer;
+
+    await act(async () => {
+      renderer = create(<SafetyScreen />);
+    });
+
+    const readAloud = renderer!.root.find(
+      (node) => String(node.type) === "mock-read-aloud-button",
+    );
+
+    expect(readAloud.props.label).toBe("Read safety guidance");
+    expect(readAloud.props.text).toContain("Start by messaging your care team");
+    expect(readAloud.props.text).toContain("Pause and take a slow breath.");
+    expect(readAloud.props.text).toContain("If you're in immediate danger");
+
+    await act(async () => {
+      readAloud.props.onPress();
+    });
+
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(Linking.openURL).not.toHaveBeenCalled();
   });
 });

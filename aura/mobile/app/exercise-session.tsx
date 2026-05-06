@@ -31,6 +31,7 @@ import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -185,6 +186,14 @@ function formatPlanDose(item: RunnerExercise): string {
     parts.push(`rest ${item.planned.restSeconds}s`);
   }
   return parts.join(" · ");
+}
+
+function exerciseReadAloudText(item: RunnerExercise): string {
+  return normalizeReadAloudText([
+    item.nameSnapshot,
+    formatPlanDose(item),
+    item.instructions,
+  ]);
 }
 
 function toRunnerExercises(response: TodayPlanResponse): RunnerExercise[] {
@@ -897,7 +906,19 @@ export default function ExerciseSessionScreen() {
             </View>
 
             <Card variant="outlined" padding={tokens.spacing.md} style={styles.currentCard}>
-              <Text style={styles.sectionEyebrow}>Current step</Text>
+              <View style={styles.currentHeaderRow}>
+                <View style={styles.currentHeaderCopy}>
+                  <Text style={styles.sectionEyebrow}>Current step</Text>
+                </View>
+                {currentExercise ? (
+                  <ReadAloudButton
+                    text={exerciseReadAloudText(currentExercise)}
+                    label="Read instructions"
+                    sourceId={`exercise-session-current-${currentExercise.itemKey}`}
+                    testID={`exercise-session-current-read-${currentExercise.itemKey}`}
+                  />
+                ) : null}
+              </View>
               <Text style={styles.currentTitle}>
                 {currentExercise ? currentExercise.nameSnapshot : plan.title}
               </Text>
@@ -959,6 +980,14 @@ export default function ExerciseSessionScreen() {
                     text: item.completed ? "Done" : "In progress",
                     tone: item.completed ? "success" : "info",
                   }}
+                  rightAccessory={
+                    <ReadAloudButton
+                      text={exerciseReadAloudText(item)}
+                      label="Read instructions"
+                      sourceId={`exercise-session-${item.itemKey}`}
+                      testID={`exercise-session-read-${item.itemKey}`}
+                    />
+                  }
                   actions={
                     item.completed
                       ? [
@@ -1219,6 +1248,16 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     currentCard: {
       gap: tokens.spacing.xs,
+    },
+    currentHeaderRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: tokens.spacing.sm,
+    },
+    currentHeaderCopy: {
+      flex: 1,
+      minWidth: 0,
     },
     currentTitle: {
       color: tokens.colors.text,

@@ -178,6 +178,17 @@ vi.mock("@/src/components/MediaCard", () => ({
   MediaCard: (props: Record<string, unknown>) => React.createElement("mock-media-card", props),
 }));
 
+vi.mock("@/src/components/ReadAloudButton", () => ({
+  ReadAloudButton: (props: Record<string, unknown>) =>
+    React.createElement("mock-read-aloud-button", {
+      ...props,
+      accessibilityRole: "button",
+      accessibilityLabel: props.label ?? "Read aloud",
+    }),
+  normalizeReadAloudText: (parts: Array<string | null | undefined>) =>
+    parts.filter(Boolean).join(". "),
+}));
+
 vi.mock("@/src/components/Screen", () => ({
   Screen: ({
     header,
@@ -386,6 +397,48 @@ describe("Exercise plan screen", () => {
     expect(primaryCard).toBeTruthy();
     expect(primaryCard?.props.actions?.[0]?.label).toBe("Open session");
     expect(statusPills.some((node) => node.props.label === "In progress")).toBe(true);
+  });
+
+  it("adds read-aloud for visible exercise instruction text only", async () => {
+    getTodayExercisePlan.mockResolvedValue({
+      ok: true,
+      patientId: "patient-1",
+      date: "2026-04-11",
+      dayOfWeek: 6,
+      plan: {
+        title: "Knee recovery",
+        daysOfWeek: [1, 3, 5],
+        items: [
+          {
+            key: "heel-slides",
+            name: "Heel slides",
+            instructions: "Slide your heel in and out.",
+            order: 1,
+            sets: 2,
+            reps: 10,
+            contraindications: ["Sharp pain"],
+          },
+        ],
+        version: 2,
+        updatedAt: "2026-04-10T09:00:00.000Z",
+      },
+    });
+
+    await act(async () => {
+      renderer = create(<ExercisePlanScreen />);
+      await flush();
+    });
+
+    const exerciseCard = findHostNodes(renderer!.root, "mock-media-card").find(
+      (node) => node.props.title === "Heel slides",
+    );
+    const readAloud = exerciseCard?.props.rightAccessory;
+
+    expect(readAloud?.props.label).toBe("Read instructions");
+    expect(readAloud?.props.text).toBe(
+      "Heel slides. 2 sets x 10 reps. Slide your heel in and out.",
+    );
+    expect(readAloud?.props.text).not.toContain("Sharp pain");
   });
 
   it("keeps the plan readable but non-startable after discharge", async () => {

@@ -26,6 +26,7 @@ import { HeroHeader } from "@/src/components/HeroHeader";
 import { LastFailedAttempt } from "@/src/components/LastFailedAttempt";
 import { LastRefreshed } from "@/src/components/LastRefreshed";
 import { MediaCard } from "@/src/components/MediaCard";
+import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
 import { Screen } from "@/src/components/Screen";
 import { StatusPill } from "@/src/components/StatusPill";
 import { TrackerTile } from "@/src/components/TrackerTile";
@@ -771,6 +772,11 @@ export default function ExercisePlanScreen() {
         }
         renderItem={({ item }) => {
           const doseLabel = formatDose(item);
+          const readAloudText = normalizeReadAloudText([
+            item.name,
+            doseLabel,
+            item.instructions,
+          ]);
           const chips = [
             ...(item.intensity
               ? [
@@ -803,6 +809,14 @@ export default function ExercisePlanScreen() {
               maxChips={3}
               statusPill={
                 item.order === 1 ? { text: "Start here", tone: "info" } : { text: `Step ${item.order}`, tone: "neutral" }
+              }
+              rightAccessory={
+                <ReadAloudButton
+                  text={readAloudText}
+                  label="Read instructions"
+                  sourceId={`exercise-plan-${item.key}`}
+                  testID={`exercise-plan-read-${item.key}`}
+                />
               }
               actions={[
                 ...(item.videoUrl

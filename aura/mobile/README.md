@@ -249,6 +249,19 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
   - `POST /patient/checkins`
 - Native iOS/Android speech recognition uses `expo-speech-recognition`, which requires a development or production build after the config plugin is added. Expo Go is not expected to support this native speech module.
 
+## Voice Assist V2: Read-Aloud
+
+- Voice Assist V2 adds user-controlled text-to-speech read-aloud for:
+  - Assistant replies
+  - Exercise instructions
+  - Fixed safety guidance
+  - Selected check-in question and help text
+- Read-aloud uses `expo-speech` and only speaks text already shown in the app or fixed safety guidance.
+- Patients control playback with explicit **Speak** / **Stop** behavior through the read-aloud button.
+- V2 does not add voice commands, auto-play, auto-submit, background listening, external TTS, server-generated audio, or emergency handling.
+- Patient-entered private notes are not read automatically.
+- Reading aloud may expose private health information if others can hear; use headphones or stop reading when privacy matters.
+
 ## Step 6: Progress (14/30 day summaries + history)
 
 - Progress tab loads check-ins from:

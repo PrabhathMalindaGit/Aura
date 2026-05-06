@@ -28,6 +28,7 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { TrustCues } from "@/src/components/TrustCues";
 import { VoiceDictationButton } from "@/src/components/VoiceDictationButton";
+import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
 import { BodyMapSelector } from "@/src/components/checkin/BodyMapSelector";
 import { CheckinConfirmationPanel } from "@/src/components/checkin/CheckinConfirmationPanel";
 import { CheckinFieldBlock } from "@/src/components/checkin/CheckinFieldBlock";
@@ -1440,6 +1441,15 @@ export default function CheckinScreen() {
     setNotes((current) => appendReviewedTranscript(current, transcript, 1200));
   }, []);
 
+  const renderQuestionReadAloud = (parts: Array<string | null | undefined>, sourceId: string) => (
+    <ReadAloudButton
+      text={normalizeReadAloudText(parts)}
+      label="Read question"
+      sourceId={sourceId}
+      testID={`${sourceId}-read-aloud`}
+    />
+  );
+
   const renderSymptomsStep = () => (
     <CheckinStepCard
       compact
@@ -1451,6 +1461,10 @@ export default function CheckinScreen() {
       <CheckinFieldBlock
         title="Pain level"
         description="Use the full range from no pain to worst pain today."
+        accessory={renderQuestionReadAloud(
+          ["Pain level", "Use the full range from no pain to worst pain today."],
+          "checkin-pain",
+        )}
       >
         <Stepper
           label="Pain"
@@ -1631,6 +1645,14 @@ export default function CheckinScreen() {
             title="Exercise completion"
             description="Estimate how much of today’s plan you were able to do."
             compact
+            accessory={renderQuestionReadAloud(
+              [
+                "Exercise completion",
+                "Estimate how much of today’s plan you were able to do.",
+                "Use 10% steps for a quick estimate.",
+              ],
+              "checkin-exercise-completion",
+            )}
           >
             <Stepper
               label="Exercises completed"
@@ -1653,6 +1675,14 @@ export default function CheckinScreen() {
             title="How rehab felt"
             description="Start with the main effort rating for today’s plan."
             compact
+            accessory={renderQuestionReadAloud(
+              [
+                "How rehab felt",
+                "Start with the main effort rating for today’s plan.",
+                "1 is very easy and 5 is very hard.",
+              ],
+              "checkin-rehab-felt",
+            )}
           >
             <View style={styles.metricStackCompact}>
               {renderFivePointChips({
@@ -1843,6 +1873,14 @@ export default function CheckinScreen() {
             title="Mood"
             description="Choose the number that best matches your mood today."
             compact
+            accessory={renderQuestionReadAloud(
+              [
+                "Mood",
+                "Choose the number that best matches your mood today.",
+                "1 is very low and 5 is very strong.",
+              ],
+              "checkin-mood",
+            )}
             errorText={
               activeStep === 2 && validationState?.field === "mood"
                 ? validationState.message
@@ -2000,6 +2038,14 @@ export default function CheckinScreen() {
             title="Notes"
             description="Add anything you want your clinician to review today."
             compact
+            accessory={renderQuestionReadAloud(
+              [
+                "Notes",
+                "Add anything you want your clinician to review today.",
+                "Notes can still help your care team spot issues that need follow-up.",
+              ],
+              "checkin-notes",
+            )}
           >
             <TextInput
               value={notes}
@@ -2035,6 +2081,10 @@ export default function CheckinScreen() {
           title="Support need"
           description="Tell us if you want a follow-up or need urgent help today."
           compact
+          accessory={renderQuestionReadAloud(
+            ["Support need", "Tell us if you want a follow-up or need urgent help today."],
+            "checkin-support-need",
+          )}
         >
           <SegmentedControl
             value={support.helpLevel ?? "none"}
@@ -2064,6 +2114,13 @@ export default function CheckinScreen() {
             title="Safety"
             description="If you feel unsafe, choose that here and submit your check-in so we can route help appropriately."
             compact
+            accessory={renderQuestionReadAloud(
+              [
+                "Safety",
+                "If you feel unsafe, choose that here and submit your check-in so we can route help appropriately.",
+              ],
+              "checkin-safety",
+            )}
           >
             <SegmentedControl
               value={support.safetyState ?? "safe"}

@@ -221,6 +221,18 @@ vi.mock("@/src/components/VoiceDictationButton", () => ({
     }),
 }));
 
+vi.mock("@/src/components/ReadAloudButton", () => ({
+  ReadAloudButton: (props: Record<string, unknown>) =>
+    React.createElement("mock-read-aloud-button" as any, {
+      ...props,
+      accessibilityRole: "button",
+      accessibilityLabel: props.label ?? "Read aloud",
+      onPress: vi.fn(),
+    } as any),
+  normalizeReadAloudText: (parts: Array<string | null | undefined>) =>
+    parts.filter(Boolean).join(". "),
+}));
+
 vi.mock("@/src/components/checkin/BodyMapSelector", () => ({
   BodyMapSelector: (props: Record<string, unknown>) =>
     React.createElement("mock-body-map-selector", props),
@@ -771,6 +783,43 @@ describe("Check-in screen validation", () => {
     expect(createCheckin.mock.calls[0]?.[1].notes).toBe(
       "Knee felt tight walking caused soreness",
     );
+  });
+
+  it("adds question read-aloud without reading notes or submitting", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Extra concerns or notes").props.onChangeText(
+        "Private note from patient",
+      );
+    });
+
+    const readAloudButtons = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-read-aloud-button",
+    );
+
+    expect(readAloudButtons.length).toBeGreaterThan(0);
+    expect(readAloudButtons.some((node) => node.props.text.includes("Mood"))).toBe(true);
+    expect(readAloudButtons.map((node) => node.props.text).join(" ")).not.toContain(
+      "Private note from patient",
+    );
+
+    await act(async () => {
+      readAloudButtons[0].props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin).not.toHaveBeenCalled();
   });
 
   it("keeps high-risk dictated notes inside the normal submit and safety flow", async () => {

@@ -411,6 +411,18 @@ vi.mock("@/src/components/VoiceDictationButton", () => ({
     }),
 }));
 
+vi.mock("@/src/components/ReadAloudButton", () => ({
+  ReadAloudButton: (props: Record<string, unknown>) =>
+    React.createElement("mock-read-aloud-button" as any, {
+      ...props,
+      accessibilityRole: "button",
+      accessibilityLabel: props.label ?? "Read aloud",
+      onPress: vi.fn(),
+    } as any),
+  normalizeReadAloudText: (parts: Array<string | null | undefined>) =>
+    parts.filter(Boolean).join(". "),
+}));
+
 vi.mock("@/src/components/TrustBanner", () => ({
   TrustBanner: (props: Record<string, unknown>) => React.createElement("mock-trust-banner", props),
 }));
@@ -632,6 +644,41 @@ describe("chat truth fix", () => {
     });
 
     expect(sendChat).toHaveBeenCalledWith("token-1", "Pain is better after exercises");
+  });
+
+  it("adds read-aloud only to assistant replies without sending messages", async () => {
+    chatHistory.mockResolvedValue([
+      {
+        id: "msg-user-1",
+        role: "patient",
+        text: "My knee is sore.",
+        createdAt: "2026-03-24T12:00:00.000Z",
+      },
+      {
+        id: "msg-assistant-1",
+        role: "assistant",
+        text: "Pause and try the next exercise slowly.",
+        createdAt: "2026-03-24T12:00:10.000Z",
+      },
+    ]);
+
+    const renderer = await renderScreen();
+    const root = renderer.root;
+    const readAloudButtons = root.findAll(
+      (node) => String(node.type) === "mock-read-aloud-button",
+    );
+
+    expect(readAloudButtons).toHaveLength(1);
+    expect(readAloudButtons[0].props.text).toBe(
+      "Pause and try the next exercise slowly.",
+    );
+
+    await act(async () => {
+      readAloudButtons[0].props.onPress();
+      await flush();
+    });
+
+    expect(sendChat).not.toHaveBeenCalled();
   });
 
   it("routes high-risk dictated text through the existing send flow", async () => {

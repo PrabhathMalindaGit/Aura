@@ -39,6 +39,7 @@ import { StatusPill, type StatusPillVariant } from "@/src/components/StatusPill"
 import { TipCard } from "@/src/components/TipCard";
 import { TrustBanner } from "@/src/components/TrustBanner";
 import { VoiceDictationButton } from "@/src/components/VoiceDictationButton";
+import { ReadAloudButton } from "@/src/components/ReadAloudButton";
 import { useAuth } from "@/src/state/auth";
 import {
   getCachedChat,
@@ -1255,6 +1256,16 @@ export default function ChatScreen() {
                 </Text>
               </View>
 
+              {!isPatient ? (
+                <View style={styles.readAloudRow}>
+                  <ReadAloudButton
+                    text={item.text}
+                    sourceId={item.id ?? item.localId}
+                    testID={`chat-read-aloud-${item.id ?? item.localId}`}
+                  />
+                </View>
+              ) : null}
+
               {showInlineTip && inlineAssistantTip ? (
                 <TipCard
                   compact
@@ -1830,6 +1841,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     messageTextAssistant: {
       color: tokens.colors.text,
+    },
+    readAloudRow: {
+      alignSelf: "flex-start",
     },
     deliveryMetaRow: {
       flexDirection: "row",

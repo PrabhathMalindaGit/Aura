@@ -18,6 +18,7 @@ import { HeroHeader } from "@/src/components/HeroHeader";
 import { MediaCard } from "@/src/components/MediaCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { PrimaryButton } from "@/src/components/PrimaryButton";
+import { ReadAloudButton, normalizeReadAloudText } from "@/src/components/ReadAloudButton";
 import { Row } from "@/src/components/Row";
 import { Screen } from "@/src/components/Screen";
 import { SecondaryButton } from "@/src/components/SecondaryButton";
@@ -155,6 +156,17 @@ export default function SafetyScreen() {
         : clinicNumberConfigured
           ? "We noticed signals that may mean you need extra support. Start by messaging your care team or calling your clinic support line."
           : "We noticed signals that may mean you need extra support. Start by messaging your care team first, then use a calming tool if you need a moment.";
+  const emergencyGuidance = `If you're in immediate danger, call your local emergency services${
+    emergencyNumberConfigured ? ` (${EMERGENCY_NUMBER_PLACEHOLDER})` : ""
+  }.`;
+  const safetyReadAloudText = normalizeReadAloudText([
+    "Immediate support",
+    "Start with the safest next step",
+    supportStory,
+    emergencyGuidance,
+    "Your safety plan",
+    ...SAFETY_PLAN_STEPS,
+  ]);
 
   const goHome = () => {
     try {
@@ -216,6 +228,17 @@ export default function SafetyScreen() {
               <Text style={styles.storyTitle}>Start with the safest next step</Text>
             </View>
             <Text style={styles.storyText}>{supportStory}</Text>
+            <View style={styles.storyReadAloudRow}>
+              <ReadAloudButton
+                text={safetyReadAloudText}
+                label="Read safety guidance"
+                sourceId="safety-guidance"
+                testID="safety-read-aloud"
+              />
+              <Text style={styles.privacyNote}>
+                Use headphones or stop reading if others can hear.
+              </Text>
+            </View>
           </Card>
         </HeroHeader>
       }
@@ -263,8 +286,7 @@ export default function SafetyScreen() {
           )}
 
           <Text style={styles.primaryActionNote}>
-            If you&apos;re in immediate danger, call your local emergency services
-            {emergencyNumberConfigured ? ` (${EMERGENCY_NUMBER_PLACEHOLDER})` : ""}.
+            {emergencyGuidance}
           </Text>
         </View>
       </Section>
@@ -442,6 +464,19 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.body.fontSize,
       lineHeight: tokens.typography.body.lineHeight,
+    },
+    storyReadAloudRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: tokens.spacing.sm,
+      flexWrap: "wrap",
+    },
+    privacyNote: {
+      flex: 1,
+      minWidth: 180,
+      color: tokens.colors.textMuted,
+      fontSize: tokens.typography.caption.fontSize,
+      lineHeight: tokens.typography.caption.lineHeight,
     },
     primaryActionStack: {
       gap: tokens.spacing.sm,

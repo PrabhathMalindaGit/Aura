@@ -50,7 +50,34 @@ Interpretation boundary:
 - It is not real patient validation.
 - It is not deployment validation.
 
-## 4. Static RAG Phase 1
+## 4. Mobile Voice Assist Evidence
+
+Aura mobile now has three completed Voice Assist phases, all bounded to prototype support and not clinical validation.
+
+Evidence summary:
+
+- V1 adds reviewed speech-to-text dictation for the chat composer and check-in notes.
+- V1 keeps **Send** and **Submit** as the only submission paths.
+- V1 has no auto-send, voice commands, wake word, background listening, raw audio persistence, server transcription endpoint, or direct `/rag/reply` call.
+- V2 adds user-controlled text-to-speech read-aloud for assistant replies, exercise instructions, fixed safety guidance, and selected check-in question/help text.
+- V2 uses `expo-speech@~14.0.8`.
+- V2 has Speak/Stop only, with no auto-play, no auto-submit, no external/server TTS, and no Safety Router bypass.
+- V3 adds tap-to-use navigation-only voice commands for signed-in patient screens.
+- V3 supports opening screens, going back, showing help, and stopping read-aloud.
+- V3 rejects unsafe commands such as `submit check-in`, `send message`, `book appointment`, `upload photo`, `call emergency`, `message clinician`, `set pain level`, and mixed commands such as `open chat and send message`.
+- V3 does not submit forms, send chat, book/cancel appointments, upload photos, log medication/hydration/nutrition, create alerts, call emergency services, pass command text to `/rag/reply`, call chat/check-in mutation paths, store command text, or persist raw audio.
+- V3 is not a full voice agent and does not perform clinical actions by voice.
+- Latest mobile verification after V3: `npm test` passed 45 test files / 201 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke were clean; `expo-doctor` passed with cache workaround; autolinking passed; `git diff --check` passed.
+- Manual native QA is still required because V1/V3 use `expo-speech-recognition` and require development/production builds for reliable native testing.
+- Clinical validation remains future work.
+
+Evidence sources:
+
+- `mobile-voice-assist-v1-2026-04-29.md`
+- `mobile-voice-assist-v2-read-aloud-2026-04-29.md`
+- `mobile-voice-assist-v3-navigation-commands-2026-04-29.md`
+
+## 5. Static RAG Phase 1
 
 Aura's Phase 1 static RAG path implemented `/rag/reply` retrieval from curated static rehabilitation knowledge for messages that have already been classified as low risk.
 
@@ -63,7 +90,7 @@ Evidence summary:
 - No external LLM API or external embedding API is required for this retrieval path.
 - High-risk messages continue through the alert/escalation path and do not call RAG.
 
-## 5. Patient Living Memory Phase 2A + 2B
+## 6. Patient Living Memory Phase 2A + 2B
 
 Aura's patient living memory is implemented as MongoDB-backed, patient-scoped deterministic memory.
 
@@ -77,7 +104,7 @@ Evidence summary:
 - MongoDB remains canonical for patient memory.
 - Memory extraction skips high-risk/crisis text, medication dosage details, contact details, secrets, third-party personal details, and likely identifiers.
 
-## 6. PGVector Static Knowledge Phase 2C-A
+## 7. PGVector Static Knowledge Phase 2C-A
 
 Aura's static rehabilitation knowledge retrieval now has optional PGVector-backed persistence and retrieval.
 
@@ -90,7 +117,7 @@ Evidence summary:
 - Deterministic hashing vectors are prototype retrieval vectors, not clinically validated semantic embeddings.
 - PGVector static retrieval is fallback-safe when disabled, unavailable, empty, or erroring.
 
-## 7. PGVector Patient-Memory Index Phase 2C-B
+## 8. PGVector Patient-Memory Index Phase 2C-B
 
 Aura now has optional backend-owned PGVector indexing for sanitized patient memory summaries.
 
@@ -107,7 +134,7 @@ Evidence summary:
 - High-risk chat never mirrors or queries PGVector patient memory.
 - AI `/rag/reply` continues to receive bounded patient memory context from the backend; the AI service does not query PGVector patient memory directly.
 
-## 8. Final Latency Benchmark
+## 9. Final Latency Benchmark
 
 Final PGVector memory-enabled benchmark:
 
@@ -149,7 +176,7 @@ Interpretation boundary:
 - It is not clinical deployment evidence.
 - Results may vary with local machine load, Docker state, service startup, warmup effects, and webhook behavior.
 
-## 9. Verification Status
+## 10. Verification Status
 
 Latest known verified results:
 
@@ -162,11 +189,11 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 125 passed | Earlier verified evidence; rerun if mobile code changes again. |
+| Mobile tests | 45 files passed, 201 tests passed | Latest known mobile verification after Voice Assist V3. |
 
-The dashboard and mobile counts are included as known verified results supplied for this final summary. They were not found in the current evidence Markdown files and should be rerun if those surfaces change again before submission.
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Mobile Voice Assist V3 evidence. These surfaces should be rerun if they change again before submission.
 
-## 10. Limitations And Cautions
+## 11. Limitations And Cautions
 
 - This is synthetic prototype evidence only.
 - This is not clinical validation.
@@ -180,8 +207,10 @@ The dashboard and mobile counts are included as known verified results supplied 
 - PGVector patient-memory indexing stores only sanitized summaries, while MongoDB remains canonical.
 - No raw patient chat messages should be stored in PGVector.
 - High-risk chat remains on the deterministic escalation path and bypasses RAG, memory retrieval, memory writing, and PGVector patient-memory indexing.
+- Mobile Voice Assist evidence is local/prototype implementation evidence and still requires native development/production build QA for V1/V3 speech recognition.
+- Voice Assist V3 is navigation-only and does not perform clinical actions by voice.
 
-## 11. Safe Report Wording
+## 12. Safe Report Wording
 
 ### A. Testing And Evaluation
 
@@ -195,7 +224,7 @@ These results are prototype evidence only. The Safety Router evaluation used aut
 
 Aura keeps high-risk rehabilitation messages on a deterministic escalation path, while low-risk support can use static rehabilitation retrieval and patient-scoped living memory, with MongoDB as canonical storage and PGVector used only as an optional sanitized retrieval index.
 
-## 12. Final Abstract-Ready Facts
+## 13. Final Abstract-Ready Facts
 
 Facts that are safe to use later when writing an abstract, with the surrounding limitation that clinical validation remains future work:
 
@@ -203,11 +232,12 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 336 server tests, 125 mobile tests, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 336 server tests, 201 mobile tests across 45 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, and V3 navigation-only voice commands implemented, with manual native QA and clinical validation still future work.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 
-## 13. Cleanup / Demo Note
+## 14. Cleanup / Demo Note
 
 Benchmarks write synthetic local chat, alert, and notification job records.
 

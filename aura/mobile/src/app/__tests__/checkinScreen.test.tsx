@@ -278,6 +278,14 @@ vi.mock("@/src/components/checkin/SymptomChipGroup", () => ({
     React.createElement("mock-symptom-chip-group", props),
 }));
 
+vi.mock("@/src/components/checkin/VoiceGuidedCheckinPanel", () => ({
+  VoiceGuidedCheckinPanel: (props: Record<string, unknown>) =>
+    React.createElement("mock-voice-guided-checkin-panel", {
+      ...props,
+      accessibilityLabel: "Voice-guided check-in panel",
+    }),
+}));
+
 vi.mock("@/src/api/patient", () => ({
   createCheckin,
   getCheckinAdaptation,
@@ -682,6 +690,68 @@ describe("Check-in screen validation", () => {
     expect(buttons.some((node) => node.props.label === "Back to Today")).toBe(true);
   });
 
+  it("renders guided check-in only in the active form and leaves manual controls available", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === "mock-voice-guided-checkin-panel"),
+    ).toHaveLength(1);
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === "mock-body-map-selector"),
+    ).toHaveLength(1);
+    expect(createCheckin).not.toHaveBeenCalled();
+  });
+
+  it("lets guided confirmation update draft fields without submitting", async () => {
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "low", reasonCodes: [] },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const guidedPanel = renderer!.root.find(
+      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
+    );
+    act(() => {
+      guidedPanel.props.onConfirmPain(6);
+    });
+
+    expect(createCheckin).not.toHaveBeenCalled();
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin).toHaveBeenCalledTimes(1);
+    expect(createCheckin.mock.calls[0]?.[1].pain).toBe(6);
+  });
+
   it("autosaves a same-day draft and clears it after a successful low-risk submit", async () => {
     createCheckin.mockResolvedValue({
       ok: true,
@@ -972,5 +1042,47 @@ describe("Check-in screen validation", () => {
       ),
     ).toHaveLength(0);
     expect(clearCheckinDraft).not.toHaveBeenCalled();
+  });
+
+  it("hides guided check-in after successful low-risk submission confirmation", async () => {
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "low", reasonCodes: [] },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+    act(() => {
+      findByA11y(renderer!.root, "Set value 4").props.onPress();
+    });
+    act(() => {
+      navigator.props.onSelectStep(3);
+    });
+
+    const submitButton = renderer!.root
+      .findAll((node) => String(node.type) === "mock-primary-button")
+      .find((node) => node.props.label === "Submit check-in");
+
+    await act(async () => {
+      submitButton?.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === "mock-checkin-confirmation-panel"),
+    ).toHaveLength(1);
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === "mock-voice-guided-checkin-panel"),
+    ).toHaveLength(0);
   });
 });

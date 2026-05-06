@@ -270,6 +270,18 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - V3 does not use a wake word, background listening, server STT, external STT, or raw audio persistence.
 - Native command recognition uses the same `expo-speech-recognition` module as V1 and requires a development or production build for mobile native QA.
 
+## Voice Assist V4-B: Guided Check-in Panel
+
+- Voice Assist V4-B adds an optional, collapsed-by-default voice-guided panel on the **Check-in** tab.
+- The panel asks one check-in question at a time, listens only after the patient taps **Listen**, parses the transcript with the deterministic V4-A check-in parsers, and shows the transcript plus interpreted value before anything fills the draft.
+- Patients can Confirm, Retry, Skip, or Edit manually. Confirm only writes to the existing local check-in draft fields; the manual form stays visible and editable.
+- V4-B supports pain, mood, exercise completion, medication status, notes, and simple sleep hours/quality when daily context is visible. Body map, support need, safety state, medication dosage, diagnosis, and treatment advice remain manual or out of scope.
+- V4-B does not auto-submit, create alerts, call emergency services, call `/rag/reply`, upload audio, use server/external STT, listen in the background, use a wake word, or bypass `POST /patient/checkins`.
+- High-risk notes are only draft text after explicit confirmation and route through the existing Safety Router only if the patient later taps **Submit check-in**.
+- Raw audio is not stored by Aura; recognition starts with `recordingOptions.persist=false`.
+- Read-aloud may expose private health information if others can hear; use headphones or stop reading when privacy matters.
+- Native iOS/Android speech recognition still requires a development or production build for manual QA. Expo Go is not expected to support this native speech module.
+
 ## Step 6: Progress (14/30 day summaries + history)
 
 - Progress tab loads check-ins from:

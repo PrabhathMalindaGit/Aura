@@ -37,6 +37,7 @@ import { CheckinReviewCard } from "@/src/components/checkin/CheckinReviewCard";
 import { CheckinSubmissionRecoveryCard } from "@/src/components/checkin/CheckinSubmissionRecoveryCard";
 import { CheckinStepCard } from "@/src/components/checkin/CheckinStepCard";
 import { SymptomChipGroup } from "@/src/components/checkin/SymptomChipGroup";
+import { VoiceGuidedCheckinPanel } from "@/src/components/checkin/VoiceGuidedCheckinPanel";
 import {
   type CheckinValidationField,
   getCheckinPrimaryActionLabel,
@@ -72,6 +73,7 @@ import type {
   CheckinSupportDraft,
   CheckinSymptomFlag,
 } from "@/src/types/checkin";
+import type { GuidedCheckinStepId } from "@/src/utils/guidedCheckinSteps";
 import type { CheckinAdaptationDecision } from "@/src/types/models";
 import {
   CHECKIN_SYMPTOM_FLAGS,
@@ -1450,6 +1452,70 @@ export default function CheckinScreen() {
     />
   );
 
+  const handleGuidedEditManually = useCallback((stepId: GuidedCheckinStepId) => {
+    setNotice(null);
+
+    if (stepId === "pain") {
+      setActiveStep(0);
+      return;
+    }
+
+    if (stepId === "exercise" || stepId === "medication") {
+      setActiveStep(1);
+      if (stepId === "medication") {
+        setShowRecoveryDetails(true);
+      }
+      return;
+    }
+
+    setActiveStep(2);
+    if (stepId === "sleepHours" || stepId === "sleepQuality") {
+      setShowDailyContext(true);
+    }
+  }, []);
+
+  const guidedCheckinPanel = (
+    <VoiceGuidedCheckinPanel
+      includeSleep={shouldShowDailyContext}
+      onConfirmPain={(value) => {
+        setNotice(null);
+        setPain(value);
+      }}
+      onConfirmMood={(value) => {
+        setNotice(null);
+        setSupport((current) => ({ ...current, mood: value }));
+      }}
+      onConfirmExercise={(value) => {
+        setNotice(null);
+        setRecovery((current) => ({ ...current, exercisePercent: value }));
+      }}
+      onConfirmMedicationStatus={(value) => {
+        setNotice(null);
+        setShowRecoveryDetails(true);
+        setAdherence((current) => ({
+          ...current,
+          medicationStatus: value,
+          medicationReason: value === "taken" ? null : current.medicationReason,
+        }));
+      }}
+      onConfirmNotes={(value) => {
+        setNotice(null);
+        setNotes((current) => appendReviewedTranscript(current, value, 1200));
+      }}
+      onConfirmSleepHours={(value) => {
+        setNotice(null);
+        setShowDailyContext(true);
+        setDailySignals((current) => ({ ...current, sleepHours: value }));
+      }}
+      onConfirmSleepQuality={(value) => {
+        setNotice(null);
+        setShowDailyContext(true);
+        setDailySignals((current) => ({ ...current, sleepQuality: value }));
+      }}
+      onEditManually={handleGuidedEditManually}
+    />
+  );
+
   const renderSymptomsStep = () => (
     <CheckinStepCard
       compact
@@ -2592,6 +2658,7 @@ export default function CheckinScreen() {
           footerSpacerHeight={shellFooterSpacerHeight}
           scrollViewRef={scrollViewRef}
         >
+          {guidedCheckinPanel}
           {renderCurrentStep()}
         </CheckinFlowShell>
       )}

@@ -1099,6 +1099,25 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
+      <View style={styles.sectionBlock}>
+        <TipCard
+          tone="info"
+          leading={{ type: "icon", icon: "chat", tone: "primary" }}
+          title="Aura Voice Agent"
+          text="Prepare a temporary prototype voice session. Live audio and clinical actions are not enabled yet."
+          chips={["V5-B1 prototype", "No live audio"]}
+          actions={[
+            {
+              label: "Open Voice Agent",
+              kind: "secondary",
+              onPress: () => {
+                router.push("/voice-agent" as never);
+              },
+            },
+          ]}
+        />
+      </View>
+
       <Card
         padding={tokens.spacing.lg}
         style={[styles.checkinCard, styles.sectionBlock]}

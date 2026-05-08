@@ -48,10 +48,27 @@ type RecoveryNudgeApiResponse = {
   nudge?: unknown;
 };
 
+type PatientVoiceSessionApiResponse = {
+  ok?: unknown;
+  clientSecret?: unknown;
+  session?: unknown;
+};
 
 export type LoginResponse = {
   token: string;
   patient: Patient | null;
+};
+
+export type PatientVoiceSessionResponse = {
+  ok: true;
+  clientSecret: {
+    value: string;
+    expiresAt: string;
+  };
+  session: {
+    id: string;
+    model: string;
+  };
 };
 
 export type CheckInCreatePayload = {
@@ -777,6 +794,48 @@ function invalidResponseError(message: string): ApiError {
   };
 }
 
+function normalizePatientVoiceSession(
+  payload: PatientVoiceSessionApiResponse,
+): PatientVoiceSessionResponse | null {
+  const secret =
+    payload.clientSecret && typeof payload.clientSecret === "object"
+      ? (payload.clientSecret as { value?: unknown; expiresAt?: unknown })
+      : null;
+  const session =
+    payload.session && typeof payload.session === "object"
+      ? (payload.session as { id?: unknown; model?: unknown })
+      : null;
+
+  const value = typeof secret?.value === "string" ? secret.value.trim() : "";
+  const expiresAt =
+    typeof secret?.expiresAt === "string" ? secret.expiresAt.trim() : "";
+  const id = typeof session?.id === "string" ? session.id.trim() : "";
+  const model = typeof session?.model === "string" ? session.model.trim() : "";
+
+  if (
+    payload.ok !== true ||
+    !value ||
+    !expiresAt ||
+    !Number.isFinite(Date.parse(expiresAt)) ||
+    !id ||
+    !model
+  ) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    clientSecret: {
+      value,
+      expiresAt,
+    },
+    session: {
+      id,
+      model,
+    },
+  };
+}
+
 export async function login(accessCode: string): Promise<LoginResponse> {
   const payload = await apiFetchJson<LoginApiPayload>("/patient/auth/login", {
     method: "POST",
@@ -805,6 +864,25 @@ export async function getMe(token: string): Promise<Patient> {
   }
 
   return patient;
+}
+
+export async function createPatientVoiceSession(
+  token: string,
+): Promise<PatientVoiceSessionResponse> {
+  const payload = await apiFetchJson<PatientVoiceSessionApiResponse>(
+    "/patient/voice/session",
+    {
+      method: "POST",
+      token,
+    },
+  );
+
+  const session = normalizePatientVoiceSession(payload);
+  if (!session) {
+    throw invalidResponseError("Could not parse voice session response.");
+  }
+
+  return session;
 }
 
 export async function getCheckinAdaptation(

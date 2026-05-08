@@ -282,6 +282,16 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - Read-aloud may expose private health information if others can hear; use headphones or stop reading when privacy matters.
 - Native iOS/Android speech recognition still requires a development or production build for manual QA. Expo Go is not expected to support this native speech module.
 
+## Voice Agent V5-B1: Session Request UI
+
+- Voice Agent V5-B1 adds `/voice-agent`, a mobile screen that can request a backend-created temporary Realtime session from `POST /patient/voice/session`.
+- V5-B1 does not start a live audio conversation, WebRTC connection, or background microphone session yet.
+- The screen does not submit check-ins, send messages, book appointments, create alerts, call emergency services, or perform clinical actions by voice.
+- The temporary client secret stays in component memory only and is cleared on stop, unmount, background, error, or expiry.
+- Aura does not store client secrets, transcripts, or raw audio for V5-B1.
+- The real `OPENAI_API_KEY` remains backend-only; do not add `EXPO_PUBLIC_OPENAI_API_KEY` or any OpenAI API key to mobile env/config.
+- V5-B2 should separately plan native Realtime audio/WebRTC and development-build QA.
+
 ## Step 6: Progress (14/30 day summaries + history)
 
 - Progress tab loads check-ins from:

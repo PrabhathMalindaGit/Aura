@@ -10,6 +10,7 @@ vi.mock("@/src/api/client", () => ({
 
 import {
   chatHistory,
+  createPatientVoiceSession,
   extractAssistantText,
   extractConfirmedSendMessages,
   sendChat,
@@ -148,6 +149,80 @@ describe("patient chat api normalization", () => {
           text: "I feel unsafe",
         },
       },
+    });
+  });
+});
+
+describe("patient voice session api", () => {
+  beforeEach(() => {
+    apiFetchJson.mockReset();
+  });
+
+  it("posts to the voice session broker with no body and bearer token", async () => {
+    apiFetchJson.mockResolvedValue({
+      ok: true,
+      clientSecret: {
+        value: "ek_test_secret",
+        expiresAt: "2026-05-08T10:01:00.000Z",
+      },
+      session: {
+        id: "sess_mobile",
+        model: "gpt-realtime-2",
+      },
+    });
+
+    await createPatientVoiceSession("token-voice");
+
+    expect(apiFetchJson).toHaveBeenCalledWith("/patient/voice/session", {
+      method: "POST",
+      token: "token-voice",
+    });
+    expect(apiFetchJson.mock.calls[0][1]).not.toHaveProperty("body");
+  });
+
+  it("normalizes the voice session success shape", async () => {
+    apiFetchJson.mockResolvedValue({
+      ok: true,
+      clientSecret: {
+        value: "ek_test_secret",
+        expiresAt: "2026-05-08T10:01:00.000Z",
+      },
+      session: {
+        id: "sess_mobile",
+        model: "gpt-realtime-2",
+      },
+    });
+
+    await expect(createPatientVoiceSession("token-voice")).resolves.toEqual({
+      ok: true,
+      clientSecret: {
+        value: "ek_test_secret",
+        expiresAt: "2026-05-08T10:01:00.000Z",
+      },
+      session: {
+        id: "sess_mobile",
+        model: "gpt-realtime-2",
+      },
+    });
+  });
+
+  it("rejects malformed voice session responses without exposing raw payloads", async () => {
+    apiFetchJson.mockResolvedValue({
+      ok: true,
+      clientSecret: {
+        value: "",
+        expiresAt: "not-a-date",
+      },
+      session: {
+        id: "",
+        model: "gpt-realtime-2",
+      },
+    });
+
+    await expect(createPatientVoiceSession("token-voice")).rejects.toMatchObject({
+      title: "Unexpected response",
+      message: "Could not parse voice session response.",
+      retryable: false,
     });
   });
 });

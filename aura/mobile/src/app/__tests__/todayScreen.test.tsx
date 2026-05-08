@@ -496,6 +496,27 @@ describe("Today screen", () => {
     );
   });
 
+  it("opens the Voice Agent prototype from the Home demo entry", async () => {
+    await act(async () => {
+      renderer = create(<HomeScreen />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const voiceCard = findHostNodes(renderer!.root, "mock-tip-card").find(
+      (node) => node.props.title === "Aura Voice Agent",
+    );
+
+    expect(voiceCard).toBeTruthy();
+    expect(voiceCard?.props.text).toContain("Prepare a temporary prototype voice session");
+
+    await act(async () => {
+      voiceCard?.props.actions[0].onPress();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith("/voice-agent");
+  });
+
   it("shows rest-day plan truth and reviewed-insight empty state when no exercises are scheduled today", async () => {
     getCachedExercisePlan.mockResolvedValue({
       response: {

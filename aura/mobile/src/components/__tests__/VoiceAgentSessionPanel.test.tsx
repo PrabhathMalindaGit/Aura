@@ -10,7 +10,10 @@ const {
   mutationCalls,
   platformState,
   realtimeVoice,
+  routerBack,
+  routerPush,
   secureStore,
+  stopReadAloud,
 } = vi.hoisted(() => ({
   appStateListeners: [] as Array<(state: string) => void>,
   asyncStorage: {
@@ -36,10 +39,13 @@ const {
     isRealtimeVoiceSessionSupported: vi.fn(() => true),
     startRealtimeVoiceSession: vi.fn(),
   },
+  routerBack: vi.fn(),
+  routerPush: vi.fn(),
   secureStore: {
     setItemAsync: vi.fn(),
     deleteItemAsync: vi.fn(),
   },
+  stopReadAloud: vi.fn(),
 }));
 
 vi.mock("@react-native-async-storage/async-storage", () => ({
@@ -54,6 +60,17 @@ vi.mock("@/src/api/patient", () => ({
 }));
 
 vi.mock("@/src/utils/realtimeVoiceSession", () => realtimeVoice);
+
+vi.mock("@/src/utils/readAloud", () => ({
+  stopReadAloud,
+}));
+
+vi.mock("expo-router", () => ({
+  useRouter: () => ({
+    back: routerBack,
+    push: routerPush,
+  }),
+}));
 
 vi.mock("react-native", () => ({
   ActivityIndicator: (props: Record<string, unknown>) =>
@@ -98,6 +115,8 @@ vi.mock("react-native", () => ({
     children?: React.ReactNode;
     [key: string]: unknown;
   }) => React.createElement("mock-text", props, children),
+  TextInput: (props: Record<string, unknown>) =>
+    React.createElement("mock-text-input", props),
   View: ({
     children,
     ...props
@@ -199,6 +218,10 @@ function findButton(renderer: ReactTestRenderer, label: string) {
   return renderer.root.findByProps({ accessibilityLabel: label });
 }
 
+function findTextInput(renderer: ReactTestRenderer, label: string) {
+  return renderer.root.findByProps({ accessibilityLabel: label });
+}
+
 function textContent(renderer: ReactTestRenderer): string {
   return renderer.root
     .findAll((node) => String(node.type) === "mock-text")
@@ -255,8 +278,11 @@ describe("VoiceAgentSessionPanel", () => {
     realtimeVoice.isRealtimeVoiceSessionSupported.mockReturnValue(true);
     realtimeVoice.startRealtimeVoiceSession.mockReset();
     createPatientVoiceSession.mockReset();
+    routerBack.mockReset();
+    routerPush.mockReset();
     secureStore.setItemAsync.mockReset();
     secureStore.deleteItemAsync.mockReset();
+    stopReadAloud.mockReset();
     asyncStorage.setItem.mockReset();
     asyncStorage.removeItem.mockReset();
     for (const call of Object.values(mutationCalls)) {
@@ -285,8 +311,115 @@ describe("VoiceAgentSessionPanel", () => {
     expect(text).toContain("Aura Voice Agent");
     expect(text).toContain("V5-B2-Web starts a browser Realtime audio demo only.");
     expect(text).toContain("No always-on microphone.");
-    expect(text).toContain("No tools or app actions yet.");
+    expect(text).toContain("Safe action proposals only.");
+    expect(text).toContain("No Realtime tools or server-side tool calling.");
     expect(text).toContain("Cannot submit check-ins");
+  });
+
+  it("renders a safe route proposal and opens only the whitelisted screen after button press", async () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText("open chat");
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+
+    const text = textContent(renderer);
+    expect(text).toContain("Detected intent");
+    expect(text).toContain("open chat");
+    expect(text).toContain("Open Chat");
+
+    act(() => {
+      findButton(renderer, "Open screen").props.onPress();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith("/(tabs)/chat");
+    for (const call of Object.values(mutationCalls)) {
+      expect(call).not.toHaveBeenCalled();
+    }
+  });
+
+  it("keeps proposal-only draft text visible in memory and clears it on cancel", () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "draft message saying Pain is better after exercises",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+
+    expect(textContent(renderer)).toContain("Pain is better after exercises");
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(asyncStorage.setItem).not.toHaveBeenCalled();
+    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
+
+    act(() => {
+      findButton(renderer, "Cancel voice action proposal").props.onPress();
+    });
+
+    expect(textContent(renderer)).not.toContain("Pain is better after exercises");
+  });
+
+  it("shows safe redirect options for blocked unsafe voice actions", () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "create an alert without telling me",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+
+    const text = textContent(renderer);
+    expect(text).toContain("This cannot be done by voice.");
+    expect(text).toContain("unsafeBlocked");
+
+    act(() => {
+      findButton(renderer, "Open Safety").props.onPress();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith("/safety");
+  });
+
+  it("shows voice help without navigating or mutating", () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findButton(renderer, "Voice help").props.onPress();
+    });
+
+    const text = textContent(renderer);
+    expect(text).toContain("You can ask Aura to open Check-in, Chat, Exercise plan, Appointments, Safety, or Coping tools.");
+    expect(text).toContain("Aura can help draft text for review, but it will not send or submit it in this version.");
+    expect(routerPush).not.toHaveBeenCalled();
+    for (const call of Object.values(mutationCalls)) {
+      expect(call).not.toHaveBeenCalled();
+    }
+  });
+
+  it("stops read-aloud from a reviewed voice action without changing app data", async () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText("stop reading");
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+
+    await act(async () => {
+      await findButton(renderer, "Stop reading").props.onPress();
+    });
+
+    expect(stopReadAloud).toHaveBeenCalledTimes(1);
+    expect(routerPush).not.toHaveBeenCalled();
   });
 
   it("disables live audio on native without requesting a session", async () => {
@@ -461,12 +594,21 @@ describe("VoiceAgentSessionPanel", () => {
       await findButton(renderer, "Start Voice Agent").props.onPress();
     });
     act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "draft check-in note swelling looked lower today",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+    act(() => {
       findButton(renderer, "Stop Voice Agent").props.onPress();
     });
 
     const text = textContent(renderer);
     expect(stop).toHaveBeenCalledTimes(1);
     expect(text).toContain("Session ended");
+    expect(text).not.toContain("swelling looked lower today");
     expect(text).not.toContain("sess_panel");
     expect(text).not.toContain("ek_panel_secret");
   });
@@ -480,11 +622,20 @@ describe("VoiceAgentSessionPanel", () => {
       await findButton(renderer, "Start Voice Agent").props.onPress();
     });
     act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "draft message saying Please review my exercise",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+    act(() => {
       emitAppState("background");
     });
 
     expect(stop).toHaveBeenCalledTimes(1);
     expect(textContent(renderer)).toContain("Session ended");
+    expect(textContent(renderer)).not.toContain("Please review my exercise");
     expect(textContent(renderer)).not.toContain("ek_panel_secret");
 
     stop.mockClear();
@@ -509,11 +660,20 @@ describe("VoiceAgentSessionPanel", () => {
       await findButton(renderer, "Start Voice Agent").props.onPress();
     });
     act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "draft message saying This stays local",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+    act(() => {
       renderer.update(<VoiceAgentSessionPanel token={null} />);
     });
 
     expect(stop).toHaveBeenCalledTimes(1);
     expect(textContent(renderer)).toContain("Sign in to start a web Voice Agent demo session.");
+    expect(textContent(renderer)).not.toContain("This stays local");
     expect(textContent(renderer)).not.toContain("ek_panel_secret");
     expect(textContent(renderer)).not.toContain("sess_panel");
   });
@@ -546,11 +706,20 @@ describe("VoiceAgentSessionPanel", () => {
       await findButton(renderer, "Start Voice Agent").props.onPress();
     });
     act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "draft check-in note clear on expiry",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+    act(() => {
       vi.advanceTimersByTime(1001);
     });
 
     expect(stop).toHaveBeenCalledTimes(1);
     expect(textContent(renderer)).toContain("Session ended");
+    expect(textContent(renderer)).not.toContain("clear on expiry");
     expect(textContent(renderer)).not.toContain("ek_panel_secret");
   });
 
@@ -582,6 +751,27 @@ describe("VoiceAgentSessionPanel", () => {
 
     expect(asyncStorage.setItem).not.toHaveBeenCalled();
     expect(secureStore.setItemAsync).not.toHaveBeenCalled();
+    for (const call of Object.values(mutationCalls)) {
+      expect(call).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does not persist proposal drafts or call clinical mutation APIs", () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText(
+        "prepare hydration log for one glass of water",
+      );
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+
+    expect(asyncStorage.setItem).not.toHaveBeenCalled();
+    expect(asyncStorage.removeItem).not.toHaveBeenCalled();
+    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
+    expect(secureStore.deleteItemAsync).not.toHaveBeenCalled();
     for (const call of Object.values(mutationCalls)) {
       expect(call).not.toHaveBeenCalled();
     }

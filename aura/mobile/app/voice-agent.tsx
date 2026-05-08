@@ -25,12 +25,13 @@ export default function VoiceAgentScreen() {
       header={
         <HeroHeader
           title="Aura Voice Agent"
-          subtitle="Prototype session setup"
+          subtitle="Safe action proposals"
           variant="compact"
         >
           <Text style={styles.headerText}>
-            Start a web-only Realtime audio demo with a temporary backend-created
-            session. Native audio remains planned for a later development build.
+            Start a web-only Realtime audio demo and review deterministic,
+            local action proposals. Aura will not send, submit, book, log, or
+            create alerts by voice in this version.
           </Text>
         </HeroHeader>
       }

@@ -16,6 +16,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-A | Backend-only OpenAI Realtime session broker implemented for authenticated patient users; no mobile UI or clinical voice actions. | `voice-agent-v5a-realtime-session-broker-2026-04-29.md` |
 | Voice Agent V5-B1 | Mobile-only Voice Agent session request prototype implemented; no live audio, WebRTC, tools, or clinical actions. | `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md` |
 | Voice Agent V5-B2-Web | Browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain out of scope. | `voice-agent-v5b2-web-realtime-audio-2026-04-29.md` |
+| Voice Agent V5-C1 | Mobile-only deterministic safe action proposal layer implemented with local whitelist parsing, visible review UI, and no data-changing voice execution. | `voice-agent-v5c1-safe-action-proposals-2026-04-29.md` |
 | Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
@@ -56,7 +57,7 @@ Interpretation boundary:
 
 ## 4. Mobile Voice Assist And UI/UX Accessibility Evidence
 
-Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
+Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
 
 Evidence summary:
 
@@ -135,7 +136,19 @@ Evidence summary:
 - V5-B2-Web safety/privacy boundaries: no secret rendering/logging/storage, no AsyncStorage/SecureStore secret writes, no transcript persistence, no raw audio persistence, no background listening, no always-on microphone, no tools, no app actions, no check-in submission, no chat sending, no appointment booking/canceling, no medication/hydration/nutrition logging, no uploads, no alerts, no emergency calling, and no Safety Router bypass.
 - V5-B2-Web automated tests use mocked WebRTC/OpenAI behavior.
 - V5-B2-Web automated tests made no live OpenAI calls.
-- Latest mobile verification after Mobile UI/UX Accessibility Fix Phase 1: `npm test` passed 55 test files / 330 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke passed with `FAIL 0` and `WARN 0`; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but exit code was 0.
+- V5-C1 implemented a mobile-only deterministic voice action proposal layer.
+- V5-C1 parses local text intent into whitelisted safe proposals.
+- V5-C1 shows visible review UI in the Voice Agent panel.
+- V5-C1 proposal-only drafts remain memory-only on `/voice-agent`.
+- V5-C1 actions come only from a local whitelist parser, not from Realtime model output.
+- V5-C1 does not wire live Realtime transcript text into the proposal parser as an executable command source.
+- V5-C1 allowed actions: Open Check-in, Open Chat, Open Exercise plan, Open Appointments, Open Safety, Open Coping tools, Go back, Stop session, Stop reading, and Show voice help.
+- V5-C1 proposal-only actions: Start guided check-in screen, Draft check-in note only, Draft chat message only, Select appointment slot, Prepare hydration log, Prepare medication status, Prepare nutrition log, and Prepare exercise completion.
+- V5-C1 proposal-only actions only offer review/open-screen paths.
+- V5-C1 proposal-only actions do not call mutation APIs.
+- V5-C1 blocked actions: diagnosis, treatment advice, medication dose or schedule changes, silent submit/send/book/log/upload, alert creation, emergency calling, Safety Router bypass, clinician override, and suppress or ignore alert requests.
+- V5-C1 safety/privacy boundaries: no backend changes, no Realtime tools, no server tool calling, no mutation APIs, no check-in submission by voice, no chat sending by voice, no appointment booking/canceling by voice, no medication/hydration/nutrition logging by voice, no photo upload by voice, no direct alert creation, no emergency call automation, no transcript persistence, no raw audio persistence, no draft storage, no URL-param draft passing, no OpenAI key exposure, no Safety Router behavior changes, and no clinical routing behavior changes.
+- Latest mobile verification after Voice Agent V5-C1: `npm test` passed 56 test files / 377 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke passed with `FAIL 0` and `WARN 0`; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but exit code was 0.
 - Remaining mobile UI/UX limitations: Home/Demo Hub density, deeper voice UX explanation, full long-screen hierarchy cleanup, keyboard-overlap manual device QA, broader caregiver/patient flow separation polish, and no real device/emulator visual QA pass was run.
 - Manual QA is not applicable yet for V4-A because no UI was added.
 - Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B guided check-in also uses speech recognition.
@@ -152,8 +165,9 @@ Evidence sources:
 - `mobile-uiux-accessibility-phase1-2026-04-29.md`
 - `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md`
 - `voice-agent-v5b2-web-realtime-audio-2026-04-29.md`
+- `voice-agent-v5c1-safe-action-proposals-2026-04-29.md`
 
-## 5. Voice Agent V5-A, V5-B1, And V5-B2-Web Evidence
+## 5. Voice Agent V5-A, V5-B1, V5-B2-Web, And V5-C1 Evidence
 
 Aura Voice Agent V5-A implemented a backend-only OpenAI Realtime session broker. It is not a full voice agent yet and does not add mobile Realtime UI or clinical voice actions.
 
@@ -225,11 +239,34 @@ Evidence summary:
 - V5-B2-Web has no clinical actions by voice yet and no tool/action proposal layer yet.
 - V5-B2-Web is not clinical validation and not production voice-agent validation.
 
+Aura Voice Agent V5-C1 implemented deterministic safe action proposals for the mobile Voice Agent. It is a proposal/review layer only and does not implement confirmed data-changing voice actions.
+
+Evidence summary:
+
+- V5-C1 was implemented as a mobile-only deterministic voice action proposal layer.
+- V5-C1 parses local text intent into whitelisted safe proposals.
+- V5-C1 shows visible review UI in the Voice Agent panel.
+- Proposal-only drafts remain memory-only on `/voice-agent`.
+- Actions come only from a local whitelist parser, not from Realtime model output.
+- V5-C1 does not wire live Realtime transcript text into the proposal parser as an executable command source.
+- Allowed actions: Open Check-in, Open Chat, Open Exercise plan, Open Appointments, Open Safety, Open Coping tools, Go back, Stop session, Stop reading, and Show voice help.
+- Proposal-only actions: Start guided check-in screen, Draft check-in note only, Draft chat message only, Select appointment slot, Prepare hydration log, Prepare medication status, Prepare nutrition log, and Prepare exercise completion.
+- Proposal-only actions only offer review/open-screen paths.
+- Proposal-only actions do not call mutation APIs.
+- Blocked actions: Diagnosis, treatment advice, medication dose or schedule changes, silent submit/send/book/log/upload, alert creation, emergency calling, Safety Router bypass, clinician override, and suppress or ignore alert requests.
+- Safety/privacy boundaries: no backend changes, no Realtime tools, no server tool calling, no mutation APIs, no check-in submission by voice, no chat sending by voice, no appointment booking/canceling by voice, no medication/hydration/nutrition logging by voice, no photo upload by voice, no direct alert creation, no emergency call automation, no transcript persistence, no raw audio persistence, no draft storage, no URL-param draft passing, no OpenAI key exposure, no Safety Router behavior changes, and no clinical routing behavior changes.
+- V5-C1 reviews typed/local intent in the Voice Agent panel.
+- Live Realtime transcript text is not yet wired into the proposal parser as an executable command source.
+- V5-C1 is prototype support, not clinical validation.
+- V5-C1 is not production voice-agent validation.
+- Confirmed data-changing voice actions remain future V5-D work.
+
 Evidence sources:
 
 - `voice-agent-v5a-realtime-session-broker-2026-04-29.md`
 - `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md`
 - `voice-agent-v5b2-web-realtime-audio-2026-04-29.md`
+- `voice-agent-v5c1-safe-action-proposals-2026-04-29.md`
 
 ## 6. Static RAG Phase 1
 
@@ -343,7 +380,7 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 55 files passed, 330 tests passed | Latest known mobile verification after Mobile UI/UX Accessibility Fix Phase 1. |
+| Mobile tests | 56 files passed, 377 tests passed | Latest known mobile verification after Voice Agent V5-C1. |
 
 Latest V5-A focused server verification:
 
@@ -387,7 +424,19 @@ Latest Mobile UI/UX Accessibility Fix Phase 1 verification:
 - `git diff --check` passed.
 - Existing React test-renderer deprecation and `act` warnings remained but did not fail the suite.
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Mobile UI/UX Accessibility Fix Phase 1 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+Latest V5-C1 mobile verification:
+
+- `npm test -- voiceActionProposals` passed.
+- `npm test -- VoiceAgentSessionPanel.test.tsx` passed.
+- `npm test -- voiceCommands` passed.
+- `npm test -- todayScreen.test.tsx` passed.
+- `npm test -- VoiceAgentSecurityGuard.test.ts` passed.
+- `npm test` passed: 56 files / 377 tests.
+- `npm run qa:web` passed.
+- `git diff --check` passed.
+- Existing React test-renderer / `act` warnings appeared but did not fail the suite.
+
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-C1 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 12. Limitations And Cautions
 
@@ -429,6 +478,11 @@ The dashboard count is included as a known verified result supplied for this fin
 - Voice Agent V5-B2-Web remote audio playback can depend on browser autoplay policies.
 - Voice Agent V5-B2-Web native live audio remains future development-build work.
 - Voice Agent V5-B2-Web has no clinical actions by voice yet and no tool/action proposal layer yet.
+- Voice Agent V5-C1 reviews typed/local intent in the Voice Agent panel.
+- Voice Agent V5-C1 live Realtime transcript text is not yet wired into the proposal parser as an executable command source.
+- Voice Agent V5-C1 is prototype support, not clinical validation.
+- Voice Agent V5-C1 is not production voice-agent validation.
+- Voice Agent V5-C1 confirmed data-changing voice actions remain future V5-D work.
 
 ## 13. Safe Report Wording
 
@@ -452,12 +506,13 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 353 server tests across 54 files, 330 mobile tests across 55 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 377 mobile tests across 56 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Mobile UI/UX Accessibility Fix Phase 1 completed for scoped accessibility and task-completion blockers from the read-only UI/UX audit, with broader UI/UX polish and real device/emulator visual QA still future work.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
 - Voice Agent V5-B1 mobile session request UI implemented with prepared-session status and expiry; no live audio, WebRTC, tools, or clinical voice actions yet.
 - Voice Agent V5-B2-Web browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain future work.
+- Voice Agent V5-C1 deterministic safe action proposals implemented on mobile with local whitelist parsing, visible review UI, memory-only drafts, and no mutation APIs or Realtime tool-calling.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 

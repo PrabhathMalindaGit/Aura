@@ -18,6 +18,7 @@ describe("Voice Agent mobile security guardrails", () => {
       "src/config/env.ts",
       "src/components/VoiceAgentSessionPanel.tsx",
       "src/api/patient.ts",
+      "src/utils/voiceActionProposals.ts",
       "src/utils/realtimeVoiceSession.ts",
       "src/utils/realtimeVoiceSession.web.ts",
     ];
@@ -32,6 +33,7 @@ describe("Voice Agent mobile security guardrails", () => {
   it("keeps the V5-B2-Web voice agent away from storage, logs, and clinical mutation endpoints", () => {
     const source = [
       "src/components/VoiceAgentSessionPanel.tsx",
+      "src/utils/voiceActionProposals.ts",
       "src/utils/realtimeVoiceSession.ts",
       "src/utils/realtimeVoiceSession.web.ts",
     ]

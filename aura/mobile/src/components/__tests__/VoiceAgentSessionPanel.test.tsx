@@ -219,7 +219,7 @@ function emitVisibilityHidden(documentMock: { visibilityState: string }) {
   }
 }
 
-function mockSession(expiresAt = "2026-05-08T10:01:00.000Z") {
+function mockSession(expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()) {
   createPatientVoiceSession.mockResolvedValue({
     ok: true,
     clientSecret: {

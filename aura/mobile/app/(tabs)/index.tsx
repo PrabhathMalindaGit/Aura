@@ -1099,25 +1099,6 @@ export default function HomeScreen() {
         ) : null}
       </View>
 
-      <View style={styles.sectionBlock}>
-        <TipCard
-          tone="info"
-          leading={{ type: "icon", icon: "chat", tone: "primary" }}
-          title="Aura Voice Agent"
-          text="Prepare a temporary prototype voice session. Live audio and clinical actions are not enabled yet."
-          chips={["V5-B1 prototype", "No live audio"]}
-          actions={[
-            {
-              label: "Open Voice Agent",
-              kind: "secondary",
-              onPress: () => {
-                router.push("/voice-agent" as never);
-              },
-            },
-          ]}
-        />
-      </View>
-
       <Card
         padding={tokens.spacing.lg}
         style={[styles.checkinCard, styles.sectionBlock]}
@@ -1202,203 +1183,9 @@ export default function HomeScreen() {
         )}
       </Card>
 
-      {recoveryNudge ? (
-        <View style={styles.sectionBlock}>
-          <TipCard
-            tone={recoveryNudgeTone}
-            leading={{
-              type: "icon",
-              icon: recoveryNudge.kind === "weekly_summary_ready" ? "weekly" : "insights",
-              tone:
-                recoveryNudgeTone === "warning"
-                  ? "warning"
-                  : recoveryNudgeTone === "success"
-                    ? "success"
-                    : "primary",
-            }}
-            title={recoveryNudge.title}
-            text={recoveryNudge.message}
-            chips={[recoveryNudge.evidenceWindow]}
-            actions={[
-              {
-                label:
-                  recoveryNudge.kind === "weekly_summary_ready"
-                    ? "Open weekly report"
-                    : recoveryNudge.kind === "improving_trend" ||
-                        recoveryNudge.kind === "worsening_trend"
-                      ? "View progress"
-                      : checkinAvailable
-                        ? "Open check-in"
-                        : "Review progress",
-                onPress: () => {
-                  if (recoveryNudge.kind === "weekly_summary_ready") {
-                    router.push("/weekly-report" as never);
-                    return;
-                  }
-                  if (
-                    recoveryNudge.kind === "improving_trend" ||
-                    recoveryNudge.kind === "worsening_trend"
-                  ) {
-                    router.push("/(tabs)/progress" as never);
-                    return;
-                  }
-                  router.push(
-                    (checkinAvailable ? "/(tabs)/checkin" : "/(tabs)/progress") as never,
-                  );
-                },
-              },
-            ]}
-          />
-        </View>
-      ) : null}
-
-      {primaryReminder ? (
-        <Section
-          title="Needs your attention"
-          subtitle={`${reminders.length} update${reminders.length === 1 ? "" : "s"} ready to review.`}
-          left={
-            <View accessible={false} importantForAccessibility="no-hide-descendants">
-              <DomainIcon icon="tasks" size={18} tone="muted" accessibilityLabel="Tasks icon" />
-            </View>
-          }
-          right={<UnreadBadge count={unreadReminderCount} compactLabel />}
-        >
-          <TipCard
-            tone={reminderToneToTipTone(primaryReminder.tone)}
-            leading={{
-              type: "icon",
-              icon: primaryReminder.primaryActionIcon,
-              tone: primaryReminder.tone === "warning" ? "warning" : "primary",
-            }}
-            title={primaryReminder.title}
-            text={primaryReminder.message}
-            chips={attentionChips}
-            actions={[
-              {
-                label: primaryReminder.primaryActionLabel,
-                onPress: () => {
-                  void handleOpenReminder(primaryReminder);
-                },
-              },
-              {
-                label:
-                  unreadReminderCount > 0
-                    ? "Open reminders"
-                    : activeTaskCount > 0
-                      ? "View tasks"
-                      : "Open details",
-                kind: "secondary",
-                onPress: () => {
-                  if (activeTaskCount > 0 && unreadReminderCount === 0) {
-                    router.push("/tasks" as never);
-                    return;
-                  }
-                  router.push("/reminders" as never);
-                },
-              },
-            ]}
-          />
-        </Section>
-      ) : null}
-
       <Section
-        title="Recovery signals"
-        subtitle="A quick view of recent check-ins."
-        left={
-          <View accessible={false} importantForAccessibility="no-hide-descendants">
-            <DomainIcon
-              icon="insights"
-              size={18}
-              tone="muted"
-              accessibilityLabel="Recovery signals icon"
-            />
-          </View>
-        }
-      >
-        <View style={styles.trackerGrid}>
-          <View style={styles.trackerRow}>
-            <View style={styles.trackerCell}>
-              <TrackerTile
-                variant="compact"
-                icon="checkin"
-                label="Pain"
-                value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
-                delta="Last 7 check-ins"
-                tone="warning"
-                micro={
-                  painSeries.length >= 2
-                    ? { type: "sparkline", values: painSeries, tone: "warning" }
-                    : { type: "dots", values: [0, 0, 0] }
-                }
-                onPress={() => {
-                  router.push("/(tabs)/progress" as never);
-                }}
-              />
-            </View>
-            <View style={styles.trackerCell}>
-              <TrackerTile
-                variant="compact"
-                icon="checkin"
-                label="Mood"
-                value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
-                delta="Last 7 check-ins"
-                tone="success"
-                micro={
-                  moodSeries.length >= 2
-                    ? { type: "sparkline", values: moodSeries, tone: "success" }
-                    : { type: "dots", values: [0, 0, 0] }
-                }
-                onPress={() => {
-                  router.push("/(tabs)/progress" as never);
-                }}
-              />
-            </View>
-          </View>
-          <View style={styles.trackerRow}>
-            <View style={styles.trackerCell}>
-              <TrackerTile
-                variant="compact"
-                icon="exercise"
-                label="Adherence"
-                value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
-                delta="Exercises"
-                tone="accent"
-                micro={
-                  adherenceSeries.length >= 2
-                    ? { type: "bars", values: adherenceSeries }
-                    : { type: "dots", values: [0, 0, 0] }
-                }
-                onPress={() => {
-                  router.push("/(tabs)/progress" as never);
-                }}
-              />
-            </View>
-            <View style={styles.trackerCell}>
-              <TrackerTile
-                variant="compact"
-                icon="meds"
-                label="Medication"
-                value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
-                delta="Taken"
-                tone="primary"
-                micro={
-                  medsPct !== null
-                    ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
-                    : { type: "dots", values: [0, 0, 0] }
-                }
-                onPress={() => {
-                  router.push("/(tabs)/progress" as never);
-                }}
-              />
-            </View>
-          </View>
-        </View>
-      </Section>
-
-      {/* Secondary card: Today plan */}
-      <Section
-        title="Today’s plan"
-        subtitle="Your current recovery focus."
+        title="Today’s exercise"
+        subtitle="Continue rehab after your check-in."
         left={
           <View accessible={false} importantForAccessibility="no-hide-descendants">
             <DomainIcon
@@ -1500,68 +1287,343 @@ export default function HomeScreen() {
         )}
       </Section>
 
-      {/* Secondary card: Insights */}
       <Section
-        title="Insights"
-        subtitle="Reviewed patterns from your recent progress."
+        title="Support"
+        subtitle="Message your care team, open safety support, or review appointments."
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="chat"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Support icon"
+            />
+          </View>
+        }
+      >
+        <View style={styles.supportGrid}>
+          <View style={styles.supportCardWrap}>
+            <MediaCard
+              style={styles.supportCard}
+              variant="compact"
+              leading={{ type: "icon", icon: "chat", tone: "accent" }}
+              title="Chat"
+              subtitle="Message your care team."
+              chips={[{ text: "Care support", tone: "muted" }]}
+              onPress={() => {
+                router.push("/(tabs)/chat" as never);
+              }}
+            />
+          </View>
+          <View style={styles.supportCardWrap}>
+            <MediaCard
+              style={styles.supportCard}
+              variant="compact"
+              leading={{ type: "icon", icon: "safety", tone: "success" }}
+              title="Safety"
+              subtitle="Open your safety plan."
+              chips={[{ text: "Always available", tone: "success" }]}
+              onPress={() => {
+                router.push("/safety" as never);
+              }}
+            />
+          </View>
+          <View style={styles.supportCardWrap}>
+            <MediaCard
+              style={styles.supportCard}
+              variant="compact"
+              leading={{ type: "icon", icon: "appointments", tone: "primary" }}
+              title="Appointments"
+              subtitle={
+                appointmentSummary.status === "loading"
+                  ? "Loading…"
+                  : appointmentSummary.nextApprovedLabel
+              }
+              chips={[
+                { text: `Pending ${appointmentSummary.pendingCount}`, tone: "muted" },
+                ...(appointmentSummary.hasUpcoming
+                  ? []
+                  : [{ text: "None upcoming", tone: "muted" as const }]),
+              ]}
+              onPress={() => {
+                router.push("/appointments" as never);
+              }}
+            />
+          </View>
+        </View>
+      </Section>
+
+      <Section
+        title="Progress"
+        subtitle="A quick view of recent check-ins."
         left={
           <View accessible={false} importantForAccessibility="no-hide-descendants">
             <DomainIcon
               icon="insights"
               size={18}
               tone="muted"
-              accessibilityLabel="Insights icon"
+              accessibilityLabel="Progress icon"
             />
           </View>
         }
-        card
       >
-        {insightSummary.status === "loading" ? (
-          <View style={styles.skeletonStack}>
-            <SkeletonBlock height={14} width="50%" />
-            <SkeletonBlock height={72} width="100%" radius={14} />
+        <View style={styles.trackerGrid}>
+          <View style={styles.trackerRow}>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="checkin"
+                label="Pain"
+                value={painAvg !== null ? `${painAvg.toFixed(1)}/10` : "—"}
+                delta="Last 7 check-ins"
+                tone="warning"
+                micro={
+                  painSeries.length >= 2
+                    ? { type: "sparkline", values: painSeries, tone: "warning" }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="checkin"
+                label="Mood"
+                value={moodAvg !== null ? `${moodAvg.toFixed(1)}/5` : "—"}
+                delta="Last 7 check-ins"
+                tone="success"
+                micro={
+                  moodSeries.length >= 2
+                    ? { type: "sparkline", values: moodSeries, tone: "success" }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
           </View>
-        ) : insightSummary.status === "none" ? (
-          <EmptyState
-            variant="compact"
-            illustrationKey="today"
-            title="No reviewed insights yet"
-            description="Keep completing check-ins and reviewed insights will appear here when they are ready."
-          />
-        ) : (
-          insightSummary.top.map((item) => (
-            <MediaCard
-              key={item.id}
-              leading={{ type: "icon", icon: "insights", tone: "success" }}
-              title={item.title}
-              subtitle={item.message}
-              chips={[
-                {
-                  text: `${insightSummary.itemCount} reviewed insight${
-                    insightSummary.itemCount === 1 ? "" : "s"
-                  }`,
-                  tone: "muted",
-                },
-              ]}
+          <View style={styles.trackerRow}>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="exercise"
+                label="Adherence"
+                value={adherenceAvg !== null ? `${Math.round(adherenceAvg)}%` : "—"}
+                delta="Exercises"
+                tone="accent"
+                micro={
+                  adherenceSeries.length >= 2
+                    ? { type: "bars", values: adherenceSeries }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+            <View style={styles.trackerCell}>
+              <TrackerTile
+                variant="compact"
+                icon="meds"
+                label="Medication"
+                value={medsPct !== null ? `${Math.round(medsPct)}%` : "—"}
+                delta="Taken"
+                tone="primary"
+                micro={
+                  medsPct !== null
+                    ? { type: "ring", progress: Math.max(0, Math.min(1, medsPct / 100)) }
+                    : { type: "dots", values: [0, 0, 0] }
+                }
+                onPress={() => {
+                  router.push("/(tabs)/progress" as never);
+                }}
+              />
+            </View>
+          </View>
+        </View>
+      </Section>
+
+      <Section
+        title="Voice support"
+        subtitle="Optional voice tools for navigation and practice."
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="chat"
+              size={18}
+              tone="muted"
+              accessibilityLabel="Voice support icon"
+            />
+          </View>
+        }
+      >
+        <TipCard
+          tone="info"
+          leading={{ type: "icon", icon: "chat", tone: "primary" }}
+          title="Aura Voice Agent"
+          text="Try the browser voice demo. It does not submit check-ins, send messages, or take clinical actions."
+          chips={["Browser demo", "No clinical actions"]}
+          actions={[
+            {
+              label: "Open Voice Agent",
+              kind: "secondary",
+              onPress: () => {
+                router.push("/voice-agent" as never);
+              },
+            },
+          ]}
+        />
+      </Section>
+
+      <Section
+        title="More recovery tools"
+        subtitle="Review updates, reports, and extra recovery context when you have time."
+        left={
+          <View accessible={false} importantForAccessibility="no-hide-descendants">
+            <DomainIcon
+              icon="weekly"
+              size={18}
+              tone="muted"
+              accessibilityLabel="More recovery tools icon"
+            />
+          </View>
+        }
+        right={
+          primaryReminder ? <UnreadBadge count={unreadReminderCount} compactLabel /> : undefined
+        }
+      >
+        <View style={styles.recoveryToolsStack}>
+          {recoveryNudge ? (
+            <TipCard
+              tone={recoveryNudgeTone}
+              leading={{
+                type: "icon",
+                icon: recoveryNudge.kind === "weekly_summary_ready" ? "weekly" : "insights",
+                tone:
+                  recoveryNudgeTone === "warning"
+                    ? "warning"
+                    : recoveryNudgeTone === "success"
+                      ? "success"
+                      : "primary",
+              }}
+              title={recoveryNudge.title}
+              text={recoveryNudge.message}
+              chips={[recoveryNudge.evidenceWindow]}
               actions={[
                 {
-                  label: "View insights",
-                  kind: "secondary",
+                  label:
+                    recoveryNudge.kind === "weekly_summary_ready"
+                      ? "Open weekly report"
+                      : recoveryNudge.kind === "improving_trend" ||
+                          recoveryNudge.kind === "worsening_trend"
+                        ? "View progress"
+                        : checkinAvailable
+                          ? "Open check-in"
+                          : "Review progress",
                   onPress: () => {
-                    router.push("/insights" as never);
+                    if (recoveryNudge.kind === "weekly_summary_ready") {
+                      router.push("/weekly-report" as never);
+                      return;
+                    }
+                    if (
+                      recoveryNudge.kind === "improving_trend" ||
+                      recoveryNudge.kind === "worsening_trend"
+                    ) {
+                      router.push("/(tabs)/progress" as never);
+                      return;
+                    }
+                    router.push(
+                      (checkinAvailable ? "/(tabs)/checkin" : "/(tabs)/progress") as never,
+                    );
                   },
                 },
               ]}
             />
-          ))
-        )}
-      </Section>
+          ) : null}
 
-      {/* Two-column row */}
-      <View style={[styles.twoColumnRow, styles.sectionBlock]}>
-        <View style={styles.twoColumnCell}>
+          {primaryReminder ? (
+            <TipCard
+              tone={reminderToneToTipTone(primaryReminder.tone)}
+              leading={{
+                type: "icon",
+                icon: primaryReminder.primaryActionIcon,
+                tone: primaryReminder.tone === "warning" ? "warning" : "primary",
+              }}
+              title={primaryReminder.title}
+              text={primaryReminder.message}
+              chips={attentionChips}
+              actions={[
+                {
+                  label: primaryReminder.primaryActionLabel,
+                  onPress: () => {
+                    void handleOpenReminder(primaryReminder);
+                  },
+                },
+                {
+                  label:
+                    unreadReminderCount > 0
+                      ? "Open reminders"
+                      : activeTaskCount > 0
+                        ? "View tasks"
+                        : "Open details",
+                  kind: "secondary",
+                  onPress: () => {
+                    if (activeTaskCount > 0 && unreadReminderCount === 0) {
+                      router.push("/tasks" as never);
+                      return;
+                    }
+                    router.push("/reminders" as never);
+                  },
+                },
+              ]}
+            />
+          ) : null}
+
+          {insightSummary.status === "loading" ? (
+            <View style={styles.skeletonStack}>
+              <SkeletonBlock height={14} width="50%" />
+              <SkeletonBlock height={72} width="100%" radius={14} />
+            </View>
+          ) : insightSummary.status === "none" ? (
+            <EmptyState
+              variant="compact"
+              illustrationKey="today"
+              title="No reviewed insights yet"
+              description="Keep completing check-ins and reviewed insights will appear here when they are ready."
+            />
+          ) : (
+            insightSummary.top.map((item) => (
+              <MediaCard
+                key={item.id}
+                leading={{ type: "icon", icon: "insights", tone: "success" }}
+                title={item.title}
+                subtitle={item.message}
+                chips={[
+                  {
+                    text: `${insightSummary.itemCount} reviewed insight${
+                      insightSummary.itemCount === 1 ? "" : "s"
+                    }`,
+                    tone: "muted",
+                  },
+                ]}
+                actions={[
+                  {
+                    label: "View insights",
+                    kind: "secondary",
+                    onPress: () => {
+                      router.push("/insights" as never);
+                    },
+                  },
+                ]}
+              />
+            ))
+          )}
+
           <MediaCard
-            style={styles.twoColumnCard}
             variant="compact"
             leading={{ type: "icon", icon: "weekly", tone: "primary" }}
             title="Weekly report"
@@ -1571,8 +1633,8 @@ export default function HomeScreen() {
                 : weeklySummary.status === "building"
                   ? "We’re building this week’s report from your recent check-ins."
                   : weeklySummary.status === "loading"
-                  ? "Loading…"
-                  : "No report yet"
+                    ? "Loading…"
+                    : "No report yet"
             }
             chips={
               weeklySummary.status === "available"
@@ -1587,61 +1649,15 @@ export default function HomeScreen() {
                 : weeklySummary.status === "building"
                   ? [{ text: "Building", tone: "muted" }]
                   : weeklySummary.status === "none"
-                  ? [{ text: "Tap to view", tone: "muted" }]
-                  : undefined
+                    ? [{ text: "Tap to view", tone: "muted" }]
+                    : undefined
             }
             onPress={() => {
               router.push("/weekly-report" as never);
             }}
           />
         </View>
-
-        <View style={styles.twoColumnCell}>
-          <MediaCard
-            style={styles.twoColumnCard}
-            variant="compact"
-            leading={{ type: "icon", icon: "appointments", tone: "primary" }}
-            title="Next appointment"
-            subtitle={
-              appointmentSummary.status === "loading"
-                ? "Loading…"
-                : appointmentSummary.nextApprovedLabel
-            }
-            chips={[
-              { text: `Pending ${appointmentSummary.pendingCount}`, tone: "muted" },
-              ...(appointmentSummary.hasUpcoming
-                ? []
-                : [{ text: "None upcoming", tone: "muted" as const }]),
-            ]}
-            onPress={() => {
-              router.push("/appointments" as never);
-            }}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sectionBlock}>
-        <TipCard
-          tone="safety"
-          leading={{ type: "icon", icon: "safety", tone: "success" }}
-          title="Safety Plan"
-          text={
-            careMode === "active"
-              ? "If symptoms change quickly or you feel unsafe, your safety plan is ready at any time."
-              : "If symptoms change quickly or you feel unsafe, your safety plan is still available. Routine clinician monitoring may no longer be active."
-          }
-          chips={["Always available"]}
-          actions={[
-            {
-              label: "Open Safety Plan",
-              kind: "secondary",
-              onPress: () => {
-                router.push("/safety" as never);
-              },
-            },
-          ]}
-        />
-      </View>
+      </Section>
 
       {isDashboardLoading ? (
         <Text style={styles.loadingFootnote}>Loading latest dashboard data…</Text>
@@ -1689,6 +1705,22 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     trackerCell: {
       flex: 1,
       minWidth: 0,
+    },
+    supportGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.md,
+    },
+    supportCardWrap: {
+      flexGrow: 1,
+      flexBasis: 128,
+      minWidth: 0,
+    },
+    supportCard: {
+      flex: 1,
+    },
+    recoveryToolsStack: {
+      gap: tokens.spacing.md,
     },
     checkinCard: {
       backgroundColor: tokens.colors.primarySoft,

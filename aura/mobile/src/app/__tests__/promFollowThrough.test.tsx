@@ -674,8 +674,7 @@ describe("PROM follow-through surfaces", () => {
     const renderer = await renderScreen(React.createElement(HomeScreen));
     const text = renderedText(renderer);
 
-    expect(text).toContain("Needs your attention");
-    expect(text).toContain("update ready to review");
+    expect(text).toContain("More recovery tools");
     expect(text).toContain("KOOS weekly check-in");
     expect(text).toContain("Open questionnaire");
     expect(getDueProms).toHaveBeenCalledWith("token-1", 100);

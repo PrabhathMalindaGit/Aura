@@ -29,8 +29,8 @@ export default function VoiceAgentScreen() {
           variant="compact"
         >
           <Text style={styles.headerText}>
-            Prepare a temporary backend-created Realtime session. Live audio conversation
-            is planned later and is not enabled in V5-B1.
+            Start a web-only Realtime audio demo with a temporary backend-created
+            session. Native audio remains planned for a later development build.
           </Text>
         </HeroHeader>
       }

@@ -1,21 +1,46 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  AppState,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { createPatientVoiceSession } from "@/src/api/patient";
 import { Card } from "@/src/components/Card";
 import { getPressFeedbackStyle } from "@/src/components/Motion";
 import { useReducedMotion } from "@/src/hooks/useReducedMotion";
+import {
+  isRealtimeVoiceSessionSupported,
+  startRealtimeVoiceSession,
+  type RealtimeVoiceSessionHandle,
+  type RealtimeVoiceSessionPhase,
+} from "@/src/utils/realtimeVoiceSession";
 import { useTokens } from "@/src/theme/tokens";
 
 export type VoiceAgentSessionStatus =
-  | "unavailable"
+  | "disabled"
   | "ready"
-  | "connecting"
-  | "connected"
-  | "ending"
+  | "requestingSession"
+  | "requestingMicrophone"
+  | "connectingAudio"
+  | "live"
+  | "stopping"
   | "ended"
-  | "error";
+  | "error"
+  | "webUnsupported"
+  | "nativeUnsupported";
+
+type MicrophoneStatus =
+  | "notRequested"
+  | "requesting"
+  | "granted"
+  | "denied"
+  | "unavailable";
 
 type PreparedSession = {
   id: string;
@@ -35,8 +60,10 @@ type FriendlyFailure = {
 };
 
 const LIMITATIONS = [
-  "Live audio connection is not enabled yet in V5-B1.",
   "No clinical actions by voice yet.",
+  "No auto-submit.",
+  "No auto-send.",
+  "No tools or app actions yet.",
   "Cannot submit check-ins.",
   "Cannot send messages.",
   "Cannot book or cancel appointments.",
@@ -51,9 +78,70 @@ const PRIVACY_NOTES = [
   "No raw audio storage.",
   "No transcript storage.",
   "Temporary client secret is kept in memory only and cleared on stop, background, unmount, error, or expiry.",
+  "Live browser audio may be heard by people nearby. Use a private space or headphones.",
 ];
 
+function isWebPlatform(): boolean {
+  return Platform.OS === "web";
+}
+
+function initialStatus(token: string | null): VoiceAgentSessionStatus {
+  if (!token) {
+    return "disabled";
+  }
+
+  if (!isWebPlatform()) {
+    return "nativeUnsupported";
+  }
+
+  return isRealtimeVoiceSessionSupported() ? "ready" : "webUnsupported";
+}
+
+function getBrowserDocument(): Document | null {
+  const candidate = globalThis as typeof globalThis & {
+    document?: Document;
+  };
+
+  return candidate.document ?? null;
+}
+
+function getRealtimeErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("code" in error)) {
+    return null;
+  }
+
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+}
+
 function mapFailure(error: unknown): FriendlyFailure {
+  const realtimeCode = getRealtimeErrorCode(error);
+  if (realtimeCode === "microphone_denied") {
+    return {
+      status: "error",
+      title: "Microphone permission denied",
+      message:
+        "Microphone permission was denied. Enable microphone access in your browser to use the web Voice Agent demo.",
+    };
+  }
+
+  if (realtimeCode === "unsupported") {
+    return {
+      status: "webUnsupported",
+      title: "Browser unsupported",
+      message:
+        "This browser cannot start a live Voice Agent audio session. Use a browser with WebRTC and microphone support.",
+    };
+  }
+
+  if (realtimeCode === "connection_failed") {
+    return {
+      status: "error",
+      title: "Audio connection failed",
+      message: "Voice Agent audio could not connect. Nothing was stored.",
+    };
+  }
+
   const apiError =
     error && typeof error === "object" && "status" in error
       ? (error as { status?: number })
@@ -61,7 +149,7 @@ function mapFailure(error: unknown): FriendlyFailure {
 
   if (apiError?.status === 404) {
     return {
-      status: "unavailable",
+      status: "disabled",
       title: "Voice Agent unavailable",
       message: "Voice Agent prototype is not available right now.",
     };
@@ -117,21 +205,45 @@ function formatExpiry(expiresAt: string): string {
 
 function statusLabel(status: VoiceAgentSessionStatus): string {
   switch (status) {
-    case "unavailable":
+    case "disabled":
       return "Unavailable";
-    case "connecting":
-      return "Preparing session";
-    case "connected":
-      return "Prototype session ready";
-    case "ending":
-      return "Ending session";
+    case "requestingSession":
+      return "Requesting session";
+    case "requestingMicrophone":
+      return "Requesting microphone";
+    case "connectingAudio":
+      return "Connecting audio";
+    case "live":
+      return "Live browser audio";
+    case "stopping":
+      return "Stopping session";
     case "ended":
       return "Session ended";
     case "error":
       return "Needs attention";
+    case "webUnsupported":
+      return "Browser unsupported";
+    case "nativeUnsupported":
+      return "Web demo only";
     case "ready":
     default:
       return "Ready";
+  }
+}
+
+function microphoneLabel(status: MicrophoneStatus): string {
+  switch (status) {
+    case "requesting":
+      return "Requesting browser permission";
+    case "granted":
+      return "Browser microphone active";
+    case "denied":
+      return "Permission denied";
+    case "unavailable":
+      return "Unavailable on this platform";
+    case "notRequested":
+    default:
+      return "Not requested";
   }
 }
 
@@ -146,8 +258,12 @@ export function VoiceAgentSessionPanel({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const requestInFlightRef = useRef(false);
-  const [status, setStatus] = useState<VoiceAgentSessionStatus>(
-    token ? "ready" : "unavailable",
+  const realtimeSessionRef = useRef<RealtimeVoiceSessionHandle | null>(null);
+  const [status, setStatus] = useState<VoiceAgentSessionStatus>(() =>
+    initialStatus(token),
+  );
+  const [microphoneStatus, setMicrophoneStatus] = useState<MicrophoneStatus>(
+    isWebPlatform() ? "notRequested" : "unavailable",
   );
   const [session, setSession] = useState<PreparedSession | null>(null);
   const [failure, setFailure] = useState<FriendlyFailure | null>(null);
@@ -160,16 +276,25 @@ export function VoiceAgentSessionPanel({
     }
   }, []);
 
+  const stopRealtimeSession = useCallback(() => {
+    if (realtimeSessionRef.current) {
+      realtimeSessionRef.current.stop();
+      realtimeSessionRef.current = null;
+    }
+  }, []);
+
   const clearSession = useCallback(
     (nextStatus: VoiceAgentSessionStatus = "ended") => {
+      stopRealtimeSession();
       secretRef.current = null;
       requestInFlightRef.current = false;
       setSession(null);
       clearExpiryTimer();
+      setMicrophoneStatus(isWebPlatform() ? "notRequested" : "unavailable");
       setStatus(nextStatus);
       setRevision((current) => current + 1);
     },
-    [clearExpiryTimer],
+    [clearExpiryTimer, stopRealtimeSession],
   );
 
   const scheduleExpiry = useCallback(
@@ -195,23 +320,38 @@ export function VoiceAgentSessionPanel({
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      secretRef.current = null;
-      clearExpiryTimer();
+      clearSession("ended");
     };
-  }, [clearExpiryTimer]);
+  }, [clearSession]);
 
   useEffect(() => {
     if (!token) {
-      clearSession("unavailable");
+      clearSession("disabled");
       setFailure({
-        status: "unavailable",
+        status: "disabled",
         title: "Sign in required",
-        message: "Sign in to prepare a Voice Agent prototype session.",
+        message: "Sign in to start a web Voice Agent demo session.",
       });
       return;
     }
 
-    if (status === "unavailable" && failure?.title === "Sign in required") {
+    if (!isWebPlatform()) {
+      clearSession("nativeUnsupported");
+      setFailure(null);
+      return;
+    }
+
+    if (!isRealtimeVoiceSessionSupported()) {
+      clearSession("webUnsupported");
+      setFailure(null);
+      return;
+    }
+
+    if (
+      (status === "disabled" && failure?.title === "Sign in required") ||
+      status === "webUnsupported" ||
+      status === "nativeUnsupported"
+    ) {
       setFailure(null);
       setStatus("ready");
     }
@@ -230,17 +370,74 @@ export function VoiceAgentSessionPanel({
     };
   }, [clearSession]);
 
+  useEffect(() => {
+    if (!isWebPlatform()) {
+      return undefined;
+    }
+
+    const documentRef = getBrowserDocument();
+    if (!documentRef?.addEventListener) {
+      return undefined;
+    }
+
+    const handleVisibilityChange = () => {
+      if (documentRef.visibilityState !== "hidden" || !secretRef.current) {
+        return;
+      }
+      clearSession("ended");
+    };
+
+    documentRef.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      documentRef.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [clearSession]);
+
+  const handlePhaseChange = useCallback((phase: RealtimeVoiceSessionPhase) => {
+    if (!mountedRef.current || !secretRef.current) {
+      return;
+    }
+
+    if (phase === "requestingMicrophone") {
+      setMicrophoneStatus("requesting");
+      setStatus("requestingMicrophone");
+      return;
+    }
+
+    if (phase === "connectingAudio") {
+      setMicrophoneStatus("granted");
+      setStatus("connectingAudio");
+      return;
+    }
+
+    setMicrophoneStatus("granted");
+    setStatus("live");
+  }, []);
+
   const handleStart = useCallback(async () => {
-    if (!token || requestInFlightRef.current || status === "connecting") {
+    if (
+      !token ||
+      !isWebPlatform() ||
+      !isRealtimeVoiceSessionSupported() ||
+      requestInFlightRef.current ||
+      status === "requestingSession" ||
+      status === "requestingMicrophone" ||
+      status === "connectingAudio" ||
+      status === "live" ||
+      status === "stopping"
+    ) {
       return;
     }
 
     requestInFlightRef.current = true;
     secretRef.current = null;
+    stopRealtimeSession();
     setSession(null);
     clearExpiryTimer();
     setFailure(null);
-    setStatus("connecting");
+    setMicrophoneStatus("notRequested");
+    setStatus("requestingSession");
 
     try {
       const prepared = await createPatientVoiceSession(token);
@@ -254,44 +451,90 @@ export function VoiceAgentSessionPanel({
         model: prepared.session.model,
         expiresAt: prepared.clientSecret.expiresAt,
       });
-      setStatus("connected");
       scheduleExpiry(prepared.clientSecret.expiresAt);
+
+      const realtimeSession = await startRealtimeVoiceSession({
+        clientSecret: prepared.clientSecret.value,
+        onPhaseChange: handlePhaseChange,
+      });
+
+      if (!mountedRef.current || !secretRef.current) {
+        realtimeSession.stop();
+        return;
+      }
+
+      realtimeSessionRef.current = realtimeSession;
+      setMicrophoneStatus("granted");
+      setStatus("live");
     } catch (error) {
       if (!mountedRef.current) {
         return;
       }
 
       secretRef.current = null;
+      stopRealtimeSession();
       setSession(null);
       clearExpiryTimer();
       const nextFailure = mapFailure(error);
       setFailure(nextFailure);
+      setMicrophoneStatus(
+        getRealtimeErrorCode(error) === "microphone_denied"
+          ? "denied"
+          : isWebPlatform()
+            ? "notRequested"
+            : "unavailable",
+      );
       setStatus(nextFailure.status);
     } finally {
       requestInFlightRef.current = false;
     }
-  }, [clearExpiryTimer, scheduleExpiry, status, token]);
+  }, [
+    clearExpiryTimer,
+    handlePhaseChange,
+    scheduleExpiry,
+    status,
+    stopRealtimeSession,
+    token,
+  ]);
 
   const handleStop = useCallback(() => {
-    if (status !== "connected") {
+    if (!secretRef.current && !session) {
       return;
     }
 
-    setStatus("ending");
+    setStatus("stopping");
     clearSession("ended");
-  }, [clearSession, status]);
+  }, [clearSession, session]);
 
-  const isConnecting = status === "connecting";
-  const isPrepared = status === "connected" && session;
-  const canStart = Boolean(token) && status !== "connecting" && status !== "unavailable";
-  const showStop = Boolean(isPrepared);
+  const isBusy =
+    status === "requestingSession" ||
+    status === "requestingMicrophone" ||
+    status === "connectingAudio" ||
+    status === "stopping";
+  const canStart =
+    Boolean(token) &&
+    isWebPlatform() &&
+    isRealtimeVoiceSessionSupported() &&
+    !isBusy &&
+    status !== "live";
+  const showStop = Boolean(session) && status !== "ended" && status !== "error";
   const expiryLabel = session ? formatExpiry(session.expiresAt) : null;
   const statusText =
-    status === "connected"
-      ? "Prototype session ready. No live voice conversation has started."
-      : status === "ended"
-        ? "Session ended. The temporary client secret has been cleared from memory."
-        : failure?.message ?? "Ready to request a temporary prototype session.";
+    status === "nativeUnsupported"
+      ? "Live Voice Agent audio is available in the web demo for V5-B2. Native audio requires a later development-build implementation."
+      : status === "webUnsupported"
+        ? "This browser does not expose the WebRTC microphone APIs needed for the V5-B2-Web demo."
+        : status === "requestingSession"
+          ? "Requesting a backend-created temporary Realtime session."
+          : status === "requestingMicrophone"
+            ? "Waiting for browser microphone permission."
+            : status === "connectingAudio"
+              ? "Connecting browser audio to the Realtime session."
+              : status === "live"
+                ? "Live browser audio is connected. Voice conversation only; no app actions are available."
+                : status === "ended"
+                  ? "Session ended. The temporary client secret and audio connection have been cleared."
+                  : failure?.message ?? "Ready to start a live browser Voice Agent demo.";
 
   return (
     <View testID={testID} style={styles.wrapper}>
@@ -305,7 +548,7 @@ export function VoiceAgentSessionPanel({
               Aura Voice Agent
             </Text>
             <Text style={styles.subtitle}>
-              Prototype voice-agent session setup. V5-B1 prepares a backend session only.
+              V5-B2-Web starts a browser Realtime audio demo only.
             </Text>
           </View>
         </View>
@@ -317,7 +560,7 @@ export function VoiceAgentSessionPanel({
           accessibilityLabel={`Voice Agent status: ${statusLabel(status)}. ${statusText}`}
           style={[
             styles.statusBox,
-            status === "error" || status === "unavailable" ? styles.statusBoxWarning : null,
+            status === "error" || status === "disabled" ? styles.statusBoxWarning : null,
           ]}
         >
           <Text style={styles.statusKicker}>Status</Text>
@@ -325,7 +568,20 @@ export function VoiceAgentSessionPanel({
           <Text style={styles.statusText}>{statusText}</Text>
         </View>
 
-        {isPrepared ? (
+        <View style={styles.metaGrid}>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>Microphone</Text>
+            <Text style={styles.metaValue}>{microphoneLabel(microphoneStatus)}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>Platform</Text>
+            <Text style={styles.metaValue}>
+              {isWebPlatform() ? "Expo web browser demo" : "Native live audio not enabled"}
+            </Text>
+          </View>
+        </View>
+
+        {session ? (
           <View style={styles.metaGrid}>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Session model</Text>
@@ -352,10 +608,10 @@ export function VoiceAgentSessionPanel({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Start Voice Agent"
-            accessibilityHint="Requests a temporary prototype voice-agent session from Aura."
+            accessibilityHint="Starts a web-only live browser audio session after requesting a temporary backend session."
             accessibilityState={{
               disabled: !canStart,
-              busy: isConnecting || undefined,
+              busy: isBusy || undefined,
             }}
             disabled={!canStart}
             onPress={() => {
@@ -367,13 +623,13 @@ export function VoiceAgentSessionPanel({
               pressed && canStart ? getPressFeedbackStyle(reduceMotion, 0.88) : null,
             ]}
           >
-            {isConnecting ? (
+            {isBusy ? (
               <ActivityIndicator size="small" color={tokens.colors.primaryTextOn} />
             ) : (
               <MaterialCommunityIcons name="play-circle-outline" size={20} color={tokens.colors.primaryTextOn} />
             )}
             <Text style={styles.primaryButtonText}>
-              {isConnecting ? "Preparing..." : "Start Voice Agent"}
+              {isBusy ? "Starting..." : "Start Voice Agent"}
             </Text>
           </Pressable>
 
@@ -381,7 +637,7 @@ export function VoiceAgentSessionPanel({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Stop Voice Agent"
-              accessibilityHint="Clears this prepared prototype session and its temporary secret from memory."
+              accessibilityHint="Stops browser audio and clears this temporary Voice Agent session from memory."
               accessibilityState={{ disabled: false }}
               onPress={handleStop}
               style={({ pressed }) => [
@@ -406,6 +662,11 @@ export function VoiceAgentSessionPanel({
               {"\u2022"} {item}
             </Text>
           ))}
+          {!isWebPlatform() ? (
+            <Text style={styles.bulletText}>
+              {"\u2022"} Live Voice Agent audio is available in the web demo for V5-B2. Native audio requires a later development-build implementation.
+            </Text>
+          ) : null}
         </View>
       </Card>
 

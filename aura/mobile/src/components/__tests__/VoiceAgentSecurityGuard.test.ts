@@ -18,6 +18,8 @@ describe("Voice Agent mobile security guardrails", () => {
       "src/config/env.ts",
       "src/components/VoiceAgentSessionPanel.tsx",
       "src/api/patient.ts",
+      "src/utils/realtimeVoiceSession.ts",
+      "src/utils/realtimeVoiceSession.web.ts",
     ];
 
     for (const file of files) {
@@ -27,11 +29,20 @@ describe("Voice Agent mobile security guardrails", () => {
     }
   });
 
-  it("keeps the V5-B1 panel away from storage and clinical mutation endpoints", () => {
-    const source = readMobileFile("src/components/VoiceAgentSessionPanel.tsx");
+  it("keeps the V5-B2-Web voice agent away from storage, logs, and clinical mutation endpoints", () => {
+    const source = [
+      "src/components/VoiceAgentSessionPanel.tsx",
+      "src/utils/realtimeVoiceSession.ts",
+      "src/utils/realtimeVoiceSession.web.ts",
+    ]
+      .map(readMobileFile)
+      .join("\n");
 
     expect(source).not.toContain("AsyncStorage");
     expect(source).not.toContain("SecureStore");
+    expect(source).not.toContain("console.");
+    expect(source).not.toContain("localStorage");
+    expect(source).not.toContain("sessionStorage");
     expect(source).not.toContain("/patient/checkins");
     expect(source).not.toContain("/patient/chat/send");
     expect(source).not.toContain("/patient/appointments");

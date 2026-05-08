@@ -292,6 +292,18 @@ EXPO_PUBLIC_API_BASE=http://localhost:3000
 - The real `OPENAI_API_KEY` remains backend-only; do not add `EXPO_PUBLIC_OPENAI_API_KEY` or any OpenAI API key to mobile env/config.
 - V5-B2 should separately plan native Realtime audio/WebRTC and development-build QA.
 
+## Voice Agent V5-B2-Web: Browser Realtime Audio Demo
+
+- Voice Agent V5-B2-Web adds live Realtime audio for the Expo web/browser demo on `/voice-agent`.
+- The app still uses the backend-created temporary client secret from `POST /patient/voice/session`.
+- The temporary client secret stays in component memory only and is cleared on Stop, background, unmount, error, or expiry.
+- V5-B2-Web does not add native WebRTC packages or native iOS/Android live audio. Native live audio remains future development-build work.
+- The real `OPENAI_API_KEY` remains backend-only; do not add `EXPO_PUBLIC_OPENAI_API_KEY` or any OpenAI API key to mobile env/config.
+- V5-B2-Web does not add tools, app actions, check-in submission, chat sending, alerts, emergency calling, or Safety Router bypass.
+- Aura does not store transcripts or raw audio for V5-B2-Web.
+- Live browser testing has API cost and privacy considerations. Use short sessions, stop promptly, and avoid shared spaces unless everyone nearby understands audio may be heard.
+- Stop, app background, route unmount, network/setup failure, and session expiry end the browser audio session.
+
 ## Step 6: Progress (14/30 day summaries + history)
 
 - Progress tab loads check-ins from:

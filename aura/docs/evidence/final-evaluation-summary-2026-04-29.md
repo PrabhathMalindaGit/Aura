@@ -14,6 +14,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Patient app | Patient-facing flows are covered by existing server/mobile verification; mobile tests are listed under verification status. | Known verified test results |
 | Voice Agent V5-A | Backend-only OpenAI Realtime session broker implemented for authenticated patient users; no mobile UI or clinical voice actions. | `voice-agent-v5a-realtime-session-broker-2026-04-29.md` |
 | Voice Agent V5-B1 | Mobile-only Voice Agent session request prototype implemented; no live audio, WebRTC, tools, or clinical actions. | `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md` |
+| Voice Agent V5-B2-Web | Browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain out of scope. | `voice-agent-v5b2-web-realtime-audio-2026-04-29.md` |
 | Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
@@ -106,9 +107,26 @@ Evidence summary:
 - V5-B1 never renders or logs `clientSecret.value`.
 - V5-B1 clears `clientSecret.value` on stop, unmount, backgrounding, expiry, error, and missing token/sign-out detection.
 - V5-B1 does not persist `clientSecret.value` to AsyncStorage or SecureStore.
-- Latest mobile verification after V5-B1: `npm test` passed 51 test files / 314 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke passed with `FAIL 0` and `WARN 0`; `expo-doctor` passed with the npm cache workaround; `expo-modules-autolinking verify -v` passed; `git diff --check` passed; existing `react-test-renderer` deprecation warnings appeared but did not fail tests.
+- V5-B2-Web implemented browser-only live Realtime WebRTC audio on `/voice-agent`.
+- V5-B2-Web uses the existing V5-A backend broker `POST /patient/voice/session`.
+- V5-B2-Web uses `createPatientVoiceSession(token)`.
+- V5-B2-Web keeps `clientSecret.value` in memory only.
+- V5-B2-Web requests browser microphone permission only after Start.
+- V5-B2-Web creates `RTCPeerConnection` on Expo web/browser only.
+- V5-B2-Web posts SDP to `https://api.openai.com/v1/realtime/calls` using the temporary client secret.
+- V5-B2-Web transitions to live after the SDP answer is set.
+- Native iOS/Android do not start live audio in V5-B2-Web and show web-demo-only copy.
+- V5-B2-Web added no native WebRTC packages.
+- V5-B2-Web did not change `mobile/package.json`.
+- V5-B2-Web did not change `mobile/app.json`.
+- V5-B2-Web added no OpenAI API key or `EXPO_PUBLIC_OPENAI_API_KEY` to mobile.
+- V5-B2-Web safety/privacy boundaries: no secret rendering/logging/storage, no AsyncStorage/SecureStore secret writes, no transcript persistence, no raw audio persistence, no background listening, no always-on microphone, no tools, no app actions, no check-in submission, no chat sending, no appointment booking/canceling, no medication/hydration/nutrition logging, no uploads, no alerts, no emergency calling, and no Safety Router bypass.
+- V5-B2-Web automated tests use mocked WebRTC/OpenAI behavior.
+- V5-B2-Web automated tests made no live OpenAI calls.
+- Latest mobile verification after V5-B2-Web: `npm test` passed 52 test files / 324 tests; `npm run qa:web` passed; TypeScript passed; web guardrails and a11y smoke passed with `FAIL 0` and `WARN 0`; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but exit code was 0.
 - Manual QA is not applicable yet for V4-A because no UI was added.
 - Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B guided check-in also uses speech recognition.
+- Manual live browser QA is still required for V5-B2-Web.
 - Clinical validation remains future work.
 
 Evidence sources:
@@ -119,8 +137,9 @@ Evidence sources:
 - `mobile-voice-assist-v4a-guided-checkin-parser-2026-04-29.md`
 - `mobile-voice-assist-v4b-guided-checkin-panel-2026-04-29.md`
 - `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md`
+- `voice-agent-v5b2-web-realtime-audio-2026-04-29.md`
 
-## 5. Voice Agent V5-A And V5-B1 Evidence
+## 5. Voice Agent V5-A, V5-B1, And V5-B2-Web Evidence
 
 Aura Voice Agent V5-A implemented a backend-only OpenAI Realtime session broker. It is not a full voice agent yet and does not add mobile Realtime UI or clinical voice actions.
 
@@ -164,10 +183,39 @@ Evidence summary:
 - `clientSecret.value` is not persisted to AsyncStorage or SecureStore.
 - V5-B1 is not clinical validation and not production voice-agent validation.
 
+Aura Voice Agent V5-B2-Web implemented a browser-only live Realtime WebRTC audio demo on `/voice-agent`. It is web demo evidence only and does not add native live audio, tools, or clinical voice actions.
+
+Evidence summary:
+
+- V5-B2-Web implemented browser-only live Realtime WebRTC audio on `/voice-agent`.
+- V5-B2-Web uses the existing V5-A backend broker `POST /patient/voice/session`.
+- V5-B2-Web uses `createPatientVoiceSession(token)`.
+- V5-B2-Web keeps `clientSecret.value` in memory only.
+- V5-B2-Web requests browser microphone permission only after Start.
+- V5-B2-Web creates `RTCPeerConnection` on Expo web/browser only.
+- V5-B2-Web posts SDP to `https://api.openai.com/v1/realtime/calls` using the temporary client secret.
+- V5-B2-Web transitions to live after the SDP answer is set.
+- Native iOS/Android do not start live audio in this phase and show web-demo-only copy.
+- No native WebRTC packages were added.
+- `mobile/package.json` was not changed.
+- `mobile/app.json` was not changed.
+- No OpenAI API key or `EXPO_PUBLIC_OPENAI_API_KEY` was added to mobile.
+- V5-B2-Web preserves no secret rendering/logging/storage, no AsyncStorage/SecureStore secret writes, no transcript persistence, no raw audio persistence, no background listening, no always-on microphone, no tools, no app actions, no check-in submission, no chat sending, no appointment booking/canceling, no medication/hydration/nutrition logging, no uploads, no alerts, no emergency calling, and no Safety Router bypass.
+- Automated tests use mocked WebRTC/OpenAI behavior.
+- Automated tests made no live OpenAI calls.
+- Manual live browser QA is still required.
+- Live browser testing has real OpenAI API cost and privacy exposure.
+- Browser WebRTC/microphone support varies.
+- Remote audio playback can depend on browser autoplay policies.
+- Native live audio remains future development-build work.
+- V5-B2-Web has no clinical actions by voice yet and no tool/action proposal layer yet.
+- V5-B2-Web is not clinical validation and not production voice-agent validation.
+
 Evidence sources:
 
 - `voice-agent-v5a-realtime-session-broker-2026-04-29.md`
 - `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md`
+- `voice-agent-v5b2-web-realtime-audio-2026-04-29.md`
 
 ## 6. Static RAG Phase 1
 
@@ -281,7 +329,7 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 51 files passed, 314 tests passed | Latest known mobile verification after Voice Agent V5-B1 mobile session request UI. |
+| Mobile tests | 52 files passed, 324 tests passed | Latest known mobile verification after Voice Agent V5-B2-Web browser Realtime audio demo. |
 
 Latest V5-A focused server verification:
 
@@ -305,7 +353,17 @@ Latest V5-B1 mobile verification:
 - `git diff --check` passed.
 - Existing `react-test-renderer` deprecation warnings appeared but did not fail tests.
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-B1 evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+Latest V5-B2-Web mobile verification:
+
+- `npm test` passed: 52 files / 324 tests.
+- Existing `react-test-renderer` deprecation and `act` warnings appeared but exit code was 0.
+- `npm run qa:web` passed.
+- TypeScript passed.
+- Web guardrails passed: `FAIL 0` / `WARN 0`.
+- A11y smoke passed: `FAIL 0` / `WARN 0`.
+- `git diff --check` passed.
+
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-B2-Web evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 12. Limitations And Cautions
 
@@ -338,6 +396,13 @@ The dashboard count is included as a known verified result supplied for this fin
 - Voice Agent V5-B1 has no confirmed actions yet.
 - Voice Agent V5-B2 must separately plan native Realtime audio/WebRTC and development-build QA.
 - Voice Agent V5-B1 is not clinical validation and not production voice-agent validation.
+- Voice Agent V5-B2-Web is a browser-only live Realtime audio demo, not clinical validation and not production voice-agent validation.
+- Voice Agent V5-B2-Web manual live browser QA is still required.
+- Voice Agent V5-B2-Web live browser testing has real OpenAI API cost and privacy exposure.
+- Voice Agent V5-B2-Web browser WebRTC/microphone support varies.
+- Voice Agent V5-B2-Web remote audio playback can depend on browser autoplay policies.
+- Voice Agent V5-B2-Web native live audio remains future development-build work.
+- Voice Agent V5-B2-Web has no clinical actions by voice yet and no tool/action proposal layer yet.
 
 ## 13. Safe Report Wording
 
@@ -361,10 +426,11 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 353 server tests across 54 files, 314 mobile tests across 51 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 324 mobile tests across 52 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
 - Voice Agent V5-B1 mobile session request UI implemented with prepared-session status and expiry; no live audio, WebRTC, tools, or clinical voice actions yet.
+- Voice Agent V5-B2-Web browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain future work.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 

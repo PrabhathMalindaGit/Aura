@@ -1,24 +1,24 @@
 import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   appStateListeners,
-  createPatientVoiceSession,
-  secureStore,
   asyncStorage,
+  createPatientVoiceSession,
+  documentListeners,
   mutationCalls,
+  platformState,
+  realtimeVoice,
+  secureStore,
 } = vi.hoisted(() => ({
   appStateListeners: [] as Array<(state: string) => void>,
-  createPatientVoiceSession: vi.fn(),
-  secureStore: {
-    setItemAsync: vi.fn(),
-    deleteItemAsync: vi.fn(),
-  },
   asyncStorage: {
     setItem: vi.fn(),
     removeItem: vi.fn(),
   },
+  createPatientVoiceSession: vi.fn(),
+  documentListeners: [] as Array<() => void>,
   mutationCalls: {
     createCheckin: vi.fn(),
     sendChat: vi.fn(),
@@ -28,6 +28,17 @@ const {
     logNutrition: vi.fn(),
     logMedicationDose: vi.fn(),
     uploadPhoto: vi.fn(),
+  },
+  platformState: {
+    os: "web",
+  },
+  realtimeVoice: {
+    isRealtimeVoiceSessionSupported: vi.fn(() => true),
+    startRealtimeVoiceSession: vi.fn(),
+  },
+  secureStore: {
+    setItemAsync: vi.fn(),
+    deleteItemAsync: vi.fn(),
   },
 }));
 
@@ -41,6 +52,8 @@ vi.mock("@/src/api/patient", () => ({
   createPatientVoiceSession,
   ...mutationCalls,
 }));
+
+vi.mock("@/src/utils/realtimeVoiceSession", () => realtimeVoice);
 
 vi.mock("react-native", () => ({
   ActivityIndicator: (props: Record<string, unknown>) =>
@@ -57,6 +70,11 @@ vi.mock("react-native", () => ({
         }),
       };
     }),
+  },
+  Platform: {
+    get OS() {
+      return platformState.os;
+    },
   },
   Pressable: ({
     children,
@@ -145,6 +163,28 @@ vi.mock("@/src/theme/tokens", () => ({
 
 import { VoiceAgentSessionPanel } from "@/src/components/VoiceAgentSessionPanel";
 
+function installDocumentMock(visibilityState = "visible") {
+  const documentMock = {
+    visibilityState,
+    addEventListener: vi.fn((_eventName: string, listener: () => void) => {
+      documentListeners.push(listener);
+    }),
+    removeEventListener: vi.fn((_eventName: string, listener: () => void) => {
+      const index = documentListeners.indexOf(listener);
+      if (index >= 0) {
+        documentListeners.splice(index, 1);
+      }
+    }),
+  };
+
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: documentMock,
+  });
+
+  return documentMock;
+}
+
 function renderPanel(props?: Partial<React.ComponentProps<typeof VoiceAgentSessionPanel>>) {
   let renderer: ReactTestRenderer | null = null;
 
@@ -172,9 +212,48 @@ function emitAppState(state: string) {
   }
 }
 
+function emitVisibilityHidden(documentMock: { visibilityState: string }) {
+  documentMock.visibilityState = "hidden";
+  for (const listener of [...documentListeners]) {
+    listener();
+  }
+}
+
+function mockSession(expiresAt = "2026-05-08T10:01:00.000Z") {
+  createPatientVoiceSession.mockResolvedValue({
+    ok: true,
+    clientSecret: {
+      value: "ek_panel_secret",
+      expiresAt,
+    },
+    session: {
+      id: "sess_panel",
+      model: "gpt-realtime-2",
+    },
+  });
+}
+
+function mockRealtimeSuccess(stop = vi.fn()) {
+  realtimeVoice.startRealtimeVoiceSession.mockImplementation(
+    async (options: { onPhaseChange?: (phase: string) => void }) => {
+      options.onPhaseChange?.("requestingMicrophone");
+      options.onPhaseChange?.("connectingAudio");
+      options.onPhaseChange?.("live");
+      return { stop };
+    },
+  );
+  return stop;
+}
+
 describe("VoiceAgentSessionPanel", () => {
   beforeEach(() => {
+    installDocumentMock();
     appStateListeners.splice(0);
+    documentListeners.splice(0);
+    platformState.os = "web";
+    realtimeVoice.isRealtimeVoiceSessionSupported.mockReset();
+    realtimeVoice.isRealtimeVoiceSessionSupported.mockReturnValue(true);
+    realtimeVoice.startRealtimeVoiceSession.mockReset();
     createPatientVoiceSession.mockReset();
     secureStore.setItemAsync.mockReset();
     secureStore.deleteItemAsync.mockReset();
@@ -185,6 +264,10 @@ describe("VoiceAgentSessionPanel", () => {
     }
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders ready state with accessible start affordance and prototype limitations", () => {
     const renderer = renderPanel();
 
@@ -193,25 +276,64 @@ describe("VoiceAgentSessionPanel", () => {
 
     expect(start.props.accessibilityRole).toBe("button");
     expect(start.props.accessibilityHint).toBe(
-      "Requests a temporary prototype voice-agent session from Aura.",
+      "Starts a web-only live browser audio session after requesting a temporary backend session.",
     );
     expect(start.props.accessibilityState).toEqual({
       disabled: false,
       busy: undefined,
     });
     expect(text).toContain("Aura Voice Agent");
-    expect(text).toContain("Live audio connection is not enabled yet in V5-B1.");
+    expect(text).toContain("V5-B2-Web starts a browser Realtime audio demo only.");
     expect(text).toContain("No always-on microphone.");
+    expect(text).toContain("No tools or app actions yet.");
     expect(text).toContain("Cannot submit check-ins");
   });
 
-  it("starts one backend request and ignores duplicate starts while connecting", async () => {
+  it("disables live audio on native without requesting a session", async () => {
+    platformState.os = "ios";
+    const renderer = renderPanel();
+
+    const start = findButton(renderer, "Start Voice Agent");
+    const text = textContent(renderer);
+
+    expect(start.props.accessibilityState.disabled).toBe(true);
+    expect(text).toContain(
+      "Live Voice Agent audio is available in the web demo for V5-B2. Native audio requires a later development-build implementation.",
+    );
+
+    await act(async () => {
+      await start.props.onPress();
+    });
+
+    expect(createPatientVoiceSession).not.toHaveBeenCalled();
+    expect(realtimeVoice.startRealtimeVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it("shows web unsupported state without requesting a session", async () => {
+    realtimeVoice.isRealtimeVoiceSessionSupported.mockReturnValue(false);
+    const renderer = renderPanel();
+
+    const start = findButton(renderer, "Start Voice Agent");
+    const text = textContent(renderer);
+
+    expect(start.props.accessibilityState.disabled).toBe(true);
+    expect(text).toContain("This browser does not expose the WebRTC microphone APIs");
+
+    await act(async () => {
+      await start.props.onPress();
+    });
+
+    expect(createPatientVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it("starts one backend request and ignores duplicate starts while requesting a session", async () => {
     let resolveSession: (value: unknown) => void = () => undefined;
     createPatientVoiceSession.mockReturnValue(
       new Promise((resolve) => {
         resolveSession = resolve;
       }),
     );
+    mockRealtimeSuccess();
     const renderer = renderPanel();
 
     await act(async () => {
@@ -239,18 +361,9 @@ describe("VoiceAgentSessionPanel", () => {
     });
   });
 
-  it("shows prepared session metadata without rendering the client secret", async () => {
-    createPatientVoiceSession.mockResolvedValue({
-      ok: true,
-      clientSecret: {
-        value: "ek_panel_secret",
-        expiresAt: "2026-05-08T10:01:00.000Z",
-      },
-      session: {
-        id: "sess_panel",
-        model: "gpt-realtime-2",
-      },
-    });
+  it("connects mocked browser WebRTC and never renders the client secret", async () => {
+    mockSession();
+    mockRealtimeSuccess();
     const renderer = renderPanel();
 
     await act(async () => {
@@ -258,78 +371,40 @@ describe("VoiceAgentSessionPanel", () => {
     });
 
     const text = textContent(renderer);
-    expect(text).toContain("Prototype session ready");
+    expect(text).toContain("Live browser audio");
+    expect(text).toContain("Browser microphone active");
     expect(text).toContain("gpt-realtime-2");
     expect(text).toContain("sess_panel");
     expect(text).toContain("Expires");
     expect(text).not.toContain("ek_panel_secret");
+    expect(realtimeVoice.startRealtimeVoiceSession).toHaveBeenCalledTimes(1);
+    expect(realtimeVoice.startRealtimeVoiceSession.mock.calls[0][0].clientSecret).toBe(
+      "ek_panel_secret",
+    );
     expect(findButton(renderer, "Stop Voice Agent").props.accessibilityHint).toBe(
-      "Clears this prepared prototype session and its temporary secret from memory.",
+      "Stops browser audio and clears this temporary Voice Agent session from memory.",
     );
   });
 
-  it("clears the prepared session and client secret on stop", async () => {
-    createPatientVoiceSession.mockResolvedValue({
-      ok: true,
-      clientSecret: {
-        value: "ek_panel_secret",
-        expiresAt: "2026-05-08T10:01:00.000Z",
-      },
-      session: {
-        id: "sess_panel",
-        model: "gpt-realtime-2",
-      },
+  it("maps microphone permission denial to safe copy and clears session metadata", async () => {
+    mockSession();
+    realtimeVoice.startRealtimeVoiceSession.mockRejectedValue({
+      code: "microphone_denied",
     });
     const renderer = renderPanel();
 
     await act(async () => {
       await findButton(renderer, "Start Voice Agent").props.onPress();
     });
-    act(() => {
-      findButton(renderer, "Stop Voice Agent").props.onPress();
-    });
 
     const text = textContent(renderer);
-    expect(text).toContain("Session ended");
+    expect(text).toContain("Microphone permission was denied");
+    expect(text).toContain("Permission denied");
     expect(text).not.toContain("sess_panel");
     expect(text).not.toContain("ek_panel_secret");
   });
 
-  it("clears the prepared session on unmount and app background", async () => {
-    createPatientVoiceSession.mockResolvedValue({
-      ok: true,
-      clientSecret: {
-        value: "ek_panel_secret",
-        expiresAt: "2026-05-08T10:01:00.000Z",
-      },
-      session: {
-        id: "sess_panel",
-        model: "gpt-realtime-2",
-      },
-    });
-    const renderer = renderPanel();
-
-    await act(async () => {
-      await findButton(renderer, "Start Voice Agent").props.onPress();
-    });
-    act(() => {
-      emitAppState("background");
-    });
-
-    expect(textContent(renderer)).toContain("Session ended");
-    expect(textContent(renderer)).not.toContain("ek_panel_secret");
-
-    await act(async () => {
-      await findButton(renderer, "Start Voice Agent").props.onPress();
-    });
-    act(() => {
-      renderer.unmount();
-    });
-
-    expect(appStateListeners).toHaveLength(0);
-  });
-
-  it("maps disabled, auth, rate-limit, and temporary failures to safe messages", async () => {
+  it("maps backend disabled, auth, rate-limit, and temporary failures to safe messages", async () => {
     const cases = [
       {
         status: 404,
@@ -370,24 +445,135 @@ describe("VoiceAgentSessionPanel", () => {
       const text = textContent(renderer);
       expect(text).toContain(item.expected);
       expect(text).not.toContain("raw upstream detail");
+      expect(realtimeVoice.startRealtimeVoiceSession).not.toHaveBeenCalled();
       act(() => {
         renderer.unmount();
       });
     }
   });
 
-  it("does not persist secrets or call clinical mutation APIs", async () => {
-    createPatientVoiceSession.mockResolvedValue({
-      ok: true,
-      clientSecret: {
-        value: "ek_panel_secret",
-        expiresAt: "2026-05-08T10:01:00.000Z",
-      },
-      session: {
-        id: "sess_panel",
-        model: "gpt-realtime-2",
-      },
+  it("cleans the live browser session on stop", async () => {
+    const stop = mockRealtimeSuccess();
+    mockSession();
+    const renderer = renderPanel();
+
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
     });
+    act(() => {
+      findButton(renderer, "Stop Voice Agent").props.onPress();
+    });
+
+    const text = textContent(renderer);
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(text).toContain("Session ended");
+    expect(text).not.toContain("sess_panel");
+    expect(text).not.toContain("ek_panel_secret");
+  });
+
+  it("cleans the live browser session on unmount and app background", async () => {
+    const stop = mockRealtimeSuccess();
+    mockSession();
+    const renderer = renderPanel();
+
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
+    });
+    act(() => {
+      emitAppState("background");
+    });
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(textContent(renderer)).toContain("Session ended");
+    expect(textContent(renderer)).not.toContain("ek_panel_secret");
+
+    stop.mockClear();
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
+    });
+    act(() => {
+      renderer.unmount();
+    });
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(appStateListeners).toHaveLength(0);
+    expect(documentListeners).toHaveLength(0);
+  });
+
+  it("cleans the live browser session on token loss", async () => {
+    const stop = mockRealtimeSuccess();
+    mockSession();
+    const renderer = renderPanel();
+
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
+    });
+    act(() => {
+      renderer.update(<VoiceAgentSessionPanel token={null} />);
+    });
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(textContent(renderer)).toContain("Sign in to start a web Voice Agent demo session.");
+    expect(textContent(renderer)).not.toContain("ek_panel_secret");
+    expect(textContent(renderer)).not.toContain("sess_panel");
+  });
+
+  it("cleans the live browser session on document visibility hidden", async () => {
+    const documentMock = installDocumentMock();
+    const stop = mockRealtimeSuccess();
+    mockSession();
+    const renderer = renderPanel();
+
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
+    });
+    act(() => {
+      emitVisibilityHidden(documentMock);
+    });
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(textContent(renderer)).toContain("Session ended");
+    expect(textContent(renderer)).not.toContain("ek_panel_secret");
+  });
+
+  it("cleans the live browser session on expiry", async () => {
+    vi.useFakeTimers();
+    const stop = mockRealtimeSuccess();
+    mockSession(new Date(Date.now() + 1000).toISOString());
+    const renderer = renderPanel();
+
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
+    });
+    act(() => {
+      vi.advanceTimersByTime(1001);
+    });
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(textContent(renderer)).toContain("Session ended");
+    expect(textContent(renderer)).not.toContain("ek_panel_secret");
+  });
+
+  it("cleans session metadata on mocked WebRTC network failure", async () => {
+    mockSession();
+    realtimeVoice.startRealtimeVoiceSession.mockRejectedValue({
+      code: "connection_failed",
+    });
+    const renderer = renderPanel();
+
+    await act(async () => {
+      await findButton(renderer, "Start Voice Agent").props.onPress();
+    });
+
+    const text = textContent(renderer);
+    expect(text).toContain("Voice Agent audio could not connect. Nothing was stored.");
+    expect(text).not.toContain("sess_panel");
+    expect(text).not.toContain("ek_panel_secret");
+  });
+
+  it("does not persist secrets or call clinical mutation APIs", async () => {
+    mockSession();
+    mockRealtimeSuccess();
     const renderer = renderPanel();
 
     await act(async () => {

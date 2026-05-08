@@ -40,6 +40,17 @@ vi.mock("../src/services/n8n", async () => {
   };
 });
 
+vi.mock("../src/services/openaiRealtimeService", async () => {
+  const actual = await vi.importActual<
+    typeof import("../src/services/openaiRealtimeService")
+  >("../src/services/openaiRealtimeService");
+
+  return {
+    ...actual,
+    createPatientVoiceSession: vi.fn(),
+  };
+});
+
 import app from "../src/app";
 import { env } from "../src/env";
 import Alert from "../src/models/Alert";
@@ -53,6 +64,7 @@ import LoginThrottle from "../src/models/LoginThrottle";
 import Patient from "../src/models/Patient";
 import { AIUnavailableError, classify, ragReply } from "../src/services/ai";
 import { emitAlertCreated } from "../src/services/n8n";
+import { createPatientVoiceSession } from "../src/services/openaiRealtimeService";
 import { signPatientToken } from "../src/utils/patientJwt";
 
 describe("patient auth + patient endpoints", () => {
@@ -61,10 +73,18 @@ describe("patient auth + patient endpoints", () => {
     PATIENT_JWT_SECRET: string;
     PATIENT_TOKEN_TTL: string;
     DEMO_PATIENT_LOGIN: boolean;
+    AURA_VOICE_AGENT_ENABLED: boolean;
+    AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS: number;
+    AURA_VOICE_AGENT_RATE_LIMIT_MAX: number;
   };
   const originalPatientSecret = mutableEnv.PATIENT_JWT_SECRET;
   const originalPatientTokenTtl = mutableEnv.PATIENT_TOKEN_TTL;
   const originalDemoPatientLogin = mutableEnv.DEMO_PATIENT_LOGIN;
+  const originalVoiceAgentEnabled = mutableEnv.AURA_VOICE_AGENT_ENABLED;
+  const originalVoiceAgentRateLimitWindowMs =
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS;
+  const originalVoiceAgentRateLimitMax =
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_MAX;
 
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
@@ -75,6 +95,11 @@ describe("patient auth + patient endpoints", () => {
     mutableEnv.PATIENT_JWT_SECRET = originalPatientSecret;
     mutableEnv.PATIENT_TOKEN_TTL = originalPatientTokenTtl;
     mutableEnv.DEMO_PATIENT_LOGIN = originalDemoPatientLogin;
+    mutableEnv.AURA_VOICE_AGENT_ENABLED = originalVoiceAgentEnabled;
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS =
+      originalVoiceAgentRateLimitWindowMs;
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_MAX =
+      originalVoiceAgentRateLimitMax;
 
     await mongoose.disconnect();
     if (mongoServer) {
@@ -86,12 +111,26 @@ describe("patient auth + patient endpoints", () => {
     mutableEnv.PATIENT_JWT_SECRET = "test-patient-jwt-secret";
     mutableEnv.PATIENT_TOKEN_TTL = "30d";
     mutableEnv.DEMO_PATIENT_LOGIN = true;
+    mutableEnv.AURA_VOICE_AGENT_ENABLED = false;
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS = 60_000;
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_MAX = 5;
 
     vi.mocked(classify).mockReset();
     vi.mocked(ragReply).mockReset();
     vi.mocked(emitAlertCreated).mockReset();
+    vi.mocked(createPatientVoiceSession).mockReset();
     vi.mocked(axios.post).mockReset();
     vi.mocked(emitAlertCreated).mockResolvedValue(true);
+    vi.mocked(createPatientVoiceSession).mockResolvedValue({
+      clientSecret: {
+        value: "ek_route_secret",
+        expiresAt: "2026-05-08T10:00:00.000Z",
+      },
+      session: {
+        id: "sess_route",
+        model: "gpt-realtime-2",
+      },
+    });
 
     await Promise.all([
       Alert.deleteMany({}),
@@ -889,6 +928,126 @@ describe("patient auth + patient endpoints", () => {
     expect(response.body.patientCommunicationSummary).toBeNull();
     expect(response.body.messages).toHaveLength(2);
     expect(response.body.messages[0].text).toBe("Second");
+  });
+
+  it("returns 401 for unauthenticated patient voice session requests", async () => {
+    const response = await request(app).post("/patient/voice/session").send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({
+      ok: false,
+      error: "UNAUTHORIZED",
+    });
+    expect(createPatientVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for patient voice session requests when the feature is disabled", async () => {
+    const token = signPatientToken({ id: "p-disabled" });
+
+    const response = await request(app)
+      .post("/patient/voice/session")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      ok: false,
+      error: "NOT_FOUND",
+    });
+    expect(createPatientVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it("returns an ephemeral voice session secret for an authenticated patient", async () => {
+    mutableEnv.AURA_VOICE_AGENT_ENABLED = true;
+    await seedPatient({ patientId: "p-voice", accessCode: "PVOICE" });
+    const token = signPatientToken({
+      id: "p-voice",
+      displayName: "Voice Patient",
+    });
+
+    const response = await request(app)
+      .post("/patient/voice/session")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      ok: true,
+      clientSecret: {
+        value: "ek_route_secret",
+        expiresAt: "2026-05-08T10:00:00.000Z",
+      },
+      session: {
+        id: "sess_route",
+        model: "gpt-realtime-2",
+      },
+    });
+    expect(createPatientVoiceSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patientId: "p-voice",
+        displayName: "Patient One",
+        requestId: expect.any(String),
+      })
+    );
+
+    const serialized = JSON.stringify(response.body);
+    expect(serialized).not.toContain("OPENAI_API_KEY");
+    expect(serialized).not.toContain("sk-");
+    expect(serialized).not.toContain("instructions");
+    expect(serialized).not.toContain("tools");
+    expect(serialized).not.toContain("safety");
+    expect(serialized).not.toContain("payload");
+    expect(serialized).not.toContain("patient");
+    expect(serialized).not.toContain("upstream");
+  });
+
+  it("rejects non-empty patient voice session request bodies", async () => {
+    mutableEnv.AURA_VOICE_AGENT_ENABLED = true;
+    await seedPatient({ patientId: "p-voice-body", accessCode: "PVOICEBODY" });
+    const token = signPatientToken({ id: "p-voice-body" });
+
+    const response = await request(app)
+      .post("/patient/voice/session")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ prompt: "please connect" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({
+      ok: false,
+      error: "VALIDATION_ERROR",
+    });
+    expect(createPatientVoiceSession).not.toHaveBeenCalled();
+  });
+
+  it("rate limits repeated patient voice session creation attempts", async () => {
+    mutableEnv.AURA_VOICE_AGENT_ENABLED = true;
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_MAX = 5;
+    mutableEnv.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS = 60_000;
+    await seedPatient({ patientId: "p-voice-limit", accessCode: "PVOICELIMIT" });
+    const token = signPatientToken({ id: "p-voice-limit" });
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await request(app)
+        .post("/patient/voice/session")
+        .set("Authorization", `Bearer ${token}`)
+        .send({});
+
+      expect(response.status).toBe(200);
+    }
+
+    const throttled = await request(app)
+      .post("/patient/voice/session")
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(throttled.status).toBe(429);
+    expect(throttled.body).toMatchObject({
+      ok: false,
+      error: "TOO_MANY_REQUESTS",
+    });
+    expect(typeof throttled.body.retryAfterSeconds).toBe("number");
+    expect(throttled.body.retryAfterSeconds).toBeGreaterThan(0);
+    expect(createPatientVoiceSession).toHaveBeenCalledTimes(5);
   });
 
   it("returns 401 for missing patient token", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assertRuntimeEnvSafety } from "../src/env";
+import { assertRuntimeEnvSafety, env } from "../src/env";
 
 function buildRuntimeEnv(
   overrides: Partial<{
@@ -11,6 +11,12 @@ function buildRuntimeEnv(
     AI_BASE_URL: string;
     AURA_AI_SERVICE_KEY: string;
     AI_REQUEST_TIMEOUT_MS: number;
+    OPENAI_API_KEY: string;
+    AURA_VOICE_AGENT_ENABLED: boolean;
+    AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: number;
+    AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS: number;
+    AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS: number;
+    AURA_VOICE_AGENT_RATE_LIMIT_MAX: number;
     RAG_PGVECTOR_DIMENSIONS: number;
     RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: number;
   }> = {}
@@ -23,6 +29,12 @@ function buildRuntimeEnv(
     AI_BASE_URL: "https://ai.example.com",
     AURA_AI_SERVICE_KEY: "prod-ai-key",
     AI_REQUEST_TIMEOUT_MS: 4000,
+    OPENAI_API_KEY: "prod-openai-key",
+    AURA_VOICE_AGENT_ENABLED: false,
+    AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: 60,
+    AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS: 4000,
+    AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS: 60_000,
+    AURA_VOICE_AGENT_RATE_LIMIT_MAX: 5,
     RAG_PGVECTOR_DIMENSIONS: 384,
     RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: 3,
     ...overrides,
@@ -30,6 +42,15 @@ function buildRuntimeEnv(
 }
 
 describe("runtime env safety checks", () => {
+  it("defaults the voice agent feature off with bounded broker settings", () => {
+    expect(env.AURA_VOICE_AGENT_ENABLED).toBe(false);
+    expect(env.AURA_VOICE_AGENT_MODEL).toBe("gpt-realtime-2");
+    expect(env.AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS).toBe(60);
+    expect(env.AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS).toBe(4000);
+    expect(env.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS).toBe(60_000);
+    expect(env.AURA_VOICE_AGENT_RATE_LIMIT_MAX).toBe(5);
+  });
+
   it("throws when clinician auth bypass is enabled outside tests", () => {
     expect(() =>
       assertRuntimeEnvSafety(
@@ -94,6 +115,72 @@ describe("runtime env safety checks", () => {
         })
       )
     ).toThrow(/AI_REQUEST_TIMEOUT_MS/);
+  });
+
+  it("requires OPENAI_API_KEY when the voice agent is enabled outside local environments", () => {
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_VOICE_AGENT_ENABLED: true,
+          OPENAI_API_KEY: "",
+        })
+      )
+    ).toThrow(/OPENAI_API_KEY/);
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          NODE_ENV: "test",
+          AURA_VOICE_AGENT_ENABLED: true,
+          OPENAI_API_KEY: "",
+          CORS_ALLOWED_ORIGINS: [],
+        })
+      )
+    ).not.toThrow();
+  });
+
+  it("throws when voice agent TTL or timeout settings are out of bounds", () => {
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: 9,
+        })
+      )
+    ).toThrow(/AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS/);
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: 7201,
+        })
+      )
+    ).toThrow(/AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS/);
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS: 100,
+        })
+      )
+    ).toThrow(/AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS/);
+  });
+
+  it("throws when voice agent rate-limit settings are out of bounds", () => {
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS: 999,
+        })
+      )
+    ).toThrow(/AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS/);
+
+    expect(() =>
+      assertRuntimeEnvSafety(
+        buildRuntimeEnv({
+          AURA_VOICE_AGENT_RATE_LIMIT_MAX: 0,
+        })
+      )
+    ).toThrow(/AURA_VOICE_AGENT_RATE_LIMIT_MAX/);
   });
 
   it("throws when patient memory PGVector settings are out of bounds", () => {

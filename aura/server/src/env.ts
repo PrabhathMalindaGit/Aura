@@ -84,6 +84,12 @@ function isValidHttpUrl(value: string): boolean {
 
 const MIN_AI_REQUEST_TIMEOUT_MS = 250;
 const MAX_AI_REQUEST_TIMEOUT_MS = 10_000;
+const MIN_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS = 10;
+const MAX_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS = 7200;
+const MIN_VOICE_AGENT_RATE_LIMIT_WINDOW_MS = 1000;
+const MAX_VOICE_AGENT_RATE_LIMIT_WINDOW_MS = 60 * 60_000;
+const MIN_VOICE_AGENT_RATE_LIMIT_MAX = 1;
+const MAX_VOICE_AGENT_RATE_LIMIT_MAX = 60;
 
 const nodeEnv = process.env.NODE_ENV || "development";
 
@@ -108,6 +114,41 @@ export const env = {
   AURA_AI_SERVICE_KEY:
     process.env.AURA_AI_SERVICE_KEY ||
     (nodeEnv === "production" ? "" : "dev_aura_ai_key"),
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+  AURA_VOICE_AGENT_ENABLED: toBool(
+    process.env.AURA_VOICE_AGENT_ENABLED,
+    false
+  ),
+  AURA_VOICE_AGENT_MODEL:
+    process.env.AURA_VOICE_AGENT_MODEL || "gpt-realtime-2",
+  AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: parseBoundedIntEnv(
+    "AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS",
+    process.env.AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS,
+    60,
+    MIN_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS,
+    MAX_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS
+  ),
+  AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS: parseBoundedIntEnv(
+    "AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS",
+    process.env.AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS,
+    4000,
+    MIN_AI_REQUEST_TIMEOUT_MS,
+    MAX_AI_REQUEST_TIMEOUT_MS
+  ),
+  AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS: parseBoundedIntEnv(
+    "AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS",
+    process.env.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS,
+    60_000,
+    MIN_VOICE_AGENT_RATE_LIMIT_WINDOW_MS,
+    MAX_VOICE_AGENT_RATE_LIMIT_WINDOW_MS
+  ),
+  AURA_VOICE_AGENT_RATE_LIMIT_MAX: parseBoundedIntEnv(
+    "AURA_VOICE_AGENT_RATE_LIMIT_MAX",
+    process.env.AURA_VOICE_AGENT_RATE_LIMIT_MAX,
+    5,
+    MIN_VOICE_AGENT_RATE_LIMIT_MAX,
+    MAX_VOICE_AGENT_RATE_LIMIT_MAX
+  ),
   JWT_SECRET:
     process.env.JWT_SECRET ||
     (nodeEnv === "production" ? "" : "dev_jwt_secret"),
@@ -168,6 +209,12 @@ type RuntimeEnv = {
   AI_BASE_URL: string;
   AURA_AI_SERVICE_KEY: string;
   AI_REQUEST_TIMEOUT_MS: number;
+  OPENAI_API_KEY: string;
+  AURA_VOICE_AGENT_ENABLED: boolean;
+  AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS: number;
+  AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS: number;
+  AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS: number;
+  AURA_VOICE_AGENT_RATE_LIMIT_MAX: number;
   RAG_PGVECTOR_DIMENSIONS: number;
   RAG_PGVECTOR_PATIENT_MEMORY_TOP_K: number;
 };
@@ -222,6 +269,57 @@ export function assertRuntimeEnvSafety(value: RuntimeEnv): void {
   ) {
     throw new Error(
       "AURA_AI_SERVICE_KEY must be set for non-local environments"
+    );
+  }
+
+  if (
+    value.AURA_VOICE_AGENT_ENABLED &&
+    value.NODE_ENV !== "development" &&
+    value.NODE_ENV !== "test" &&
+    !value.OPENAI_API_KEY.trim()
+  ) {
+    throw new Error(
+      "OPENAI_API_KEY must be set when AURA_VOICE_AGENT_ENABLED=true"
+    );
+  }
+
+  if (
+    value.AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS <
+      MIN_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS ||
+    value.AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS >
+      MAX_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS
+  ) {
+    throw new Error(
+      `AURA_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS must be between ${MIN_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS} and ${MAX_VOICE_AGENT_CLIENT_SECRET_TTL_SECONDS}`
+    );
+  }
+
+  if (
+    value.AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS < MIN_AI_REQUEST_TIMEOUT_MS ||
+    value.AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS > MAX_AI_REQUEST_TIMEOUT_MS
+  ) {
+    throw new Error(
+      `AURA_VOICE_AGENT_REQUEST_TIMEOUT_MS must be between ${MIN_AI_REQUEST_TIMEOUT_MS} and ${MAX_AI_REQUEST_TIMEOUT_MS}`
+    );
+  }
+
+  if (
+    value.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS <
+      MIN_VOICE_AGENT_RATE_LIMIT_WINDOW_MS ||
+    value.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS >
+      MAX_VOICE_AGENT_RATE_LIMIT_WINDOW_MS
+  ) {
+    throw new Error(
+      `AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS must be between ${MIN_VOICE_AGENT_RATE_LIMIT_WINDOW_MS} and ${MAX_VOICE_AGENT_RATE_LIMIT_WINDOW_MS}`
+    );
+  }
+
+  if (
+    value.AURA_VOICE_AGENT_RATE_LIMIT_MAX < MIN_VOICE_AGENT_RATE_LIMIT_MAX ||
+    value.AURA_VOICE_AGENT_RATE_LIMIT_MAX > MAX_VOICE_AGENT_RATE_LIMIT_MAX
+  ) {
+    throw new Error(
+      `AURA_VOICE_AGENT_RATE_LIMIT_MAX must be between ${MIN_VOICE_AGENT_RATE_LIMIT_MAX} and ${MAX_VOICE_AGENT_RATE_LIMIT_MAX}`
     );
   }
 }

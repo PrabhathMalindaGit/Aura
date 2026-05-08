@@ -40,6 +40,10 @@ import {
   mapPatientCareStatus,
 } from "../services/patientCareStatusService";
 import { getPatientCommunicationSummary } from "../services/communicationTruthService";
+import {
+  createPatientVoiceSession,
+  OpenAIRealtimeUnavailableError,
+} from "../services/openaiRealtimeService";
 import { getRecoveryNudge } from "../services/progressNudgeService";
 import type { RequestWithPatient } from "../types/patientAuth";
 import { logger } from "../utils/logger";
@@ -50,6 +54,7 @@ const router = Router();
 const PATIENT_LOGIN_WINDOW_MS = 15 * 60_000;
 const PATIENT_LOGIN_PRINCIPAL_MAX_ATTEMPTS = 5;
 const PATIENT_LOGIN_IP_MAX_ATTEMPTS = 20;
+const PATIENT_VOICE_SESSION_RATE_SCOPE = "patient_voice_session";
 
 const sleepHoursSchema = z
   .number()
@@ -232,6 +237,18 @@ function parseIsoDate(value: string): Date | null {
   }
 
   return parsed;
+}
+
+function hasNonEmptyBody(value: unknown): boolean {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  return (
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    Object.keys(value).length > 0
+  );
 }
 
 function mapPatientProfile(patient: {
@@ -464,6 +481,114 @@ router.get("/patient/recovery-nudge", requirePatientAuth, async (req, res) => {
   } catch (error) {
     logger.error("Get patient recovery nudge failed", {
       route: "GET /patient/recovery-nudge",
+      patientId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({
+      ok: false,
+      error: "INTERNAL_ERROR",
+    });
+  }
+});
+
+router.post("/patient/voice/session", requirePatientAuth, async (req, res) => {
+  const requestWithPatient = req as RequestWithPatient;
+  const patientId = requestWithPatient.patient?.id;
+  const requestId = getRequestIdFromResponse(res);
+
+  if (!patientId) {
+    return res.status(401).json({
+      ok: false,
+      error: "UNAUTHORIZED",
+    });
+  }
+
+  if (!env.AURA_VOICE_AGENT_ENABLED) {
+    return res.status(404).json({
+      ok: false,
+      error: "NOT_FOUND",
+    });
+  }
+
+  if (hasNonEmptyBody(req.body)) {
+    return res.status(400).json({
+      ok: false,
+      error: "VALIDATION_ERROR",
+      details: [
+        {
+          path: "body",
+          message: "Body must be empty",
+        },
+      ],
+    });
+  }
+
+  try {
+    const patient = await Patient.findOne({ patientId }).lean();
+    if (!patient) {
+      return res.status(404).json({
+        ok: false,
+        error: "NOT_FOUND",
+      });
+    }
+
+    const ip = getRequestIp(req);
+    const attempt = await consumeLoginThrottle({
+      scope: PATIENT_VOICE_SESSION_RATE_SCOPE,
+      buckets: [
+        {
+          scopeSuffix: "patient",
+          key: patientId,
+          limit: env.AURA_VOICE_AGENT_RATE_LIMIT_MAX,
+          windowMs: env.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS,
+        },
+        {
+          scopeSuffix: "ip",
+          key: ip,
+          limit: env.AURA_VOICE_AGENT_RATE_LIMIT_MAX,
+          windowMs: env.AURA_VOICE_AGENT_RATE_LIMIT_WINDOW_MS,
+        },
+      ],
+    });
+
+    if (!attempt.allowed) {
+      return res.status(429).json({
+        ok: false,
+        error: "TOO_MANY_REQUESTS",
+        retryAfterSeconds: attempt.retryAfterSeconds,
+      });
+    }
+
+    const voiceSession = await createPatientVoiceSession({
+      patientId,
+      displayName:
+        typeof patient.displayName === "string" ? patient.displayName : undefined,
+      requestId,
+    });
+
+    return res.json({
+      ok: true,
+      clientSecret: voiceSession.clientSecret,
+      session: voiceSession.session,
+    });
+  } catch (error) {
+    if (error instanceof OpenAIRealtimeUnavailableError) {
+      logger.error("Patient voice session route failed", {
+        route: "POST /patient/voice/session",
+        requestId,
+        patientId,
+        statusCode: error.statusCode,
+        errorKind: error.kind,
+      });
+      return res.status(502).json({
+        ok: false,
+        error: "VOICE_SESSION_UNAVAILABLE",
+      });
+    }
+
+    logger.error("Patient voice session route failed", {
+      route: "POST /patient/voice/session",
+      requestId,
       patientId,
       message: error instanceof Error ? error.message : String(error),
     });

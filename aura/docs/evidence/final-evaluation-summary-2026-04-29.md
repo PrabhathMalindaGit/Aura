@@ -12,6 +12,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | --- | --- | --- |
 | Safety Router | Deterministic router evaluated on 144 author-labelled synthetic examples with no mismatches. | `safety-router-author-labelled-evaluation-2026-04-29.md` |
 | Patient app | Patient-facing flows are covered by existing server/mobile verification; mobile tests are listed under verification status. | Known verified test results |
+| Voice Agent V5-A | Backend-only OpenAI Realtime session broker implemented for authenticated patient users; no mobile UI or clinical voice actions. | `voice-agent-v5a-realtime-session-broker-2026-04-29.md` |
 | Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
@@ -102,7 +103,31 @@ Evidence sources:
 - `mobile-voice-assist-v4a-guided-checkin-parser-2026-04-29.md`
 - `mobile-voice-assist-v4b-guided-checkin-panel-2026-04-29.md`
 
-## 5. Static RAG Phase 1
+## 5. Voice Agent V5-A Realtime Session Broker Evidence
+
+Aura Voice Agent V5-A implemented a backend-only OpenAI Realtime session broker. It is not a full voice agent yet and does not add mobile Realtime UI or clinical voice actions.
+
+Evidence summary:
+
+- V5-A added `POST /patient/voice/session`.
+- The route is for authenticated patient users only.
+- The route is feature-flagged off by default.
+- The real `OPENAI_API_KEY` remains server-only.
+- Mobile does not receive or store the real OpenAI API key.
+- The route returns only `ok`, `clientSecret.value`, `clientSecret.expiresAt`, `session.id`, and `session.model`.
+- The route does not return `OPENAI_API_KEY`, OpenAI request payload, safety identifier, instructions, tools, patient profile, or raw upstream errors.
+- V5-A uses controlled Realtime session configuration with `tool_choice: none`, `tools: []`, parallel tool calls disabled, short TTL, tracing disabled, server VAD, near-field noise reduction, controlled Aura voice-support instructions, and hashed `OpenAI-Safety-Identifier` rather than raw patient id.
+- V5-A preserves no mobile UI, no Realtime tools, no clinical mutations, no check-in submit, no chat send, no appointment booking, no alert creation, no emergency calling, no `/rag/reply`, no Safety Router bypass, no transcript logging, no audio logging, and no prompt/instruction logging.
+- No live OpenAI call was made during verification.
+- No API credits were spent.
+- V5-A has no mobile Realtime UI, no actual voice conversation, no tool/action proposal layer, and no clinical actions by voice.
+- V5-A is not clinical validation and not production voice-agent validation.
+
+Evidence source:
+
+- `voice-agent-v5a-realtime-session-broker-2026-04-29.md`
+
+## 6. Static RAG Phase 1
 
 Aura's Phase 1 static RAG path implemented `/rag/reply` retrieval from curated static rehabilitation knowledge for messages that have already been classified as low risk.
 
@@ -115,7 +140,7 @@ Evidence summary:
 - No external LLM API or external embedding API is required for this retrieval path.
 - High-risk messages continue through the alert/escalation path and do not call RAG.
 
-## 6. Patient Living Memory Phase 2A + 2B
+## 7. Patient Living Memory Phase 2A + 2B
 
 Aura's patient living memory is implemented as MongoDB-backed, patient-scoped deterministic memory.
 
@@ -129,7 +154,7 @@ Evidence summary:
 - MongoDB remains canonical for patient memory.
 - Memory extraction skips high-risk/crisis text, medication dosage details, contact details, secrets, third-party personal details, and likely identifiers.
 
-## 7. PGVector Static Knowledge Phase 2C-A
+## 8. PGVector Static Knowledge Phase 2C-A
 
 Aura's static rehabilitation knowledge retrieval now has optional PGVector-backed persistence and retrieval.
 
@@ -142,7 +167,7 @@ Evidence summary:
 - Deterministic hashing vectors are prototype retrieval vectors, not clinically validated semantic embeddings.
 - PGVector static retrieval is fallback-safe when disabled, unavailable, empty, or erroring.
 
-## 8. PGVector Patient-Memory Index Phase 2C-B
+## 9. PGVector Patient-Memory Index Phase 2C-B
 
 Aura now has optional backend-owned PGVector indexing for sanitized patient memory summaries.
 
@@ -159,7 +184,7 @@ Evidence summary:
 - High-risk chat never mirrors or queries PGVector patient memory.
 - AI `/rag/reply` continues to receive bounded patient memory context from the backend; the AI service does not query PGVector patient memory directly.
 
-## 9. Final Latency Benchmark
+## 10. Final Latency Benchmark
 
 Final PGVector memory-enabled benchmark:
 
@@ -201,13 +226,13 @@ Interpretation boundary:
 - It is not clinical deployment evidence.
 - Results may vary with local machine load, Docker state, service startup, warmup effects, and webhook behavior.
 
-## 10. Verification Status
+## 11. Verification Status
 
 Latest known verified results:
 
 | Area | Result | Note |
 | --- | --- | --- |
-| Server full tests | 53 files passed, 336 tests passed | Verified after PGVector patient-memory index implementation. |
+| Server full tests | 54 files passed, 353 tests passed | Latest known server verification after Voice Agent V5-A backend session broker. |
 | Server focused PGVector/memory/chat/AI tests | 4 files passed, 41 tests passed | Includes vector service, memory service, chat flow, and AI client tests. |
 | Server build | Passed | TypeScript build completed successfully. |
 | AI tests | 50 passed | Normal AI tests. |
@@ -216,9 +241,19 @@ Latest known verified results:
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Mobile tests | 48 files passed, 299 tests passed | Latest known mobile verification after Voice Assist V4-B guided check-in panel. |
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Mobile Voice Assist V4-B evidence. These surfaces should be rerun if they change again before submission.
+Latest V5-A focused server verification:
 
-## 11. Limitations And Cautions
+- `npm test -- env.security.test.ts` passed: 12 tests.
+- `npm test -- openaiRealtimeService.test.ts` passed: 8 tests.
+- `npm test -- patient.routes.test.ts` passed: 26 tests.
+- `npm test` passed: 54 files / 353 tests.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Existing Mongoose duplicate schema index warning for `patientId` appeared but did not fail the run.
+
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Mobile Voice Assist V4-B evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+
+## 12. Limitations And Cautions
 
 - This is synthetic prototype evidence only.
 - This is not clinical validation.
@@ -236,8 +271,13 @@ The dashboard count is included as a known verified result supplied for this fin
 - Voice Assist V3 is navigation-only and does not perform clinical actions by voice.
 - Voice Assist V4-A is parser-only evidence; it has no guided panel, no voice-guided check-in UI, no clinical validation, no auto-submit, no alert creation, and no clinical action by voice.
 - Voice Assist V4-B is guided panel prototype evidence, not a full autonomous voice agent, not clinical validation, and still requires manual native QA.
+- Voice Agent V5-A is a backend-only session broker, not a full voice agent.
+- Voice Agent V5-A has no mobile Realtime UI, no actual voice conversation, no tool/action proposal layer, and no clinical actions by voice.
+- Voice Agent V5-A verification made no live OpenAI call and spent no API credits.
+- Voice Agent V5-A safety boundaries rely on no tools and no backend mutations; prompt instructions are guidance, not clinical safety control by themselves.
+- Voice Agent V5-A is not clinical validation and not production voice-agent validation.
 
-## 12. Safe Report Wording
+## 13. Safe Report Wording
 
 ### A. Testing And Evaluation
 
@@ -251,7 +291,7 @@ These results are prototype evidence only. The Safety Router evaluation used aut
 
 Aura keeps high-risk rehabilitation messages on a deterministic escalation path, while low-risk support can use static rehabilitation retrieval and patient-scoped living memory, with MongoDB as canonical storage and PGVector used only as an optional sanitized retrieval index.
 
-## 13. Final Abstract-Ready Facts
+## 14. Final Abstract-Ready Facts
 
 Facts that are safe to use later when writing an abstract, with the surrounding limitation that clinical validation remains future work:
 
@@ -259,12 +299,13 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 336 server tests, 299 mobile tests across 48 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 299 mobile tests across 48 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
+- Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 
-## 14. Cleanup / Demo Note
+## 15. Cleanup / Demo Note
 
 Benchmarks write synthetic local chat, alert, and notification job records.
 

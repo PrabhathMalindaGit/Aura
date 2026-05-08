@@ -1,5 +1,5 @@
 import { Redirect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -1066,10 +1066,16 @@ export default function ExerciseSessionScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setFeedbackState(null)}
+        accessibilityViewIsModal
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Session feedback</Text>
+          <View
+            accessibilityViewIsModal
+            style={styles.modalCard}
+          >
+            <Text accessibilityRole="header" style={styles.modalTitle}>
+              Session feedback
+            </Text>
             <Text style={styles.modalText}>
               Capture how this exercise felt so the session summary stays useful for you and your care team.
             </Text>
@@ -1079,7 +1085,9 @@ export default function ExerciseSessionScreen() {
                 <Pressable
                   key={difficulty}
                   accessibilityRole="button"
-                  accessibilityLabel={`Set difficulty ${difficulty}`}
+                  accessibilityLabel={`Set exercise difficulty to ${difficulty}`}
+                  accessibilityHint="Selects how hard this exercise felt."
+                  accessibilityState={{ selected: feedbackState?.difficulty === difficulty }}
                   onPress={() =>
                     setFeedbackState((current) =>
                       current
@@ -1112,7 +1120,20 @@ export default function ExerciseSessionScreen() {
             <View style={styles.painRow}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Decrease pain value"
+                accessibilityLabel="Decrease pain during exercise"
+                accessibilityHint={
+                  (feedbackState?.painDuring ?? 0) > 0
+                    ? "Decreases pain during exercise by 1."
+                    : "Pain during exercise is already at 0."
+                }
+                accessibilityState={{ disabled: (feedbackState?.painDuring ?? 0) <= 0 }}
+                accessibilityValue={{
+                  min: 0,
+                  max: 5,
+                  now: feedbackState?.painDuring ?? 0,
+                  text: `Pain during exercise: ${feedbackState?.painDuring ?? 0} out of 5`,
+                }}
+                disabled={(feedbackState?.painDuring ?? 0) <= 0}
                 onPress={() =>
                   setFeedbackState((current) =>
                     current
@@ -1120,14 +1141,44 @@ export default function ExerciseSessionScreen() {
                       : current
                   )
                 }
-                style={({ pressed }) => [styles.painStepper, pressed ? styles.pressed : null]}
+                style={({ pressed }) => [
+                  styles.painStepper,
+                  (feedbackState?.painDuring ?? 0) <= 0 ? styles.painStepperDisabled : null,
+                  pressed ? styles.pressed : null,
+                ]}
               >
                 <Text style={styles.painStepperText}>−</Text>
               </Pressable>
-              <Text style={styles.painValue}>{feedbackState?.painDuring ?? 0}</Text>
+              <Text
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={`Pain during exercise ${feedbackState?.painDuring ?? 0} out of 5`}
+                accessibilityValue={{
+                  min: 0,
+                  max: 5,
+                  now: feedbackState?.painDuring ?? 0,
+                  text: `Pain during exercise: ${feedbackState?.painDuring ?? 0} out of 5`,
+                }}
+                style={styles.painValue}
+              >
+                {feedbackState?.painDuring ?? 0}
+              </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Increase pain value"
+                accessibilityLabel="Increase pain during exercise"
+                accessibilityHint={
+                  (feedbackState?.painDuring ?? 0) < 5
+                    ? "Increases pain during exercise by 1."
+                    : "Pain during exercise is already at 5."
+                }
+                accessibilityState={{ disabled: (feedbackState?.painDuring ?? 0) >= 5 }}
+                accessibilityValue={{
+                  min: 0,
+                  max: 5,
+                  now: feedbackState?.painDuring ?? 0,
+                  text: `Pain during exercise: ${feedbackState?.painDuring ?? 0} out of 5`,
+                }}
+                disabled={(feedbackState?.painDuring ?? 0) >= 5}
                 onPress={() =>
                   setFeedbackState((current) =>
                     current
@@ -1135,7 +1186,11 @@ export default function ExerciseSessionScreen() {
                       : current
                   )
                 }
-                style={({ pressed }) => [styles.painStepper, pressed ? styles.pressed : null]}
+                style={({ pressed }) => [
+                  styles.painStepper,
+                  (feedbackState?.painDuring ?? 0) >= 5 ? styles.painStepperDisabled : null,
+                  pressed ? styles.pressed : null,
+                ]}
               >
                 <Text style={styles.painStepperText}>+</Text>
               </Pressable>
@@ -1156,6 +1211,8 @@ export default function ExerciseSessionScreen() {
               }
               placeholder="Short note (optional)"
               placeholderTextColor={tokens.colors.textMuted}
+              accessibilityLabel="Exercise feedback note"
+              accessibilityHint="Optional. Add a short note about how this exercise felt."
               multiline
               numberOfLines={3}
               maxLength={280}
@@ -1163,9 +1220,24 @@ export default function ExerciseSessionScreen() {
             />
 
             <View style={styles.modalActions}>
-              <SecondaryButton label="Cancel" onPress={() => setFeedbackState(null)} />
-              <SecondaryButton label="Skip" onPress={() => applyFeedback("skip")} />
-              <PrimaryButton label="Save" onPress={() => applyFeedback("save")} />
+              <SecondaryButton
+                label="Cancel"
+                accessibilityLabel="Cancel exercise feedback"
+                accessibilityHint="Closes feedback without marking this step complete."
+                onPress={() => setFeedbackState(null)}
+              />
+              <SecondaryButton
+                label="Skip"
+                accessibilityLabel="Skip exercise feedback"
+                accessibilityHint="Marks the exercise step complete without saving feedback details."
+                onPress={() => applyFeedback("skip")}
+              />
+              <PrimaryButton
+                label="Save"
+                accessibilityLabel="Save exercise feedback"
+                accessibilityHint="Saves this feedback and marks the exercise step complete."
+                onPress={() => applyFeedback("save")}
+              />
             </View>
           </View>
         </View>
@@ -1386,6 +1458,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: tokens.colors.surfaceElevated,
+    },
+    painStepperDisabled: {
+      opacity: 0.5,
     },
     painStepperText: {
       fontSize: 20,

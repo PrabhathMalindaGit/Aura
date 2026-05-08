@@ -11,6 +11,7 @@ type SecondaryButtonProps = {
   disabled?: boolean;
   loading?: boolean;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
   testID?: string;
 };
 
@@ -20,6 +21,7 @@ export function SecondaryButton({
   disabled = false,
   loading = false,
   accessibilityLabel,
+  accessibilityHint,
   testID,
 }: SecondaryButtonProps) {
   const tokens = useTokens();
@@ -33,7 +35,7 @@ export function SecondaryButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={resolvedLabel}
-      accessibilityHint={loading ? "Loading" : undefined}
+      accessibilityHint={loading ? "Loading" : accessibilityHint}
       accessibilityState={{
         disabled: isDisabled,
         busy: loading || undefined,

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { useTokens } from "@/src/theme/tokens";
@@ -86,28 +86,28 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
       borderColor: tokens.colors.accent,
     },
     infoText: {
-      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.accent,
+      color: tokens.colors.text,
     },
     success: {
       backgroundColor: tokens.colors.successTextOn,
       borderColor: tokens.colors.success,
     },
     successText: {
-      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.success,
+      color: tokens.colors.text,
     },
     warning: {
       backgroundColor: tokens.colors.warningTextOn,
       borderColor: tokens.colors.warning,
     },
     warningText: {
-      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.warning,
+      color: tokens.colors.text,
     },
     danger: {
       backgroundColor: tokens.colors.dangerTextOn,
       borderColor: tokens.colors.danger,
     },
     dangerText: {
-      color: tokens.scheme === "dark" ? tokens.colors.text : tokens.colors.danger,
+      color: tokens.colors.text,
     },
   });
 }

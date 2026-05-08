@@ -247,6 +247,9 @@ function Stepper({
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const displayValue = valueFormatter ? valueFormatter(value) : String(value);
+  const accessibilityValue = { min, max, now: value, text: `${label}: ${displayValue}` };
+  const canDecrease = value > min;
+  const canIncrease = value < max;
 
   return (
     <View style={styles.stepperWrapper}>
@@ -255,23 +258,43 @@ function Stepper({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Decrease ${label}`}
+          accessibilityHint={
+            canDecrease ? `Decreases ${label} by ${step}.` : `${label} is already at the minimum.`
+          }
+          accessibilityState={{ disabled: !canDecrease }}
+          accessibilityValue={accessibilityValue}
+          disabled={!canDecrease}
           onPress={() => onChange(clamp(value - step, min, max))}
           style={({ pressed }) => [
             styles.stepperButton,
+            !canDecrease ? styles.stepperButtonDisabled : null,
             pressed ? styles.stepperButtonPressed : null,
           ]}
         >
           <Text style={styles.stepperButtonText}>−</Text>
         </Pressable>
-        <View style={styles.stepperValueWrap}>
+        <View
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={`${label} current value ${displayValue}`}
+          accessibilityValue={accessibilityValue}
+          style={styles.stepperValueWrap}
+        >
           <Text style={styles.stepperValue}>{displayValue}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
+          accessibilityHint={
+            canIncrease ? `Increases ${label} by ${step}.` : `${label} is already at the maximum.`
+          }
+          accessibilityState={{ disabled: !canIncrease }}
+          accessibilityValue={accessibilityValue}
+          disabled={!canIncrease}
           onPress={() => onChange(clamp(value + step, min, max))}
           style={({ pressed }) => [
             styles.stepperButton,
+            !canIncrease ? styles.stepperButtonDisabled : null,
             pressed ? styles.stepperButtonPressed : null,
           ]}
         >
@@ -299,6 +322,7 @@ function OptionalStepper({
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
   const effectiveValue = value ?? props.min;
+  const clearDisabled = value === null;
 
   return (
     <View style={styles.optionalStepperWrapper}>
@@ -307,9 +331,16 @@ function OptionalStepper({
         <Text style={styles.optionalValueHint}>{value === null ? "Not set" : "Set"}</Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`Clear ${props.label}`}
+          accessibilityHint={
+            clearDisabled ? `${props.label} is not set.` : `Clears ${props.label}.`
+          }
+          accessibilityState={{ disabled: clearDisabled }}
+          disabled={clearDisabled}
           onPress={() => onChange(null)}
           style={({ pressed }) => [
             styles.clearOptionalButton,
+            clearDisabled ? styles.clearOptionalButtonDisabled : null,
             pressed ? styles.clearOptionalButtonPressed : null,
           ]}
         >
@@ -420,6 +451,8 @@ function renderFivePointChips(params: {
         {onClear ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={`Clear ${label}`}
+            accessibilityHint={`Clears ${label}.`}
             onPress={onClear}
             style={({ pressed }) => [
               styles.clearOptionalButton,
@@ -438,7 +471,7 @@ function renderFivePointChips(params: {
             <Pressable
               key={`${label}-${entry}`}
               accessibilityRole="button"
-              accessibilityLabel={`Set ${label} ${entry}`}
+              accessibilityLabel={`Set ${label} to ${entry}, ${options[entry]}`}
               accessibilityState={{ selected }}
               onPress={() => onChange(entry)}
               style={({ pressed }) => [
@@ -485,13 +518,14 @@ function hasRecoveryDetail(
 }
 
 function renderFixedFiveChoiceControl(params: {
+  label: string;
   value: number | null;
   onChange: (nextValue: number) => void;
   options: Record<number, string>;
   helperText?: string;
   styles: ReturnType<typeof createStyles>;
 }) {
-  const { value, onChange, options, helperText, styles } = params;
+  const { label, value, onChange, options, helperText, styles } = params;
 
   return (
     <View style={styles.fixedChoiceStack}>
@@ -503,7 +537,7 @@ function renderFixedFiveChoiceControl(params: {
             <Pressable
               key={`fixed-choice-${entry}`}
               accessibilityRole="button"
-              accessibilityLabel={`Set value ${entry}`}
+              accessibilityLabel={`Set ${label} to ${entry}, ${options[entry]}`}
               accessibilityState={{ selected }}
               onPress={() => onChange(entry)}
               style={({ pressed }) => [
@@ -1868,6 +1902,8 @@ export default function CheckinScreen() {
                     {adherence.medicationReason ? (
                       <Pressable
                         accessibilityRole="button"
+                        accessibilityLabel="Clear medication reason"
+                        accessibilityHint="Clears why medication was missed or not needed."
                         onPress={() => {
                           setNotice(null);
                           setAdherence((current) => ({ ...current, medicationReason: null }));
@@ -1958,6 +1994,7 @@ export default function CheckinScreen() {
             }
           >
             {renderFixedFiveChoiceControl({
+              label: "Mood",
               value: support.mood,
               onChange: (value) => {
                 setNotice(null);
@@ -2125,7 +2162,8 @@ export default function CheckinScreen() {
               placeholder="Anything else your care team should know today?"
               style={styles.notesInput}
               textAlignVertical="top"
-              accessibilityLabel="Extra concerns or notes"
+              accessibilityLabel="Check-in notes for your care team"
+              accessibilityHint="Optional. Dictation adds text here for review before you submit."
             />
             <VoiceDictationButton
               onTranscript={handleNotesDictationTranscript}
@@ -2214,6 +2252,10 @@ export default function CheckinScreen() {
               </Text>
             </View>
             <Switch
+              accessibilityLabel="Extra support today"
+              accessibilityHint="Turn on if you would like non-urgent encouragement or practical support today."
+              accessibilityRole="switch"
+              accessibilityState={{ checked: support.wantsExtraSupport }}
               value={support.wantsExtraSupport}
               onValueChange={(value) => {
                 setNotice(null);
@@ -2873,6 +2915,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     clearOptionalButtonPressed: {
       opacity: 0.75,
     },
+    clearOptionalButtonDisabled: {
+      opacity: 0.5,
+    },
     clearOptionalButtonText: {
       color: tokens.colors.textMuted,
       fontSize: tokens.typography.caption.fontSize,
@@ -2902,6 +2947,9 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     },
     stepperButtonPressed: {
       opacity: 0.8,
+    },
+    stepperButtonDisabled: {
+      opacity: 0.5,
     },
     stepperButtonText: {
       color: tokens.colors.text,

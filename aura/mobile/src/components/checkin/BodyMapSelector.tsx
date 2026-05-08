@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SegmentedControl } from '@/src/components/SegmentedControl';
@@ -23,6 +23,20 @@ type Hotspot = {
   height: number;
   radius?: number;
 };
+
+const MIN_HOTSPOT_TOUCH_SIZE = 44;
+
+function getHotspotHitSlop(spot: Hotspot) {
+  const vertical = Math.max(0, Math.ceil((MIN_HOTSPOT_TOUCH_SIZE - spot.height) / 2));
+  const horizontal = Math.max(0, Math.ceil((MIN_HOTSPOT_TOUCH_SIZE - spot.width) / 2));
+
+  return {
+    top: vertical,
+    bottom: vertical,
+    left: horizontal,
+    right: horizontal,
+  };
+}
 
 const FRONT_HOTSPOTS: Hotspot[] = [
   { region: 'head', x: 88, y: 10, width: 44, height: 44, radius: 22 },
@@ -108,7 +122,9 @@ export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: B
               key={`${view}-${spot.region}`}
               accessibilityRole="button"
               accessibilityLabel={`${selected ? 'Remove' : 'Add'} ${regionLabel(spot.region)}${primary ? ', primary pain area' : ''}`}
+              accessibilityHint="Toggles this body area. Selected areas can be marked as the most bothersome area below."
               accessibilityState={{ selected }}
+              hitSlop={getHotspotHitSlop(spot)}
               onPress={() => onToggleRegion(spot.region)}
               style={({ pressed }) => [
                 styles.hotspot,
@@ -140,7 +156,13 @@ export function BodyMapSelector({ value, onToggleRegion, onSetPrimaryRegion }: B
                 <Pressable
                   key={`primary-${region}`}
                   accessibilityRole="button"
-                  accessibilityLabel={`Mark ${regionLabel(region)} as the most bothersome area`}
+                  accessibilityLabel={
+                    isPrimary
+                      ? `${regionLabel(region)} is the most bothersome selected area`
+                      : `Mark ${regionLabel(region)} as the most bothersome area`
+                  }
+                  accessibilityHint="Sets which selected body area should be summarized as primary."
+                  accessibilityState={{ selected: isPrimary }}
                   onPress={() => onSetPrimaryRegion(region)}
                   style={({ pressed }) => [
                     styles.selectionChip,

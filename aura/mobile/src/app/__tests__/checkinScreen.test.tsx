@@ -705,6 +705,65 @@ describe("Check-in screen validation", () => {
     expect(createCheckin).not.toHaveBeenCalled();
   });
 
+  it("exposes contextual accessibility labels, values, and states on check-in controls", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const painDecrease = findByA11y(renderer!.root, "Decrease Pain");
+    expect(painDecrease.props.accessibilityValue).toEqual({
+      min: 0,
+      max: 10,
+      now: 0,
+      text: "Pain: 0/10",
+    });
+    expect(painDecrease.props.accessibilityState).toEqual({ disabled: true });
+    expect(painDecrease.props.accessibilityHint).toBe("Pain is already at the minimum.");
+
+    const painIncrease = findByA11y(renderer!.root, "Increase Pain");
+    expect(painIncrease.props.accessibilityValue).toEqual({
+      min: 0,
+      max: 10,
+      now: 0,
+      text: "Pain: 0/10",
+    });
+    expect(painIncrease.props.accessibilityHint).toBe("Increases Pain by 1.");
+
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+
+    act(() => {
+      navigator.props.onSelectStep(2);
+    });
+
+    const moodChoice = findByA11y(renderer!.root, "Set Mood to 4, Strong");
+    expect(moodChoice.props.accessibilityState).toEqual({ selected: false });
+
+    act(() => {
+      moodChoice.props.onPress();
+    });
+
+    expect(findByA11y(renderer!.root, "Set Mood to 4, Strong").props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(findByA11y(renderer!.root, "Clear Stress or overwhelm").props.accessibilityState).toEqual({
+      disabled: true,
+    });
+
+    const supportSwitch = renderer!.root.find((node) => String(node.type) === "mock-switch");
+    expect(supportSwitch.props.accessibilityLabel).toBe("Extra support today");
+    expect(supportSwitch.props.accessibilityHint).toBe(
+      "Turn on if you would like non-urgent encouragement or practical support today.",
+    );
+    expect(supportSwitch.props.accessibilityState).toEqual({ checked: false });
+
+    expect(findByA11y(renderer!.root, "Check-in notes for your care team").props.accessibilityHint).toBe(
+      "Optional. Dictation adds text here for review before you submit.",
+    );
+  });
+
   it("lets guided confirmation update draft fields without submitting", async () => {
     createCheckin.mockResolvedValue({
       ok: true,
@@ -733,7 +792,7 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
     act(() => {
       navigator.props.onSelectStep(3);
@@ -772,7 +831,7 @@ describe("Check-in screen validation", () => {
     });
 
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
 
     await act(async () => {
@@ -824,17 +883,17 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Extra concerns or notes").props.onChangeText("Knee felt tight");
+      findByA11y(renderer!.root, "Check-in notes for your care team").props.onChangeText("Knee felt tight");
       findByA11y(renderer!.root, "Start voice dictation").props.onPress();
     });
 
-    expect(findByA11y(renderer!.root, "Extra concerns or notes").props.value).toBe(
+    expect(findByA11y(renderer!.root, "Check-in notes for your care team").props.value).toBe(
       "Knee felt tight walking caused soreness",
     );
     expect(createCheckin).not.toHaveBeenCalled();
 
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
     act(() => {
       navigator.props.onSelectStep(3);
@@ -869,7 +928,7 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Extra concerns or notes").props.onChangeText(
+      findByA11y(renderer!.root, "Check-in notes for your care team").props.onChangeText(
         "Private note from patient",
       );
     });
@@ -919,7 +978,7 @@ describe("Check-in screen validation", () => {
     expect(createCheckin).not.toHaveBeenCalled();
 
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
     act(() => {
       navigator.props.onSelectStep(3);
@@ -964,13 +1023,13 @@ describe("Check-in screen validation", () => {
       findByA11y(renderer!.root, "Start voice dictation").props.onPress();
     });
 
-    expect(findByA11y(renderer!.root, "Extra concerns or notes").props.value).toBe(
+    expect(findByA11y(renderer!.root, "Check-in notes for your care team").props.value).toBe(
       "Pain spiked after stairs",
     );
     expect(createCheckin).not.toHaveBeenCalled();
 
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
     act(() => {
       navigator.props.onSelectStep(3);
@@ -1014,7 +1073,7 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
     act(() => {
       navigator.props.onSelectStep(3);
@@ -1063,7 +1122,7 @@ describe("Check-in screen validation", () => {
       navigator.props.onSelectStep(2);
     });
     act(() => {
-      findByA11y(renderer!.root, "Set value 4").props.onPress();
+      findByA11y(renderer!.root, "Set Mood to 4, Strong").props.onPress();
     });
     act(() => {
       navigator.props.onSelectStep(3);

@@ -19,4 +19,8 @@ describe("shouldShowVoiceCommandForSegments", () => {
     expect(shouldShowVoiceCommandForSegments("signedIn", ["caregiver-home"])).toBe(false);
     expect(shouldShowVoiceCommandForSegments("signedIn", ["caregiver-weekly-report"])).toBe(false);
   });
+
+  it("hides on the Voice Agent route so the global launcher does not compete with live audio controls", () => {
+    expect(shouldShowVoiceCommandForSegments("signedIn", ["voice-agent"])).toBe(false);
+  });
 });

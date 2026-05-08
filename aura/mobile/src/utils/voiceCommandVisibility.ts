@@ -5,6 +5,7 @@ const HIDDEN_ROOT_SEGMENTS = new Set([
   "caregiver-login",
   "caregiver-home",
   "caregiver-weekly-report",
+  "voice-agent",
 ]);
 
 export function shouldShowVoiceCommandForSegments(

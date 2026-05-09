@@ -210,9 +210,12 @@ describe("SettingsRouteFacade", () => {
 
     const panel = await screen.findByTestId("v2-settings-presentation-tools-panel");
     await screen.findByText("Presentation seed is not enabled on the backend.");
-    expect(panel).toHaveTextContent("Presentation tools");
+    expect(panel).toHaveTextContent("Demo/presentation tools");
+    expect(panel).toHaveTextContent("Not patient care settings");
+    expect(panel).toHaveTextContent("For local demo data only");
     expect(panel).toHaveTextContent("Presentation seed is not enabled on the backend.");
     expect(panel).toHaveTextContent("Set AURA_PRESENTATION_SEED_ENABLED=true");
+    expect(panel).not.toHaveTextContent(/production patient-care changes/i);
     expect(screen.getByRole("button", { name: "Load presentation data" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Reset presentation data" })).toBeDisabled();
     expect(requestUrls).toHaveLength(1);

@@ -106,6 +106,7 @@ export function useInboxViewModel({
   const [sharedNoteNotice, setSharedNoteNotice] = useState<string | null>(null);
   const [sharedNoteError, setSharedNoteError] = useState<string | null>(null);
   const [activeSupportView, setActiveSupportView] = useState<InboxSupportView>('shared');
+  const draftReplyByThreadRef = useRef<Record<string, string>>({});
   const draftSessionInitializationRef = useRef<Record<string, true>>({});
   const authoringRef = useRef(authoring);
   const communicationScopeKey = clinicianIdentity.authScopeId ?? clinicianIdentity.clinicianId;
@@ -122,6 +123,7 @@ export function useInboxViewModel({
   useEffect(() => {
     setLocalState(readCommunicationWorkspaceLocalState(communicationScopeKey));
     draftSessionInitializationRef.current = {};
+    draftReplyByThreadRef.current = {};
     setDraftReply('');
   }, [communicationScopeKey]);
 
@@ -317,11 +319,11 @@ export function useInboxViewModel({
   useEffect(() => {
     const activeThreadId = selectedThreadForWorkspace?.id;
     if (!activeThreadId) {
-      setDraftReply('');
       return;
     }
 
     if (draftSessionInitializationRef.current[activeThreadId]) {
+      setDraftReply(draftReplyByThreadRef.current[activeThreadId] ?? '');
       return;
     }
 
@@ -332,7 +334,9 @@ export function useInboxViewModel({
       nextAuthoring.autoAppendSignature &&
       nextAuthoring.hasSignature;
 
-    setDraftReply(shouldSeedSignature ? nextAuthoring.defaultSignature : '');
+    const nextDraft = shouldSeedSignature ? nextAuthoring.defaultSignature : '';
+    draftReplyByThreadRef.current[activeThreadId] = nextDraft;
+    setDraftReply(nextDraft);
   }, [selectedThreadForWorkspace]);
 
   useEffect(() => {
@@ -473,7 +477,19 @@ export function useInboxViewModel({
 
   const clearSelectionToQueue = useCallback(() => {
     setFocusMode('queue');
-  }, [setFocusMode]);
+    updateSearchParams({ patientId: null });
+  }, [setFocusMode, updateSearchParams]);
+
+  const handleDraftReplyChange = useCallback(
+    (value: string) => {
+      setDraftReply(value);
+
+      if (selectedThreadForWorkspace?.id) {
+        draftReplyByThreadRef.current[selectedThreadForWorkspace.id] = value;
+      }
+    },
+    [selectedThreadForWorkspace?.id],
+  );
 
   const handleSaveLocalDraft = useCallback(() => {
     if (!selectedThreadForWorkspace?.validPatientId) {
@@ -495,6 +511,7 @@ export function useInboxViewModel({
         communicationScopeKey,
       ),
     );
+    draftReplyByThreadRef.current[selectedThreadForWorkspace.id] = '';
     setDraftReply('');
   }, [communicationScopeKey, draftReply, selectedThreadForWorkspace]);
 
@@ -506,20 +523,30 @@ export function useInboxViewModel({
       return;
     }
 
-    setDraftReply((current) =>
-      insertTemplateIntoDraft(current, selectedTemplate.body, {
+    setDraftReply((current) => {
+      const nextDraft = insertTemplateIntoDraft(current, selectedTemplate.body, {
         signature: authoring.defaultSignature,
-      }),
-    );
-  }, [authoring.defaultSignature, authoring.templates, selectedTemplateId]);
+      });
+      if (selectedThreadForWorkspace?.id) {
+        draftReplyByThreadRef.current[selectedThreadForWorkspace.id] = nextDraft;
+      }
+      return nextDraft;
+    });
+  }, [authoring.defaultSignature, authoring.templates, selectedTemplateId, selectedThreadForWorkspace?.id]);
 
   const handleInsertSignature = useCallback(() => {
     if (!authoring.hasSignature) {
       return;
     }
 
-    setDraftReply((current) => insertSignatureIntoDraft(current, authoring.defaultSignature));
-  }, [authoring.defaultSignature, authoring.hasSignature]);
+    setDraftReply((current) => {
+      const nextDraft = insertSignatureIntoDraft(current, authoring.defaultSignature);
+      if (selectedThreadForWorkspace?.id) {
+        draftReplyByThreadRef.current[selectedThreadForWorkspace.id] = nextDraft;
+      }
+      return nextDraft;
+    });
+  }, [authoring.defaultSignature, authoring.hasSignature, selectedThreadForWorkspace?.id]);
 
   const submitSharedNote = useCallback(
     (event?: React.FormEvent<HTMLFormElement>) => {
@@ -601,7 +628,7 @@ export function useInboxViewModel({
     selectedKey: selectedThreadId,
     selectedTemplateId,
     setCurrentView,
-    setDraftReply,
+    setDraftReply: handleDraftReplyChange,
     setSelectedTemplateId,
     setSharedNoteDraft,
     setActiveSupportView,

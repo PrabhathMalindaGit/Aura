@@ -127,6 +127,32 @@ async function expectCommunicationWorkspaceStack(page: Page): Promise<void> {
   expect(hasNoPageOverflow).toBeTruthy();
 }
 
+async function expectCommunicationWorkspaceFocus(page: Page): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  await expect(page.getByTestId('v2-inbox-queue')).toHaveCount(0);
+  await expect(page.getByTestId('v2-inbox-active-thread')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-timeline')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-local-draft')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Back to queue' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Review queue' })).toBeVisible();
+
+  const activeBox = await page.getByTestId('v2-inbox-active-thread').boundingBox();
+  const timelineBox = await page.getByTestId('v2-inbox-timeline').boundingBox();
+  const draftBox = await page.getByTestId('v2-inbox-local-draft').boundingBox();
+
+  expect(activeBox).not.toBeNull();
+  expect(timelineBox).not.toBeNull();
+  expect(draftBox).not.toBeNull();
+  expect(timelineBox!.y).toBeGreaterThan(activeBox!.y);
+  expect(draftBox!.y).toBeGreaterThan(timelineBox!.y);
+
+  const hasNoPageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+  );
+  expect(hasNoPageOverflow).toBeTruthy();
+}
+
 test('communication v2 restores the selected thread after routing out and back by default', async ({ page }) => {
   const runtimeIssues: string[] = [];
 
@@ -181,24 +207,22 @@ test('communication v2 restores the selected thread after routing out and back b
   await expect(page.getByText('Shared coordination', { exact: true }).first()).toBeVisible();
   await page.keyboard.press('Escape');
 
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await expectCommunicationWorkspaceStack(page);
+
   for (const viewport of [
-    { width: 1180, height: 900 },
     { width: 900, height: 900 },
     { width: 390, height: 900 },
   ]) {
     await page.setViewportSize(viewport);
-    await expectCommunicationWorkspaceStack(page);
+    await expectCommunicationWorkspaceFocus(page);
   }
 
   await page.evaluate(() => {
     document.documentElement.classList.add('dark');
     document.documentElement.setAttribute('data-theme', 'dark');
   });
-  await expect(page.getByTestId('v2-inbox-queue')).toBeVisible();
-  await expect(page.getByTestId('v2-inbox-active-thread')).toBeVisible();
-  await expect(page.getByTestId('v2-inbox-timeline')).toBeVisible();
-  await expect(page.getByTestId('v2-inbox-local-draft')).toBeVisible();
-  await expectCommunicationWorkspaceStack(page);
+  await expectCommunicationWorkspaceFocus(page);
 
   await page.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p2$/);
@@ -209,4 +233,58 @@ test('communication v2 restores the selected thread after routing out and back b
   await expect(
     page.getByTestId('v2-inbox-workspace').getByText('Saved locally for follow-up.'),
   ).toBeVisible();
+});
+
+test('communication v2 keeps narrow queue and workspace focus separate', async ({ page }) => {
+  const runtimeIssues: string[] = [];
+
+  page.on('pageerror', (error) => {
+    runtimeIssues.push(`pageerror: ${error.stack ?? error.message}`);
+  });
+
+  page.on('console', (message) => {
+    if (message.type() === 'error' && !message.text().includes('Failed to load resource')) {
+      runtimeIssues.push(`console:${message.type()}: ${message.text()}`);
+    }
+  });
+
+  await page.setViewportSize({ width: 390, height: 900 });
+  await installMockApi(page, {
+    communicationOverview: COMMUNICATION_OVERVIEW,
+    coordinationByPatient: COORDINATION_BY_PATIENT,
+  });
+
+  await page.goto('/communication?view=needs-response');
+  expect(runtimeIssues, runtimeIssues.join('\n')).toEqual([]);
+
+  await expect(page.getByTestId('v2-inbox-route')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-queue')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-row-p1')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-active-thread')).toHaveCount(0);
+  await expect(page.getByTestId('v2-inbox-local-draft')).toHaveCount(0);
+
+  await page.getByTestId('v2-inbox-row-p1').click();
+  await expect(page.getByTestId('v2-inbox-workspace')).toContainText('Patient P1');
+  await expectCommunicationWorkspaceFocus(page);
+  await expect(page.getByRole('button', { name: /send patient message/i })).toHaveCount(0);
+
+  await page.getByRole('textbox', { name: 'Personal reply draft' }).fill('Narrow local draft.');
+  await page.getByRole('button', { name: 'Back to queue' }).click();
+
+  await expect(page.getByTestId('v2-inbox-queue')).toBeVisible();
+  await expect(page.getByTestId('v2-inbox-active-thread')).toHaveCount(0);
+
+  await page.getByTestId('v2-inbox-row-p1').click();
+  await expect(page.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue('Narrow local draft.');
+
+  await page.getByRole('button', { name: 'Review queue' }).click();
+  const queueDialog = page.getByRole('dialog', { name: 'Message queue' });
+  await expect(queueDialog).toBeVisible();
+  await queueDialog.getByTestId('v2-inbox-row-p2').click();
+
+  await expect(queueDialog).toHaveCount(0);
+  await expect(page.getByTestId('v2-inbox-workspace')).toContainText('Patient P2');
+  await expectCommunicationWorkspaceFocus(page);
+
+  expect(runtimeIssues, runtimeIssues.join('\n')).toEqual([]);
 });

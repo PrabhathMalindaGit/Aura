@@ -1,4 +1,4 @@
-import { Database, RefreshCcw, RotateCcw } from "lucide-react";
+import { AlertTriangle, Database, RefreshCcw, RotateCcw } from "lucide-react";
 import { DashboardV2Button } from "../../../primitives/Button";
 import { DashboardV2Icon } from "../../../primitives/Icon";
 import { DashboardV2Surface } from "../../../primitives/Surface";
@@ -29,12 +29,23 @@ export function SettingsPresentationToolsPanel({
       data-testid="v2-settings-presentation-tools-panel"
     >
       <div className="v2-settings-panel__header">
-        <DashboardV2Text tone="label">Presentation</DashboardV2Text>
-        <DashboardV2Heading as="h3">Presentation tools</DashboardV2Heading>
+        <DashboardV2Text tone="label">Not patient care settings</DashboardV2Text>
+        <DashboardV2Heading as="h3">Demo/presentation tools</DashboardV2Heading>
         <DashboardV2Text tone="muted">
-          Load or reset safe presentation records for local demo walkthroughs.
+          Load or reset local demo seed data for presentation walkthroughs.
           These tools are hidden unless presentation tooling is enabled.
         </DashboardV2Text>
+      </div>
+
+      <div className="v2-settings-presentation-warning" role="note">
+        <DashboardV2Icon icon={AlertTriangle} size={16} />
+        <span>
+          <DashboardV2Text tone="strong">For local demo data only</DashboardV2Text>
+          <DashboardV2Text tone="muted">
+            This separated panel manages presentation seed records and does not
+            change real clinical care settings.
+          </DashboardV2Text>
+        </span>
       </div>
 
       <div className="v2-settings-presentation-status" aria-live="polite">

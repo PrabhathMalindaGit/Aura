@@ -5,6 +5,7 @@ import {
   cleanup,
   render,
   screen,
+  within,
   waitFor,
 } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -355,7 +356,7 @@ describe('InboxRoute', () => {
     expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue('Local follow-up stays private.');
   });
 
-  it('keeps the queue, active thread, timeline, and draft stacked on narrow layouts', async () => {
+  it('uses queue-first and workspace-focused narrow navigation while preserving the local draft', async () => {
     installMatchMediaMock(
       (query) => query.includes('max-width: 1023px') || query.includes('max-width: 1279px'),
     );
@@ -366,18 +367,60 @@ describe('InboxRoute', () => {
     expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
     expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
     expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
-    expect(screen.getByTestId('v2-inbox-workspace')).toBeInTheDocument();
-    expectElementBefore(screen.getByTestId('v2-inbox-queue'), screen.getByTestId('v2-inbox-active-thread'));
-    expectElementBefore(screen.getByTestId('v2-inbox-active-thread'), screen.getByTestId('v2-inbox-timeline'));
-    expectElementBefore(screen.getByTestId('v2-inbox-timeline'), screen.getByTestId('v2-inbox-local-draft'));
+    expect(screen.queryByTestId('v2-inbox-active-thread')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('v2-inbox-local-draft')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('v2-inbox-row-patient-1'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('v2-inbox-workspace')).toBeInTheDocument();
+      expect(screen.getByTestId('v2-inbox-workspace')).toHaveTextContent('Jordan Lee');
     });
+    expect(screen.queryByTestId('v2-inbox-queue')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to queue' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Review queue' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /send patient message/i })).not.toBeInTheDocument();
+    expectElementBefore(screen.getByTestId('v2-inbox-active-thread'), screen.getByTestId('v2-inbox-timeline'));
+    expectElementBefore(screen.getByTestId('v2-inbox-timeline'), screen.getByTestId('v2-inbox-local-draft'));
 
+    const localDraft = screen.getByRole('textbox', { name: 'Personal reply draft' });
+    await user.type(localDraft, 'Keep this local note.');
+    await user.click(screen.getByRole('button', { name: 'Back to queue' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('v2-inbox-active-thread')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('v2-inbox-row-patient-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-inbox-workspace')).toHaveTextContent('Jordan Lee');
+    });
+    expect(screen.getByRole('textbox', { name: 'Personal reply draft' })).toHaveValue('Keep this local note.');
+
+    await user.click(screen.getByRole('button', { name: 'Review queue' }));
+    const queueDialog = await screen.findByRole('dialog', { name: 'Message queue' });
+    await user.click(within(queueDialog).getByTestId('v2-inbox-row-patient-2'));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Message queue' })).not.toBeInTheDocument();
+      expect(screen.getByTestId('v2-inbox-workspace')).toHaveTextContent('Avery Chen');
+    });
+    expect(screen.queryByTestId('v2-inbox-queue')).not.toBeInTheDocument();
+  });
+
+  it('keeps the wide inbox layout stacked for desktop scanning', async () => {
+    renderCommunicationRoute();
+
+    expect(await screen.findByTestId('v2-inbox-route', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-row-patient-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toBeInTheDocument();
+    expect(await screen.findByTestId('v2-inbox-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+    expect(screen.getByTestId('v2-inbox-queue')).toBeInTheDocument();
+    expectElementBefore(screen.getByTestId('v2-inbox-queue'), screen.getByTestId('v2-inbox-active-thread'));
+    expectElementBefore(screen.getByTestId('v2-inbox-active-thread'), screen.getByTestId('v2-inbox-timeline'));
+    expectElementBefore(screen.getByTestId('v2-inbox-timeline'), screen.getByTestId('v2-inbox-local-draft'));
     expect(screen.queryByRole('button', { name: 'Back to queue' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review queue' })).not.toBeInTheDocument();
   });
 
   it('shows route-local empty states when the queue has no threads', async () => {

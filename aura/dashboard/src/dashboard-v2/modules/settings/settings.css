@@ -420,6 +420,23 @@
   font-weight: var(--v2-font-weight-semibold);
 }
 
+.v2-settings-presentation-warning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--v2-space-2);
+  align-items: start;
+  padding: var(--v2-space-3);
+  border: 1px solid hsl(var(--v2-warning) / 0.32);
+  border-radius: var(--v2-radius-md);
+  background: hsl(var(--v2-warning-soft) / 0.72);
+  color: hsl(var(--v2-text));
+}
+
+.v2-settings-presentation-warning > span {
+  display: grid;
+  gap: var(--v2-space-1);
+}
+
 .v2-settings-presentation-facts,
 .v2-settings-presentation-counts {
   display: flex;

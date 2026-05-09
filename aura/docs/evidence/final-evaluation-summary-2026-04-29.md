@@ -13,6 +13,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Safety Router | Deterministic router evaluated on 144 author-labelled synthetic examples with no mismatches. | `safety-router-author-labelled-evaluation-2026-04-29.md` |
 | Patient app | Patient-facing flows are covered by existing server/mobile verification; mobile tests are listed under verification status. | Known verified test results |
 | Mobile UI/UX accessibility | Phase 1 scoped accessibility and task-completion blockers from the read-only UI/UX audit were fixed for mobile. | `mobile-uiux-accessibility-phase1-2026-04-29.md` |
+| Dashboard UI/UX Phase 1 | Clinician dashboard accessibility/demo-readiness Phase 1 fixes completed, including V2 shell alignment, collapsed nav accessible names, safe skip links, dark-mode primary button contrast, and symptom photo review in patient history. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md` |
 | Voice Agent V5-A | Backend-only OpenAI Realtime session broker implemented for authenticated patient users; no mobile UI or clinical voice actions. | `voice-agent-v5a-realtime-session-broker-2026-04-29.md` |
 | Voice Agent V5-B1 | Mobile-only Voice Agent session request prototype implemented; no live audio, WebRTC, tools, or clinical actions. | `voice-agent-v5b1-mobile-session-request-ui-2026-04-29.md` |
 | Voice Agent V5-B2-Web | Browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain out of scope. | `voice-agent-v5b2-web-realtime-audio-2026-04-29.md` |
@@ -25,7 +26,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-D4B | Mobile-only Nutrition-screen confirmed voice nutrition logging implemented with exact current-form review, explicit confirmation, existing nutrition save path, and preserved offline queue behavior. | `voice-agent-v5d4b-confirmed-nutrition-log-2026-04-29.md` |
 | Voice Agent V5-D4C | Mobile-only Medications-screen confirmed voice medication status logging implemented for visible scheduled doses with taken/skipped only, exact review, explicit confirmation, existing medication dose action path, and preserved offline sync behavior. | `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md` |
 | Voice Agent V5-D automated QA guardrails | Cross-flow automated QA guardrails implemented for the completed V5-D confirmed-action series, covering review-first behavior, explicit confirmation, ambiguous/cancel handling, expiry, same-path mutation behavior, forbidden side-effect source guards, accessibility checks, and `/voice-agent` boundary protection. | `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md` |
-| Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
+| Clinician dashboard | Dashboard behavior is covered by existing dashboard unit, E2E, build, and accessibility smoke verification; dashboard counts are listed under verification status. | `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md` |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
 | PGVector static knowledge retrieval | Optional PGVector persistence/retrieval for curated static rehab knowledge is implemented; JSON remains source of truth. | `rag-pgvector-static-retrieval-2026-04-29.md` |
@@ -743,7 +744,52 @@ Evidence sources:
 - `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md`
 - `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md`
 
-## 6. Static RAG Phase 1
+## 6. Clinician Dashboard UI/UX Phase 1 Evidence
+
+Aura clinician dashboard Phase 1 accessibility and demo-readiness fixes were completed for scoped read-only dashboard audit findings.
+
+Evidence summary:
+
+- V2 shell now defaults to the intended V2 experience.
+- V2 route content and shell now use one consistent "V2 experience enabled" gate.
+- Shell-wide and route-level rollback remain available.
+- Collapsed/icon-only nav links now have accessible labels: Dashboard, Worklist, Patients, Alerts, Communication, Appointments, Insights, and Settings.
+- Skip-to-main remains intact.
+- Skip-to-context appears only when `dashboard-v2-context-rail` is rendered.
+- Dark-mode primary buttons now use tokenized `--v2-on-primary` foreground for AA text contrast.
+- Patient History includes compact "Recent symptom photos" review section.
+- Clinicians can choose "View photo."
+- UI uses existing direct URL fields when present.
+- Otherwise, UI uses existing `fetchPhotoBlob(photo.id)`.
+- If preview cannot load, the dashboard shows honest unavailable copy.
+- No clinical interpretation is generated or claimed.
+
+Verification recorded:
+
+- `npm run typecheck` passed.
+- `npm test` passed: 83 files / 511 tests.
+- `npm run e2e -- --grep "dashboard v2|patient workspace v2|settings v2"` passed: 4 tests.
+- `npm run e2e -- tests/e2e/a11y-smoke.spec.ts --project=mocked` passed: 1 test.
+- `npm run build` passed.
+- `git diff --check` passed.
+
+Remaining dashboard UI/UX limitations:
+
+- Alert queue roving focus remains future work.
+- Inbox narrow mode remains future work.
+- Appointment row semantics remain future work.
+- Worklist selected chip remains future work.
+- Settings demo-tool redesign remains future work.
+- Photo viewing depends on existing photo URLs or existing photo file fetch path.
+- Unavailable files produce honest fallback copy.
+- Build still reports existing large chunk warning.
+- Tests still emit React Router future-flag warnings.
+
+Evidence source:
+
+- `dashboard-uiux-phase1-clinician-accessibility-2026-04-29.md`
+
+## 7. Static RAG Phase 1
 
 Aura's Phase 1 static RAG path implemented `/rag/reply` retrieval from curated static rehabilitation knowledge for messages that have already been classified as low risk.
 
@@ -756,7 +802,7 @@ Evidence summary:
 - No external LLM API or external embedding API is required for this retrieval path.
 - High-risk messages continue through the alert/escalation path and do not call RAG.
 
-## 7. Patient Living Memory Phase 2A + 2B
+## 8. Patient Living Memory Phase 2A + 2B
 
 Aura's patient living memory is implemented as MongoDB-backed, patient-scoped deterministic memory.
 
@@ -770,7 +816,7 @@ Evidence summary:
 - MongoDB remains canonical for patient memory.
 - Memory extraction skips high-risk/crisis text, medication dosage details, contact details, secrets, third-party personal details, and likely identifiers.
 
-## 8. PGVector Static Knowledge Phase 2C-A
+## 9. PGVector Static Knowledge Phase 2C-A
 
 Aura's static rehabilitation knowledge retrieval now has optional PGVector-backed persistence and retrieval.
 
@@ -783,7 +829,7 @@ Evidence summary:
 - Deterministic hashing vectors are prototype retrieval vectors, not clinically validated semantic embeddings.
 - PGVector static retrieval is fallback-safe when disabled, unavailable, empty, or erroring.
 
-## 9. PGVector Patient-Memory Index Phase 2C-B
+## 10. PGVector Patient-Memory Index Phase 2C-B
 
 Aura now has optional backend-owned PGVector indexing for sanitized patient memory summaries.
 
@@ -800,7 +846,7 @@ Evidence summary:
 - High-risk chat never mirrors or queries PGVector patient memory.
 - AI `/rag/reply` continues to receive bounded patient memory context from the backend; the AI service does not query PGVector patient memory directly.
 
-## 10. Final Latency Benchmark
+## 11. Final Latency Benchmark
 
 Final PGVector memory-enabled benchmark:
 
@@ -842,7 +888,7 @@ Interpretation boundary:
 - It is not clinical deployment evidence.
 - Results may vary with local machine load, Docker state, service startup, warmup effects, and webhook behavior.
 
-## 11. Verification Status
+## 12. Verification Status
 
 Latest known verified results:
 
@@ -853,8 +899,10 @@ Latest known verified results:
 | Server build | Passed | TypeScript build completed successfully. |
 | AI tests | 50 passed | Normal AI tests. |
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
-| Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
+| Dashboard unit tests | 83 files passed, 511 tests passed | Latest known dashboard verification after Dashboard UI/UX Phase 1 clinician accessibility/demo-readiness fixes. |
+| Dashboard focused V2 E2E tests | 4 passed | `dashboard v2`, `patient workspace v2`, and `settings v2` mocked E2E slice. |
+| Dashboard accessibility smoke E2E | 1 passed | Mocked a11y smoke spec. |
+| Dashboard build | Passed | Production build completed, with existing large chunk warning still reported. |
 | Mobile tests | 64 files passed, 698 tests passed | Latest known mobile verification after Voice Agent V5-D automated QA guardrails. |
 
 Latest V5-A focused server verification:
@@ -986,9 +1034,20 @@ Latest V5-D automated QA guardrail mobile verification:
 - `git diff --check` passed.
 - Existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D automated QA guardrail evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+Latest Dashboard UI/UX Phase 1 verification:
 
-## 12. Limitations And Cautions
+- `npm run typecheck` passed.
+- `npm test` passed: 83 files / 511 tests.
+- `npm run e2e -- --grep "dashboard v2|patient workspace v2|settings v2"` passed: 4 tests.
+- `npm run e2e -- tests/e2e/a11y-smoke.spec.ts --project=mocked` passed: 1 test.
+- `npm run build` passed.
+- `git diff --check` passed.
+- Build still reported the existing large chunk warning.
+- Tests still emitted React Router future-flag warnings.
+
+The latest dashboard count is recorded in the Dashboard UI/UX Phase 1 evidence. The latest mobile count is recorded in the Voice Agent V5-D automated QA guardrail evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+
+## 13. Limitations And Cautions
 
 - This is synthetic prototype evidence only.
 - This is not clinical validation.
@@ -1005,6 +1064,16 @@ The dashboard count is included as a known verified result supplied for this fin
 - Mobile Voice Assist evidence is local/prototype implementation evidence and still requires native development/production build QA for V1/V3 speech recognition and V4-B guided check-in speech recognition.
 - Mobile UI/UX Accessibility Fix Phase 1 addressed scoped audit blockers only; Home/Demo Hub density, deeper voice UX explanation, full long-screen hierarchy cleanup, keyboard-overlap manual device QA, and broader caregiver/patient flow separation polish remain.
 - No real device/emulator visual QA pass was run for Mobile UI/UX Accessibility Fix Phase 1.
+- Dashboard UI/UX Phase 1 addressed scoped clinician accessibility/demo-readiness blockers only.
+- Dashboard alert queue roving focus remains future work.
+- Dashboard inbox narrow mode remains future work.
+- Dashboard appointment row semantics remain future work.
+- Dashboard worklist selected chip remains future work.
+- Dashboard settings demo-tool redesign remains future work.
+- Dashboard symptom photo viewing depends on existing photo URLs or the existing photo file fetch path.
+- Dashboard unavailable photo files produce honest fallback copy.
+- Dashboard build still reports the existing large chunk warning.
+- Dashboard tests still emit React Router future-flag warnings.
 - Voice Assist V3 is navigation-only and does not perform clinical actions by voice.
 - Voice Assist V4-A is parser-only evidence; it has no guided panel, no voice-guided check-in UI, no clinical validation, no auto-submit, no alert creation, and no clinical action by voice.
 - Voice Assist V4-B is guided panel prototype evidence, not a full autonomous voice agent, not clinical validation, and still requires manual native QA.
@@ -1080,7 +1149,7 @@ The dashboard count is included as a known verified result supplied for this fin
 - Manual VoiceOver/TalkBack spot checks on a real device are still useful.
 - Manual QA should focus on spoken order, tactile flow, and review panels.
 
-## 13. Safe Report Wording
+## 14. Safe Report Wording
 
 ### A. Testing And Evaluation
 
@@ -1094,7 +1163,7 @@ These results are prototype evidence only. The Safety Router evaluation used aut
 
 Aura keeps high-risk rehabilitation messages on a deterministic escalation path, while low-risk support can use static rehabilitation retrieval and patient-scoped living memory, with MongoDB as canonical storage and PGVector used only as an optional sanitized retrieval index.
 
-## 14. Final Abstract-Ready Facts
+## 15. Final Abstract-Ready Facts
 
 Facts that are safe to use later when writing an abstract, with the surrounding limitation that clinical validation remains future work:
 
@@ -1102,9 +1171,10 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 353 server tests across 54 files, 698 mobile tests across 64 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 698 mobile tests across 64 files, 511 dashboard unit tests across 83 files, 4 dashboard focused V2 E2E tests, 1 dashboard a11y smoke E2E test, dashboard build, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Mobile UI/UX Accessibility Fix Phase 1 completed for scoped accessibility and task-completion blockers from the read-only UI/UX audit, with broader UI/UX polish and real device/emulator visual QA still future work.
+- Dashboard UI/UX Phase 1 completed for scoped clinician dashboard accessibility/demo-readiness blockers, including V2 shell alignment, collapsed nav accessible names, safe skip links, dark-mode primary button contrast, and symptom photo review in patient history, with broader dashboard UI/UX polish still future work.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
 - Voice Agent V5-B1 mobile session request UI implemented with prepared-session status and expiry; no live audio, WebRTC, tools, or clinical voice actions yet.
 - Voice Agent V5-B2-Web browser-only live Realtime WebRTC audio demo implemented on `/voice-agent`; native live audio, tools, and clinical voice actions remain future work.
@@ -1120,7 +1190,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 
-## 15. Cleanup / Demo Note
+## 16. Cleanup / Demo Note
 
 Benchmarks write synthetic local chat, alert, and notification job records.
 

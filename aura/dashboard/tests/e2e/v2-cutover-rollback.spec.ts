@@ -28,7 +28,7 @@ test('route-level rollback can force dashboard back to legacy without disabling 
     window.localStorage.setItem(
       'aura_dashboard_v2_gates',
       JSON.stringify({
-        shell: false,
+        shell: true,
         routes: {
           dashboard: false,
           worklist: true,

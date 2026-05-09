@@ -208,7 +208,7 @@ function resolveGates(
 
 export function getDefaultDashboardV2Gates(): DashboardV2Gates {
   return {
-    shell: false,
+    shell: true,
     routes: { ...DEFAULT_ROUTES },
   };
 }
@@ -309,14 +309,18 @@ export function isDashboardV2RouteEnabled(routeId: DashboardV2RouteId): boolean 
   return readDashboardV2Gates().routes[routeId];
 }
 
+export function isDashboardV2ExperienceEnabled(routeId: DashboardV2RouteId): boolean {
+  const gates = readDashboardV2Gates();
+  return gates.shell && gates.routes[routeId];
+}
+
 export function shouldUseDashboardV2Shell(pathname: string): boolean {
   const routeId = resolveDashboardV2RouteId(pathname);
   if (!routeId) {
     return false;
   }
 
-  const gates = readDashboardV2Gates();
-  return gates.shell || gates.routes[routeId];
+  return isDashboardV2ExperienceEnabled(routeId);
 }
 
 export function resetDashboardV2GatesForTests(): void {

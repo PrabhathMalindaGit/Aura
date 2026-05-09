@@ -14,6 +14,7 @@ import type { DashboardV2RouteId } from '../config/migrationGates';
 export interface DashboardV2NavItem {
   key: DashboardV2RouteId;
   label: string;
+  accessibleLabel: string;
   shortLabel: string;
   description: string;
   to: string;
@@ -24,6 +25,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'dashboard',
     label: 'Today overview',
+    accessibleLabel: 'Dashboard',
     shortLabel: 'Today',
     description: 'Live operational summary',
     to: '/dashboard',
@@ -32,6 +34,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'worklist',
     label: 'Triage queue',
+    accessibleLabel: 'Worklist',
     shortLabel: 'Queue',
     description: 'Scan and open active review work',
     to: '/worklist',
@@ -40,6 +43,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'communication',
     label: 'Clinician inbox',
+    accessibleLabel: 'Communication',
     shortLabel: 'Inbox',
     description: 'Review conversations and follow-up',
     to: '/communication',
@@ -48,6 +52,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'patients',
     label: 'Patients roster',
+    accessibleLabel: 'Patients',
     shortLabel: 'Patients',
     description: 'Search the care roster and open patient workspaces',
     to: '/patients',
@@ -56,6 +61,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'alerts',
     label: 'Governance',
+    accessibleLabel: 'Alerts',
     shortLabel: 'Governance',
     description: 'Alert triage and safety governance',
     to: '/alerts',
@@ -64,6 +70,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'insights',
     label: 'Follow-up tasks',
+    accessibleLabel: 'Insights',
     shortLabel: 'Follow-up',
     description: 'Insight review and clinical follow-through',
     to: '/insights',
@@ -72,6 +79,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'appointments',
     label: 'Scheduling',
+    accessibleLabel: 'Appointments',
     shortLabel: 'Schedule',
     description: 'Appointments and scheduling flow',
     to: '/appointments',
@@ -80,6 +88,7 @@ export const DASHBOARD_V2_NAV_ITEMS: DashboardV2NavItem[] = [
   {
     key: 'settings',
     label: 'Workspace settings',
+    accessibleLabel: 'Settings',
     shortLabel: 'Settings',
     description: 'Theme, workspace, and preference controls',
     to: '/settings',

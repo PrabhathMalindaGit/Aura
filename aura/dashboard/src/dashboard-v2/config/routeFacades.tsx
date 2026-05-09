@@ -1,6 +1,6 @@
 import { Suspense, lazy, type ComponentType, type ReactNode } from "react";
 import {
-  isDashboardV2RouteEnabled,
+  isDashboardV2ExperienceEnabled,
   type DashboardV2RouteId,
 } from "./migrationGates";
 import { DashboardRoute } from "../modules/analytics";
@@ -77,7 +77,7 @@ interface RouteFacadeProps {
 function RouteFacade({ legacy, v2, routeId }: RouteFacadeProps): JSX.Element {
   return (
     <Suspense fallback={null}>
-      {isDashboardV2RouteEnabled(routeId) ? <>{v2}</> : <>{legacy}</>}
+      {isDashboardV2ExperienceEnabled(routeId) ? <>{v2}</> : <>{legacy}</>}
     </Suspense>
   );
 }

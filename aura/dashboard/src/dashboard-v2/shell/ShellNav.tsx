@@ -52,6 +52,7 @@ export function DashboardV2ShellNav({
           <NavLink
             key={item.key}
             to={item.to}
+            aria-label={item.accessibleLabel}
             className={({ isActive }) =>
               cn('dashboard-v2-shell__nav-link', isActive && 'dashboard-v2-shell__nav-link--active')
             }
@@ -59,7 +60,7 @@ export function DashboardV2ShellNav({
           >
             <DashboardV2Icon icon={item.icon} size={17} />
             {!collapsed ? (
-              <span className="dashboard-v2-shell__nav-copy">
+              <span className="dashboard-v2-shell__nav-copy" aria-hidden="true">
                 <span className="dashboard-v2-shell__nav-label">{item.shortLabel}</span>
                 <span className="dashboard-v2-shell__nav-description">{item.description}</span>
               </span>

@@ -18,10 +18,27 @@ describe('DashboardV2ShellFrame', () => {
     );
 
     expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute('href', `#${DASHBOARD_V2_MAIN_ID}`);
+    expect(screen.getByRole('link', { name: 'Skip to context rail' })).toHaveAttribute('href', `#${DASHBOARD_V2_RAIL_ID}`);
     expect(screen.getByRole('banner')).toBeInTheDocument();
     expect(screen.getByRole('search', { name: 'Quick open workspace search' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveAttribute('id', DASHBOARD_V2_MAIN_ID);
     expect(screen.getByRole('complementary', { name: 'Contextual governance rail' })).toHaveAttribute('id', DASHBOARD_V2_RAIL_ID);
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('omits the context rail skip link when no matching rail target is rendered', () => {
+    render(
+      <DashboardV2ShellFrame
+        bannerMeta={<div>Banner</div>}
+        footer={<div>Footer</div>}
+        navigation={<nav aria-label="Primary navigation">Nav</nav>}
+      >
+        <div>Main content</div>
+      </DashboardV2ShellFrame>,
+    );
+
+    expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveAttribute('href', `#${DASHBOARD_V2_MAIN_ID}`);
+    expect(screen.queryByRole('link', { name: 'Skip to context rail' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Contextual governance rail' })).not.toBeInTheDocument();
   });
 });

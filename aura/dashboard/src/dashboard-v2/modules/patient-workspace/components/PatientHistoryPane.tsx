@@ -1,13 +1,15 @@
+import { useEffect, useState } from 'react';
 import { DayDetailPanel } from '../../../../components/patients/DayDetailPanel';
 import { TrendCharts } from '../../../../components/patients/TrendCharts';
 import type { AlertItem, SymptomPhotoItem, TrendPointNormalized } from '../../../../types/models';
+import { fetchPhotoBlob } from '../../../../services/clinicianApi';
 import type { PatientHistoryChronologyItem } from '../usePatientWorkspaceViewModel';
 import type { PatientWorkspaceHistoryVm } from '../../../adapters/patientWorkspace';
 import { DashboardV2Surface } from '../../../primitives/Surface';
 import { DashboardV2Heading, DashboardV2Text } from '../../../primitives/Text';
 import { DashboardV2Button } from '../../../primitives/Button';
 
-interface PatientHistoryPaneProps {
+export interface PatientHistoryPaneProps {
   history: PatientWorkspaceHistoryVm;
   normalizedTrends: TrendPointNormalized[];
   showTrendsLoading: boolean;
@@ -25,6 +27,38 @@ interface PatientHistoryPaneProps {
   recentPhotos: SymptomPhotoItem[];
   onSelectDayKey: (date: string | null) => void;
   onRetry: () => void;
+}
+
+interface PhotoPreviewState {
+  photo: SymptomPhotoItem;
+  src: string | null;
+  loading: boolean;
+  error: string | null;
+}
+
+function formatPhotoDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value || 'Date unavailable';
+  }
+
+  return date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatPhotoKind(kind: SymptomPhotoItem['kind']): string {
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+function getPhotoDirectUrl(photo: SymptomPhotoItem): string | null {
+  return photo.fileUrl ?? photo.photoUrl ?? photo.imageUrl ?? photo.url ?? null;
+}
+
+function getPhotoAccessibleName(photo: SymptomPhotoItem): string {
+  return `${formatPhotoKind(photo.kind)} symptom photo from ${formatPhotoDate(photo.date)}`;
 }
 
 export function PatientHistoryPane({
@@ -46,6 +80,55 @@ export function PatientHistoryPane({
   onSelectDayKey,
   onRetry,
 }: PatientHistoryPaneProps): JSX.Element {
+  const [preview, setPreview] = useState<PhotoPreviewState | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
+
+  const handleViewPhoto = async (photo: SymptomPhotoItem): Promise<void> => {
+    const directUrl = getPhotoDirectUrl(photo);
+
+    if (directUrl) {
+      setObjectUrl(null);
+      setPreview({ photo, src: directUrl, loading: false, error: null });
+      return;
+    }
+
+    if (!photo.id) {
+      setObjectUrl(null);
+      setPreview({
+        photo,
+        src: null,
+        loading: false,
+        error: 'Photo metadata available; image preview unavailable from this view.',
+      });
+      return;
+    }
+
+    setObjectUrl(null);
+    setPreview({ photo, src: null, loading: true, error: null });
+
+    try {
+      const blob = await fetchPhotoBlob(photo.id);
+      const nextObjectUrl = URL.createObjectURL(blob);
+      setObjectUrl(nextObjectUrl);
+      setPreview({ photo, src: nextObjectUrl, loading: false, error: null });
+    } catch {
+      setPreview({
+        photo,
+        src: null,
+        loading: false,
+        error: 'Photo metadata available; image preview unavailable from this view.',
+      });
+    }
+  };
+
   return (
     <div className="v2-patient-pane v2-patient-pane--history" data-testid="v2-patient-history-pane">
       <DashboardV2Surface className="v2-patient-pane-intro" tone="muted">
@@ -158,6 +241,92 @@ export function PatientHistoryPane({
               <DashboardV2Text tone="muted">Reference images stay secondary to the main clinical timeline.</DashboardV2Text>
             </article>
           </div>
+          <section
+            className="v2-patient-photo-review"
+            aria-labelledby="v2-patient-photo-review-heading"
+          >
+            <div className="v2-patient-photo-review__header">
+              <div>
+                <DashboardV2Text tone="label">Recent symptom photos</DashboardV2Text>
+                <DashboardV2Heading as="h4" id="v2-patient-photo-review-heading">
+                  Secondary image review
+                </DashboardV2Heading>
+              </div>
+              <DashboardV2Text tone="caption">
+                No image interpretation is generated in this view.
+              </DashboardV2Text>
+            </div>
+            {recentPhotos.length === 0 ? (
+              <DashboardV2Text tone="muted">No recent symptom photo metadata is available in this review window.</DashboardV2Text>
+            ) : (
+              <div className="v2-patient-photo-review__list">
+                {recentPhotos.slice(0, 4).map((photo) => (
+                  <article key={photo.id} className="v2-patient-photo-review__item">
+                    <div className="v2-patient-photo-review__copy">
+                      <DashboardV2Text tone="label">{formatPhotoKind(photo.kind)}</DashboardV2Text>
+                      <DashboardV2Text as="strong" tone="strong">{formatPhotoDate(photo.date)}</DashboardV2Text>
+                      {photo.notePreview ? (
+                        <DashboardV2Text tone="muted">{photo.notePreview}</DashboardV2Text>
+                      ) : (
+                        <DashboardV2Text tone="muted">No patient note preview is available.</DashboardV2Text>
+                      )}
+                      <div className="v2-patient-photo-review__meta">
+                        {photo.source ? <span>{photo.source}</span> : null}
+                        {photo.status ? <span>{photo.status}</span> : null}
+                        <span>Uploaded {formatPhotoDate(photo.createdAt)}</span>
+                      </div>
+                    </div>
+                    <DashboardV2Button
+                      tone="row"
+                      size="sm"
+                      aria-label={`View ${getPhotoAccessibleName(photo)}`}
+                      onPress={() => {
+                        void handleViewPhoto(photo);
+                      }}
+                    >
+                      View photo
+                    </DashboardV2Button>
+                  </article>
+                ))}
+              </div>
+            )}
+            {preview ? (
+              <div
+                className="v2-patient-photo-preview"
+                aria-live="polite"
+                aria-label={`${getPhotoAccessibleName(preview.photo)} preview`}
+              >
+                <div className="v2-patient-photo-preview__header">
+                  <div>
+                    <DashboardV2Text tone="label">Selected photo</DashboardV2Text>
+                    <DashboardV2Text as="strong" tone="strong">
+                      {getPhotoAccessibleName(preview.photo)}
+                    </DashboardV2Text>
+                  </div>
+                  <DashboardV2Button
+                    tone="quiet"
+                    size="sm"
+                    onPress={() => setPreview(null)}
+                  >
+                    Close preview
+                  </DashboardV2Button>
+                </div>
+                {preview.loading ? (
+                  <DashboardV2Text tone="muted">Loading stored symptom photo…</DashboardV2Text>
+                ) : preview.src ? (
+                  <img
+                    className="v2-patient-photo-preview__image"
+                    src={preview.src}
+                    alt={getPhotoAccessibleName(preview.photo)}
+                  />
+                ) : (
+                  <DashboardV2Text tone="muted">
+                    {preview.error ?? 'Photo metadata available; image preview unavailable from this view.'}
+                  </DashboardV2Text>
+                )}
+              </div>
+            ) : null}
+          </section>
         </DashboardV2Surface>
       </div>
 

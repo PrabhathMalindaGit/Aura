@@ -306,7 +306,7 @@ button.v2-review-summary-strip__metric {
 .v2-button--primary {
   border-color: hsl(var(--v2-primary-strong) / 0.24);
   background: hsl(var(--v2-primary));
-  color: white;
+  color: hsl(var(--v2-on-primary));
   box-shadow: 0 12px 22px hsl(var(--v2-primary) / 0.16);
 }
 

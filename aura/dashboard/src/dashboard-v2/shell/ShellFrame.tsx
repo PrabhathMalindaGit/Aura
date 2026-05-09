@@ -22,7 +22,7 @@ export function DashboardV2ShellFrame({
 }: DashboardV2ShellFrameProps): JSX.Element {
   return (
     <div className="dashboard-v2-shell">
-      <DashboardV2SkipLinks />
+      <DashboardV2SkipLinks hasContextRail={Boolean(contextualRail)} />
       <div className="dashboard-v2-shell__layout">
         <aside className="dashboard-v2-shell__nav-shell">{navigation}</aside>
         <div className="dashboard-v2-shell__content-shell">

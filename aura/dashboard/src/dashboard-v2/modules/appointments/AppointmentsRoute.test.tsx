@@ -17,6 +17,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createJsonResponse, installMatchMediaMock, installResizeObserverMock } from '../../../test/mocks';
 import type { AppointmentRequestItem, AppointmentSlot, PatientSummary } from '../../../types/models';
+import { writeWorkspaceState } from '../../../services/workspaceState';
 import { AppointmentsRouteFacade } from '../../config/routeFacades';
 import {
   getDefaultDashboardV2Gates,
@@ -447,6 +448,12 @@ describe('AppointmentsRoute', () => {
       patients: BACKEND_SEEDED_PRESENTATION_PATIENTS,
       requests: BACKEND_SEEDED_PRESENTATION_REQUESTS,
       slots: BACKEND_SEEDED_PRESENTATION_SLOTS,
+    });
+    writeWorkspaceState('appointments', {
+      requestStatus: 'pending',
+      slotStatus: 'available',
+      scheduleView: 'week',
+      scheduleDate: '2026-04-28',
     });
 
     renderAppointmentsRoute('/appointments?workspace=seed-safe');

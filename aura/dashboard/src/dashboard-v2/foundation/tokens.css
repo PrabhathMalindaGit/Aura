@@ -70,6 +70,7 @@
   --v2-primary: 221 86% 48%;
   --v2-primary-strong: 221 82% 42%;
   --v2-primary-soft: 219 100% 96%;
+  --v2-on-primary: 0 0% 100%;
   --v2-nav-active: 220 12% 9%;
   --v2-critical: 6 66% 44%;
   --v2-critical-soft: 8 72% 96%;
@@ -125,6 +126,7 @@
   --v2-primary: 217 92% 68%;
   --v2-primary-strong: 217 88% 62%;
   --v2-primary-soft: 217 34% 19%;
+  --v2-on-primary: 210 28% 9%;
   --v2-nav-active: 210 25% 94%;
   --v2-critical: 8 74% 66%;
   --v2-critical-soft: 8 34% 18%;

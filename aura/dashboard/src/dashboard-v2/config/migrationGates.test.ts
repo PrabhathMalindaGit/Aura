@@ -15,9 +15,9 @@ describe('dashboard v2 migration gates', () => {
     vi.unstubAllEnvs();
   });
 
-  it('defaults the completed dashboard routes to v2 while leaving the shell baseline off', () => {
+  it('defaults the completed dashboard routes and shell to the v2 experience', () => {
     expect(readDashboardV2Gates()).toEqual({
-      shell: false,
+      shell: true,
       routes: {
         dashboard: true,
         worklist: true,
@@ -55,6 +55,19 @@ describe('dashboard v2 migration gates', () => {
     expect(isDashboardV2RouteEnabled('dashboard')).toBe(true);
     expect(shouldUseDashboardV2Shell('/worklist')).toBe(false);
     expect(shouldUseDashboardV2Shell('/patients/p1/plan')).toBe(false);
+  });
+
+  it('supports explicit shell rollback across completed routes', () => {
+    const defaults = getDefaultDashboardV2Gates();
+
+    writeDashboardV2Gates({
+      ...defaults,
+      shell: false,
+    });
+
+    expect(isDashboardV2RouteEnabled('dashboard')).toBe(true);
+    expect(shouldUseDashboardV2Shell('/dashboard')).toBe(false);
+    expect(shouldUseDashboardV2Shell('/worklist')).toBe(false);
   });
 
   it('supports explicit false env overrides for completed routes', () => {

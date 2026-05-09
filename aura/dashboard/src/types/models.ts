@@ -317,6 +317,12 @@ export interface SymptomPhotoItem {
   date: string;
   kind: SymptomPhotoKind;
   notePreview?: string;
+  source?: string;
+  status?: string;
+  fileUrl?: string;
+  photoUrl?: string;
+  imageUrl?: string;
+  url?: string;
   createdAt: string;
 }
 

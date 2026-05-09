@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react';
+import { Check } from 'lucide-react';
 import { cn } from '../../../../utils/cn';
 import {
   getLeadSignalTone,
@@ -112,6 +113,12 @@ export function QueueList({
                 <DashboardV2Badge tone={row.priorityTone === 'critical' ? 'safety' : 'priority'}>
                   {row.priorityLabel}
                 </DashboardV2Badge>
+                {isSelected ? (
+                  <span className="triage-queue-row__selected-indicator">
+                    <Check size={14} aria-hidden="true" />
+                    Selected
+                  </span>
+                ) : null}
               </div>
 
               <div className="triage-queue-row__meta">

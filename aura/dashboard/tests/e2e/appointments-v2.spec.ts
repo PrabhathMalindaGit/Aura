@@ -210,6 +210,13 @@ test('appointments v2 preserves request review, publishing context, and responsi
   const plannerWorkspace = page.getByTestId('v2-appointments-planner-workspace');
   await expect(plannerWorkspace).toContainText('Planner');
   await expect(page.getByRole('heading', { name: 'Patient P1' })).toBeVisible();
+  const requestRow = page.getByTestId('v2-appointment-request-row-appointment-request-1');
+  const requestSummary = requestRow.getByRole('button', {
+    name: /Select appointment request for Patient P1/i,
+  });
+  await expect(requestSummary).toBeVisible();
+  await expect(requestSummary).toHaveAttribute('aria-pressed', 'true');
+  await expect(requestSummary).not.toContainText('Approve');
 
   await page.getByRole('button', { name: 'Open patient' }).click();
   await expect(page).toHaveURL(/\/patients\/p1$/);
@@ -222,7 +229,10 @@ test('appointments v2 preserves request review, publishing context, and responsi
   await page.reload();
   await expect(page.getByTestId('v2-appointments-request-pane')).toBeVisible();
   await expect(page.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
-  await page.getByTestId('v2-appointment-request-row-appointment-request-1').click();
+  await page
+    .getByTestId('v2-appointment-request-row-appointment-request-1')
+    .getByRole('button', { name: /Select appointment request for Patient P1/i })
+    .press('Enter');
   await expect(page.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Back to requests' })).toHaveCount(0);
 

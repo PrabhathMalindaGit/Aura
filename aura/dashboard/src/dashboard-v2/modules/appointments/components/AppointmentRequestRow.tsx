@@ -41,6 +41,7 @@ export function AppointmentRequestRow({
   const request = selectedContext?.request;
   const governance = selectedContext?.governance;
   const pending = request?.status === 'pending';
+  const summaryLabel = `Select appointment request for ${row.patientName}: ${row.statusLabel}, ${row.workflowLabel}, ${row.timingLabel}`;
 
   return (
     <article
@@ -51,47 +52,47 @@ export function AppointmentRequestRow({
         .filter(Boolean)
         .join(' ')}
       role="listitem"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
       data-testid={`v2-appointment-request-row-${row.requestId}`}
     >
-      <div className="v2-appointment-request-row__topline">
-        <div className="v2-appointment-request-row__identity">
-          <DashboardV2Text tone="label">{row.patientId}</DashboardV2Text>
-          <DashboardV2Text as="span" tone="caption">
-            {row.timingLabel}
-          </DashboardV2Text>
-        </div>
-        <div className="v2-appointment-request-row__meta">
-          <DashboardV2Badge tone={mapBadgeTone(row.statusTone)}>{row.statusLabel}</DashboardV2Badge>
-          <DashboardV2Badge tone={mapBadgeTone(row.workflowTone)}>{row.workflowLabel}</DashboardV2Badge>
-        </div>
-      </div>
-
-      <div className="v2-appointment-request-row__body">
-        <DashboardV2ClinicianPatientAnchor patientLabel={row.patientName} tone="neutral" />
-        <div className="v2-appointment-request-row__copy">
-          <DashboardV2Heading className="v2-appointment-request-row__name" as="h3">
-            {row.patientName}
-          </DashboardV2Heading>
-          <span className="v2-appointment-request-row__schedule">{row.workflowLabel}</span>
-          <DashboardV2Text tone="caption">{row.detailLine}</DashboardV2Text>
-          <DashboardV2Text tone="muted">{row.supportLine}</DashboardV2Text>
-        </div>
-
-        {!isVeryNarrow ? (
-          <div className="v2-appointment-request-row__timing">
-            <DashboardV2Text tone="label">Timing</DashboardV2Text>
-            <strong>{row.waitLabel}</strong>
+      <button
+        type="button"
+        className="v2-appointment-request-row__summary"
+        aria-label={summaryLabel}
+        aria-pressed={selected}
+        onClick={onSelect}
+      >
+        <div className="v2-appointment-request-row__topline">
+          <div className="v2-appointment-request-row__identity">
+            <DashboardV2Text tone="label">{row.patientId}</DashboardV2Text>
+            <DashboardV2Text as="span" tone="caption">
+              {row.timingLabel}
+            </DashboardV2Text>
           </div>
-        ) : null}
-      </div>
+          <div className="v2-appointment-request-row__meta">
+            <DashboardV2Badge tone={mapBadgeTone(row.statusTone)}>{row.statusLabel}</DashboardV2Badge>
+            <DashboardV2Badge tone={mapBadgeTone(row.workflowTone)}>{row.workflowLabel}</DashboardV2Badge>
+          </div>
+        </div>
+
+        <div className="v2-appointment-request-row__body">
+          <DashboardV2ClinicianPatientAnchor patientLabel={row.patientName} tone="neutral" />
+          <div className="v2-appointment-request-row__copy">
+            <DashboardV2Heading className="v2-appointment-request-row__name" as="h3">
+              {row.patientName}
+            </DashboardV2Heading>
+            <span className="v2-appointment-request-row__schedule">{row.workflowLabel}</span>
+            <DashboardV2Text tone="caption">{row.detailLine}</DashboardV2Text>
+            <DashboardV2Text tone="muted">{row.supportLine}</DashboardV2Text>
+          </div>
+
+          {!isVeryNarrow ? (
+            <div className="v2-appointment-request-row__timing">
+              <DashboardV2Text tone="label">Timing</DashboardV2Text>
+              <strong>{row.waitLabel}</strong>
+            </div>
+          ) : null}
+        </div>
+      </button>
 
       {selectedContext && header ? (
         <div className="v2-appointment-request-row__selected-context">

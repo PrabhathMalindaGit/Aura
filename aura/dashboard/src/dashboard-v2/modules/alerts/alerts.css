@@ -254,6 +254,14 @@
   align-items: stretch;
   gap: 0.82rem;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v2-alerts-queue-pane__item {
+  display: flex;
+  min-width: 0;
 }
 
 button.v2-alert-row.v2-clinician-queue-row {

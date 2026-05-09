@@ -27,9 +27,14 @@ test('worklist v2 restores the active case after routing out and back by default
   await expect(page.getByTestId('triage-status-strip').getByRole('heading')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Supporting context' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Governance' })).toBeVisible();
+  await expect(page.getByTestId('triage-queue-row-p1')).toContainText('Selected');
+  await expect(page.getByTestId('triage-queue-row-p1')).toHaveAttribute('aria-pressed', 'true');
 
   await page.getByTestId('triage-queue-row-p2').click();
   await expect(page.getByTestId('triage-active-workspace')).toContainText('Patient P2');
+  await expect(page.getByTestId('triage-queue-row-p2')).toContainText('Selected');
+  await expect(page.getByTestId('triage-queue-row-p2')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('triage-queue-row-p1')).not.toContainText('Selected');
   await page.getByRole('button', { name: 'Governance' }).click();
   await expect(page.getByRole('heading', { name: 'Governance' })).toBeVisible();
   await page.keyboard.press('Escape');

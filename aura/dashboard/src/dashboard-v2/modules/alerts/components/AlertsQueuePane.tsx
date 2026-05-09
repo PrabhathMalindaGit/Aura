@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { AlertTriangle, MessageSquareMore, RefreshCcw, Search } from 'lucide-react';
 import type { AlertStatus } from '../../../../types/models';
 import type {
@@ -66,6 +67,35 @@ const SORT_OPTIONS = [
   { id: 'oldest', label: 'Oldest first' },
   { id: 'patient-asc', label: 'Patient A-Z' },
 ] as const;
+
+function moveAlertQueueFocus(event: KeyboardEvent<HTMLButtonElement>): void {
+  const list = event.currentTarget.closest<HTMLElement>('[data-alert-queue-list="true"]');
+  const rows = Array.from(list?.querySelectorAll<HTMLButtonElement>('button[data-row-index]') ?? []);
+  const currentIndex = rows.indexOf(event.currentTarget);
+
+  if (currentIndex < 0 || rows.length === 0) {
+    return;
+  }
+
+  let nextIndex = currentIndex;
+
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    nextIndex = Math.min(currentIndex + 1, rows.length - 1);
+  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    nextIndex = Math.max(currentIndex - 1, 0);
+  } else if (event.key === 'Home') {
+    nextIndex = 0;
+  } else if (event.key === 'End') {
+    nextIndex = rows.length - 1;
+  } else {
+    return;
+  }
+
+  if (nextIndex !== currentIndex) {
+    event.preventDefault();
+    rows[nextIndex]?.focus();
+  }
+}
 
 export function AlertsQueuePane({
   status,
@@ -241,16 +271,19 @@ export function AlertsQueuePane({
             </DashboardV2Button>
           </DashboardV2Surface>
         ) : (
-          <div className="v2-alerts-queue-pane__list" role="group" aria-label="Alert queue">
-            {rows.map((row) => (
-              <AlertQueueRow
-                key={row.key}
-                row={row}
-                selected={row.alertId === selectedAlertId}
-                onSelect={() => onSelect(row.alertId)}
-              />
+          <ul className="v2-alerts-queue-pane__list" data-alert-queue-list="true" aria-label="Alert queue">
+            {rows.map((row, index) => (
+              <li key={row.key} className="v2-alerts-queue-pane__item">
+                <AlertQueueRow
+                  row={row}
+                  selected={row.alertId === selectedAlertId}
+                  rowIndex={index}
+                  onKeyDown={moveAlertQueueFocus}
+                  onSelect={() => onSelect(row.alertId)}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </DashboardV2Surface>

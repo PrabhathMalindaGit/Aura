@@ -265,16 +265,23 @@ describe('TriageQueueRoute', () => {
 
     expect(await screen.findByTestId('triage-queue-route', undefined, asyncQueryTimeout)).toBeInTheDocument();
     expect(await screen.findByTestId('triage-active-workspace', undefined, asyncQueryTimeout)).toHaveTextContent('Jordan Lee');
+    expect(within(screen.getByTestId('triage-queue-row-p1')).getByText('Selected')).toBeInTheDocument();
+    expect(screen.getByTestId('triage-queue-row-p1')).toHaveAttribute('aria-pressed', 'true');
 
     const averyRow = screen.getByTestId('triage-queue-row-p2');
     await userEvent.click(averyRow);
 
     expect(screen.queryByText('Patient detail workspace')).not.toBeInTheDocument();
     expect(screen.getByTestId('triage-active-workspace')).toHaveTextContent('Avery Chen');
+    expect(within(averyRow).getByText('Selected')).toBeInTheDocument();
+    expect(averyRow).toHaveAttribute('aria-pressed', 'true');
+    expect(within(screen.getByTestId('triage-queue-row-p1')).queryByText('Selected')).not.toBeInTheDocument();
 
     fireEvent.focus(screen.getByTestId('triage-queue-row-p1'));
     fireEvent.keyDown(screen.getByTestId('triage-queue-row-p1'), { key: 'ArrowDown' });
     expect(screen.getByTestId('triage-queue-row-p2')).toHaveFocus();
+    fireEvent.keyDown(screen.getByTestId('triage-queue-row-p2'), { key: 'ArrowUp' });
+    expect(screen.getByTestId('triage-queue-row-p1')).toHaveFocus();
   });
 
   it('removes the old active-review hero card in favor of a thinner route strip', async () => {

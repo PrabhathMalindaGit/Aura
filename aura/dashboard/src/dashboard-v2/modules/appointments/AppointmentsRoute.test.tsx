@@ -5,6 +5,8 @@ import {
   cleanup,
   render,
   screen,
+  waitFor,
+  within,
 } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
@@ -416,6 +418,47 @@ describe('AppointmentsRoute', () => {
     await userEvent.click(screen.getByTestId('v2-appointment-request-row-request-1'));
     expect(screen.getByTestId('v2-appointments-planner-workspace')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Back to requests' })).not.toBeInTheDocument();
+  });
+
+  it('uses a native request summary button and keeps selected request actions separate', async () => {
+    const pendingRequests: AppointmentRequestItem[] = [
+      REQUESTS[0],
+      {
+        ...REQUESTS[1],
+        status: 'pending',
+        workflowStatus: 'awaiting_confirmation',
+      },
+    ];
+    installAppointmentsFetchMock({ requests: pendingRequests });
+
+    renderAppointmentsRoute();
+
+    const firstRow = await screen.findByTestId('v2-appointment-request-row-request-1');
+    const secondRow = await screen.findByTestId('v2-appointment-request-row-request-2');
+    const firstSummary = within(firstRow).getByRole('button', {
+      name: /Select appointment request for Jordan Lee/i,
+    });
+    const secondSummary = within(secondRow).getByRole('button', {
+      name: /Select appointment request for Avery Chen/i,
+    });
+
+    expect(firstSummary).toHaveAttribute('aria-pressed', 'true');
+    expect(within(firstRow).getByRole('button', { name: 'Open patient' })).toBeVisible();
+    expect(firstSummary).not.toContainElement(within(firstRow).getByRole('button', { name: 'Approve' }));
+
+    secondSummary.focus();
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Avery Chen' })).toBeVisible();
+    });
+    expect(secondSummary).toHaveAttribute('aria-pressed', 'true');
+    expect(within(secondRow).getByRole('button', { name: 'Open patient' })).toBeVisible();
+    expect(secondSummary).not.toContainElement(within(secondRow).getByRole('button', { name: 'Approve' }));
+
+    await userEvent.click(within(secondRow).getByRole('button', { name: 'Open patient' }));
+
+    expect(screen.getByTestId('appointments-location')).toHaveTextContent('/patients/patient-2');
   });
 
   it.each([

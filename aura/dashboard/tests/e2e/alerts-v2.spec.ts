@@ -115,6 +115,18 @@ test('alerts v2 preserves queue context while supporting alert governance action
   await expectReadableHeading('What changed');
   await expectReadableHeading('Notification review');
 
+  const primaryAlertRow = page.getByTestId('v2-alert-row-alert-primary');
+  const secondaryAlertRow = page.getByTestId('v2-alert-row-alert-secondary');
+  await primaryAlertRow.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(secondaryAlertRow).toBeFocused();
+  await expect(workspace).toContainText('Patient P1');
+  await page.keyboard.press('Enter');
+  await expect(workspace).toContainText('Patient p2');
+  await expect(secondaryAlertRow.getByLabel('Selected alert')).toBeVisible();
+  await primaryAlertRow.click();
+  await expect(workspace).toContainText('Patient P1');
+
   await workspace.getByRole('heading', { name: 'Confirm final risk' }).scrollIntoViewIfNeeded();
   const headerBoxAfterRiskScroll = await reviewHeader.boundingBox();
   if (headerBoxAfterRiskScroll) {

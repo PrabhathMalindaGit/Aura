@@ -231,6 +231,19 @@
   font-size: var(--v2-font-size-body-strong);
 }
 
+.triage-queue-row__selected-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1.35rem;
+  padding: 0.08rem 0.48rem;
+  border-radius: 999px;
+  background: hsl(var(--v2-info) / 0.12);
+  color: hsl(var(--v2-info));
+  font-size: var(--v2-font-size-caption);
+  font-weight: 700;
+}
+
 .triage-queue-row__meta,
 .triage-queue-row__freshness {
   color: hsl(var(--v2-text-muted));

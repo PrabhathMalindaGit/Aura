@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { CheckCircle2, Clock3 } from 'lucide-react';
 import type { AlertQueueRowVm, AlertsBadgeTone } from '../../../adapters/alerts';
 import { DashboardV2ClinicianPatientAnchor } from '../../../patterns/ClinicianPatientAnchor';
@@ -8,6 +9,8 @@ import { DashboardV2Text } from '../../../primitives/Text';
 interface AlertQueueRowProps {
   row: AlertQueueRowVm;
   selected: boolean;
+  rowIndex: number;
+  onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
   onSelect: () => void;
 }
 
@@ -34,6 +37,8 @@ function mapBadgeTone(tone: AlertsBadgeTone): React.ComponentProps<typeof Dashbo
 export function AlertQueueRow({
   row,
   selected,
+  rowIndex,
+  onKeyDown,
   onSelect,
 }: AlertQueueRowProps): JSX.Element {
   return (
@@ -56,6 +61,8 @@ export function AlertQueueRow({
       }
       selected={selected}
       onPress={onSelect}
+      onKeyDown={onKeyDown}
+      rowIndex={rowIndex}
       testId={`v2-alert-row-${row.alertId}`}
     >
       <div className="v2-alert-row__card-main">

@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -402,6 +403,37 @@ describe('AlertsRoute', () => {
     await waitFor(() => {
       expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Avery Chen');
     });
+  });
+
+  it('moves alert queue focus with arrow keys without selecting until activation', async () => {
+    const user = userEvent.setup();
+
+    renderAlertsRoute();
+
+    expect(await screen.findByTestId('v2-alert-review-workspace', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS })).toHaveTextContent('Jordan Lee');
+
+    const firstRow = await screen.findByTestId('v2-alert-row-alert-1', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+    const secondRow = await screen.findByTestId('v2-alert-row-alert-2', undefined, { timeout: ROUTE_LOAD_TIMEOUT_MS });
+
+    firstRow.focus();
+    fireEvent.keyDown(firstRow, { key: 'ArrowRight' });
+
+    expect(secondRow).toHaveFocus();
+    expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Jordan Lee');
+
+    const fetchMock = vi.mocked(globalThis.fetch);
+    expect(
+      fetchMock.mock.calls.some(([, init]) =>
+        ['PATCH', 'POST', 'PUT', 'DELETE'].includes(String(init?.method ?? 'GET').toUpperCase()),
+      ),
+    ).toBe(false);
+
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('v2-alert-review-workspace')).toHaveTextContent('Avery Chen');
+    });
+    expect(screen.getByLabelText('Selected alert')).toBeInTheDocument();
   });
 
   it('keeps selected review aligned with the filtered queue', async () => {

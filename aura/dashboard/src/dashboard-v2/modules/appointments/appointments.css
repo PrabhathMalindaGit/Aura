@@ -139,12 +139,27 @@
   border-radius: var(--v2-radius-row);
   background: hsl(var(--v2-row-surface));
   color: hsl(var(--v2-text));
-  cursor: pointer;
   text-align: left;
   transition:
     border-color var(--v2-motion-fast) var(--v2-ease-standard),
     background-color var(--v2-motion-fast) var(--v2-ease-standard),
     box-shadow var(--v2-motion-fast) var(--v2-ease-standard);
+}
+
+.v2-appointment-request-row__summary {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--v2-radius-row) - 0.35rem);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .v2-appointment-request-row::before {
@@ -165,7 +180,7 @@
   box-shadow: var(--v2-shadow-selection);
 }
 
-.v2-appointment-request-row:focus-visible {
+.v2-appointment-request-row__summary:focus-visible {
   outline: none;
   box-shadow: var(--v2-focus-ring);
 }

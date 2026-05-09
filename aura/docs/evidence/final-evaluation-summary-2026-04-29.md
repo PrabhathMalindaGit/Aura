@@ -24,6 +24,7 @@ This summary uses existing evidence files and known verified results only. It sh
 | Voice Agent V5-D4A | Mobile-only Hydration-screen confirmed voice hydration logging implemented for reviewed quick-add amounts 250 ml, 500 ml, and 750 ml, using the existing hydration quick-add path and preserving offline queue behavior. | `voice-agent-v5d4a-confirmed-hydration-log-2026-04-29.md` |
 | Voice Agent V5-D4B | Mobile-only Nutrition-screen confirmed voice nutrition logging implemented with exact current-form review, explicit confirmation, existing nutrition save path, and preserved offline queue behavior. | `voice-agent-v5d4b-confirmed-nutrition-log-2026-04-29.md` |
 | Voice Agent V5-D4C | Mobile-only Medications-screen confirmed voice medication status logging implemented for visible scheduled doses with taken/skipped only, exact review, explicit confirmation, existing medication dose action path, and preserved offline sync behavior. | `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md` |
+| Voice Agent V5-D automated QA guardrails | Cross-flow automated QA guardrails implemented for the completed V5-D confirmed-action series, covering review-first behavior, explicit confirmation, ambiguous/cancel handling, expiry, same-path mutation behavior, forbidden side-effect source guards, accessibility checks, and `/voice-agent` boundary protection. | `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md` |
 | Clinician dashboard | Dashboard behavior is covered by existing dashboard unit and E2E verification; dashboard counts are listed under verification status. | Known verified test results |
 | Static RAG | `/rag/reply` retrieves curated static rehabilitation knowledge for low-risk support and falls back safely. | `rag-static-knowledge-retrieval-2026-04-29.md` |
 | MongoDB living memory | Patient-scoped deterministic memory records are implemented with sanitized summaries and same-patient low-risk retrieval. | `rag-living-memory-phase-2-2026-04-29.md` |
@@ -64,7 +65,7 @@ Interpretation boundary:
 
 ## 4. Mobile Voice Assist And UI/UX Accessibility Evidence
 
-Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, V5-C2 safe workflow-start evidence, V5-D1 confirmed voice check-in submit evidence, V5-D2 confirmed voice chat send evidence, V5-D3 confirmed voice appointment request evidence, V5-D4A confirmed voice hydration log evidence, V5-D4B confirmed voice nutrition log evidence, V5-D4C confirmed voice medication status log evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
+Aura mobile now has V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, V4-B guided check-in panel UI evidence, V5-C1 deterministic safe action proposal evidence, V5-C2 safe workflow-start evidence, V5-D1 confirmed voice check-in submit evidence, V5-D2 confirmed voice chat send evidence, V5-D3 confirmed voice appointment request evidence, V5-D4A confirmed voice hydration log evidence, V5-D4B confirmed voice nutrition log evidence, V5-D4C confirmed voice medication status log evidence, V5-D automated QA guardrail evidence, and Mobile UI/UX Accessibility Fix Phase 1 evidence. Voice features remain bounded to prototype support and not clinical validation.
 
 Evidence summary:
 
@@ -284,11 +285,22 @@ Evidence summary:
 - V5-D4C made no backend/API contract changes.
 - Existing validation remains authoritative.
 - V5-D4C safety/privacy boundaries: no backend/API contract changes, no voice-only API, no Realtime tool calling, no transcript persistence, no raw audio persistence, no unconfirmed draft persistence, no OpenAI key exposure, no `EXPO_PUBLIC_OPENAI_API_KEY`, no dosage advice, no schedule changes, no medication name editing, no new medication creation, no free-form medication interpretation, no missed voice status, no direct alert creation, no Safety Router bypass, no chat send, no check-in submit, no appointment request, no upload action, no hydration log, no nutrition log, no diagnosis, no treatment advice, and no emergency calling.
-- Latest mobile verification after Voice Agent V5-D4C: `npm test -- voiceHealthLogConfirmation.test.ts medicationsScreen.test.tsx` passed 2 files / 54 tests; `npm test` passed 63 files / 582 tests; `npm run qa:web` passed; TypeScript, web guardrails, and a11y smoke passed; `git diff --check` passed.
+- Latest mobile verification after Voice Agent V5-D automated QA guardrails: targeted required test command passed 10 files / 336 tests; `npm test` passed 64 files / 698 tests; `npm run qa:web` passed; TypeScript passed; web guardrails passed with `FAIL 0` / `WARN 0`; a11y smoke passed with `FAIL 0` / `WARN 0`; `git diff --check` passed; existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
+- V5-D automated QA guardrail pass was implemented as a narrow test/safety hardening change across the completed confirmed-action series.
+- The V5-D automated QA guardrails cover V5-D1 confirmed check-in submit, V5-D2 confirmed chat send, V5-D3 confirmed appointment request, V5-D4A confirmed hydration log, V5-D4B confirmed nutrition log, and V5-D4C confirmed medication status log.
+- The V5-D automated QA guardrails strengthen coverage for review-first behavior, explicit-confirmation-only behavior, no ambiguous mutation, cancel clears state, expiry behavior, offline/validation preservation, and unrelated mutation prevention.
+- A tiny production safety-hardening adjustment made cancellation phrases consistently conservative across all confirmed-action parsers, including "never mind", "go back", and cross-flow "do not ..." phrases.
+- Confirmation phrases remain narrow.
+- Phrase, expiry, and invalidation evidence: shared parser guardrails were added for exact accepted phrase sets; generic ambiguous phrases are blocked across confirmed actions; screen-level ambiguous/cancel matrices were expanded; existing expiry and snapshot invalidation tests remain covered across flows; cancellation phrase handling is more conservative across all confirmed-action parsers.
+- Same-path mutation evidence: check-in, chat, appointment, hydration, nutrition, and medication status flows retain same-path behavior; hydration delegation through `sendHydrationSync` is covered; nutrition delegation through `sendNutritionSync` is covered; existing screen tests cover check-in, chat, appointments, and medication dose action paths.
+- Source-guard evidence: `VoiceAgentSecurityGuard` now scans V5-D screens, confirmation utilities, `/voice-agent`, and Realtime files.
+- Source guards cover forbidden APIs, cross-flow mutations, Realtime tools, `tool_choice`/function calls, persistence shortcuts, OpenAI key exposure, direct alerts, and Voice Agent confirmed-action execution.
+- Accessibility evidence: existing and expanded screen tests verify review controls, confirmation controls, cancel controls, disabled state, live status, summaries, and readable safety/status text for V5-D panels.
 - Remaining mobile UI/UX limitations: Home/Demo Hub density, deeper voice UX explanation, full long-screen hierarchy cleanup, keyboard-overlap manual device QA, broader caregiver/patient flow separation polish, and no real device/emulator visual QA pass was run.
 - Manual QA is not applicable yet for V4-A because no UI was added.
 - Manual native QA is still required because V1/V3 use `expo-speech-recognition`, and V4-B guided check-in also uses speech recognition.
 - Manual live browser QA is still required for V5-B2-Web.
+- Manual VoiceOver/TalkBack spot checks on a real device are still useful for V5-D review panels, especially spoken order, tactile flow, and review panel behavior.
 - Clinical validation remains future work.
 
 Evidence sources:
@@ -309,8 +321,9 @@ Evidence sources:
 - `voice-agent-v5d4a-confirmed-hydration-log-2026-04-29.md`
 - `voice-agent-v5d4b-confirmed-nutrition-log-2026-04-29.md`
 - `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md`
+- `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md`
 
-## 5. Voice Agent V5-A Through V5-D4C Evidence
+## 5. Voice Agent V5-A Through V5-D Automated QA Guardrails Evidence
 
 Aura Voice Agent V5-A implemented a backend-only OpenAI Realtime session broker. It is not a full voice agent yet and does not add mobile Realtime UI or clinical voice actions.
 
@@ -676,6 +689,45 @@ Evidence summary:
 - V5-D4C is prototype support, not clinical validation.
 - V5-D4C is not production voice-agent validation.
 
+Aura Voice Agent V5-D automated QA guardrails were implemented for the completed confirmed-action series as a narrow test/safety hardening change. The pass covers V5-D1 confirmed check-in submit, V5-D2 confirmed chat send, V5-D3 confirmed appointment request, V5-D4A confirmed hydration log, V5-D4B confirmed nutrition log, and V5-D4C confirmed medication status log.
+
+Evidence summary:
+
+- The pass strengthens cross-flow coverage for review-first behavior.
+- The pass strengthens explicit-confirmation-only behavior.
+- The pass verifies no ambiguous mutation.
+- The pass verifies cancel clears state.
+- The pass verifies expiry behavior.
+- The pass verifies offline/validation preservation.
+- The pass verifies unrelated mutation prevention.
+- Shared parser guardrails were added for exact accepted phrase sets.
+- Generic ambiguous phrases are blocked across confirmed actions.
+- Screen-level ambiguous/cancel matrices were expanded.
+- Existing expiry and snapshot invalidation tests remain covered across flows.
+- Cancellation phrase handling is more conservative across all confirmed-action parsers, including "never mind", "go back", and cross-flow "do not ..." phrases.
+- Confirmation phrases remain narrow.
+- Check-in, chat, appointment, hydration, nutrition, and medication status flows retain same-path behavior.
+- Hydration delegation through `sendHydrationSync` is covered.
+- Nutrition delegation through `sendNutritionSync` is covered.
+- Existing screen tests cover check-in, chat, appointments, and medication dose action paths.
+- `VoiceAgentSecurityGuard` now scans V5-D screens, confirmation utilities, `/voice-agent`, and Realtime files.
+- Source guards cover forbidden APIs, cross-flow mutations, Realtime tools, `tool_choice`/function calls, persistence shortcuts, OpenAI key exposure, direct alerts, and Voice Agent confirmed-action execution.
+- Existing and expanded screen tests verify review controls, confirmation controls, cancel controls, disabled state, live status, summaries, and readable safety/status text for V5-D panels.
+- Verification recorded: targeted required test command passed: 10 files / 336 tests.
+- Verification recorded: `npm test` passed: 64 files / 698 tests.
+- Verification recorded: `npm run qa:web` passed.
+- Verification recorded: TypeScript passed.
+- Verification recorded: web guardrails passed: `FAIL 0` / `WARN 0`.
+- Verification recorded: a11y smoke passed: `FAIL 0` / `WARN 0`.
+- Verification recorded: `git diff --check` passed.
+- Existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
+- Source guards are conservative regex checks, so future legitimate refactors may need test updates.
+- This is automated QA evidence only, not clinical validation.
+- This is not production voice-agent validation.
+- Real microphone/speech-recognition behavior still requires manual/device QA.
+- Manual VoiceOver/TalkBack spot checks on a real device are still useful.
+- Manual QA should focus on spoken order, tactile flow, and review panels.
+
 Evidence sources:
 
 - `voice-agent-v5a-realtime-session-broker-2026-04-29.md`
@@ -689,6 +741,7 @@ Evidence sources:
 - `voice-agent-v5d4a-confirmed-hydration-log-2026-04-29.md`
 - `voice-agent-v5d4b-confirmed-nutrition-log-2026-04-29.md`
 - `voice-agent-v5d4c-confirmed-medication-status-log-2026-04-29.md`
+- `voice-agent-v5d-automated-qa-guardrails-2026-04-29.md`
 
 ## 6. Static RAG Phase 1
 
@@ -802,7 +855,7 @@ Latest known verified results:
 | Static PGVector regression tests | 12 passed | PGVector-enabled static retrieval regression. |
 | Dashboard unit tests | 505 passed | Earlier verified evidence; rerun if dashboard code changes again. |
 | Dashboard E2E tests | 19 passed | Earlier verified evidence; rerun if dashboard code changes again. |
-| Mobile tests | 63 files passed, 582 tests passed | Latest known mobile verification after Voice Agent V5-D4C. |
+| Mobile tests | 64 files passed, 698 tests passed | Latest known mobile verification after Voice Agent V5-D automated QA guardrails. |
 
 Latest V5-A focused server verification:
 
@@ -922,7 +975,18 @@ Latest V5-D4C mobile verification:
 - TypeScript, web guardrails, and a11y smoke passed.
 - `git diff --check` passed.
 
-The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D4C evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
+Latest V5-D automated QA guardrail mobile verification:
+
+- Targeted required test command passed: 10 files / 336 tests.
+- `npm test` passed: 64 files / 698 tests.
+- `npm run qa:web` passed.
+- TypeScript passed.
+- Web guardrails passed: `FAIL 0` / `WARN 0`.
+- A11y smoke passed: `FAIL 0` / `WARN 0`.
+- `git diff --check` passed.
+- Existing `react-test-renderer` deprecation and `act` warnings appeared but did not fail the suite.
+
+The dashboard count is included as a known verified result supplied for this final summary. The latest mobile count is recorded in the Voice Agent V5-D automated QA guardrail evidence. The latest server count is recorded in the Voice Agent V5-A evidence. These surfaces should be rerun if they change again before submission.
 
 ## 12. Limitations And Cautions
 
@@ -1009,6 +1073,12 @@ The dashboard count is included as a known verified result supplied for this fin
 - Voice Agent V5-D4C manual Confirm log remains available after review.
 - Voice Agent V5-D4C is prototype support, not clinical validation.
 - Voice Agent V5-D4C is not production voice-agent validation.
+- Voice Agent V5-D automated QA source guards are conservative regex checks, so future legitimate refactors may need test updates.
+- Voice Agent V5-D automated QA evidence is automated QA evidence only, not clinical validation.
+- Voice Agent V5-D automated QA evidence is not production voice-agent validation.
+- Real microphone/speech-recognition behavior still requires manual/device QA.
+- Manual VoiceOver/TalkBack spot checks on a real device are still useful.
+- Manual QA should focus on spoken order, tactile flow, and review panels.
 
 ## 13. Safe Report Wording
 
@@ -1032,7 +1102,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - 1.0000 precision, recall, F1, and reason-code agreement.
 - Static rehabilitation retrieval and patient-scoped living memory implemented.
 - MongoDB canonical memory with optional PGVector indexing for sanitized retrieval.
-- 353 server tests across 54 files, 582 mobile tests across 63 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
+- 353 server tests across 54 files, 698 mobile tests across 64 files, 505 dashboard unit tests, 19 dashboard E2E tests, and 50 AI tests passed.
 - Mobile Voice Assist V1 reviewed dictation, V2 read-aloud, V3 navigation-only voice commands, V4-A deterministic guided check-in parsers, and V4-B guided check-in panel implemented, with manual native QA for speech-based UI and clinical validation still future work.
 - Mobile UI/UX Accessibility Fix Phase 1 completed for scoped accessibility and task-completion blockers from the read-only UI/UX audit, with broader UI/UX polish and real device/emulator visual QA still future work.
 - Backend-only Voice Agent V5-A Realtime session broker implemented with patient-authenticated, feature-flagged short-lived client-secret creation; no mobile UI or clinical voice actions yet.
@@ -1046,6 +1116,7 @@ Facts that are safe to use later when writing an abstract, with the surrounding 
 - Voice Agent V5-D4A confirmed voice hydration logging implemented on mobile with Hydration-screen-owned exact log review, accepted phrases "yes log", "confirm log", and "log this", supported reviewed quick-add amounts 250 ml, 500 ml, and 750 ml, the existing hydration quick-add path, preserved offline queue behavior, and no voice-only API, nutrition logging, medication logging, backend changes, or `/voice-agent` behavior changes.
 - Voice Agent V5-D4B confirmed voice nutrition logging implemented on mobile with Nutrition-screen-owned exact current-form review, accepted phrases "yes log", "confirm log", and "log this", the existing nutrition save path, preserved offline queue behavior, and no voice-only API, medication logging, hydration logging from the nutrition flow, backend changes, diagnosis, treatment advice, or diet advice.
 - Voice Agent V5-D4C confirmed voice medication status logging implemented on mobile with Medications-screen-owned existing-dose review, accepted phrases "yes log", "confirm log", and "log this", taken/skipped status only, existing medication dose action path, and no voice-only API, dosage advice, schedule changes, new medication creation, backend changes, or free-form medication interpretation.
+- Voice Agent V5-D automated QA guardrails implemented for the completed confirmed-action series, with cross-flow tests for review-first behavior, exact confirmation, ambiguous/cancel handling, expiry, same-path mutation behavior, forbidden side effects, accessibility, and `/voice-agent` boundary protection.
 - Final latency benchmark: 64.85 ms p95 low-risk chat, 50.72 ms p95 alert visibility.
 - Clinical validation remains future work.
 

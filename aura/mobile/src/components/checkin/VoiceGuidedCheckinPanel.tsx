@@ -24,6 +24,7 @@ type VoiceGuidedCheckinPanelProps = {
   onConfirmSleepHours: (value: number) => void;
   onConfirmSleepQuality: (value: number) => void;
   onEditManually?: (stepId: GuidedCheckinStepId) => void;
+  onRequestVoiceSubmitReview?: () => void;
   locale?: string;
   testID?: string;
 };
@@ -44,6 +45,7 @@ export function VoiceGuidedCheckinPanel({
   onConfirmSleepHours,
   onConfirmSleepQuality,
   onEditManually,
+  onRequestVoiceSubmitReview,
   locale,
   testID = "voice-guided-checkin-panel",
 }: VoiceGuidedCheckinPanelProps) {
@@ -338,15 +340,37 @@ export function VoiceGuidedCheckinPanel({
           ) : null}
 
           {guided.status === "review" ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Complete guided check-in"
-              accessibilityHint="Closes the guided flow. Submit check-in remains a separate manual action."
-              onPress={guided.complete}
-              style={({ pressed }) => [styles.secondaryAction, pressed ? styles.pressed : null]}
-            >
-              <Text style={styles.secondaryActionText}>Done reviewing</Text>
-            </Pressable>
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Complete guided check-in"
+                accessibilityHint="Closes the guided flow. Submit check-in remains a separate manual action."
+                onPress={guided.complete}
+                style={({ pressed }) => [styles.secondaryAction, pressed ? styles.pressed : null]}
+              >
+                <Text style={styles.secondaryActionText}>Done reviewing</Text>
+              </Pressable>
+              {onRequestVoiceSubmitReview ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Review for voice submit"
+                  accessibilityHint="Opens the screen-owned final review before any check-in can be submitted."
+                  onPress={onRequestVoiceSubmitReview}
+                  style={({ pressed }) => [
+                    styles.secondaryAction,
+                    pressed ? styles.pressed : null,
+                  ]}
+                >
+                  <Text style={styles.secondaryActionText}>Review for voice submit</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          {onRequestVoiceSubmitReview && guided.status === "review" ? (
+            <Text style={styles.helperText}>
+              Submit check-in still uses the main Review step.
+            </Text>
           ) : null}
 
           <Text style={styles.privacyText}>

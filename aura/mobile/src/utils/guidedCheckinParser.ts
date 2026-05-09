@@ -16,6 +16,7 @@ export type GuidedCheckinParseResult<T> =
   | GuidedCheckinParseFailure;
 
 export type GuidedCheckinMedicationStatus = "taken" | "missed" | "not_applicable";
+export type VoiceSubmitConfirmationIntent = "confirm" | "cancel" | "ambiguous";
 
 const MAX_NOTES_LENGTH = 1200;
 
@@ -301,4 +302,29 @@ export function parseGuidedCheckinSleepQuality(
   transcript: string,
 ): GuidedCheckinParseResult<number> {
   return parseMoodLikeScore(transcript, "Use a clear sleep quality score from 1 to 5.");
+}
+
+export function parseVoiceSubmitConfirmation(
+  transcript: string,
+): VoiceSubmitConfirmationIntent {
+  const normalized = normalizeTranscript(transcript);
+
+  if (
+    normalized === "yes submit" ||
+    normalized === "confirm submit" ||
+    normalized === "submit check in"
+  ) {
+    return "confirm";
+  }
+
+  if (
+    normalized === "cancel" ||
+    normalized === "stop" ||
+    normalized === "do not submit" ||
+    normalized === "dont submit"
+  ) {
+    return "cancel";
+  }
+
+  return "ambiguous";
 }

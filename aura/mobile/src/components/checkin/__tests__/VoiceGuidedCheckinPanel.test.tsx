@@ -392,6 +392,28 @@ describe("VoiceGuidedCheckinPanel", () => {
     ).toHaveLength(0);
   });
 
+  it("can request the screen-owned voice submit review without owning submission", () => {
+    const onRequestVoiceSubmitReview = vi.fn();
+    const { renderer } = renderPanel({ onRequestVoiceSubmitReview });
+
+    act(() => {
+      findByLabel(renderer, "Expand guided check-in voice assist").props.onPress();
+    });
+
+    for (let index = 0; index < 5; index += 1) {
+      act(() => {
+        findByLabel(renderer, "Skip guided question").props.onPress();
+      });
+    }
+
+    act(() => {
+      findByLabel(renderer, "Review for voice submit").props.onPress();
+    });
+
+    expect(onRequestVoiceSubmitReview).toHaveBeenCalledTimes(1);
+    expect(textContent(renderer)).toContain("Submit check-in still uses the main Review step.");
+  });
+
   it("shows safety guidance for emergency-like numeric answers without writing values", async () => {
     const { renderer, props } = renderPanel();
 

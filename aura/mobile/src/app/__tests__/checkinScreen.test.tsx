@@ -2,6 +2,9 @@ import React from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+type SpeechEventName = "start" | "end" | "result" | "error" | "nomatch";
+type SpeechListener = (event?: any) => void;
+
 const {
   createCheckin,
   getCheckinAdaptation,
@@ -21,25 +24,62 @@ const {
   networkState,
   routeParams,
   setCheckinLocalError,
-} = vi.hoisted(() => ({
-  createCheckin: vi.fn(),
-  getCheckinAdaptation: vi.fn(async (): Promise<any> => null),
-  routerPush: vi.fn(),
-  routerReplace: vi.fn(),
-  scrollToMock: vi.fn(),
-  clearCheckinError: vi.fn(async () => undefined),
-  reloadCheckinError: vi.fn(async () => undefined),
-  getCheckinDraft: vi.fn(async () => null),
-  setCheckinDraft: vi.fn(async () => undefined),
-  clearCheckinDraft: vi.fn(async () => undefined),
-  getCachedRecoverySupport: vi.fn(async () => null),
-  setCachedRecoverySupport: vi.fn(async () => undefined),
-  canPatientUseCheckin: vi.fn(() => true),
-  getCareModeNotice: vi.fn((): any => null),
-  voiceTranscript: { current: "dictated check-in note" },
-  networkState: { offline: false },
-  routeParams: {} as Record<string, string | string[] | undefined>,
-  setCheckinLocalError: vi.fn(async () => undefined),
+  speechListeners,
+  speechModule,
+  stopReadAloud,
+} = vi.hoisted(() => {
+  const listeners: Partial<Record<SpeechEventName, SpeechListener[]>> = {};
+
+  return {
+    createCheckin: vi.fn(),
+    getCheckinAdaptation: vi.fn(async (): Promise<any> => null),
+    routerPush: vi.fn(),
+    routerReplace: vi.fn(),
+    scrollToMock: vi.fn(),
+    clearCheckinError: vi.fn(async () => undefined),
+    reloadCheckinError: vi.fn(async () => undefined),
+    getCheckinDraft: vi.fn(async () => null),
+    setCheckinDraft: vi.fn(async () => undefined),
+    clearCheckinDraft: vi.fn(async () => undefined),
+    getCachedRecoverySupport: vi.fn(async () => null),
+    setCachedRecoverySupport: vi.fn(async () => undefined),
+    canPatientUseCheckin: vi.fn(() => true),
+    getCareModeNotice: vi.fn((): any => null),
+    voiceTranscript: { current: "dictated check-in note" },
+    networkState: { offline: false },
+    routeParams: {} as Record<string, string | string[] | undefined>,
+    setCheckinLocalError: vi.fn(async () => undefined),
+    speechListeners: listeners,
+    stopReadAloud: vi.fn(async () => undefined),
+    speechModule: {
+    addListener: vi.fn((eventName: SpeechEventName, listener: SpeechListener) => {
+      const currentListeners = listeners[eventName] ?? [];
+      listeners[eventName] = [...currentListeners, listener];
+      return {
+        remove: vi.fn(() => {
+          listeners[eventName] = (listeners[eventName] ?? []).filter(
+            (candidate) => candidate !== listener,
+          );
+        }),
+      };
+    }),
+    abort: vi.fn(),
+    isRecognitionAvailable: vi.fn(() => true),
+    requestPermissionsAsync: vi.fn(async () => ({
+      granted: true,
+      status: "granted",
+      canAskAgain: true,
+      expires: "never",
+    })),
+    start: vi.fn(),
+    stop: vi.fn(),
+    supportsOnDeviceRecognition: vi.fn(() => true),
+  },
+  };
+});
+
+vi.mock("expo-speech-recognition", () => ({
+  ExpoSpeechRecognitionModule: speechModule,
 }));
 
 vi.mock("expo-router", () => ({
@@ -235,6 +275,10 @@ vi.mock("@/src/components/ReadAloudButton", () => ({
     parts.filter(Boolean).join(". "),
 }));
 
+vi.mock("@/src/utils/readAloud", () => ({
+  stopReadAloud,
+}));
+
 vi.mock("@/src/components/checkin/BodyMapSelector", () => ({
   BodyMapSelector: (props: Record<string, unknown>) =>
     React.createElement("mock-body-map-selector", props),
@@ -392,6 +436,63 @@ function findByA11y(root: ReactTestRenderer["root"], label: string) {
   return match;
 }
 
+function emitSpeech(eventName: SpeechEventName, event?: any) {
+  for (const listener of speechListeners[eventName] ?? []) {
+    listener(event);
+  }
+}
+
+function textContent(root: ReactTestRenderer["root"]): string {
+  return root
+    .findAll((node) => String(node.type) === "mock-text")
+    .map((node) => node.children.join(" "))
+    .join(" ");
+}
+
+function findSubmitButton(root: ReactTestRenderer["root"]) {
+  return root
+    .findAll((node) => String(node.type) === "mock-primary-button")
+    .find((node) => node.props.label === "Submit check-in");
+}
+
+function selectStep(root: ReactTestRenderer["root"], stepIndex: number) {
+  const navigator = root.find(
+    (node) => String(node.type) === "mock-checkin-step-navigator",
+  );
+  act(() => {
+    navigator.props.onSelectStep(stepIndex);
+  });
+}
+
+function fillRequiredMood(root: ReactTestRenderer["root"]) {
+  selectStep(root, 2);
+  act(() => {
+    findByA11y(root, "Set Mood to 4, Strong").props.onPress();
+  });
+}
+
+async function reviewForVoiceSubmit(root: ReactTestRenderer["root"]) {
+  selectStep(root, 3);
+  await act(async () => {
+    findByA11y(root, "Review for voice submit").props.onPress();
+    await Promise.resolve();
+  });
+}
+
+async function listenAndEmitConfirmation(root: ReactTestRenderer["root"], transcript: string) {
+  await act(async () => {
+    findByA11y(root, "Listen for voice submit confirmation").props.onPress();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    emitSpeech("result", {
+      isFinal: true,
+      results: transcript ? [{ transcript }] : [],
+    });
+    await Promise.resolve();
+  });
+}
+
 describe("Check-in screen validation", () => {
   let renderer: ReactTestRenderer | null = null;
 
@@ -420,6 +521,25 @@ describe("Check-in screen validation", () => {
       delete routeParams[key];
     }
     setCheckinLocalError.mockClear();
+    for (const key of Object.keys(speechListeners) as SpeechEventName[]) {
+      speechListeners[key] = [];
+    }
+    speechModule.addListener.mockClear();
+    speechModule.abort.mockClear();
+    speechModule.isRecognitionAvailable.mockReset();
+    speechModule.isRecognitionAvailable.mockReturnValue(true);
+    speechModule.requestPermissionsAsync.mockReset();
+    speechModule.requestPermissionsAsync.mockResolvedValue({
+      granted: true,
+      status: "granted",
+      canAskAgain: true,
+      expires: "never",
+    });
+    speechModule.start.mockClear();
+    speechModule.stop.mockClear();
+    speechModule.supportsOnDeviceRecognition.mockReset();
+    speechModule.supportsOnDeviceRecognition.mockReturnValue(true);
+    stopReadAloud.mockClear();
   });
 
   afterEach(() => {
@@ -1093,6 +1213,273 @@ describe("Check-in screen validation", () => {
         retryable: true,
       }),
     );
+  });
+
+  it("blocks voice submit review when required fields are missing and uses existing validation", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    await reviewForVoiceSubmit(renderer!.root);
+
+    expect(createCheckin).not.toHaveBeenCalled();
+    const navigator = renderer!.root.find(
+      (node) => String(node.type) === "mock-checkin-step-navigator",
+    );
+    expect(navigator.props.activeStep).toBe(2);
+    expect(textContent(renderer!.root)).toContain(
+      "Choose the number that best matches your mood today.",
+    );
+  });
+
+  it("shows a current voice submit summary with reviewable check-in fields", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const guidedPanel = renderer!.root.find(
+      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
+    );
+    act(() => {
+      guidedPanel.props.onConfirmPain(6);
+      guidedPanel.props.onConfirmExercise(80);
+      guidedPanel.props.onConfirmMedicationStatus("missed");
+      guidedPanel.props.onConfirmSleepHours(7.5);
+      guidedPanel.props.onConfirmSleepQuality(3);
+      guidedPanel.props.onConfirmNotes("Knee felt tight after stairs");
+    });
+    selectStep(renderer!.root, 0);
+    const bodyMapSelector = renderer!.root.find(
+      (node) => String(node.type) === "mock-body-map-selector",
+    );
+    act(() => {
+      bodyMapSelector.props.onToggleRegion("knee_left");
+    });
+    fillRequiredMood(renderer!.root);
+    const supportControls = renderer!.root.findAll(
+      (node) => String(node.type) === "mock-segmented-control",
+    );
+    act(() => {
+      supportControls.find((node) => node.props.accessibilityLabel === "Support request")?.props.onChange("follow_up");
+    });
+
+    await reviewForVoiceSubmit(renderer!.root);
+
+    const text = textContent(renderer!.root);
+    expect(text).toContain("Voice submit review");
+    expect(text).toContain("Pain 6/10");
+    expect(text).toContain("Mood 4/5, Strong");
+    expect(text).toContain("Exercises 80% complete");
+    expect(text).toContain("Medication Missed");
+    expect(text).toContain("Left knee 6/10 ache");
+    expect(text).toContain("Please follow up");
+    expect(text).toContain("7.5 hours asleep");
+    expect(text).toContain("Sleep quality okay");
+    expect(text).toContain("Notes: Knee felt tight after stairs");
+    expect(text).toContain(
+      "I’ll submit this exact check-in after you say ‘yes submit.’ Urgent symptoms still go through Aura’s normal safety review.",
+    );
+    expect(findByA11y(renderer!.root, "Read voice submit summary")).toBeTruthy();
+    expect(findByA11y(renderer!.root, "Confirm voice check-in submit").props.accessibilityState).toMatchObject({
+      disabled: false,
+    });
+  });
+
+  it("submits by voice only after explicit confirmation while awaiting confirmation", async () => {
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "low", reasonCodes: [] },
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+    fillRequiredMood(renderer!.root);
+
+    await act(async () => {
+      emitSpeech("result", {
+        isFinal: true,
+        results: [{ transcript: "confirm submit" }],
+      });
+      await Promise.resolve();
+    });
+    expect(createCheckin).not.toHaveBeenCalled();
+
+    await reviewForVoiceSubmit(renderer!.root);
+    await listenAndEmitConfirmation(renderer!.root, "yes submit");
+
+    expect(createCheckin).toHaveBeenCalledTimes(1);
+    expect(createCheckin.mock.calls[0]?.[1]).toMatchObject({
+      date: "2026-04-11",
+      mood: 4,
+      pain: 0,
+    });
+    expect(clearCheckinDraft).toHaveBeenCalledWith("patient-1", "2026-04-11");
+  });
+
+  it.each(["confirm submit", "submit check-in"])(
+    "accepts %s only during voice confirmation review",
+    async (phrase) => {
+      createCheckin.mockResolvedValue({
+        ok: true,
+        risk: { level: "low", reasonCodes: [] },
+      });
+
+      await act(async () => {
+        renderer = create(<CheckinScreen />);
+        await Promise.resolve();
+      });
+      fillRequiredMood(renderer!.root);
+      await reviewForVoiceSubmit(renderer!.root);
+      await listenAndEmitConfirmation(renderer!.root, phrase);
+
+      expect(createCheckin).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(["yes", "okay", "maybe", ""])(
+    "does not submit ambiguous voice confirmation %s",
+    async (phrase) => {
+      await act(async () => {
+        renderer = create(<CheckinScreen />);
+        await Promise.resolve();
+      });
+      fillRequiredMood(renderer!.root);
+      await reviewForVoiceSubmit(renderer!.root);
+      await listenAndEmitConfirmation(renderer!.root, phrase);
+
+      expect(createCheckin).not.toHaveBeenCalled();
+      expect(textContent(renderer!.root)).toContain("That was not a clear submit confirmation.");
+    },
+  );
+
+  it.each(["cancel", "stop", "do not submit"])(
+    "clears voice submit state for negative phrase %s",
+    async (phrase) => {
+      await act(async () => {
+        renderer = create(<CheckinScreen />);
+        await Promise.resolve();
+      });
+      fillRequiredMood(renderer!.root);
+      await reviewForVoiceSubmit(renderer!.root);
+      await listenAndEmitConfirmation(renderer!.root, phrase);
+
+      expect(createCheckin).not.toHaveBeenCalled();
+      expect(textContent(renderer!.root)).toContain("Voice submit cancelled.");
+      expect(findByA11y(renderer!.root, "Confirm voice check-in submit").props.accessibilityState).toMatchObject({
+        disabled: true,
+      });
+    },
+  );
+
+  it("prevents voice submit after confirmation expiry", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+    fillRequiredMood(renderer!.root);
+    await reviewForVoiceSubmit(renderer!.root);
+
+    await act(async () => {
+      vi.advanceTimersByTime(31_000);
+      await Promise.resolve();
+    });
+    await listenAndEmitConfirmation(renderer!.root, "yes submit");
+
+    expect(createCheckin).not.toHaveBeenCalled();
+    expect(textContent(renderer!.root)).toContain("Voice submit review expired.");
+  });
+
+  it("invalidates voice submit review when the draft changes", async () => {
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+    fillRequiredMood(renderer!.root);
+    await reviewForVoiceSubmit(renderer!.root);
+
+    selectStep(renderer!.root, 2);
+    act(() => {
+      findByA11y(renderer!.root, "Set Mood to 5, Very strong").props.onPress();
+    });
+    selectStep(renderer!.root, 3);
+
+    expect(textContent(renderer!.root)).toContain("Check-in changed. Review again before voice submit.");
+    expect(findByA11y(renderer!.root, "Confirm voice check-in submit").props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+  });
+
+  it("keeps offline voice-confirmed submit behavior identical to manual submit", async () => {
+    networkState.offline = true;
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+    fillRequiredMood(renderer!.root);
+    await reviewForVoiceSubmit(renderer!.root);
+
+    await act(async () => {
+      findByA11y(renderer!.root, "Confirm voice check-in submit").props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(createCheckin).not.toHaveBeenCalled();
+    expect(setCheckinLocalError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "offline",
+        retryable: true,
+      }),
+    );
+    expect(textContent(renderer!.root)).toContain("Voice submit is paused while you’re offline.");
+  });
+
+  it("routes high-risk voice-confirmed submissions exactly like manual submit", async () => {
+    createCheckin.mockResolvedValue({
+      ok: true,
+      risk: { level: "high", reasonCodes: ["URGENT_HELP"] },
+      alertId: "alert-voice-submit",
+    });
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+    fillRequiredMood(renderer!.root);
+    await reviewForVoiceSubmit(renderer!.root);
+    await listenAndEmitConfirmation(renderer!.root, "yes submit");
+
+    expect(routerPush).toHaveBeenCalledWith({
+      pathname: "/safety",
+      params: {
+        alertId: "alert-voice-submit",
+        reasonCodes: "URGENT_HELP",
+      },
+    });
+    expect(clearCheckinDraft).not.toHaveBeenCalled();
+  });
+
+  it("keeps V5-D1 free of forbidden voice side effects and OpenAI key exposure", () => {
+    const source = [
+      "app/(tabs)/checkin.tsx",
+      "src/components/checkin/VoiceGuidedCheckinPanel.tsx",
+      "src/utils/guidedCheckinParser.ts",
+    ]
+      .map((path) => require("node:fs").readFileSync(`${process.cwd()}/${path}`, "utf8"))
+      .join("\n");
+
+    expect(source).not.toContain("EXPO_PUBLIC_OPENAI_API_KEY");
+    expect(source).not.toContain("OPENAI_API_KEY");
+    expect(source).not.toContain("sendChat");
+    expect(source).not.toContain("bookAppointment");
+    expect(source).not.toContain("createAlert");
+    expect(source).not.toContain("uploadPhoto");
+    expect(source).not.toContain("/rag/reply");
+    expect(source).not.toContain("/patient/voice/session");
   });
 
   it("routes high-risk submissions to Safety without showing a success confirmation", async () => {

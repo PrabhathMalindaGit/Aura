@@ -1,4 +1,9 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import {
+  ExpoSpeechRecognitionModule,
+  type ExpoSpeechRecognitionErrorEvent,
+  type ExpoSpeechRecognitionResultEvent,
+} from "expo-speech-recognition";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -74,6 +79,7 @@ import type {
   CheckinSymptomFlag,
 } from "@/src/types/checkin";
 import type { GuidedCheckinStepId } from "@/src/utils/guidedCheckinSteps";
+import { parseVoiceSubmitConfirmation } from "@/src/utils/guidedCheckinParser";
 import type { CheckinAdaptationDecision } from "@/src/types/models";
 import {
   CHECKIN_SYMPTOM_FLAGS,
@@ -108,6 +114,7 @@ import {
 } from "@/src/utils/checkin";
 import { todayISO } from "@/src/utils/date";
 import { normalizeUnknownError } from "@/src/utils/errors";
+import { stopReadAloud } from "@/src/utils/readAloud";
 
 const CHECKIN_STEPS: Array<{
   key: "symptoms" | "recovery" | "support" | "review";
@@ -164,6 +171,21 @@ type SubmittedCheckinState = {
   chips: CheckinReviewChip[];
   notesPreview?: string;
 };
+
+type VoiceSubmitReviewState =
+  | "draftReady"
+  | "needsRequiredFields"
+  | "reviewSummary"
+  | "awaitingVoiceConfirmation"
+  | "confirmedSubmit"
+  | "cancelled"
+  | "submitting"
+  | "submitted"
+  | "highRiskRouted"
+  | "offlineBlocked"
+  | "expired";
+
+type SubmitSource = "manual" | "voiceConfirmed";
 
 type StepperProps = {
   label: string;
@@ -642,6 +664,13 @@ export default function CheckinScreen() {
   const scrollViewRef = useRef<ScrollView | null>(null);
   const validationFieldOffsets = useRef<Partial<Record<CheckinValidationField, number>>>({});
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceSubmitExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceSubmitStateRef = useRef<VoiceSubmitReviewState>("draftReady");
+  const [voiceSubmitState, setVoiceSubmitState] =
+    useState<VoiceSubmitReviewState>("draftReady");
+  const [voiceSubmitSummarySignature, setVoiceSubmitSummarySignature] = useState<string | null>(null);
+  const [voiceSubmitMessage, setVoiceSubmitMessage] = useState<string | null>(null);
+  const [isVoiceSubmitListening, setIsVoiceSubmitListening] = useState(false);
 
   const friendlyDate = useMemo(
     () =>
@@ -1234,6 +1263,67 @@ export default function CheckinScreen() {
     ],
   );
 
+  const voiceSubmitDraftSignature = useMemo(
+    () =>
+      JSON.stringify({
+        date,
+        pain,
+        symptomFlags,
+        recovery,
+        adherence,
+        support,
+        dailySignals,
+        bodyMap,
+        notes,
+      }),
+    [adherence, bodyMap, dailySignals, date, notes, pain, recovery, support, symptomFlags],
+  );
+
+  const voiceSubmitSummaryText = useMemo(() => {
+    const parts = [
+      `Pain ${pain}/10`,
+      support.mood === null
+        ? "Mood not set"
+        : `Mood ${support.mood}/5, ${scaleLabel(support.mood, FIVE_POINT_RECOVERY_LABELS)}`,
+      `Exercises ${recovery.exercisePercent}% complete`,
+      `Medication ${medicationStatusLabel(adherence.medicationStatus)}`,
+    ];
+
+    if (bodyMap.selectedRegions.length > 0) {
+      parts.push(`Body areas: ${summarizePrimaryBodyMap(bodyMap)}`);
+    }
+
+    if (support.helpLevel && support.helpLevel !== "none") {
+      parts.push(`Support request: ${helpLevelLabel(support.helpLevel)}`);
+    }
+
+    if (support.safetyState && support.safetyState !== "safe") {
+      parts.push(`Safety: ${safetyStateLabel(support.safetyState)}`);
+    }
+
+    if (dailyContextSummary !== "Not added") {
+      parts.push(`Daily context: ${dailyContextSummary}`);
+    }
+
+    const notesPreview = notes.trim();
+    if (notesPreview) {
+      parts.push(`Notes: ${notesPreview.slice(0, 180)}`);
+    }
+
+    parts.push("Urgent symptoms still go through Aura's normal safety review");
+    return parts.join(". ");
+  }, [
+    adherence.medicationStatus,
+    bodyMap,
+    dailyContextSummary,
+    notes,
+    pain,
+    recovery.exercisePercent,
+    support.helpLevel,
+    support.mood,
+    support.safetyState,
+  ]);
+
   const submissionRecovery = useMemo(() => {
     const lastError = checkinError.lastError;
     if (!lastError) {
@@ -1271,6 +1361,88 @@ export default function CheckinScreen() {
       statusLabel: checkinError.label,
     };
   }, [checkinError.label, checkinError.lastError, isOffline]);
+
+  const clearVoiceSubmitExpiryTimer = useCallback(() => {
+    if (voiceSubmitExpiryTimerRef.current) {
+      clearTimeout(voiceSubmitExpiryTimerRef.current);
+      voiceSubmitExpiryTimerRef.current = null;
+    }
+  }, []);
+
+  const updateVoiceSubmitState = useCallback((nextState: VoiceSubmitReviewState) => {
+    voiceSubmitStateRef.current = nextState;
+    setVoiceSubmitState(nextState);
+  }, []);
+
+  const startVoiceSubmitExpiryTimer = useCallback(() => {
+    clearVoiceSubmitExpiryTimer();
+    voiceSubmitExpiryTimerRef.current = setTimeout(() => {
+      setVoiceSubmitSummarySignature(null);
+      setIsVoiceSubmitListening(false);
+      setVoiceSubmitMessage("Voice submit review expired. Review again before submitting.");
+      updateVoiceSubmitState("expired");
+    }, 30_000);
+  }, [clearVoiceSubmitExpiryTimer, updateVoiceSubmitState]);
+
+  useEffect(
+    () => () => {
+      clearVoiceSubmitExpiryTimer();
+    },
+    [clearVoiceSubmitExpiryTimer],
+  );
+
+  useEffect(() => {
+    if (
+      !voiceSubmitSummarySignature ||
+      voiceSubmitSummarySignature === voiceSubmitDraftSignature ||
+      voiceSubmitState === "submitting" ||
+      voiceSubmitState === "submitted" ||
+      voiceSubmitState === "highRiskRouted"
+    ) {
+      return;
+    }
+
+    clearVoiceSubmitExpiryTimer();
+    setVoiceSubmitSummarySignature(null);
+    setIsVoiceSubmitListening(false);
+    setVoiceSubmitMessage("Check-in changed. Review again before voice submit.");
+    updateVoiceSubmitState("draftReady");
+  }, [
+    clearVoiceSubmitExpiryTimer,
+    updateVoiceSubmitState,
+    voiceSubmitDraftSignature,
+    voiceSubmitState,
+    voiceSubmitSummarySignature,
+  ]);
+
+  const handlePrepareVoiceSubmitReview = useCallback(() => {
+    if (validationState) {
+      clearVoiceSubmitExpiryTimer();
+      setVoiceSubmitSummarySignature(null);
+      setVoiceSubmitMessage("Voice submit needs one more answer.");
+      updateVoiceSubmitState("needsRequiredFields");
+      setSubmittedCheckin(null);
+      setNotice({
+        variant: "warning",
+        title: "Voice submit needs one more answer.",
+        message: validationState.message,
+      });
+      setActiveStep(validationState.stepIndex);
+      setPendingValidationField(validationState.field);
+      return;
+    }
+
+    setVoiceSubmitSummarySignature(voiceSubmitDraftSignature);
+    setVoiceSubmitMessage("Review this summary, then say yes submit or press Confirm submit.");
+    updateVoiceSubmitState("reviewSummary");
+    startVoiceSubmitExpiryTimer();
+  }, [
+    clearVoiceSubmitExpiryTimer,
+    startVoiceSubmitExpiryTimer,
+    updateVoiceSubmitState,
+    validationState,
+    voiceSubmitDraftSignature,
+  ]);
 
   const handleToggleRegion = (region: BodyMapRegion) => {
     setNotice(null);
@@ -1357,12 +1529,17 @@ export default function CheckinScreen() {
     };
   }, [bodyMap, pain]);
 
-  const handleSubmit = async () => {
+  const submitCheckin = async ({ source }: { source: SubmitSource } = { source: "manual" }) => {
     if (isSubmitting) {
       return;
     }
 
     if (!auth.token) {
+      if (source === "voiceConfirmed") {
+        clearVoiceSubmitExpiryTimer();
+        setVoiceSubmitMessage("Your session expired. Please sign in again.");
+        updateVoiceSubmitState("expired");
+      }
       setSubmittedCheckin(null);
       setNotice({
         variant: "warning",
@@ -1374,6 +1551,12 @@ export default function CheckinScreen() {
     }
 
     if (validationState) {
+      if (source === "voiceConfirmed") {
+        clearVoiceSubmitExpiryTimer();
+        setVoiceSubmitSummarySignature(null);
+        setVoiceSubmitMessage("Voice submit needs one more answer.");
+        updateVoiceSubmitState("needsRequiredFields");
+      }
       setSubmittedCheckin(null);
       setNotice(null);
       setActiveStep(validationState.stepIndex);
@@ -1382,6 +1565,12 @@ export default function CheckinScreen() {
     }
 
     if (isOffline) {
+      if (source === "voiceConfirmed") {
+        clearVoiceSubmitExpiryTimer();
+        setVoiceSubmitSummarySignature(null);
+        setVoiceSubmitMessage("Voice submit is paused while you’re offline.");
+        updateVoiceSubmitState("offlineBlocked");
+      }
       setSubmittedCheckin(null);
       await checkinError.setLocalError({
         title: "Submission paused",
@@ -1408,6 +1597,11 @@ export default function CheckinScreen() {
     setNotice(null);
     setSubmittedCheckin(null);
     setIsSubmitting(true);
+    if (source === "voiceConfirmed") {
+      clearVoiceSubmitExpiryTimer();
+      setVoiceSubmitMessage("Submitting this reviewed check-in.");
+      updateVoiceSubmitState("submitting");
+    }
     let response: Awaited<ReturnType<typeof createCheckin>> | null = null;
 
     try {
@@ -1415,6 +1609,11 @@ export default function CheckinScreen() {
     } catch (error) {
       if (isApiError(error) && error.status === 409) {
         await Promise.allSettled([checkinError.clear(), checkinsRefresh.refreshLocal()]);
+        if (source === "voiceConfirmed") {
+          setVoiceSubmitSummarySignature(null);
+          setVoiceSubmitMessage("Today’s check-in is already saved.");
+          updateVoiceSubmitState("submitted");
+        }
         setNotice({
           variant: "info",
           title: "Already submitted",
@@ -1432,6 +1631,10 @@ export default function CheckinScreen() {
         retryable: normalized.retryable,
         detail: normalized.detail,
       });
+      if (source === "voiceConfirmed") {
+        setVoiceSubmitMessage(normalized.message);
+        updateVoiceSubmitState("reviewSummary");
+      }
       setNotice(null);
       return;
     } finally {
@@ -1445,6 +1648,11 @@ export default function CheckinScreen() {
     }
 
     if (response.risk?.level === "high") {
+      if (source === "voiceConfirmed") {
+        setVoiceSubmitSummarySignature(null);
+        setVoiceSubmitMessage("Submitted. Aura is opening the normal Safety review.");
+        updateVoiceSubmitState("highRiskRouted");
+      }
       const reasonCodes = response.risk.reasonCodes ?? [];
       const routeParams: Record<string, string> = {};
       if (response.alertId) {
@@ -1464,6 +1672,11 @@ export default function CheckinScreen() {
 
     const submittedAtISO = new Date().toISOString();
     await clearCheckinDraft(patientId, date);
+    if (source === "voiceConfirmed") {
+      setVoiceSubmitSummarySignature(null);
+      setVoiceSubmitMessage("Submitted.");
+      updateVoiceSubmitState("submitted");
+    }
     setSubmittedCheckin({
       submittedAtISO,
       summary: reviewSummary,
@@ -1473,6 +1686,185 @@ export default function CheckinScreen() {
     setNotice(null);
     resetForm();
   };
+
+  const handleSubmit = () => submitCheckin({ source: "manual" });
+
+  const canUseCurrentVoiceSubmitReview =
+    voiceSubmitSummarySignature === voiceSubmitDraftSignature &&
+    (voiceSubmitState === "reviewSummary" ||
+      voiceSubmitState === "awaitingVoiceConfirmation" ||
+      voiceSubmitState === "confirmedSubmit");
+
+  const handleCancelVoiceSubmit = useCallback((message = "Voice submit cancelled.") => {
+    clearVoiceSubmitExpiryTimer();
+    setVoiceSubmitSummarySignature(null);
+    setIsVoiceSubmitListening(false);
+    setVoiceSubmitMessage(message);
+    updateVoiceSubmitState("cancelled");
+    if (isVoiceSubmitListening) {
+      ExpoSpeechRecognitionModule.abort();
+    }
+  }, [
+    clearVoiceSubmitExpiryTimer,
+    isVoiceSubmitListening,
+    updateVoiceSubmitState,
+  ]);
+
+  const submitReviewedVoiceCheckin = useCallback(() => {
+    if (!canUseCurrentVoiceSubmitReview) {
+      setVoiceSubmitMessage("Review again before voice submit.");
+      updateVoiceSubmitState("expired");
+      return;
+    }
+
+    updateVoiceSubmitState("confirmedSubmit");
+    setVoiceSubmitMessage("Voice submit confirmed.");
+    void submitCheckin({ source: "voiceConfirmed" });
+  }, [canUseCurrentVoiceSubmitReview, submitCheckin, updateVoiceSubmitState]);
+
+  const handleVoiceSubmitTranscript = useCallback(
+    (transcript: string) => {
+      setIsVoiceSubmitListening(false);
+      if (voiceSubmitStateRef.current !== "awaitingVoiceConfirmation") {
+        return;
+      }
+
+      if (voiceSubmitSummarySignature !== voiceSubmitDraftSignature) {
+        clearVoiceSubmitExpiryTimer();
+        setVoiceSubmitSummarySignature(null);
+        setVoiceSubmitMessage("Check-in changed. Review again before voice submit.");
+        updateVoiceSubmitState("draftReady");
+        return;
+      }
+
+      const result = parseVoiceSubmitConfirmation(transcript);
+      if (result === "confirm") {
+        submitReviewedVoiceCheckin();
+        return;
+      }
+
+      if (result === "cancel") {
+        handleCancelVoiceSubmit();
+        return;
+      }
+
+      setVoiceSubmitMessage("That was not a clear submit confirmation. Say yes submit, confirm submit, or submit check-in.");
+      updateVoiceSubmitState("awaitingVoiceConfirmation");
+    },
+    [
+      clearVoiceSubmitExpiryTimer,
+      handleCancelVoiceSubmit,
+      submitReviewedVoiceCheckin,
+      updateVoiceSubmitState,
+      voiceSubmitDraftSignature,
+      voiceSubmitSummarySignature,
+    ],
+  );
+
+  const handleListenForVoiceSubmitConfirmation = useCallback(async () => {
+    if (!canUseCurrentVoiceSubmitReview) {
+      setVoiceSubmitMessage(
+        voiceSubmitStateRef.current === "expired"
+          ? "Voice submit review expired. Review again before submitting."
+          : "Review again before voice submit.",
+      );
+      updateVoiceSubmitState("expired");
+      return;
+    }
+
+    updateVoiceSubmitState("awaitingVoiceConfirmation");
+    setVoiceSubmitMessage("Listening for yes submit, confirm submit, or submit check-in.");
+    setIsVoiceSubmitListening(true);
+
+    await stopReadAloud();
+
+    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+      setIsVoiceSubmitListening(false);
+      setVoiceSubmitMessage("Voice confirmation is not available on this device. Use Confirm submit or manual submit.");
+      return;
+    }
+
+    if (!ExpoSpeechRecognitionModule.supportsOnDeviceRecognition()) {
+      setIsVoiceSubmitListening(false);
+      setVoiceSubmitMessage("On-device voice confirmation is not available on this device. Use Confirm submit or manual submit.");
+      return;
+    }
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setIsVoiceSubmitListening(false);
+      setVoiceSubmitMessage("Microphone permission was denied. Use Confirm submit or manual submit.");
+      return;
+    }
+
+    try {
+      ExpoSpeechRecognitionModule.start({
+        lang: "en-US",
+        continuous: false,
+        interimResults: true,
+        maxAlternatives: 1,
+        requiresOnDeviceRecognition: true,
+        recordingOptions: {
+          persist: false,
+        },
+      });
+    } catch {
+      setIsVoiceSubmitListening(false);
+      setVoiceSubmitMessage("Voice confirmation could not start. Nothing was submitted.");
+      updateVoiceSubmitState("reviewSummary");
+    }
+  }, [canUseCurrentVoiceSubmitReview, updateVoiceSubmitState]);
+
+  useEffect(() => {
+    const startListener = ExpoSpeechRecognitionModule.addListener("start", () => {
+      if (voiceSubmitStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceSubmitListening(true);
+      }
+    });
+    const endListener = ExpoSpeechRecognitionModule.addListener("end", () => {
+      setIsVoiceSubmitListening(false);
+    });
+    const resultListener = ExpoSpeechRecognitionModule.addListener(
+      "result",
+      (event: ExpoSpeechRecognitionResultEvent) => {
+        if (!event.isFinal || voiceSubmitStateRef.current !== "awaitingVoiceConfirmation") {
+          return;
+        }
+
+        const transcript = event.results
+          .map((result) => result.transcript.trim())
+          .find((candidate) => candidate.length > 0);
+
+        handleVoiceSubmitTranscript(transcript ?? "");
+      },
+    );
+    const errorListener = ExpoSpeechRecognitionModule.addListener(
+      "error",
+      (_event: ExpoSpeechRecognitionErrorEvent) => {
+        if (voiceSubmitStateRef.current === "awaitingVoiceConfirmation") {
+          setIsVoiceSubmitListening(false);
+          setVoiceSubmitMessage("That was not a clear submit confirmation. Nothing was submitted.");
+        }
+      },
+    );
+    const nomatchListener = ExpoSpeechRecognitionModule.addListener("nomatch", () => {
+      if (voiceSubmitStateRef.current === "awaitingVoiceConfirmation") {
+        setIsVoiceSubmitListening(false);
+        setVoiceSubmitMessage("That was not a clear submit confirmation. Nothing was submitted.");
+      }
+    });
+
+    return () => {
+      startListener.remove();
+      endListener.remove();
+      resultListener.remove();
+      errorListener.remove();
+      nomatchListener.remove();
+      if (voiceSubmitStateRef.current === "awaitingVoiceConfirmation") {
+        ExpoSpeechRecognitionModule.abort();
+      }
+    };
+  }, [handleVoiceSubmitTranscript]);
 
   const handleNotesDictationTranscript = useCallback((transcript: string) => {
     setNotice(null);
@@ -1551,6 +1943,11 @@ export default function CheckinScreen() {
         setDailySignals((current) => ({ ...current, sleepQuality: value }));
       }}
       onEditManually={handleGuidedEditManually}
+      onRequestVoiceSubmitReview={() => {
+        setNotice(null);
+        setActiveStep(3);
+        handlePrepareVoiceSubmitReview();
+      }}
     />
   );
 
@@ -2272,6 +2669,149 @@ export default function CheckinScreen() {
     </CheckinStepCard>
   );
 
+  const renderVoiceSubmitReviewPanel = () => {
+    const canReviewSubmit = canUseCurrentVoiceSubmitReview && !isSubmitting;
+    const canListen =
+      canReviewSubmit &&
+      voiceSubmitState !== "confirmedSubmit";
+    const statusRole =
+      voiceSubmitState === "needsRequiredFields" ||
+      voiceSubmitState === "offlineBlocked" ||
+      voiceSubmitState === "expired"
+        ? "alert"
+        : "text";
+
+    return (
+      <Card
+        variant="outlined"
+        padding={tokens.spacing.md}
+        style={styles.voiceSubmitCard}
+      >
+        <View style={styles.groupStack}>
+          <View style={styles.inlineHeaderRow}>
+            <View style={styles.sectionStackCompact}>
+              <Text accessibilityRole="header" style={styles.fieldLabel}>
+                Voice submit review
+              </Text>
+              <Text style={styles.helperText}>
+                I’ll submit this exact check-in after you say ‘yes submit.’ Urgent
+                symptoms still go through Aura’s normal safety review.
+              </Text>
+            </View>
+            <ReadAloudButton
+              text={voiceSubmitSummaryText}
+              label="Read voice submit summary"
+              sourceId="voice-submit-review-summary"
+              testID="voice-submit-review-read-summary"
+            />
+          </View>
+
+          {voiceSubmitSummarySignature ? (
+            <View
+              accessible
+              accessibilityRole="summary"
+              accessibilityLabel={`Voice submit summary. ${voiceSubmitSummaryText}`}
+              style={styles.voiceSubmitSummaryBox}
+            >
+              <Text selectable style={styles.reviewValue}>
+                {voiceSubmitSummaryText}
+              </Text>
+            </View>
+          ) : null}
+
+          <View
+            accessible
+            accessibilityRole={statusRole}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`Voice submit state: ${voiceSubmitState}. ${voiceSubmitMessage ?? "Ready to review."}`}
+            style={[
+              styles.voiceSubmitStatusBox,
+              statusRole === "alert" ? styles.voiceSubmitStatusWarning : null,
+            ]}
+          >
+            <Text style={styles.reviewLabel}>Voice submit state</Text>
+            <Text style={styles.helperText}>
+              {voiceSubmitMessage ?? "Review the summary before any voice submit can happen."}
+            </Text>
+          </View>
+
+          <View style={styles.voiceSubmitActionRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Review for voice submit"
+              accessibilityHint="Builds a current read-only summary before any voice submit can happen."
+              onPress={handlePrepareVoiceSubmitReview}
+              style={({ pressed }) => [
+                styles.voiceSubmitSecondaryButton,
+                pressed ? styles.voiceSubmitButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.voiceSubmitSecondaryButtonText}>Review for voice submit</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Listen for voice submit confirmation"
+              accessibilityHint="Listens once for yes submit, confirm submit, or submit check-in."
+              accessibilityState={{
+                disabled: !canListen,
+                busy: isVoiceSubmitListening || undefined,
+              }}
+              disabled={!canListen}
+              onPress={() => {
+                void handleListenForVoiceSubmitConfirmation();
+              }}
+              style={({ pressed }) => [
+                styles.voiceSubmitSecondaryButton,
+                !canListen ? styles.voiceSubmitButtonDisabled : null,
+                pressed && canListen ? styles.voiceSubmitButtonPressed : null,
+              ]}
+            >
+              {isVoiceSubmitListening ? (
+                <ActivityIndicator size="small" color={tokens.colors.primary} />
+              ) : null}
+              <Text style={styles.voiceSubmitSecondaryButtonText}>
+                Listen for confirmation
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Confirm voice check-in submit"
+              accessibilityHint="Submits the reviewed check-in through the same normal submit path."
+              accessibilityState={{
+                disabled: !canReviewSubmit,
+                busy: isSubmitting || undefined,
+              }}
+              disabled={!canReviewSubmit}
+              onPress={submitReviewedVoiceCheckin}
+              style={({ pressed }) => [
+                styles.voiceSubmitPrimaryButton,
+                !canReviewSubmit ? styles.voiceSubmitButtonDisabled : null,
+                pressed && canReviewSubmit ? styles.voiceSubmitButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.voiceSubmitPrimaryButtonText}>Confirm submit</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel voice submit"
+              accessibilityHint="Clears the current voice submit review without submitting."
+              onPress={() => handleCancelVoiceSubmit()}
+              style={({ pressed }) => [
+                styles.voiceSubmitSecondaryButton,
+                pressed ? styles.voiceSubmitButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.voiceSubmitSecondaryButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Card>
+    );
+  };
+
   const renderReviewStep = () => (
     <CheckinStepCard
       compact
@@ -2307,6 +2847,8 @@ export default function CheckinScreen() {
           />
         </View>
       </Card>
+
+      {renderVoiceSubmitReviewPanel()}
 
       <View style={styles.reviewRowList}>
         {reviewRows.map((row) => (
@@ -2750,6 +3292,10 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     sectionStack: {
       gap: tokens.spacing.md,
     },
+    sectionStackCompact: {
+      flex: 1,
+      gap: tokens.spacing.xs,
+    },
     fieldGroup: {
       gap: tokens.spacing.sm,
     },
@@ -3072,6 +3618,74 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     reviewSummaryCard: {
       backgroundColor: tokens.colors.surfaceElevated,
       borderColor: tokens.colors.border,
+    },
+    voiceSubmitCard: {
+      backgroundColor: tokens.colors.surface,
+      borderColor: tokens.colors.primary,
+    },
+    voiceSubmitSummaryBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.lg,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      padding: tokens.spacing.md,
+    },
+    voiceSubmitStatusBox: {
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.surfaceSubtle,
+      padding: tokens.spacing.md,
+      gap: 2,
+    },
+    voiceSubmitStatusWarning: {
+      borderColor: tokens.colors.warning,
+      backgroundColor: tokens.colors.warningSoft,
+    },
+    voiceSubmitActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: tokens.spacing.sm,
+    },
+    voiceSubmitPrimaryButton: {
+      minHeight: 48,
+      borderRadius: tokens.radius.md,
+      backgroundColor: tokens.colors.primary,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    voiceSubmitPrimaryButtonText: {
+      color: tokens.colors.primaryTextOn,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSubmitSecondaryButton: {
+      minHeight: 48,
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surface,
+      paddingHorizontal: tokens.spacing.md,
+      paddingVertical: tokens.spacing.sm,
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+      gap: tokens.spacing.xs,
+    },
+    voiceSubmitSecondaryButtonText: {
+      color: tokens.colors.primary,
+      fontSize: tokens.typography.body.fontSize,
+      lineHeight: tokens.typography.body.lineHeight,
+      fontWeight: tokens.typography.weights.semibold,
+    },
+    voiceSubmitButtonDisabled: {
+      opacity: 0.5,
+    },
+    voiceSubmitButtonPressed: {
+      opacity: 0.84,
     },
     reviewAlertBlock: {
       gap: tokens.spacing.xs,

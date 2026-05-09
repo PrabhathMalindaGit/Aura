@@ -13,6 +13,8 @@ import {
 import type { GuidedCheckinMedicationStatus } from "@/src/utils/guidedCheckinParser";
 
 type VoiceGuidedCheckinPanelProps = {
+  initialExpanded?: boolean;
+  beginOnMount?: boolean;
   includeSleep: boolean;
   onConfirmPain: (value: number) => void;
   onConfirmMood: (value: number) => void;
@@ -31,6 +33,8 @@ function isMedicationStatus(value: GuidedCheckinStepValue): value is GuidedCheck
 }
 
 export function VoiceGuidedCheckinPanel({
+  initialExpanded = false,
+  beginOnMount = false,
   includeSleep,
   onConfirmPain,
   onConfirmMood,
@@ -45,12 +49,31 @@ export function VoiceGuidedCheckinPanel({
 }: VoiceGuidedCheckinPanelProps) {
   const tokens = useTokens();
   const styles = useMemo(() => createStyles(tokens), [tokens]);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initialExpanded);
   const steps = useMemo(() => getGuidedCheckinSteps({ includeSleep }), [includeSleep]);
   const guided = useVoiceGuidedCheckin({ steps, locale });
+  const beginGuidedCheckin = guided.begin;
   const result = guided.parseResult;
   const successResult = result?.ok ? result : null;
   const isListening = guided.status === "listening";
+  const didBeginFromRouteRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!initialExpanded) {
+      return;
+    }
+
+    setExpanded(true);
+  }, [initialExpanded]);
+
+  React.useEffect(() => {
+    if (!initialExpanded || !beginOnMount || didBeginFromRouteRef.current) {
+      return;
+    }
+
+    didBeginFromRouteRef.current = true;
+    beginGuidedCheckin();
+  }, [beginGuidedCheckin, beginOnMount, initialExpanded]);
 
   const handleToggleExpanded = useCallback(() => {
     setExpanded((current) => {

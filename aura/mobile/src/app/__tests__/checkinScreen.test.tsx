@@ -19,6 +19,7 @@ const {
   getCareModeNotice,
   voiceTranscript,
   networkState,
+  routeParams,
   setCheckinLocalError,
 } = vi.hoisted(() => ({
   createCheckin: vi.fn(),
@@ -37,12 +38,13 @@ const {
   getCareModeNotice: vi.fn((): any => null),
   voiceTranscript: { current: "dictated check-in note" },
   networkState: { offline: false },
+  routeParams: {} as Record<string, string | string[] | undefined>,
   setCheckinLocalError: vi.fn(async () => undefined),
 }));
 
 vi.mock("expo-router", () => ({
   Redirect: ({ href }: { href: string }) => React.createElement("mock-redirect", { href }),
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => routeParams,
   useRouter: () => ({
     push: routerPush,
     replace: routerReplace,
@@ -414,6 +416,9 @@ describe("Check-in screen validation", () => {
     getCareModeNotice.mockReturnValue(null);
     voiceTranscript.current = "dictated check-in note";
     networkState.offline = false;
+    for (const key of Object.keys(routeParams)) {
+      delete routeParams[key];
+    }
     setCheckinLocalError.mockClear();
   });
 
@@ -702,6 +707,43 @@ describe("Check-in screen validation", () => {
     expect(
       renderer!.root.findAll((node) => String(node.type) === "mock-body-map-selector"),
     ).toHaveLength(1);
+    expect(createCheckin).not.toHaveBeenCalled();
+  });
+
+  it("uses the voiceGuided route flag only to expand guided check-in without writing data", async () => {
+    routeParams.voiceGuided = "1";
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const guidedPanel = renderer!.root.find(
+      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
+    );
+
+    expect(guidedPanel.props.initialExpanded).toBe(true);
+    expect(guidedPanel.props.beginOnMount).toBe(true);
+    expect(guidedPanel.props.accessibilityLabel).toBe("Voice-guided check-in panel");
+    expect(createCheckin).not.toHaveBeenCalled();
+    expect(setCheckinDraft).not.toHaveBeenCalled();
+    expect(clearCheckinDraft).not.toHaveBeenCalled();
+  });
+
+  it("ignores array voiceGuided route params safely", async () => {
+    routeParams.voiceGuided = ["1"];
+
+    await act(async () => {
+      renderer = create(<CheckinScreen />);
+      await Promise.resolve();
+    });
+
+    const guidedPanel = renderer!.root.find(
+      (node) => String(node.type) === "mock-voice-guided-checkin-panel",
+    );
+
+    expect(guidedPanel.props.initialExpanded).toBe(false);
+    expect(guidedPanel.props.beginOnMount).toBe(false);
     expect(createCheckin).not.toHaveBeenCalled();
   });
 

@@ -21,16 +21,17 @@ export type VoiceActionProposalAllowedAction =
       screen: VoiceActionProposalScreen;
       label: string;
     }
+  | {
+      type: "start_guided_checkin_screen";
+      route: "/(tabs)/checkin";
+      workflow: "guidedCheckin";
+      label: string;
+    }
   | { type: "go_back"; label: string }
   | { type: "stop_session"; label: string }
   | { type: "stop_reading"; label: string };
 
 export type VoiceActionProposalOnlyAction =
-  | {
-      type: "start_guided_checkin_screen";
-      route: "/(tabs)/checkin";
-      label: string;
-    }
   | {
       type: "draft_checkin_note_only";
       route: "/(tabs)/checkin";
@@ -135,6 +136,9 @@ const ROUTE_REVIEW_REASON =
 
 const PROPOSAL_REVIEW_REASON =
   "This version can prepare a visible proposal only. Review the existing app screen before taking any final action.";
+
+const GUIDED_CHECKIN_REVIEW_REASON =
+  "Opening guided Check-in only reveals the optional guided panel. It does not listen, fill answers, save a draft, or submit anything.";
 
 const SCREEN_TARGETS: ScreenTarget[] = [
   {
@@ -274,6 +278,26 @@ function parseOpenScreen(normalized: string, detectedIntent: string): VoiceActio
   return null;
 }
 
+function parseWorkflowStart(normalized: string, detectedIntent: string): VoiceActionProposalResult | null {
+  if (!/\b(start|begin|open)\s+(guided\s+)?check-in\b/.test(normalized)) {
+    return null;
+  }
+
+  return {
+    kind: "allowed",
+    state: "proposed",
+    detectedIntent,
+    proposedAction: "Start guided Check-in",
+    reviewReason: GUIDED_CHECKIN_REVIEW_REASON,
+    action: {
+      type: "start_guided_checkin_screen",
+      route: "/(tabs)/checkin",
+      workflow: "guidedCheckin",
+      label: "Start guided Check-in",
+    },
+  };
+}
+
 function extractDraftText(transcript: string): string | undefined {
   const cleaned = cleanDetectedIntent(transcript);
   const match = cleaned.match(
@@ -302,14 +326,6 @@ function parseProposalOnly(
   transcript: string,
   detectedIntent: string,
 ): VoiceActionProposalResult | null {
-  if (/\b(start|begin|open)\s+(guided\s+)?check-in\b/.test(normalized)) {
-    return createProposal(detectedIntent, {
-      type: "start_guided_checkin_screen",
-      route: "/(tabs)/checkin",
-      label: "Open guided Check-in for review",
-    });
-  }
-
   if (/\b(draft|add|write)\b.*\bcheck-in\b.*\b(note|notes)\b/.test(normalized)) {
     return createProposal(detectedIntent, {
       type: "draft_checkin_note_only",
@@ -432,6 +448,7 @@ export function parseVoiceActionProposal(transcript: string): VoiceActionProposa
 
   return (
     parseOpenScreen(normalized, detectedIntent) ??
+    parseWorkflowStart(normalized, detectedIntent) ??
     parseProposalOnly(normalized, transcript, detectedIntent) ??
     createNoneResult(detectedIntent)
   );

@@ -45,8 +45,18 @@ describe("parseVoiceActionProposal", () => {
     });
   });
 
+  it("creates an allowed workflow-start proposal for guided check-in", () => {
+    expect(parseVoiceActionProposal("start guided check-in")).toMatchObject({
+      kind: "allowed",
+      state: "proposed",
+      action: {
+        type: "start_guided_checkin_screen",
+        route: "/(tabs)/checkin",
+      },
+    });
+  });
+
   it.each([
-    ["start guided check-in", "start_guided_checkin_screen"],
     ["draft check-in note my knee felt steady after stretching", "draft_checkin_note_only"],
     ["draft a message to my care team saying I finished the first set", "draft_message_only"],
     ["select the 10 AM appointment slot", "select_appointment_slot"],

@@ -251,6 +251,21 @@ describe("VoiceGuidedCheckinPanel", () => {
     expect(textContent(renderer)).not.toContain("Submit");
   });
 
+  it("can reveal the guided workflow from a safe route flag without starting recognition", () => {
+    const { renderer } = renderPanel({
+      initialExpanded: true,
+      beginOnMount: true,
+    });
+
+    expect(findByLabel(renderer, "Collapse guided check-in voice assist").props.accessibilityState).toEqual({
+      expanded: true,
+    });
+    expect(textContent(renderer)).toContain("Pain level");
+    expect(textContent(renderer)).toContain("Question 1 of");
+    expect(speechModule.start).not.toHaveBeenCalled();
+    expect(speechModule.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
   it("starts one-shot on-device recognition only after Listen is tapped and stops read-aloud first", async () => {
     const { renderer } = renderPanel();
 

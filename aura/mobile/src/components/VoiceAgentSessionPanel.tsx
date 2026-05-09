@@ -270,11 +270,32 @@ function proposalOpenRoute(proposal: VoiceActionProposalResult | null): string |
     return proposal.action.route;
   }
 
+  if (proposal.kind === "allowed" && proposal.action.type === "start_guided_checkin_screen") {
+    return proposal.action.route;
+  }
+
   if (proposal.kind === "proposal") {
     return proposal.action.route;
   }
 
   return null;
+}
+
+function proposalRouteWorkflowText(proposal: VoiceActionProposalResult | null): string | null {
+  if (!proposal) {
+    return null;
+  }
+
+  if (proposal.kind === "allowed" && proposal.action.type === "start_guided_checkin_screen") {
+    return `${proposal.action.route}?voiceGuided=1`;
+  }
+
+  const route = proposalOpenRoute(proposal);
+  return route;
+}
+
+function openedFeedbackLabel(label: string): string {
+  return label.replace(/^Open\s+/, "").trim() || label;
 }
 
 function proposalStatusText(proposal: VoiceActionProposalResult | null): string {
@@ -309,6 +330,7 @@ export function VoiceAgentSessionPanel({
   const [revision, setRevision] = useState(0);
   const [intentInput, setIntentInput] = useState("");
   const [proposal, setProposal] = useState<VoiceActionProposalResult | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   const clearExpiryTimer = useCallback(() => {
     if (timeoutRef.current) {
@@ -555,10 +577,12 @@ export function VoiceAgentSessionPanel({
   }, [clearProposal, clearSession, session]);
 
   const handleReviewIntent = useCallback(() => {
+    setActionFeedback(null);
     setProposal(parseVoiceActionProposal(intentInput));
   }, [intentInput]);
 
   const handleVoiceHelp = useCallback(() => {
+    setActionFeedback(null);
     setProposal(parseVoiceActionProposal("voice help"));
   }, []);
 
@@ -572,13 +596,27 @@ export function VoiceAgentSessionPanel({
       return;
     }
 
+    if (proposal?.kind === "allowed" && proposal.action.type === "start_guided_checkin_screen") {
+      router.push({
+        pathname: proposal.action.route,
+        params: { voiceGuided: "1" },
+      } as never);
+      setActionFeedback(`Opened ${proposal.action.label}. No care data was changed.`);
+      clearProposal();
+      return;
+    }
+
     router.push(route as never);
+    setActionFeedback(
+      `Opened ${openedFeedbackLabel(proposal?.proposedAction ?? "screen")}. No care data was changed.`,
+    );
     clearProposal();
   }, [clearProposal, proposal, router]);
 
   const handleOpenSafeRedirect = useCallback(
     (route: "/safety" | "/(tabs)/checkin" | "/(tabs)/chat") => {
       router.push(route as never);
+      setActionFeedback("Opened a safe review screen. No care data was changed.");
       clearProposal();
     },
     [clearProposal, router],
@@ -625,6 +663,7 @@ export function VoiceAgentSessionPanel({
                   : failure?.message ?? "Ready to start a live browser Voice Agent demo.";
   const proposalLiveText = proposalStatusText(proposal);
   const proposalRoute = proposalOpenRoute(proposal);
+  const proposalRouteWorkflow = proposalRouteWorkflowText(proposal);
 
   return (
     <View testID={testID} style={styles.wrapper}>
@@ -752,7 +791,7 @@ export function VoiceAgentSessionPanel({
               Voice action proposals
             </Text>
             <Text style={styles.subtitle}>
-              V5-C1 reviews a local, deterministic whitelist before showing any action.
+              V5-C2 reviews a local, deterministic whitelist before opening safe screens.
             </Text>
           </View>
         </View>
@@ -816,6 +855,12 @@ export function VoiceAgentSessionPanel({
               <Text selectable style={styles.resultText}>{proposal.detectedIntent || "None"}</Text>
               <Text style={styles.resultLabel}>Proposed action</Text>
               <Text style={styles.resultText}>{proposal.proposedAction}</Text>
+              {proposalRouteWorkflow ? (
+                <>
+                  <Text style={styles.resultLabel}>Proposed route or workflow</Text>
+                  <Text selectable style={styles.resultText}>{proposalRouteWorkflow}</Text>
+                </>
+              ) : null}
               <Text style={styles.resultLabel}>Review reason</Text>
               <Text style={styles.statusText}>{proposal.reviewReason}</Text>
               {proposal.kind === "proposal" && "draftText" in proposal.action && proposal.action.draftText ? (
@@ -838,6 +883,18 @@ export function VoiceAgentSessionPanel({
             <Text style={styles.statusText}>No voice action proposal is active.</Text>
           )}
         </View>
+
+        {actionFeedback ? (
+          <View
+            accessible
+            accessibilityRole="text"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={actionFeedback}
+            style={styles.feedbackBox}
+          >
+            <Text style={styles.statusText}>{actionFeedback}</Text>
+          </View>
+        ) : null}
 
         {proposal ? (
           <View style={styles.actionsRow}>
@@ -1090,6 +1147,13 @@ function createStyles(tokens: ReturnType<typeof useTokens>) {
     proposalBoxWarning: {
       backgroundColor: tokens.colors.warningTextOn,
       borderColor: tokens.colors.warning,
+    },
+    feedbackBox: {
+      borderRadius: tokens.radius.md,
+      borderWidth: 1,
+      borderColor: tokens.colors.border,
+      backgroundColor: tokens.colors.surfaceElevated,
+      padding: tokens.spacing.md,
     },
     resultLabel: {
       color: tokens.colors.textMuted,

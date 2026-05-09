@@ -330,12 +330,43 @@ describe("VoiceAgentSessionPanel", () => {
     expect(text).toContain("Detected intent");
     expect(text).toContain("open chat");
     expect(text).toContain("Open Chat");
+    expect(text).toContain("Proposed route or workflow");
+    expect(text).toContain("/(tabs)/chat");
 
     act(() => {
       findButton(renderer, "Open screen").props.onPress();
     });
 
     expect(routerPush).toHaveBeenCalledWith("/(tabs)/chat");
+    expect(textContent(renderer)).toContain("Opened Chat. No care data was changed.");
+    for (const call of Object.values(mutationCalls)) {
+      expect(call).not.toHaveBeenCalled();
+    }
+  });
+
+  it("opens guided check-in with only the non-sensitive workflow flag", () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText("start guided check-in");
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+
+    const text = textContent(renderer);
+    expect(text).toContain("Start guided Check-in");
+    expect(text).toContain("voiceGuided=1");
+
+    act(() => {
+      findButton(renderer, "Open screen").props.onPress();
+    });
+
+    expect(routerPush).toHaveBeenCalledWith({
+      pathname: "/(tabs)/checkin",
+      params: { voiceGuided: "1" },
+    });
+    expect(JSON.stringify(routerPush.mock.calls)).not.toContain("Pain is better");
     for (const call of Object.values(mutationCalls)) {
       expect(call).not.toHaveBeenCalled();
     }
@@ -398,6 +429,26 @@ describe("VoiceAgentSessionPanel", () => {
     const text = textContent(renderer);
     expect(text).toContain("You can ask Aura to open Check-in, Chat, Exercise plan, Appointments, Safety, or Coping tools.");
     expect(text).toContain("Aura can help draft text for review, but it will not send or submit it in this version.");
+    expect(routerPush).not.toHaveBeenCalled();
+    for (const call of Object.values(mutationCalls)) {
+      expect(call).not.toHaveBeenCalled();
+    }
+  });
+
+  it("goes back from a reviewed control proposal without mutating", () => {
+    const renderer = renderPanel();
+
+    act(() => {
+      findTextInput(renderer, "Voice action intent").props.onChangeText("go back");
+    });
+    act(() => {
+      findButton(renderer, "Review voice action").props.onPress();
+    });
+    act(() => {
+      findButton(renderer, "Go back").props.onPress();
+    });
+
+    expect(routerBack).toHaveBeenCalledTimes(1);
     expect(routerPush).not.toHaveBeenCalled();
     for (const call of Object.values(mutationCalls)) {
       expect(call).not.toHaveBeenCalled();

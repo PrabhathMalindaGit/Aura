@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -179,5 +182,20 @@ describe("realtimeVoiceSession.web", () => {
     expect(mocks.peerConnection.close).toHaveBeenCalledTimes(1);
     expect(mocks.track.stop).toHaveBeenCalledTimes(1);
     expect(mocks.audio.srcObject).toBeNull();
+  });
+
+  it("keeps Realtime free of tools, tool handlers, and transcript command execution", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/utils/realtimeVoiceSession.web.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain("tools");
+    expect(source).not.toContain("tool_choice");
+    expect(source).not.toContain("function_call");
+    expect(source).not.toContain("onmessage");
+    expect(source).not.toContain("conversation.item.input_audio_transcription.completed");
+    expect(source).not.toContain("parseVoiceActionProposal");
+    expect(source).not.toContain("EXPO_PUBLIC_OPENAI_API_KEY");
   });
 });

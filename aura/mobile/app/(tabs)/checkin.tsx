@@ -192,6 +192,7 @@ type SubmitError = Omit<LastErrorRecord, "key" | "at" | "title"> & {
 type CheckinDevParams = {
   devPreset?: string | string[];
   devToken?: string | string[];
+  voiceGuided?: string | string[];
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -574,6 +575,7 @@ function renderFixedFiveChoiceControl(params: {
 export default function CheckinScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<CheckinDevParams>();
+  const shouldOpenVoiceGuided = params.voiceGuided === "1";
   const auth = useAuth();
   const isOffline = useIsOffline();
   useDevRenderAudit("CheckinScreen");
@@ -1510,6 +1512,8 @@ export default function CheckinScreen() {
 
   const guidedCheckinPanel = (
     <VoiceGuidedCheckinPanel
+      initialExpanded={shouldOpenVoiceGuided}
+      beginOnMount={shouldOpenVoiceGuided}
       includeSleep={shouldShowDailyContext}
       onConfirmPain={(value) => {
         setNotice(null);
